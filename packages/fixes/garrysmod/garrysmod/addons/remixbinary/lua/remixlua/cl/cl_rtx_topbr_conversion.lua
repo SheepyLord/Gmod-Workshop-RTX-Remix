@@ -449,12 +449,15 @@ end
     Clear conversion cache
 ]]--
 local gameAssets, gameKey, gameParts, gameSlot, gameSubmitted, gameNext = nil, nil, nil, 1, {}, 0
+-- R23: submitted materials whose native view still says "waiting", and how many this batch had.
+local gamePending, gamePendingCount, gameBatchTotal = {}, 0, 0
 function RTXToPBR.ClearCache()
     local processor = GetProcessor()
     if processor then
         processor.ClearCache()
     end
     gameAssets, gameKey, gameParts, gameSlot, gameSubmitted, gameNext = nil, nil, nil, 1, {}, 0
+    gamePending, gamePendingCount, gameBatchTotal = {}, 0, 0
     MsgC(Color(100, 255, 100), "[RTX ToPBR] Cache cleared\n")
 end
 
@@ -670,6 +673,9 @@ hook.Add("Think", "RTXToPBR_GameMaps", function()
                 -- Native restores only recorded, validated maps for the live texture identity.
                 if p.QueueGameMaterial(name, isstring(source) and source or "", isstring(base) and base or "") then
                     gameSubmitted[name] = true
+                    if not gamePending[name] then
+                        gamePending[name], gamePendingCount, gameBatchTotal = true, gamePendingCount + 1, gameBatchTotal + 1
+                    end
                 end
             end
         else
@@ -684,6 +690,23 @@ hook.Add("Think", "RTXToPBR_GameMaps", function()
         end
     end
 end)
+
+-- R23 (the user's item 3): how many imported game materials are still converting, for the companion's
+-- progress notice. Returns pending, total of the current batch; the batch ends when none is pending.
+-- At most 4 calls a second are useful: each pending material is one native view read.
+function RTXGamePBRProgress()
+    local p = GetProcessor()
+    if gamePendingCount > 0 and p and p.GetGameMaterial then
+        for name in pairs(gamePending) do
+            local ok, view = pcall(p.GetGameMaterial, name)
+            if not ok or not istable(view) or view.state ~= "waiting" then
+                gamePending[name], gamePendingCount = nil, gamePendingCount - 1
+            end
+        end
+    end
+    if gamePendingCount <= 0 then gamePending, gamePendingCount, gameBatchTotal = {}, 0, 0 end
+    return gamePendingCount, gameBatchTotal
+end
 
 -- BEGIN R12 IMPORTED GAME PBR PANEL
 do

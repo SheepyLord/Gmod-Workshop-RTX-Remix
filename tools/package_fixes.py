@@ -44,6 +44,7 @@ DEBUG_ADDON = 'rtx_debug'
 RETIRED_ADDONS = {'glass-rewrite-remix'}
 CLIENT_BOOTSTRAP = 'gmsv_nlrtxclient_win64.dll'
 SHADER_DLL = 'stdshader_dx6.dll'
+LUA_BIN_NAME = re.compile(r'gm(?:cl|sv)_[A-Za-z0-9_]{1,40}_win64\.dll')
 # Folders the fixes rewrite at run time (the ToPBR converter writes its results and its generation
 # counter into its own Remix mod): create-only, like the seed data, so a reinstall or an update never
 # finds them "not placed by the loader" and the converter's work is kept.
@@ -442,8 +443,21 @@ def build(args):
         notices = 'native/root/garrysmod/addons/nativeloader/resource/native-client/'
         files[notices + 'LICENSE-MIT.txt'] = os.path.join(REPO, 'LICENSE')
         files[notices + 'LICENSE-GarrysModSDK.txt'] = os.path.join(REPO, 'third_party', 'gmod', 'LICENSE')
+    # R23 (ADR 0130): this repository's other modules, such as the engine guard the companion requires.
+    extra = {}
+    for given in getattr(args, 'lua_bin', None) or []:
+        source = os.path.abspath(given)
+        name = os.path.basename(source)
+        if not LUA_BIN_NAME.fullmatch(name):
+            raise PackageError('--lua-bin %s: expected a gmcl_<name>_win64.dll or gmsv_<name>_win64.dll module' % given)
+        if name.lower() in {n.lower() for n in modules}:
+            raise PackageError('--lua-bin %s: %s is packaged already' % (given, name))
+        if not os.path.isfile(source):
+            raise PackageError('--lua-bin %s: no such file' % given)
+        modules += (name,)
+        extra[name] = source
     for name in modules:
-        source = bootstrap if name == CLIENT_BOOTSTRAP else os.path.join(modules_from, name)
+        source = bootstrap if name == CLIENT_BOOTSTRAP else extra.get(name) or os.path.join(modules_from, name)
         if not os.path.isfile(source):
             raise PackageError('%s not found in %s (build the fixes, or give --modules-from)' % (name, modules_from))
         regular_file(source)
@@ -704,6 +718,9 @@ def main(argv=None):
     ap.add_argument('--modules-from', help='folder with the built gmcl_ modules (default <repo>\\x86_64\\Release)')
     ap.add_argument('--with-debug-module', action='store_true', help='also package %s' % DEBUG_MODULE)
     ap.add_argument('--client-bootstrap', metavar='DLL', help='also package the verified RTX multiplayer bootstrap as %s' % CLIENT_BOOTSTRAP)
+    ap.add_argument('--lua-bin', action='append', default=[], metavar='DLL',
+                    help='also package this gmcl_/gmsv_ module into garrysmod/lua/bin, such as the engine guard '
+                         '(repeatable)')
     ap.add_argument('--exclude-addon', action='append', default=[], metavar='NAME', help='leave an add-on out (repeatable)')
     ap.add_argument('--add-to-addon', action='append', default=[], nargs=2, metavar=('PATH', 'SOURCE'),
                     help='add SOURCE, a file or a folder, to an add-on as PATH (name/LICENSE), such as a licence text '

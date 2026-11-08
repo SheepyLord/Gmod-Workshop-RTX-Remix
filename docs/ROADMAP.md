@@ -1,5 +1,7 @@
 # Roadmap
 
+R23 (the user's report of 2026-11-08, seven items) is **done** on `r23` ([report](handover/R23-report.md)): an engine guard and start-up watchdog ([ADR 0130](decisions/0130-an-engine-guard-for-lua-start-up.md)) so ARC9 with Gunsmith Reloaded starts under RTX and a start stuck in an add-on names it; Wuthering Waves characters' game roughness and metalness (the fixes' seventh native patch); a progress notice while imported characters' PBR converts; the material editor keeps the edited material between its tabs; the agent skills brought up to date. No loader change on `main`: the multiplayer notice's new text and button wait on the local branch `r23-loader-mp-notice` for the user's approval.
+
 R22 (the user's item 52, 2026-11-07) is **done** on `r22` ([report](handover/R22-report.md)): a loading
 window while the first start after installing or updating the package unpacks it, until the game's own
 window appears (loader **0.16.0**, [ADR 0128](decisions/0128-a-loading-window-while-start-up-unpacks.md));

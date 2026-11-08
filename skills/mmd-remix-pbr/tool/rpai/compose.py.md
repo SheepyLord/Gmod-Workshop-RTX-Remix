@@ -19,6 +19,12 @@ Turn one albedo texture into Remix-ready PBR maps.
 Steps 1-2 are cached in ``work/<model>/raw``, so changing class parameters
 re-composes in seconds instead of re-running the upscaler (minutes per sheet).
 
+Authored maps beat the AI: companion files found by name (``X_BaseColor`` with ``X_Normal``,
+``X_Roughness``, ``X_Metallic``, ``X_Height``) and, since 2026-11-03, the per-texture ``rough_map`` /
+``metal_map`` settings (``extra_authored``) for sheets whose names carry no such suffix (converted game
+textures, ``scripts/ue_toon_maps.py``). With a normal map (authored or the per-texture
+``normal_map``) and an authored roughness, the AI stage is skipped for that sheet.
+
 Part of the `mmd-remix-pbr` skill ([SKILL.md](../../SKILL.md)); the full method and every option are in [tool/README.md](../../tool/README.md).
 
 Run with the rpai venv's Python (`%USERPROFILE%\.rpai\venv\Scripts\python.exe`).

@@ -59,6 +59,44 @@ local late = installation == "verified multiplayer bootstrap"
 -- Verified multiplayer chunks receive a scoped hook proxy. Change the real
 -- hook table, not a field written only into that chunk's private proxy.
 local hook = _G.hook
+-- R23 (ADR 0130): the engine guard (the nlengineguard binary module) from here as well, before any
+-- add-on's autorun. On a remote server this early view is the only companion code the client realm
+-- runs; in a local game !!!!nativeloader_engine_guard.lua does the same. Not in the late multiplayer
+-- route: too late there.
+if not late and type(rawget(_G, "nlengineguard")) ~= "table" and type(require) == "function" then
+    local loadedEngineGuard = pcall(require, "nlengineguard")
+    local engineGuard = loadedEngineGuard and rawget(_G, "nlengineguard")
+    if type(engineGuard) == "table" then
+        -- The watchdog's message from the companion's own catalog where this game can include it (a local
+        -- game); a remote server's start keeps the module's English. The module takes only this first call,
+        -- and the function leaves the table: no server's Lua sets the text of a native message.
+        if type(engineGuard.SetMessage) == "function" then
+            local title, body = "", ""
+            local found, words = pcall(include, "nativeloader/engine_guard_words.lua")
+            if found and type(words) == "function" then
+                local ok, t, b = pcall(words)
+                if ok and type(t) == "string" and type(b) == "string" then title, body = t, b end
+            end
+            pcall(engineGuard.SetMessage, title, body)
+            engineGuard.SetMessage = nil
+        end
+        -- Initialize (or the first tick) ends the watch; the gamemode's load bounds it to 150 s more.
+        local function engineGuardDone()
+            if type(engineGuard.StartupDone) ~= "function" then return end
+            local done, recovered = pcall(engineGuard.StartupDone)
+            if done and recovered == true and file.Delete then pcall(file.Delete, "native-loader/startup-stall.json") end
+        end
+        local function engineGuardLoaded()
+            if type(engineGuard.StartupDone) == "function" then pcall(engineGuard.StartupDone, 150) end
+        end
+        if hook and hook.Add then
+            hook.Add("OnGamemodeLoaded", "nativeloader_engine_guard", engineGuardLoaded)
+            hook.Add("PostGamemodeLoaded", "nativeloader_engine_guard", engineGuardLoaded)
+            hook.Add("Initialize", "nativeloader_engine_guard", engineGuardDone)
+        end
+        if timer and timer.Simple then timer.Simple(0, engineGuardDone) end
+    end
+end
 
 local enabled = CreateClientConVar("nativeloader_guard", "1", true, false,
     "Keep incompatible add-on rendering from undoing the RTX session")
@@ -424,6 +462,7 @@ lua/advmat/sv_30_store.lua
 lua/advmat/sv_31_rtx_store.lua
 lua/advmat/sv_32_rtx_tool.lua
 lua/advmat/sv_40_apply.lua
+lua/autorun/!!!!nativeloader_engine_guard.lua
 lua/autorun/_nativeloader_effect_categories.lua
 lua/autorun/_nativeloader_guard.lua
 lua/autorun/advanced_bodygroup_tool.lua
@@ -442,6 +481,7 @@ lua/autorun/client/nativeloader_menu.lua
 lua/autorun/client/nativeloader_mmd_alpha.lua
 lua/autorun/client/nativeloader_model_layers.lua
 lua/autorun/client/nativeloader_motion_tab.lua
+lua/autorun/client/nativeloader_pbr_progress.lua
 lua/autorun/client/nativeloader_toolgun.lua
 lua/autorun/client/nativeloader_upscaling_hint.lua
 lua/autorun/client/nativeloader_vram.lua
@@ -570,10 +610,12 @@ lua/mmdhl/ui.lua
 lua/mmdhl/workshop.lua
 lua/mmdhl/workshop_export.lua
 lua/nativeloader/classic_defaults.lua
+lua/nativeloader/engine_guard_words.lua
 lua/nativeloader/eye_white_names.lua
 lua/nativeloader/eye_white_vtf.lua
 lua/nativeloader/guide_pages.lua
 lua/nativeloader/i18n.lua
+lua/nativeloader/notice.lua
 lua/nativeloader/painted_shadows.lua
 lua/nativeloader/sky_model.lua
 lua/nativeloader/solid_hair.lua

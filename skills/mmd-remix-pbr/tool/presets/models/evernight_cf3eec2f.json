@@ -82,7 +82,7 @@
   ],
   "textures": {
     "body.png": {
-      "albedo_source": "C:\\Users\\matt-peng\\.rpai\\work\\evernight_cf3eec2f\\whiten\\body_whitened.png"
+      "albedo_source": "%USERPROFILE%\\.rpai\\work\\evernight_cf3eec2f\\whiten\\body_whitened.png"
     },
     "bq.png": {
       "presets": {

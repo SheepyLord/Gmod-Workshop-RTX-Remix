@@ -1,0 +1,77 @@
+diff --git a/source/material_pipeline/to_pbr/game_matching.inl b/source/material_pipeline/to_pbr/game_matching.inl
+index 719d7cd84069eccf5bc55ec018044b82cc3f1162..cdd4b0f7c2d7407f52a41c3a71e3b4aa226f7a3e 100644
+--- a/source/material_pipeline/to_pbr/game_matching.inl
++++ b/source/material_pipeline/to_pbr/game_matching.inl
+@@ -93,6 +93,25 @@ public:
+         for(const auto& p:files_)if(p.first.size()>suffix.size() && p.first.compare(p.first.size()-suffix.size(),suffix.size(),suffix)==0)return true;
+         return false;
+     }
++    // R23: a Wuthering Waves family is known by its character, not only by its own masks: Alpha
++    // has just _D and _N (and Shorekeeper's normal map is spelt "Ahpla"), while the character's
++    // other families under the same "t_<...>md<5 digits>" prefix have _ID or _HM maps.
++    bool WuwaCharacter(const std::string& stem) const {
++        if(stem.compare(0,2,"t_")!=0)return false;
++        for(size_t at=stem.find("md",2);at!=std::string::npos;at=stem.find("md",at+1)) {
++            if(at+7>stem.size())break;
++            bool digits=true;for(size_t i=at+2;i<at+7;++i)digits=digits && stem[i]>='0' && stem[i]<='9';
++            if(!digits)continue;
++            const auto prefix=stem.substr(0,at+7);
++            for(const auto& p:files_) {
++                const auto& name=p.first;
++                if(name.size()>prefix.size()+3 && name.compare(0,prefix.size(),prefix)==0 &&
++                   (name.compare(name.size()-3,3,"_id")==0 || name.compare(name.size()-3,3,"_hm")==0))return true;
++            }
++            return false;
++        }
++        return false;
++    }
+     fs::path Find(const std::string& stem,const fs::path& beside) const {
+         auto p=files_.find(stem);if(p==files_.end())return {};
+         std::vector<fs::path> candidates;
+@@ -109,7 +128,7 @@ public:
+             m.layout=Maps::Silver;
+         }
+         else if(stem.find("t_actor_")==0){m.layout=Maps::Endfield;m.packed=Find(stem+"_p",beside);if(m.normal.empty())m.normal=Find(stem+"_hn",beside);}
+-        else if(!Find(stem+"_id",beside).empty() || !Find(stem+"_hm",beside).empty()){m.layout=Maps::Wuwa;m.emission.clear();}
++        else if(!Find(stem+"_id",beside).empty() || !Find(stem+"_hm",beside).empty() || WuwaCharacter(stem)){m.layout=Maps::Wuwa;m.emission.clear();}
+         else {
+             // Silver families without an MRA (e.g. hair) need explicit game-family evidence.
+             bool silver=false;
+@@ -133,6 +152,10 @@ public:
+         for(const auto& stem:stems) {
+             try {
+                 auto m=Named(stem.first,root_);if(!m.recognized)continue;
++                // R23: a WuWa family known only by its character (no _ID/_HM of its own) pairs by its
++                // exact name or by hand, never by UV evidence alone: that is outside R12's calibration,
++                // and a belly decal matched Chisa's Alpha atlas at 0.386.
++                if(m.layout==Maps::Wuwa && Find(stem.first+"_id",root_).empty() && Find(stem.first+"_hm",root_).empty())continue;
+                 Family family{stem.first,m,{}};
+                 for(const auto& path:{m.normal,m.packed})if(!path.empty())family.features.push_back({path,Feature(path)});
+                 families_.push_back(std::move(family));
+diff --git a/source/material_pipeline/to_pbr/game_pbr.h b/source/material_pipeline/to_pbr/game_pbr.h
+index 01251421d9318f35f350489e842b2c62d0803829..e9ea94ce16cb2717f54cf00dabce5a86e56c76e9 100644
+--- a/source/material_pipeline/to_pbr/game_pbr.h
++++ b/source/material_pipeline/to_pbr/game_pbr.h
+@@ -236,7 +236,7 @@ inline const std::string& Recipe() {
+         std::ostringstream s;s.imbue(std::locale::classic());
+         s<<"game-maps-1;decode=wic-straight-rgba8+area-integer,limit2048;mask=pmx-uv-raster,gutter4,original-first;classes=";
+         for(unsigned c=0;c<8;++c)s<<(c?",":"")<<Roughness(uint8_t(c))<<"/"<<Strength(uint8_t(c));
+-        s<<";roughness=clamp0.08-0.95,metal-r,rough-g|endfield-1-a,hair-and-original-class"
++        s<<";roughness=clamp0.08-0.95,metal-r,rough-g|endfield-1-a|wuwa-n-alpha,metal-wuwa-n-blue-smoothstep0.55-0.80,hair-and-original-class"
+          <<";normal=rebuild-z(wuwa,endfield),endfield-flip-y,silver-blue-z-min0.01,class-strength,octahedral-hemi-8bit"
+          <<";emission=rgb-outside-original;mips=box2x2-floor"
+          <<";formats=normal-BC5,roughness-BC4,metallic-BC4,emission-RGBA8,unaligned-RGBA8;encoder="<<DDS::EncoderId;
+@@ -395,6 +395,13 @@ inline Output Convert(const std::string& source,const std::string& base,const st
+             m=packed.rgba[j]/255.0f;
+             r=maps.layout==Maps::Endfield?1-packed.rgba[j+3]/255.0f:packed.rgba[j+1]/255.0f;
+         }
++        // R23: WuWa's _N is the game's Normal_Roughness_Metallic map (its materials name it so):
++        // roughness in alpha, metalness in blue. Blue also holds a dielectric baseline (cloth up to
++        // about 0.2) and leather around 0.4-0.55, so only its top is metal: from 0.55, all by 0.8.
++        else if(cls!=Original && cls!=Hair && maps.layout==Maps::Wuwa && n.w) {
++            r=n.rgba[j+3]/255.0f;
++            const float t=std::clamp((n.rgba[j+2]/255.0f-.55f)/.25f,0.f,1.f);m=t*t*(3-2*t);
++        }
+         r=std::clamp(r,.08f,.95f);
+         for(int ch=0;ch<3;++ch) {
+             rough.pixelData[j+ch]=uint8_t(r*255+.5f);metal.pixelData[j+ch]=uint8_t(m*255+.5f);

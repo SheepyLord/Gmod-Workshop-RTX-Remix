@@ -61,7 +61,8 @@ class Settings:
     tile: int = 512
     presets: dict = field(default_factory=dict)  # class name -> overrides of classify.CLASSES
     # Per texture (source file name or sha16 key): {"max_size": N or "source"}, "normal_map",
-    # "albedo_source" (a recoloured copy used and published as the albedo; README).
+    # "albedo_source" (a recoloured copy used and published as the albedo; README), "rough_map" and
+    # "metal_map" (converted grey maps used as the sheet's authored roughness and metallic).
     # Model Hotloader caps game textures at 4096; Firefly's fishnet stockings
     # sheet is 11059x8847 and its mesh lines blur at 4096, so it opts out.
     textures: dict = field(default_factory=dict)

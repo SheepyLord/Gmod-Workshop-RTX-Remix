@@ -23,6 +23,15 @@ option parsing and offline publish tests need only the standard library.
 Class-key presence is authoritative: cached coverage is rounded to four decimals, so a tiny eye
 region whose recorded fraction is zero still receives the input.
 
+`generate` passes a sheet's per-texture `rough_map` / `metal_map` (paths absolute or relative to the
+texture's folder; a missing one logs a warning and keeps the class values) to `compose` as authored
+maps, and folds their paths, sizes and times into the texture's signature, so changing one regenerates
+that sheet (2026-11-03). A sheet without them keeps its old signature.
+
+The model key is `config.model_key`: a slug of the PMX's English name (else its name) and the asset
+id's first 8 digits. It is an internal identifier (work folder, preset file, layer file name), never a
+display name: it can carry tags such as `r18` that the naming rule keeps out of names.
+
 ## Side effects
 
 The `rpai` command. Work files go to `RPAI_HOME\work\<model key>`; `publish` writes the game's `rtx-remix\mods\ai_pbr` (layers, DDS, an atomically rewritten `mod.usda`) and prunes DDS files no layer references unless `--no-prune`; `hashes`, `compare` and `generate` talk to the running game through `gamebridge.py`. It never writes `rtx.conf`, `user.conf` or `!advanced_material_editor`.

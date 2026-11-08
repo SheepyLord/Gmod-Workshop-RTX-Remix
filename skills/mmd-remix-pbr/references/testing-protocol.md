@@ -20,13 +20,15 @@ The user wants measured verification, and decides any change to a standard thems
   assume an entity index.
 - **The player must be near the target.** If the user has walked away (5,400 units on
   2026-10-27), the ragdoll is not drawn, its client bones go stale and the scripted camera films
-  bare floor; a PVS hook alone did not fix it. With the user's consent, teleport the player beside
-  the target for the capture and put them back:
-  `H:\BACKUP_20260815\Modding\ipg\zzz_33_c\pbr\tools\capture_teleport.py`.
-  - It saves the player's position and view, then freezes the player during the capture.
-  - Before capturing, it checks that the target is drawn, its bones are where expected, and the
-    capture camera really takes the view.
-  - Afterwards it returns and unfreezes the player.
+  bare floor; a PVS hook alone did not fix it. With the user's consent, move the player beside the
+  target for the capture and put them back. The helper used then (`capture_teleport.py` in
+  `H:\BACKUP_20260815\Modding\ipg\zzz_33_c\pbr\tools`) is gone (checked 2026-11-08); do its steps
+  through the console bridge in single player:
+  - save the player's position and eye angles, move the player (`lua_run Entity(1):SetPos(...)`) and
+    freeze them (`Entity(1):Freeze(true)`) for the capture;
+  - before capturing, check that the target is drawn, its bones are where expected (`abtest.py
+    bones`), and the capture camera really takes the view;
+  - afterwards put the position and angles back and unfreeze.
 - **Several games may run** (another session's `GarrysMod_PoC` test beside the user's game, with
   `-multirun`). The bridge takes the first window it finds, so pass the game's folder: `rpai ...
   --game-root <GarrysMod>` and `abtest.py --game-root <GarrysMod> capture ...`. Screenshots are
@@ -38,11 +40,19 @@ The user wants measured verification, and decides any change to a standard thems
   up a moved ragdoll as 16.6/255 of "change".
 - Other sessions run `abtest.py` captures in the same game, with the same camera hook name.
   Check for running `abtest.py` processes before you start, and never overlap captures.
-- Keep mod reloads few: one per variant, not one per view. The mod preloads every texture, including
-  Firefly's 124 MB stockings sheet, and each reload stalls the game briefly. Twice on 2026-10-25 a
-  capture ended right after a reload: once "Not Responding", once an orderly quit. When the console
-  stops answering, `abtest.py` stops, keeps the partial shots and puts the live layer back. Report
-  that rather than retrying.
+- Keep mod reloads few: one per variant, not one per view. rpai's materials preload, and since
+  runtime patch 0030 a preload loads whole in the first frame that draws it, so each reload restages
+  the drawn character's maps (Firefly's 124 MB stockings sheet among them) in one long frame. Twice on
+  2026-10-25 (before 0030, when a reload restaged the whole mod) a capture ended right after a reload:
+  once "Not Responding", once an orderly quit. When the console stops answering, `abtest.py` stops,
+  keeps the partial shots and puts the live layer back. Report that rather than retrying.
+- **Hold the RTX package's character settings still** for a whole A/B and record them with the
+  results: painted shadows left out (`nativeloader_hide_painted_shadows`), solid hair
+  (`nativeloader_solid_hair`), steady eye whites (`nativeloader_eye_whites`) and their brightness
+  (`nativeloader_eye_white_brightness`, which scales rpai's adaptive eye emission too). Changing one
+  mid-run changes the eyes or the fringe, and that would be read as an effect of the variant.
+- **Spawn early.** Characters outside the memory profile's ready set load at their first use (0.5-6 s
+  in R13), and their preloaded maps load in their first drawn frame: spawn, wait, then read bones.
 
 ## Camera
 
@@ -108,8 +118,9 @@ user's untouched morph state are what make the AABB shots comparable. Leave `cro
      wins over your variant file. Put variant values somewhere the model preset does not override.
 2. Run the capture:
    `abtest.py capture --asset <id8> --model-key <key> --variant A=... --variant B=... --views views.json --repeats 2 --out <dir>`.
-   It swaps each layer in, waits for Remix's "swapped in" log line, shoots every view twice back to
-   back, then puts the original layer back.
+   It swaps each layer in, waits up to 30 s for Remix's "swapped in" log line (current runtimes write
+   none, and their log reaches the disk only at exit) and then `--settle`, shoots every view twice
+   back to back, then puts the original layer back.
 3. Run `abtest.py metrics <dir> --baseline A --mask skin` (or `--mask all` for non-skin materials).
    It writes `metrics.md`, `metrics.json` and `sheet_<view>.jpg`:
    - **noise:** the mean |shot1 − shot2| on the mask, the floor every effect is compared with;
@@ -139,9 +150,9 @@ inside its own frame, so exposure cancels. Guinaifen's crease measured 1.7-5.9 b
 
 ## Presenting a decision
 
-Send the sheets (non-explicit) with `SendUserFile`, then ask with `AskUserQuestion`. Each option
-carries its measured trade-off, for example "B keeps 95–101% of the detail and is visually
-indistinguishable from A". Recommend the conservative option when nothing beats the original by
+Send the sheets (non-explicit) to the user (`SendUserFile` where the agent has it, else their paths),
+then ask (`AskUserQuestion` where available). Each option carries its measured trade-off, for example
+"B keeps 95–101% of the detail and is visually indistinguishable from A". Recommend the conservative option when nothing beats the original by
 more than the noise. The user's standing rule: if no variant is accepted, revert to the original
 RTX Remix look. Record the decision and its evidence in `references/standards.md`, the tool README
 and `classify.py` comments.

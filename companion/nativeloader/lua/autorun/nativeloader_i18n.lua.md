@@ -9,7 +9,8 @@ R14-H: it also sends `nativeloader/guide_pages.lua`, the guide's pages, which th
 R15: it also sends the rule modules the client controllers include: `eye_white_names.lua` and
 `eye_white_vtf.lua` (steady eye whites, which a joining client lacked until now), `painted_shadows.lua`
 and `solid_hair.lua` ([`nativeloader_imported_parts.lua`](client/nativeloader_imported_parts.lua.md)),
-each when the add-on has it.
+each when the add-on has it. R23: also `notice.lua`, the top-right notice
+([`../nativeloader/notice.lua.md`](../nativeloader/notice.lua.md)).
 
 On the client it does nothing. See [`../nativeloader/i18n.lua.md`](../nativeloader/i18n.lua.md) and
 [ADR 0029](../../../../docs/decisions/0029-companion-translations.md).

@@ -34,6 +34,10 @@ class RenderGuardTests(unittest.TestCase):
         self.run_case("preview_materials")
         self.run_case("preview_late")
 
+    def test_the_early_view_loads_the_engine_guard_and_ends_its_watch(self):
+        # R23 (ADR 0130): on a remote server this is the only companion code the client realm runs.
+        self.run_case("engine_guard")
+
     def test_local_rtx_start_without_the_early_view_installs_from_the_autorun(self):
         self.run_case("autorun")
 

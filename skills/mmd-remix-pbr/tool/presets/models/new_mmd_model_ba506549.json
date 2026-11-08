@@ -1,0 +1,127 @@
+{
+  "doc": "Topaz (托帕.pmx, H:\\BACKUP_20260815\\Modding\\PBR\\星穹铁道-托帕; asset ba506549, byte-identical to the Topaz R18Ver1.4 import), ragdoll in the active session, reviewed 2026-11-06: aggressive style with the values accepted on Evernight (cloth 0.65 / rough_ai 0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32, hair 0.38), applied without AABB at the user's request. 68 materials, 15 sheets; hashes live after showing the hidden parts once (the white stockings became live; 颜赤.png stays predicted). What each part is for: OUTFIT (衣服1.png and 衣服2.png, 2048, a black and crimson jacket-and-trousers outfit with gold fittings): fabrics (裤子 trousers, 衣服 jacket, 裙带 and 肩带 crimson straps and sashes, 袖子 sleeves, 脖饰 white collar, 腰带 belt) cloth; the gold and champagne fittings are their own metal materials (26 上衣饰铁, 32 衣饰铁, 40 胸饰铁, 44 脖饰铁, 53 鞋饰鉄, 55 腿环铁 on 衣服1; 27 胸饰铁+, 39 肩饰铁, 41 腰飾鉄, 54 腿环 on 衣服2: braided gold rope, chain, coins, diamond badges) and stay metal at satin 0.32 (painted gold, hue 29-42, value ~0.77: no reflectance lift); the orange hex-cut topaz gems on those sheets (hue 20-45, sat >= 0.55) become gem; 22 耳机 (headphones, black plastic) and 23 頭飾 (white faceted headdress plates) are glossy lacquer: leather; 34 胸罩 (a dark slate rigid bust piece) leather; 42 胸飾 and 43 胸饰内侧 are the white apron-like skirt panel (classed skin by 胸), cloth; 48 臂饰鉄 (pale pink-white arm plates, value 0.95: as metal they would chrome) leather; 47 痣 is the beauty mark painted on a black disc: face (flat); 52 鞋子 boots leather. GLOVES (51, 61 on siwa.png) cloth, sharing the sheet with the black stockings. STOCKINGS (siwa.png black 4-6, baisiwa.png white 7-9) 0.42. 10 BeltRivet (BallGagHarness.png) is the rivetted leather harness strap: leather. ROPES, GAG strap, TONGUE and the tattoo are byte-identical to sheets other layers supply. 25 乳贴.png is a 7680x7680 full-size decal sheet (pinned to skin, so it is left to Remix: a 4096 cap would republish its albedo smaller than the game's). SKIN: Body.png, the neck (2) and the tattoo stay as Remix renders them, per the standard; Body normal.png is not used. ROUND 2 (2026-11-06, after a look in game): 34 胸罩 is the front of the bodysuit, so it went back to cloth (as patent leather it read as wet latex across the chest); the red strips of the thigh strap inside the metal material 54 became leather (they rendered as red mirror metal). ROUND 2b (after the user's note on the boots): the studs, buckle diamonds, gold badge and heel trim are painted on the leather boot material in pale champagne (hue 28-48, sat 0.14-0.24, value 0.7-0.8), so they were leather, and the separate shoe-fitting metal (53 鞋饰鉄, the same champagne) reflected the beige room and read as flat tan: they now become metal by a region rule, and the class is polished to 0.22 with the painted-gold reflectance lift f0 0.74 (pale champagne median ~0.55 linear) so the fittings read as bright metal.",
+  "include": [
+    "../aggressive.json"
+  ],
+  "presets": {
+    "_materials": {
+      "10": "leather",
+      "20": "leather",
+      "22": "leather",
+      "23": "leather",
+      "25": "skin",
+      "34": "cloth",
+      "42": "cloth",
+      "43": "cloth",
+      "47": "face",
+      "48": "leather"
+    },
+    "cloth": {
+      "rough": 0.65,
+      "rough_ai": 0.35,
+      "normal": 2.0
+    },
+    "leather": {
+      "rough": 0.25,
+      "rough_ai": 0.4
+    },
+    "stockings": {
+      "rough": 0.42,
+      "rough_ai": 0.4
+    },
+    "metal": {
+      "rough": 0.22,
+      "f0": 0.74
+    },
+    "hair": {
+      "rough": 0.38,
+      "rough_ai": 0.4
+    }
+  },
+  "regions": [
+    {
+      "texture": "衣服1.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        20,
+        45
+      ],
+      "sat": [
+        0.55,
+        1.0
+      ],
+      "doc": "the orange hex-cut topaz gems on the fitting sheets"
+    },
+    {
+      "texture": "衣服2.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        20,
+        45
+      ],
+      "sat": [
+        0.55,
+        1.0
+      ],
+      "doc": "the same gems on the second sheet"
+    },
+    {
+      "texture": "衣服2.png",
+      "within": [
+        "metal"
+      ],
+      "class": "leather",
+      "hue": [
+        340,
+        360
+      ],
+      "sat": [
+        0.4,
+        1.0
+      ],
+      "doc": "the red strips of the striped thigh strap (54 腿环 holds gold chain, clover charms and red-white webbing): enamel-glossy strap, not coloured metal"
+    },
+    {
+      "texture": "衣服2.png",
+      "within": [
+        "metal"
+      ],
+      "class": "leather",
+      "hue": [
+        0,
+        12
+      ],
+      "sat": [
+        0.4,
+        1.0
+      ],
+      "doc": "the same strap's reds on the low side of the hue wrap"
+    },
+    {
+      "texture": "衣服2.png",
+      "within": [
+        "leather"
+      ],
+      "class": "metal",
+      "hue": [
+        28,
+        48
+      ],
+      "sat": [
+        0.1,
+        0.4
+      ],
+      "val": [
+        0.55,
+        0.95
+      ],
+      "doc": "the boots' studs, buckle diamonds, interlocked gold badge and heel trim, painted as pale champagne on the boot material (鞋子 52)"
+    }
+  ]
+}

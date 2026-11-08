@@ -12,6 +12,12 @@ settings (spawn preset, body groups, arms, fits, terms-of-use records) and the s
 --asset takes the full 64-digit id or any unique prefix. The game must be in a map (client Lua
 runs there) with Model Hotloader loaded; the models must be in its library (not shared ones).
 
+Names (model_names.py, the user's rule of 2026-11-08): the title, the export file name, the --out
+folder and every model's library name must carry no game, version, author, rating or pack tag. The
+library names travel as they are, so a tagged one ("鸣潮-千咲", "阿芙2.0") is refused before the game
+is contacted: rename the model in Model Hotloader (ask the user first) or pack offline with
+workshop-content-pack's mmdhl_pack.py, which takes the names on its command line.
+
 The export dialog asks the player to acknowledge the models' terms of use first
 (mmdhl_terms_warning_export). This script does not show that dialog and does not change the
 setting: use it for private items, and make an item public only after exporting through the dialog.
@@ -25,8 +31,16 @@ import sys
 import time
 from pathlib import Path
 
-TOOL = Path(__file__).resolve().parents[1] / "tool"
+HERE = Path(__file__).resolve().parent
+TOOL = HERE.parent / "tool"
 sys.path.insert(0, str(TOOL))
+sys.path.insert(0, str(HERE))  # model_names.py, also under python -I
+import model_names  # noqa: E402
+
+# gmapack.py of the native loader repository: the one this skill sits in, else the main checkout.
+GMAPACK = next((p for p in (HERE.parents[2] / "tools" / "gmapack" / "gmapack.py",
+                            Path(r"H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix\tools\gmapack\gmapack.py"))
+                if p.is_file()), HERE.parents[2] / "tools" / "gmapack" / "gmapack.py")
 
 START = r'''
 local meta = util.JSONToTable(__META__)
@@ -79,7 +93,28 @@ def resolve_assets(game_root: Path, prefixes: list[str]) -> list[str]:
     return out
 
 
-def main() -> None:
+def library_name(game_root: Path, asset: str) -> str:
+    """The name the export will carry, as Model Hotloader's library computes it (library.lua):
+    the library entry's name, else the import's manifest name, else the id's first 12 digits."""
+    data = game_root / "garrysmod" / "data" / "mmd_hotloader"
+    for path in (data / "library" / f"{asset}.json", data / "assets" / asset / "manifest.json"):
+        try:
+            name = json.loads(path.read_text(encoding="utf-8-sig")).get("name")
+        except (OSError, ValueError, AttributeError):
+            continue
+        if isinstance(name, str) and name:
+            return name
+    return asset[:12]
+
+
+def refuse_tagged(checks) -> None:
+    """Exit 1 with one line per (label, value, kind) that carries a tag (model_names.py)."""
+    problems = [p for p in (model_names.refusal(label, value, kind) for label, value, kind in checks) if p]
+    if problems:
+        raise SystemExit("\n".join("error: " + p for p in problems))
+
+
+def main(argv: list[str] | None = None) -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -92,20 +127,29 @@ def main() -> None:
     p.add_argument("--tag", action="append", default=[], help="a Workshop tag, at most two")
     p.add_argument("--out", type=Path, required=True, help="the add-on folder to write (must not exist)")
     p.add_argument("--timeout", type=float, default=600.0)
-    p.add_argument("--gmapack", type=Path, default=Path(r"H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix\tools\gmapack\gmapack.py"),
-                   help="the native-loader repository's tools/gmapack/gmapack.py (unpacks the archive)")
-    a = p.parse_args()
+    p.add_argument("--gmapack", type=Path, default=GMAPACK,
+                   help="the native-loader repository's tools/gmapack/gmapack.py (unpacks the archive); "
+                        "default: the repository this skill sits in, else the main checkout")
+    a = p.parse_args(argv)
+    # Names first: nothing is read from the game or written before they pass.
+    refuse_tagged([("--title", a.title, "title"), ("--file-name", a.file_name, "slug"),
+                   ("--out folder", a.out.resolve().name, "slug")])
     if a.out.exists():
         raise SystemExit(f"{a.out} exists")
+    if not a.gmapack.is_file():
+        raise SystemExit(f"{a.gmapack} not found: pass --gmapack <native loader repository>\\tools\\gmapack\\gmapack.py")
+    assets = resolve_assets(a.game_root, a.asset)
+    refuse_tagged([(f"library name of {asset[:8]}", library_name(a.game_root, asset), "name") for asset in assets])
     from rpai.gamebridge import GameBridge, lua_long_string
     bridge = GameBridge(a.game_root)
-    assets = resolve_assets(a.game_root, a.asset)
     meta = {"assets": assets, "title": a.title, "author": a.author, "tags": a.tag, "file_name": a.file_name,
             "description": a.description_file.read_text(encoding="utf-8").strip()}
     r = bridge.run_client_lua(START.replace("__META__", lua_long_string(json.dumps(meta, ensure_ascii=False))))
     if not r.get("ok") or r.get("error"):
         raise SystemExit(f"export not started: {r.get('error')}")
-    print("exporting:", ", ".join(r.get("names", {}).values() if isinstance(r.get("names"), dict) else r.get("names", [])))
+    names = r.get("names", {})
+    names = list(names.values()) if isinstance(names, dict) else list(names)
+    print("exporting:", ", ".join(map(str, names)))
     deadline = time.monotonic() + a.timeout
     while True:
         s = bridge.run_client_lua(POLL)
@@ -119,6 +163,8 @@ def main() -> None:
     if s.get("state") != "complete":
         raise SystemExit(f"export {s.get('state')}: {s.get('error')}")
     print(f"archive {s['path']} ({int(s['bytes']) / 1e6:.0f} MB, {s['items']} model(s), package {s['packageId']})")
+    # The live library could have been renamed since the check above: check what was exported.
+    refuse_tagged([("exported name", str(name), "name") for name in names])
     subprocess.run([sys.executable, "-I", str(a.gmapack), "extract", "--file", s["path"], "--out", str(a.out)],
                    check=True)
     files = sorted(p for p in a.out.rglob("*") if p.is_file())

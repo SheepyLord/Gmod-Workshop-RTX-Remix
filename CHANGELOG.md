@@ -6,6 +6,44 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R23
+
+- **ARC9 no longer stops RTX starts at "Starting Lua"; an engine guard cuts material fallback cycles**
+  ([ADR 0130](docs/decisions/0130-an-engine-guard-for-lua-start-up.md), [R23](docs/handover/R23-report.md); the
+  user's items 6 and 7): [ARC9] Gunsmith Reloaded's `particle/warp5_explosion` names itself as its DirectX 8
+  fallback; RTX sessions take that block, and `materialsystem.dll` reloaded the material forever. A new package
+  module (`gmcl_`/`gmsv_nlengineguard_win64.dll`, this repository's `engine_guard/`, shipped in the fixes part)
+  detours the one call in that loop that reads `$fallbackmaterial` and answers "none" for a fallback that is the
+  material itself or that would close a cycle. The companion loads it before the add-ons' autoruns in RTX
+  starts (`!!!!nativeloader_engine_guard.lua`), and the early view loads it on remote servers. PoC: the published
+  package hung at Lua with ARC9 for 300 s; this build loads the map in 95 s. TFA Base (fetched by the game's
+  Workshop download) has no material fallbacks and starts with and without the guard. No loader change.
+- **A start-up watchdog names a stuck add-on** (same ADR): from the module's load until the realm's
+  `Initialize` (at the latest 150 s after the gamemode loaded), it samples the main thread's committed stack;
+  after 90 s on the same Lua file it writes `garrysmod/data/native-loader/startup-stall.json` and shows one
+  message naming the file, in the player's language from the companion's own catalog (no other Lua can set its
+  text); the next start shows a 30-second notice that names the add-on to disable. Reviewed independently; the
+  review's findings are fixed and an end-to-end test runs the real detour on a stand-in `materialsystem.dll`.
+- **Wuthering Waves characters get their game's roughness and metalness**
+  ([ADR 0131](docs/decisions/0131-wuthering-waves-roughness-and-metalness.md); R23 item 1): their `_N` map is the
+  game's Normal_Roughness_Metallic map (alpha roughness, blue metalness, now used, metal from 0.55); a family
+  without its own `_ID`/`_HM` mask (Chisa's coat, Shorekeeper's `Ahpla`) is recognised by its character and
+  pairs by name. Seventh native patch of the fixes (`packages/fixes/licenses/oversized-skinning/wuwa-maps`),
+  `gmcl_RTXFixesBinary_win64.dll` rebuilt; cached game maps convert again once.
+- **A progress notice while imported characters' PBR converts**
+  ([ADR 0132](docs/decisions/0132-progress-while-imported-pbr-converts.md); item 3): a top-right notice with a bar ("3
+  of 8") and then that they are ready; only for conversions longer than 1.5 s. The top-right notice is now
+  one shared companion module (`nativeloader/notice.lua`).
+- **The Advanced Material Editor keeps the material being edited between Material and Source / VMT**
+  (item 4): Derma reports the old tab while a tab change is announced, so neither direction carried it over.
+- **`package_fixes.py --lua-bin`** packages this repository's other modules (the engine guard).
+- **The agent skills are up to date and keep model names plain** (item 5; `skills/`): character PBR, map PBR and
+  Workshop content packs rewritten as agent instructions with R11-R23's facts (content packs only from
+  subscriptions, imported game PBR first, mod precedence, preloads, memory profiles, eye whites); a recorded
+  model name is the character's own name only, refused by the packing scripts when it carries a game, version,
+  author or rating tag (`model_names.py`, 20 tests). The user's installed copy of `mmd-remix-pbr` had moved on
+  (new presets and tools since 2026-11-03): merged into the repository copy, account paths as `%USERPROFILE%`.
+
 ### R22
 
 - **Released as v0.16.0** (2026-11-07): the GitHub release

@@ -8,6 +8,20 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#, c-format
+msgid "%s, in the add-on %s"
+msgstr "%s, в дополнении %s"
+
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#, c-format
+msgid ""
+"The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
+"If that happens again, disable that add-on."
+msgstr ""
+"Прошлый запуск Garry's Mod не прошёл дальше запуска Lua. Он остановился в %s.\n"
+"Если это повторится, отключите это дополнение."
+
 #: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
 #, c-format
 msgid "Effect categories: %d observed materials"
@@ -953,6 +967,15 @@ msgstr "Импортируйте файлы VMD и управляйте библ
 msgid "Open in window"
 msgstr "Открыть в окне"
 
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#, c-format
+msgid "Preparing PBR materials for imported characters: %d of %d."
+msgstr "Подготовка PBR-материалов импортированных персонажей: %d из %d."
+
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+msgid "PBR materials for imported characters are ready."
+msgstr "PBR-материалы импортированных персонажей готовы."
+
 #: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
 msgid ""
 "Upscaling and frame generation are off.\n"
@@ -1002,6 +1025,25 @@ msgstr ""
 "Генерация кадров отключена.\n"
 "RTX Remix > Настройки Remix, или Alt+X:\n"
 "Выберите Генерация кадров: FSR 3."
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:8
+msgid "Garry's Mod is not finishing its start"
+msgstr "Garry's Mod не завершает запуск"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:9
+#, c-format
+msgid ""
+"Garry's Mod has spent 90 seconds on one add-on file while starting Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"If the game does not go on, that add-on is stuck: end the game and disable the add-on that has this file. The details are in garrysmod\\data\\native-loader\\startup-stall.json."
+msgstr ""
+"Garry's Mod уже 90 секунд выполняет один и тот же файл дополнения при запуске Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"Если игра не продолжится, это дополнение зависло: закройте игру и отключите дополнение, в котором есть этот файл. Подробности — в garrysmod\\data\\native-loader\\startup-stall.json."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:44
 msgid "Welcome"

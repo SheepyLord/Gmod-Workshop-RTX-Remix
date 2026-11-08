@@ -92,4 +92,19 @@ hooks.RTXToPBR_GameMaps() assert(missingTries==1)
 RunConsoleCommand("rtx_topbr_game_maps","1")
 hooks.RTXToPBR_GameMaps() assert(missingTries==2)
 hooks.RTXToPBR_Snapshots() assert(calls.pump==1)
-print("PASS ToPBR driver: diagnostics, settings, bounded metadata discovery, hash retry, source-less queue and clear/requeue")
+-- R23 (the user's item 3): imported game materials still converting, for the companion's progress notice.
+local states={}
+p.GetGameMaterial=function(name) return {state=states[name] or "waiting"} end
+local queued=0
+p.QueueGameMaterial=function() queued=queued+1 return true end
+commands.rtx_topbr_clear()
+mmdhl.library.entries[id]={source="E:/models/test.pmx",info={materials={{base="tex/test_D.png"}}}}
+hooks.RTXToPBR_GameMaps() assert(queued==1)
+local pending,total=RTXGamePBRProgress() assert(pending==1 and total==1, "one converting")
+pending,total=RTXGamePBRProgress() assert(pending==1 and total==1, "still waiting")
+states["mmd/0123456789abcdef/material_0"]="automatic"
+pending,total=RTXGamePBRProgress() assert(pending==0 and total==0, "the batch ends once its view is final")
+p.GetGameMaterial=function() error("native view failed") end
+commands.rtx_topbr_clear() hooks.RTXToPBR_GameMaps() assert(queued==2)
+pending,total=RTXGamePBRProgress() assert(pending==0 and total==0, "an unreadable view counts as finished")
+print("PASS ToPBR driver: diagnostics, settings, bounded metadata discovery, hash retry, source-less queue, clear/requeue and conversion progress")

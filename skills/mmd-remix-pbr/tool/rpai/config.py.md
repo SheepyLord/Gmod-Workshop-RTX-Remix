@@ -16,6 +16,10 @@ unit scene luminance. Its default `25` is 4.5x the old eye emission at exposure 
 the usual order (extra settings, model preset, CLI). `emission_multiplier` rejects negative or
 non-finite values. No class/texture-generation parameters change; cached maps remain usable.
 
+Per-texture settings (`"textures": {"<sheet>": {...}}`) it documents: `max_size`, `presets`,
+`normal_map`, `albedo_source`, and (2026-11-03) `rough_map` and `metal_map`: converted grey maps used
+as the sheet's authored roughness and metallic (README, "The game's own maps").
+
 ## Side effects
 
 None: paths and defaults (`RPAI_HOME`, default `%USERPROFILE%\.rpai`).

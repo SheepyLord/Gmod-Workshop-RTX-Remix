@@ -30,6 +30,12 @@ for front and back views in one run; --hide then hides those parts on every copy
 capture always puts the original layer back, removes its camera hook and restores exactly the
 parts it hid on each copy, even when the game stops answering partway (partial results are kept).
 
+After each layer swap it waits up to 30 s for Remix's "swapped in" log line, then `--settle` (default
+20 s) and `--camera-settle` (6 s) after a camera cut. The RTX package's runtime writes no such line, and
+its `remix-dxvk.log` reaches the disk only when the game exits, so the settle times are what count.
+Hold the RTX package's character settings (painted shadows, solid hair, eye whites and their
+brightness) still through a run: `references/testing-protocol.md`.
+
 Part of the `mmd-remix-pbr` skill ([SKILL.md](../SKILL.md)); the full method and every option are in [tool/README.md](../tool/README.md).
 
 Run with the rpai venv's Python (`%USERPROFILE%\.rpai\venv\Scripts\python.exe`).

@@ -36,5 +36,6 @@ enable_testing()
 add_subdirectory(third_party/lzma)
 add_subdirectory(loader)
 add_subdirectory(glass/native)
+add_subdirectory(engine_guard)
 # Standalone GPL package-policy tests: no GPL object is linked into the MIT loader.
 add_subdirectory(packages/fixes/licenses/oversized-skinning/tests)

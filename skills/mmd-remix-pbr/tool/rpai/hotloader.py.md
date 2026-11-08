@@ -8,6 +8,11 @@ a manifest, the PMX copy and a GMA with one VMT per PMX material
 unique base texture (``materials/mmd/t/<sha16>.vtf``). Remix hashes the GPU
 texture, so every PMX material sharing a texture file shares one Remix hash.
 
+Model Hotloader 2.3.1 keeps a source over 4096 at full size and names its VTF
+``materials/mmd/tf/<sha16>.vtf`` instead (Ruan Mei's 8192 body sheet and 15770x6308
+stockings, 2026-11-03): this module reads both folders (``_TEXTURE_FOLDERS``), so
+such sheets get hashes too.
+
 Part of the `mmd-remix-pbr` skill ([SKILL.md](../../SKILL.md)); the full method and every option are in [tool/README.md](../../tool/README.md).
 
 Run with the rpai venv's Python (`%USERPROFILE%\.rpai\venv\Scripts\python.exe`).

@@ -3,7 +3,7 @@
 Generates and upscales PBR textures for **RTX Remix** from a model that has
 only diffuse textures, and publishes them as a hot-reloadable Remix mod. Built
 for Garry's Mod RTX with models imported through **Model Hotloader** (PMX/PMD),
-and tested on Hyacine (风堇1.0by_mobius, 78 materials, 19 textures).
+and tested first on Hyacine (78 materials, 19 textures).
 
 ```
 rpai run "E:\G\Upload\Hyacine\1_PMX\风堇1.0by_mobius\风堇1.0.pmx"
@@ -141,9 +141,11 @@ conditions are met (measured on Guinevere's forearm, `docs/guinevere/sss_test.jp
 | + `use_legacy_alpha_state = 0`, `blend_enabled = 0` | 186 / 171 / 158 (scatters, but grey) |
 | + `subsurface_transmittance_texture` = the skin albedo | 206 / 187 / 172 (6/255 from no SSS) |
 
-Why, from the runtime's source: the runtime is the fork sambow23/dxvk-remix-gmod at commit 384581b1
-(the log says `DXVK_Remix: remix-main+384581b1`), based on upstream 68ee7965, between remix-1.5.2
-and 1.6.0.
+Why, from the runtime's source as it was measured (2026-10-25): the fork sambow23/dxvk-remix-gmod at
+commit 384581b1, based on upstream 68ee7965, between remix-1.5.2 and 1.6.0. The runtime the RTX
+package ships now is the fork's `c6b48ed1` (its remix-1.6.1 merge) with this repository's patches
+(`runtime/base.json`); the points below were not measured on it again, and the 1.6.0 fix named in the
+fourth point may be in it (unverified).
 
 * **Diffuse is replaced, not added to.** In diffusion-profile mode the direct-lighting pass zeroes
   the diffuse lobe and adds the scattering term (`integrator_direct.slangh`). That term comes from one
@@ -154,11 +156,11 @@ and 1.6.0.
   Forcing the material opaque fixes that, for body sheets only: decal and overlay sheets need their
   alpha.
 * **The skin colour comes from transmittance.** In this mode the colour is the transmittance colour,
-  default 0.5 grey, which is why step 3 is grey. Colour constants cannot be set in this fork, so it
-  must be a texture.
+  default 0.5 grey, which is why step 3 is grey. Colour constants could not be set in that build, so
+  it is a texture (they load since `c6b48ed1`).
 * **Small scales fall short.** The probe length is `max(R × radius_scale × diffusionProfileScale × 2,
   0.1)` while the ray starts about R above the surface. Below about 0.5 it misses. Upstream fixed this
-  in remix-1.6.0 (5941c63c, REMIX-5909); this fork does not have it.
+  in remix-1.6.0 (5941c63c, REMIX-5909); 384581b1 did not have it.
 * **Thin-opaque transmission** (`subsurface_measurement_distance`) only adds light that arrives from
   behind the surface, so it shows nothing under top lighting.
 
@@ -198,7 +200,7 @@ Commands, each taking the PMX path:
 | `generate` | AI maps into `%USERPROFILE%\.rpai\work\<model>\` (skips up-to-date textures; `--force` redoes them) |
 | `publish` | DDS + mod layer |
 | `remove` | take this model out of the mod |
-| `compare` | screenshots the running game without, then with, this model's layer from the current camera, and saves a side-by-side in the work folder. After each reload it waits for Remix's "swapped in" log line: with 1.4 GB of preloaded DDS the swap lagged the reload by ~9 s, and a fixed delay photographed the old state |
+| `compare` | screenshots the running game without, then with, this model's layer from the current camera, and saves a side-by-side in the work folder. After each reload it waits up to 30 s for Remix's "swapped in" log line, then relies on its settle time: on 384581b1, with 1.4 GB of preloaded DDS, the swap lagged the reload by ~9 s and a fixed delay photographed the old state; the runtime since `c6b48ed1` logs no such line, and its `remix-dxvk.log` reaches the disk only when the game exits |
 | `status` / `doctor` | list published models / check the install |
 
 Useful options: `--only "衣.png,髪.png"`, `--max-size 2048`, `--upscaler span` (about 40× faster,
@@ -236,16 +238,25 @@ a multiple of the albedo; 0 when absent), `delight` (fraction of broad painted s
 from the albedo; 0 when absent), `aniso` (Remix anisotropy -1..1 along the texture axes, published
 as `anisotropy_texture`; 0 and no map when absent; negative stretches highlights along V, e.g. down
 a leg), `f0` (lift the class's median linear luminance on the mesh to this reflectance, one factor
-per sheet up to 3x, the albedo then published; 0 when absent; opt-in: on Robin R18, f0 0.74 brought
+per sheet up to 3x, the albedo then published; 0 when absent; opt-in: on Robin (`robin_r18_f9c3e4b4`), f0 0.74 brought
 satin gold from 12-25% under the original brightness to -10%..+4%, at the cost of a paler halo; see
 `references/standards.md`) and
 `original` (1 = leave these texels to Remix; a sheet made only of such classes gets no override).
 `_materials` pins a PMX material index to a class.
 
+**A part that glows** (HuoHuo's spirit tail, 2026-11-08): emission is a class field, so a glowing
+part needs a class of its own on its sheet. On a sheet of its own, give the class it already has an
+`emissive` in that texture's `presets` (`尾巴火焰.png`: `default` with emissive 1.0, low relief; the
+flame's shape lives in the alpha, which the albedo keeps). On a shared sheet, pin the part to a
+class nothing else on that sheet uses and redefine it there (`衣服.png`: tail body 47 pinned to
+`wet`, redefined as rough 0.55, emissive 0.2), then carve out what must not glow with a `within`
+region (the paper talisman on the tail: `rect` back to cloth). The sheet's emissive_intensity is its
+strongest weight, and the mask carries colour only.
+
 **Gold type per character** (2026-10-26, details and the table in
 `references/standards.md`): painted gold has a low reflectance (F0 0.17-0.55 against real gold's
-~0.74), so at the aggressive polish (0.12) it mirrors a dim room as dark bronze (Robin ZZZ's halo
--37% in game). The per-model presets therefore give painted golds a satin metal (0.30-0.36: both
+~0.74), so at the aggressive polish (0.12) it mirrors a dim room as dark bronze (the compiled Robin's
+halo, `robin_69c55742`, -37% in game). The per-model presets therefore give painted golds a satin metal (0.30-0.36: both
 Robins, Guinaifen/Guinevere, Kafka's bronze, Firefly's brass) and keep the polish where the metal
 is bright or tiny (Cyrene's silver, Castorice's brooch, Firefly's silver bunny trim).
 
@@ -270,7 +281,8 @@ Presets:
 * **Per-texture size:** `"textures": {"丝袜.png": {"max_size": "source"}}` (or a number) lifts the
   4096 cap for one sheet. The albedo is then published at that size, replacing the game's copy.
   Firefly's stockings atlas holds ~20 stocking designs in 11059×8847, and the legs use one
-  1276×1516 cell. Model Hotloader's 4096 copy leaves that cell 472×561 texels, so full resolution
+  1276×1516 cell. Model Hotloader's 4096 copy (Firefly's import then; Model Hotloader 2.3.1 can keep a
+  source over 4096 at full size in `mmd/tf/`, see "Full-size textures" below) leaves that cell 472×561 texels, so full resolution
   gives the legs 2.7× the texels per axis (`docs/firefly_stockings_texture_res.jpg`). Remix logs a
   harmless "doesn't fit into STAGING memory" error for textures over 96 MB. It then uploads them
   synchronously instead of streaming (a short hitch on reload; the texture stays resident).
@@ -298,11 +310,15 @@ Presets:
   sheets it is used only on the user's request (see Body skin below). For an artist's map, set the
   classes on that sheet to `normal` 1.0 in its per-texture presets (the class defaults are tuned
   for the weak AI normals). A regular map's Y convention is measured from integrability: a height
-  field's slopes have no curl, and green read with the wrong sign gives them plenty. Robin's ZZZ
-  `_N` maps had 3.0x and 2.4x more curl read as OpenGL, so they are DirectX; integrating both
+  field's slopes have no curl, and green read with the wrong sign gives them plenty. The compiled
+  Robin's game `_N` maps had 3.0x and 2.4x more curl read as OpenGL, so they are DirectX; integrating both
   readings showed raised stars for DirectX and streaked saddles for OpenGL. Below a 1.5x margin
   OpenGL is assumed. Game rips may keep the normal in red and green only (Robin's maps hold a mask
-  in blue, mean 125/255); when blue is no z, z is rebuilt. A map whose red and green channels are
+  in blue, mean 125/255); when blue is no z, z is rebuilt. A Wuthering Waves `_N` map is the game's
+  Normal_Roughness_Metallic map (RG normal, alpha roughness, blue metalness; the repository's R23
+  notes, `packages/fixes/licenses/oversized-skinning/wuwa-maps/README.md`): as a `normal_map` rpai
+  reads only its RG, so its roughness and metalness need `rough_map`/`metal_map` grey copies, or are
+  better left to the RTX fixes' imported game PBR, which reads all four channels. A map whose red and green channels are
   identical is a flattened one:
   Guinaifen's `Body normal.png` (2048, lavender base 176/176/241) holds one slope channel, about
   (nx + ny) / 2 of an OpenGL map. `compose.relief_normals` rebuilds the height along that diagonal
@@ -518,10 +534,10 @@ each for the others (mostly 4096 or 8192 sheets, only downscaled).
 * **Name rules added** for gems named after their setting, glasses, the band-aid, leg straps,
   tear and "Shy" overlays and veils (`classify.py`); the four earlier models classify unchanged.
 
-## Results on Robin R18 (2026-10-26, aggressive)
+## Results on Robin, the Model Hotloader import (2026-10-26, aggressive)
 
-The HSR Robin (`知更鸟.pmx`, `robin_r18_f9c3e4b4`, Model Hotloader), whose outfit atlas is the
-same art as `robin_zzz`'s body sheet. 83 materials, 20 sheets; 14 hashes live, 6 predicted for
+Robin as an MMD import (`知更鸟.pmx`, `robin_r18_f9c3e4b4`, Model Hotloader), whose outfit atlas is
+the same art as the compiled port's body sheet (`robin_69c55742`). 83 materials, 20 sheets; 14 hashes live, 6 predicted for
 hidden parts. Seven sheets are byte-identical to ones earlier layers already override, and this
 layer sorts last, so only her own 13 were generated (`--only`); the AI stage took 222 s. The
 review found four name traps: purple satin wrist cuffs named 手环 ("bracelet", metal by 环), a
@@ -553,6 +569,44 @@ source PMX byte for byte (its SHA-256 is the manifest's `sourceHash`). March 7th
 `model_e2c25f9e`) was rebuilt as `%USERPROFILE%\.rpai\sources\march_7th_1.0\三月七 1.0.pmx` from it,
 with the textures the manifest names (`materials[].base`) copied from another download and checked
 against the import's VTFs pixel by pixel (`remixhash.top_mip_rgba`; mean difference 0.0 on 5 of 5).
+
+## The game's own maps: `rough_map`, `metal_map` (2026-11-03)
+
+`"textures": {"Body_2.png": {"normal_map": "<_n.png>", "rough_map": "<grey.png>", "metal_map": "<grey.png>"}}`
+(paths absolute or relative to the texture's folder; `%USERPROFILE%`-style variables and a leading `~`
+are expanded, so a preset kept in the repository names no user's folder) feed converted game textures to a sheet whose name
+carries no `_BaseColor`-style suffix, where companion maps are not found by name. Roughness and metallic
+are then used as made (no class values, no AI); with a normal map and a roughness, the AI stage is skipped.
+The class `normal` strength still scales the normal map, so set it to 1.0 for such sheets.
+`scripts/ue_toon_maps.py` converts a Neverness to Everness / Unreal toon set (`_d`, `_m`, `_id`) this way:
+its header gives the reading of the channels and the formulas (an interpretation: the game has no
+roughness or metallic map). Elyms' four outfits (compiled `models/sheepylord/neverness_to_everness/elyms*.mdl`,
+PMXs from Codex's port `Documents\ChatGPT\MMD port 2\nte15_gmod\models\<name>\prepared\model.pmx`) were
+converted with it, 18 sheets, without AABB; the material instance JSONs name each sheet's `_n`, `_m`, `_id`.
+Measured on the sets: authored normals are DirectX (curl 1.9-3.1x lower); skin is 4-45 % of the outfit sheets
+(ID red 0, `_m` R and B 0); metal 0.5-9 %. A set whose LightMap is `T_Linear_Gray` (Elyms fashion 1's
+mechanical sheet) gets its normal map only.
+
+## Remaking a layer (2026-11-06, Firefly: `firefly_r18_0d01d7d3` remade as `firefly_r18_32c908bc`)
+
+The same PMX imported twice (two Model Hotloader assets, 0d01d7d3 and 32c908bc, identical materials and
+textures) gives two model keys and one set of Remix hashes. The key that sorts first wins every shared
+hash, so a remake under a new key must remove the old layer (`rpai remove "<pmx>" --asset <old id>`),
+and the old preset is marked superseded (its maps stay in `work/<old key>`; `rpai publish --asset <old id>`
+brings it back). Show the model's hidden parts first (`scripts/reveal_hashes.py`): the old Firefly layer
+carried predicted hashes for the bunny suit, ears, beads and heels, all wrong, so those parts had never
+been overridden. Per-sheet decisions the user accepted (the fishnet stockings 0.23, the latex 0.16, the
+bunny suit's trim) are carried over; the fabrics take the newer tuned values.
+
+## Full-size textures (`mmd/tf/`, 2026-11-03)
+
+Model Hotloader 2.3.1 keeps sources over 4096 at full size and names their VTFs `mmd/tf/<sha16>` instead
+of `mmd/t/<sha16>`. `hotloader.load_asset` read only `mmd/t/`, so Ruan Mei's 8192 `Body.png` and her
+15770x6308 stockings sheet were missing from `rpai hashes` (14 of 16 textures); it now reads both, and
+the live query finds them by material name as before. A sheet that large can be capped per texture
+(`"丝袜.png": {"max_size": 8192}`: the legs are small cells of a sparse sheet; 4096 would blur them).
+Jingliu and Ruan Mei were done without AABB on the user's request: their per-model presets
+(`new_mmd_model_381e8c1b`, `new_mmd_model_4762774c`) state what each part is for and why.
 
 ## Results on Robin (2026-10-25, aggressive, a compiled addon)
 
@@ -655,8 +709,12 @@ winner.
 
 Remix checks mods in path order and the first one with a replacement for a hash wins
 (`Mod::ComparePtrs` in `rtx_mod_manager.h`). `!advanced_material_editor` sorts before `ai_pbr`, so
-your Advanced Material Editor profiles still override the AI maps. `~gmod_topbr` sorts after, so the
-AI maps override the automatic ToPBR conversion.
+your Advanced Material Editor profiles still override the AI maps, and `ai_pbr` sorts before a
+Workshop pack's `pbr_<name>`. The RTX fixes' automatic materials (`~gmod_topbr`: ToPBR and the
+imported characters' game maps) lose to every authored mod whatever the names: runtime patch 0020
+ranks the mods listed in `rtx.gmod.fallbackMods` (default `~gmod_topbr`) last (the repository's
+ADR 0092), and the fixes skip any hash another mod already replaces. So an rpai layer for a sheet
+replaces ToPBR's whole material for that hash.
 
 ## Limits
 
@@ -665,18 +723,21 @@ AI maps override the automatic ToPBR conversion.
 * PBRify is trained on photographic CC0 materials. On painted anime textures, normals mostly follow
   painted outlines, and baked shading is not removed by default (`delight` is opt-in, see
   [Body skin](#body-skin-left-as-remix-renders-it)). Height maps are therefore off by default.
-* This Remix runtime (`bin/win64/d3d9.dll`, fork sambow23/dxvk-remix-gmod 384581b1) rejects every
-  3-component material and light input (`color3f`, `float3`, `double3`, `half3`, `color3d`,
-  `color3h`). It logs "has unexpected type, using default value", about 400 times each for
-  `diffuse_color_constant`, `emissive_color_constant` and `subsurface_radius` (Advanced Material
-  Editor profiles and other mods included).
+* The Remix runtime rpai was first written against (fork sambow23/dxvk-remix-gmod 384581b1, before
+  2026-10-25) rejects every 3-component material and light input (`color3f`, `float3`, `double3`,
+  `half3`, `color3d`, `color3h`). It logs "has unexpected type, using default value", about 400 times
+  each for `diffuse_color_constant`, `emissive_color_constant` and `subsurface_radius` (Advanced
+  Material Editor profiles and other mods included). The runtime the RTX package ships now (the fork's
+  `c6b48ed1` with this repository's patches) loads colour inputs (`rtx.usd.legacyIgnoreColors`, default
+  False, brings the old behaviour back); rpai writes bools, floats and textures, so its layers work on
+  both, except the opt-in `sss_radius` colour, which loads only on the current runtime.
   * The cause is a type check the fork added in its "fix crashes" commit 061b8be0
     (`rtx_material_data.h`, `rtx_lights_data.cpp`). It only accepts dxvk's own `Vector3`, which no
     USD value ever holds. Upstream Remix has no such check.
   * The same check drops `uint8` inputs unless written as `uchar`, and never loads
     `alpha_test_type` or `blend_type`.
   * A rejected value still hides weaker layers' values behind the default.
-  * Bools, floats and textures load, so rpai only writes those. For lights, colour temperature
+  * Bools, floats and textures load, so rpai writes those (the opt-in `sss_radius` colour excepted). For lights, colour temperature
     (`enableColorTemperature`, `colorTemperature`) is the only way to set a colour.
 * Material classes are keyword heuristics for CN/JP/EN names. Check `classes.json` and pin mistakes
   with `_materials`.

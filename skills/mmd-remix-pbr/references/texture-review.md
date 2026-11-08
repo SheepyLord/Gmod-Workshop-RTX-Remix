@@ -7,6 +7,14 @@ for the write-up.
 
 ## Steps
 
+0. **Game maps first.** List the files beside the PMX (and in folders such as `AONMPB\`, `other tex\`,
+   `法贴\`). Game rips ship packed maps the PMX does not reference: Wuthering Waves `T_*_N` (normal in
+   RG, roughness in alpha, metalness in blue), `_ID`, `_HM`; Arknights: Endfield `_N`, `_P`, `_E`;
+   Silver Palace `_N`, `_MRA`, `_E`. The RTX fixes already turn those into PBR in game ("Imported game
+   PBR", `runtime-notes.md`): look at the character in game and open the Imported game PBR panel
+   before deciding. Run rpai on such a character only for what the user asks beyond the game maps or
+   for sheets the panel shows without maps, and remember that an rpai material for a sheet replaces
+   ToPBR's for that hash.
 1. **Inventory.**
    - Which textures does the PMX reference, and which of them exist in the folder? Missing ones are
      skipped (`skip ... source image missing`).
@@ -39,13 +47,24 @@ for the write-up.
      rules mix up champagne gold and skin shading (hue 20-35 at low saturation in both).
    - The model ships a game normal map (`_N`, `_Normal`)? Use it as the sheet's `normal_map` with
      its classes at `normal` 1.0, and check its log line: the convention is measured, and z is
-     rebuilt when blue holds a mask. Skin stays flat at its class strength 0.
+     rebuilt when blue holds a mask. Skin stays flat at its class strength 0. rpai reads only the
+     map's RG: a Wuthering Waves `_N`'s roughness (alpha) and metalness (blue) need grey copies as
+     the sheet's `rough_map` / `metal_map`. An Unreal toon set without such maps (`_d`, `_m`, `_id`,
+     Neverness to Everness) converts with `scripts/ue_toon_maps.py` (tool README, "The game's own
+     maps").
+   - A part that must glow (a spirit tail, a lamp) needs a class with an `emissive` weight of its own
+     on its sheet (tool README, "A part that glows").
    - A sheet that needs its full resolution (fine mesh, small UV cells)? Use
      `"textures": {"name.png": {"max_size": "source"}}`.
-   - Hidden parts (alpha-0 materials, morph-toggled overlays) have no live hash until shown in game.
+   - Hidden parts (alpha-0 materials, morph-toggled overlays) have no live hash until shown in game
+     (`scripts/reveal_hashes.py`). Painted shadows (目影, 发影) are left out of the draw in RTX
+     sessions: they never get one and need no PBR.
 6. **Write it down.** Keep a table of texture → content → materials → decision, plus the reasons for
    pins and regions, in the per-model preset's `doc` field and a short analysis file. Keep the
-   analysis alongside the package or the user's model folder, not in the skill.
+   analysis alongside the package or the user's model folder, not in the skill. Start the `doc` with
+   the character's own name, no game, version or rating tag (`"Chisa (<pmx file>, <source folder>),
+   ..."`; SKILL.md, "Names"); a file or folder path may keep its own name. Paths under the user's
+   profile go in as `%USERPROFILE%\...` (rpai expands it), never with the account name.
 
 ## Name rules that already exist (`classify.py`)
 

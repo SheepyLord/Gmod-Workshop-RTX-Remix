@@ -17,6 +17,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 DEBUG_WHITE = "models/debug/debugwhite"
+# Textures kept at full size (Model Hotloader 2.3.1: sources over 4096, such as an 8192 body sheet or
+# Ruan Mei's 15770x6308 stockings) live in mmd/tf/ instead of mmd/t/ (2026-11-03).
+_TEXTURE_FOLDERS = ("mmd/t/", "mmd/tf/")
+_TEXTURE_FOLDERS_GMA = tuple("materials/" + p for p in _TEXTURE_FOLDERS)
 
 
 @dataclass
@@ -165,14 +169,14 @@ def load_asset(game_root: Path, pmx_path: Path, asset_id: str | None = None) -> 
     vtf_sizes = {}
     with gma.open("rb") as f:
         for name, (offset, size) in index.items():
-            if name.startswith("materials/mmd/t/") and name.endswith(".vtf"):
+            if name.startswith(_TEXTURE_FOLDERS_GMA) and name.endswith(".vtf"):
                 f.seek(offset)
                 header = f.read(20)
                 width, height = struct.unpack_from("<HH", header, 16)
                 vtf_sizes[name[len("materials/") : -len(".vtf")]] = (width, height)
 
     for material_index, base in bases.items():
-        if not base.startswith("mmd/t/"):
+        if not base.startswith(_TEXTURE_FOLDERS):
             continue  # untextured slots use a shared engine texture; never replace it
         key = base.rsplit("/", 1)[-1]
         texture = textures.get(key)

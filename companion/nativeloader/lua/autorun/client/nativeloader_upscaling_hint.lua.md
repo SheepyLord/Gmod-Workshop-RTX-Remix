@@ -21,6 +21,9 @@ size and fonts scale with `ScrH()/1080` (at least 0.65). It follows the hint's d
 tab's checkbox, but not `cl_showhints` (it is not a sandbox hint; the user's own game had hints off).
 A notice that cannot be made never costs the hint.
 
+R23: the notice is [`nativeloader/notice.lua`](../../nativeloader/notice.lua.md), shared with the
+start-up stall notice and the imported characters' PBR progress; the hint's notice is unchanged.
+
 The schema-1 loader status must report active RTX, a selected performance-tier adapter, NVIDIA's
 vendor id (`4318`) and `non_nvidia = false`. Only recognized RTX 20/30/40/50 model names qualify.
 DLSS-G is suggested only for an RTX 40/50 with a positive live capability flag. RTX 20/30 can receive

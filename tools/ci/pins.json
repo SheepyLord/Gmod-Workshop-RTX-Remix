@@ -25,7 +25,8 @@
       "packages/fixes/licenses/oversized-skinning/backrooms/backrooms-native.patch",
       "packages/fixes/licenses/oversized-skinning/autopbr/autopbr.patch",
       "packages/fixes/licenses/oversized-skinning/autopbr/lua-paths.patch",
-      "packages/fixes/licenses/oversized-skinning/upscaling-state/upscaling-state.patch"
+      "packages/fixes/licenses/oversized-skinning/upscaling-state/upscaling-state.patch",
+      "packages/fixes/licenses/oversized-skinning/wuwa-maps/wuwa-maps.patch"
     ],
     "patch_paths": [
       "source/*",
@@ -33,7 +34,7 @@
       "public/*"
     ],
     "patched_tree": {
-      "source": "68b5778182983e59c2d5491699cd7f0996bcd0d1",
+      "source": "c7e8e29da304b247647b7ea427df7d2821cf2d60",
       "public": "7165af4dc4ab4d841a19b7405211b27190bddea6",
       "premake5.lua": "b308ed2f6b0b31aa7b69f0ee576c0bcf5f666cd1"
     },
@@ -95,7 +96,7 @@
       "packaged": {
         "sha256": "1b44fd7c1931e770e0ef8bef9d87456a6363e688949b1a2a3eb7d4d09a6391dd",
         "sources": {
-          "CMakeLists.txt": "cc4f300d5a207322f08c85ee638eb0bda4839fdb2e788bff04cf9e74873552ab",
+          "CMakeLists.txt": "beccfab0ec0009ae436b7c927b2f66cc7f83893bffaf5adc385a37c7ce5d1e0e",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "loader/CMakeLists.txt": "796b2df418aef0f9848d808ca4ec2627f84e41c972410e124020a4fb6fbdc233",
           "loader/client": "fb1320cb8e68c81279cd37c6a7904712a69f6e302efa143f9eac5edc46dcf27c",
@@ -103,9 +104,9 @@
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
           "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693"
         },
-        "commit": "21e46457e884a58756c5f32f82bb9cde3fdfa2ee (with uncommitted changes)",
+        "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "imported: built from these sources"
+        "how": "kept: a build of these sources is the same image"
       }
     },
     {
@@ -127,14 +128,68 @@
       "packaged": {
         "sha256": "8c0c8c3a413da5e2fe85fcb8aeff90516b40dcbe818f88dcd12c0e4973395afe",
         "sources": {
-          "CMakeLists.txt": "cc4f300d5a207322f08c85ee638eb0bda4839fdb2e788bff04cf9e74873552ab",
+          "CMakeLists.txt": "beccfab0ec0009ae436b7c927b2f66cc7f83893bffaf5adc385a37c7ce5d1e0e",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "glass/native": "5b89e738afe570d7adcdba1873538dd3468e5ccadead33b671028a6040ff8867",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
           "third_party/jolt": "15e57329817888b6ded9b3b8d096550e5048e9eeef259c6c20689e9118ee861d",
           "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693"
         },
-        "commit": "21e46457e884a58756c5f32f82bb9cde3fdfa2ee (with uncommitted changes)",
+        "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18 (with uncommitted changes)",
+        "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
+        "how": "kept: a build of these sources is the same image"
+      }
+    },
+    {
+      "part": "fixes",
+      "path": "modules/gmcl_nlengineguard_win64.dll",
+      "from": "out/build/win64-release/engine_guard/gmcl_nlengineguard_win64.dll",
+      "target": "nl_engine_guard_client",
+      "sources": [
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "engine_guard",
+        "third_party/gmod"
+      ],
+      "not_sources": [
+        "engine_guard/tests"
+      ],
+      "packaged": {
+        "sha256": "66ede81272c0046583c10ddeead0eb078a04daf7c057bbaf54a1e28bb4a6f9b8",
+        "sources": {
+          "CMakeLists.txt": "beccfab0ec0009ae436b7c927b2f66cc7f83893bffaf5adc385a37c7ce5d1e0e",
+          "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
+          "engine_guard": "c9865be7e3bfe36501a3cc0526bdc5e120c72cff257b59875459620c7451e0ff",
+          "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
+        },
+        "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18 (with uncommitted changes)",
+        "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
+        "how": "imported: built from these sources"
+      }
+    },
+    {
+      "part": "fixes",
+      "path": "modules/gmsv_nlengineguard_win64.dll",
+      "from": "out/build/win64-release/engine_guard/gmsv_nlengineguard_win64.dll",
+      "target": "nl_engine_guard_server",
+      "sources": [
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "engine_guard",
+        "third_party/gmod"
+      ],
+      "not_sources": [
+        "engine_guard/tests"
+      ],
+      "packaged": {
+        "sha256": "0913d30df1c3f7fcc7f5c20d7d25b3618533a2c708ee3ebfb7c569c57ea2c454",
+        "sources": {
+          "CMakeLists.txt": "beccfab0ec0009ae436b7c927b2f66cc7f83893bffaf5adc385a37c7ce5d1e0e",
+          "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
+          "engine_guard": "c9865be7e3bfe36501a3cc0526bdc5e120c72cff257b59875459620c7451e0ff",
+          "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
+        },
+        "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }

@@ -5915,3 +5915,48 @@ Measured in the PoC (RTX 5090, 3840x2160 desktop at 200 %, GMod build 26439081) 
   both had `"cl_showhints" "0"` (field file dated 2026-11-06 23:18), so ADR 0117's hint never showed there.
 - **The loading window at 200 %**: 560 DIP wide is 1,146 x 490 physical pixels with the frame; the
   per-monitor-aware thread draws it crisply while the game's thread stays DPI-unaware.
+
+## R23: what stops a start at "Starting Lua", Wuthering Waves maps, Derma's tab order (2026-11-08)
+
+Measured on this machine (RTX 5090, GMod build 26439081, PoC and field `materialsystem.dll` SHA-256
+`6c9075c5...`, identical) by R23 ([report](handover/R23-report.md), [ADR 0130](decisions/0130-an-engine-guard-for-lua-start-up.md);
+evidence in the `r23` worktree's `out/r23/`).
+
+- **The ARC9 hang** (first sampled in the field by another session, 2026-11-08): main thread at 100 % CPU,
+  about 150,000 `NtCreateFile` a second, the stack holding `@lua/autorun/sh_arc9_autorun.lua`,
+  `arc9/shared/sh_csgo_effects.lua` and `materials/particle/warp5_explosion.vmt` probed in every
+  `garrysmod/addons/*` folder. [ARC9] Gunsmith Reloaded (2910537020) calls
+  `game.AddParticles("particles/csgo_explosions_fx.pcf")`; its `particle/warp5_explosion.vmt` is `Refract` with
+  `"<dx90" { "$fallbackmaterial" "particle/warp5_explosion" }`.
+- **`CMaterial::InitializeShader`** (`materialsystem.dll` rva 0xf950-0xfc33): the one reference to the string
+  `$fallbackmaterial` is the `lea rdx` at 0xfb4c; the call at 0xfb53 goes to `KeyValues::GetString` (0x730d0)
+  with the current fallback section in r13 (`mov rcx, r13`); r14 holds the material across the loop (its
+  warnings call r14's first virtual, `GetName`). Non-empty, the loop loads that VMT and starts again with
+  its shader: no pass counter. Pattern from rva 0xfb42, unique in the image:
+  `4C 8D 05 ?? ?? ?? ?? 49 8B CD 48 8D 15 ?? ?? ?? ?? E8 ?? ?? ?? ?? 8B 7C 24 40 44 8B 64 24 44 80 38 00 0F 84`.
+  The call's displacement (rva 0xfb54) is 4-byte aligned.
+- **PoC A/B with the two ARC9 add-ons as folders**: the published package (no guard) stopped at Lua, the
+  console's last line `ARC9 Registered 505 attachments.`, the window hung for 300 s and was ended; this
+  build loaded gm_construct, quit normally after 95 s, and the guard cut the self-fallback 6 times (once
+  per initialisation of the material; the client copy of the module read the count from the server copy).
+  The material then uses `UnlitGeneric_DX6`.
+- **GMod does not mount a loose `.gma` in `garrysmod/addons`**: with the two GMAs copied there, `ARC9`
+  stayed nil and the material was missing. Extract them (`tools/gmapack`) into folders.
+- **TFA Base** (2840031720, 43,406,497 bytes, fetched by `steamworks.DownloadUGC` in a PoC session, which reports
+  `content/4000/2840031720/gma.gma`, relative to Steam's Workshop folder): 61 VMTs, no `$fallbackmaterial`; it
+  starts under RTX with and without the guard (91 s and 52 s sessions, normal quits).
+- **The installed Workshop content** (738 items with a `.gma`, 23,820 VMTs, read only): 33 materials have a
+  `$fallbackmaterial`; one is a fallback to itself (Gunsmith Reloaded's), none is part of a longer cycle.
+- **Lua chunk names on the C stack**: a legacy add-on's stuck autorun shows as
+  `@addons/nl_stall_test/lua/autorun/nl_stall_test.lua` (plus fragments of its absolute path); the sampled
+  instruction pointer of a JIT-compiled Lua loop lies outside any module. The watchdog's report and message
+  came 90 s after the name stopped changing (the message 98.5 s into the session).
+- **Derma's `DPropertySheet:SetActiveTab`** (`garrysmod/lua/vgui/dpropertysheet.lua` 212-234) calls
+  `OnActiveTabChanged(old, new)` before it sets `m_pActiveTab`: during the callback `GetActiveTab()` is still
+  the old tab. The Advanced Material Editor's workspace switch read it and handed the selection the wrong way.
+- **Wuthering Waves `_N` maps are `Normal_Roughness_Metallic`**: every material instance exported beside
+  Shorekeeper and Chisa names the `_N` texture so. RG normal; alpha roughness (cloth 0.85-1.0, metal dark,
+  skin about 0.35); blue metalness with a dielectric baseline (Shorekeeper's cloth 16-47 of 255), leather
+  around 96-143 and metal parts 176-231. `_ID` maps hold material IDs in green (20-109) and a mask in red;
+  hair has only a 256 x 256 tiling `_HN` detail normal. Chisa's coat family (`Alpha`) has `_D` and `_N` but
+  no `_ID`/`_HM`, and Shorekeeper's coat normal is named `Ahpla_N` by the game.

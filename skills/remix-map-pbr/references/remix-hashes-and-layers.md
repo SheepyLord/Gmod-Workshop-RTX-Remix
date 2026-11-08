@@ -108,7 +108,7 @@ over "RootNode" { over "Looks" { over "mat_0123456789ABCDEF" { over "Shader" {
 | --- | --- | --- |
 | `info:mdl:sourceAsset` | uniform asset | `@AperturePBR_Opacity.mdl@` or `@AperturePBR_Translucent.mdl@`, the runtime's built-in MDLs |
 | `info:mdl:sourceAsset:subIdentifier` | uniform token | the same name without `.mdl` |
-| `inputs:preload_textures` | bool | 0 to stream (Modern House and Backrooms, GBs), 1 to preload (poolrooms, 150 MB) |
+| `inputs:preload_textures` | bool | 0 to stream (Modern House and Backrooms, GBs), 1 to preload (poolrooms, 150 MB). Since runtime patch 0030 (ADR 0103, `rtx.texturemanager.preloadOnFirstDraw`, default True) a preload loads whole in the first frame that draws the material, not when the mod loads: a map's preloaded materials load in its first frames, all at once. Keep GB-size map mods streaming |
 | `inputs:diffuse_texture` | asset, `colorSpace = "auto"` | the albedo DDS as `@./textures/<file>@`; `@@` authors it empty, which a constant diffuse needs |
 | `inputs:normalmap_texture` | asset, `raw` | octahedral BC5; `int inputs:encoding = 0` |
 | `inputs:reflectionroughness_texture`, `inputs:metallic_texture` | asset, `raw` | BC4 |
@@ -132,16 +132,18 @@ ones. Albedo keeps an alpha channel only for translucent or alpha-tested materia
 
 ## What this runtime accepts in USD
 
-The runtime is the user's dxvk-remix-gmod fork on `c6b48ed1` with the remix-1.6.1 merge (this repository's
-`runtime/base.json` and patches; the user's install since 2026-10-25). Its log still says
-`remix-main+c6b48ed1`, because the version string comes from that commit.
+The runtime is the RTX package's: the user's dxvk-remix-gmod fork on `c6b48ed1` with the remix-1.6.1 merge
+plus this repository's patches (`runtime/base.json`, `runtime/patches`; in the user's game since
+2026-10-25), deployed by the native loader under `native-loader\packages\rtx-remix-runtime\`. Its log line
+`DXVK_Remix: remix-main+<hash>` names the commit of the patched tree that build came from (R19: `248fa6ee`
+for the stored build, `b2129b8e` for GitHub's), so it changes with every runtime build.
 
 - **Colour inputs load** (`color3f` constants for materials and lights). `rtx.usd.legacyIgnoreColors`
   (default False) brings back the old fork's behaviour of ignoring them. The older build `384581b1` (before
   2026-10-25) rejected every three-component input ("has unexpected type, using default value") and never
-  loaded `alpha_test_type` or `blend_type`; rpai's notes (`mmd-remix-pbr/references/runtime-notes.md`) still
-  describe that build, and rpai writes only bools, floats and textures. The map pipelines write colours and
-  need a runtime that loads them.
+  loaded `alpha_test_type` or `blend_type` (`mmd-remix-pbr/references/runtime-notes.md` records both
+  builds); rpai writes bools, floats and textures (and an opt-in `sss_radius` colour). The map pipelines write colours and need a
+  runtime that loads them.
 - **Colour constants are decoded as sRGB.** Pass sRGB values (the pipelines' `overrides.json` and
   `materials.json` are sRGB). Linear kelvin colours passed as constants rendered warmer than meant
   (gm_poolrooms' window and panel glow, 2026-10-26).
@@ -159,10 +161,12 @@ The runtime is the user's dxvk-remix-gmod fork on `c6b48ed1` with the remix-1.6.
 
 ## Mod priority and folder names
 
-The runtime keeps its mods sorted by priority (0 for every folder mod) and then by folder path, and for a
-texture hash it returns the first mod that replaces it (`AssetReplacer::getReplacementMaterial` iterating the
-mod set ordered by `Mod::ComparePtrs`; read in the runtime source on 2026-10-31). Path order is
-case-sensitive: `!` < digits < upper case < `_` < lower case < `~`.
+The runtime keeps its mods sorted by priority and then by folder path, and for a texture hash it returns the
+first mod that replaces it (`AssetReplacer::getReplacementMaterial` iterating the mod set ordered by
+`Mod::ComparePtrs`; read in the runtime source on 2026-10-31). Every folder mod has priority 0, except the
+generated fallback mods named in `rtx.gmod.fallbackMods` (default `~gmod_topbr`), which runtime patch 0020
+gives priority 1, after every authored mod whatever the names (ADR 0092). Among the others path order
+decides, case-sensitive: `!` < digits < upper case < `_` < lower case < `~`.
 
 | Folder | What | Order |
 | --- | --- | --- |
@@ -172,13 +176,14 @@ case-sensitive: `!` < digits < upper case < `_` < lower case < `~`.
 | `ai_pbr` | rpai's characters | |
 | `base_mod` | the RTX fixes' base mod (37 MB) | before every `gm_...` and `modern_...` |
 | `gm_br_rtx`, `gm_construct`, `gm_poolrooms_rtx` | map mods (`gm_construct` exists in the user's install; its content unverified) | |
-| `modern_house_rtx`, `rtx_water` | | |
-| `~gmod_topbr` | gmRTX's automatic ToPBR conversion (DDS written at run time) | loses to everything |
+| `modern_house_rtx`, `nl_blood_overhaul_rtx`, `pbr_<name>` (character packs), `rtx_water` | | |
+| `~gmod_topbr` | the RTX fixes' generated materials: ToPBR's world conversion (opt-in, `rtx_topbr_enabled 0` by default) and the imported characters' game maps (DDS written at run time) | a fallback mod: loses to every authored mod (patch 0020); the fixes also skip hashes other mods already replace |
 
-So a lower-case map mod beats ToPBR and loses to AME and to any earlier-sorting mod that replaces the same
-hash: on modern_house five textures (grass, the pool ladder, two kitchen props, one light texture) kept
-other mods' versions (2026-10-27). Name the folder `<map>_rtx` and, before shipping, compare its hashes with
-every other folder in `rtx-remix/mods` (collect the `mat_<HASH>` names of each `materials.usda`).
+So a map mod beats ToPBR whatever its name, and loses to AME and to any earlier-sorting authored mod that
+replaces the same hash: on modern_house five textures (grass, the pool ladder, two kitchen props, one light
+texture) kept other mods' versions (2026-10-27). Name the folder `<map>_rtx` (the map's own name, no author
+or version tag) and, before shipping, compare its hashes with every other folder in `rtx-remix/mods`
+(collect the `mat_<HASH>` names of each `materials.usda`).
 
 The runtime's `publishSearchPaths` comment says "the last mod wins": that is about resolving relative asset
 paths, not about which material replaces a hash. Inside one mod, an earlier sublayer of `mod.usda` is
@@ -202,7 +207,8 @@ keep a look on its map:
 
 - The runtime watches `mod.usda`'s timestamp. Write the DDS and `materials.usda` first, then replace
   `mod.usda` atomically (a temporary file and a rename). The swap takes about a second; with many
-  preloaded textures it lagged about 9 s (rpai). Builds on `c6b48ed1` log no "swapped in" line: check in
+  preloaded textures it lagged about 9 s (rpai, on `384581b1`). Builds on `c6b48ed1` log no "swapped in"
+  line, and `remix-dxvk.log` reaches the disk only when the game exits (RESEARCH.md, after R21): check in
   game.
 - A new mod folder is found only at startup, or with Alt+X → Enhancements → Loaded USD Files → "Rescan Mods
   & Reload USD Stage".
@@ -244,10 +250,13 @@ Remix.
 - **This repository (native loader):** a content package built by `tools/package_content.py` holds
   `native/root/rtx-remix/mods/<mod>/**` (kind `root-files`) and `native/root/garrysmod/addons/<addon>/**`
   (kind `lua-addon`), both `replace-owned` (ADR 0023). The loader deploys them at start-up from a Workshop
-  item, a local archive or a development folder; with loader 0.4.0 or later a content package from any
-  subscribed item deploys without the allowlist (ADR 0027). The folder name stays the mod's name, so the
-  priority rules above apply unchanged. A deployed file that was changed is put back at the next start, the
-  changed copy kept in `native-loader\backup\edits` (ADR 0035): do not hand-edit a deployed mod.
+  item, a local archive or a development folder. A content package from a Workshop item needs no allowlist
+  entry (loader 0.4.0 or later, ADR 0027), but since loader 0.14.0 only an item an account on that
+  computer subscribed to deploys (Steam's `appworkshop_4000.acf` `subscribedby`; ADR 0111): an item a
+  server or a script only downloaded does not. The folder name stays the mod's name, so the priority rules
+  above apply unchanged. A deployed file that was changed is put back at the next start, the changed copy
+  kept in `native-loader\backup\edits` (ADR 0035): do not hand-edit a deployed mod. Packing, checking and
+  uploading: the workshop-content-pack skill.
 - **The fork's startup GMA loader** (`docs/PBR_GMA_LOADER.md`): a startup `d3d9.dll` proxy reads
   `data_static/astra/<map>/rtx/startup.json` (version 1) from GMA addons, turns `.dds.dat` payloads into
   content-addressed `textures/<sha256>.dds` and `mod.usda.dat` into the layer, and publishes

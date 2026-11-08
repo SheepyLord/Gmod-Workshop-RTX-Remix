@@ -695,8 +695,11 @@ function PANEL:OnLocalSyncChanged( material, status, reason )
 end
 
 function PANEL:IsSourceTabActive()
-	return IsValid( self.Tabs ) and self.SourceSheet and IsValid( self.SourceSheet.Tab )
-		and self.Tabs:GetActiveTab() == self.SourceSheet.Tab
+	if not ( IsValid( self.Tabs ) and self.SourceSheet and IsValid( self.SourceSheet.Tab ) ) then return false end
+	-- While OnWorkspaceChanged runs, the sheet being switched to (Derma records it only afterwards).
+	local active = self.SwitchingTo
+	if not IsValid( active ) then active = self.Tabs:GetActiveTab() end
+	return active == self.SourceSheet.Tab
 end
 
 function PANEL:PaintStatus( text, problem )
@@ -736,10 +739,26 @@ function PANEL:SelectSourceMaterial( index )
 	return true
 end
 
+-- R23: Derma calls OnActiveTabChanged before it records newTab as the active tab
+-- (DPropertySheet:SetActiveTab), so the old tab answered every "is the Source sheet
+-- active" below: Material -> Source / VMT kept the Source sheet's earlier material,
+-- and Source / VMT -> Material reselected the old PBR one. The material being edited
+-- now carries over both ways, and the action bar follows the new sheet at once.
 function PANEL:OnWorkspaceChanged( oldTab, newTab )
-	if self:IsSourceTabActive() then
-		self:SelectSourceMaterial( self.Selected or self.SourceDisplaySelected or 0 )
-	elseif oldTab == ( self.SourceSheet and self.SourceSheet.Tab ) then
+	self.SwitchingTo = newTab
+	local ok, problem = pcall( self.ApplyWorkspaceChange, self, oldTab, newTab )
+	self.SwitchingTo = nil
+	if not ok then ErrorNoHaltWithStack( problem ) end
+end
+
+function PANEL:ApplyWorkspaceChange( oldTab, newTab )
+	local sourceTab = self.SourceSheet and self.SourceSheet.Tab
+	if newTab == sourceTab then
+		local index = self.Selected or self.SourceDisplaySelected or 0
+		self:SelectSourceMaterial( index )
+		local line = self.MaterialLines and self.MaterialLines[ index ]
+		if IsValid( line ) and IsValid( self.MaterialList ) then self.MaterialList:SelectItem( line ) end
+	elseif oldTab == sourceTab then
 		local index = self.SourceDisplaySelected or self.Selected
 		if index ~= nil then
 			local canonical = self:CanonicalSlot( index )

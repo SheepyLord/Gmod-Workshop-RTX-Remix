@@ -178,3 +178,13 @@ Each with the reason it lost.
 - [0129: The upscaling hint also shows at the top right for fifteen seconds](0129-the-upscaling-hint-also-at-the-top-right.md)
   (R22, item 52.2; amends 0117): a notice like the Model Hotloader's beside the sandbox hint, shown even with
   `cl_showhints 0`; the RTX tab's checkbox turns both off.
+- [0130: An engine guard for Lua start-up](0130-an-engine-guard-for-lua-start-up.md) (R23, the user's items 6
+  and 7): a package module cuts material fallbacks that lead back into their own chain (ARC9 Gunsmith
+  Reloaded's `particle/warp5_explosion`, which stopped RTX starts at "Starting Lua"), and a start-up watchdog
+  names the add-on file a stuck start is in; no loader change.
+- [0131: Wuthering Waves maps give roughness and metalness](0131-wuthering-waves-roughness-and-metalness.md) (R23, the
+  user's item 1; changes R11-A's "WuWa normals only"): the `_N` map is the game's Normal_Roughness_Metallic map (alpha
+  roughness, blue metalness from 0.55); a family is known by its character and pairs by name or by hand, never by UV alone.
+- [0132: A progress notice while imported characters' PBR converts](0132-progress-while-imported-pbr-converts.md) (R23,
+  item 3): the fixes count the materials still converting, the companion shows a bar after 1.5 s; the top-right notice is
+  one shared module.

@@ -1,0 +1,79 @@
+{
+  "doc": "Saber (SaberVer1.0.pmx, E:\\G\\Upload\\Saber_lily_rc\\1_PMX\\星穹铁道-SaberVer1.0), Model Hotloader asset f87eb9f3, ragdoll in the active session, reviewed 2026-11-06: aggressive style with the values accepted on Evernight (cloth 0.65 / rough_ai 0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32, hair 0.38), applied without AABB at the user's request. 44 materials, 18 sheets; hashes live after showing the hidden parts once (heels, 附件, clothes2 became live; 黑.jpg, 淚.png, Shy.png and inmon2.png stay predicted: overlays that no part draws). What each part is for: OUTFIT (衣.png 4096x2048, navy and blue silk with gold piping, white lace frills and silver-white plate armour): fabrics (衣 garment, 袖子 sleeves, 裙 skirt, 后结带 back lacing, 披肩 cape, 蝴蝶结 bow, 发饰 hair ornament) cloth; the gold piping, buttons and cape crosses painted onto them (hue 26-46, sat 0.25-0.70, value 0.55-0.98) become metal (satin 0.32, the painted-gold standard) by a region rule; 34 肩甲 (shoulder armour, white-silver plates with blue enamel swirls, sat 0.08 value 0.71) is metal, with its blue enamel (hue 200-250, sat >= 0.35) gem, while the white frills of the skirt stay cloth (a white colour rule would have chromed them); 36 胸罩1 (a plain white rigid bust cup) leather, patent, 37 胸罩2 (white lacing and navy corset) cloth; 41 靴 boots leather. HEELS (High heels_BaseColor.png): authored Substance maps beside it (Normal, Roughness, Metallic, Height), found by name, so no AI. STOCKINGS (絲襪.png 8192x4096, kept at full size by Model Hotloader, mmd/tf/): 9 stockings 0.42, sheet kept at its source size (a 4096 cap would halve the legs and publish a smaller albedo than the game's). 附件.png (predicted before showing, now live): 20 乳贴 is a printed black adhesive sticker with white lettering: leather (satin vinyl); 21 创口贴 a skin-coloured plaster: cloth. 附件2.png 10/11 underwear cloth. clothes2.png (25 乳环+) is a baked-chrome metal atlas (dark blue plates, gold mesh): metal. The gag, blindfold and body-jewellery metals (14, 15, 19, 22-24) are untextured and cannot be overridden. ROPES, GAG, BLINDFOLD, belly-scale decal and the tattoo are byte-identical to sheets other layers supply. SKIN: Body.png (8192, shared with the tongue 舌头, 3, pinned to skin so that the sheet stays whole and is left to Remix instead of being republished at 4096), the belly-scale decal (8, 進肚條, like Ruan Mei's and Cyrene's) and the tattoos stay as Remix renders them, per the standard.",
+  "include": [
+    "../aggressive.json"
+  ],
+  "presets": {
+    "_materials": {
+      "3": "skin",
+      "8": "skin",
+      "20": "leather",
+      "34": "metal",
+      "36": "leather"
+    },
+    "cloth": {
+      "rough": 0.65,
+      "rough_ai": 0.35,
+      "normal": 2.0
+    },
+    "leather": {
+      "rough": 0.25,
+      "rough_ai": 0.4
+    },
+    "stockings": {
+      "rough": 0.42,
+      "rough_ai": 0.4
+    },
+    "metal": {
+      "rough": 0.32
+    },
+    "hair": {
+      "rough": 0.38,
+      "rough_ai": 0.4
+    }
+  },
+  "regions": [
+    {
+      "texture": "衣.png",
+      "within": [
+        "cloth",
+        "leather"
+      ],
+      "class": "metal",
+      "hue": [
+        26,
+        46
+      ],
+      "sat": [
+        0.25,
+        0.7
+      ],
+      "val": [
+        0.55,
+        0.98
+      ],
+      "doc": "gold piping, buttons and cape crosses painted onto the navy fabrics and boots"
+    },
+    {
+      "texture": "衣.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        200,
+        250
+      ],
+      "sat": [
+        0.35,
+        1.0
+      ],
+      "doc": "blue enamel swirls on the white-silver shoulder armour"
+    }
+  ],
+  "textures": {
+    "絲襪.png": {
+      "max_size": "source"
+    }
+  }
+}

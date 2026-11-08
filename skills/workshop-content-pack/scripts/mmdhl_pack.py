@@ -24,8 +24,12 @@ Usage (Windows only: the codec is cabinet.dll's XPRESS Huffman, as in Model Hotl
   <asset>           the model's asset id: 64 hex digits, or a unique prefix of 8 or more
   <out folder>      the add-on folder to write, named mmdhl_<name>; must not exist (see --replace)
   <title>           the package title Model Hotloader shows, at most 128 bytes
-  <item name>       the model's display name in Model Hotloader's library, at most 100 bytes; use
-                    plain ASCII ("Robin"), see references/model-hotloader-package.md
+  <item name>       the model's display name in Model Hotloader's library, at most 100 bytes: the
+                    character's own name in plain ASCII ("Robin"), see references/model-hotloader-package.md
+
+Names: the title, every item name, --default-preset-name and the out folder's name must carry no game,
+version, author, rating or pack tag (model_names.py, the user's rule of 2026-11-08). A tagged one is
+refused before anything is read or written: "Chisa", not "鸣潮-千咲"; "Alf", not "阿芙2.0".
   <author>          at most 128 bytes
   <description file> UTF-8 text, at most 8000 bytes
   <release json>    a JSON file with "release" and "build" for the package's generator field
@@ -54,6 +58,10 @@ import shutil
 import struct
 import sys
 import time
+
+# model_names.py sits beside this script; python -I leaves the script's folder off sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import model_names  # noqa: E402
 
 MAGIC = b"MMDPACK2"
 HEADER_BYTES = 80            # magic (8), raw size (u64), the SHA-256 as 64 hex digits
@@ -393,7 +401,26 @@ def looks_like_package_folder(folder: str) -> bool:
 
 # ---- build -------------------------------------------------------------------------------------
 
+def check_names(args) -> None:
+    """Refuse, before anything is read or written, a title, item name, preset name or folder name that
+    carries a game, version, author, rating or pack tag (model_names.py; the user, 2026-11-08)."""
+    checks = [("title", args.title, "title"), ("item name", args.name, "name")]
+    for spec in args.item:
+        asset, sep, name = spec.partition("=")
+        if not sep or not asset or not name:
+            raise PackError("--item %s: expected ASSET=NAME" % spec)
+        checks.append(("--item %s name" % asset, name, "name"))
+    rename = args.default_preset_name if args.default_preset_name is not None else os.environ.get("MMDHL_DEFAULT_PRESET_NAME")
+    if rename:
+        checks.append(("default preset name", rename, "title"))
+    checks.append(("out folder", os.path.basename(os.path.normpath(os.path.abspath(args.out))), "slug"))
+    problems = [p for p in (model_names.refusal(label, value or "", kind) for label, value, kind in checks) if p]
+    if problems:
+        raise PackError("\nerror: ".join(problems))
+
+
 def build(args) -> dict:
+    check_names(args)
     cache = os.path.abspath(args.cache)
     if not os.path.isdir(os.path.join(cache, "assets")):
         raise PackError("%s has no assets folder: give <game root>\\garrysmod\\data\\mmd_hotloader" % cache)
@@ -522,7 +549,7 @@ def main(argv=None) -> int:
     ap.add_argument("asset", help="asset id or a unique prefix of 8+ hex digits")
     ap.add_argument("out", help="the add-on folder to write (mmdhl_<name>)")
     ap.add_argument("title", help="package title, at most 128 bytes")
-    ap.add_argument("name", help="the model's display name, at most 100 bytes (plain ASCII recommended)")
+    ap.add_argument("name", help="the model's display name, at most 100 bytes: the character's own name, plain ASCII, no tags")
     ap.add_argument("author", help="package author, at most 128 bytes")
     ap.add_argument("description_file", help="UTF-8 text file, at most 8000 bytes")
     ap.add_argument("release_json", nargs="?", help="JSON with release and build (default: the install's mmdhl-native-release.json)")

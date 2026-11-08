@@ -408,7 +408,7 @@ def _to8(array: np.ndarray) -> np.ndarray:
 
 def load_or_make_raw(source: Path, game_size: tuple[int, int], settings: config.Settings, runner,
                      folder: Path, key: str, log=print, covered: np.ndarray | None = None,
-                     normal_map: Path | None = None) -> RawMaps:
+                     normal_map: Path | None = None, extra_authored: dict[str, Path] | None = None) -> RawMaps:
     """Run the AI models, or reuse their cached 8-bit outputs.
 
     Fresh results are quantised exactly as the cache stores them before use,
@@ -417,6 +417,10 @@ def load_or_make_raw(source: Path, game_size: tuple[int, int], settings: config.
     gutters of the normal, roughness and height models' input; see gutter_fill.
     ``normal_map`` (a per-texture setting) replaces the AI normals with the model's own
     relief (relief_normals); the class normal strength still scales it.
+    ``extra_authored`` (the per-texture ``rough_map`` / ``metal_map`` settings, as {"roughness": path,
+    "metallic": path}) joins the companion maps found beside the source: a name that carries no
+    ``_BaseColor``-style suffix, such as a converted game texture, cannot be found by name.
+    With a normal map and an authored roughness there is nothing left for the AI to make.
     """
     folder.mkdir(parents=True, exist_ok=True)
     signature = raw_signature(source, settings)
@@ -440,7 +444,7 @@ def load_or_make_raw(source: Path, game_size: tuple[int, int], settings: config.
         albedo = prepare_albedo(source, game_size, settings, runner, log)
         Image.fromarray(albedo.rgba, "RGBA").save(path["albedo"], compress_level=1)
 
-    authored = find_authored(source)
+    authored = {**find_authored(source), **(extra_authored or {})}
     size = albedo.rgba.shape[1::-1]
     if covered is not None and covered.shape != albedo.rgba.shape[:2]:
         raise ValueError(f"UV coverage {covered.shape[::-1]} does not match the albedo {size}")
@@ -454,7 +458,7 @@ def load_or_make_raw(source: Path, game_size: tuple[int, int], settings: config.
 
     if authored:
         log(f"  authored maps found: {', '.join(sorted(authored))}")
-    if "normal" in authored and "roughness" in authored:
+    if ("normal" in authored or normal_map is not None) and "roughness" in authored:
         normal8 = rough8 = None
     elif path["normal"].exists() and path["rough"].exists():
         normal8 = np.asarray(Image.open(path["normal"]).convert("RGB"))

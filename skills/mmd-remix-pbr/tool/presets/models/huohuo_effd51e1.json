@@ -1,0 +1,118 @@
+{
+  "doc": "HuoHuo (藿藿.pmx, H:\\BACKUP_20260815\\Modding\\PBR\\星穹铁道_藿藿\\星穹铁道—藿藿; asset effd51e1), ragdoll in the active session, reviewed 2026-11-08: aggressive style with the values accepted on Evernight (cloth 0.65 / rough_ai 0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32, hair 0.38), applied without AABB. 57 materials; hashes live after showing the hidden parts once (颜赤.png stays predicted). The ropes, gag, gag strap and blindfold, tongue, beads, expression and blush are byte-identical to sheets other layers already supply, so this layer was generated with --only on HuoHuo's own sheets: outfit, face, stockings, hair and tail flame. What each part is for: OUTFIT (衣服.png 4096x2048, a teal-and-white Xianzhou robe with a dark slate coat, cloud-patterned shawl, talisman hat and her spirit tail): fabrics (31 lining, 32 外套 coat, 33 robe, 34 sash, 35 披肩 shawl, 36 trim, 37/38 collar, 41 shorts, 45/46 hat) cloth; 42 袜子 and 44 袜子饰 are her thick white cotton socks and their cuffs (the stockings rule took them for nylon): cloth; 43 鞋子 shoes leather. 39 脖饰铁 and 40 衣饰铁 are the carved ivory-and-pale-brass fittings (hue 29-37, sat ~0.15, value ~0.77) and the gold creature-shaped charm (hue 42, value 0.89): metal at satin 0.32; inside them the turquoise yin-yang medallion on the collar (hue 182, value 0.95: as metal it would be cyan chrome) is jade: gem, and the small crimson tabs leather. 47 尾巴 is Tail, the ghost sealed in her: the solid cyan spirit body is pinned to the spare wet class, which this sheet redefines as soft and faintly glowing (emissive 0.2), except the yellow paper talisman stuck on it (cloth), and 48/49 尾巴火焰 (the translucent cyan flames around it, 尾巴火焰.png) glow at emissive 1.0 with little relief. STOCKINGS (丝袜.png, 6144x4096 with a white and a black pair, kept at source size so the albedo is not republished smaller than the game's) 0.42. HAIR (头发.png, mint-green) 0.38. FACE (脸.png) anime-safe. SKIN: Body.png, the neck (2), the belly scale decal (24 刻度表, pinned skin) and the tattoo stay as Remix renders them, per the standard; 15 乳贴 is the 7680x7680 pasties sheet Topaz's layer also leaves to Remix (same hash): pinned skin.",
+  "include": [
+    "../aggressive.json"
+  ],
+  "presets": {
+    "_materials": {
+      "15": "skin",
+      "24": "skin",
+      "42": "cloth",
+      "44": "cloth",
+      "47": "wet",
+      "48": "default",
+      "49": "default"
+    },
+    "cloth": {
+      "rough": 0.65,
+      "rough_ai": 0.35,
+      "normal": 2.0
+    },
+    "leather": {
+      "rough": 0.25,
+      "rough_ai": 0.4
+    },
+    "stockings": {
+      "rough": 0.42,
+      "rough_ai": 0.4
+    },
+    "metal": {
+      "rough": 0.32
+    },
+    "hair": {
+      "rough": 0.38,
+      "rough_ai": 0.4
+    },
+    "rubber": {
+      "rough": 0.25,
+      "rough_ai": 0.3
+    }
+  },
+  "regions": [
+    {
+      "texture": "衣服.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        165,
+        205
+      ],
+      "sat": [
+        0.3,
+        1.0
+      ],
+      "val": [
+        0.6,
+        1.0
+      ],
+      "doc": "the turquoise jade yin-yang medallion on the collar"
+    },
+    {
+      "texture": "衣服.png",
+      "within": [
+        "metal"
+      ],
+      "class": "leather",
+      "hue": [
+        335,
+        360
+      ],
+      "sat": [
+        0.4,
+        1.0
+      ],
+      "doc": "small crimson lacquer tabs on the fittings"
+    },
+    {
+      "texture": "衣服.png",
+      "within": [
+        "wet"
+      ],
+      "class": "cloth",
+      "rect": [
+        0.17,
+        0.09,
+        0.21,
+        0.32
+      ],
+      "doc": "the yellow paper talisman stuck on the tail (part of 47's islands): paper, so it does not glow with Tail"
+    }
+  ],
+  "textures": {
+    "衣服.png": {
+      "presets": {
+        "wet": {
+          "rough": 0.55,
+          "rough_ai": 0.3,
+          "normal": 0.8,
+          "emissive": 0.2
+        }
+      }
+    },
+    "丝袜.png": {
+      "max_size": "source"
+    },
+    "尾巴火焰.png": {
+      "presets": {
+        "default": {
+          "rough": 0.6,
+          "rough_ai": 0.2,
+          "normal": 0.3,
+          "emissive": 1.0
+        }
+      }
+    }
+  }
+}

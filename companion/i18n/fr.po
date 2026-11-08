@@ -8,6 +8,20 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#, c-format
+msgid "%s, in the add-on %s"
+msgstr "%s, dans l'addon %s"
+
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#, c-format
+msgid ""
+"The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
+"If that happens again, disable that add-on."
+msgstr ""
+"Le dernier lancement de Garry's Mod n'a pas dépassé le démarrage de Lua. Il s'est arrêté dans %s.\n"
+"Si cela se reproduit, désactivez cet addon."
+
 #: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
 #, c-format
 msgid "Effect categories: %d observed materials"
@@ -953,6 +967,15 @@ msgstr "Importez des fichiers VMD et gérez votre bibliothèque de mouvements et
 msgid "Open in window"
 msgstr "Ouvrir dans une fenêtre"
 
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#, c-format
+msgid "Preparing PBR materials for imported characters: %d of %d."
+msgstr "Préparation des matériaux PBR des personnages importés : %d sur %d."
+
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+msgid "PBR materials for imported characters are ready."
+msgstr "Les matériaux PBR des personnages importés sont prêts."
+
 #: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
 msgid ""
 "Upscaling and frame generation are off.\n"
@@ -1002,6 +1025,25 @@ msgstr ""
 "Génération d’images désactivée.\n"
 "RTX Remix > Paramètres Remix, ou Alt+X :\n"
 "Choisissez Génération d'images: FSR 3."
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:8
+msgid "Garry's Mod is not finishing its start"
+msgstr "Garry's Mod ne termine pas son démarrage"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:9
+#, c-format
+msgid ""
+"Garry's Mod has spent 90 seconds on one add-on file while starting Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"If the game does not go on, that add-on is stuck: end the game and disable the add-on that has this file. The details are in garrysmod\\data\\native-loader\\startup-stall.json."
+msgstr ""
+"Garry's Mod est resté 90 secondes sur un même fichier d'addon pendant le démarrage de Lua :\n"
+"\n"
+"%s\n"
+"\n"
+"Si le jeu ne continue pas, cet addon est bloqué : quittez le jeu et désactivez l'addon qui contient ce fichier. Les détails sont dans garrysmod\\data\\native-loader\\startup-stall.json."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:44
 msgid "Welcome"

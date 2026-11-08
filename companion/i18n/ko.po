@@ -8,6 +8,20 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#, c-format
+msgid "%s, in the add-on %s"
+msgstr "%s(애드온 %s)"
+
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#, c-format
+msgid ""
+"The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
+"If that happens again, disable that add-on."
+msgstr ""
+"지난번 Garry's Mod 시작이 Lua 시작 단계를 넘지 못하고 %s에서 멈췄습니다.\n"
+"다시 발생하면 그 애드온을 비활성화하세요."
+
 #: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
 #, c-format
 msgid "Effect categories: %d observed materials"
@@ -953,6 +967,15 @@ msgstr "VMD 파일을 가져오고 모션 라이브러리와 재생을 관리합
 msgid "Open in window"
 msgstr "창으로 열기"
 
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#, c-format
+msgid "Preparing PBR materials for imported characters: %d of %d."
+msgstr "가져온 캐릭터의 PBR 머티리얼을 준비하는 중: %d / %d."
+
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+msgid "PBR materials for imported characters are ready."
+msgstr "가져온 캐릭터의 PBR 머티리얼이 준비되었습니다."
+
 #: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
 msgid ""
 "Upscaling and frame generation are off.\n"
@@ -1002,6 +1025,25 @@ msgstr ""
 "프레임 생성이 꺼져 있습니다.\n"
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 프레임 생성: FSR 3."
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:8
+msgid "Garry's Mod is not finishing its start"
+msgstr "Garry's Mod 시작이 끝나지 않습니다"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:9
+#, c-format
+msgid ""
+"Garry's Mod has spent 90 seconds on one add-on file while starting Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"If the game does not go on, that add-on is stuck: end the game and disable the add-on that has this file. The details are in garrysmod\\data\\native-loader\\startup-stall.json."
+msgstr ""
+"Garry's Mod가 Lua를 시작하는 동안 한 애드온 파일에서 90초째 멈춰 있습니다:\n"
+"\n"
+"%s\n"
+"\n"
+"게임이 계속되지 않으면 그 애드온이 멈춘 것입니다. 게임을 종료하고 이 파일이 있는 애드온을 비활성화하세요. 자세한 내용은 garrysmod\\data\\native-loader\\startup-stall.json에 있습니다."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:44
 msgid "Welcome"

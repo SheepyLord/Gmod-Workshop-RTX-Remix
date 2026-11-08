@@ -25,17 +25,29 @@ python -I scripts\mmdhl_pack.py <cache> cf3eec2f "$B\mmdhl_evernight_march7th" "
 |---|---|
 | `cache` | `<game root>\garrysmod\data\mmd_hotloader` of the install that holds the import. Read only |
 | `asset` | the model's asset id: 64 hex digits or a unique prefix of 8 or more (`rpai` keys end in the first 8) |
-| `out` | the add-on folder to write. Name it `mmdhl_<name>`, lowercase ASCII, no `r18`. Must not exist |
-| `title` | the package title Model Hotloader shows; at most 128 bytes |
-| `name` | the model's display name in the library; at most 100 bytes. Give a plain ASCII name (`Robin`): Model Hotloader shows English readers the PMX's English name instead of a non-ASCII one |
+| `out` | the add-on folder to write. Name it `mmdhl_<name>`, lowercase ASCII, the character's name only. Must not exist |
+| `title` | the package title Model Hotloader shows; at most 128 bytes: `<Name> (Model Hotloader + RTX PBR)` |
+| `name` | the model's display name in the library; at most 100 bytes. The character's own name in plain ASCII (`Robin`, `Chisa`): Model Hotloader shows English readers the PMX's English name instead of a non-ASCII one |
 | `author` | at most 128 bytes |
 | `description_file` | UTF-8 text (a BOM is fine), at most 8000 bytes |
-| `release_json` (optional) | JSON with `release` and `build` for the manifest's `generator`. Default: `<game root>\garrysmod\lua\bin\mmdhl-native-release.json` beside the cache (2.3.1, `ecd7c426c0b5-20261026T225907Z` in all three installs on 2026-10-31) |
+| `release_json` (optional) | JSON with `release` and `build` for the manifest's `generator`. Default: `<game root>\garrysmod\lua\bin\mmdhl-native-release.json` beside the cache, which the loader deploys from the RTX package (its record in this repository, `packages\model-hotloader\bin\mmdhl-native-release.json`, says 2.3.1, build `1e4cb10d1a76-20261105T224511Z`, on 2026-11-08; the 2026-10-31 installs had `ecd7c426c0b5-20261026T225907Z`). Installers do not check it |
 | `--item ASSET=NAME` | another character in the same package (repeatable) |
 | `--tag TAG` | `addon.json` tag, at most two of GMod's (default `cartoon`) |
 | `--default-preset-name NAME` | rename the library's default bodygroup preset (only that one). The environment variable `MMDHL_DEFAULT_PRESET_NAME` does the same (the Robin session's form) |
 | `--replace` | replace an earlier package folder at `out` (refused for any other folder) |
 | `--allow-game-install` | allow `out` inside a game install. Only when the user asked for that |
+
+## Names (refused before anything is read or written)
+
+The user's rule (2026-11-08): a model's recorded name is the character's own name only. Before it
+touches the cache, the script passes the title, the item name, every `--item` name, the default
+preset name (`--default-preset-name` or `MMDHL_DEFAULT_PRESET_NAME`) and the `out` folder's name
+through [model_names.py](model_names.py.md). A game or franchise tag (`鸣潮-千咲`, `HSR Robin`,
+`[Arknights] Texas`), a version or edition tag (`阿芙2.0`, `Alf 合体7`, `Furina v2`), an author tag
+(`by_mobius`, `Tda式`), a rating or format tag (`Robin R18`, `New MMD Model`), a pack word in an item
+name (`Chisa RTX`) or such a tag in the folder name (`mmdhl_robin_r18`) ends the run with exit 1 and
+one `error:` line per name on stderr. Give the character's name as the user uses it (`Chisa`,
+`Guinaifen`, `Alf`).
 
 ## What it reads
 
@@ -71,11 +83,15 @@ Output: one line per character, a `bodygroups:` line, one line per packed file
 - Writes nothing but `out`. Refuses an `out` inside the cache, or inside a game install (a folder with
   `garrysmod\` and `gmod.exe`) unless `--allow-game-install`.
 - Each run makes a new random package id, as Model Hotloader's exporter does. Harmless for players.
-- Windows only (`cabinet.dll`). Runs with `python -I` (standard library only).
+- Windows only (`cabinet.dll`). Runs with `python -I` (standard library only); it puts its own folder
+  on `sys.path` for `model_names.py`.
 
 ## Exit codes
 
-0 built; 1 refused or failed (the reason on stderr, nothing left behind); 2 bad command line.
+0 built; 1 refused or failed (a tagged name, or another reason, on stderr; nothing left behind);
+2 bad command line.
+
+Tests: [test_names.py](test_names.py.md) (the name refusal; packing itself was verified by hand, below).
 
 ## Verified (2026-10-31)
 
@@ -92,4 +108,4 @@ Output: one line per character, a `bodygroups:` line, one line per packed file
 Written for this user by Claude in the Guinaifen session (2026-10-29), extended in the Robin session
 (2026-10-30: preset arrays, `MMDHL_DEFAULT_PRESET_NAME`, the release file), tidied for this skill
 (2026-10-31: option parsing, asset prefixes, `--item`, arm parts, terms limits, input limits, atomic
-output, `--replace`, the game-install guard). Not third-party code.
+output, `--replace`, the game-install guard); the name refusal added 2026-11-08. Not third-party code.

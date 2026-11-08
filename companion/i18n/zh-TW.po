@@ -8,6 +8,20 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#, c-format
+msgid "%s, in the add-on %s"
+msgstr "%s（附加元件 %s）"
+
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#, c-format
+msgid ""
+"The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
+"If that happens again, disable that add-on."
+msgstr ""
+"上次啟動 Garry's Mod 時未能完成 Lua 啟動，停在了 %s。\n"
+"如果再次發生，請停用該附加元件。"
+
 #: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
 #, c-format
 msgid "Effect categories: %d observed materials"
@@ -953,6 +967,15 @@ msgstr "匯入 VMD 檔案，管理動作庫與播放。"
 msgid "Open in window"
 msgstr "在視窗中開啟"
 
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#, c-format
+msgid "Preparing PBR materials for imported characters: %d of %d."
+msgstr "正在為匯入的角色準備 PBR 材質：%d / %d。"
+
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+msgid "PBR materials for imported characters are ready."
+msgstr "匯入角色的 PBR 材質已就緒。"
+
 #: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
 msgid ""
 "Upscaling and frame generation are off.\n"
@@ -1002,6 +1025,25 @@ msgstr ""
 "影格生成已關閉。\n"
 "RTX Remix > Remix 設定，或按 Alt+X：\n"
 "選擇畫格生成: FSR 3。"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:8
+msgid "Garry's Mod is not finishing its start"
+msgstr "Garry's Mod 未能完成啟動"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:9
+#, c-format
+msgid ""
+"Garry's Mod has spent 90 seconds on one add-on file while starting Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"If the game does not go on, that add-on is stuck: end the game and disable the add-on that has this file. The details are in garrysmod\\data\\native-loader\\startup-stall.json."
+msgstr ""
+"Garry's Mod 啟動 Lua 時已在同一個附加元件檔案上停留了 90 秒：\n"
+"\n"
+"%s\n"
+"\n"
+"如果遊戲沒有繼續，表示該附加元件卡住了：請結束遊戲，並停用含有此檔案的附加元件。詳細資訊在 garrysmod\\data\\native-loader\\startup-stall.json 中。"
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:44
 msgid "Welcome"

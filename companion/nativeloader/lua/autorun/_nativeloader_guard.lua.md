@@ -1,5 +1,20 @@
 # _nativeloader_guard.lua
 
+R23 ([ADR 0130](../../../../docs/decisions/0130-an-engine-guard-for-lua-start-up.md)) adds three companion
+paths to the bundled-source inventory (`lua/autorun/!!!!nativeloader_engine_guard.lua`,
+`lua/nativeloader/notice.lua`, `lua/nativeloader/engine_guard_words.lua`) and one step after the
+installation decision, outside the late multiplayer route: `pcall(require, "nlengineguard")`, the engine
+guard (a material fallback that leads back into its own chain stops the game at "Starting Lua" under RTX)
+and the start-up watchdog. On a remote server this early view is the only companion code the client realm
+runs, so it loads the module here before any add-on's autorun. It makes the module's one `SetMessage` call,
+with the words from [`nativeloader/engine_guard_words.lua`](../nativeloader/engine_guard_words.lua.md) where
+this game can include it (a local game; a remote start keeps the module's English), and removes the function
+from the table, so no server's Lua sets the text of a native message. `OnGamemodeLoaded`/`PostGamemodeLoaded`
+bound the watch (`StartupDone(150)`), `Initialize` and the first tick end it (removing
+`native-loader/startup-stall.json` when the start was reported and went on). The statement below that no
+require is needed holds for the render guard itself: without the module, nothing else changes. In a local
+game [`!!!!nativeloader_engine_guard.lua`](!!!!nativeloader_engine_guard.lua.md) does the same.
+
 R20-B registers the new shipped `lua/autorun/client/nativeloader_upscaling_hint.lua` in the exact
 bundled-source inventory. This single inventory line is required by the repository's completeness
 check whenever a companion file is added; no guard function, wildcard or render policy changes.

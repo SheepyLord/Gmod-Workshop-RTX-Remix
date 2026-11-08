@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) as this user's gm_poolrooms, Backrooms and modern_house remasters were made. Extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height) with the rpai models, compose per-class recipes, build a Remix mod of mat_HASH USD layers keyed by texture hashes checked live, and add a map-only Lua addon with Remix API lights on the map's fixtures, the physical sky, mirrors, glass, water, caustics, scoped settings and visibility for path tracing; then tour, compare to stock, measure frame and load times, package. Use this whenever a map should look PBR, path-traced or RTX-remastered, map textures need normal, roughness, metal, height or emissive maps, or the user wants a Remix mod, Remix lights, sky, mirrors, water or caustics for a map, fixes for map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, a map before/after or packaging. For MMD characters use mmd-remix-pbr.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms and modern_house remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), build a Remix mod of mat_HASH layers keyed by texture hashes checked live, and add a map-only Lua add-on with Remix API lights, the physical sky, mirrors, glass, water, caustics, scoped settings and visibility for path tracing; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need normal, roughness, metal, height or emissive maps, or the task is a map's Remix mod, lights, sky, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload follows workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -61,6 +61,9 @@ Read the references when you reach their stage:
   user's decision.
 - **Licence of the tools.** The fork is GPL-2.0. A new map's pipeline is a copy of the fork's scripts on a
   branch of the fork; never copy fork code into this MIT repository.
+- **Names.** A remaster, its folders (`<map>_rtx`), package id (`<map>-rtx`) and titles carry the map's
+  own name only: no author, version or uploader tag (the user's naming rule of 2026-11-08, written for
+  characters; `check_pack.py` refuses such tags in ids and titles).
 - **Never force `r_forcehwlight 1` or `r_forcehwskin 1`.** The first put skinned models in bind pose on
   modern_house (R3-016), the second drew player and NPC models as faces without bodies (`lessons.md`).
 - **Privacy.** Never search the user's `console.log`; read only what your own session wrote, from the byte
@@ -79,7 +82,7 @@ Read the references when you reach their stage:
 | PBRify_Remix v1.7.2 weights (CC0) | `%USERPROFILE%\.rpai\models\pbrify`: `4x-PBRify-UpscalerV4.safetensors` (DAT), `4x-PBRify_UpscalerSPANV4.pth`, `1x-PBRify_NormalV3.pth`, `1x-PBRify_RoughnessV2.pth`, `1x-PBRify_Height.pth` | the five files exist |
 | rpai's `ModelRunner` | `%USERPROFILE%\.claude\skills\mmd-remix-pbr\tool` | set `MHRTX_RPAI` (or `BRRTX_RPAI`, `POOLRTX_RPAI`) to it; the scripts' default `H:\BACKUP_20260815\Modding\ipg\!GMRTX_PBR_Test\tool` holds an identical `rpai/ai.py` (compared 2026-10-31) |
 | NVTT exporter | `C:\Program Files\NVIDIA Corporation\RTX Remix\exts\lightspeed.trex.app.resources\deps\tools\nvtt\nvtt_export.exe`, hard-coded in `texlib.py` | the file exists |
-| An RTX session | the PoC with the native loader and the RTX package (Workshop 3829070317) | gmRTX's Lua API (`RemixLight`, `RemixConfig`, `RemixMaterial`), the `rtx_agent` and `niknaks` add-ons, the fixes module with `rtx_patch_vis_pas`, the runtime on `c6b48ed1` (1.6.1 merge) |
+| An RTX session | the PoC with the native loader and the RTX package (Workshop 3829070317) | gmRTX's Lua API (`RemixLight`, `RemixConfig`, `RemixMaterial`), the `rtx_agent` and `niknaks` add-ons, the fixes module with `rtx_patch_vis_pas`, the package's runtime (the fork's `c6b48ed1`, its 1.6.1 merge, with the repository's patches; the log's `remix-main+<hash>` names the patched build, not `c6b48ed1`) |
 | The map | subscribed (ask first) | `H:\SteamLibrary\steamapps\workshop\content\4000\<id>\*.gma` |
 
 What the map pipelines reuse from rpai: the venv, the PBRify weights, its tiled `ModelRunner` (overlapping
@@ -185,11 +188,13 @@ other two maps' equivalents are in `references/pipeline.md`.
     where you may restart) prints where the load time goes.
 17. **Docs and package.** Write `docs/<MAP>_RTX.md` in the fork (what changes, performance table, loading,
     before/after, install, console commands, layout, rebuild table) with `docs/<map>_rtx/{gallery,compare}`.
-    Package only when the user asks, as a native-loader content package from this repository:
-    `python tools\package_content.py --id <map>-rtx --name "<Map> RTX" --requires-remix --addon <addon
+    Package only when the user asks, as a native-loader content package from this repository, named after
+    the map only (no author or version tag):
+    `python -I tools\package_content.py --id <map>-rtx --name "<Map> RTX" --requires-remix --addon <addon
     folder> --mod <mod folder> --title ... --type effects --tag scenic --gma out\packages\<map>-rtx.gma --link`,
-    checked with `nlctl manifest`. A hidden Workshop test item (`gmpublish create -addon <gma> -icon
-    <512x512 jpg>` from a game root with `steam_appid.txt`) only on the user's request; never public.
+    checked with `nlctl manifest` and the workshop-content-pack skill's `check_pack.py`. A hidden Workshop
+    test item only on the user's request, never public, by that skill's procedure; players get it only by
+    subscribing (loader 0.14.0, ADR 0111).
 
 ## Standards and decisions (with the numbers)
 
@@ -232,7 +237,10 @@ calling them standards for a new map):
 - **Glass:** thin-walled for brush panes (IOR 1.52, thickness 0.25), or an open volume turns emerald;
   mirrors metallic 1, roughness 0, on a tag texture.
 - **DDS:** NVTT `normal` quality; content-named files; `preload_textures 0` (streaming) for GB-size mods,
-  1 for the 150 MB poolrooms mod.
+  1 for the 150 MB poolrooms mod. Since runtime patch 0030 a preload loads whole in the first frame that
+  draws it (not at mod load), so a preloaded map mod's cost lands in the map's first frames.
+- **Precedence:** an authored map mod always beats the RTX fixes' generated `~gmod_topbr` (runtime patch
+  0020); ToPBR's world conversion stays opt-in (`rtx_topbr_enabled 0`).
 
 ## Commands
 

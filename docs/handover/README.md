@@ -1,6 +1,11 @@
 # Handovers
 
-The latest round is R22, the user's item 52 (a loading window while the first start unpacks the
+The latest round is R23, the user's report of 2026-11-08 (an engine guard and start-up watchdog for
+"Starting Lua" hangs, ARC9 under RTX; Wuthering Waves game maps; a PBR progress notice; the material
+editor's tabs; the skills; the multiplayer notice on a loader branch awaiting approval):
+[R23-report.md](R23-report.md), done by Claude with one Claude subagent (no Codex).
+
+Before it, R22, the user's item 52 (a loading window while the first start unpacks the
 package, loader 0.16.0; the frame generation hint also at the top right): [R22-report.md](R22-report.md),
 done by Claude alone at the user's request (no Codex).
 

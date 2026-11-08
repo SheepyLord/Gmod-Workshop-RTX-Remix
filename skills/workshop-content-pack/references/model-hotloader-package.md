@@ -11,7 +11,12 @@ for names and settings. Sources, read 2026-10-31:
   and `.hpp` (the packet codec), `docs\WORKSHOP_PACKAGES.md`;
 - the three packs built with it (Guinaifen, Robin, Evernight and March 7th).
 
-Model Hotloader release in all three local installs: 2.3.1, build `ecd7c426c0b5-20261026T225907Z`.
+Model Hotloader release: 2.3.1. The installs had natives build `ecd7c426c0b5-20261026T225907Z` on
+2026-10-31; the RTX package now ships build `1e4cb10d1a76-20261105T224511Z`, built from a source copy
+in the repository (`packages\model-hotloader\bin\mmdhl-native-release.json`, ADR 0107). R5 changed
+`workshop.lua` in the RTX package's copy (a takeover of the player's own import, below); the rest of
+this page was re-read against `packages\model-hotloader\mmd_hotloader\lua\mmdhl\workshop.lua` on
+2026-11-08.
 
 ## Layout
 
@@ -128,17 +133,30 @@ For each model a mounted package provides (`W.Reconcile`, client):
    - and the terms record `terms\<asset>.json` through `SaveFromPackage`, also only when the player
      has no record for the model (`origin: "workshop"`, `package: <title>`).
 4. It records the install in `data\mmd_hotloader\workshop\state.json` (`installed`, `name`,
-   `package`, file times).
+   `package`, file times; `installing` while it runs, so an interrupted install resumes).
 
 So a later version of the package never changes an installed model's **name, presets, default,
 spawn size, arm parts, fit or terms record**. That is what kept "Robin R18" in the user's library.
 Files are repaired, though: every scan compares sizes, and once per session files whose time changed
 are hashed again and reinstalled when they no longer match.
 
+**A takeover (R5, the user's "even if user had imported it. Overwriting is okay").** A model already in
+the player's cache with no install record is the player's own import. A `workshop` package (not a demo
+`user` pack) that provides it takes it over: marks it `ownBefore`, installs through the same verified
+transfer (only files whose hash differs are written), then writes the package's `library`, `arms` and
+`fit_overrides` files **over** the player's (`writeOver`), keeping each player file once under
+`data\mmd_hotloader\workshop\own\<asset>\`. The label shows the package. When the package goes, the
+player's files come back and the model stays theirs (`restoreOwn`). So on a machine that has its own
+import of the model (the author's), the first start with the pack replaces that library entry's name
+and presets with the pack's.
+
 **Removal.** A model installed from a package that is no longer mounted (unsubscribed, add-on
 disabled, or a requires-Remix add-on hidden in a start without RTX) is deleted from the cache at the
-next scan, unless it is in use on the map or was adopted (`user` install). Deleting a Workshop model
-in the library hides it (Deleted Workshop models) and Restore installs it again.
+next scan, unless it is in use on the map, was adopted (`user` install) or was taken over from the
+player's own import (then it stays, with the player's files put back). Deleting a Workshop model in
+the library hides it (Deleted Workshop models) and Restore installs it again. Since loader 0.14.0 the
+loader itself removes a pack's deployed folders once Steam's record shows no subscriber (ADR 0111),
+which unmounts the package at the next start.
 
 **Origin.** Model Hotloader traces a package to the mounted add-on whose title equals the package
 title, else (native scan) to the mounted `.gma` whose index lists the package file. A loader-deployed
@@ -170,8 +188,9 @@ Consequences for a pack:
 | `長夜月` | `Evernight` | `Evernight` |
 | `三月七` | none | a machine translation, once it arrives |
 
-So give the item a plain ASCII name, the character's (`Robin`, `Guinaifen`). The terms record keeps
-the PMX's own names; that is right, do not edit it.
+So give the item a plain ASCII name, the character's own name and nothing else (`Robin`, `Guinaifen`,
+`Chisa`): no game, version, author, rating or pack tag (the user, 2026-11-08; `scripts/model_names.py`
+refuses one). The terms record keeps the PMX's own names; that is right, do not edit it.
 
 ## The exporter (`StartPackageExport`) and the two routes
 

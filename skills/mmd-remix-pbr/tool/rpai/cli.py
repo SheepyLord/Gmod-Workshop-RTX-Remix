@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -210,8 +211,16 @@ def material_classes(ctx: Context) -> dict[int, tuple[str, str]]:
     return out
 
 
+def _texture_file(texture, value: str) -> Path:
+    """A per-texture file setting (albedo_source, normal_map, rough_map, metal_map): relative to the
+    texture's folder or absolute, with %VARIABLES% and a leading ~ expanded, so a preset kept in the
+    repository can say %USERPROFILE%\\.rpai\\... instead of one user's folder (2026-11-08). The
+    expanded path is the one the settings named before, so signatures stay the same."""
+    return texture.source.parent / os.path.expandvars(os.path.expanduser(value))
+
+
 def _signature(ctx: Context, raw_signature: str, assignment: dict[int, str], regions: list[dict],
-               presets: dict, normal_map: Path | None = None) -> str:
+               presets: dict, normal_map: Path | None = None, extra: dict[str, Path] | None = None) -> str:
     """Identity of a texture's final maps: its AI outputs plus only the class
     parameters it actually uses (with this texture's own presets), so tuning one
     class leaves other textures alone."""
@@ -228,6 +237,9 @@ def _signature(ctx: Context, raw_signature: str, assignment: dict[int, str], reg
     if normal_map is not None:
         stat = normal_map.stat()
         payload["normal_map"] = [str(normal_map), stat.st_size, int(stat.st_mtime), RELIEF_VERSION]
+    for kind, path in sorted((extra or {}).items()):  # absent when unused: existing signatures stay valid
+        stat = path.stat()
+        payload["authored_" + kind] = [str(path), stat.st_size, int(stat.st_mtime)]
     return hashlib.sha1(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
@@ -261,7 +273,7 @@ def cmd_generate(ctx: Context) -> dict:
         # albedo and the AI input, and is always published, since the game still has the original.
         source = texture.source
         if override.get("albedo_source"):
-            source = texture.source.parent / override["albedo_source"]
+            source = _texture_file(texture, override["albedo_source"])
             if not source.exists():
                 log(f"  warning: albedo_source {source} not found; using {texture.source.name}")
                 source = texture.source
@@ -286,12 +298,20 @@ def cmd_generate(ctx: Context) -> dict:
             log(f"  note: skin on {texture.source.name} gets PBR from the settings; apply it only on the user's request")
         if recoloured:
             log(f"  albedo from {source} (recoloured copy; skin colour changes are made only on the user's request)")
-        normal_map = texture.source.parent / override["normal_map"] if override.get("normal_map") else None
+        normal_map = _texture_file(texture, override["normal_map"]) if override.get("normal_map") else None
         if normal_map is not None and not normal_map.exists():
             log(f"  warning: normal_map {normal_map} not found; using the AI normals")
             normal_map = None
+        extra: dict[str, Path] = {}
+        for kind, setting in (("roughness", "rough_map"), ("metallic", "metal_map")):
+            if override.get(setting):
+                path = _texture_file(texture, override[setting])
+                if path.exists():
+                    extra[kind] = path
+                else:
+                    log(f"  warning: {setting} {path} not found; using the class values")
         raw_signature = compose.raw_signature(source, settings)
-        signature = _signature(ctx, raw_signature, assignment, regions, presets, normal_map)
+        signature = _signature(ctx, raw_signature, assignment, regions, presets, normal_map, extra)
         previous = done.get(key)
         if previous and previous.get("signature") == signature and not ctx.args.force and \
                 all(Path(p).exists() for p in previous["maps"].values()):
@@ -305,7 +325,7 @@ def cmd_generate(ctx: Context) -> dict:
         width, height = compose.output_size(source_size, settings)
         ids, covered = uvmask.rasterize(ctx.model, assignment, width, height)
         raw = compose.load_or_make_raw(source, (texture.width, texture.height), settings, runner,
-                                       ctx.work / "raw", key, log, covered, normal_map)
+                                       ctx.work / "raw", key, log, covered, normal_map, extra)
         albedo = raw.albedo
         island_map = uvmask.islands(ctx.model, texture.materials, width, height) \
             if any("islands" in r for r in regions) else None

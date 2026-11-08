@@ -24,15 +24,20 @@ python -I scripts\pbr_mod.py $M evernight_cf3eec2f "$B\pbr_evernight_march7th" "
 | Argument | Meaning |
 |---|---|
 | `src` | rpai's live mod, `<game root>\rtx-remix\mods\ai_pbr`. Read only |
-| `key` | the rpai model key, the layer `models\<key>.usda` (`rpai status` lists them). The key may keep `r18`: it is a file name inside the mod, not a deployed folder |
-| `out` | the mod folder to write; name it `pbr_<name>`, lowercase ASCII, no `r18` (a warning says so otherwise). Must not exist |
-| `label` | the character's name for the `mod.usda` doc string (`"Robin RTX PBR (rpai layer ...), packaged for the Workshop."`) |
+| `key` | the rpai model key, the layer `models\<key>.usda` (`rpai status` lists them). rpai derives it from the PMX's English name, so it may carry a tag (`robin_r18_f9c3e4b4`); it stays a file name inside the mod and is never shown as a name |
+| `out` | the mod folder to write; name it `pbr_<name>`, lowercase ASCII, the character's name only (a tag in it is refused; another form gets a warning). Must not exist |
+| `label` | the character's name for the `mod.usda` doc string: `"<label> RTX PBR, packaged for the Workshop."`. A tag in it is refused |
 | `--layer KEY` | another layer in the same mod (repeatable) |
 | `--dry-run` | list the layers, texture counts and sizes; write nothing |
 | `--replace` | replace an earlier staged mod at `out` (a folder holding only `mod.usda`, `models`, `textures`) |
 | `--allow-game-install` | allow `out` inside a game install. Only when the user asked for that |
 
 ## What it does
+
+First the names: `label` and the `out` folder's name go through [model_names.py](model_names.py.md)
+(the user's rule of 2026-11-08: the character's own name only). A game, version, author, rating or
+pack tag in either (`"Chisa (WuWa)"`, `pbr_robin_r18`, `"阿芙2.0"`) ends the run with exit 1 before
+anything is read or written, a dry run included.
 
 For each layer it collects every `@...@` asset path:
 
@@ -52,21 +57,26 @@ are several, and a total).
 ## Side effects
 
 Writes only `out`. Refuses an `out` inside `src` (or the reverse), or inside a game install unless
-`--allow-game-install`. Standard library only; runs with `python -I`.
+`--allow-game-install`. Standard library only; runs with `python -I` (it puts its own folder on
+`sys.path` for `model_names.py`).
 
 ## Exit codes
 
 0 staged (or dry run done); 1 refused or failed (the reason on stderr, nothing left behind);
 2 bad command line.
 
+Tests: [test_names.py](test_names.py.md) (the name refusal).
+
 ## Verified (2026-10-31)
 
 Staging `robin_r18_f9c3e4b4` from the classic install's `ai_pbr` reproduced
 `out\packages\robin\pbr_robin` byte for byte: 32 files, `mod.usda` included (30 textures, 386 MB,
-17 materials).
+17 materials). Since 2026-11-08 the doc string leaves the rpai keys out, so a rebuild differs from that
+staging in `mod.usda`'s `doc` line only.
 
 ## Provenance
 
 Written for this user by Claude in the Guinaifen session (2026-10-29), given a label argument in the
 Robin session (2026-10-30), tidied for this skill (2026-10-31: several layers, `--dry-run`, the
-Remix-data and ASCII checks, atomic output, `--replace`, the game-install guard). Not third-party code.
+Remix-data and ASCII checks, atomic output, `--replace`, the game-install guard); the name refusal and
+the key-free doc string added 2026-11-08. Not third-party code.

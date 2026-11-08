@@ -1,0 +1,73 @@
+{
+  "doc": "The Herta (大黑塔1.0by mobius.pmx, E:\\G\\Upload\\Saber_lily_rc\\1_PMX\\大黑塔1.0; byte-identical to the_herta\\1_PMX\\大黑塔1.0by_mobius), Model Hotloader asset 96b72db0, ragdoll in the active session, reviewed 2026-11-06: aggressive style with the values accepted on Evernight, applied without AABB at the user's request. 69 materials, 17 sheets; hashes live after showing the hidden parts once (sita and baisiwa became live; 黑.jpg, 颜赤1.png and inmon2.png stay predicted). What each part is for: OUTFIT (衣.png 4096x2048 and 衣2.png, a purple-black gothic dress with lilac silk, pale grey sleeves and scarf): fabrics (帽子 hat, 袖 sleeves, 上袖, 袖饰, 領巾 scarf, 裙 skirts, 裙饰背, 蝴蝶結 bow, 髪繩 hair ribbons, 髮飾, 上衣) cloth, the lilac ribbons and bows stay satin cloth; the gold and rose-gold fittings are their own metal materials (41 袖金屬 sleeve ornament, 53 脖飾金屬 neck ornament, 57 裙金属 skirt fittings, 65 鞋金属 shoe fittings, 51 項鏈鑰匙 the golden key, 49/48 項鏈 the necklace chain) and stay metal (satin 0.32); 50 項鏈寶石 is the dark pearl-like pendant: gem; 23 腿环 is a black thigh garter strap with a silver emblem (not metal by the 环 rule): leather, with the silver emblem metal; 66 鞋 boots leather but 67/68 靴褶饰 are the boot ruffles, grey fabric: cloth (they were leather by name). Gold painted onto the cloth and leather materials (hue 20-40) becomes metal. GLOVES (手套.png): cloth. STOCKINGS: 丝袜1.png (22, black) and baisiwa.png (20 and 21, white, with the crotch piece) stockings 0.42. TONGUE sita.png mouth. ROPES, GAG, BLINDFOLD share byte-identical sheets with other layers, which supply them; 乳贴.png is a 7680x7680 full-size decal sheet (1, pinned to skin so that it is left to Remix: a 4096 cap would republish its albedo smaller than the game's), like the tattoo (inmon2.png, 6144x6144) and Body.png (8192). SKIN: Body.png, Arm and the tattoo stay as Remix renders them, per the standard; Body normal.png is not used.",
+  "include": [
+    "../aggressive.json"
+  ],
+  "presets": {
+    "_materials": {
+      "1": "skin",
+      "23": "leather",
+      "67": "cloth",
+      "68": "cloth"
+    },
+    "cloth": {
+      "rough": 0.65,
+      "rough_ai": 0.35,
+      "normal": 2.0
+    },
+    "leather": {
+      "rough": 0.25,
+      "rough_ai": 0.4
+    },
+    "stockings": {
+      "rough": 0.42,
+      "rough_ai": 0.4
+    },
+    "metal": {
+      "rough": 0.32
+    },
+    "hair": {
+      "rough": 0.38,
+      "rough_ai": 0.4
+    }
+  },
+  "regions": [
+    {
+      "texture": "衣.png",
+      "within": [
+        "leather"
+      ],
+      "class": "metal",
+      "sat": [
+        0.0,
+        0.12
+      ],
+      "val": [
+        0.5,
+        1.0
+      ],
+      "doc": "the silver emblem on the black garter strap"
+    },
+    {
+      "texture": "衣.png",
+      "within": [
+        "cloth",
+        "leather"
+      ],
+      "class": "metal",
+      "hue": [
+        20,
+        40
+      ],
+      "sat": [
+        0.2,
+        0.6
+      ],
+      "val": [
+        0.45,
+        0.9
+      ],
+      "doc": "gold painted onto the dress and boots"
+    }
+  ]
+}

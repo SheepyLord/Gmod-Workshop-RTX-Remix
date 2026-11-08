@@ -119,8 +119,27 @@ already published packs (`--value` is literal USD intensity; `--multiplier` appl
 Older runtimes ignore the new input and use the unchanged fixed fallback. On supporting runtimes,
 `rtx.adaptiveEmission.enable = False` or an adaptive input of `0` selects fixed emission. Runtime
 scale/clamps and disabled-auto-exposure fallback belong to the runtime; see
-[`C16-plan.md`](../../../docs/handover/C16-plan.md). Claude will measure bright, dim and night scenes
-on the PoC and tune this default; this content task performs no in-game validation.
+[`C16-plan.md`](../../../docs/handover/C16-plan.md). C-16 is done: the RTX package's runtime has it,
+the default 25 was measured above, and the three Workshop packs carry it
+([C16-report.md](../../../docs/handover/C16-report.md)).
+
+### The companion's eye whites (R10-E, R12-D; for every imported character)
+
+The RTX package's companion gives the eye whites of imported characters a steady brightness on its own
+([ADR 0088](../../../docs/decisions/0088-imported-character-eye-whites.md)): it finds eye-white
+materials by name (白目, 眼白, sclera, ...), gives them a separate texture identity and lets the runtime
+emit their own albedo with adaptive intensity 0.625, only where no mod replaces the atlas's hash. A
+material the name rules miss is marked by hand in **Choose eye-white materials**
+(`nativeloader_eye_white_materials`, saved per character;
+[ADR 0097](../../../docs/decisions/0097-manual-eye-white-materials.md)). So:
+
+- A character with an rpai layer on its face sheet gets rpai's eye emission, not a second one: the
+  replacement wins (the alias resolves to the original atlas's material).
+- The player's **Eye-white brightness** (`nativeloader_eye_white_brightness`, 0-200 %, default 100)
+  scales every positive adaptive emissive input live, rpai's included (`rtx.gmod.eyeWhiteBrightness`).
+  Record its value with any eye measurement, and keep it at 100 for one.
+- Steady eye whites need no rpai layer any more; make one for the face sheet only when the user wants
+  rpai's face standard (iris, catchlight, sclera classes) on that character.
 
 ## Why body skin is left to Remix (full-body AABB, 2026-10-25)
 
@@ -180,15 +199,15 @@ once made maroon panels look navy and produced a wrong "silver" rule.
 A metal's albedo is its reflectance (F0). Painted anime gold is a mid-tone: measured on the mesh
 (median linear luminance of the metal texels) it is 0.17-0.55, where real gold reflects about 0.74
 and the painted silvers 0.73-0.97. At the aggressive metal roughness (0.12) a polished surface
-mirrors one direction of the room, and in a dim room a low-F0 gold reads dark: Robin ZZZ's halo
+mirrors one direction of the room, and in a dim room a low-F0 gold reads dark: the compiled Robin's halo
 went from 152 to 96 (-37%) and her gold stars from 118 to 86 (bracketed AABB, 2026-10-25). A
 satin finish gathers light from a wider cone and keeps reading as gold. Bright silver mirrors the
 room without going dark. So the type follows each character's paint and what the piece is:
 
 | Character (preset) | Metal on the mesh | F0 | Type | Roughness |
 | --- | --- | --- | --- | --- |
-| Robin ZZZ (`robin_69c55742`) | champagne gold: halo, stars, crescents, bands | 0.43-0.47 | satin champagne gold, f0 0.74 carried over from Robin R18 (same art; not measured in game) | 0.30 (was 0.12) |
-| Robin R18 (`robin_r18_f9c3e4b4`) | champagne gold: piping, stars, treble clef, halo | 0.34-0.39 | satin champagne gold, reflectance lifted to real gold's (f0 0.74, measured below) | 0.30 |
+| Robin, compiled port (`robin_69c55742`) | champagne gold: halo, stars, crescents, bands | 0.43-0.47 | satin champagne gold, f0 0.74 carried over from the Robin import (same art; not measured in game) | 0.30 (was 0.12) |
+| Robin, Model Hotloader import (`robin_r18_f9c3e4b4`) | champagne gold: piping, stars, treble clef, halo | 0.34-0.39 | satin champagne gold, reflectance lifted to real gold's (f0 0.74, measured below) | 0.30 |
 | Guinaifen / Guinevere (`new_mmd_model_1c2ed2fc`, `_9cdc990f`) | yellow gold thread embroidery and trim (35% of the skirt sheet), brass gong, jewelry | 0.23-0.32 | satin yellow gold | 0.32 (was 0.12) |
 | Kafka (`new_mmd_model_4ab9d7e3`) | dark bronze brackets and shields, earring hooks; tan web embroidery | 0.17-0.20; 0.44 | satin antique bronze | 0.36 (was 0.12) |
 | Firefly (`firefly_r18_0d01d7d3`) | pale brass fittings and bells; hidden bunny trim in white silver | 0.31; 0.97 | satin pale brass; polished silver | 0.30 (was 0.12); 0.12 |
@@ -200,7 +219,7 @@ room without going dark. So the type follows each character's paint and what the
 Satin values sit at the default metal standard (0.28) rather than the aggressive 0.12, with the AI
 roughness variation at 0.5.
 
-**Measured in game on Robin R18 (2026-10-26).** Bracketed capture A (original Remix), P (polished
+**Measured in game on the Robin import (`robin_r18_f9c3e4b4`, 2026-10-26).** Bracketed capture A (original Remix), P (polished
 0.12), S (satin 0.30, published), A2 (original again), 6 views shot twice; repeat noise 0.5-1.0/255
 on the model (2.7 in the distant full view), drift A2 - A 1.6-3.3. Gold pixels picked by colour on
 the original frame, against the mean of A and A2:
@@ -217,7 +236,7 @@ Even satin gold stays 19-30% darker than the matte original, because a metal has
 term. The other characters were not spawned; their types follow this measured behaviour of
 painted gold.
 
-**Reflectance lift (`f0`), measured on Robin R18 the same day** (user request: keep whichever is
+**Reflectance lift (`f0`), measured on the Robin import the same day** (user request: keep whichever is
 closer to the original brightness). The `f0` class field scales a class's albedo so its median
 linear luminance on the mesh meets the target (`compose.lift_reflectance`), keeping the painted
 hue and detail. Bracketed A, S (satin 0.30), L1 (satin + f0 0.55), L2 (satin + f0 0.74), A2; each
@@ -231,11 +250,11 @@ second way by normalising each capture with the floor next to the gold:
 | piping, brooch, stars | -25% | -14% | -10% |
 | pixel-weighted distance (floor check) | 21.0% (23.2%) | 10.8% (12.3%) | **8.2% (9.0%)** |
 
-f0 0.74, about real gold's reflectance, is closest and is what Robin R18 now uses. Its costs: the
+f0 0.74, about real gold's reflectance, is closest and is what the Robin import now uses. Its costs: the
 halo reads paler (gold saturation 0.19 against the original 0.30; torso 0.30 against 0.33), and
 the brightest 10% of gold pixels peak higher than the matte original (halo 242 against 173), as
 metal highlights do. The oblique view was left out: its window light moved during the run and the
-floor changed as much as the model. Only Robin R18 was measured. Robin ZZZ, whose gold is the same
+floor changed as much as the model. Only the Robin import was measured. The compiled Robin, whose gold is the same
 art, carries the same lift at the user's request (about x1.6-1.7, since her paint reflects 0.43-0.47);
 her measurement was skipped for now, and the kit is in her work folder (`aabb_todo_f0`). The other
 golds are not lifted.

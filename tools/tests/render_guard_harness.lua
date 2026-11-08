@@ -298,6 +298,27 @@ if scenario=="cached_multiplayer" then
     hook.Add("PostRender",cachedObject,cachedObjectFn)
     for _,event in ipairs({"Initialize","InitPostEntity","OnReloaded"}) do hook.Add(event,"loading",cachedInit) end
 end
+-- R23 (ADR 0130): the engine guard module, recorded. The early view loads it; the late private
+-- multiplayer route must not.
+local engineGuardCalls={}
+do
+    local realRequire=require
+    require=function(name)
+        if name~="nlengineguard" then return realRequire(name) end
+        engineGuardCalls[#engineGuardCalls+1]="require"
+        if scenario~="engine_guard" then error("module not found") end
+        nlengineguard={SetMessage=function(title,body) engineGuardCalls[#engineGuardCalls+1]="message "..title.."|"..body end,
+            StartupDone=function(seconds)
+                engineGuardCalls[#engineGuardCalls+1]=seconds and ("deadline "..seconds) or "done"
+                return seconds==nil
+            end}
+    end
+    if scenario=="engine_guard" then
+        -- The companion's words helper, as the early view includes it in a local game.
+        include=function(path) eq(path,"nativeloader/engine_guard_words.lua") return function() return "Titel","Text %s" end end
+        file.Delete=function(name) engineGuardCalls[#engineGuardCalls+1]="delete "..name end
+    end
+end
 if multiplayer or scenario=="inherited_proof" then
     if multiplayer then
         temporaryAPI=setmetatable({},{__index=function()error("temporary client API must not be consulted")end})
@@ -328,6 +349,21 @@ if scenario=="no_proof" or scenario=="inherited_proof" or scenario=="realm_serve
 end
 eq(guard.version,2)
 
+if multiplayer then eq(#engineGuardCalls,0,"the late multiplayer route never loads the engine guard") end
+if scenario=="engine_guard" then
+    eq(guard.installation,"early")
+    eq(engineGuardCalls[1],"require") eq(engineGuardCalls[2],"message Titel|Text %s")
+    eq(nlengineguard.SetMessage,nil,"the first call wins and the function leaves the table")
+    local loaded=hook.GetTable().PostGamemodeLoaded and hook.GetTable().PostGamemodeLoaded.nativeloader_engine_guard
+    assert(loaded,"the gamemode's load bounds the watch") loaded()
+    eq(engineGuardCalls[3],"deadline 150")
+    local done=hook.GetTable().Initialize and hook.GetTable().Initialize.nativeloader_engine_guard
+    assert(done,"the watch ends at Initialize")
+    done()
+    eq(engineGuardCalls[4],"done") eq(engineGuardCalls[5],"delete native-loader/startup-stall.json")
+    print("PASS "..scenario)
+    return
+end
 if scenario=="verified_multiplayer" then
     eq(__NATIVELOADER_RTX_GUARD_EARLY,false)
     eq(guard.installation,"verified multiplayer bootstrap")

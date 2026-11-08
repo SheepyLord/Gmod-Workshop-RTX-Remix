@@ -1,0 +1,112 @@
+{
+  "doc": "Fu Xuan (符玄.pmx, H:\\BACKUP_20260815\\Modding\\PBR\\星穹铁道-符玄; bound with --asset 19c0edc5: it differs from that import's PMX only in the header name, with the same 83 materials, UVs and pixel-identical textures), ragdoll in the active session, reviewed 2026-11-08: aggressive style with the accepted values (cloth 0.65 / rough_ai 0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32, hair 0.38). Hashes live after showing the hidden parts once (颜赤.png stays predicted). The ropes, gag strap and blindfold, tongue, expression and blush are byte-identical to sheets other layers supply, so this layer was generated with --only on her own sheets. What each part is for: OUTFIT (裙.png with its variants 裙1.png and 裙3.png for the '+' outer layers, 下裙.png and 下裙2.png; a violet-and-white Xianzhou diviner's dress with pale-gold fittings): fabrics (bodice, lace, skirts, sleeves, sleeve ribbons, gloves, tassels, the 面襯 veil lining) cloth; 34/35 腕花邊 (the pink-white wrist frills, classed skin by 腕) cloth; 51 星盤金屬 (the astrolabe's gold frame and discs), 29 髮飾 (hair ornaments), 62 額飾 (forehead ornament), 64 耳墜 (gold earring) and 31 足七星 (the seven-star ankle ornament, classed skin by 足) metal at satin 0.32 (painted pale gold, hue 20-60); inside them the violet orbs and stones (hue 240-320) are gem; 53 星盤al (the glass astrolabe sphere with its constellation) and 63 額飾al (the violet forehead drop) gem; 54 耳坠 is the white-to-violet earring tassel: cloth; 67/68 鞋 shoes and 5/6 高跟鞋 heels leather. ACCESSORIES (配件.png 4096): 9 项圈 the pink collar and bow leather, 11 项圈环 its steel O-ring metal (white steel: chrome is right here), 4 乳贴 the pink heart pasties rubber 0.25 (silicone); 8 肛钩 (Steel 2.jpg) metal; 25 Bandaid cloth. STOCKINGS (siwa.png black, baisiwa.png white) 0.42. HAIR (髪.png, pink-violet) 0.38. FACE: 0 顏 (classed skin by its skin sphere map) face, with the eyes, brows and mouth anime-safe. SKIN: SR_body_R18.png (the body and 2 指甲 nails, pinned skin so the sheet stays Remix's), the neck (3) and the tattoo stay as Remix renders them, per the standard.",
+  "include": [
+    "../aggressive.json"
+  ],
+  "presets": {
+    "_materials": {
+      "0": "face",
+      "2": "skin",
+      "4": "rubber",
+      "29": "metal",
+      "31": "metal",
+      "34": "cloth",
+      "35": "cloth",
+      "53": "gem",
+      "54": "cloth",
+      "62": "metal",
+      "63": "gem",
+      "64": "metal"
+    },
+    "cloth": {
+      "rough": 0.65,
+      "rough_ai": 0.35,
+      "normal": 2.0
+    },
+    "leather": {
+      "rough": 0.25,
+      "rough_ai": 0.4
+    },
+    "stockings": {
+      "rough": 0.42,
+      "rough_ai": 0.4
+    },
+    "metal": {
+      "rough": 0.32
+    },
+    "hair": {
+      "rough": 0.38,
+      "rough_ai": 0.4
+    },
+    "rubber": {
+      "rough": 0.25,
+      "rough_ai": 0.3
+    }
+  },
+  "regions": [
+    {
+      "texture": "裙.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        235,
+        325
+      ],
+      "sat": [
+        0.35,
+        1.0
+      ],
+      "doc": "the violet orbs and stones set in the gold ornaments"
+    },
+    {
+      "texture": "裙1.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        235,
+        325
+      ],
+      "sat": [
+        0.35,
+        1.0
+      ],
+      "doc": "the same on the outer-layer variant"
+    },
+    {
+      "texture": "裙3.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        235,
+        325
+      ],
+      "sat": [
+        0.35,
+        1.0
+      ],
+      "doc": "the same on the glove variant"
+    },
+    {
+      "texture": "下裙.png",
+      "within": [
+        "metal"
+      ],
+      "class": "gem",
+      "hue": [
+        235,
+        325
+      ],
+      "sat": [
+        0.35,
+        1.0
+      ],
+      "doc": "violet stones on the ankle ornament, if any"
+    }
+  ]
+}

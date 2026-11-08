@@ -114,6 +114,11 @@ left out of the fixes repo.
   not depend on this option: it follows the companion (see the manifest row above), so a build
   without the helper still requires the loader that prepares the guard's early view. It does not change server
   settings or permit loading community scripts. This input is optional for standalone fixes builds.
+- `--lua-bin <DLL>` (repeatable, R23): also package this repository's module as
+  `garrysmod/lua/bin/<name>` (kind `lua-binary-module`), such as the engine guard's
+  `gmcl_nlengineguard_win64.dll` and `gmsv_nlengineguard_win64.dll`, which the companion requires
+  ([ADR 0130](../docs/decisions/0130-an-engine-guard-for-lua-start-up.md)). The name must be
+  `gmcl_<name>_win64.dll` or `gmsv_<name>_win64.dll`, not one of the modules packaged already.
 - `--exclude-addon <name>` (repeatable): leave an add-on out, compared without case;
   `nativeloader` leaves out the companion. An unknown name is refused.
 - `--add-to-addon <PATH> <SOURCE>` (repeatable): add SOURCE, a file or a folder (its files, junk left

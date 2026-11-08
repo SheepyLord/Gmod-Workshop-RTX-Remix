@@ -2,7 +2,9 @@
 
 It checks, for one build folder (or the parts given one by one):
 
-  names        mmdhl_<n> and pbr_<n> with the same <n>, package id <n>-rtx, no r18 anywhere
+  names        mmdhl_<n> and pbr_<n> with the same <n>, package id <n>-rtx; no game, version, author,
+               rating or pack tag in a folder name, the package id, a title or a display name, and no
+               game named in the description (model_names.py; the user's rule of 2026-11-08)
   Hotloader    the Model Hotloader package as workshop.lua ValidatePackage checks it on install
                (format, ids, sizes, packet bounds, the .dat files), the display names English readers
                will see (names.lua), the default bodygroup preset, terms that mention restrictions;
@@ -22,8 +24,8 @@ Usage:
     python -I check_pack.py --addon DIR --mod DIR [--gma FILE] [--icon FILE] [--description FILE] [...]
 
 --keep-name names a model (its asset id's first 8 or more hex digits) whose published display name the
-user keeps: an update of an item whose name predates the ASCII-name rule (Guinaifen). Its non-ASCII or
-placeholder name is then a warning, not an error.
+user keeps: an update of an item whose name predates the ASCII-name rule (Guinaifen). Its non-ASCII,
+placeholder or tagged name is then a warning, not an error.
 
 A build folder holds one mmdhl_<n> folder, one pbr_<n> folder (a folder with mod.usda), one .gma,
 icon.jpg and description.txt, as out\\packages\\<n>\\ does. Each found part is checked; a part given
@@ -45,6 +47,10 @@ import re
 import struct
 import subprocess
 import sys
+
+# model_names.py sits beside this script; python -I leaves the script's folder off sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import model_names  # noqa: E402
 
 RTX_PACKAGE_ITEM = "3829070317"
 R18 = re.compile(r"(^|[^a-z0-9])r-?18([^a-z0-9]|$)", re.I)
@@ -101,14 +107,24 @@ def sha256_of(path: str) -> str:
 
 # ---- names -------------------------------------------------------------------------------------
 
+def tag_problem(label: str, value: str, kind: str):
+    """The model_names refusal of a name, without its advice tail, or None."""
+    reasons = model_names.find(value or "", kind)
+    return "%s %r carries %s" % (label, value, "; ".join(reasons)) if reasons else None
+
+
+NAME_ADVICE = "give the character's own name only (the user, 2026-11-08: Chisa, not 鸣潮-千咲; Alf, not 阿芙2.0)"
+
+
 def check_names(r: Report, addon, mod, package_id, hotloader: bool):
     suffixes = {}
     for label, folder, prefix in (("add-on", addon, "mmdhl_"), ("mod", mod, "pbr_")):
         if not folder:
             continue
         name = os.path.basename(os.path.normpath(folder))
-        if R18.search(name):
-            r.error("%s folder %s carries r18: name it %s<name> (the user, Robin 2026-10-30)" % (label, name, prefix))
+        problem = tag_problem("%s folder" % label, name, "slug")
+        if problem:
+            r.error("%s: name it %s<name>, %s" % (problem, prefix, NAME_ADVICE))
         if not hotloader:  # a map remaster keeps its own folder names (modern_house_rtx)
             continue
         if re.fullmatch(prefix + r"[a-z0-9_]+", name):
@@ -120,8 +136,9 @@ def check_names(r: Report, addon, mod, package_id, hotloader: bool):
     elif suffixes:
         r.ok("folder names: %s" % ", ".join("%s%s" % ("mmdhl_" if k == "add-on" else "pbr_", v) for k, v in sorted(suffixes.items())))
     if package_id:
-        if R18.search(package_id):
-            r.error("package id %s carries r18" % package_id)
+        problem = tag_problem("package id", package_id, "slug")
+        if problem:
+            r.error("%s: %s" % (problem, NAME_ADVICE))
         if suffixes:
             expected = next(iter(suffixes.values())).replace("_", "-") + "-rtx"
             if package_id == expected:
@@ -220,6 +237,9 @@ def check_hotloader(r: Report, addon: str, deep: bool, keep=()):
                 r.warn("package %s is over %d bytes; Model Hotloader clips it" % (key, limit))
         if not (p.get("title") or "").strip():
             r.warn("package title is empty; Model Hotloader shows the id instead")
+        problem = tag_problem("package title", str(p.get("title") or ""), "title")
+        if problem:
+            r.error("%s: %s" % (problem, NAME_ADVICE))
         files, items = p.get("files"), p.get("items")
         if not isinstance(files, dict) or not isinstance(items, list) or not 1 <= len(items) <= 1000:
             r.error("package %s lists no models or no files" % pid)
@@ -297,15 +317,22 @@ def check_item(r: Report, item: dict, files: dict, keep=()):
     embedded = terms.get("embedded") if isinstance(terms.get("embedded"), dict) else {}
     english = embedded.get("nameEnglish") if isinstance(embedded.get("nameEnglish"), str) else ""
     label = "model %s %r" % (asset[:8], name)
+    kept = any(asset.startswith(k) for k in keep)
     if len(name.encode("utf-8")) > 100:
         r.warn("%s: the name is over 100 bytes; Model Hotloader clips it" % label)
-    if R18.search(name):
-        r.warn("%s: the display name carries R18" % label)
+    # The display name is the character's own name only, no game, version, author, rating or pack
+    # tag (the user, 2026-11-08).
+    reasons = model_names.find(name, "name")
+    if reasons and kept:
+        r.warn("%s: the display name carries %s, kept as published (--keep-name)" % (label, "; ".join(reasons)))
+    elif reasons:
+        r.error("%s: the display name carries %s: %s" % (label, "; ".join(reasons), NAME_ADVICE))
     # The pack's display name is the character's plain ASCII name (Robin), never the PMX's own:
     # the Evernight and March 7th pack shipped 長夜月 and 三月七 (the user, 2026-10-31).
     problem = None
     if ascii_text(name) and name.strip() and not PLACEHOLDER.match(name.strip()):
-        r.ok("%s: plain ASCII display name, shown as written" % label)
+        if not reasons:
+            r.ok("%s: plain ASCII display name, shown as written" % label)
     elif ascii_text(name):
         problem = "a placeholder display name; give the character's plain name (Robin)"
     elif english and ascii_text(english) and english != name and not (R18.search(english) or PLACEHOLDER.match(english.strip())):
@@ -313,7 +340,7 @@ def check_item(r: Report, item: dict, files: dict, keep=()):
                    "the PMX English name %r, others the PMX name)" % english)
     else:
         problem = "non-ASCII display name; give the character's plain ASCII name (Robin)"
-    if problem and any(asset.startswith(k) for k in keep):
+    if problem and kept:
         # The user kept Guinaifen's published name (2026-11-01). Players who installed the model keep
         # its library name anyway (writeIfMissing), so only new installs see it.
         r.warn("%s: %s, kept as published (--keep-name)" % (label, problem.split(";")[0]))
@@ -511,8 +538,9 @@ def check_gma(r: Report, gma: str, addon, mod, nlctl):
         return None
     size = os.path.getsize(gma)
     r.ok("archive %s: %d members, %.1f MB, title %r" % (os.path.basename(gma), len(entries), size / 1e6, title))
-    if R18.search(title):
-        r.warn("the archive title carries R18; gmpublish create sets the Workshop title from it and update never changes it")
+    problem = tag_problem("the archive title", title, "title")
+    if problem:
+        r.error("%s; gmpublish create sets the Workshop title from it and update never changes it: %s" % (problem, NAME_ADVICE))
     try:
         meta = json.loads(description)
         if meta.get("type") not in ADDON_TYPES:
@@ -614,6 +642,10 @@ def check_description(r: Report, path: str):
     if '"' in text:
         r.warn("description holds straight double quotes; PowerShell 5.1 drops them when it passes "
                "the text to package_content.py --description (Robin's \"Default\" lost them)")
+    games = model_names.find(text, "prose")
+    if games:
+        r.error("description names a game (%s): which game a character comes from is not mentioned "
+                "(the user, 2026-11-08); name the character only" % "; ".join(games))
     if len(text.strip().encode("utf-8")) > 8000:
         r.warn("description is over 8000 bytes")
 

@@ -1,8 +1,8 @@
 """Package published rpai characters into a folder for reuse.
 
     python package_characters.py --dest "H:\\path\\to\\package" ^
-        --character guinevere=new_mmd_model_9cdc990f="E:\\...\\桂乃芬.pmx" ^
-        --character hyacine=hyacine_r18_6ca2dcc3
+        --character Guinevere=new_mmd_model_9cdc990f="E:\\...\\桂乃芬.pmx" ^
+        --character Hyacine=hyacine_r18_6ca2dcc3
 
 Layout:
     remix_mod/<mod>/       drop-in Remix mod: mod.usda (only the packaged layers), models/*.usda and
@@ -14,6 +14,10 @@ Layout:
 
 The destination must be empty or new, unless --update is given. Every referenced DDS is checked
 against the live mod after copying.
+
+NAME is the character's own name (model_names.py, the user's rule of 2026-11-08): a NAME with a game,
+version, author, rating or pack tag ("鸣潮-千咲", "阿芙2.0", "Robin R18") is refused before anything
+is read or written.
 """
 
 from __future__ import annotations
@@ -27,6 +31,9 @@ from pathlib import Path
 
 TOOL = Path(__file__).resolve().parents[1] / "tool"
 sys.path.insert(0, str(TOOL))
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # model_names.py, also under python -I
+import model_names  # noqa: E402
+
 RPAI_HOME = Path.home() / ".rpai"
 
 
@@ -49,6 +56,17 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--update", action="store_true", help="allow writing into a non-empty destination")
     args = p.parse_args(argv)
 
+    characters = []
+    for spec in args.character:
+        parts = spec.split("=", 2)
+        if len(parts) < 2:
+            raise SystemExit(f"--character {spec!r}: expected NAME=MODEL_KEY[=PMX]")
+        characters.append((parts[0], parts[1], parts[2] if len(parts) > 2 else ""))
+    # The character's own name only: checked before anything is read or written.
+    problems = [x for x in (model_names.refusal("--character name", name, "name") for name, _, _ in characters) if x]
+    if problems:
+        raise SystemExit("\n".join("error: " + x for x in problems))
+
     from rpai import usda
 
     dest = Path(args.dest)
@@ -57,12 +75,6 @@ def main(argv: list[str] | None = None) -> None:
     game_root = Path(args.game_root or json.loads((RPAI_HOME / "config.json").read_text(encoding="utf-8"))["game_root"])
     live = game_root / "rtx-remix" / "mods" / args.mod
     pkg_mod = dest / "remix_mod" / args.mod
-    characters = []
-    for spec in args.character:
-        parts = spec.split("=", 2)
-        if len(parts) < 2:
-            raise SystemExit(f"--character {spec!r}: expected NAME=MODEL_KEY[=PMX]")
-        characters.append((parts[0], parts[1], parts[2] if len(parts) > 2 else ""))
 
     total, summary = 0, {}
     for name, key, pmx in characters:

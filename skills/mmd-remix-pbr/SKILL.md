@@ -1,97 +1,136 @@
 ---
 name: mmd-remix-pbr
-description: Generate, tune, A/B-test and package RTX Remix PBR materials for MMD/PMX characters in Garry's Mod RTX (models imported with Model Hotloader), using the bundled rpai tool. rpai does AI upscaling plus normal and roughness maps (PBRify), material classes rasterised into UV space, anime-safe face and eye rules, live Remix texture hashes, a hot-reloaded ai_pbr mod, scripted in-game AABB tests and packaging. Use this whenever the user wants an MMD character or PMX model to look PBR in GMod RTX or RTX Remix, asks for normal, roughness, metallic or emissive maps or upscaled textures for a character, mentions rpai, ai_pbr, PBRify, Remix texture hashes or a Model Hotloader model, wants to tune how a character's cloth, metal, hair, skin, face or eyes look under path tracing, wants a before/after or A/B in game, or wants a character's PBR packaged, even if they never say "skill" or "rpai".
+description: Make, tune, A/B-test and package RTX Remix PBR materials for an MMD/PMX character in Garry's Mod RTX with the bundled rpai tool (AI upscale, normal, roughness, metallic and emissive maps, material classes rasterised into UV space, anime-safe face and eye rules, live Remix texture hashes, a hot-reloaded ai_pbr mod, scripted AABB captures). Use it when a Model Hotloader import or a compiled character add-on should get or change PBR, when the task mentions rpai, ai_pbr, PBRify, Remix texture hashes, a per-model preset, a character's cloth, metal, hair, skin, face or eye look under path tracing, an in-game before/after or A/B of a character, an 8 GB variant, or packaging a character's maps. First decide whether the RTX package already covers the need (imported game PBR from a game rip's own maps, steady eye whites, painted shadows, solid hair). Not for maps (remix-map-pbr) or Workshop uploads (workshop-content-pack, which uses this skill's export and staging scripts).
 ---
 
 # MMD character PBR for RTX Remix (Garry's Mod RTX)
 
-rpai turns an MMD character's diffuse-only textures into Remix PBR materials and hot-loads them into
-the running game. It upscales each albedo with PBRify (DAT) up to 4096, generates normal and
-roughness maps, and decides per texel what each surface is. It does that by classifying every PMX
-material (cloth, metal, skin, face, iris…) and rasterising the classes into texture space, because
-MMD sheets are shared atlases. Then it writes `over "mat_<HASH>"` layers into
-`rtx-remix/mods/ai_pbr`, keyed by the texture hashes the game itself reports.
+rpai turns an MMD character's diffuse-only sheets into Remix PBR materials and hot-loads them into the
+running game. It upscales each albedo with PBRify (DAT) up to 4096, generates normal and roughness
+maps, classifies every PMX material (cloth, metal, skin, face, iris, ...) and rasterises the classes
+into texture space, because MMD sheets are shared atlases. It writes `over "mat_<HASH>"` layers into
+`rtx-remix/mods/ai_pbr`, keyed by the texture hashes the game reports.
 
-The tool lives in this skill: `tool/` (code, presets, README). Its runtime (venv, model weights, work
-files) is `%USERPROFILE%\.rpai`. Read `tool/README.md` when you need the full method or option list.
+- Code, presets and the full method: `tool/` (read `tool/README.md` for any option not below).
+- Runtime (venv, weights, work files): `%USERPROFILE%\.rpai`.
+- References: `references/runtime-notes.md` (paths, runtime, hashes, the RTX package's character
+  features, imported game PBR), `references/standards.md` (class values and their evidence),
+  `references/testing-protocol.md` (AABB), `references/texture-review.md` (reviewing a new character).
+- The canonical copy of this skill is `skills/mmd-remix-pbr` in the native loader repository
+  (`H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix`). The user's sessions may run an installed copy,
+  `%USERPROFILE%\.claude\skills\mmd-remix-pbr`; what changes there is copied back to the repository
+  (`skills/README.md`, "Keeping them current").
 
-## Ground rules from this user
+## Rules (the user's)
 
-- **Measure; don't eyeball.** The user builds Model Hotloader and the Advanced Material Editor, and
-  wants numbers: before/after differences with a noise floor, patch values, and detail retention.
-- **Standards change only with full-body evidence and the user's decision.** A skin change once
-  looked good on limbs and was rejected because it faded body and neck detail. Run a full-body AABB
-  (`references/testing-protocol.md`) and present the options. If nothing is accepted, revert to the
-  original RTX Remix look.
-- **Body skin changes are made and applied only when the user asks for them.** That covers anything
-  that changes how body skin renders: `original: 0` or other skin-class overrides (globally or per
-  texture), relief from the model's own normal maps on skin sheets, subsurface scattering,
-  de-lighting, and the roughness of skin texels on shared sheets. Do not propose them as part of
-  other work, and do not leave them applied after a test the user did not accept. When the user
-  asks, build them as variants, run the full-body AABB and let the user choose. A tested look that
-  is not (or no longer) wanted is kept, unapplied, in `tool/presets/on_request/` (never auto-loaded)
-  and the per-model preset goes back to the standard. Guinaifen's body skin was tested on request
-  and reverted at the user's request on 2026-10-25.
-- **Do not get stuck debugging side issues.** When something unrelated blocks you (an addon quirk,
-  a hung game), note it, take the evidence you have and move on. The user said so explicitly.
-- **Leave their setup alone:**
-  - never write into `rtx-remix/mods/!advanced_material_editor`;
-  - ask before editing `rtx.conf` or `user.conf`, or downloading anything;
-  - never restart the game.
-  - Restore every scene change you make (camera hooks, hidden parts), and only those: the user may
-    be changing the scene at the same time.
-- **R18 models:** aim test views at the surface under test (neck and collarbones, abdomen, arms,
-  legs). In these local debug and AABB sessions keep screenshots whole: never crop them, and never
-  change morphs or part visibility to hide the model's base body (it is there for layered
-  rendering). See the testing protocol.
-- Explain plainly what changed and what it looks like, with the numbers.
+- **Measure; do not eyeball.** Report before/after differences with a noise floor, patch values and
+  detail retention.
+- **A standard changes only with full-body evidence and the user's decision.** Run a full-body AABB
+  (`references/testing-protocol.md`) and present options. If none is accepted, revert to the original
+  RTX Remix look.
+- **Body skin changes are made and applied only when the user asks**: skin-class overrides
+  (`original: 0`, roughness, relief), the model's own body normal map on skin, subsurface scattering,
+  de-lighting, skin texels on shared sheets, skin recolouring. Never propose them as part of other work
+  and never leave one applied after a test the user did not accept. A tested look that is not kept goes
+  to `tool/presets/on_request/` (never auto-loaded) and the per-model preset returns to the standard.
+- **Names: the character's own name only** (the user, 2026-11-08). See "Names" below.
+- **Do not get stuck on side issues.** Note them, keep the evidence, move on.
+- **Leave the setup alone.** Never write `rtx-remix/mods/!advanced_material_editor`; never touch Remix
+  `user.conf`; ask before editing `rtx.conf` or `dxvk.conf` and before downloading anything. Do not
+  close or restart the game the user is working in (their scene is lost); start your own test game
+  only on the PoC install with `-multirun`, unless the user gave a standing permission for this task.
+  Restore every scene change you make (camera hooks, hidden parts, player position) and only those:
+  the user may change the scene at the same time.
+- **R18 models:** aim test views at the surface under test (neck and collarbones, abdomen, arms, legs).
+  In local debug and AABB sessions keep screenshots whole: never crop them, and never change morphs or
+  part visibility to hide the model's base body. Images sent to the user and Workshop icons stay
+  free of adult content.
+- **Privacy:** read only your own session's part of the game's `console.log`; write no user account
+  name into files (use `%USERPROFILE%`).
+
+## Names
+
+A model's recorded name is the character's own name as the user uses it (`Chisa`, `Guinaifen`, `Alf`,
+`March 7th`), never a source folder or PMX name with its tags. It applies to:
+
+- the Model Hotloader display name of anything you package or export, and package `NAME`s;
+- folder names and slugs derived from it (`pbr_<name>`, `mmdhl_<name>`, `<name>-rtx`, an export's
+  file name), titles, bodygroup preset names you choose (`Default`);
+- names written into records: a per-model preset's `doc` (start it with the clean name; a path may
+  keep its folder's name), `mod.usda` doc strings, reports to the user, package READMEs.
+
+Refused tags: a game or franchise (鸣潮, 星穹铁道, 原神, 崩坏, 明日方舟, 终末地, 白银之城, HSR, WuWa,
+Genshin, ZZZ, `[Arknights]`), a version, build or edition (`2.0`, `v1.2`, `Ver.3`, `合体7`, a number
+after the name), an author or uploader (`by_mobius`, `Tda式`), a rating or format (`R18`, `NSFW`,
+`MMD`, `PMX`), a bracketed tag, and in display names pack words (`RTX`, `PBR`). Examples: source
+folder `鸣潮-千咲` → `Chisa`; `星穹铁道-桂乃芬` → `Guinaifen`; `阿芙2.0` → `Alf`. When unsure of the
+name the user uses, ask.
+
+`scripts/model_names.py` implements the rule; `hotloader_export.py`, `stage_pbr_mod.py` and
+`package_characters.py` refuse a tagged name before writing anything (exit 1). rpai's model key
+(`robin_r18_f9c3e4b4`) is derived from the PMX's English name and may carry tags: it is an internal
+identifier (work folder, preset file, layer file name). Never present a key as a name, never derive a
+name or slug from it.
+
+## Before you start: is rpai the right tool?
+
+The RTX package (Workshop 3829070317) already does some character work in every RTX session
+(`references/runtime-notes.md`):
+
+| The need | Already handled by | Use rpai when |
+|---|---|---|
+| PBR for a game rip whose folder holds the game's maps (Wuthering Waves `_N`, Endfield `_N`/`_P`/`_E`, Silver Palace `_N`/`_MRA`) | the RTX fixes' **imported game PBR** (`rtx_topbr_game_maps 1`): converts the game's maps on its own, keeps them when the source folder goes, per-texture choices in the spawn menu's Utilities > RTX Remix > Imported game PBR panel | the user asks for more than the game maps give, or the panel shows sheets with no maps |
+| Steady eye whites | the companion's eye whites (automatic, plus **Choose eye-white materials**, brightness slider) | the user wants rpai's face standard (iris, catchlight, sclera classes) |
+| Dark bands from painted shadow overlays (目影, 发影) | the companion leaves them out of the draw | never: they need no PBR |
+| Hair with see-through notches from the alpha test | the companion's solid hair | never for that alone |
+
+An authored layer (rpai's or a pack's) wins over ToPBR for every hash it covers (runtime patch 0020):
+an rpai material for a sheet replaces the game-map material for that sheet. Check the panel before
+publishing over a game character, and tell the user which sheets change hands.
 
 ## Setup check
 
-```bash
-"%USERPROFILE%/.claude/skills/mmd-remix-pbr/tool/rpai.cmd" doctor
+```powershell
+& "$env:USERPROFILE\.claude\skills\mmd-remix-pbr\tool\rpai.cmd" doctor     # or <repo>\skills\mmd-remix-pbr\tool\rpai.cmd
 ```
 
-`rpai.cmd` puts `tool/` on `PYTHONPATH` and runs the venv Python. From Git Bash, the equivalent is:
+`rpai.cmd` puts `tool/` on `PYTHONPATH` and runs the venv's Python. From Git Bash:
+`PYTHONPATH="<skill>/tool" "$HOME/.rpai/venv/Scripts/python.exe" -m rpai doctor`. The doctor checks
+torch with CUDA, the PBRify weights, the Remix Toolkit's NVTT exporter and whether the game answers.
 
-```bash
-PYTHONPATH="$HOME/.claude/skills/mmd-remix-pbr/tool" "$HOME/.rpai/venv/Scripts/python.exe" -m rpai doctor
-```
-
-The doctor checks torch with CUDA, the PBRify weights, the NVTT exporter from the Remix Toolkit, and
-whether the running game answers.
-
-- **No venv?** `tool/setup.ps1` creates it and downloads the PBRify_Remix v1.7.2 weights (CC0,
-  72 MB). Ask before running it, because it downloads.
-- **Keep `RPAI_HOME` on a short path.** PyTorch DLLs fail with WinError 206 from long paths.
+- **No venv?** `tool/setup.ps1` creates it and downloads the PBRify_Remix v1.7.2 weights (CC0, 72 MB).
+  Ask first: it downloads.
+- **Keep `RPAI_HOME` on a short path.** PyTorch's DLLs fail with WinError 206 from long paths.
+- Run the scripts in `scripts/` with the venv's Python (`$py = "$env:USERPROFILE\.rpai\venv\Scripts\python.exe"`);
+  they put `tool/` on the path themselves.
 
 ## Workflow for a character
 
-1. **Scope.** Get the PMX path. Confirm with the user:
-   - which textures are in scope;
-   - the style: defaults, or `presets/aggressive.json` for a strong, clearly-PBR look on materials.
-2. **The game.** The character must be spawned in Model Hotloader in the running game, so Remix has
-   drawn its textures. Parts that are hidden (alpha-0 materials, morph-toggled overlays) get only
-   predicted hashes until they are shown.
-   - **Compiled addons.** A character can also be a QC compile of the PMX installed as a folder
-     addon (sheepylord's ports: `models/sheepylord/<game>/<name>.mdl`), spawned as a ragdoll or
-     prop. Find it in game (entity class and `GetModel()`), then pass `--mdl <model path>` once;
-     rpai remembers it for that PMX. Its VMTs must be named like the PMX materials (README,
-     "Compiled models"). `abtest.py --asset <model path>` frames it.
-3. **Hashes.** Run `rpai hashes "<pmx>"`. Live hashes are authoritative. Predicted ones are a
-   fallback and can be wrong (on Guinevere, 8 of 13 agreed). Note which textures are predicted.
-4. **Texture review.** For a new character, follow `references/texture-review.md`. Check the class
-   of every material and what every sheet contains, then create the per-model preset
-   `tool/presets/models/<model key>.json`. It holds the style include, class pins (`_materials`),
-   colour region rules (`regions`, for example painted gold → metal) and per-texture overrides:
-   size, class presets for one sheet only, and a `normal_map` the model ships under any name
-   (a flattened one with red = green is rebuilt). Note a shipped body normal map (such as
-   `Body normal.png`) in the review, but use it on skin only when the user asks for skin work.
-   Example:
+1. **Scope.** Get the PMX path and the character's name as the user uses it. Confirm which textures are
+   in scope and the style: the defaults, or `presets/aggressive.json` (most characters since
+   2026-10-30 use the aggressive style with the values accepted on Evernight: cloth 0.65 / rough_ai
+   0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32, hair 0.38).
+2. **The game.** The character must be spawned (Model Hotloader, Q → MMD) in the running game, so
+   Remix has drawn its textures; wait for its first spawn to finish (characters load on first use).
+   With several games running pass `--game-root <GarrysMod>` to every command.
+   - **Compiled add-on** (sheepylord's ports, `models/sheepylord/<game>/<name>.mdl`, spawned as a
+     ragdoll or prop): find its model path in game (`GetModel()`), pass `--mdl <model path>` once
+     (remembered per PMX). Its VMTs must be named like the PMX materials (tool README, "Compiled
+     models"); `abtest.py --asset <model path>` frames it.
+3. **Hashes.** `rpai hashes "<pmx>"`. Live hashes are authoritative; predicted ones can be wrong. If
+   parts are hidden, `& $py scripts\reveal_hashes.py --game-root <GarrysMod> <asset id8> <material
+   count> "<pmx>"` shows them, runs `rpai hashes` and hides them again (restored exactly, checked).
+   List what stays predicted (morph-hidden parts, painted shadows).
+4. **Texture review** for a new character (`references/texture-review.md`): game maps first, the class
+   of every material, what every sheet holds. Write the per-model preset
+   `tool/presets/models/<model key>.json`: style include, class pins (`_materials`, 0-based PMX
+   material indices), region rules (`regions`: painted gold → metal; `"islands"` for one material
+   holding many surfaces), per-texture overrides (`max_size`, `presets`, `normal_map`, `rough_map`,
+   `metal_map`, `albedo_source`), and a `doc` that starts with the clean name and says why:
 
    ```json
    {
-     "doc": "What this model needs and why (keep the review notes here).",
+     "doc": "Chisa (<pmx>, <source folder>), Model Hotloader asset 0123abcd, reviewed <date>: what each part is and why.",
      "include": ["../aggressive.json"],
      "presets": {"_materials": {"38": "metal", "45": "gem"}},
      "regions": [{"texture": "衣.png", "within": ["cloth"], "class": "metal",
@@ -101,75 +140,49 @@ whether the running game answers.
    }
    ```
 
-   Body skin settings never go into this file on your own initiative (see the ground rules);
-   `tool/presets/on_request/` holds tested skin looks, applied with `--settings` only on request.
+   Body skin settings never go into this file on your own initiative. Per-texture file paths are
+   relative to the sheet's folder or absolute; write paths under the user's profile as
+   `%USERPROFILE%\...` (rpai expands variables and a leading `~`).
+5. **Generate.** `rpai generate "<pmx>"`. The first run per texture costs minutes of GPU time (DAT);
+   the AI outputs are cached in `work/<key>/raw`, so re-tuning recomposes in seconds. Inspect
+   `work/<key>/preview.jpg`, the class masks and `classes.json`. Check free commit memory and other
+   `-m rpai` processes first; beside the game use `--tile 128` (`runtime-notes.md`, "Commit memory").
+6. **Publish.** `rpai publish "<pmx>"`: NVTT DDS (BC7/BC5/BC4), the layer, an atomic `mod.usda`
+   rewrite; the runtime hot-reloads in about a second (no log line on current runtimes: check in game).
+   A brand-new mod folder needs Alt+X → Enhancements → Loaded USD Files → "Rescan Mods & Reload USD
+   Stage" once (the user's click, or a restart of your own test game). `rpai run "<pmx>"` = hashes +
+   generate + publish.
+7. **Show the result.** `rpai compare "<pmx>"` toggles the layer from the user's camera and saves a
+   before/after; for tuning or a standard use the AABB rig (`scripts/abtest.py`). Quote every change
+   against the floor-corner or repeat noise.
+8. **Iterate** on the per-model preset. `--settings extra.json` merges before the per-model preset, so
+   the model preset wins.
+9. **After a game restart and before packaging,** re-run `rpai hashes` with the model spawned: the
+   same opaque sheet can upload with a new hash, and rpai keeps every hash it has seen.
+10. **Remaking a layer** (the same PMX imported again under a new asset): the key that sorts first wins
+    every shared hash, so remove the old layer (`rpai remove "<pmx>" --asset <old id>`), mark the old
+    preset superseded in its `doc`, carry over the per-sheet decisions the user accepted (tool README,
+    "Remaking a layer").
 
-   When one material holds several surfaces (Robin's single `Body` material: dress, skin, gold,
-   crystals, shoes), classify whole UV islands: `"islands": 0.6` takes islands whose texels match
-   the colours for that fraction, `"box"` limits them by where they sit on the body, and rules
-   apply in order, each on the classes the earlier ones left. Shipped game normal maps (`_N`,
-   `Normal`) go in `normal_map` with the sheet's classes at `normal` 1.0; rpai rebuilds z when blue
-   holds something else and measures the green convention.
+## Standards (defaults in `tool/rpai/classify.py`; evidence in `references/standards.md`)
 
-5. **Generate.** Run `rpai generate "<pmx>"`. The first run per texture costs minutes of GPU time
-   (DAT upscale). The AI outputs are cached in `work/<key>/raw`, so re-tuning class values
-   recomposes in seconds, and only textures whose classes changed are redone. Inspect
-   `work/<key>/preview.jpg`, the class masks and `classes.json`.
-6. **Publish.** Run `rpai publish "<pmx>"`. It encodes DDS with the Toolkit's NVTT settings
-   (BC7/BC5/BC4), writes the layer and rewrites `mod.usda`, and the runtime hot-reloads.
-   - Confirm "Async reloaded USD data swapped in successfully" in `rtx-remix/logs/remix-dxvk.log`
-     (runtime `384581b1`). Runtime `c6b48ed1`, in use since 2026-10-25, logs no reload line; check
-     in game instead (`references/runtime-notes.md`).
-   - A brand-new mod folder needs the user to click Alt+X → Enhancements → Loaded USD Files →
-     "Rescan Mods & Reload USD Stage" once.
-   - `rpai run "<pmx>"` does hashes, then generate, then publish.
-7. **Show the result.**
-   - `rpai compare "<pmx>"` toggles the model's layer from the user's current camera and saves a
-     before/after.
-   - For tuning or standards, use the AABB rig (`scripts/abtest.py`, below). Quote changes against
-     the floor-corner or repeat noise.
-8. **Iterate** on the per-model preset. `--settings extra.json` merges before the per-model preset,
-   so the model preset wins.
-9. **After a game restart, or before packaging,** re-run `rpai hashes` with the model spawned. The
-   same texture can upload with a new hash in a new session, and rpai keeps every hash it has seen.
-
-## Standards (defaults in `tool/rpai/classify.py`)
-
-Details and evidence: `references/standards.md`. In short:
-
-- **Materials:**
-  - cloth 0.78 / normal 1.44, leather 0.42 / 1.12, stockings 0.55, rubber 0.22, hair 0.40;
-  - metal 0.28 with metallic 1, gem 0.05;
-  - `aggressive.json` pushes these (cloth 0.55 / 2.6, leather 0.20 / 2.0, metal 0.12…) and never
-    touches skin or the face.
-- **Gold type per character** (user request, 2026-10-26; table in `references/standards.md`):
-  painted gold has low reflectance (F0 0.17-0.55), and polished at 0.12 it mirrors a dim room as
-  dark bronze (Robin ZZZ's halo −37% in game). Painted golds get a satin metal in the per-model
-  preset (0.30-0.36); bright silver and tiny jewelry stay polished. Measured on Robin R18: satin
-  halves the darkening (gold −19% to −25% against −37% to −45% polished) with the same highlight
-  peaks, and adding `"f0": 0.74` (real gold's reflectance) brings the gold to −10%..+4% of the
-  original brightness, with a paler halo; Robin R18 uses it (measured) and Robin ZZZ too (same
-  art, unmeasured), the others are not lifted. For a new
-  character, measure its metal F0 on the mesh and pick the type the same way.
-- **Face and eyes (anime-safe):**
-  - face and mouth (teeth, tongue) 0.60, flat; lashes, brows and eyeliner 0.85;
-  - eye white 0.25 with emission 0.025; iris 0.06 with emission 0.04;
-  - catchlight mesh emission 0.6;
-  - `--emissive-intensity` re-levels all eye emission at publish time, with no regeneration.
-  - C-16: emissive maps carrying `sclera`, `eye` or `highlight` also get
-    `emissive_adaptive_intensity`. `--emissive-adaptive-intensity` is its ratio to the fixed fallback
-    per unit scene luminance (default `25`, tuned in game on Robin: eye whites near the cheek by
-    day, below it at night; `0` opts out). This counteracts auto-exposure's dark-scene glow and
-    bright-scene greying. The fixed intensity stays for older runtimes. Derivation, measurements and
-    limits are in `references/standards.md`. No texture regeneration is needed.
-- **Body skin: left as Remix renders it** (`original: 1`). A skin-only sheet gets no override; skin
-  on a shared sheet gets roughness 0.7, flat, original colours. De-lighting (`delight`) is opt-in
-  only, and subsurface scattering (`sss` class field) is not standard: on runtime `c6b48ed1` it
-  streaked thin limbs and left a seam where skin is split across materials. Relief from a model's
-  own body normal map is available **on request only** (Guinaifen's tested recipe and evidence:
-  `tool/presets/on_request/new_mmd_model_1c2ed2fc_body_skin.json`).
-- AI relief and AI roughness variation are off on skin and the face classes: the AI finds nothing
-  there except painted lines.
+- **Materials:** cloth 0.78 / normal 1.44, leather 0.42 / 1.12, stockings 0.55, rubber 0.22, hair
+  0.40; metal 0.28 with metallic 1; gem 0.05. `aggressive.json` pushes them (cloth 0.55 / 2.6, leather
+  0.20 / 2.0, metal 0.12, ...) and never touches skin or the face classes.
+- **Gold type per character** (2026-10-26): painted gold has F0 0.17-0.55, so polished it mirrors a dim
+  room as dark bronze; painted golds get a satin metal (0.30-0.36), bright silver and tiny jewellery
+  stay polished. `"f0": 0.74` lifts a satin gold to real gold's reflectance (measured on Robin,
+  `robin_r18_f9c3e4b4`). Measure a new character's metal F0 on the mesh and choose the same way.
+- **Face and eyes (anime-safe):** face and mouth 0.60 flat; lashes, brows, eyeliner 0.85; eye white
+  0.25 with emission 0.025; iris 0.06 with emission 0.04; catchlight mesh emission 0.6. Eye emission
+  maps also get `emissive_adaptive_intensity` (C-16, ratio `--emissive-adaptive-intensity`, default 25;
+  `0` opts out); the player's eye-white brightness slider scales it.
+- **Body skin: left as Remix renders it** (`original: 1`): a skin-only sheet gets no override; skin on
+  a shared sheet gets roughness 0.7, flat, original colours. De-lighting, SSS and relief from the
+  model's normal map are on request only.
+- AI relief and AI roughness variation are off on skin and the face classes.
+- **Emissive parts** (a glowing tail, a lamp): a class with an `emissive` weight of its own on that
+  sheet (tool README, "A part that glows").
 
 ## Commands
 
@@ -178,154 +191,119 @@ Details and evidence: `references/standards.md`. In short:
 | `rpai run "<pmx>"` | hashes → generate → publish |
 | `rpai hashes` / `generate` / `publish` / `compare` / `remove` | single steps (each takes the PMX path) |
 | `rpai status`, `rpai doctor` | published models / installation check |
-| `--mdl models/.../x.mdl` | the character is a compiled addon, not a Model Hotloader import (remembered) |
-| `--asset 1c2ed2fc` | use this Model Hotloader import for the PMX (a re-import whose source folder is gone, rebuilt from a byte-identical copy) |
-| `--only "衣.png,髪.png"` | limit to some textures |
-| `--force` | redo the AI stage too |
-| `--settings f.json` | extra settings, repeatable |
-| `--no-prune` | keep old DDS files (variants, A/B) |
-| `--emissive-intensity 0.7` | eye emission level |
-| `--emissive-adaptive-intensity 25` | adaptive/fallback ratio per scene luminance (the default; publish only; `0` disables) |
+| `--mdl models/.../x.mdl` | a compiled add-on, not a Model Hotloader import (remembered) |
+| `--asset 1c2ed2fc` | use this Model Hotloader import for the PMX (a re-import whose source folder is gone) |
+| `--only "衣.png,髪.png"`, `--force` | some textures; redo the AI stage too |
+| `--settings f.json` (repeatable), `--no-prune` | extra settings; keep old DDS (variants, A/B) |
+| `--emissive-intensity 0.7`, `--emissive-adaptive-intensity 25` | eye emission level; adaptive ratio (publish only; `0` disables) |
 | `--no-live` | skip the in-game query (earlier verified hashes are kept) |
-| `--max-size`, `--upscaler span` | size cap; faster, softer upscale |
-| `--height --displacement 0.03` | height maps for POM (off by default) |
-| `python scripts/abtest.py bones --asset <id8>` | spawned entity and bone positions |
-| `python scripts/abtest.py capture ...` | AABB capture of variant layers (restores everything after) |
-| `python scripts/abtest.py metrics <run> --baseline A` | noise, change, detail-kept tables and comparison sheets |
-| `python scripts/package_characters.py --dest <dir> --character name=key[=pmx] ...` | package characters |
-| `python scripts/set_adaptive_emission.py --mod <copy> --multiplier 25 --dry-run` | preview adaptive emission in an existing pack; omit `--dry-run` to apply |
-| `python scripts/recolour_skin.py --src <sheet> --ref <images> --out <png> --pmx <pmx> --materials 0,1` | skin tone matched to a reference (on request only), used through a per-texture `albedo_source` |
+| `--max-size 2048`, `--upscaler span`, `--tile 128` | size cap; faster, softer upscale; smaller inference tiles |
+| `--height --displacement 0.03`, `--mod <name>`, `--game-root <dir>` | height maps for POM (off by default); another mod folder; pick the game |
+| `& $py scripts\reveal_hashes.py [--game-root <dir>] <asset id8> <material count> "<pmx>"` | show hidden parts, `rpai hashes`, restore visibility exactly |
+| `& $py scripts\ue_toon_maps.py --d T_x_d.png --m T_x_m.png --id T_x_id.png --out-dir <dir> --name <sheet>` | roughness and metallic maps from an Unreal toon set, for `rough_map` / `metal_map` |
+| `& $py scripts\abtest.py bones --asset <id8>` / `capture ...` / `metrics <run> --baseline A` | AABB rig: bones, captures of variant layers (restores everything), noise/change/detail tables |
+| `& $py scripts\package_characters.py --dest <dir> --character <Name>=<key>[=<pmx>] ...` | package characters for reuse (not a Workshop pack) |
+| `& $py scripts\set_adaptive_emission.py --mod <copy> --multiplier 25 --dry-run` | adaptive eye emission in an existing pack; omit `--dry-run` to apply |
+| `& $py scripts\recolour_skin.py --src <sheet> --ref <images> --out <png> --pmx <pmx> --materials 0,1` | skin tone matched to a reference (on request only), used through `albedo_source` |
+| `& $py scripts\hotloader_export.py ...`, `scripts\stage_pbr_mod.py ...` | Workshop pack inputs: see workshop-content-pack |
 
-Run the scripts with the rpai venv Python (`%USERPROFILE%\.rpai\venv\Scripts\python.exe`). They put
-`tool/` on the path themselves. The model key is `<english name slug>_<asset id[:8]>`; `rpai` prints
-it, and the asset id prefix is its last 8 characters.
+The model key is `<english name slug>_<asset id[:8]>` (`rpai status` lists them; a compiled model's is
+`<name>_<sha1 of its path>[:8]`).
 
 ## Testing in game
 
-Use `references/testing-protocol.md` for anything beyond a quick compare. Essentials:
+Use `references/testing-protocol.md` for anything beyond a quick compare:
 
-- **Variants are complete model layers.** Build them with `generate --settings variant.json` and
-  `publish --no-prune`, copying the layer after each. Swap them with `abtest.py capture`, which waits
-  for the Remix swap and shoots each view twice back to back ("AABB"), so every effect comes with
-  its own noise floor.
-- **Views come from bone names.** Write a `views.json` with a target bone, target offset, camera
-  offset, fov and an optional crop for the sheets. Camera control is a client `CalcView` hook.
-- **Hide parts only via `mmdhl.SetMaterialVisible`** (`--hide 7,8,44`). If a part stays invisible
-  while its flags say visible, check material morphs (for example `[Fullbody]`) instead of
-  debugging further.
+- **Variants are complete model layers**: `generate --settings variant.json`, `publish --no-prune`,
+  copy the layer after each. `abtest.py capture` swaps them in, waits, and shoots each view twice back
+  to back (AABB), so every effect comes with its own noise floor; bracket with `A2` when an effect is
+  small.
+- **Views come from bone names** (`views.json`); the camera is a client `CalcView` hook.
+- **Hide parts only via `mmdhl.SetMaterialVisible`** (`--hide 7,8,44`); a part that stays invisible
+  while its flags say visible is a material morph (`[Fullbody]`): leave it.
+- **Hold the RTX package's character settings still** (painted shadows, solid hair, eye whites and
+  their brightness) through an A/B and record them.
 - **Present** the sheets and metrics, then ask with options that each carry their measured trade-off.
 
 ## Publishing for 8 GB GPUs
 
-Characters meant for players with **8 GB GPUs are published with `--max-size 2048` into a separate
-`--mod`**, such as `ai_pbr_2048`. Apply the cap while generating, then publish that output:
+The loader's minimum memory profile is 8 GB of VRAM and 16 GB of RAM (ADR 0101); larger packs fit
+larger cards. Characters meant for players with 8 GB GPUs are published with `--max-size 2048` into a
+separate `--mod`, such as `ai_pbr_2048`. Apply the cap while generating, then publish that output:
 
-```bash
+```powershell
 rpai run "<pmx>" --max-size 2048 --mod ai_pbr_2048
-# Or, with hashes already checked:
+# or, with hashes already checked:
 rpai generate "<pmx>" --max-size 2048 --mod ai_pbr_2048
 rpai publish "<pmx>" --max-size 2048 --mod ai_pbr_2048
 ```
 
-`publish` encodes the existing generated maps; adding the flag only at publish time does **not**
-resize an earlier 4096 px generation. Check per-texture `max_size` overrides (including `"source"`)
-before generating the 8 GB variant: they can lift the global cap. Publishing replaces the model's
-layer and prunes unused DDS files in that mod, so publishing the 2048 variant into the larger
-variant's mod would remove its textures. Keep the larger variant in its own mod and stage/package
-from `rtx-remix/mods/ai_pbr_2048` (pass `--mod ai_pbr_2048` to `package_characters.py`). Verify the
-DDS dimensions referenced by the packaged layer are at most 2048 px. Install one variant at a time
-when they override the same hashes.
-
-At the same format and mip count, a 4096 x 4096 map has four times the pixels and approximately
-four times the fully resident memory of a 2048 x 2048 map. With a full mip chain, BC7 albedo or BC5
-normals cost about **21.3 MiB at 4096** versus **5.3 MiB at 2048**; BC4 roughness costs about
-**10.7 MiB versus 2.7 MiB**. These are size calculations, not measured savings: residency depends
-on streaming and the runtime's budget. Each sheet can carry several maps, and the original game
-textures still have their own cost. Do not rely on the loader's low tier to make a large published
-pack inexpensive for every player.
+- `publish` encodes the existing generated maps: the flag at publish time alone does **not** resize an
+  earlier 4096 generation.
+- Per-texture `max_size` overrides (including `"source"`) lift the global cap: check them first.
+- Publishing replaces the model's layer and prunes unused DDS in that mod, so keep each size variant
+  in its own mod; stage and package from `rtx-remix/mods/ai_pbr_2048` (`--mod ai_pbr_2048` /
+  `--src ...\ai_pbr_2048`). Verify the packaged layer's DDS are at most 2048 px. Install one variant at
+  a time when they override the same hashes.
+- Costs (full mip chain, size calculations, not measurements): BC7 albedo or BC5 normals 21.3 MiB at
+  4096 against 5.3 MiB at 2048; BC4 roughness 10.7 against 2.7 MiB. A sheet carries several maps.
+- Since runtime patch 0030 a character's maps load at its first draw in a session, so a big pack costs
+  nothing until the character is spawned, then one long frame (0.11-0.32 s measured for 0.3-0.5 GB) and
+  its VRAM while drawn. Under real VRAM pressure undrawn maps give way (patches 0025 and 0026). None of
+  this makes a 4096 pack cheap for an 8 GB card; the loader's low tier changes memory only, nothing
+  visible.
 
 ## Packaging
 
-When asked to package characters, ask where (they chose
-`H:\BACKUP_20260815\Modding\ipg\!GMRTX_PBR_Test` before), then run
-`scripts/package_characters.py`. It writes:
-
-- a drop-in mod with only the referenced DDS files and a `mod.usda` listing just those layers;
-- per character: maps, AI cache, masks, settings, hashes and previews;
-- a copy of the tool;
-- a README, and a verification that every referenced DDS matches the live mod.
-
-Add character-specific notes (decisions, left-to-Remix sheets) to its README.
-Shader inputs, including adaptive emission and its fixed fallback, are copied and verified byte for
-byte. To update an existing pack without generating maps, use
-[`scripts/set_adaptive_emission.py`](scripts/set_adaptive_emission.py.md) on a staged copy. It edits
-only emissive-map shaders, preserves other bytes and touches `mod.usda`'s timestamp after a change.
-Review its dry run first. It also accepts `--value` for a literal per-material USD value.
-
-### A Workshop item (model + enhancements, private test)
-
-First done for Evernight + March 7th, 2026-10-30, as Guinaifen and Robin were before. The native
-loader repo (`H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix`) loads such items: a content package, no
-allowlist needed (its ADR 0027). Only on the user's request; keep the item private/hidden.
-
-1. **Game up**, in a map, Model Hotloader loaded, the models in its library. Re-check the hashes with
-   the models spawned (`rpai hashes`; they were identical across sessions) and `rpai publish` if any
-   changed. For an 8 GB audience, generate and publish the 2048 px variant into `--mod ai_pbr_2048`
-   as above before staging it; keep that flag on subsequent publishes of this variant.
-   Spawn and remove them yourself with `mmdhl.RequestSpawn(id, {}, cb)` and
-   `lua_run Entity(idx):Remove()` if the user has not; remove only what you spawned.
-2. `scripts/hotloader_export.py --game-root <GarrysMod> --asset <id8> ... --title ... --description-file ...
-   --file-name <n> --tag cartoon --out <dir>\mmdhl_<n>`: the library's Export without its terms dialog
-   (private items only), unpacked to an add-on folder (`addon.json` + `data_static\mmdhl`).
-3. `scripts/stage_pbr_mod.py --src <GarrysMod>\rtx-remix\mods\ai_pbr_2048 --dest <dir>\pbr_<n> --layer <key> ...`:
-   the 8 GB variant's referenced DDS, SHA-checked, plus `mod.usda`. For a different audience, use
-   the separate mod holding its chosen variant.
-4. In the repo, no `-I`: `python tools\package_content.py --id <n>-rtx --name ... --addon <dir>\mmdhl_<n>
-   --mod <dir>\pbr_<n> --title ... --type model --tag cartoon --description ... --gma <dir>\<n>-rtx.gma --link`;
-   then `nlctl manifest` and `nlctl verify` (the main checkout's `out\build\win64-release\loader\cli`).
-5. A 512x512 `icon.jpg` (the two faces from tuned shots; keep it free of adult content), then from a game
-   root with `steam_appid.txt` (the repo's `workshop.json` names the PoC's): `gmpublish.exe create -addon
-   <gma> -icon <jpg>`. The item starts hidden. Log it, subscribe through steam_api (as the Modern House
-   test did), and read the download back.
-6. Record the item in the repo (`docs/handover`, CHANGELOG) when the user asks; never make it public.
-
-The full packing procedure, the dependency model, the description template with Required items, the
-offline fallback packers and the pitfalls of the earlier packs are in the sibling skill
-`workshop-content-pack` (in the native loader repository: `skills/workshop-content-pack/SKILL.md`).
+- **For reuse** (a folder the user names; they chose `H:\BACKUP_20260815\Modding\ipg\!GMRTX_PBR_Test`
+  before): `scripts/package_characters.py` writes a drop-in mod with only the referenced DDS and a
+  `mod.usda` listing those layers, each character's maps, AI cache, masks, settings, hashes and
+  previews, a copy of the tool, a README, and checks every DDS against the live mod. Shader inputs
+  (adaptive emission and its fallback included) are copied byte for byte. Add character-specific
+  notes to its README.
+- **For the Workshop** (a hidden content pack the loader deploys to subscribers): follow the
+  workshop-content-pack skill (`skills/workshop-content-pack/SKILL.md`). This skill provides its
+  preferred inputs: `scripts/hotloader_export.py` (Model Hotloader's own export through the game) and
+  `scripts/stage_pbr_mod.py` (only the referenced DDS, SHA-checked).
+- **Update an existing pack's eye emission** without regenerating:
+  `scripts/set_adaptive_emission.py` on a staged copy (dry run first).
 
 ## Runtime caveats (details: `references/runtime-notes.md`)
 
-- **The runtime is a fork** (sambow23/dxvk-remix-gmod, remix-main+384581b1) that rejects every
-  colour-valued USD input (`color3f`/`float3`…). Colours must come from textures. rpai writes only
-  bools, floats and textures for that reason.
-- **Subsurface scattering works only under two conditions:** the material forced opaque
-  (`use_legacy_alpha_state = 0`, `blend_enabled = 0`), and the skin colour given as
-  `subsurface_transmittance_texture`. Otherwise skin turns near-black. `radius_scale` must stay at
-  0.5 or above.
-- **Remix hot-reloads only on a `mod.usda` timestamp change.** Mod priority by path:
-  `!advanced_material_editor` < `ai_pbr` < `~gmod_topbr`.
+- The runtime is the RTX package's: the fork's `c6b48ed1` with this repository's patches, loaded by the
+  native loader from `native-loader\packages\rtx-remix-runtime\...`. rpai writes bools, floats and
+  textures (a rule from the older `384581b1`, which rejected colour inputs; `c6b48ed1` loads them), plus
+  the opt-in `sss_radius` colour.
+- `remix-dxvk.log` is written at exit, and current runtimes log no reload line: judge reloads in game.
+- Mod precedence: `!advanced_material_editor` < `ai_pbr` < `pbr_<name>` packs < (fallback, always last)
+  `~gmod_topbr`. Remix hot-reloads only on a `mod.usda` timestamp change.
+- SSS works only with the material forced opaque and the skin colour as
+  `subsurface_transmittance_texture`; not part of the standard.
 
 ## Troubleshooting
 
 | Symptom | Cause and fix |
 | --- | --- |
-| A texture shows no change in game | Its hash is predicted or stale. Spawn and show the part, run `rpai hashes`, then `rpai publish`. Check whether another model's layer wins a byte-identical sheet (publish prints a note) |
-| "the game window did not accept the console message" | The game is loading or hung. Wait once; `hashes` falls back to earlier verified hashes. Don't loop or restart it |
-| WinError 206 loading torch | The venv is on a long path. Keep `RPAI_HOME` short (`%USERPROFILE%\.rpai`) |
-| New mod folder not loaded | The user must do Rescan Mods once (Alt+X menu), or restart the game |
-| Skin or eyes look grey or dirty in sockets | Expected from path tracing. Eye white and iris emission handle the eyes; skin stays original by decision |
-| Part invisible though its visibility flags say visible | A material morph (for example `[Fullbody]`) is hiding it. Leave it; it is the user's setting |
+| A texture shows no change in game | Its hash is predicted or stale: show the part (`reveal_hashes.py`), `rpai hashes`, `rpai publish`. Or another layer wins a byte-identical sheet (publish prints a note), or the user's Advanced Material Editor profile covers it |
+| A game character's sheet lost its game-map look after a publish | The rpai layer now owns that hash and wins over ToPBR. If the user prefers the game maps, give every class on that sheet `"original": 1` in its per-texture `presets`, then `generate` and `publish`: the sheet leaves the layer and ToPBR's material shows again |
+| "the game window did not accept the console message" | The game is loading or hung. Wait once; `hashes` falls back to earlier verified hashes. Do not loop or restart it |
+| WinError 206 loading torch | The venv is on a long path: keep `RPAI_HOME` short (`%USERPROFILE%\.rpai`) |
+| New mod folder not loaded | Rescan Mods once (Alt+X menu) or a restart |
+| Eyes or skin look grey in the sockets | Path tracing. Eye emission (rpai's or the companion's eye whites) handles the eyes; skin stays original by decision. Check `nativeloader_eye_white_brightness` |
+| Part invisible though its flags say visible | A material morph hides it (`[Fullbody]`): the user's setting, leave it |
+| A dark band over the eyes is gone, or a shadow part has no live hash | The companion leaves painted shadows out of the draw in RTX sessions (`nativeloader_hide_painted_shadows`): expected |
 | "doesn't fit into STAGING memory" in the Remix log | Harmless for sheets over 96 MB (Firefly's 11059×8847 stockings) |
-| Colour constant ignored ("has unexpected type") | Fork limitation; use a texture input |
-| Thin crease or "normal slit" along UV seams (sides of stockings, sleeves) | The AI read island borders as relief. Fixed by gutter padding (`compose.gutter_fill`); maps generated before 2026-10-25 still have it, so run `generate` again (the upscale cache is kept) |
-| Same slit down the sides of the body with a model's own `normal_map` | The map's bake padding does not match the UV borders, and front and back halves are rebuilt separately. `relief_normals` continues the island edge's slope outward and fades the relief to flat over the last 12 texels of each island (RELIEF_VERSION 3) |
-| A compiled model turns (almost) invisible after publish | Its VMTs alpha-test at 0.5 and the PMX images carry a mask in alpha (Wuthering Waves `_D` toon masks, mean 0.2-0.4); the published albedo keeps that alpha. Point the PMX at RGB copies and republish (README, "Compiled models"; Hiyuki Alt skin 1, 2026-10-27) |
+| Colour constant ignored ("has unexpected type") | The old `384581b1` runtime; on the current one check `rtx.usd.legacyIgnoreColors` |
+| Thin crease along UV seams (stockings, sleeves) | Maps generated before the gutter fix (2026-10-25): run `generate` again (the upscale cache is kept) |
+| Same slit down the sides of the body with a model's own `normal_map` | Bake padding that does not match the islands; `relief_normals` handles it (RELIEF_VERSION 3): regenerate |
+| A compiled model turns (almost) invisible after publish | Its VMTs alpha-test at 0.5 and the PMX images carry a mask in alpha (Wuthering Waves `_D` toon masks): point the PMX at RGB copies and republish (tool README, "Compiled models") |
+| A sheet over 4096 has no hash | Model Hotloader 2.3.1 keeps it full size in `mmd/tf/`; this rpai reads both folders (an installed copy older than 2026-11-03 does not) |
 
 ## Done criteria for a character
 
-- `rpai status` lists the model.
-- The Remix log shows the swap.
-- A compare or AABB result with numbers has been shown to the user.
-- Predicted-only textures are named.
-- Any new decision is recorded in the per-model preset `doc` field, and, for standards, in
+- `rpai status` lists the model; the change was checked in game (no reload log line exists).
+- A compare or AABB result with numbers was shown to the user.
+- Predicted-only textures are named, with why (hidden, morph, painted shadow).
+- For a game character: which sheets the rpai layer took over from imported game PBR.
+- Every new decision is in the per-model preset's `doc` (clean name first) and, for a standard, in
   `references/standards.md` and the `classify.py` comments.

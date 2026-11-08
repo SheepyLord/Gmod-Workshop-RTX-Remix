@@ -307,6 +307,30 @@ class PackageFixesTests(unittest.TestCase):
         self.assertIn('requires the nativeloader companion', err)
         self.assertFalse((self.root / 'excluded').exists())
 
+    def test_lua_bin_adds_this_repositorys_modules_as_binary_modules(self):
+        client = self.write(self.root / 'guard' / 'gmcl_nlengineguard_win64.dll', b'MZ client guard')
+        server = self.write(self.root / 'guard' / 'gmsv_nlengineguard_win64.dll', b'MZ server guard')
+        out = self.root / 'pkg'
+        summary = self.build('--out', out, '--lua-bin', client, '--lua-bin', server)
+        manifest = self.manifest(out)
+        for module in (client, server):
+            path = 'garrysmod/lua/bin/' + module.name
+            digest = hashlib.sha256(module.read_bytes()).hexdigest()
+            self.assertEqual(manifest['files']['native/root/' + path], {'size': module.stat().st_size, 'sha256': digest})
+            self.assertEqual(summary['modules'][module.name], digest)
+            self.assertIn({'path': path, 'policy': 'replace-owned'}, manifest['root_files'])
+        self.assertIn('lua-binary-module', summary['kinds'])
+        # Not a module name, a module packaged already, a missing file: refused, nothing written.
+        bad = self.write(self.root / 'guard' / 'engineguard.dll', b'MZ')
+        twice = self.write(self.root / 'guard' / package_fixes.MAIN_MODULE, b'MZ again')
+        for given, words in ((bad, 'expected a gmcl_'), (twice, 'packaged already'),
+                             (self.root / 'guard' / 'gmcl_missing_win64.dll', 'no such file')):
+            target = self.root / ('refused-' + Path(given).stem)
+            code, _, err = self.run_tool('--out', target, '--lua-bin', given)
+            self.assertEqual(code, 1, given)
+            self.assertIn(words, err)
+            self.assertFalse(target.exists())
+
     def test_steam_files_configs_and_junk_stay_out(self):
         out = self.root / 'pkg'
         self.build('--out', out)

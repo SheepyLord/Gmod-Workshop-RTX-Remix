@@ -8,6 +8,18 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#, c-format
+msgid "%s, in the add-on %s"
+msgstr ""
+
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#, c-format
+msgid ""
+"The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
+"If that happens again, disable that add-on."
+msgstr ""
+
 #: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
 #, c-format
 msgid "Effect categories: %d observed materials"
@@ -953,6 +965,15 @@ msgstr ""
 msgid "Open in window"
 msgstr ""
 
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#, c-format
+msgid "Preparing PBR materials for imported characters: %d of %d."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+msgid "PBR materials for imported characters are ready."
+msgstr ""
+
 #: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
 msgid ""
 "Upscaling and frame generation are off.\n"
@@ -986,6 +1007,20 @@ msgid ""
 "Frame generation is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
 "Choose Frame generation: FSR 3."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:8
+msgid "Garry's Mod is not finishing its start"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:9
+#, c-format
+msgid ""
+"Garry's Mod has spent 90 seconds on one add-on file while starting Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"If the game does not go on, that add-on is stuck: end the game and disable the add-on that has this file. The details are in garrysmod\\data\\native-loader\\startup-stall.json."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:44

@@ -69,85 +69,11 @@ local function message(generation, state)
 end
 
 -- R22 (ADR 0129): the same advice in a notice at the top right, like the Model Hotloader's, so it is
--- not missed among the sandbox hints. It goes after NOTICE_SECONDS, or earlier with its close button.
-local NOTICE_SECONDS, NOTICE_FONT, NOTICE_TITLE_FONT = 15, "NativeLoaderHintNotice", "NativeLoaderHintNoticeTitle"
-local function noticeTop(width, px)
-    -- Below another notice already in the top-right corner (the Hotloader's sits at y = 40): only
-    -- notice-sized panels count, never a visible full-screen menu.
-    local top = px(40)
-    local world = type(vgui.GetWorldPanel) == "function" and vgui.GetWorldPanel()
-    if not world or type(world.GetChildren) ~= "function" then return top end
-    local left = ScrW() - width - px(20)
-    for _ = 1, 4 do
-        local moved = false
-        for _, child in ipairs(world:GetChildren()) do
-            if IsValid(child) and child:IsVisible() and not child.nativeloaderHintNotice then
-                local x, y = child:GetPos()
-                local w, h = child:GetSize()
-                if w < ScrW() / 2 and h < ScrH() / 2 and x + w > left and y < top + px(110) and y + h > top then
-                    top, moved = y + h + px(10), true
-                end
-            end
-        end
-        if not moved then break end
-    end
-    return top
-end
-
+-- not missed among the sandbox hints. It goes after 15 seconds, or earlier with its close button. The
+-- notice is nativeloader/notice.lua since R23, shared with the start-up stall notice and the PBR progress.
 local function showNotice(text)
-    if type(vgui) ~= "table" or type(vgui.Create) ~= "function" or type(ScrW) ~= "function" then return end
-    local scale = math.max(0.65, ScrH() / 1080) -- the companion's windows scale with the screen (4K)
-    local function px(n) return math.floor(n * scale + 0.5) end
-    surface.CreateFont(NOTICE_TITLE_FONT, { font = "Arial", size = px(19), weight = 700 })
-    surface.CreateFont(NOTICE_FONT, { font = "Arial", size = px(17), weight = 400 })
-    local width = math.min(px(500), ScrW() - px(40))
-    local panel = vgui.Create("DPanel")
-    panel.nativeloaderHintNotice = true
-    panel:SetSize(width, px(120))
-    panel:DockPadding(px(18), px(12), px(40), px(14))
-    local born = SysTime()
-    panel.Paint = function(_, w, h)
-        draw.RoundedBox(px(6), 0, 0, w, h, Color(24, 26, 30, 235))
-        surface.SetDrawColor(118, 185, 0, 255) -- the accent of the loading window and RTX Remix
-        surface.DrawRect(0, 0, px(4), h)
-    end
-    local title, body
-    local function fit(self)
-        -- The wrapped body sets its height during its own layout: follow it.
-        local tall = px(12) + title:GetTall() + body:GetTall() + px(14)
-        if self:GetTall() ~= tall then self:SetTall(tall) end
-    end
-    panel.Think = function(self)
-        local age = SysTime() - born
-        self:SetAlpha(255 * math.Clamp(math.min(age / 0.25, (NOTICE_SECONDS - age) / 0.6), 0, 1))
-        fit(self)
-    end
-    title = panel:Add("DLabel")
-    title:Dock(TOP)
-    title:SetTall(px(26))
-    title:SetFont(NOTICE_TITLE_FONT)
-    title:SetTextColor(Color(118, 185, 0))
-    title:SetText("RTX Remix")
-    body = panel:Add("DLabel")
-    body:Dock(TOP)
-    body:SetFont(NOTICE_FONT)
-    body:SetTextColor(Color(235, 237, 240))
-    body:SetWrap(true)
-    body:SetAutoStretchVertical(true)
-    body:SetText(text)
-    local close = panel:Add("DButton")
-    close:SetText("\xC3\x97") -- the multiplication sign, as the Hotloader's notice uses
-    close:SetFont(NOTICE_TITLE_FONT)
-    close:SetSize(px(26), px(26))
-    close.DoClick = function() panel:Remove() end
-    panel.PerformLayout = function(self, w)
-        close:SetPos(w - px(32), px(8))
-        fit(self)
-    end
-    panel:SetPos(ScrW() - width - px(20), noticeTop(width, px))
-    panel:SetAlpha(0)
-    timer.Simple(NOTICE_SECONDS, function() if IsValid(panel) then panel:Remove() end end)
-    return panel
+    local Notice = include("nativeloader/notice.lua")
+    return Notice and Notice.Show(text)
 end
 
 local attempts, finished = 0, false

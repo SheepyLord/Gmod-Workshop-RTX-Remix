@@ -1,0 +1,18 @@
+{
+  "doc": "Jingliu (鏡流R18Ver2.0.pmx, E:\\G\\Upload\\jinliu\\1_PMX\\...\\星穹铁道—镜流R18Ver1.0_By_Alicia), Model Hotloader asset 381e8c1b, ragdoll in the active session, reviewed 2026-11-03: aggressive style with the values the user accepted on Evernight (cloth 0.65 / rough_ai 0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32), applied without AABB at the user's request. 63 materials, 14 sheets (12 live hashes; td.png and 颜赤.png predicted only, parts hidden). What each part is for, and its class: ROPES (asanawa.png, 7 materials: main rope, thigh, hand and leg ropes, nipple knot) cloth, a hemp fibre; byte-identical to Evernight's sheet, so Evernight's layer (alphabetically first) supplies its maps. GAG and BLINDFOLD (口球.png, Blindfold Text.png): ball rubber, straps and blindfold leather; also shared with Evernight, whose layer wins; the gag and blindfold metal (8, 12) are untextured and use the engine's shared white texture, so they cannot be overridden. TONGUE/MOUTH sita.png mouth (shared). STOCKINGS (siwa.png): 15-20 sheer stockings 0.42; 21 the sheer gloves on the same sheet are cloth; 22 戒指 (a silver ring, one island, rgb 125/128/134) was classed skin by its English name 'Body', now metal. UNDERWEAR (ny_1diffuse_2001.png, blue and white cotton stripes): 61 bra cloth, 59 underpants (no rule matched) cloth. 62 love egg (td.png, solid pink): silicone, rubber 0.25. OUTFIT (衣服.png 4096x2048, navy and ice-white silk with silver filigree): fabrics cloth; 30 裙甲 (skirt armour, silver plates), 41 袖饰铁 (sleeve iron) and 46 发饰 (hair ornament, silver crescents) metal (30 and 46 were cloth by name); 37 胸饰 (chest ornament, fabric with a white drop and black orb) cloth, it was skin by 胸; 44 耳环 is a white pearl drop plus grey hook, so the pearl islands (white, near 0.79/0.44 of the sheet) become gem and only the hook stays metal (a white mirror-metal ball rendered as dark chrome on Cyrene). Silver trim painted on the cloth and leather materials (neutral grey, sat <= 0.10, value 0.45-0.82) becomes metal. SKIN: body (Body.png), 皮肤, tattoo (1inmon.png) and the face stay as Remix renders them, per the standard; Body normal.png is not used (skin work only on the user's request).",
+  "include": ["../aggressive.json"],
+  "presets": {
+    "_materials": {"22": "metal", "30": "metal", "37": "cloth", "46": "metal", "59": "cloth", "62": "rubber"},
+    "cloth": {"rough": 0.65, "rough_ai": 0.35, "normal": 2.0},
+    "leather": {"rough": 0.25, "rough_ai": 0.4},
+    "stockings": {"rough": 0.42, "rough_ai": 0.4},
+    "metal": {"rough": 0.32},
+    "rubber": {"rough": 0.25}
+  },
+  "regions": [
+    {"texture": "衣服.png", "within": ["metal"], "class": "gem", "rect": [0.76, 0.38, 0.84, 0.50], "sat": [0.0, 0.10], "val": [0.80, 1.0],
+     "doc": "the white pearl drop of the earring (island at 0.79/0.44), not its metal hook"},
+    {"texture": "衣服.png", "within": ["cloth", "leather"], "class": "metal", "hue": [180, 260], "sat": [0.0, 0.10], "val": [0.45, 0.82],
+     "doc": "silver filigree trim painted onto the navy armour, shoes, eye mask and sleeves"}
+  ]
+}

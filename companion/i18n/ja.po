@@ -8,6 +8,20 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#, c-format
+msgid "%s, in the add-on %s"
+msgstr "%s（アドオン %s）"
+
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#, c-format
+msgid ""
+"The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
+"If that happens again, disable that add-on."
+msgstr ""
+"前回の Garry's Mod の起動は Lua の起動を完了できず、%s で止まりました。\n"
+"また起きる場合は、そのアドオンを無効にしてください。"
+
 #: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
 #, c-format
 msgid "Effect categories: %d observed materials"
@@ -953,6 +967,15 @@ msgstr "VMDファイルをインポートして、モーションライブラリ
 msgid "Open in window"
 msgstr "ウィンドウで開く"
 
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#, c-format
+msgid "Preparing PBR materials for imported characters: %d of %d."
+msgstr "インポートしたキャラクターの PBR マテリアルを準備しています: %d / %d。"
+
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+msgid "PBR materials for imported characters are ready."
+msgstr "インポートしたキャラクターの PBR マテリアルの準備ができました。"
+
 #: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
 msgid ""
 "Upscaling and frame generation are off.\n"
@@ -1002,6 +1025,25 @@ msgstr ""
 "フレーム生成がオフです。\n"
 "RTX Remix > Remix 設定、または Alt+X：\n"
 "選択：フレーム生成: FSR 3。"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:8
+msgid "Garry's Mod is not finishing its start"
+msgstr "Garry's Mod の起動が終わりません"
+
+#: nativeloader/lua/nativeloader/engine_guard_words.lua:9
+#, c-format
+msgid ""
+"Garry's Mod has spent 90 seconds on one add-on file while starting Lua:\n"
+"\n"
+"%s\n"
+"\n"
+"If the game does not go on, that add-on is stuck: end the game and disable the add-on that has this file. The details are in garrysmod\\data\\native-loader\\startup-stall.json."
+msgstr ""
+"Garry's Mod は Lua の起動中、1 つのアドオンファイルで 90 秒間止まっています:\n"
+"\n"
+"%s\n"
+"\n"
+"ゲームが先に進まない場合、そのアドオンが止まっています。ゲームを終了し、このファイルを含むアドオンを無効にしてください。詳細は garrysmod\\data\\native-loader\\startup-stall.json にあります。"
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:44
 msgid "Welcome"

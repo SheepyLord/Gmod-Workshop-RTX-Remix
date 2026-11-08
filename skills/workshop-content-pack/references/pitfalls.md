@@ -1,7 +1,8 @@
 # Pitfalls: what went wrong, why, and the fix
 
 Every failure and near-miss of the Guinaifen (2026-10-29), Robin (2026-10-30) and Evernight and
-March 7th (2026-10-31) sessions, plus traps found while writing this skill. Dates are UTC. Items
+March 7th (2026-10-31) sessions, traps found while writing this skill, and what the project changed
+since (to 2026-11-08: subscriptions, the naming rule, the Hotloader takeover). Dates are UTC. Items
 marked **inferred** follow from the code but were not observed.
 
 ## The pack does not show up in game
@@ -17,10 +18,13 @@ marked **inferred** follow from the code but were not observed.
 - **Fix then.** The session added 3829348717 to the field allowlist (backup in
   `out\field-backups\20261029-guinaifen\config.json`), `nlctl plan` showed it ACTIVE, the user
   restarted.
-- **Now.** Since loader 0.4.0 (ADR 0027) a content-only package deploys from any subscription with no
-  allowlist entry; players cannot edit the allowlist anyway. On 2026-10-31 the field allowlist holds
-  only 3829070317 and `nlctl plan` lists all three packs as `ACTIVE ... (subscribed, content only)`.
-  Keep packs content only (pitfall 14) and check with `nlctl plan`.
+- **Now.** Since loader 0.4.0 (ADR 0027) a content-only package deploys with no allowlist entry;
+  players cannot edit the allowlist anyway. Since loader 0.14.0 (ADR 0111) only from an item an account
+  on that computer **subscribed** to (Steam's `appworkshop_4000.acf` gives it a `subscribedby`), not
+  from one the game or a server merely downloaded (pitfall 23). On 2026-10-31 the field allowlist held
+  only 3829070317 and `nlctl plan` listed all three packs as `ACTIVE ... (subscribed, content only)`;
+  in R13 (2026-11-03) the field had `pbr_guinaifen`, `pbr_robin` and `pbr_evernight_march7th`
+  deployed. Keep packs content only (pitfall 14) and check with `nlctl plan`.
 - **Not the cause.** GMod does not mount the archive itself (the session's report said it did; the
   console shows `Couldn't mount addon file ... (3829348717)`). Model Hotloader finds the model only
   once the loader has deployed the add-on folder.
@@ -75,9 +79,10 @@ marked **inferred** follow from the code but were not observed.
 
 ### 6. On the author's machine, `ai_pbr` hides the packaged layer (inferred)
 
-- **Cause.** Remix checks mods in path order and the first one with a hash wins
-  (`!advanced_material_editor` < `ai_pbr` < `~gmod_topbr`, mmd-remix-pbr `references/runtime-notes.md`).
-  `ai_pbr` sorts before `pbr_<name>`, so where both have a hash, rpai's live layer is used.
+- **Cause.** Remix checks authored mods in path order and the first one with a hash wins
+  (`!advanced_material_editor` < `ai_pbr` < `pbr_<name>`; the RTX fixes' `~gmod_topbr` always comes
+  last, runtime patch 0020; mmd-remix-pbr `references/runtime-notes.md`). `ai_pbr` sorts before
+  `pbr_<name>`, so where both have a hash, rpai's live layer is used.
 - **Consequence.** Seeing the PBR on the author's machine proves the live layer, not the packaged one.
   Check the packaged layer by hashes (`add_hashes.py <staged pbr_<name>> --check-json ...`), or in an
   install without the character in `ai_pbr`. Later tuning in `ai_pbr` keeps showing there even before
@@ -124,7 +129,8 @@ The first build used `mmdhl_robin_r18`, `pbr_robin_r18`, package id `robin-r18-r
 RTX (native loader package)" and display name `Robin R18 (知更鸟)`. The user asked for `pbr_robin`
 only and the name `Robin`. Use plain names everywhere a player sees them or a folder is deployed; the
 rpai layer key (`robin_r18_f9c3e4b4.usda`) is only a file inside the mod and may keep its name.
-Changing the package id between builds is fine: the loader replaces the old deployment.
+Changing the package id between builds is fine: the loader replaces the old deployment. The user made
+it a general rule on 2026-11-08 (pitfall 24).
 
 ## gmpublish and the Workshop
 
@@ -187,10 +193,13 @@ All three sessions ran from a worktree without a loader build. The script checks
 the checkout it lives in. Run the main checkout's `nlctl.exe manifest` and `verify` yourself (or call
 the main checkout's `tools\package_content.py` by its absolute path, which then finds that build).
 
-### 18. `package_content.py` fails under `python -I`
+### 18. `package_content.py` under `python -I` (fixed)
 
 It imports its sibling modules (`package_fixes`, `package_runtime`, `package_workshop`), which `-I`
-takes off the path. Run it without `-I`. The scripts of this skill run with `-I`.
+takes off the path, so the 2026-10-31 sessions ran it without `-I`. It now puts its own folder on
+`sys.path` (`tools/package_content.py.md`: "Direct invocation supports `python -I`"): run it with
+`-I`, like every repository and skill script, so no module in the current folder can shadow one it
+imports.
 
 ### 19. Double quotes vanish from the description (Robin)
 
@@ -222,6 +231,41 @@ gone and deletes the Workshop-installed model from its cache (unless in use), an
 installs it again. Not observed. The current recipe (Evernight) leaves it off for character packs; a
 map remaster whose Lua only makes sense with Remix uses it (Modern House RTX).
 
+### 23. A pack that was only downloaded deploys nothing (loader 0.14.0, ADR 0111)
+
+- **Symptom.** The archive is in `steamapps\workshop\content\4000\<id>\`, but `nlctl plan` does not list
+  the item at all, and nothing is deployed.
+- **Cause.** The loader takes a content package only from an item Steam's record shows a subscriber for
+  (`appworkshop_4000.acf`, `WorkshopItemDetails`, `subscribedby`). An item fetched without a subscription
+  (a server's or a script's `steamworks.DownloadUGC`, a test probe that only downloads) is not a
+  candidate, and a package an older loader deployed from such an item is removed at the next start.
+  With no readable record the loader keeps what it had and adds nothing new.
+- **Fix.** The user subscribes (their account; never on your own). For a test without a subscription
+  use the PoC with `poc_session.py install --allow-local <gma>` (an allowlisted local archive).
+
+### 24. A name with a game, version or author tag (the user, 2026-11-08)
+
+- **Symptom.** A display name, folder, package id, title or description that says where the model
+  came from or which version it is: `鸣潮-千咲`, `星穹铁道-桂乃芬`, `阿芙2.0`, `Alf 合体7`, `Robin R18`,
+  `[Arknights] Texas`. Model Hotloader names an import after its PMX (or the user's library entry), so
+  such names arrive with the model.
+- **Cause.** Source folders and PMX files are named `<game>-<character><version>_By_<author>`; copying
+  them carries the tags into everything the pack records.
+- **Fix.** The character's own name as the user uses it (`Chisa`, `Guinaifen`, `Alf`). The scripts
+  refuse tagged names (`model_names.py`): `hotloader_export.py` stops on a tagged library name (ask the
+  user to rename it in Model Hotloader, or pack offline with `mmdhl_pack.py` and a clean
+  `<item name>` / `--item`), and `check_pack.py` reports one as an error. Do not rename a model in the
+  user's library yourself.
+
+### 25. The pack takes over the author's own import (R5, inferred for the author's machine)
+
+On a machine whose cache already holds the model as the player's own import (the author's, where the
+model was imported for rpai), the first start with the pack takes the model over: the pack's library
+name, presets, arms and fit replace the player's, kept once under
+`data\mmd_hotloader\workshop\own\<asset>\` and put back when the pack goes
+(`references/model-hotloader-package.md`). Expected; tell the user before they subscribe to their own
+pack, and do not "fix" the library entry.
+
 ## Diagnosing
 
 | Question | Where to look |
@@ -229,7 +273,7 @@ map remaster whose Lua only makes sense with Remix uses it (Modern House RTX).
 | Will the next start deploy the pack? | `nlctl plan <game root>` (main checkout's `out\build\win64-release\loader\cli\nlctl.exe`): `ACTIVE workshop <id> (subscribed, content only) -> <package id> <version>`, or `skipped ...: <reason>`. Read only |
 | Is the archive valid? | `nlctl manifest <gma>` (`OK: valid native package`), `nlctl verify <gma>` (`OK: gmad, <n> files`), `python -I tools\gmapack\gmapack.py verify -f <gma>` (`0 CRC failure(s)`), `check_pack.py` |
 | What did the last start do? | `<game root>\native-loader\logs\loader.log` (`deployment.outcome`, `deployment.change_count`, `deployment.blocked_by`, `deployment.error`, `deployment.note`); `<game root>\garrysmod\data\native-loader\status.json` (`deployment.packages`, `deployment.skipped` with each package and reason); `nlctl status <game root> [--verify]` (the journal) |
-| Did Steam download it? | `H:\SteamLibrary\steamapps\workshop\content\4000\<id>\<uploaded file name>.gma` (SHA-256 against the build), `steamapps\workshop\appworkshop_4000.acf` (`WorkshopItemsInstalled`, `WorkshopItemDetails`). A first download shows in the details before the folder exists |
+| Did Steam download it, and is it subscribed? | `H:\SteamLibrary\steamapps\workshop\content\4000\<id>\<uploaded file name>.gma` (SHA-256 against the build), `steamapps\workshop\appworkshop_4000.acf` (`WorkshopItemsInstalled`, `WorkshopItemDetails` with a `subscribedby` for a subscribed item; pitfall 23). A first download shows in the details before the folder exists |
 | Is the item hidden? | gmpublish's log ("currently marked as hidden"); Steam's public `ISteamRemoteStorage/GetPublishedFileDetails` answers `result 9` for it (seen for all three) |
 | Did Model Hotloader install the model? | `garrysmod\addons\mmdhl_<name>\` exists; `garrysmod\data\mmd_hotloader\library\<asset>.json`, `terms\<asset>.json`; `assets\<asset>\` (with a locally rebuilt `materials-v5.gma`); the library under Workshop. Model Hotloader prints `[Model Hotloader workshop] ...` errors to the console; read only your own session's part of the user's console log |
 | Does the PBR apply? | `rtx-remix\mods\pbr_<name>\` exists; with the model spawned, `rpai hashes`, then `add_hashes.py <that folder> --check-json <hashes.json>` |

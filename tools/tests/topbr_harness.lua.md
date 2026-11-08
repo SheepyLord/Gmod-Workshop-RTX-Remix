@@ -8,3 +8,6 @@ no game, network or filesystem mutation. Exit 0 on success, nonzero on a failed 
 
 The driver includes the R12 panel under its existing trusted path; registration is exercised here,
 and `game_pbr_panel_harness.lua` separately executes that exact marked section with Derma stubs.
+
+R23 (the user's item 3): `RTXGamePBRProgress()` counts a queued imported game material as pending while
+its native view says `waiting`, ends the batch once none is, and counts an unreadable view as finished.

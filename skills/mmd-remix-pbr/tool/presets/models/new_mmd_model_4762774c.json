@@ -1,0 +1,26 @@
+{
+  "doc": "Ruan Mei (阮梅.pmx, E:\\G\\Upload\\ruan_mei\\1_PMX\\星穹铁道-阮·梅Ver1.0_By_Alicia\\阮梅), Model Hotloader asset 4762774c, ragdoll in the active session, reviewed 2026-11-03: aggressive style with the values the user accepted on Evernight (cloth 0.65 / rough_ai 0.35 / normal 2.0, leather 0.25 / 0.4, stockings 0.42, satin metal 0.32), applied without AABB at the user's request. 66 materials, 16 sheets: Body.png (8192) and the stockings sheet (15770x6308) are kept at full size by Model Hotloader (mmd/tf/), which rpai learned to read on this model; 14 hashes live, 颜赤.png and inmon2.png predicted only. What each part is for, and its class: STOCKINGS (丝袜.png, 10 sheer black pantyhose, 11 gusset) stockings 0.42, sheet capped at 8192 (the legs are small cells of a sparse sheet; 4096 would blur them). GLOVES: 12 (手套.png, dark blue satin with a gold star emblem) and 13 (the same glove on 衣服.png) cloth; the painted gold star becomes metal. ROPES, GAG, BLINDFOLD and TONGUE share byte-identical sheets with Evernight, whose layer wins (see the notes in new_mmd_model_381e8c1b); untextured metal and the heels (21-23) use the engine's white texture and cannot be overridden. 9 乳贴 is a printed black adhesive sticker with white lettering: leather (satin vinyl), not cloth. 32 胸饰 is a blue enamel panel with a gold border (classed skin by 胸): cloth; 33 胸饰金属 its gold border: metal. 7 刻度表 (刻度表4.png) is a measuring-scale decal printed on the belly: skin, left to Remix like Firefly's and Cyrene's copies. 58 腿环 (leg ring) is a twisted blue ribbon with a double-helix pattern, not metal (the 环 rule): cloth. 59 腿饰 is a white enamel lock charm with a tan rim: gem. OUTFIT (衣服.png 4096x2048, teal silk and white satin with painted gold trim): fabrics cloth; the necklace and ornament metal materials (38, 54) hold, besides painted gold (tan, hue 37, sat 0.2, value 0.6), a crimson ruby (island 5 of 38, hue 336) and white pearls: ruby and white become gem, only the gold stays metal; gold trim painted onto the cloth materials (the double-helix borders of the skirt) becomes metal too (satin 0.32, the painted-gold standard). Shoes (34) leather. SKIN: Body.png, 皮肤, the tattoo sheets and the face stay as Remix renders them, per the standard; Body normal.png is not used (skin work only on the user's request).",
+  "include": ["../aggressive.json"],
+  "presets": {
+    "_materials": {"7": "skin", "9": "leather", "32": "cloth", "58": "cloth", "59": "gem"},
+    "cloth": {"rough": 0.65, "rough_ai": 0.35, "normal": 2.0},
+    "leather": {"rough": 0.25, "rough_ai": 0.4},
+    "stockings": {"rough": 0.42, "rough_ai": 0.4},
+    "metal": {"rough": 0.32}
+  },
+  "regions": [
+    {"texture": "衣服.png", "within": ["metal"], "class": "gem", "hue": [300, 360], "sat": [0.5, 1.0],
+     "doc": "the crimson ruby in the necklace material (38 island 5, hue 336)"},
+    {"texture": "衣服.png", "within": ["metal"], "class": "gem", "sat": [0.0, 0.10], "val": [0.80, 1.0],
+     "doc": "white pearls in the necklace and ornament metal materials (value 0.92)"},
+    {"texture": "衣服.png", "within": ["cloth"], "class": "metal", "hue": [30, 46], "sat": [0.15, 0.40], "val": [0.45, 0.80],
+     "doc": "gold trim painted onto the dress and glove materials"},
+    {"texture": "手套.png", "within": ["cloth"], "class": "metal", "hue": [28, 50], "sat": [0.15, 0.7], "val": [0.45, 1.0],
+     "doc": "the gold star emblem on the glove"},
+    {"texture": "乳贴.png", "within": ["cloth"], "class": "metal", "hue": [28, 50], "sat": [0.15, 0.7], "val": [0.40, 1.0],
+     "doc": "gold on the chest ornament sheet outside the gold-border material"}
+  ],
+  "textures": {
+    "丝袜.png": {"max_size": 8192}
+  }
+}

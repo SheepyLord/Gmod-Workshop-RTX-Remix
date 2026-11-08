@@ -16,12 +16,17 @@ Usage:
   <mod folder>      rpai's live mod, <game root>\\rtx-remix\\mods\\ai_pbr (read only)
   <model key>       the rpai model key, the layer's file name: models/<key>.usda (rpai status lists them)
   <out mod folder>  the mod folder to write, named pbr_<name>; must not exist (see --replace)
-  <label>           the character's name for the mod.usda doc string ("Robin")
+  <label>           the character's name for the mod.usda doc string ("Robin", "Evernight and March 7th")
 
   --layer KEY           another layer in the same mod (repeatable): several characters in one package
   --dry-run             list what would be copied and its size; write nothing
   --replace             replace an earlier staged mod folder at <out mod folder> (only such a folder)
   --allow-game-install  allow <out mod folder> inside a game install (only when the user asked)
+
+Names: <label> and the out folder's name must carry no game, version, author, rating or pack tag
+(model_names.py, the user's rule of 2026-11-08); a tagged one is refused before anything is read or
+written. The doc string is "<label> RTX PBR, packaged for the Workshop." (no rpai keys: a key such as
+robin_r18_f9c3e4b4 is derived from the PMX's English name and may carry tags).
 
 Exit codes: 0 done, 1 refused or failed (reason on stderr), 2 bad command line.
 """
@@ -33,6 +38,10 @@ import os
 import re
 import shutil
 import sys
+
+# model_names.py sits beside this script; python -I leaves the script's folder off sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import model_names  # noqa: E402
 
 # Remix data a content package may deploy under rtx-remix/mods (docs/PACKAGE_FORMAT.md, ADR 0027).
 REMIX_DATA = {".usd", ".usda", ".usdc", ".usdz", ".dds", ".png", ".jpg", ".jpeg", ".tga", ".bmp", ".exr", ".hdr",
@@ -90,10 +99,6 @@ def game_root_of(path: str):
         here = parent
 
 
-def joined(words):
-    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
-
-
 def plan(src: str, keys: list):
     """{key: (layer path, material count, {mod path: source path})} for every layer."""
     layers = {}
@@ -136,6 +141,11 @@ def looks_like_staged_mod(folder: str) -> bool:
 
 def stage(args) -> int:
     src, out = os.path.abspath(args.src), os.path.abspath(args.out)
+    name = os.path.basename(out.rstrip("\\/"))
+    problems = [p for p in (model_names.refusal("label", args.label, "name"),
+                            model_names.refusal("out folder", name, "slug")) if p]
+    if problems:
+        raise StageError("\nerror: ".join(problems))
     if not os.path.isdir(os.path.join(src, "models")):
         raise StageError("%s has no models folder: give rpai's mod, <game root>\\rtx-remix\\mods\\ai_pbr" % src)
     if inside(out, src) or inside(src, out):
@@ -143,9 +153,8 @@ def stage(args) -> int:
     root = game_root_of(out)
     if root and not args.allow_game_install and not args.dry_run:
         raise StageError("%s is inside the game install %s; pass --allow-game-install only when the user asked for it" % (out, root))
-    name = os.path.basename(out.rstrip("\\/"))
-    if not re.fullmatch(r"pbr_[a-z0-9_]+", name) or re.search(r"(^|_)r18(_|$)", name):
-        print("  warning: the folder %s is deployed as rtx-remix/mods/%s; name it pbr_<name> in lowercase ASCII, without r18" % (name, name))
+    if not re.fullmatch(r"pbr_[a-z0-9_]+", name):
+        print("  warning: the folder %s is deployed as rtx-remix/mods/%s; name it pbr_<name> in lowercase ASCII" % (name, name))
     keys = [args.key] + [k for k in args.layer if k != args.key]
     layers = plan(src, keys)
     total_files = sum(len(c) for _, _, c in layers.values())
@@ -180,7 +189,7 @@ def stage(args) -> int:
                 size += os.path.getsize(target)
             print("%s%d textures (%.0f MB), %d materials" % ("" if len(layers) == 1 else key + ": ", len(copies), size / 1e6, materials))
         label = args.label.replace('"', "'")
-        doc = "%s RTX PBR (rpai layer%s %s), packaged for the Workshop." % (label, "" if len(keys) == 1 else "s", joined(keys))
+        doc = "%s RTX PBR, packaged for the Workshop." % label
         sub = ",\n".join("        @./models/%s.usda@" % key for key in keys)
         with open(os.path.join(partial, "mod.usda"), "w", encoding="utf-8", newline="\n") as fh:
             fh.write(MOD_USDA % (doc, sub))

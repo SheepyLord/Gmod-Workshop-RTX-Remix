@@ -83,24 +83,24 @@
    "imported": "2026-10-31T05:11:23+00:00"
   },
   "!advanced_material_editor/lua/advmat/cl_76_rtx_editor.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\addon-workflow-inputs\\advanced-material-editor\\!advanced_material_editor\\lua\\advmat\\cl_76_rtx_editor.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r23\\out\\r23\\ame\\cl_76_rtx_editor.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r23",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "00cfdfb154cba4878837e460eb07f8ab0bec21be",
+    "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18",
     "dirty": false
    },
-   "imported": "2026-10-31T05:11:23+00:00"
+   "imported": "2026-11-08T11:39:33+00:00"
   },
   "!advanced_material_editor/lua/advmat/cl_76_rtx_editor.lua.md": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\addon-workflow-inputs\\advanced-material-editor\\!advanced_material_editor\\lua\\advmat\\cl_76_rtx_editor.lua.md",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r23\\out\\r23\\ame\\cl_76_rtx_editor.lua.md",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r23",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "00cfdfb154cba4878837e460eb07f8ab0bec21be",
+    "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18",
     "dirty": false
    },
-   "imported": "2026-10-31T05:11:23+00:00"
+   "imported": "2026-11-08T11:39:56+00:00"
   },
   "!advanced_material_editor/lua/advmat/sh_15_mmd.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\addon-workflow-inputs\\advanced-material-editor\\!advanced_material_editor\\lua\\advmat\\sh_15_mmd.lua",
@@ -315,15 +315,15 @@
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/cl_76_rtx_editor.lua": {
-   "size": 126536,
-   "sha256": "1e857b77e1211b081c7d9740804594876eca53426cd1800d8c78cc98e0fb8caa",
-   "mtime_ns": 1793423013548575200,
+   "size": 127633,
+   "sha256": "633c97d789325e82dff32966c966d0adf463b2f0e4666b292ed0f8021629992e",
+   "mtime_ns": 1794137921139462800,
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/cl_76_rtx_editor.lua.md": {
-   "size": 293,
-   "sha256": "017625424bbf6f2a12072e097ef7bef8dce38eaecf94d09f0e58b0c870e85e0f",
-   "mtime_ns": 1793423116286632400,
+   "size": 778,
+   "sha256": "b0e005ec6da79486a23ae18baeac327d18df1d20c87d31552200dd1783f4bd4c",
+   "mtime_ns": 1794137996372047700,
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/cl_78_vmtexport.lua": {

@@ -2415,3 +2415,30 @@ The runtime's rebuilt 35 ordinary unit cases pass; its existing threading stress
 360 seconds and passed at 293.28 seconds. Repository CTests run serially in the final local gate
 (same 27 tests, unchanged assertions) to avoid concurrent fixture startup timeouts. Full evidence
 and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md).
+
+## R23: the engine guard, the watchdog, imported game PBR, the editor's tabs (2026-11-08)
+
+- **Native:** `nl_engine_guard_tests` (CTest; [`engine_guard/tests/test_guard.cpp`](../engine_guard/tests/test_guard.cpp)):
+  the call-site pattern on the real bytes and, when a game is installed (`NL_MATERIALSYSTEM_DLL` or the PoC
+  path), once in its `materialsystem.dll` with the key string behind the `lea`; name normalisation; the cycle
+  rules; the filter with fake materials (`GetName` as first virtual) and key values; the stub's bytes; the
+  watchdog's stack scan and its JSON report. `nl_engine_guard_detour_tests`, in a process of its own, loads a
+  stand-in `materialsystem.dll` whose code holds the call site (exact bytes in MASM, `engine_guard/tests`), runs
+  the real `install()` and calls the stand-in: `""` for a fallback to itself, the fallback for another, the
+  counts and names, idempotent installation.
+- **Lua under LuaJIT:** [`test_engine_guard_lua.py`](../tools/tests/test_engine_guard_lua.py.md) (the autorun:
+  only in this machine's RTX start, the translated message kept for the other realms, the end of the watch,
+  the next start's notice naming the add-on); `render_guard_harness.lua` scenario `engine_guard` (the early
+  view loads the module; the late multiplayer route never does); [`test_pbr_progress.py`](../tools/tests/test_pbr_progress.py.md)
+  (the progress notice) and `topbr_harness.lua`'s count of converting materials;
+  [`test_ame_tabs.py`](../tools/tests/test_ame_tabs.py.md) (the editor's real panel switched in Derma's
+  order; it fails on the file shipped before R23).
+- **Offline, real files:** the fixes' production matcher and converter (`game_match_probe.cpp`, and a probe
+  calling `GamePBR::Discover`/`Convert`) on Shorekeeper and Chisa: pairings before and after, the converted
+  maps viewed (R23 report).
+- **PoC** (`out/r23/poc_qa.py` in the `r23` worktree; the PoC's loader, deployed package and data are moved
+  aside and back, with a snapshot and a clean rollback each time): `guard` (a server-realm Lua loop: the
+  watchdog's message at 98.5 s and its report; the next start's notice naming the add-on), `arc9` (the ARC9
+  base and Gunsmith Reloaded as folders: the map loads, 6 cuts), `baseline` (the same with the published
+  package: hung 300 s at Lua), `tfa` (TFA Base fetched by the game's Workshop download, with this build and
+  with the published package).

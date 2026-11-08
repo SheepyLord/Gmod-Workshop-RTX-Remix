@@ -446,3 +446,15 @@ R20-D's guard also installs the raster model-preview fallback at early/late star
 callback preview intent, caches stable material identities and restores temporary studio
 overrides. Runtime patches 0034/0035 add the private legacy filter mode and shared opacity helper
 without expanding GPU records; see the [R20-D report](handover/R20-D-report.md).
+
+R23: [`engine_guard`](../engine_guard/README.md) builds `gmcl_nlengineguard_win64.dll` and
+`gmsv_nlengineguard_win64.dll` from one source ([ADR 0130](decisions/0130-an-engine-guard-for-lua-start-up.md)):
+the material fallback guard (a detour of `materialsystem.dll`'s `$fallbackmaterial` read) and the start-up
+watchdog, with SDK-free tests (`nl_engine_guard_tests`). They ship in the fixes part
+([`package_fixes.py --lua-bin`](../tools/package_fixes.py.md)) and are recorded as repository builds
+([`tools/ci/pins.json`](../tools/ci/pins.json)). The companion's
+[`!!!!nativeloader_engine_guard.lua`](../companion/nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua.md) loads
+them, with the message's words from [`nativeloader/engine_guard_words.lua`](../companion/nativeloader/lua/nativeloader/engine_guard_words.lua.md);
+[`nativeloader/notice.lua`](../companion/nativeloader/lua/nativeloader/notice.lua.md) is the shared
+top-right notice, which [`nativeloader_pbr_progress.lua`](../companion/nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua.md)
+uses while imported game PBR converts.

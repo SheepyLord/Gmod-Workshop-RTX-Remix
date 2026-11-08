@@ -165,3 +165,24 @@ A Claude subagent updated `skills/` (only there) from R11-R23's reports and deci
 - `check_pack.py` now reports the three published character packs' descriptions, which name "Honkai: Star Rail":
   their next update drops it.
 
+## Tests
+
+`tools\test.ps1 -Config Release` passed on the committed tree: repository conventions, 29 of 29 C++ tests (the
+engine guard's unit and end-to-end tests among them) and 698 Python tests, the Lua harnesses for the engine guard,
+the progress notice, the editor's tabs and the render guard included. The skills' name tests (`test_names.py`,
+20) pass as well. The loader branch `r23-loader-mp-notice` was tested on its own (above).
+
+## Published (2026-11-08 UTC)
+
+`main` was pushed at `cd1cdad` (three Git LFS objects: the engine guard's two modules and the rebuilt fixes
+module). The merge's hook built the package here and uploaded it to item 3829070317 as
+**0.0.0-dev.20261108123849+ce42d614** (2,182,257,842 bytes, SHA-256
+`f84573d3b80df211a0ca4f73481d6f6c606ac36b6af1b6c8581fad010679048a`); Steam's public record shows that size,
+updated 12:39:22 UTC. The push's hook found the same inputs and uploaded nothing. The engine guard, the WuWa maps,
+the progress notice and the editor's tabs reach players with it; the loader is unchanged (0.16.0).
+
+The round's one GitHub action, as the user asked, came after that upload: the package workflow on `cd1cdad`,
+[run 42481319613](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/actions/runs/42481319613), which builds
+every native binary there (the engine guard from this repository's sources, the fixes' module with its seventh
+patch) and reports their SHA-256. Its artifacts expire two days after the run (ADR 0113); the item keeps the local
+build unless `publish_workshop.py --from-ci` uploads the run's package within that time.

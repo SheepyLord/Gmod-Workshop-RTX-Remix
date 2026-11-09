@@ -152,7 +152,13 @@ PoC after the last change that reached the game (`timing`, above); the sky optio
   `52845276e6590e45c638cd8122c82cf9f937c1dcfdbf2a5776f052aa76face04`) and uploaded with gmpublish through
   `tools/publish_workshop.upload` on 2026-11-09; Steam's public record shows 740,495 bytes, updated 13:34:20 UTC, its
   visibility unchanged.
-- `main`: (filled in after the push).
+- **`main`** was fast-forwarded to `b698645` (the `r26` branch: the load accelerator, the sky branch `r26-sky` merged,
+  the review's fixes) and pushed (0570b6d..b698645, five Git LFS objects, 62 MB: the runtime and the accelerator's
+  modules). The merge's hook built the package here and uploaded it to item 3829070317 as
+  **0.0.0-dev.20261109133732+adc5cf08** (2,183,829,338 bytes, SHA-256
+  `f9e63ed1c9a6a84450a21c0c6c299df0f2faaf23e1c9c7fd6468b835c0992e79`); Steam's public record shows that size, updated
+  13:38:11 UTC. The push's hook found the same inputs and uploaded nothing. No GitHub Action was started. The loader is
+  unchanged (0.16.0); the runtime gains patch 0041.
 
 ## Not changed
 

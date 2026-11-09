@@ -465,3 +465,12 @@ and the RTX fixes' ARC9 patch (`patcher/addons/cl_arc9.lua` in the fixes part) p
 scopes through a raytraced render target and keeps ARC9's 2D draws and screen copies away from its view model pass,
 reading the screen right after it instead, so the gun is path traced
 ([ADR 0136](decisions/0136-arc9-scopes-path-traced.md)).
+
+R26: [`fs_accel`](../fs_accel/README.md) builds `gmcl_nlfsaccel_win64.dll` and `gmsv_nlfsaccel_win64.dll` from one
+source, the package's `load-accelerator` part with its add-on `nlloadaccel`
+([ADR 0140](decisions/0140-the-load-accelerator.md)): import hooks on `filesystem_stdio.dll` answer failed lookups in
+the loose add-on folders from directory listings, and `file.Find(pattern, <add-on title>)` is answered from an index
+of GMod's add-on table. The companion's
+[`menu/load_accel.lua`](../companion/nativeloader/lua/nativeloader/menu/load_accel.lua.md) installs it at menu start
+in RTX starts, and [`menu/loading_status.lua`](../companion/nativeloader/lua/nativeloader/menu/loading_status.lua.md)
+counts its answers in the load overlay. Recorded as repository builds ([`tools/ci/pins.json`](../tools/ci/pins.json)).

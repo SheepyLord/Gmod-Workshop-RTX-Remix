@@ -2530,3 +2530,20 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   [`test_game_emission.py`](../tools/tests/test_game_emission.py.md) instead: the folder's files are the patch
   applied, and the shipped writer sets the flag only there. No game was started; the runtime's handling of the
   input is read from its source (RESEARCH, after R25), and the package's Poolrooms mod already uses it.
+
+## R26: the load accelerator (2026-11-09)
+
+- **C++ (CTest):** `nl_fs_accel_tests` ([fs_accel](../fs_accel/README.md)): the path rules and wildcards; the cache's
+  verdicts against Windows' own answers on generated trees (files, folders, missing parents, a file where a folder is
+  expected); a folder with names Windows could fold differently left uncached; the hook bodies (misses answered
+  without the next function, existing files, directory opens and outside paths passed on, a create that drops the
+  folder, the off switch); the watcher (a new file in a cached folder is seen); the start-up marker (its own, a running
+  process's, a gone one's, a reused id, text that is no marker); the index on a table laid out as GMod's (built with
+  the same C++ library), a shared title giving each name once, a folder wildcard left to GMod, a table that does not
+  hold together.
+- **Lua under LuaJIT:** [`test_load_accel.py`](../tools/tests/test_load_accel.py.md) (13 scenarios of the add-on's
+  `file.Find` replacement and the menu script).
+- **PoC** (`out/r26/poc_r26.py` in the `r26` worktree; snapshot, move-aside and clean rollback each time; the user's
+  774 subscriptions mounted, gm_construct): `check -b` with the package built here and the checks on (every answer
+  also asked of Windows and GMod), an RTX start, a start without RTX with a planted marker, an RTX start that must
+  leave the hooks out once; `timing` against the published package (RESEARCH, R26).

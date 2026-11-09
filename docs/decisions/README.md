@@ -202,11 +202,6 @@ Each with the reason it lost.
   a frame; the reticle over it after upscaling; ARC9's screen copies and 2D draws before its view model skipped and the
   screen read right after it, so the gun is path traced and ARC9's HUD stays rasterized; ARC9's sight blur, which drew
   a black copy of the scope into the image, skipped under RTX.
-- [0140: The load accelerator](0140-the-load-accelerator.md) (R26): GMod's failed lookups in the loose add-on
-  folders answered from directory listings and `file.Find(pattern, <add-on title>)` from an index of GMod's add-on
-  table, by a package part, in RTX starts (without RTX the loader hides the package's add-ons; running there needs a
-  loader change, not made); a native start-up marker; the bullet-break simulator's rebuild on every start removed;
-  what was dropped from the plan and why.
 - [0137: Endfield's NPC, weapon and item families in imported game PBR](0137-endfield-npc-weapon-and-item-maps.md)
   (after R25; extends 0091 and 0131): outside `t_actor_`, a `t_` family is Endfield when a `_P` lies under its
   `t_<word>_` prefix (its own, or a sibling's for faces and bodies), after every earlier rule; such a family pairs by
@@ -215,3 +210,8 @@ Each with the reason it lost.
   (after R25, the user's choice): an imported game material with an emission map is written with
   `enable_emission = 1` at the record's fixed intensity 1 (no adaptive input); world conversion keeps emission off;
   nothing converts again. The fixes' ninth native patch.
+- [0140: The load accelerator](0140-the-load-accelerator.md) (R26): GMod's failed lookups in the loose add-on
+  folders answered from directory listings and `file.Find(pattern, <add-on title>)` from an index of GMod's add-on
+  table, by a package part, in RTX starts (without RTX the loader hides the package's add-ons; running there needs a
+  loader change, not made); a native start-up marker; the bullet-break simulator's rebuild on every start removed;
+  what was dropped from the plan and why.

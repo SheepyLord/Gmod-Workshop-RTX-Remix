@@ -58,7 +58,22 @@ starts without RTX through the user's Workshop item, which every start mounts.
 
 ## Measured
 
-(Filled in below as the PoC runs finish.)
+The PoC with the user's 774 subscriptions mounted, gm_construct (`out/r26/poc_r26.py` in the `r26` worktree; the
+PoC's own loader, deployment and data moved aside and put back each time, rollback clean).
+
+**`check -b`** (the package built here, the checks on: every answer also asked of Windows and of GMod):
+
+| Session | What it showed |
+|---|---|
+| RTX start | The menu script installed the hooks at menu start, 25 folders cached. 1,743,871 hooked calls, 1,585,988 answered as missing (91 %), 2,882 passed on, 194 listings, **0 disagreements** with Windows. The load overlay's end line: "the load accelerator answered 1,449,260 file lookups from memory". The index: 117,720 entries, built once; Extended Spawnmenu's 2,253 searches answered from it, 2 left to GMod. Every mounted title searched with 17 patterns, the index against GMod: **13,158 searches, 0 different** (790 left to GMod: the folder-wildcard pattern for each title, and a title GMod's table does not hold). The start's marker was gone afterwards. |
+| Start without RTX, a marker of a gone process planted | Nothing of the package ran (the loader hid its 25 add-on folders); the marker was untouched. |
+| RTX start after it | "left out once" in the menu, the server and the client realm; the add-on searches still answered from the index (2,253); the marker removed. |
+
+Earlier runs found what the unit tests could not: the menu realm cannot write files (the first marker was Lua; it is
+native now), GMod gives a name once when two add-ons share a title, and no tables for a wildcard in the folder part;
+the index follows both.
+
+**`timing`**: (filled in after the run).
 
 ## Tests
 

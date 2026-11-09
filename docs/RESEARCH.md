@@ -6314,3 +6314,44 @@ nor its texture cache (compiled addons such as Robin, Eldreda and Elyms, and rem
 - **MSVC pools identical string literals**: the module holds `"                bool inputs:enable_emission = 1\n"`
   once with or without the ninth patch, because the Advanced Material Editor bridge's `usda_writer.cpp:170` writes
   the same text; the patched tree's id, not a string search, shows what a build holds.
+
+## R26: what makes a map load slow with hundreds of add-ons, and what answers it (2026-11-09)
+
+The PoC's `bin/win64/filesystem_stdio.dll`: 970,064 bytes, linked 2026-10-26 20:48:35 UTC, SHA-256 `814373ea10b7e4e4...`.
+
+- **Its file imports**: `CreateFileA`, `CreateFileW`, `GetFileAttributesExA` and `GetFileAttributesExW` from
+  `KERNEL32.dll` by name, one import slot each (RVAs `0xab220`, `0xab180`, `0xab248`, `0xab098` in this build). In an
+  RTX start the loader's read redirects already sit in those slots (ADR 0013's search hooks sit on `FindFirstFile*`
+  in starts without RTX); either calls Windows through pointers of its own, so a second hook chained after them never
+  recurses.
+- **GMod's add-on table**: the DLL exports `?g_pFullFileSystem@@3PEAVIFileSystem@@EA` (RVA `0xf2518`); the object it
+  points to holds the `Addon::FileSystem` object at `+0x550` (its vtable's RTTI name `.?AVFileSystem@Addon@@`). In it:
+  `+0x08`/`+0x10` the directory map's head and size, `+0x18`/`+0x20` the add-on list's head and size (MSVC
+  `std::map`/`std::list`; a tree node's `_Left` at 0, `_Parent` 8, `_Right` 0x10, `_Isnil` 0x19, the value at 0x20).
+  A directory node's inner map: head `+0x40`, size `+0x48`; an entry's key (the name) at `+0x20`, then the name again
+  `+0x40`, its directory `+0x60`, size `+0x80`, offset `+0x88`, owner `+0x90` and a flag `+0x98` (1: a marker entry
+  keyed by the `.gma` path, present at every directory level an add-on has files under). Keys are lowercase with `/`,
+  no trailing slash, and there is no `""` root directory. A list node: the `.gma` path `+0x10`, the title `+0x30`, the
+  owner it files its entries under `+0x50`.
+- **`file.Find(pattern, <title>)`** (`Addon::FileSystem::FindFirst`): one walk over every directory that has an entry
+  of an add-on with that title, matching the pattern's last part (the folders), then a `lower_bound` of the pattern's
+  folder for the files: about 2.5-2.9 ms a call with 774 add-ons. Two add-ons with one title give a name once. A
+  wildcard in the folder part (`lua/?utorun/*`) gives no tables at all. Its only callers are Lua's.
+- **Without RTX the loader hides every add-on folder of the combined package**: `requires_remix` is per package, and
+  `tools/package_workshop.py:155` marks the combined manifest when any part has it, so the PoC's `session.json`
+  `hidden_addons` listed all 25 folders of the package (`nlloadaccel` among them, and the Model Hotloader's library
+  folders `mmdhl_*`). GMod never mounts the package's archive either (section 14, "GMod's own mount"), so no Lua of
+  the package runs in such a start.
+- **The menu realm cannot write files**: `file.Write` there fails at `lua/includes/extensions/file.lua:24`
+  ("attempt to call method 'Write' (a nil value)"): the file object it opens has no `Write`. The menu realm's
+  `require` loads a module's `gmsv_` copy.
+- **What the cache answers** (the PoC, the user's 774 subscriptions mounted, gm_construct, RTX start, the checks on so
+  every answer was also asked of Windows): 1,743,871 hooked calls, 1,585,988 answered as missing (91 %), 2,882 passed
+  on inside a cached folder, 194 directory listings in 25 folders, 0 disagreements with Windows, no folder dropped.
+  The overlay's load window alone (from the first material to five seconds after `InitPostEntity`) held 1,449,260 of
+  them. The index: 117,720 entries, built once. Extended Spawnmenu's 2,253 searches answered from it (2 left to GMod).
+  Every mounted title searched with 17 patterns, the index against GMod (13,158 searches, 17.3 s for both): 0
+  different, 790 unanswered (the folder-wildcard pattern for each title, and one title GMod's table does not hold).
+- **A start left out once**: a marker of a process that is gone, planted before an RTX start, made the menu, server
+  and client copies all say "left out once", and the marker was gone after it; a start without RTX before it left the
+  marker untouched, and the first RTX start removed its own marker 20 s after installing the hooks.

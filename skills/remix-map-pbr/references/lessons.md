@@ -57,10 +57,11 @@ L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
   distance limit. The user confirmed both, with no performance change.
 
 **Every camera 30-40 % slower, the views without the change too** (L3, 2026-11-09)
-- The user had started a game of their own on the same GPU (`nvidia-smi` listed it). A uniform slowdown
-  across unrelated views is outside load, not the change. Check the GPU's process list before timing; on
-  a shared machine compare stock and remaster back to back in one session and report ratios, and keep
-  heavy test sessions short while the user plays.
+- A game was running on the same GPU (`nvidia-smi` listed `League of Legends.exe`). A uniform slowdown
+  across unrelated views is outside load, not the change. Check the GPU's process list before timing and,
+  when something else runs, compare stock and remaster back to back in one session and report ratios. Other
+  programs never block or delay a test (the user, 2026-11-09: they may be streaming or other sessions'
+  shared compute): launch anyway and note the skewed timings.
 
 **Nothing to cull on an open map** (L3, 2026-11-08)
 - lestnicha3's visibility data lets 93 of its 94 clusters see each other: PVS culling would win nothing,

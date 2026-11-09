@@ -18,7 +18,8 @@ Versions follow the loader's CMake project version once it ships; until then eve
   grass lavender); a model's lip floating over the floor leaves a slot the path tracer shows as a dark line, closed
   by fillets the addon draws (`gen_skirts.py`); a mod under about 1 GB is preloaded; outdoor maps get the 3D skybox
   off, a haze sun for the volumetrics, night lights by the sun's elevation, and follow the native loader's sky when
-  it drives the time of day; frame times on a GPU the user is gaming on count only as same-session ratios. The
+  it drives the time of day; frame times taken while another program uses the GPU count only as same-session
+  ratios (other programs never block a test). The
   skill's description, workflow, standards, troubleshooting, lessons, pipeline and testing references say how,
   with the measurements.
 

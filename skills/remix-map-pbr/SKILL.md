@@ -336,7 +336,7 @@ calling them standards for a new map):
 | `VK_ERROR_DEVICE_LOST` after a material edit | `Material:SetVector` on a world material right after a camera cut: change Remix categories instead |
 | A dark navy line along kerbs, copings or planter rims | A model's lip floats over the floor with its inner edge open; the path tracer shadows the slot: close it with fillets from the addon (`gen_skirts.py`) |
 | Backlit grass or leaves lavender or white | A grey thin-opaque scattering albedo: give it the foliage's green |
-| Every view slower by the same share | Another program on the GPU (`nvidia-smi`), often the user's own game: measure stock and remaster back to back and report ratios |
+| Every view slower by the same share | Another program on the GPU (`nvidia-smi`), a game or streaming: measure stock and remaster back to back and report ratios; it never blocks the test |
 
 ## Done criteria for a map
 

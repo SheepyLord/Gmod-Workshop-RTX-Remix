@@ -242,6 +242,7 @@ session:
   (`follow_map 0`, time passing): the companion's sun then drives the addon.
 - **Auto-exposure.** After a big change of light (a time of day, the mod on or off) wait about 8 s before a
   shot; `times_tour.py` does.
-- **A shared GPU.** Look at `nvidia-smi`'s process list before timing frames: on 2026-11-09 the user's own
-  game ran beside the session and every camera was 30-40 % slower. Then only same-session ratios of stock
-  and remaster count, and long 4K sessions should wait until the user's game ends.
+- **A shared GPU.** Look at `nvidia-smi`'s process list before timing frames: on 2026-11-09 a game ran
+  beside the session and every camera was 30-40 % slower. Then only same-session ratios of stock and
+  remaster count. Other programs never block or delay a test session (the user, 2026-11-09): launch
+  anyway and say in the report that timings taken meanwhile are skewed.

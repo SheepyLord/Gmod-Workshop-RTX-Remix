@@ -2522,3 +2522,11 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   weapon and item sheets change, each to an exact-stem pairing. The AKEF pack's SDK-free converter on the patched
   headers converts its 17 sheets automatically to the content keys and DDS bytes of its manual pass. No game was
   started: matching and conversion are the production code, and nothing else in the module changed.
+- **Game emission (the ninth patch):** the fixes' native `to_pbr_test.cpp` (the production format handlers, VTF code
+  and USD writer; the VTF stubs first on the include path, then `source`, `public/include` and garrysmod_common's
+  `include`; MSVC C++17 `/EHsc /UNDEBUG`) passes with the patch and fails without it at the game emission check (a
+  game material with an emission map writes `enable_emission = 1`; world conversion and a game material without a
+  map do not). It needs the fixes' own headers, so the Release gate runs
+  [`test_game_emission.py`](../tools/tests/test_game_emission.py.md) instead: the folder's files are the patch
+  applied, and the shipped writer sets the flag only there. No game was started; the runtime's handling of the
+  input is read from its source (RESEARCH, after R25), and the package's Poolrooms mod already uses it.

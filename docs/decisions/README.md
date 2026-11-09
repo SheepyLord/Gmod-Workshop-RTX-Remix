@@ -206,3 +206,7 @@ Each with the reason it lost.
   (after R25; extends 0091 and 0131): outside `t_actor_`, a `t_` family is Endfield when a `_P` lies under its
   `t_<word>_` prefix (its own, or a sibling's for faces and bodies), after every earlier rule; such a family pairs by
   exact name or by hand, never by UV alone; the conversion is unchanged. The fixes' eighth native patch.
+- [0138: Imported game materials glow where their game's emission map does](0138-imported-game-emission-glows.md)
+  (after R25, the user's choice): an imported game material with an emission map is written with
+  `enable_emission = 1` at the record's fixed intensity 1 (no adaptive input); world conversion keeps emission off;
+  nothing converts again. The fixes' ninth native patch.

@@ -6,19 +6,23 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
-## Endfield NPC, weapon and item maps (after R25)
+## Endfield NPC, weapon and item maps; game emission maps glow (after R25)
 
 Imported 2026-11-09 with `inputs.py --file`; every other indexed input is unchanged
-([ADR 0137](../../docs/decisions/0137-endfield-npc-weapon-and-item-maps.md)).
+([ADR 0137](../../docs/decisions/0137-endfield-npc-weapon-and-item-maps.md),
+[ADR 0138](../../docs/decisions/0138-imported-game-emission-glows.md)).
 
-- `modules/gmcl_RTXFixesBinary_win64.dll` (5,519,360 bytes, SHA-256 `82ceef69...e5c4c5`): the public base with
-  the eight patches of `tools/ci/pins.json`, the eighth being
-  [endfield-maps.patch](licenses/oversized-skinning/endfield-maps/endfield-maps.patch), built with
-  `tools/ci/build_modules.ps1 -Only fixes`. ToPBR's imported game maps recognise Arknights: Endfield's NPC, weapon
-  and item families (`T_npc_major_*`, `T_wpn_misc_*`, `T_item_widget_*`) by a `_P` under their `t_<word>_` prefix
-  and pair them by exact name; UV matching and the conversion are unchanged. The seventh patch, R23's
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,519,360 bytes, SHA-256 `477c2266...859545`): the public base with
+  the nine patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The eighth,
+  [endfield-maps.patch](licenses/oversized-skinning/endfield-maps/endfield-maps.patch): ToPBR's imported game maps
+  recognise Arknights: Endfield's NPC, weapon and item families (`T_npc_major_*`, `T_wpn_misc_*`,
+  `T_item_widget_*`) by a `_P` under their `t_<word>_` prefix and pair them by exact name; UV matching and the
+  conversion are unchanged ([source, measurements](licenses/oversized-skinning/endfield-maps/README.md)). The ninth,
+  [game-emission.patch](licenses/oversized-skinning/game-emission/game-emission.patch): imported game materials
+  with an emission map are written with `enable_emission = 1`, so their `_E` maps glow
+  ([source, measurements](licenses/oversized-skinning/game-emission/README.md)). The seventh patch, R23's
   [wuwa-maps](licenses/oversized-skinning/wuwa-maps/README.md), gave Wuthering Waves characters their game's
-  roughness and metalness. [Source, measurements and rebuild](licenses/oversized-skinning/endfield-maps/README.md).
+  roughness and metalness.
 
 ## R20-Q client-bootstrap refresh
 

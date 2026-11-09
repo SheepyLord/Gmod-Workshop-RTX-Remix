@@ -1,0 +1,36 @@
+diff --git a/source/material_pipeline/to_pbr/usda.cpp b/source/material_pipeline/to_pbr/usda.cpp
+index bc1ebacf2cef91696df2bb6b4cb256eeecbadadd..07f7d4c4da055852bd2710c7fb97792aef938c32 100644
+--- a/source/material_pipeline/to_pbr/usda.cpp
++++ b/source/material_pipeline/to_pbr/usda.cpp
+@@ -411,6 +411,10 @@ void WriteOpaqueMaterial(std::ostream& stream,
+         stream << "                )\n";
+         float emitIntensity = std::isfinite(info.emissionIntensity) ? (std::max)(0.0f, info.emissionIntensity) : 0.0f;
+         stream << "                float inputs:emissive_intensity = " << emitIntensity << "\n";
++        // Game emission: an imported game family's emission map (Endfield or Silver Palace _E,
++        // non-zero only on the parts the game lights) glows only with emission enabled; the
++        // runtime's default is off and then gives the material no emission (rtx_materials.h).
++        if (info.importedGame) stream << "                bool inputs:enable_emission = 1\n";
+     }
+     
+     stream << "            }\n";  // Close Shader
+diff --git a/tests/to_pbr_test.cpp b/tests/to_pbr_test.cpp
+index 499fce52cdc4a5e35a1a108c0245296fd35a1621..03e66da93f0acc25ac5397d404db782ee0cabd5a 100644
+--- a/tests/to_pbr_test.cpp
++++ b/tests/to_pbr_test.cpp
+@@ -158,6 +158,16 @@ int main(int argc, char** argv) {
+     TextureProcessor::ProcessedMaterialInfo darkEmission{};darkEmission.emissivePath="C:/fixture/textures/glow.dds";darkEmission.emissionIntensity=0;
+     std::ostringstream shaderText;USDA::WriteOpaqueMaterial(shaderText,1,darkEmission,"C:/fixture/textures");
+     assert(shaderText.str().find("inputs:emissive_intensity = 0")!=std::string::npos);
++    // Game emission: an imported game family's emission map is enabled, so it glows; world
++    // conversion keeps its emission off, and a game material without an emission map gets no flag.
++    assert(shaderText.str().find("enable_emission")==std::string::npos);
++    TextureProcessor::ProcessedMaterialInfo gameGlow{};gameGlow.importedGame=true;
++    gameGlow.emissivePath="C:/fixture/textures/game_emission.dds";gameGlow.emissionIntensity=1;
++    std::ostringstream gameText;USDA::WriteOpaqueMaterial(gameText,2,gameGlow,"C:/fixture/textures");
++    assert(gameText.str().find("inputs:emissive_intensity = 1\n                bool inputs:enable_emission = 1\n")!=std::string::npos);
++    gameGlow.emissivePath.clear();
++    std::ostringstream gameDark;USDA::WriteOpaqueMaterial(gameDark,3,gameGlow,"C:/fixture/textures");
++    assert(gameDark.str().find("emissi")==std::string::npos);
+     // Community channel unpackers stay independent of the vanilla heuristics.
+     MaterialPBRProperties community{};community.materialName="fixture";
+     std::unordered_map<std::string,ConvertedTexture> maps;

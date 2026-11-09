@@ -45,7 +45,9 @@ look. Converted automatically (the pack's SDK-free build of `GamePBR::Convert` o
 give the content keys and DDS bytes of the pack's manual pass.
 
 Validated build (2026-11-09, this machine): **5,519,360 bytes**, SHA-256
-`82ceef697486e28b9d44dfa9de5b03861e473aeb1dc7c8e0485f3745e9c5e4c5`, imported once with `tools/inputs.py`.
+`82ceef697486e28b9d44dfa9de5b03861e473aeb1dc7c8e0485f3745e9c5e4c5`, imported once with `tools/inputs.py`; the
+module in the package now is the ninth patch's build ([game-emission](../game-emission/README.md)), which
+includes this patch.
 Built with [build_modules.ps1](../../../../../tools/ci/build_modules.ps1.md) `-Only fixes` through a temporary
 drive alias of this worktree's `out`, as R20-E and R23 did (premake writes wrong paths under a folder with
 `!`). [test_endfield_maps.py](../../../../../tools/tests/test_endfield_maps.py.md) runs the matching

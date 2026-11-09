@@ -6283,3 +6283,17 @@ nor its texture cache (compiled addons such as Robin, Eldreda and Elyms, and rem
   (`rtx_material_data.h:65` at the packaged fork commit `c6b48ed1`), and `rtx_materials.h:970` caches the intensity
   as 0 while it is off. Runtime patch 0001 carries that line as context only; 0019 enables emission for eye whites
   only.
+- **What the `_E` maps hold** (the AKEF pack's 40 converted emission DDS, every seventh texel of the top level): a
+  median of 0.6 % of texels above 8/255, at most 16 % (`T_wpn_misc_0016_01`, Laevatain's sword), then 8.5 %, 7.8 %
+  (`T_wpn_misc_0057_01`) and 3 % or less; lit texels' mean 0.27-0.89 of full scale. So enabling emission lights only
+  the parts the game lights. With the game record's fixed intensity 1, a lit texel (sRGB 0.3-0.9, linear 0.07-0.79)
+  exposed at the PoC's daytime 1.52 (`adapted_yf` 0.115, so middle grey 0.175) is 0.6-6.9 times middle grey; at night
+  the exposure sits at its cap of 16. The runtime's own default `emissive_intensity` is 40
+  (`rtx_material_data.h:59`); the package's Poolrooms mod uses 8-18 for constant-colour lights and 0.29-0.59 for its
+  caustics texture.
+- **ToPBR republishes on content change**: `WriteModUSDA` (`to_pbr.cpp:4736-4760` with the nine patches) writes the
+  staged layer, keeps the old file when the bytes are the same and publishes otherwise; the worker polls every 3 s
+  (`:5037`). A writer change therefore reaches an existing install in its next session, with no conversion.
+- **MSVC pools identical string literals**: the module holds `"                bool inputs:enable_emission = 1\n"`
+  once with or without the ninth patch, because the Advanced Material Editor bridge's `usda_writer.cpp:170` writes
+  the same text; the patched tree's id, not a string search, shows what a build holds.

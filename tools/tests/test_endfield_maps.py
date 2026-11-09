@@ -13,9 +13,9 @@ SKINNING = REPO / 'packages/fixes/licenses/oversized-skinning'
 FOLDER = SKINNING / 'endfield-maps'
 PATCH = FOLDER / 'endfield-maps.patch'
 TO_PBR = 'source/material_pipeline/to_pbr'
-# Each patch that changed the ToPBR headers keeps its complete changed files; in patch order, a later
-# folder's files replace an earlier one's. autopbr holds them all, wuwa-maps and endfield-maps their changes.
-LAYERS = ('autopbr', 'wuwa-maps', 'endfield-maps')
+# Each patch that changed the ToPBR sources keeps its complete changed files; in patch order, a later
+# folder's files replace an earlier one's. autopbr holds them all, the later folders their changes.
+LAYERS = ('autopbr', 'wuwa-maps', 'endfield-maps', 'game-emission')
 VS = Path(os.environ.get('ProgramFiles(x86)', 'C:/Program Files (x86)')) / 'Microsoft Visual Studio/2022/BuildTools'
 
 SCRIPT = '''param([string]$Repo, [string]$Scratch)

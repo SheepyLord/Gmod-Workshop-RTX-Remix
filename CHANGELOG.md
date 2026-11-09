@@ -6,8 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
-### After R25: Endfield NPC, weapon and item maps
+### After R25: Endfield NPC, weapon and item maps; game emission maps glow
 
+- **Imported game characters' emission maps glow** ([ADR 0138](docs/decisions/0138-imported-game-emission-glows.md);
+  the user's choice): ToPBR converted a game family's `_E` map (Arknights: Endfield, Silver Palace) but never enabled
+  emission, and the RTX runtime gives a material with emission off none, so weapon runes, tech lines and lights stayed
+  dark. An imported game material with an emission map is now written with `enable_emission = 1` at its fixed
+  intensity 1: the parts the game lights (a median 0.6 % of an Endfield sheet) are bright by day and glow at night.
+  World conversion keeps its emission off. Nothing converts again; the next session's published layer carries the
+  flag. The fixes' ninth native patch (`packages/fixes/licenses/oversized-skinning/game-emission`),
+  `gmcl_RTXFixesBinary_win64.dll` rebuilt; [`test_game_emission.py`](tools/tests/test_game_emission.py.md) checks its
+  files and the writer in the Release gate, and the fixes' native `to_pbr_test.cpp` fails without the patch.
 - **Imported Arknights: Endfield NPCs, weapons and items get their game PBR automatically**
   ([ADR 0137](docs/decisions/0137-endfield-npc-weapon-and-item-maps.md)): ToPBR's matcher took the Endfield layout
   only for `T_actor_*` sheets, so `T_npc_major_*` (NPCs, the unmasked Endministrators), `T_wpn_misc_*` (Laevatain's

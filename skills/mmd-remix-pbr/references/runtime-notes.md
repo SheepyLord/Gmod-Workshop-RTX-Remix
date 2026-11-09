@@ -139,7 +139,8 @@ fixes convert them on their own (R11-R13, R23; ADRs 0091, 0093, 0095, 0098):
 
 - **What it reads**, by family stem beside the base texture `T_*_D`: Wuthering Waves `_N`, the game's
   Normal_Roughness_Metallic map (RG normal, alpha roughness, blue metalness from 0.55 with all metal by
-  0.8; R23); Arknights: Endfield `_N`, `_P` (metallic, smoothness to roughness), `_E` (emission);
+  0.8; R23); Arknights: Endfield `_N`, `_P` (metallic, smoothness to roughness), `_E` (emission,
+  enabled at the fixed intensity 1 so it glows, ADR 0138; Silver Palace's `_E` too);
   Silver Palace `_N` (XYZ), `_MRA` (R metallic, G roughness), `_E`. Classes the game does not ship
   follow `aggressive.json`. Skin, face and eye texels stay protected, and faces get no generated
   material (so the companion's eye-white aliases keep working).

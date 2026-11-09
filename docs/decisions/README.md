@@ -210,3 +210,7 @@ Each with the reason it lost.
   (after R25, the user's choice): an imported game material with an emission map is written with
   `enable_emission = 1` at the record's fixed intensity 1 (no adaptive input); world conversion keeps emission off;
   nothing converts again. The fixes' ninth native patch.
+- [0139: The sky without a horizon](0139-the-sky-without-a-horizon.md) (R26, the user's request): runtime patch
+  0041's `rtx.atmosphere.noHorizon` shades a direction below the horizon with its mirror's sky gradient and its
+  antipode's clouds and high clouds, every phase term with the true direction, the stars and moons where they are;
+  the sun still sets. The companion's No horizon sends it, also to a map add-on's sky, without taking it over.

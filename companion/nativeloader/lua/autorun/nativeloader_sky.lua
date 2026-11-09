@@ -20,14 +20,16 @@ local i18n = include("nativeloader/i18n.lua")
 local L, N = i18n.L, i18n.N
 
 local DEFAULTS = {
-    nativeloader_sky = "1", nativeloader_sky_follow_map = "1", nativeloader_sky_hour = "14.5",
-    nativeloader_sky_direction = "0", nativeloader_sky_time_passes = "1", nativeloader_sky_day_minutes = "20",
-    nativeloader_sky_season = "summer", nativeloader_sky_moon = "full",
+    nativeloader_sky = "1", nativeloader_sky_no_horizon = "0", nativeloader_sky_follow_map = "1",
+    nativeloader_sky_hour = "14.5", nativeloader_sky_direction = "0", nativeloader_sky_time_passes = "1",
+    nativeloader_sky_day_minutes = "20", nativeloader_sky_season = "summer", nativeloader_sky_moon = "full",
     nativeloader_sky_eclipse = "", nativeloader_sky_eclipse_amount = "100", nativeloader_sky_stars = "map",
     nativeloader_weather = "partlyCloudy", nativeloader_weather_seconds = "30", nativeloader_sky_interval = "0.02",
 }
 local HELP = {
     nativeloader_sky = "Sky in RTX sessions: 1 the physical sky (sun, clouds, stars, moon), 0 the map's own skybox",
+    nativeloader_sky_no_horizon = "1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and "
+        .. "the moon (maps that float in the sky or in space)",
     nativeloader_sky_follow_map = "1: the time of day and the sun's direction come from the map's own sun",
     nativeloader_sky_hour = "Time of day in hours, 0-24 (with nativeloader_sky_follow_map 0)",
     nativeloader_sky_direction = "Turns the sun's path around the sky, in degrees (with nativeloader_sky_follow_map 0)",
@@ -333,6 +335,14 @@ local function nightSkyImage()
     return cv.nativeloader_sky_stars:GetString() ~= "procedural"
 end
 
+-- The sky without a horizon (R26, ADR 0139), for maps that float in the sky or in space: below the
+-- horizon the runtime shows sky instead of the even haze of a ground the map does not have: the sky
+-- above's colours mirrored, clouds and high clouds (the opposite side's, so no reflection), the sun's
+-- glow around the sun, and the stars and the moon wherever they are.
+local function noHorizon()
+    return cv.nativeloader_sky_no_horizon:GetBool()
+end
+
 -- The options this session's weather has set, which leaving the weather to Remix puts back.
 local weatherSet = {}
 
@@ -464,7 +474,20 @@ local function pushCelestial()
     set("rtx.atmosphere.surfaceMoonBrightness", string.format("%.1f", moonlight(sky.sun.elevation)))
 end
 
+-- The horizon (R26, ADR 0139) is how the player sees whichever physical sky is shown, the
+-- companion's or a map add-on's, not whose sky it is: it is sent also where a map's add-on owns the
+-- sky, and changing it does not take that sky over (like nativeloader_sky_interval). Where such an
+-- add-on is in charge it goes out only when on or changed, so with the setting at its default the
+-- companion still sends that map nothing.
+local function pushHorizon(changing)
+    if not ready() then return end
+    if changing or noHorizon() or inCharge() then
+        set("rtx.atmosphere.noHorizon", noHorizon() and "True" or "False")
+    end
+end
+
 local function apply()
+    pushHorizon(false)
     if not inCharge() then return end
     pushSky()
     if physical then pushCelestial() end
@@ -543,6 +566,11 @@ local function changed(name, _, value)
     if name == "nativeloader_sky_interval" then
         -- How often, not what: it does not take a map's sky over.
         timer.Adjust("nativeloader_sky", interval())
+        return
+    end
+    if name == "nativeloader_sky_no_horizon" then
+        -- How the sky is seen, not whose it is (pushHorizon): it does not take a map's sky over either.
+        pushHorizon(true)
         return
     end
     if ours(name, value) or not clock then return end
@@ -647,7 +675,8 @@ concommand.Add("nativeloader_sky_status", function()
         sky.sun.elevation, sky.sun.bearing, sky.moon.elevation,
         eclipse() and string.format("%s eclipse %d %%", eclipse(), cv.nativeloader_sky_eclipse_amount:GetInt())
             or cv.nativeloader_sky_moon:GetString()))
-    print(string.format("[nativeloader] night sky %s", nightSkyImage() and "image" or "procedural"))
+    print(string.format("[nativeloader] night sky %s; %s", nightSkyImage() and "image" or "procedural",
+        noHorizon() and "no horizon (the sky in every direction)" or "horizon"))
     local info = mapInfo or {}
     print(string.format("[nativeloader] map sky %q%s; map sun %s", info.skyname or "", info.mood and (" (" .. info.mood .. ")") or "",
         info.sun and string.format("%.1f deg high at bearing %.1f", info.sun.elevation, info.sun.bearing) or "none"))
@@ -702,6 +731,8 @@ local function buildPanel(panel)
     sky:AddChoice(L("Physical sky"), "1")
     sky:AddChoice(L("The map's skybox"), "0")
     panel:ControlHelp(L("The physical sky has a sun, clouds, stars and a moon, and lights the map from them."))
+    panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
+    panel:ControlHelp(L("For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."))
     panel:CheckBox(L("Follow the map's sun"), "nativeloader_sky_follow_map")
     panel:ControlHelp(L("Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."))
     panel:NumSlider(L("Time of day"), "nativeloader_sky_hour", 0, 24, 2)

@@ -6314,3 +6314,68 @@ nor its texture cache (compiled addons such as Robin, Eldreda and Elyms, and rem
 - **MSVC pools identical string literals**: the module holds `"                bool inputs:enable_emission = 1\n"`
   once with or without the ninth patch, because the Advanced Material Editor bridge's `usda_writer.cpp:170` writes
   the same text; the patched tree's id, not a string search, shows what a build holds.
+
+## R26: the sky below the horizon (2026-11-09, Claude)
+
+**What the physical sky drew below the horizon** (the packaged runtime, `claude/r20-int` `3cb32fb8`: the base and
+patches 0001-0040; paths under `src/dxvk/shaders/rtx/pass/atmosphere/`):
+- **The air.** The atmosphere frame's origin is on the ground under the camera. `evalAtmosphereRadiance`
+  (`atmosphere_common.slangh:465-482`) does not stop a ray aimed below the horizon at the planet (its near root is
+  t = 0), so the sky-view LUT's lower half (`sky_view_lut.comp.slang:60`: elevation `l*l*sign(l)*pi/2` over the
+  whole sphere) marches thousands of km through the planet with every sample's altitude clamped to 0 (`:554`), lit
+  as ground-level air (`evalSunShadowingClampedToSurface`, `:380`). It saturates into one even haze with the sun's
+  phase glow on it: grey-blue at noon, brown-orange at the golden hour, navy at night under the airglow.
+- **No clouds, no high clouds.** The screen pass skips `viewDirYUp.y <= 0.001` (`cloud_render.comp.slang:174`),
+  the high layer `viewDir.y <= 0` (`atmosphere_sky.slangh:1353`), and the secondary rays' dome LUT clamps its
+  elevation to the horizon row (`atmosphere_common.slangh:739`).
+- **Stars** are gone 1.1 degrees below the horizon (`smoothstep(-0.02, 0.1, y)`, `atmosphere_sky.slangh:483`); the
+  airglow's van Rhijn boost `1 + 0.5 exp(-5y)` (`:544`) is 75 at the nadir.
+- **The moons** are drawn wherever they are (`evalMoonDisk` has no elevation test), lit through
+  `getAtmosphericTransmittanceForDir` (`:841`), whose below-horizon branch (`atmosphere_common.slangh:855`, `:897`)
+  is near zero: a moon below the horizon is a black disc (PoC: the first quarter moon 17.6 degrees down at 02:00).
+- **The sun disc** stops 1.7 degrees below the horizon (`sunDir.y < -0.03`, `atmosphere_sky.slangh:1088`).
+- The LUT's lower half is read only by `evalSkyRadiance`: `sampleSkyAmbientForVolume` returns 0 below the horizon
+  (`atmosphere_common.slangh:949`), the high layer reads the LUT at 9.8 degrees and at the zenith.
+- **The planet does not come off**: `planetRadius`, `atmosphereThickness`, `flipUpAxis` and the time cycle all
+  keep the ground under the camera, and the density is a function of the height above it.
+
+**Where the PoC sees below the horizon**: `gm_flatgrass`'s world is x, y in [-15872, 15872], z in [-16128, 15872]
+(lump 14's first model), its floor at z = -12800, and its sky brushes are not drawn as geometry. From
+(12500, 0, 14000) along +x, every ray from the horizon to 75 degrees down passes beyond the floor's edge into the
+void. Evidence in the `r26-sky` worktree's `out/r26` (`horizon_probe.lua`, sessions `s1` to `s3`).
+
+**A mirror of the clouds** (session s1): continuous, but they read as a calm lake's reflection with the horizon as
+its axis; a 1-2 pixel line of bare sky at the horizon where the screen pass skips |y| <= 0.001; and a bright patch
+where a mirrored sun would be, the cloud bleed: it adds 0.15 (`cloudSkyBleedStrength`) times mip 4 of the dome LUT,
+whose texels hold clouds lit for their own direction's angle to the sun. With the antipode's clouds, the cloud ray
+held 0.0015 above the horizon and the bleed faded out over 6 degrees below (s2), none of the three remains.
+
+**Off is unchanged** (s3, the packaged runtime, against s2, patch 0041, both at 1600x900; mean absolute difference
+of 0-255 RGB): two consecutive shots of one runtime differ by 0.33-0.6 in the haze and sky (2.2 once, a uniform
+exposure drift) and by up to 4.8 where clouds drift; the two runtimes differ by 0.34-0.58 in the haze and sky and
+by up to 2.8 where clouds drift (the wind runs from each session's start). The one larger A/B value (3.9) is the
+frame generation notice at the top right in one session's shot; outside it, 0.35.
+
+**Frame times at 1600x900** (the PoC is CPU-bound there; one second per view, s2): partly cloudy 5.99 / 6.26 ms off
+/ on looking out over the horizon, 5.87 / 6.25 at 15 degrees down, 5.40 / 5.60 at 50 degrees down; clear golden
+hour and night 0.1-0.2 ms more on; overcast on 6.8 ms out.
+
+**Frame times at 3840x2160** (s4: the imported `d3d9.dll` `35ce5008...` in the package built from the branch,
+`engine_no_focus_sleep 0`, `fps_max 0`, one second per view after a 10 s settle; no other PoC session ran meanwhile,
+but other agents' work on the machine may have skewed the absolute times):
+
+| State | View | Off (ms) | On (ms) | On - off |
+|---|---|---|---|---|
+| partly cloudy 13:00 | out (the horizon in the middle) | 10.17 | 11.61 | +1.44 |
+| | 15 degrees down | 9.84 | 11.61 | +1.77 |
+| | 50 degrees down | 8.39 | 9.61 | +1.22 |
+| overcast 13:00 | out | 11.37 | 14.17 | +2.80 |
+| | 15 degrees down | 10.80 | 14.02 | +3.22 |
+| | 50 degrees down | 8.27 | 10.10 | +1.83 |
+| clear, golden hour | out | 8.70 | 9.22 | +0.52 |
+| clear, night | out | 8.73 | 9.32 | +0.59 |
+
+The extra time is the screen-space cloud pass marching the pixels below the horizon, which it skipped before: as
+much again as the clouds above them cost where the view is split at the horizon, most for a closed deck at grazing
+angles. Looking down, the antipode's clouds are near its zenith, short rays through the slab. Off, nothing is
+marched or sampled differently.

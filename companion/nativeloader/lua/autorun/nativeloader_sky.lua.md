@@ -1,5 +1,13 @@
 # nativeloader_sky.lua
 
+R26: **No horizon** (`nativeloader_sky_no_horizon`, off by default), a checkbox under Sky, for maps
+that float in the sky or in space. It sends `rtx.atmosphere.noHorizon`, the runtime's option of patch
+0041 ([ADR 0139](../../../../docs/decisions/0139-the-sky-without-a-horizon.md)): below the horizon the
+physical sky goes on instead of the even haze of a ground, with clouds, the stars and the moon (see
+"The horizon"). It is how the player sees whichever physical sky is shown, not whose sky it is: it
+also reaches the sky of a map's own add-on, and changing it does not take that sky over (see "A map
+whose add-on sets the sky").
+
 R20-B: Time passes defaults on and a day lasts 20 real minutes. The defaults autorun migrates only
 the untouched old `0`/`30` pair once, before this file installs callbacks or starts its clock
 ([ADR 0117](../../../../docs/decisions/0117-startup-upscaling-hint-and-sky-defaults.md)). Reset uses
@@ -37,6 +45,7 @@ Saved client settings, shown in the RTX Remix tab under "Sky and weather":
 | Setting | Default | What |
 |---|---|---|
 | `nativeloader_sky` | `1` | 1: the physical sky; 0: the map's own skybox |
+| `nativeloader_sky_no_horizon` | `0` | 1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and the moon (R26). Changing it does not take a map's sky over |
 | `nativeloader_sky_follow_map` | `1` | The time and the sun's direction come from the map's own sun |
 | `nativeloader_sky_hour` | `14.5` | Time of day, 0-24. Following the map, it shows the map's time |
 | `nativeloader_sky_direction` | `0` | Turns the sun's path around the sky (the map's north bearing), in degrees |
@@ -91,6 +100,36 @@ With the physical sky on (`nativeloader_sky 1`):
 
 With the map's skybox (`nativeloader_sky 0`): `rtx.skyMode 0`, and
 `rtx.ignoreGameDirectionalLights` back to its `rtx.conf` value (`False` if none).
+
+### The horizon
+
+`rtx.atmosphere.noHorizon`: `True` with No horizon ticked (`nativeloader_sky_no_horizon 1`), else
+`False`. The runtime's option (patch 0041,
+[ADR 0139](../../../../docs/decisions/0139-the-sky-without-a-horizon.md)) is for maps that float in
+the sky or in space, where the camera sees below the horizon. Off, a direction below it shows the
+ground-level air of a planet the map does not have: an even haze under a sharp horizon line, without
+clouds or stars, and a moon there is a black disc. On, the sky goes on below the horizon:
+
+- its colours are the mirror image of the sky above, so the haze band at eye level is the sky's own;
+- its clouds and high clouds are those of the opposite side above (the antipode's), so they are no
+  reflection of the clouds above it;
+- everything is lit for the true angle to the sun, so the sun's glow, silver linings and halos stay
+  around the sun, and no mirror sun appears below;
+- the stars, the galaxy and the moon show where they are, in every direction.
+
+The sun still sets: below the horizon it is night. Reflections and indirect light see the same sky.
+
+It is how the player sees whichever physical sky is shown, not whose sky it is, so it is not part of
+the sky a map's add-on can own:
+
+- With the companion in charge it goes out with the rest, at a map's start and on every change.
+- On a map whose add-on sets the sky (see below) it is sent too, but only when it is ticked or
+  changed: with the setting at its default the companion still sends such a map nothing.
+- Changing it does not take that map's sky over, as `nativeloader_sky_interval` does not.
+
+It costs nothing while off. On, the screen's clouds are also marched for the pixels below the horizon,
+which costs up to as much again as the clouds above them (at 3840x2160 0.5 ms more in clear weather,
+1.2-1.8 ms partly cloudy, up to 3.2 ms overcast); the sky-view LUT is baked once when it changes.
 
 ### The sun, the moon and the stars
 
@@ -191,7 +230,8 @@ it back 3, 23, 43 and 63 s after the map starts.
   map. Before R16 the add-on's sky stayed until the player changed a setting, so a chosen time and
   weather seemed not to apply until the Sky and weather panel was touched.
 - **Following the map keeps such an add-on's sky** ("Follow the map's sun" ticked, the default) until
-  the player changes a sky or weather setting in that session.
+  the player changes a sky or weather setting in that session. Two settings do not count: the update
+  interval and No horizon (R26), which also reaches the add-on's sky ("The horizon" above).
 - Once the companion is in charge, its sky is put back every 10 s, and at once whenever the add-on sets
   its own again (below). The add-on's `ApplySettings` is wrapped from the sky's first tick after the
   add-on loaded (Modern House RTX loads after InitPostEntity), not only by the 10 s timer.
@@ -212,7 +252,7 @@ it back 3, 23, 43 and 63 s after the map starts.
   `golden`, `sunset`, `dusk`, `night` (23:00) or `midnight`. Named times are sun heights on the
   season's day.
 - `nativeloader_sky_status`: prints the sky, the time, the sun and moon (or the eclipse and its
-  progress), the night sky, the map's own sun and sky name, and the weather.
+  progress), the night sky and the horizon, the map's own sun and sky name, and the weather.
 - `nativeloader_sky_reset`: all of these settings back to their defaults.
 
 ## Timing

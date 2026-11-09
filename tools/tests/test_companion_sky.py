@@ -217,7 +217,7 @@ report("start", "rtx.skyMode", "rtx.ignoreGameDirectionalLights", "rtx.atmospher
   "rtx.atmosphere.moon0.enabled", "rtx.atmosphere.sunElevation", "rtx.atmosphere.sunRotation",
   "rtx.atmosphere.cloudDensity", "rtx.volumetrics.transmittanceMeasurementDistanceMeters",
   "rtx.weather.precipitation.intensity", "rtx.atmosphere.starAxisElevation",
-  "rtx.atmosphere.surfaceMoonBrightness")
+  "rtx.atmosphere.surfaceMoonBrightness", "rtx.atmosphere.noHorizon")
 print("convars " .. convars.nativeloader_sky_hour.value .. " " .. convars.nativeloader_sky_direction.value
   .. " " .. convars.nativeloader_sky_follow_map.value)
 if SCRIPT == "defaults" then
@@ -296,6 +296,44 @@ end
 if SCRIPT == "skybox" then
   cmd("nativeloader_sky", "0")
   report("skybox", "rtx.skyMode", "rtx.ignoreGameDirectionalLights")
+  return
+end
+if SCRIPT == "horizon" then
+  -- R26: No horizon ticked and unticked in the panel, the status line, the reset.
+  local before = #calls
+  cmd("nativeloader_sky_no_horizon", "1")
+  report("horizon_on", "rtx.atmosphere.noHorizon")
+  print("horizon_calls " .. (#calls - before) .. " " .. convars.nativeloader_sky_follow_map.value)
+  tick(1)
+  local lines, realPrint = {}, print
+  print = function(text) lines[#lines + 1] = text end
+  cmd("nativeloader_sky_status")
+  print = realPrint
+  for _, line in ipairs(lines) do
+    if line:find("night sky", 1, true) then print("status_night " .. line) end
+  end
+  before = #calls
+  cmd("nativeloader_sky_no_horizon", "0")
+  print("horizon_off " .. (#calls - before) .. " " .. tostring(value("rtx.atmosphere.noHorizon")))
+  cmd("nativeloader_sky_no_horizon", "1")
+  cmd("nativeloader_sky_reset")
+  report("horizon_reset", "rtx.atmosphere.noHorizon")
+  return
+end
+if SCRIPT == "horizon_owned" then
+  -- R26: on a map whose add-on owns the sky, the player's No horizon reaches that sky without taking
+  -- it over (the companion sends that option alone).
+  local options, seen = {}, {}
+  for _, call in ipairs(calls) do
+    if not seen[call[1]] then seen[call[1]] = true options[#options + 1] = call[1] end
+  end
+  print("owned_start_options " .. (#options > 0 and table.concat(options, ",") or "none"))
+  local before = #calls
+  cmd("nativeloader_sky_no_horizon", NEXT_HORIZON)
+  print("owned_calls " .. (#calls - before) .. " " .. tostring(value("rtx.skyMode")) .. " "
+    .. tostring(value("rtx.atmosphere.noHorizon")))
+  tick(11)
+  report("owned_after", "rtx.skyMode")
   return
 end
 if SCRIPT == "slider" then
@@ -702,6 +740,47 @@ class SkyTests(unittest.TestCase):
     def test_without_the_remix_api_nothing_is_sent(self):
         out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='skybox', NOAPI=True)
         self.assertEqual(out['start'].split()[0], '0')
+        out = self.run_lua('PRESET = { nativeloader_sky_no_horizon = "1" }\n' + SESSION, MAP='gm_construct',
+                           BSP=bsp(CONSTRUCT), SCRIPT='horizon', NOAPI=True)
+        self.assertEqual(out['start'].split()[0], '0')
+        self.assertEqual(out['horizon_on'].split()[0], '0')
+
+    def test_no_horizon_goes_with_the_sky_and_leaves_the_maps_sun_followed(self):
+        # R26 (ADR 0139): off by default, sent with the companion's sky at a map's start; ticking it
+        # sends the runtime's option alone (the map's sun is still followed), the status names it, and
+        # the reset unticks it.
+        out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='horizon')
+        self.assertEqual(self.settings(out['start'])['rtx.atmosphere.noHorizon'], 'False')
+        self.assertEqual(self.settings(out['horizon_on'])['rtx.atmosphere.noHorizon'], 'True')
+        self.assertEqual(out['horizon_calls'].split(), ['1', '1'])
+        self.assertIn('no horizon (the sky in every direction)', out['status_night'])
+        self.assertEqual(out['horizon_off'].split(), ['1', 'False'])
+        self.assertEqual(self.settings(out['horizon_reset'])['rtx.atmosphere.noHorizon'], 'False')
+        # Saved ticked (client.vdf), it is on from the map's start.
+        out = self.run_lua('PRESET = { nativeloader_sky_no_horizon = "1" }\n' + SESSION, MAP='gm_construct',
+                           BSP=bsp(CONSTRUCT), SCRIPT='skybox')
+        start = self.settings(out['start'])
+        self.assertEqual((start['rtx.skyMode'], start['rtx.atmosphere.noHorizon']), ('1', 'True'))
+
+    def test_no_horizon_reaches_a_maps_own_sky_without_taking_it_over(self):
+        # The horizon is how the player sees whichever physical sky is shown: on a map whose add-on
+        # owns the sky it is sent alone, when ticked or changed, and that sky stays the add-on's (no
+        # skyMode, nothing on the 10 s timer). Unticked at the start, the companion sends that map nothing.
+        out = self.run_lua('MHRTX_Config = {}\n' + SESSION, MAP='modern_house', BSP=bsp(CONSTRUCT),
+                           SCRIPT='horizon_owned', NEXT_HORIZON='1')
+        self.assertEqual(out['start'].split()[0], '0')
+        self.assertEqual(out['owned_start_options'], 'none')
+        self.assertEqual(out['owned_calls'].split(), ['1', 'nil', 'True'])
+        self.assertEqual(out['owned_after'].split(), ['1', 'rtx.skyMode=nil'])
+        # Saved ticked: the map's start sends that option and nothing else (once at InitPostEntity and
+        # once with everything 5 s later, as the companion does on every map).
+        out = self.run_lua('MHRTX_Config = {}\nPRESET = { nativeloader_sky_no_horizon = "1" }\n' + SESSION,
+                           MAP='modern_house', BSP=bsp(CONSTRUCT), SCRIPT='horizon_owned', NEXT_HORIZON='0')
+        self.assertEqual(out['owned_start_options'], 'rtx.atmosphere.noHorizon')
+        start = self.settings(out['start'])
+        self.assertEqual((start['rtx.atmosphere.noHorizon'], start['rtx.skyMode']), ('True', 'nil'))
+        self.assertEqual(out['owned_calls'].split(), ['1', 'nil', 'False'])
+        self.assertEqual(out['owned_after'].split()[1], 'rtx.skyMode=nil')
 
 
 if __name__ == '__main__':

@@ -79,7 +79,15 @@ The harness is written to a scratch folder under `out\tmp`.
   loaded too): Heavy Fog sets Remix's four fog values, volumetrics on and fog remapping off. A change
   of weather then blends its clouds but leaves the fog, and clearing the preset brings the weather's
   fog back at the next tick.
-- **Without the Remix API** nothing is sent.
+- **Without the Remix API** nothing is sent, also with No horizon saved ticked and ticked again.
+- **No horizon** (R26, `nativeloader_sky_no_horizon`): the start of gm_construct sends
+  `rtx.atmosphere.noHorizon False`; ticking it sends `True` and nothing else, and the sky still follows
+  the map's sun; the status line names it; unticking sends `False`, and the reset unticks it. Saved
+  ticked (`PRESET`), the start sends `True` with the physical sky.
+- **No horizon on a map whose add-on sets the sky** (`MHRTX_Config` on `modern_house`): unticked, the
+  start sends nothing at all; ticking it sends that option alone, and 11 s later the companion has
+  still sent no `rtx.skyMode` (the add-on keeps its sky). Saved ticked, the start sends that option and
+  nothing else, and unticking sends `False`.
 
 Run with the other tool tests: `python -m unittest discover -s tests` from `tools\` (as
 `tools\test.ps1` does). Skipped when LuaJIT is not installed (on `PATH` or in

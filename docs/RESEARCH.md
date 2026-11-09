@@ -6419,4 +6419,24 @@ The PoC's `bin/win64/filesystem_stdio.dll`: 970,064 bytes, linked 2026-10-26 20:
   different, 790 unanswered (the folder-wildcard pattern for each title, and one title GMod's table does not hold).
 - **A start left out once**: a marker of a process that is gone, planted before an RTX start, made the menu, server
   and client copies all say "left out once", and the marker was gone after it; a start without RTX before it left the
-  marker untouched, and the first RTX start removed its own marker 20 s after installing the hooks.
+  marker untouched, and the first RTX start removed its own marker 20 s after installing the hooks (the build of that
+  run; the marker is now held until a map has loaded with the hooks, as the review asked).
+- **What it saves** (`timing`: the published package, 0.0.0-dev.20261109063824, against the one built here with the
+  review's fixes and the sky merged; RTX starts, alternating, verify off; seconds from the server's first Lua (t0) to
+  `InitPostEntity` (ipe) and to the game responding, no frame over 100 ms for 2 s (ready); "map loaded" is the load
+  overlay's own measure):
+
+  | Session | t0 to ipe | ipe to ready | t0 to ready | map loaded |
+  |---|---|---|---|---|
+  | published, 1st (the first start after the install) | 19.4 | 12.3 | 31.7 | 24.1 |
+  | built here, 1st | 12.1 | 5.2 | 17.4 | 12.8 |
+  | published, 2nd | 17.7 | 8.5 | 26.2 | 18.8 |
+  | built here, 2nd | 12.0 | 5.2 | 17.2 | 12.6 |
+
+  So about 9 s (a third) of a warm load: 5.7 s of the map load itself and 3.3 s of the freeze after it. The cache
+  answered 1,586,263 of 1,746,334 hooked calls and the index Extended Spawnmenu's 2,253 searches; the index was built
+  once, in 16 ms (117,720 entries). Each session with the accelerator ended with its marker taken off (`settled`), and
+  the next one installed the hooks again.
+- **The off switch cannot be a convar the menu reads**: the add-on's `nativeloader_load_accel` is a client realm's
+  Lua convar, which the menu realm does not see (R24, above), so the client keeps `data/nativeloader/load_accel_off.txt`
+  for the menu while it is 0.

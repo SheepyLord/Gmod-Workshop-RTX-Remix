@@ -15,6 +15,31 @@ The user's request of 2026-11-09, two items:
 
 Done by Claude, with Claude subagents (the sky option, the review); no Codex.
 
+## 1. The sky without a horizon
+
+**No horizon** under Sky in the RTX Remix tab's Sky and weather panel (`nativeloader_sky_no_horizon`, off by default,
+saved like the other sky settings; [ADR 0139](../decisions/0139-the-sky-without-a-horizon.md)). The runtime had no
+such option, so runtime patch 0041 adds `rtx.atmosphere.noHorizon` (the dev menu's No Horizon under Atmosphere; it
+takes the `r18Pad0` slot, so the constant buffer keeps its size, and a change bakes only the sky-view lookup table
+again). With it on, a direction below the horizon shows sky instead of the planet's even ground haze:
+
+- the sky's colours from its mirror above, continuous at the horizon;
+- the clouds and high clouds of the opposite side of the sky (a mirror of them read as a lake's reflection);
+- the sun's glow, silver linings and halos around the real sun only;
+- the stars, the galaxy and the moon wherever they are (a moon below the horizon was a black disc; it is lit now).
+
+The sun still sets: below the horizon it is night. It also reaches a map add-on's own sky, but toggling it does not
+take that sky over. Off, the rendering is unchanged (an A/B of off against the packaged runtime in the PoC: within the
+frame-to-frame noise). Its cost at 3840x2160, on: about 0.5 ms in clear weather, 1.2-1.8 ms partly cloudy, up to
+3.2 ms overcast (the clouds below the horizon are marched). The guide's Sky and weather picture shows the checkbox;
+the texts are in the six languages. The runtime was built through `runtime\build_runtime.ps1` and imported:
+`d3d9.dll` 418,258,944 bytes, SHA-256 `35ce5008...`, `remix-main+17dcc86c`.
+
+What it leaves (ADR 0139): the bright band of the sky's own gradient at eye level stays on both sides, so a soft line
+remains where the horizon was in daylight (at night none is visible); clouds below are seen from underneath; a
+reflection of the lower sky may put a silver lining in the wrong place; a moon below the horizon does not light the
+scene.
+
 ## 2. Faster map loads: the load accelerator
 
 The work was first a plan (R24's evidence, `out/load-speedup/PLAN.md` in the worktree `recursing-cartwright-4600e1`).
@@ -56,6 +81,26 @@ GMod's whitelist). So no Lua of the package runs there, and nothing loads the mo
 was not made, as the user asked for the package only and loader changes wait for approval. The C1 change reaches
 starts without RTX through the user's Workshop item, which every start mounts.
 
+## Review
+
+An independent Claude subagent reviewed the accelerator's code (not anchored on this report). It found no case where
+part A answers "not found" for a file that exists (it checked case folding, non-ASCII names, 8.3 names, devices,
+trailing dots and spaces, streams, `.`/`..`, `\\?\` and UNC paths, junctions and links, folders with case-sensitive
+names, the watch armed before any listing), and no crash or deadlock in the hooks beyond what the table lists. Each
+finding and what became of it:
+
+| # | Finding | Outcome |
+|---|---|---|
+| 1 | Medium: part B's tree walks could loop forever on links that never end (a different layout, or a tree changing while read); SEH stops only access violations, and nothing guarded B | Every walk has a step budget (under 2n + 64 steps); links that never end are refused. A CTest points a link back at its own node |
+| 2 | Medium: the start-up marker came off 20 s after menu start, before the first map load, where most lookups are | The marker stays until a map has loaded with the hooks and 20 s have passed: the menu script says so 10 s after the first load ends, the add-on 5 s after `InitPostEntity` (a dedicated server's own) |
+| 3 | Medium-low: the self-test could pass without testing an add-on; a title GMod's table does not hold turned B off | It scans the list until three mounted add-ons agree, skips one GMod finds nothing under, needs at least one, and gives no verdict while the table is changing |
+| 4 | Medium-low: `nativeloader_load_accel 0` could not reach the menu realm (it cannot see a client's Lua convar), so part A was still installed | The client keeps `data/nativeloader/load_accel_off.txt` while it is 0; the menu script reads it and makes no convar of its own |
+| 5 | Low: the index could go stale after an unmount and a mount that leave every size the same | The fingerprint mixes in every list node (its address, owner, title and path); a CTest remounts that way |
+| 6 | Low: a name another program creates in a cached folder reads as missing until the watcher's notification lands | Documented in ADR 0140; nothing in the package writes into a cached folder while the game runs |
+| 7 | Low: a table that changes again and again would be read whole for each search | At most one build every 2 s; GMod answers meanwhile |
+| 8 | Nit: two folders whose names differ only in case could share a cache key | Neither is cached |
+| 9 | Nits: a map change turned off checks turned on in the other realm; the watcher test could pass before the watcher re-armed; a lock a thread held when the process began to exit; the README's "write open" | The checks' switch is passed on only when on; the test waits for the change to be read and checks the drop; once the process shuts down nothing is answered and no lock is taken; wording fixed |
+
 ## Measured
 
 The PoC with the user's 774 subscriptions mounted, gm_construct (`out/r26/poc_r26.py` in the `r26` worktree; the
@@ -73,15 +118,41 @@ Earlier runs found what the unit tests could not: the menu realm cannot write fi
 native now), GMod gives a name once when two add-ons share a title, and no tables for a wildcard in the folder part;
 the index follows both.
 
-**`timing`**: (filled in after the run).
+**`timing`** (the published package, 0.0.0-dev.20261109063824, against the package built here with the review's fixes
+and the sky option merged; RTX starts, alternating, the checks off; seconds from the server's first Lua to
+`InitPostEntity` and to the game responding, no frame over 100 ms for 2 s; "map loaded" is the load overlay's own
+line):
+
+| Session | First Lua to `InitPostEntity` | Then until it responds | In all | Overlay's "map loaded" |
+|---|---|---|---|---|
+| Published, 1st (the first start after the install) | 19.4 | 12.3 | 31.7 | 24.1 |
+| Built here, 1st | 12.1 | 5.2 | 17.4 | 12.8 |
+| Published, 2nd | 17.7 | 8.5 | 26.2 | 18.8 |
+| Built here, 2nd | 12.0 | 5.2 | 17.2 | 12.6 |
+
+About 9 s, a third of a warm RTX load, is gone: 5.7 s of the load itself (the failed lookups) and 3.3 s of the freeze
+after it (the add-on searches). The index was built once, in 16 ms. Each session with the accelerator ended with its
+marker taken off, and the next one installed the hooks again. These sessions also ran the merged package's new
+runtime (No horizon off) with no problem.
 
 ## Tests
 
-(Filled in after the gate.)
+`tools\test.ps1 -Config Release` passed on the final tree: repository conventions, 30 of 30 C++ tests (among them
+`nl_fs_accel_tests`, 10 cases) and 29 + 26 + 774 Python tests, among them
+[`test_load_accel.py`](../../tools/tests/test_load_accel.py.md) (20 scenarios) and the sky's
+[`test_companion_sky.py`](../../tools/tests/test_companion_sky.py.md) (17). The package built here was checked in the
+PoC after the last change that reached the game (`timing`, above); the sky option's own PoC sessions are in
+[ADR 0139](../decisions/0139-the-sky-without-a-horizon.md) and TESTING.
 
 ## Published
 
-(Filled in after the push.)
+- **The user's Workshop item 3789611737** (Procedural Bodygroup Destruction) as **0.19.16**: its 0.19.15 with only the
+  spawn-menu rebuild made conditional and the version string changed (`out/r26/c1/make_ws_gma.py` checks that exactly
+  those two files differ), packed with `gmapack create --strict` (740,495 bytes, SHA-256
+  `52845276e6590e45c638cd8122c82cf9f937c1dcfdbf2a5776f052aa76face04`) and uploaded with gmpublish through
+  `tools/publish_workshop.upload` on 2026-11-09; Steam's public record shows 740,495 bytes, updated 13:34:20 UTC, its
+  visibility unchanged.
+- `main`: (filled in after the push).
 
 ## Not changed
 

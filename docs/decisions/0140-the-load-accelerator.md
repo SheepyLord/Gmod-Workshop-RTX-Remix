@@ -41,20 +41,24 @@ every start.
    `GetFileAttributesExA/W`, chained after whatever the slot held (the loader's read redirects in an RTX start, else
    Windows), answer "not there" for a read-only lookup inside a cached folder whose directory listing has no such name,
    with Windows' own error codes. Cached: every plain ASCII folder directly in `garrysmod/addons` except links,
-   junctions and the Model Hotloader's `mmdhl_*` (its worker writes there), and the missing `garrysmod/workshop`. A
-   watcher drops a folder that changes; every positive lookup still reaches the disk, so edited files show (answer 4).
-   Verify mode (`nativeloader_load_accel_verify 1`) asks Windows too and counts disagreements. The switches live in the
-   installing copy's counters, so the module's other copy reaches them.
+   junctions, the Model Hotloader's `mmdhl_*` (its worker writes there) and two folders whose names differ only in
+   case, and the missing `garrysmod/workshop`. A watcher drops a folder that changes; every positive lookup still
+   reaches the disk, so edited files show (answer 4). Verify mode (`nativeloader_load_accel_verify 1`) asks Windows too
+   and counts disagreements. The switches live in the installing copy's counters, so the module's other copy reaches
+   them. Once the process shuts down nothing is answered and no lock is taken.
 3. **B as an index, not a patch.** The plan's B patched `Addon::FileSystem::FindFirst`. Instead the module reads
    GMod's add-on table (found by the file system's exported `g_pFullFileSystem` and the RTTI name
-   `.?AVFileSystem@Addon@@`; every link and size checked, under SEH, nothing written; built again when its sizes or
-   list change, and on `GameContentChanged`), and the add-on replaces Lua's `file.Find` for add-on titles only (not
+   `.?AVFileSystem@Addon@@`; every link and size checked, every tree walk with a step budget so that links which never
+   end are refused rather than followed, under SEH, nothing written; built again when its sizes or any list node
+   change, at most every 2 s, and on `GameContentChanged`), and the add-on replaces Lua's `file.Find` for add-on titles
+   only (not
    GMod's search paths, not date sortings), answering from the index. Two add-ons with one title give a name once, as
    GMod's search does; a wildcard in the folder part of a pattern goes to GMod (which answers none). The only callers of
    that search are Lua's, so this is as general as the patch (every add-on that searches every add-on gains), with no
    code of GMod's changed: a wrong answer is the worst a layout change could cause, and a self-test against GMod's own
-   answers comes before the first one, with verify mode comparing every answer. The plan's B0 (a patch of Extended
-   Spawnmenu alone) is dropped: B covers it generally (answer 8).
+   answers in three mounted add-ons comes before the first one (none to compare with: no index), with verify mode
+   comparing every answer. The plan's B0 (a patch of Extended Spawnmenu alone) is dropped: B covers it generally
+   (answer 8).
 4. **C1: no spawn-menu rebuild on a fresh start.** The bullet-break simulator rebuilds the spawn menu after its
    settings-layout migration only when the menu already exists when its file runs (a Lua refresh), in the package's
    copy and in the user's Workshop item 3789611737 (its 0.19.15 with that change alone, as 0.19.16). The Workshop item
@@ -63,14 +67,18 @@ every start.
    cache answered in this load, and the end-of-load summary names it; the client prints the load's tally (lookups
    answered, searches answered from the index).
 6. **Off switches and fallback.** `nativeloader_load_accel 0` (archived) leaves the module out from the next start.
-   The crash-loop guard is native, since the menu realm cannot write files: just before the hooks go in, `install()`
-   writes `garrysmod/data/nativeloader/load_accel_pending.txt` with the process's id and creation time, and a thread of
-   its own deletes it 20 s later. A start that finds the marker of a process that is gone (a crash, a hang ended by
-   force, a quit within 20 s) leaves the hooks out once and deletes it; an environment variable naming the process makes
-   the module's other copy refuse too, and a child process, whose id differs, ignores it. Another running game of the
-   same install is no reason to refuse. Any failed check (imports, the game's folder, the table, the self-test) leaves
-   that part off with one console line; GMod's own behaviour is always the fallback, and nothing changes on disk but
-   the marker.
+   It is the add-on's client convar, which the menu realm cannot see (RESEARCH, R24), so the client keeps
+   `data/nativeloader/load_accel_off.txt` while it is 0 and the menu script reads that. The crash-loop guard is native,
+   since the menu realm cannot write files: just before the hooks go in, `install()` writes
+   `garrysmod/data/nativeloader/load_accel_pending.txt` with the process's id and creation time, and a thread of its own
+   deletes it once a map has loaded with the hooks (the menu script tells it 10 s after the first load ends, the add-on
+   5 s after `InitPostEntity`) and at least 20 s have passed: most lookups are in a load, and the menu opens well before
+   one. A start that finds the marker of a process that is gone (a crash, a hang ended by force, a quit before a map
+   loaded) leaves the hooks out once and deletes it; an environment variable naming the process makes the module's other
+   copy refuse too, and a child process, whose id differs, ignores it. Another running game of the same install is no
+   reason to refuse. Any failed check (imports, the game's folder, the table, the self-test) leaves that part off with
+   one console line; GMod's own behaviour is always the fallback, and nothing changes on disk but the two files in
+   `data/nativeloader`.
 
 ## Dropped, with the reasons
 
@@ -87,7 +95,9 @@ every start.
   sit in `garrysmod/lua/bin` there, unused, like the fixes' module. The loader's rules are unchanged (the item is
   allowlisted; ADR 0003).
 - A folder add-on that a developer edits while the game runs stops being cached for the session; a file dropped into
-  a cached folder by another program is seen once the watcher has read the change.
+  a cached folder by another program is seen once the watcher has read the change (for a moment after the drop a
+  lookup of it may still be answered as missing; nothing in the package writes there while the game runs).
+- A game quit before any map loads leaves the marker, so its next start goes without the hooks once.
 - A GMod update that changes the add-on table's layout turns B off at the self-test or the consistency checks; one that
   stops `filesystem_stdio.dll` importing those functions leaves A off. Both say so in the console.
 - The two modules are recorded in `tools/ci/pins.json` `repository_builds` like the engine guard's.

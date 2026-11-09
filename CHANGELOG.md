@@ -32,10 +32,13 @@ Versions follow the loader's CMake project version once it ships; until then eve
   folder on disk for every lookup, a missed open twice), and `file.Find(pattern, <add-on title>)` (from an index of
   GMod's add-on table, where GMod walked every file of every add-on for each search: Extended Spawnmenu's 2,263
   searches froze the game for about 5 s after each map). Positive lookups still reach the disk, so edited files show;
-  a folder that changes stops being cached. The companion's menu script `load_accel.lua` installs it at menu start,
-  and the load overlay's status line counts the lookups answered. A start that ended within 20 s of installing the
-  hooks leaves them out once (the module's own marker in `data/nativeloader`). Off: `nativeloader_load_accel 0`;
-  checks: `nativeloader_load_accel_verify 1`. **Not in starts without RTX:** the loader leaves the RTX package's
+  a folder that changes stops being cached. In the PoC with 774 subscriptions a warm RTX load of gm_construct went
+  from 26.2 s to 17.2 s between the server's first Lua and a responsive game (the load itself 18.8 s to 12.6 s by the
+  overlay's measure). The companion's menu script `load_accel.lua` installs it at menu start,
+  and the load overlay's status line counts the lookups answered. A start that ended before a map had loaded with the
+  hooks leaves them out once (the module's own marker in `data/nativeloader`). Off: `nativeloader_load_accel 0` (in a
+  game; the client keeps it for the menu realm as `data/nativeloader/load_accel_off.txt`); checks:
+  `nativeloader_load_accel_verify 1`. **Not in starts without RTX:** the loader leaves the RTX package's
   add-on folders out of those (ADR 0013) and GMod never mounts the package's archive, so nothing of the package runs
   there; that needs a loader change, which the package-only answer leaves out (reported).
 - **No spawn-menu rebuild on every start** (the bundled bullet-break simulator, and the user's Workshop item
@@ -43,7 +46,7 @@ Versions follow the loader's CMake project version once it ships; until then eve
   a running game (a Lua refresh).
 - Tests: `nl_fs_accel_tests` (CTest: the path rules, the cache against Windows' own answers, the hooks, the watcher,
   the start-up marker, the index on a table laid out as GMod's) and
-  [`test_load_accel.py`](tools/tests/test_load_accel.py.md) (13 scenarios of the add-on's and the menu script's Lua).
+  [`test_load_accel.py`](tools/tests/test_load_accel.py.md) (20 scenarios of the add-on's and the menu script's Lua).
 
 ### After R25: Endfield NPC, weapon and item maps; game emission maps glow
 

@@ -197,6 +197,16 @@ bool LooseCache::init(const std::wstring& garrysmod, Counters* counters, std::st
     roots_.push_back(std::move(root));
   }
   std::sort(roots_.begin(), roots_.end(), [](const auto& a, const auto& b) { return a->key < b->key; });
+  // Two folders whose names differ only in case (a folder with case-sensitive names): which one a lookup means is
+  // not known here, so neither is cached.
+  std::vector<std::unique_ptr<Root>> kept;
+  for (std::size_t i = 0; i < roots_.size();) {
+    std::size_t j = i + 1;
+    while (j < roots_.size() && roots_[j]->key == roots_[i]->key) ++j;
+    if (j == i + 1) kept.push_back(std::move(roots_[i]));
+    i = j;
+  }
+  roots_ = std::move(kept);
   if (counters_) counters_->roots.store(static_cast<std::uint32_t>(roots_.size()), std::memory_order_relaxed);
   return true;
 }

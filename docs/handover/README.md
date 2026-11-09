@@ -1,6 +1,11 @@
 # Handovers
 
-The latest round is R25, the user's report of 2026-11-09 (a spawn-menu icon left on the screen by a drag GMod
+The latest round is R26, the user's request of 2026-11-09 (the sky without a horizon, for universe and
+floating-island maps; faster map loads with hundreds of add-ons, the load accelerator, in RTX starts):
+[R26-report.md](R26-report.md), done by Claude with Claude subagents for the sky option and the review (no
+Codex).
+
+Before it, R25, the user's report of 2026-11-09 (a spawn-menu icon left on the screen by a drag GMod
 never ended; ARC9's magnified scopes path traced through a raytraced render target; ARC9's gun path traced, its
 screen reads and 2D before the view model skipped): [R25-report.md](R25-report.md), done by Claude with Claude
 subagents for two reviews (no Codex).

@@ -16,6 +16,21 @@ local verify = CreateConVar("nativeloader_load_accel_verify", "0", FCVAR_NONE,
 local REALM = SERVER and "server" or "client"
 local function say(text) print("[nativeloader] load accelerator (" .. REALM .. "): " .. text) end
 
+-- The menu realm installs the file lookup hooks at menu start, but it cannot see this realm's Lua convars (RESEARCH,
+-- R24): the client keeps "off" for it as data/nativeloader/load_accel_off.txt.
+local OFF_FILE = "nativeloader/load_accel_off.txt"
+local function remember(on)
+    if not CLIENT then return end
+    if on then
+        if file.Exists(OFF_FILE, "DATA") then file.Delete(OFF_FILE) end
+    elseif not file.Exists(OFF_FILE, "DATA") then
+        file.CreateDir("nativeloader")
+        file.Write(OFF_FILE, "nativeloader_load_accel 0: the load accelerator is off from the next start\n")
+    end
+end
+remember(enabled:GetBool())
+cvars.AddChangeCallback("nativeloader_load_accel", function(_, _, value) remember(tobool(value)) end, "nlloadaccel_off")
+
 if not enabled:GetBool() then return end
 if not (util.IsBinaryModuleInstalled and util.IsBinaryModuleInstalled("nlfsaccel")) then return end
 local loaded, problem = pcall(require, "nlfsaccel")
@@ -26,11 +41,13 @@ end
 local accel = nlfsaccel
 
 -- Hooked once per process: here, or already at menu start, or by the other realm's copy, which this only adopts. The
--- module itself leaves the hooks out once after a start that ended within 20 s of installing them (its marker in
+-- module itself leaves the hooks out once after a start that ended before a map had loaded with them (its marker in
 -- data/nativeloader) and says why.
 local hooked, why = accel.Install()
 if not hooked then say("file lookups are GMod's own: " .. tostring(why)) end
-accel.SetVerify(verify:GetBool())
+-- A map change runs this again in each realm: only a switch that is on here is passed on, so the checks turned on in
+-- the other realm stay on.
+if verify:GetBool() then accel.SetVerify(true) end
 cvars.AddChangeCallback("nativeloader_load_accel_verify", function(_, _, value)
     accel.SetVerify(tobool(value))
 end, "nlloadaccel")
@@ -56,29 +73,53 @@ local function same(a, b)
     end
     return true
 end
+local function empty(list) return list == nil or (istable(list) and #list == 0) end
 local function shown(list) return istable(list) and ("{" .. table.concat(list, ",", 1, math.min(#list, 8)) .. (#list > 8 and ",..." or "") .. "}") or tostring(list) end
 
--- GMod's answer and the index's must be the same for a few add-ons before the index answers anything.
+-- The index's reason while GMod's add-on table keeps changing (it builds at most every 2 s): no verdict yet.
+local CHANGING = "GMod's add-on table is changing"
+
+-- GMod's answer and the index's must be the same for three mounted add-ons, spread over the list first, before the
+-- index answers anything. Returns true; false and why; or nil while it cannot tell yet.
 local trusted = nil
 local function selftest()
     local addons = engine.GetAddons()
+    local count = #addons
+    local step = math.max(1, math.floor(count / 5))
+    local order = {}
+    for i = 1, count, step do order[#order + 1] = i end
+    for i = 1, count do
+        if (i - 1) % step ~= 0 then order[#order + 1] = i end
+    end
     local tried = 0
-    for i = 1, #addons, math.max(1, math.floor(#addons / 5)) do
+    for _, i in ipairs(order) do
         local addon = addons[i]
         if addon and addon.mounted and isstring(addon.title) and addon.title ~= "" and not STANDARD[addon.title] then
+            local usable = true
             for _, pattern in ipairs({ "*", "lua/*", "materials/*" }) do
                 local files, dirs = original(pattern, addon.title)
                 local ours, our_dirs = accel.FindInAddon(pattern, addon.title)
-                if not ours then return false, "the index cannot answer for " .. addon.title .. ": " .. tostring(our_dirs) end
+                if not ours then
+                    if our_dirs == CHANGING then return nil, our_dirs end
+                    -- A title GMod's table does not hold (GMod finds nothing under it either): none to test with.
+                    if not (empty(files) and empty(dirs)) then
+                        return false, "the index cannot answer for " .. addon.title .. ": " .. tostring(our_dirs)
+                    end
+                    usable = false
+                    break
+                end
                 if not same(files, ours) or not same(dirs, our_dirs) then
                     return false, string.format("for %q in %q GMod gave %s %s, the index %s %s", pattern, addon.title,
                         shown(files), shown(dirs), shown(ours), shown(our_dirs))
                 end
             end
-            tried = tried + 1
-            if tried >= 3 then break end
+            if usable then
+                tried = tried + 1
+                if tried >= 3 then return true end
+            end
         end
     end
+    if tried == 0 then return false, "no mounted add-on to test the index with" end
     return true
 end
 
@@ -94,8 +135,10 @@ local function find(name, path, sorting)
         and (sorting == nil or sorting == "nameasc" or sorting == "namedesc") then
         if trusted == nil then
             local ok, why = selftest()
-            trusted = ok
-            if not ok then say("add-on searches are GMod's own: " .. tostring(why)) end
+            if ok ~= nil then
+                trusted = ok
+                if not ok then say("add-on searches are GMod's own: " .. tostring(why)) end
+            end
         end
         if trusted then
             local files, dirs = accel.FindInAddon(name, path)
@@ -125,24 +168,26 @@ NLLOADACCEL = { find = find, original = original }
 
 hook.Add("GameContentChanged", "nlloadaccel", function() accel.Invalidate() end)
 
-if CLIENT then
-    -- The load's tally, once the game is in.
-    hook.Add("InitPostEntity", "nlloadaccel", function()
-        timer.Simple(5, function()
-            local status = accel.Status()
-            local parts = {}
-            if status.installed then
-                parts[#parts + 1] = string.Comma(status.answered or 0) .. " file lookups answered from memory in " ..
-                    tostring(status.roots or 0) .. " folders"
-            else
-                parts[#parts + 1] = "file lookups GMod's own"
-            end
-            parts[#parts + 1] = string.Comma(status.finds_served or 0) .. " add-on searches answered from the index"
-            if (status.disagreements or 0) > 0 or mismatches > 0 then
-                parts[#parts + 1] = "checks found " .. tostring(status.disagreements or 0) .. " lookups and " ..
-                    tostring(mismatches) .. " searches different"
-            end
-            say(table.concat(parts, "; "))
-        end)
+-- Once a map has loaded: the module's start-up marker may come off (the menu realm says so as well when a load ends;
+-- a dedicated server has no menu, and a listen server's own InitPostEntity comes before the client has loaded), and
+-- the client prints the load's tally.
+hook.Add("InitPostEntity", "nlloadaccel", function()
+    timer.Simple(5, function()
+        if CLIENT or (game.IsDedicated and game.IsDedicated()) then accel.Settled() end
+        if not CLIENT then return end
+        local status = accel.Status()
+        local parts = {}
+        if status.installed then
+            parts[#parts + 1] = string.Comma(status.answered or 0) .. " file lookups answered from memory in " ..
+                tostring(status.roots or 0) .. " folders"
+        else
+            parts[#parts + 1] = "file lookups GMod's own"
+        end
+        parts[#parts + 1] = string.Comma(status.finds_served or 0) .. " add-on searches answered from the index"
+        if (status.disagreements or 0) > 0 or mismatches > 0 then
+            parts[#parts + 1] = "checks found " .. tostring(status.disagreements or 0) .. " lookups and " ..
+                tostring(mismatches) .. " searches different"
+        end
+        say(table.concat(parts, "; "))
     end)
-end
+end)

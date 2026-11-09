@@ -7,38 +7,38 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a",
+    "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248",
     "dirty": false
    },
-   "imported": "2026-11-09T12:41:33+00:00"
+   "imported": "2026-11-09T13:25:18+00:00"
   },
   "bin/gmsv_nlfsaccel_win64.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r26\\out\\build\\win64-release\\fs_accel\\gmsv_nlfsaccel_win64.dll",
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a",
+    "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248",
     "dirty": false
    },
-   "imported": "2026-11-09T12:41:30+00:00"
+   "imported": "2026-11-09T13:25:15+00:00"
   }
  },
  "files": {
   "bin/gmcl_nlfsaccel_win64.dll": {
-   "size": 270848,
-   "sha256": "96e744204df13f307dcc6b60b3acb46b9866ceef87a8a8c1e893cd508bded4ad",
-   "mtime_ns": 1794228089724182400,
+   "size": 272896,
+   "sha256": "e442802001f3edbade108203ca6fb1ee06ae1001ca6039fef99f83ece4fda2c3",
+   "mtime_ns": 1794230714290728500,
    "stored": "xz",
-   "stored_size": 112592,
-   "stored_sha256": "bb6084eb0458426c91535370642b8cc8cd8926e4e7bbd7405864f0656f4d6ca2"
+   "stored_size": 113552,
+   "stored_sha256": "6bed201cf5fbc0487adb64a3a2e91e3efab98dbe94942b8949fb6f5ab294ffd8"
   },
   "bin/gmsv_nlfsaccel_win64.dll": {
-   "size": 270848,
-   "sha256": "b1385bc72ea62a1672d5fc00709ddcc73cc8fb3f836e89eb7f61cd2e0a89d047",
-   "mtime_ns": 1794228089724182400,
+   "size": 272896,
+   "sha256": "9889b4d53255ec956817c99eb469ae88e58fb306ab0ef20b6689c25d3879203f",
+   "mtime_ns": 1794230714290728500,
    "stored": "xz",
-   "stored_size": 112584,
-   "stored_sha256": "d269e17178c1b95567664cd228c61941539cc76b04410378427130db297937ab"
+   "stored_size": 113500,
+   "stored_sha256": "ab30dc659a5183ac130d5df5d28fde97461af038edb5ebddbfe8cc3aeee0548c"
   }
  }
 }

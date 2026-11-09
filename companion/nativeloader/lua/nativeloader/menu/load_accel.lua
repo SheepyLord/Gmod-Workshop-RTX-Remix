@@ -6,13 +6,12 @@
 if not MENU_DLL or NativeLoaderLoadAccel ~= nil then return end
 NativeLoaderLoadAccel = false
 
-local enabled
-do
-    local ok, convar = pcall(CreateConVar, "nativeloader_load_accel", "1", FCVAR_ARCHIVE,
-        "The load accelerator (0 off from the next start): answers file lookups GMod repeats across the loose add-on folders, and add-on searches, from memory")
-    enabled = ok and convar or nil
+-- nativeloader_load_accel is the add-on's client convar, which the menu realm cannot see (RESEARCH, R24): its "off"
+-- reaches the menu as a file the client keeps.
+if file and isfunction(file.Exists) and file.Exists("nativeloader/load_accel_off.txt", "DATA") then
+    MsgN("[nativeloader] load accelerator (menu): off (nativeloader_load_accel 0)")
+    return
 end
-if enabled and not enabled:GetBool() then return end
 
 local loaded, problem = pcall(require, "nlfsaccel")
 local accel = rawget(_G, "nlfsaccel")
@@ -21,7 +20,7 @@ if not loaded or not istable(accel) or not isfunction(accel.Install) then
     return
 end
 
--- The module leaves the hooks out once after a start that ended within 20 s of installing them (its own marker in
+-- The module leaves the hooks out once after a start that ended before a map had loaded with them (its own marker in
 -- data/nativeloader: the menu realm cannot write files) and says why.
 local installed, reason = accel.Install()
 if not installed then
@@ -30,3 +29,20 @@ if not installed then
 end
 NativeLoaderLoadAccel = accel
 MsgN("[nativeloader] load accelerator (menu): " .. tostring(accel.Status().roots or 0) .. " loose add-on folders cached")
+
+-- Ten seconds after the first map load ends (most lookups are in a load, not at menu start), the module may take its
+-- marker off: the hooks did not take the game down. The menu's Think runs whenever it draws, in a game too.
+if isfunction(accel.Settled) and isfunction(IsInLoading) then
+    local loadEnded = nil
+    hook.Add("Think", "NativeLoaderLoadAccel", function()
+        if IsInLoading() then
+            loadEnded = false
+            return
+        end
+        if loadEnded == nil then return end  -- no load yet
+        if loadEnded == false then loadEnded = SysTime() end
+        if SysTime() - loadEnded < 10 then return end
+        hook.Remove("Think", "NativeLoaderLoadAccel")
+        accel.Settled()
+    end)
+end

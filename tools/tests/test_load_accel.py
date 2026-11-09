@@ -12,8 +12,9 @@ MENU = REPO / 'companion/nativeloader/lua/nativeloader/menu/load_accel.lua'
 LUAJIT = shutil.which('luajit') or next((str(p) for p in [
     Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs/LuaJIT/bin/luajit.exe'
 ] if p.is_file()), None)
-SCENARIOS = ('serve', 'not-title', 'selftest-mismatch', 'verify', 'left-out', 'off', 'no-module', 'invalidate', 'tally',
-             'menu-install', 'menu-left-out', 'menu-not-menu', 'menu-off')
+SCENARIOS = ('serve', 'not-title', 'selftest-mismatch', 'selftest-skip', 'selftest-none', 'selftest-changing', 'verify',
+             'left-out', 'off', 'off-client', 'on-client', 'no-module', 'invalidate', 'tally', 'server-dedicated',
+             'server-listen', 'menu-install', 'menu-left-out', 'menu-not-menu', 'menu-off')
 
 
 @unittest.skipUnless(LUAJIT, 'LuaJIT is not installed')

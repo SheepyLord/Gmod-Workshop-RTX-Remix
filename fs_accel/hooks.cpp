@@ -22,10 +22,15 @@ using CreateW = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DW
 using AttributesA = BOOL(WINAPI*)(LPCSTR, GET_FILEEX_INFO_LEVELS, LPVOID);
 using AttributesW = BOOL(WINAPI*)(LPCWSTR, GET_FILEEX_INFO_LEVELS, LPVOID);
 
+using ShutdownProbe = BOOLEAN(NTAPI*)();
+
 struct Global {
   LooseCache own_cache;
   Watcher watcher;
   LooseCache* cache = nullptr;
+  // ntdll's RtlDllShutdownInProgress: once the process is shutting down, other threads are gone, perhaps inside the
+  // cache's lock, so nothing is answered and no lock is taken.
+  ShutdownProbe shutting_down = nullptr;
   CreateA next_create_a = nullptr;
   CreateW next_create_w = nullptr;
   AttributesA next_attributes_a = nullptr;
@@ -60,10 +65,14 @@ bool may_change(DWORD access, DWORD disposition, DWORD flags) {
 
 // The cache's verdict on an open, or Pass. Verify mode leaves the answer to Windows and counts a disagreement when
 // Windows finds what the cache said was missing.
+bool answering(const Global& g) noexcept {
+  return g.cache && g.counters->enabled.load(std::memory_order_relaxed) != 0 && !(g.shutting_down && g.shutting_down());
+}
+
 template <class Char>
 Verdict judge_open(Global& g, const Char* name, DWORD access, DWORD disposition, DWORD flags) noexcept {
   g.counters->calls.fetch_add(1, std::memory_order_relaxed);
-  if (!name || !g.cache || g.counters->enabled.load(std::memory_order_relaxed) == 0) return Verdict::Pass;
+  if (!name || !answering(g)) return Verdict::Pass;
   PathBuffer path;
   if (!normalize(std::basic_string_view<Char>(name), path)) return Verdict::Pass;
   if (may_change(access, disposition, flags)) {
@@ -77,7 +86,7 @@ Verdict judge_open(Global& g, const Char* name, DWORD access, DWORD disposition,
 template <class Char>
 Verdict judge_attributes(Global& g, const Char* name) noexcept {
   g.counters->calls.fetch_add(1, std::memory_order_relaxed);
-  if (!name || !g.cache || g.counters->enabled.load(std::memory_order_relaxed) == 0) return Verdict::Pass;
+  if (!name || !answering(g)) return Verdict::Pass;
   PathBuffer path;
   if (!normalize(std::basic_string_view<Char>(name), path)) return Verdict::Pass;
   return g.cache->lookup(path.view());
@@ -271,7 +280,7 @@ std::wstring game_garrysmod() {
 
 constexpr wchar_t kLeftOutVariable[] = L"NL_FS_ACCEL_LEFT_OUT";  // the id of the process that left the hooks out
 constexpr char kLeftOutReason[] =
-    "left out once: the last start with the hooks ended within 20 s of installing them "
+    "left out once: the last start with the hooks ended before a map had loaded with them "
     "(garrysmod/data/nativeloader/load_accel_pending.txt); the next start uses them again";
 constexpr DWORD kSettledMs = 20000;
 
@@ -336,18 +345,23 @@ bool left_out_in_process() {
 struct ClearLater {
   std::wstring path;
   ProcessStamp self;
+  const Counters* counters;  // the installing copy's: settle() from either copy lands there
 };
 
+// The marker comes off once a map has loaded with the hooks in (most lookups are in a load: a menu start alone proves
+// little) and at least 20 s after they went in. A game that quits before any map leaves it, and the next start goes
+// without the hooks once.
 DWORD WINAPI clear_when_settled(void* parameter) {
   const auto* job = static_cast<const ClearLater*>(parameter);
-  Sleep(kSettledMs);
+  const ULONGLONG start = GetTickCount64();
+  while (GetTickCount64() - start < kSettledMs || job->counters->settled.load(std::memory_order_acquire) == 0) Sleep(1000);
   clear_marker(job->path, job->self);
   delete job;
   return 0;
 }
 
-bool clear_later(const std::wstring& path, const ProcessStamp& self) {
-  auto* job = new ClearLater{path, self};
+bool clear_later(const std::wstring& path, const ProcessStamp& self, const Counters* counters) {
+  auto* job = new ClearLater{path, self, counters};
   const HANDLE thread = CreateThread(nullptr, 0, &clear_when_settled, job, 0, nullptr);
   if (!thread) {
     delete job;
@@ -425,6 +439,9 @@ InstallResult install_locked(Global& g) {
   g.next_create_w = reinterpret_cast<CreateW>(*create_w.front());
   g.next_attributes_a = reinterpret_cast<AttributesA>(*attributes_a.front());
   g.next_attributes_w = reinterpret_cast<AttributesW>(*attributes_w.front());
+  if (const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) {
+    g.shutting_down = reinterpret_cast<ShutdownProbe>(GetProcAddress(ntdll, "RtlDllShutdownInProgress"));
+  }
   g.cache = &g.own_cache;
   // The marker goes down before the hooks go in, and comes off once the game has run on with them for 20 s.
   const bool marked = write_marker(marker, self);
@@ -433,7 +450,7 @@ InstallResult install_locked(Global& g) {
   for (void** slot : create_w) all &= write_slot(slot, reinterpret_cast<void*>(&hook_create_w));
   for (void** slot : attributes_a) all &= write_slot(slot, reinterpret_cast<void*>(&hook_attributes_a));
   for (void** slot : attributes_w) all &= write_slot(slot, reinterpret_cast<void*>(&hook_attributes_w));
-  if (marked && !clear_later(marker, self)) clear_marker(marker, self);
+  if (marked && !clear_later(marker, self, g.counters)) clear_marker(marker, self);
   result.installed = true;
   result.reason = all ? "installed" : "installed, but a slot could not be written";
   return result;
@@ -514,6 +531,8 @@ bool clear_marker(const std::wstring& path, const ProcessStamp& self) noexcept {
 }
 
 Counters& counters() noexcept { return *global().counters; }
+
+void settle() noexcept { global().counters->settled.store(1, std::memory_order_release); }
 
 // The switches of the hooks in this process: the counters of the copy that installed them.
 void set_enabled(bool on) noexcept { global().counters->enabled.store(on ? 1 : 0, std::memory_order_relaxed); }

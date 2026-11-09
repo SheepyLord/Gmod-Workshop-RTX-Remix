@@ -47,21 +47,30 @@ bool read_text(const std::uint8_t* at, RawText& out) {
 
 bool is_nil(const std::uint8_t* node) { return node[kTreeIsNil] != 0; }
 
-// The in-order successor of an MSVC tree node (its head is the only nil node reachable this way).
-const std::uint8_t* successor(const std::uint8_t* node) {
+// The in-order successor of an MSVC tree node (its head is the only nil node reachable this way), or nullptr once
+// `steps` is spent. A whole in-order walk of n nodes takes fewer than 2n steps; links that form a cycle (a layout
+// that is not what it seems, or a tree changing while it is read) must not hold the game, and only an access
+// violation would stop the walk otherwise.
+const std::uint8_t* successor(const std::uint8_t* node, std::uint64_t& steps) {
   const std::uint8_t* right = ptr_at(node + kTreeRight);
   if (!is_nil(right)) {
     node = right;
-    for (const std::uint8_t* left = ptr_at(node + kTreeLeft); !is_nil(left); left = ptr_at(node + kTreeLeft)) node = left;
+    for (const std::uint8_t* left = ptr_at(node + kTreeLeft); !is_nil(left); left = ptr_at(node + kTreeLeft)) {
+      if (steps-- == 0) return nullptr;
+      node = left;
+    }
     return node;
   }
   const std::uint8_t* parent = ptr_at(node + kTreeParent);
   while (!is_nil(parent) && node == ptr_at(parent + kTreeRight)) {
+    if (steps-- == 0) return nullptr;
     node = parent;
     parent = ptr_at(node + kTreeParent);
   }
   return parent;
 }
+
+std::uint64_t walk_budget(std::uint64_t size) { return 2 * size + 64; }
 
 const std::uint8_t* leftmost(const std::uint8_t* head) { return ptr_at(head + kTreeLeft); }
 
@@ -71,9 +80,15 @@ struct Counts {
 
 struct Fingerprint {
   const void* table = nullptr;
-  std::uint64_t words[6] = {};  // directory map head and size, list head and size, the list's first and last nodes
+  std::uint64_t words[4] = {};  // directory map head and size, list head and size
+  std::uint64_t list = 0;       // every list node: its address, owner, title and path buffers and sizes, mixed
   bool operator==(const Fingerprint&) const = default;
 };
+
+std::uint64_t mix(std::uint64_t hash, std::uint64_t value) {
+  hash ^= value + 0x9e3779b97f4a7c15ull + (hash << 6) + (hash >> 2);
+  return hash;
+}
 
 struct RawDir {
   std::uint64_t key;  // offset into the text pool
@@ -92,6 +107,8 @@ struct RawNode {
 };
 
 // No C++ objects in these frames: they read GMod's memory under SEH.
+// Every mount and unmount changes a list node (a new node, owner and strings), so a remount at the same place with the
+// same number of directories is still seen; a directory map that changed size is seen by its size.
 bool fingerprint_of(const std::uint8_t* table, Fingerprint& out) noexcept {
   __try {
     out.table = table;
@@ -100,8 +117,20 @@ bool fingerprint_of(const std::uint8_t* table, Fingerprint& out) noexcept {
     out.words[2] = u64_at(table + kTableListHead);
     out.words[3] = u64_at(table + kTableListSize);
     const std::uint8_t* list = ptr_at(table + kTableListHead);
-    out.words[4] = list ? u64_at(list) : 0;
-    out.words[5] = list ? u64_at(list + 8) : 0;
+    const std::uint64_t nodes = out.words[3];
+    if (!list || nodes > kMaxNodes) return false;
+    std::uint64_t hash = 0, seen = 0;
+    for (const std::uint8_t* node = ptr_at(list); node != list; node = ptr_at(node)) {
+      if (++seen > nodes) return false;
+      hash = mix(hash, reinterpret_cast<std::uintptr_t>(node));
+      hash = mix(hash, u64_at(node + kListFilter));
+      hash = mix(hash, u64_at(node + 0x10));               // the .gma path's buffer (or its first bytes)
+      hash = mix(hash, u64_at(node + 0x10 + 0x10));        // and its size
+      hash = mix(hash, u64_at(node + kListTitle));         // the title's buffer (or its first bytes)
+      hash = mix(hash, u64_at(node + kListTitle + 0x10));  // and its size
+    }
+    if (seen != nodes) return false;
+    out.list = hash;
     return true;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     return false;
@@ -119,8 +148,9 @@ bool count_table(const std::uint8_t* table, Counts& counts, const char** why) no
       *why = "the add-on table's heads or sizes are not as expected";
       return false;
     }
-    std::uint64_t seen = 0;
-    for (const std::uint8_t* dir = leftmost(head); dir != head; dir = successor(dir)) {
+    std::uint64_t seen = 0, steps = walk_budget(dirs);
+    for (const std::uint8_t* dir = leftmost(head); dir != head; dir = successor(dir, steps)) {
+      if (!dir) { *why = "the directory map's links do not end"; return false; }
       if (++seen > dirs) { *why = "the directory map is longer than its size"; return false; }
       RawText key;
       if (!read_text(dir + kTreeValue, key)) { *why = "a directory name is not a string"; return false; }
@@ -128,8 +158,9 @@ bool count_table(const std::uint8_t* table, Counts& counts, const char** why) no
       const std::uint8_t* inner = ptr_at(dir + kDirInnerHead);
       const std::uint64_t size = u64_at(dir + kDirInnerSize);
       if (!inner || !is_nil(inner) || size > kMaxEntries) { *why = "a directory's entries are not a map"; return false; }
-      std::uint64_t count = 0;
-      for (const std::uint8_t* entry = leftmost(inner); entry != inner; entry = successor(entry)) {
+      std::uint64_t count = 0, entry_steps = walk_budget(size);
+      for (const std::uint8_t* entry = leftmost(inner); entry != inner; entry = successor(entry, entry_steps)) {
+        if (!entry) { *why = "a directory's entry map's links do not end"; return false; }
         if (++count > size) { *why = "a directory's entry map is longer than its size"; return false; }
         RawText name;
         if (!read_text(entry + kTreeValue, name)) { *why = "an entry name is not a string"; return false; }
@@ -173,15 +204,19 @@ bool copy_table(const std::uint8_t* table, const Counts& limits, RawDir* dirs, R
       return true;
     };
     const std::uint8_t* head = ptr_at(table + kTableDirHead);
-    for (const std::uint8_t* dir = leftmost(head); dir != head; dir = successor(dir)) {
-      if (d >= limits.dirs) { *why = "the table changed while it was read"; return false; }
+    std::uint64_t steps = walk_budget(limits.dirs);
+    for (const std::uint8_t* dir = leftmost(head); dir != head; dir = successor(dir, steps)) {
+      if (!dir || d >= limits.dirs) { *why = "the table changed while it was read"; return false; }
       RawText key;
       if (!read_text(dir + kTreeValue, key) || !take(key, dirs[d].key)) { *why = "the table changed while it was read"; return false; }
       dirs[d].key_size = static_cast<std::uint32_t>(key.size);
       dirs[d].first = static_cast<std::uint32_t>(e);
       const std::uint8_t* inner = ptr_at(dir + kDirInnerHead);
-      for (const std::uint8_t* entry = leftmost(inner); entry != inner; entry = successor(entry)) {
-        if (e >= limits.entries) { *why = "the table changed while it was read"; return false; }
+      const std::uint64_t size = u64_at(dir + kDirInnerSize);
+      if (size > limits.entries) { *why = "the table changed while it was read"; return false; }
+      std::uint64_t entry_steps = walk_budget(size);
+      for (const std::uint8_t* entry = leftmost(inner); entry != inner; entry = successor(entry, entry_steps)) {
+        if (!entry || e >= limits.entries) { *why = "the table changed while it was read"; return false; }
         RawText name;
         if (!read_text(entry + kTreeValue, name) || !take(name, entries[e].name)) { *why = "the table changed while it was read"; return false; }
         entries[e].name_size = static_cast<std::uint32_t>(name.size);
@@ -308,7 +343,16 @@ bool AddonIndex::ensure(const TableAddress& table, std::string* reason) {
     return false;
   }
   if (data_ && data_->print == print) return true;
+  // A table that changes again and again (add-ons mounted one by one, a search between each) is left to GMod for a
+  // moment instead of being read whole each time: at most one build (or attempt) every 2 s.
+  const std::uint64_t now = GetTickCount64();
+  if (last_build_ != 0 && now - last_build_ < min_rebuild_ms_) {
+    data_.reset();
+    if (reason) *reason = "GMod's add-on table is changing";
+    return false;
+  }
   data_.reset();
+  last_build_ = now;
   const char* why = "";
   Counts counts;
   if (!count_table(raw, counts, &why)) {
@@ -366,6 +410,7 @@ bool AddonIndex::ensure(const TableAddress& table, std::string* reason) {
   }
   data_ = std::move(data);
   ++builds_;
+  last_build_ms_ = GetTickCount64() - now;
   return true;
 }
 

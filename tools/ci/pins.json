@@ -212,14 +212,14 @@
         "fs_accel/addon"
       ],
       "packaged": {
-        "sha256": "96e744204df13f307dcc6b60b3acb46b9866ceef87a8a8c1e893cd508bded4ad",
+        "sha256": "e442802001f3edbade108203ca6fb1ee06ae1001ca6039fef99f83ece4fda2c3",
         "sources": {
           "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "fs_accel": "53489e8301e93cad95dbc217899d2e92d55d628a61a41ae2e3dff8230b354f52",
+          "fs_accel": "0250d50f2eab8ae707635dd989961a84d708c2ae5188e7355701d13e417cb8f9",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a (with uncommitted changes)",
+        "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }
@@ -240,14 +240,14 @@
         "fs_accel/addon"
       ],
       "packaged": {
-        "sha256": "b1385bc72ea62a1672d5fc00709ddcc73cc8fb3f836e89eb7f61cd2e0a89d047",
+        "sha256": "9889b4d53255ec956817c99eb469ae88e58fb306ab0ef20b6689c25d3879203f",
         "sources": {
           "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "fs_accel": "53489e8301e93cad95dbc217899d2e92d55d628a61a41ae2e3dff8230b354f52",
+          "fs_accel": "0250d50f2eab8ae707635dd989961a84d708c2ae5188e7355701d13e417cb8f9",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a (with uncommitted changes)",
+        "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }

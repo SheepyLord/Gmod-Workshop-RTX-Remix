@@ -4,7 +4,8 @@ Unit test (R26) for the load accelerator's Lua: the add-on's autorun
 (`fs_accel/addon/lua/autorun/!!!!!nlloadaccel.lua`) and the companion's menu script
 (`companion/nativeloader/lua/nativeloader/menu/load_accel.lua`). Runs
 [`load_accel_harness.lua`](load_accel_harness.lua.md) with LuaJIT once per scenario (`serve`, `not-title`,
-`selftest-mismatch`, `verify`, `left-out`, `off`, `no-module`, `invalidate`, `tally`, `menu-install`,
+`selftest-mismatch`, `selftest-skip`, `selftest-none`, `selftest-changing`, `verify`, `left-out`, `off`,
+`off-client`, `on-client`, `no-module`, `invalidate`, `tally`, `server-dedicated`, `server-listen`, `menu-install`,
 `menu-left-out`, `menu-not-menu`, `menu-off`) as subtests and requires `PASS <scenario>`. The module itself is tested
 by CTest (`nl_fs_accel_tests`, [fs_accel](../../fs_accel/README.md)).
 

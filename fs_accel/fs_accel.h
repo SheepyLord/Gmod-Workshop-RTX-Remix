@@ -60,6 +60,7 @@ struct Counters {
   // The switches, here so that the copy that did not install the hooks reaches them too.
   std::atomic<std::uint32_t> enabled{1};        // A answers (1) or only passes on (0)
   std::atomic<std::uint32_t> verify{0};         // A also asks Windows and counts disagreements (1)
+  std::atomic<std::uint32_t> settled{0};        // a map has loaded with the hooks in (settle()): the marker may go
 };
 
 class LooseCache {
@@ -135,8 +136,9 @@ InstallResult install_status();
 
 // ---- The start-up marker (hooks.cpp) -----------------------------------------------------------------------------
 // garrysmod\data\nativeloader\load_accel_pending.txt holds "<process id> <process creation time>" from just before
-// the hooks go in until 20 s later. A start that finds the marker of a process that is gone (a crash, a hang ended by
-// force, or a quit within 20 s) leaves the hooks out once, and both copies of the module in that process agree.
+// the hooks go in until a map has loaded with them (settle(), from Lua) and at least 20 s have passed. A start that
+// finds the marker of a process that is gone (a crash, a hang ended by force, or a quit before that) leaves the hooks
+// out once, and both copies of the module in that process agree.
 
 struct ProcessStamp {
   unsigned long pid = 0;
@@ -151,6 +153,8 @@ enum class MarkerCheck {
 MarkerCheck check_marker(const std::wstring& path, const ProcessStamp& self) noexcept;
 bool write_marker(const std::wstring& path, const ProcessStamp& self) noexcept;  // creates its folder
 bool clear_marker(const std::wstring& path, const ProcessStamp& self) noexcept;  // only when it is `self`'s
+// A map has loaded with the hooks in: the marker comes off (20 s after the hooks went in, at the earliest).
+void settle() noexcept;
 
 // The counters of the copy that installed the hooks (this one or the other), or this copy's.
 Counters& counters() noexcept;
@@ -193,7 +197,9 @@ class AddonIndex {
             std::string* reason);
   void invalidate() noexcept;
   std::uint64_t builds() const { return builds_; }
+  std::uint64_t last_build_ms() const { return last_build_ms_; }
   std::size_t entries() const;
+  void set_min_rebuild_ms(std::uint64_t ms) { min_rebuild_ms_ = ms; }  // 2000 by default; tests set 0
 
   struct Data;  // the built index (addon_index.cpp)
 
@@ -201,6 +207,9 @@ class AddonIndex {
   bool ensure(const TableAddress& table, std::string* reason);
   std::shared_ptr<Data> data_;
   std::uint64_t builds_ = 0;
+  std::uint64_t last_build_ = 0;     // GetTickCount64() when the last build (or attempt) began; 0: none yet
+  std::uint64_t last_build_ms_ = 0;  // how long the last build took
+  std::uint64_t min_rebuild_ms_ = 2000;
 };
 
 }  // namespace nl::fs_accel

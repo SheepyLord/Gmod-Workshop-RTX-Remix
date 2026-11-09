@@ -5,7 +5,7 @@
 //
 // Lua: nlfsaccel.Install() -> installed, reason; nlfsaccel.Status() -> table; nlfsaccel.SetEnabled(on);
 // nlfsaccel.SetVerify(on); nlfsaccel.FindInAddon(pattern, title) -> files, dirs | nil, reason;
-// nlfsaccel.Invalidate(); nlfsaccel.CountFind(served).
+// nlfsaccel.Invalidate(); nlfsaccel.CountFind(served); nlfsaccel.Settled().
 #include "fs_accel.h"
 
 #include <GarrysMod/Lua/Interface.h>
@@ -80,6 +80,9 @@ LUA_FUNCTION_STATIC(Status) {
   set_number(LUA, "finds_passed", static_cast<double>(c.finds_passed.load()));
   set_number(LUA, "index_builds", static_cast<double>(index().builds()));
   set_number(LUA, "index_entries", static_cast<double>(index().entries()));
+  set_number(LUA, "index_build_ms", static_cast<double>(index().last_build_ms()));
+  LUA->PushBool(c.settled.load() != 0);
+  LUA->SetField(-2, "settled");
   LUA->PushString(table_reason.c_str());
   LUA->SetField(-2, "index_reason");
   return 1;
@@ -125,6 +128,12 @@ LUA_FUNCTION_STATIC(FindInAddon) {
   return 2;
 }
 
+// nlfsaccel.Settled(): a map has loaded with the hooks in; the start-up marker may come off.
+LUA_FUNCTION_STATIC(Settled) {
+  nl::fs_accel::settle();
+  return 0;
+}
+
 LUA_FUNCTION_STATIC(Invalidate) {
   index().invalidate();
   return 0;
@@ -160,6 +169,8 @@ GMOD_MODULE_OPEN() {
   LUA->SetField(-2, "Invalidate");
   LUA->PushCFunction(CountFind);
   LUA->SetField(-2, "CountFind");
+  LUA->PushCFunction(Settled);
+  LUA->SetField(-2, "Settled");
   LUA->SetField(-2, "nlfsaccel");
   LUA->Pop();
   return 0;

@@ -118,13 +118,28 @@ TEST_CASE("fs_accel index: file.Find(pattern, title) from the add-on table") {
   CHECK(!index.find(address, "*", "GAME", result, &reason));
   CHECK(!index.find(address, "*", "alpha", result, &reason));  // titles compare exactly
 
-  // A new mount changes the table: the index is built again.
+  // A new mount changes the table: the index is built again, but not twice within 2 s (GMod answers meanwhile).
   const Owner delta{5};
   add_file(table, delta, "lua/autorun/delta.lua");
   table.addons.push_back({"c:/workshop/5.gma", "Delta", &delta});
+  CHECK(!index.find(address, "lua/autorun/*", "Delta", result, &reason));
+  CHECK(reason == "GMod's add-on table is changing");
+  index.set_min_rebuild_ms(0);
   REQUIRE(index.find(address, "lua/autorun/*", "Delta", result, &reason));
   CHECK(joined(result.files) == "delta.lua");
   CHECK(index.builds() == 2);
+
+  // Delta unmounted and another add-on of that title mounted with the same files: every size stays the same, and the
+  // list's fingerprint (a new owner) still sees the change.
+  const Owner epsilon{6};
+  for (auto& [dir, files] : table.dirs) files.erase("c:/workshop/5.gma");
+  table.dirs["lua/autorun"].erase("delta.lua");
+  table.addons.pop_back();
+  add_file(table, epsilon, "lua/autorun/delta.lua");
+  table.addons.push_back({"c:/workshop/6.gma", "Delta", &epsilon});
+  REQUIRE(index.find(address, "lua/autorun/*", "Delta", result, &reason));
+  CHECK(joined(result.files) == "delta.lua");
+  CHECK(index.builds() == 3);
 }
 
 TEST_CASE("fs_accel index: a table that does not hold together is refused") {
@@ -143,5 +158,38 @@ TEST_CASE("fs_accel index: a table that does not hold together is refused") {
   CHECK(!index.find(address, "*", "Alpha", result, &reason));
   CHECK(!reason.empty());
   *size = real;
+  CHECK(!index.find(address, "*", "Alpha", result, &reason));  // within 2 s of the attempt: GMod answers
+  index.set_min_rebuild_ms(0);
   CHECK(index.find(address, "*", "Alpha", result, &reason));
+}
+
+TEST_CASE("fs_accel index: links that never end are refused, not followed") {
+  const Owner alpha{1};
+  FakeTable table;
+  add_file(table, alpha, "lua/autorun/alpha.lua");
+  add_file(table, alpha, "materials/a.vmt");
+  add_file(table, alpha, "sound/a.wav");
+  add_file(table, alpha, "models/a.mdl");
+  table.addons.push_back({"c:/workshop/1.gma", "Alpha", &alpha});
+  // The directory map's root and its right child (MSVC: the head's _Parent is the root; _Left 0, _Right 0x10).
+  auto* const head = *reinterpret_cast<std::uint8_t**>(reinterpret_cast<std::uint8_t*>(&table) + 0x08);
+  auto* const root = *reinterpret_cast<std::uint8_t**>(head + 0x08);
+  auto* const right = *reinterpret_cast<std::uint8_t**>(root + 0x10);
+  REQUIRE(right != head && right[0x19] == 0);
+  // Its left link pointing back at itself: an in-order walk would descend forever. (Only CHECK until it is put back:
+  // the map's destructor needs the real link.)
+  auto** const left = reinterpret_cast<std::uint8_t**>(right + 0x00);
+  std::uint8_t* const real = *left;
+  *left = right;
+  nl::fs_accel::AddonIndex index;
+  nl::fs_accel::TableAddress address{&table};
+  nl::fs_accel::FindResult result;
+  std::string reason;
+  const bool answered = index.find(address, "*", "Alpha", result, &reason);
+  *left = real;
+  CHECK(!answered);
+  CHECK(reason == "the directory map's links do not end");
+  index.set_min_rebuild_ms(0);
+  CHECK(index.find(address, "*", "Alpha", result, &reason));
+  CHECK(joined(result.dirs) == "lua,materials,models,sound");
 }

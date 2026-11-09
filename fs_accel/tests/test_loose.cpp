@@ -235,17 +235,28 @@ TEST_CASE("fs_accel watcher: a change in a cached folder drops it") {
   const std::string path = base + "\\addons\\beta\\lua\\beta\\new.lua";
   CHECK(verdict_of(*cache, path) == Verdict::MissingFile);
   touch(gm / "addons" / "beta" / "lua" / "beta" / "new.lua");
-  bool passed = false;
-  for (int i = 0; i < 200 && !passed; ++i) {
-    passed = verdict_of(*cache, path) == Verdict::Pass;
-    if (!passed) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  // First the change is seen (a notification waits to be read, or beta is dropped already): nothing is answered.
+  const std::string other = base + "\\addons\\alpha\\materials\\gone.vmt";
+  bool seen = false;
+  for (int i = 0; i < 300 && !seen; ++i) {
+    seen = verdict_of(*cache, path) == Verdict::Pass;
+    if (!seen) std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  CHECK(passed);
-  // The other folder is still cached.
-  CHECK(verdict_of(*cache, base + "\\addons\\alpha\\materials\\gone.vmt") == Verdict::MissingFile);
+  CHECK(seen);
+  // Then the watcher has read it and waits again: the other folder is answered again, beta is no longer cached.
+  bool read = false;
+  for (int i = 0; i < 300 && !read; ++i) {
+    read = verdict_of(*cache, other) == Verdict::MissingFile;
+    if (!read) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  CHECK(read);
+  CHECK(verdict_of(*cache, path) == Verdict::Pass);
+  bool beta_cached = false;
+  for (const auto& key : cache->keys()) beta_cached |= key == "addons\\beta";
+  CHECK(!beta_cached);
 }
 
-TEST_CASE("fs_accel marker: a start that ended within 20 s of its hooks leaves them out once") {
+TEST_CASE("fs_accel marker: a start that ended before its hooks settled leaves them out once") {
   using nl::fs_accel::MarkerCheck;
   using nl::fs_accel::ProcessStamp;
   const auto folder = nl::test::scratch_dir("fs_accel_marker");

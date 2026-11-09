@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "part": "load-accelerator",
+ "origins": {
+  "bin/gmcl_nlfsaccel_win64.dll": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r26\\out\\build\\win64-release\\fs_accel\\gmcl_nlfsaccel_win64.dll",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a",
+    "dirty": false
+   },
+   "imported": "2026-11-09T12:41:33+00:00"
+  },
+  "bin/gmsv_nlfsaccel_win64.dll": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r26\\out\\build\\win64-release\\fs_accel\\gmsv_nlfsaccel_win64.dll",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a",
+    "dirty": false
+   },
+   "imported": "2026-11-09T12:41:30+00:00"
+  }
+ },
+ "files": {
+  "bin/gmcl_nlfsaccel_win64.dll": {
+   "size": 270848,
+   "sha256": "96e744204df13f307dcc6b60b3acb46b9866ceef87a8a8c1e893cd508bded4ad",
+   "mtime_ns": 1794228089724182400,
+   "stored": "xz",
+   "stored_size": 112592,
+   "stored_sha256": "bb6084eb0458426c91535370642b8cc8cd8926e4e7bbd7405864f0656f4d6ca2"
+  },
+  "bin/gmsv_nlfsaccel_win64.dll": {
+   "size": 270848,
+   "sha256": "b1385bc72ea62a1672d5fc00709ddcc73cc8fb3f836e89eb7f61cd2e0a89d047",
+   "mtime_ns": 1794228089724182400,
+   "stored": "xz",
+   "stored_size": 112584,
+   "stored_sha256": "d269e17178c1b95567664cd228c61941539cc76b04410378427130db297937ab"
+  }
+ }
+}

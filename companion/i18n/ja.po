@@ -2181,6 +2181,11 @@ msgstr "%s に参加中"
 msgid "File"
 msgstr "ファイル"
 
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
+#, c-format
+msgid "%s file lookups answered from memory"
+msgstr "%s 件のファイル検索をメモリから応答"
+
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
 msgid "Before you join a server"
 msgstr "サーバーに参加する前に"

@@ -53,14 +53,14 @@
    "imported": "2026-11-05T22:26:32+00:00"
   },
   "!gmod_bullet_break_simulator/lua/bullet_break_simulator/cl_90_settings.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\translation-review\\packages\\procedural-bodygroup-destruction\\!gmod_bullet_break_simulator\\lua\\bullet_break_simulator\\cl_90_settings.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r26\\out\\r26\\c1\\cl_90_settings.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/translation-review",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "7d79c12606d8def4ca08e009008e4ac3524f8aa7",
-    "dirty": true
+    "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a",
+    "dirty": false
    },
-   "imported": "2026-10-30T11:10:28+00:00"
+   "imported": "2026-11-09T11:48:07+00:00"
   }
  },
  "files": {
@@ -137,9 +137,9 @@
    "stored": "plain"
   },
   "!gmod_bullet_break_simulator/lua/bullet_break_simulator/cl_90_settings.lua": {
-   "size": 27518,
-   "sha256": "ba01703ad0cf9fd920c313b876092079450414354f6d1c4a4efa3022ff838557",
-   "mtime_ns": 1793358619529498700,
+   "size": 27746,
+   "sha256": "368c45e2b98e5cede5bffa0c56c1ec8df8893be9f64af0ce60d57deeb04e5c3c",
+   "mtime_ns": 1794224882937600700,
    "stored": "plain"
   },
   "!gmod_bullet_break_simulator/lua/bullet_break_simulator/sh_00_config.lua": {

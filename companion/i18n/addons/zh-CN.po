@@ -1099,15 +1099,15 @@ msgstr " - 构建似乎已卡住！（%d 秒内无进展）"
 msgid "Remix Render Debug"
 msgstr "Remix 渲染调试"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:887
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
 msgid "EMISSIVE"
 msgstr "自发光"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:897
 msgid "PARTICLE | EMISSIVE"
 msgstr "粒子 | 自发光"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:896
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:901
 msgid "DECAL | EMISSIVE"
 msgstr "贴花 | 自发光"
 

@@ -6,6 +6,29 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R26: faster map loads
+
+- **The load accelerator** ([ADR 0140](docs/decisions/0140-the-load-accelerator.md),
+  [R26](docs/handover/R26-report.md); the user's load speed-up request of 2026-11-09): a new package part,
+  `load-accelerator` (`fs_accel/`: `gmcl_`/`gmsv_nlfsaccel_win64.dll` and the add-on `nlloadaccel`), in RTX starts. It
+  answers two things GMod's file system is slow at with hundreds of add-ons from memory: a lookup of a file that is
+  not in a loose add-on folder (import hooks on `filesystem_stdio.dll` answer from directory listings; GMod tried every
+  folder on disk for every lookup, a missed open twice), and `file.Find(pattern, <add-on title>)` (from an index of
+  GMod's add-on table, where GMod walked every file of every add-on for each search: Extended Spawnmenu's 2,263
+  searches froze the game for about 5 s after each map). Positive lookups still reach the disk, so edited files show;
+  a folder that changes stops being cached. The companion's menu script `load_accel.lua` installs it at menu start,
+  and the load overlay's status line counts the lookups answered. A start that ended within 20 s of installing the
+  hooks leaves them out once (the module's own marker in `data/nativeloader`). Off: `nativeloader_load_accel 0`;
+  checks: `nativeloader_load_accel_verify 1`. **Not in starts without RTX:** the loader leaves the RTX package's
+  add-on folders out of those (ADR 0013) and GMod never mounts the package's archive, so nothing of the package runs
+  there; that needs a loader change, which the package-only answer leaves out (reported).
+- **No spawn-menu rebuild on every start** (the bundled bullet-break simulator, and the user's Workshop item
+  3789611737 as 0.19.16, which every start mounts, RTX or not): its settings-layout migration rebuilds the menu only in
+  a running game (a Lua refresh).
+- Tests: `nl_fs_accel_tests` (CTest: the path rules, the cache against Windows' own answers, the hooks, the watcher,
+  the start-up marker, the index on a table laid out as GMod's) and
+  [`test_load_accel.py`](tools/tests/test_load_accel.py.md) (13 scenarios of the add-on's and the menu script's Lua).
+
 ### After R25: Endfield NPC, weapon and item maps; game emission maps glow
 
 - **Imported game characters' emission maps glow** ([ADR 0138](docs/decisions/0138-imported-game-emission-glows.md);

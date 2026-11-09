@@ -2181,6 +2181,11 @@ msgstr "%s 접속 중"
 msgid "File"
 msgstr "파일"
 
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
+#, c-format
+msgid "%s file lookups answered from memory"
+msgstr "메모리에서 %s건의 파일 조회에 응답"
+
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
 msgid "Before you join a server"
 msgstr "서버에 참가하기 전에"

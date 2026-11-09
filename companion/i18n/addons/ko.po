@@ -1099,15 +1099,15 @@ msgstr " - 구성이 멈춘 것 같습니다!(%d초간 진행 없음)"
 msgid "Remix Render Debug"
 msgstr "Remix 렌더링 디버그"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:887
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
 msgid "EMISSIVE"
 msgstr "발광"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:897
 msgid "PARTICLE | EMISSIVE"
 msgstr "파티클 | 발광"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:896
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:901
 msgid "DECAL | EMISSIVE"
 msgstr "데칼 | 발광"
 

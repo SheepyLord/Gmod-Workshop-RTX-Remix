@@ -15,6 +15,7 @@ local TEXT = {
     loadingMap = N"Loading %s",
     joining = N"Joining %s",
     file = N"File",
+    answered = N"%s file lookups answered from memory",
 }
 
 local enabled
@@ -88,6 +89,19 @@ end
 
 NativeLoaderLoadStatus = { loads = 0 }
 local loading, lastStatus = false, nil
+local answeredAtStart = 0 -- the load accelerator's count when this load began (R26, load_accel.lua)
+
+-- What the load accelerator has answered: its counters are the process's (every realm adds to them).
+local function accelStatus()
+    local accel = NativeLoaderLoadAccel
+    if not istable(accel) or not isfunction(accel.Status) then return nil end
+    local ok, status = pcall(accel.Status)
+    return ok and istable(status) and status or nil
+end
+local function comma(number)
+    local text = tostring(math.floor(number))
+    return isfunction(string.Comma) and string.Comma(text) or text
+end
 local heading, headingAt = nil, 0 -- from GameDetails, which may come just before the load is seen
 local hosted = false -- this load starts its own server here (a single-player game or a listen server)
 
@@ -99,13 +113,18 @@ local function report(summary)
             parts[#parts + 1] = string.format("%s (%.1f s)", item.name, item.seconds)
         end
     end
-    MsgN(string.format("[nativeloader] map loaded in %.1f s%s", summary.seconds,
-        #parts > 0 and ("; Lua files that ran longest: " .. table.concat(parts, ", ")) or ""))
+    local accel = accelStatus()
+    local answered = accel and tonumber(accel.answered) and (accel.answered - answeredAtStart) or 0
+    MsgN(string.format("[nativeloader] map loaded in %.1f s%s%s", summary.seconds,
+        #parts > 0 and ("; Lua files that ran longest: " .. table.concat(parts, ", ")) or "",
+        answered > 0 and ("; the load accelerator answered " .. comma(answered) .. " file lookups from memory") or ""))
     NativeLoaderLoadStatus.last = summary
 end
 
 local function begin()
     loading, lastStatus = true, nil
+    local accel = accelStatus()
+    answeredAtStart = accel and tonumber(accel.answered) or 0
     NativeLoaderLoadStatus.loads = NativeLoaderLoadStatus.loads + 1
     local fresh = heading ~= nil and SysTime() - headingAt < 10
     if not fresh then hosted = false end
@@ -133,6 +152,10 @@ if guard and isfunction(IsInLoading) then
             local status = GetLoadStatus()
             if isstring(status) then
                 status = string.Trim(status)
+                -- What the load accelerator answered in this load so far, after the stock status.
+                local accel = status ~= "" and accelStatus() or nil
+                local answered = accel and tonumber(accel.answered) and (accel.answered - answeredAtStart) or 0
+                if answered >= 1 then status = status .. "  ·  " .. format(TEXT.answered, comma(answered)) end
                 if status ~= "" and status ~= lastStatus then
                     lastStatus = status
                     pcall(guard.LoadStatus, status)

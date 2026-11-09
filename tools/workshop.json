@@ -261,6 +261,26 @@
         "nlblood/CRUNCHY-RESOURCES.txt",
         "out/inputs/blood-overhaul-rtx/notices/CRUNCHY-RESOURCES.txt"
       ]
+    },
+    {
+      "name": "load-accelerator",
+      "build": "package_content",
+      "args": [
+        "--id",
+        "load-accelerator",
+        "--name",
+        "Load Accelerator",
+        "--addon-as",
+        "nlloadaccel",
+        "fs_accel/addon",
+        "--add-to-addon",
+        "nlloadaccel/LICENSE",
+        "LICENSE",
+        "--lua-bin",
+        "out/inputs/load-accelerator/bin/gmcl_nlfsaccel_win64.dll",
+        "--lua-bin",
+        "out/inputs/load-accelerator/bin/gmsv_nlfsaccel_win64.dll"
+      ]
     }
   ],
   "gmpublish": "H:\\SteamLibrary\\steamapps\\common\\GarrysMod_PoC\\bin\\win64\\gmpublish.exe"

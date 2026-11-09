@@ -2181,6 +2181,11 @@ msgstr "Connexion à %s"
 msgid "File"
 msgstr "Fichier"
 
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
+#, c-format
+msgid "%s file lookups answered from memory"
+msgstr "%s recherches de fichiers servies depuis la mémoire"
+
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
 msgid "Before you join a server"
 msgstr "Avant de rejoindre un serveur"

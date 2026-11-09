@@ -616,6 +616,7 @@ lua/nativeloader/eye_white_names.lua
 lua/nativeloader/eye_white_vtf.lua
 lua/nativeloader/guide_pages.lua
 lua/nativeloader/i18n.lua
+lua/nativeloader/menu/load_accel.lua
 lua/nativeloader/menu/loading_status.lua
 lua/nativeloader/menu/multiplayer_notice.lua
 lua/nativeloader/notice.lua

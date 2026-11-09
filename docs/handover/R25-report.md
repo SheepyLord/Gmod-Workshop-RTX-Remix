@@ -144,7 +144,7 @@ hash of 1016 x 508, the square projection and the runtime's use of `frac(uv)` ov
 
 ## Tests
 
-`tools	est.ps1 -Config Release` passed on the final tree, rebased on `main`: repository conventions, 29 of 29 C++
+`tools\test.ps1 -Config Release` passed on the final tree, rebased on `main`: repository conventions, 29 of 29 C++
 tests and 752 Python tests, among them [`test_arc9_scope.py`](../../tools/tests/test_arc9_scope.py.md) (20 scenarios),
 [`test_stuck_drag.py`](../../tools/tests/test_stuck_drag.py.md) (10) and R24's
 [`test_arc9_patch.py`](../../tools/tests/test_arc9_patch.py.md). The packaged build was checked in the PoC after the

@@ -695,7 +695,11 @@ end )
 local MENU_LAYOUT_FORMAT = 7
 if BBS.SettingsMenuLayoutFormat ~= MENU_LAYOUT_FORMAT then
 	BBS.SettingsMenuLayoutFormat = MENU_LAYOUT_FORMAT
-	timer.Simple( 0, function()
-		if IsValid( g_SpawnMenu ) then RunConsoleCommand( "spawnmenu_reload" ) end
-	end )
+	-- Only a Lua refresh in a running game has a spawn menu here already: a fresh start builds it after
+	-- these hooks, and a rebuild then would only run every tab's PopulateContent again.
+	if IsValid( g_SpawnMenu ) then
+		timer.Simple( 0, function()
+			if IsValid( g_SpawnMenu ) then RunConsoleCommand( "spawnmenu_reload" ) end
+		end )
+	end
 end

@@ -1099,15 +1099,15 @@ msgstr " — Построение, похоже, зависло! (Нет про�
 msgid "Remix Render Debug"
 msgstr "Отладка рендеринга Remix"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:887
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
 msgid "EMISSIVE"
 msgstr "СВЕЧЕНИЕ"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:897
 msgid "PARTICLE | EMISSIVE"
 msgstr "ЧАСТИЦА | СВЕЧЕНИЕ"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:896
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:901
 msgid "DECAL | EMISSIVE"
 msgstr "ДЕКАЛЬ | СВЕЧЕНИЕ"
 

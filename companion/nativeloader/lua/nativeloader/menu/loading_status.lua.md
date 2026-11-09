@@ -26,6 +26,10 @@ as the Lua start the engine does not repaint it at all.
 - **The summary.** At the end the console gets one English line: `[nativeloader] map loaded in 47.3 s; Lua files that
   ran longest: lua/arc9/shared/sh_atts.lua (5.5 s), ...` (files seen for at least half a second, at most three).
   `NativeLoaderLoadStatus.last` keeps it in the menu realm.
+- **The load accelerator (R26, [ADR 0140](../../../../../docs/decisions/0140-the-load-accelerator.md)).** When
+  [`load_accel.lua`](load_accel.lua.md) has loaded the `nlfsaccel` module (`NativeLoaderLoadAccel`), the status line
+  goes on with "  ·  N file lookups answered from memory" (translated), counted from the load's start, and the
+  summary ends with "; the load accelerator answered N file lookups from memory".
 - **Off switch.** `nativeloader_load_overlay 0` (archived): no overlay and no summary. The words are translated from the
   companion's catalog (`nativeloader_language`, read from the copy the companion keeps for the menu in
   `data/nativeloader_companion/language.txt` since the menu realm cannot see that client convar, else

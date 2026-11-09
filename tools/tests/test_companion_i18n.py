@@ -201,6 +201,45 @@ print(i18n.N("Welcome"), #i18n.languages, callbacks.nativeloader_language ~= nil
         self.assertEqual(lines, ['从这里开始', '路径："bin\\win64"', 'Welcome', 'Начните здесь', 'Start here', 'Start here',
                                  'Welcome\t7\ttrue'])
 
+    @unittest.skipUnless(luajit(), 'LuaJIT is not installed')
+    def test_the_setting_is_kept_for_the_main_menu(self):
+        # R24: the main menu's Lua (the notice, the load overlay) cannot see this client setting; the add-on keeps a
+        # copy for it in data/nativeloader_companion/language.txt, written only when it changes.
+        harness = self.root / 'remember.lua'
+        harness.write_text('''
+local module_path = ...
+local convars, callbacks, writes, files = { gmod_language = "en", nativeloader_language = "ja" }, {}, {}, {}
+local function convar(name) return { GetString = function() return convars[name] end } end
+file = {
+    Exists = function() return false end,
+    Read = function(path, where) assert(where == "DATA") return files[path] end,
+    Write = function(path, text) writes[#writes + 1] = path .. "=" .. text files[path] = text end,
+    CreateDir = function(path) assert(path == "nativeloader_companion") end,
+}
+istable = function(v) return type(v) == "table" end
+CreateClientConVar = function(name) return convar(name) end
+GetConVar = function(name) return convar(name) end
+cvars = { AddChangeCallback = function(name, fn) callbacks[name] = fn end }
+timer = { Create = function() end }
+RunConsoleCommand = function() end
+dofile(module_path)
+print(table.concat(writes, ","))
+callbacks.nativeloader_language()           -- unchanged: no write
+convars.nativeloader_language = "ru"
+callbacks.nativeloader_language()
+convars.nativeloader_language = "../x"      -- not a language code: never written
+callbacks.nativeloader_language()
+convars.nativeloader_language = ""          -- follows the game again
+callbacks.nativeloader_language()
+print(table.concat(writes, ","))
+''', encoding='utf-8')
+        done = subprocess.run([luajit(), str(harness), str(I18N_LUA)], capture_output=True, timeout=30)
+        self.assertEqual(done.returncode, 0, done.stderr.decode('utf-8', 'replace'))
+        lines = done.stdout.decode('utf-8').splitlines()
+        self.assertEqual(lines, ['nativeloader_companion/language.txt=ja',
+                                 'nativeloader_companion/language.txt=ja,nativeloader_companion/language.txt=ru,'
+                                 'nativeloader_companion/language.txt='])
+
 
 if __name__ == '__main__':
     unittest.main()

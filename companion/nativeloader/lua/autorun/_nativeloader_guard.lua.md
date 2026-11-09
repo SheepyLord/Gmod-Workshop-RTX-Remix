@@ -1,5 +1,12 @@
 # _nativeloader_guard.lua
 
+R24 adds the round's four new shipped Lua paths to the exact bundled-source inventory, as the repository's
+completeness check requires: the RTX fixes' `lua/patcher/addons/cl_arc9.lua` and
+`lua/remixlua/cl/cl_viewmodel_materials.lua` ([ADR 0135](../../../../docs/decisions/0135-view-model-materials-and-arc9.md)),
+and the companion's menu scripts `lua/nativeloader/menu/loading_status.lua` and
+`lua/nativeloader/menu/multiplayer_notice.lua` (they run only in the menu realm, never under this guard). No guard
+function, wildcard or render policy changes.
+
 R23 ([ADR 0130](../../../../docs/decisions/0130-an-engine-guard-for-lua-start-up.md)) adds three companion
 paths to the bundled-source inventory (`lua/autorun/!!!!nativeloader_engine_guard.lua`,
 `lua/nativeloader/notice.lua`, `lua/nativeloader/engine_guard_words.lua`) and one step after the

@@ -17,7 +17,8 @@ class ToolgunScreenTests(unittest.TestCase):
         source = REPO / 'companion/nativeloader/lua/autorun/client/nativeloader_toolgun.lua'
         harness = Path(__file__).with_name('toolgun_screen_harness.lua')
         for scenario in ('normal', 'no_api', 'third_person', 'other_weapon', 'unsupported',
-                         'subview', 'behind', 'poly_failure', 'hud_first', 'hud_after_ui'):
+                         'subview', 'behind', 'poly_failure', 'hud_first', 'hud_after_ui', 'provider',
+                         'provider_failure'):
             with self.subTest(scenario=scenario):
                 result = subprocess.run([LUAJIT, str(harness), str(source), scenario], capture_output=True,
                                         text=True, timeout=20)

@@ -108,7 +108,23 @@ local function reload()
         RunConsoleCommand("spawnmenu_reload")
     end)
 end
-cvars.AddChangeCallback("nativeloader_language", reload, "nativeloader_i18n")
+
+-- The main menu's Lua (the notice before the server browser, the load overlay) cannot see this client setting (R24):
+-- a copy of it is kept for the menu in data/nativeloader_companion/language.txt, written only when it changes.
+local LANGUAGE_FILE = "nativeloader_companion/language.txt"
+local function remember()
+    if not file or type(file.Read) ~= "function" or type(file.Write) ~= "function" then return end
+    local value = chosen:GetString()
+    if #value > 16 or not value:match("^[%w%-]*$") then return end
+    if (file.Read(LANGUAGE_FILE, "DATA") or "") == value then return end
+    if type(file.CreateDir) == "function" then file.CreateDir("nativeloader_companion") end
+    file.Write(LANGUAGE_FILE, value)
+end
+pcall(remember)
+cvars.AddChangeCallback("nativeloader_language", function()
+    reload()
+    pcall(remember)
+end, "nativeloader_i18n")
 cvars.AddChangeCallback("gmod_language", function()
     if chosen:GetString() == "" then reload() end
 end, "nativeloader_i18n")

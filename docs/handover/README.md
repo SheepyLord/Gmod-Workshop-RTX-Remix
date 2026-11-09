@@ -1,6 +1,11 @@
 # Handovers
 
-The latest round is R23, the user's report of 2026-11-08 (an engine guard and start-up watchdog for
+The latest round is R24, the user's follow-up of 2026-11-08 (the multiplayer notice as Lua in the add-on;
+ARC9 view models' stickers, gun screens and DirectX warning; view model materials through the pipeline; what a
+map load is doing, in an overlay; load time measured): [R24-report.md](R24-report.md), done by Claude with one
+Claude subagent for the review (no Codex).
+
+Before it, R23, the user's report of 2026-11-08 (an engine guard and start-up watchdog for
 "Starting Lua" hangs, ARC9 under RTX; Wuthering Waves game maps; a PBR progress notice; the material
 editor's tabs; the skills; the multiplayer notice on a loader branch awaiting approval):
 [R23-report.md](R23-report.md), done by Claude with one Claude subagent (no Codex).

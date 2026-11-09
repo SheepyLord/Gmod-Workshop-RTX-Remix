@@ -615,6 +615,8 @@ lua/nativeloader/eye_white_names.lua
 lua/nativeloader/eye_white_vtf.lua
 lua/nativeloader/guide_pages.lua
 lua/nativeloader/i18n.lua
+lua/nativeloader/menu/loading_status.lua
+lua/nativeloader/menu/multiplayer_notice.lua
 lua/nativeloader/notice.lua
 lua/nativeloader/painted_shadows.lua
 lua/nativeloader/sky_model.lua
@@ -672,6 +674,7 @@ lua/nlglass/menu.lua
 lua/nlglass/protocol.lua
 lua/nlglass/server.lua
 lua/nlglass/world.lua
+lua/patcher/addons/cl_arc9.lua
 lua/patcher/addons/cl_mwbase.lua
 lua/patcher/cl_init.lua
 lua/patcher/cl_intercepts.lua
@@ -698,6 +701,7 @@ lua/remixlua/cl/cl_rtx_material_fixer.lua
 lua/remixlua/cl/cl_rtx_misc.lua
 lua/remixlua/cl/cl_rtx_settings.lua
 lua/remixlua/cl/cl_rtx_topbr_conversion.lua
+lua/remixlua/cl/cl_viewmodel_materials.lua
 lua/remixlua/cl/customrender/cl_2d_skybox_renderer.lua
 lua/remixlua/cl/customrender/cl_build_progress.lua
 lua/remixlua/cl/customrender/cl_displacement_renderer.lua

@@ -7,6 +7,7 @@
 #include <GarrysMod/Lua/LuaShared.h>
 #include <windows.h>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -24,6 +25,12 @@ constexpr const char* kHook = "NativeLoader.VerifiedRTXClient";
 constexpr const char* kRegistry = "NativeLoader.VerifiedRTXClient.Identity";
 constexpr const char* kAttempts = "NativeLoader.VerifiedRTXClient.Attempts";
 constexpr const char* kApi = "__NATIVELOADER_CLIENT_API";
+// R24: the companion's menu scripts (its lua/nativeloader/menu/*.lua, verified like every other script) run once in
+// the menu realm, so what the menu shows, such as the multiplayer notice, changes with the package, not the loader.
+// While they run, __NATIVELOADER_MENU_API.read gives them the companion's own verified files and nothing else.
+constexpr std::string_view kMenuScripts = "nativeloader/nativeloader/menu/";
+constexpr std::string_view kMenuReadable = "nativeloader/";
+constexpr const char* kMenuApi = "__NATIVELOADER_MENU_API";
 
 // Menu realm only: that state is ours.
 bool boolean(ILuaBase* lua, const char* key) {
@@ -103,6 +110,40 @@ LUA_FUNCTION_STATIC(Finish) {
   done(client);
   return 0;
 }
+// Menu realm only: a verified file of the companion add-on, by its catalog key ("nativeloader/<path under lua/>").
+LUA_FUNCTION_STATIC(MenuRead) {
+  if (!catalog || LUA != menu || !LUA->IsType(1, Type::String)) {
+    LUA->PushNil(); LUA->PushString("RTX menu read is unavailable in this realm"); return 2;
+  }
+  unsigned length = 0;
+  const auto* name = LUA->GetString(1, &length);
+  const std::string key(name, length);
+  const auto found = key.starts_with(kMenuReadable) ? catalog->scripts.find(key) : catalog->scripts.end();
+  if (found == catalog->scripts.end()) {
+    LUA->PushNil(); LUA->PushString("File is outside the verified companion"); return 2;
+  }
+  LUA->PushString(found->second.text.data(), static_cast<unsigned>(found->second.text.size()));
+  return 1;
+}
+// Runs the companion's menu scripts once, in catalog (name) order; each one's errors are printed by the game and end
+// only that script. Returns how many ran without an error.
+unsigned run_menu_scripts(ILuaBase* lua) {
+  auto* state = shared ? shared->GetLuaInterface(GarrysMod::Lua::State::MENU) : nullptr;
+  if (!catalog || !state || static_cast<ILuaBase*>(state) != lua) return 0;
+  lua->CreateTable();
+  lua->PushCFunction(MenuRead); lua->SetField(-2, "read");
+  lua->PushString(catalog->identity.c_str()); lua->SetField(-2, "identity");
+  lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, kMenuApi);
+  unsigned ran = 0;
+  for (const auto& [name, script] : catalog->scripts) {
+    if (!name.starts_with(kMenuScripts) || !name.ends_with(".lua") || name.find('/', kMenuScripts.size()) != std::string::npos) continue;
+    const std::string chunk = "@" + name;
+    if (state->RunStringEx(chunk.c_str(), "", script.text.c_str(), true, true, true, true)) ++ran;
+  }
+  lua->PushNil();
+  lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, kMenuApi);
+  return ran;
+}
 LUA_FUNCTION_STATIC(Status) {
   LUA->CreateTable();
   LUA->PushString(status.c_str()); LUA->SetField(-2, "status");
@@ -162,6 +203,20 @@ bool same_path(const std::filesystem::path& a, const std::filesystem::path& b) {
   const auto x = a.lexically_normal().wstring(), y = b.lexically_normal().wstring();
   return CompareStringOrdinal(x.c_str(), static_cast<int>(x.size()), y.c_str(), static_cast<int>(y.size()), TRUE) == CSTR_EQUAL;
 }
+ILuaShared* lua_shared() {
+  const auto library = GetModuleHandleW(L"lua_shared.dll");
+  using Factory = void* (__cdecl*)(const char*, int*);
+  const auto factory = library ? reinterpret_cast<Factory>(GetProcAddress(library, "CreateInterface")) : nullptr;
+  return factory ? static_cast<ILuaShared*>(factory(GMOD_LUASHARED_INTERFACE, nullptr)) : nullptr;
+}
+// The engine's own menu state. MENU_DLL alone is not enough: any realm's Lua can set that global, and a server
+// realm (a listen server's add-ons) that required this module would take over `menu` and, when it closed, the
+// catalog with it (R24 review).
+bool is_menu_state(ILuaBase* lua) {
+  auto* found = lua_shared();
+  auto* state = found ? found->GetLuaInterface(GarrysMod::Lua::State::MENU) : nullptr;
+  return state && static_cast<ILuaBase*>(state) == lua;
+}
 void hook(ILuaBase* lua, bool add) {
   const int top = lua->Top();
   lua->GetField(GarrysMod::Lua::INDEX_GLOBAL, "hook");
@@ -175,7 +230,7 @@ void hook(ILuaBase* lua, bool add) {
 }
 
 GMOD_MODULE_OPEN() {
-  if (!boolean(LUA, "MENU_DLL")) return 0;
+  if (!boolean(LUA, "MENU_DLL") || !is_menu_state(LUA)) return 0;
   if (menu == LUA && catalog) return 0;
   try {
     HMODULE self = nullptr;
@@ -191,10 +246,7 @@ GMOD_MODULE_OPEN() {
     const auto runtime = GetModuleHandleW(L"d3d9.dll");
     if (!runtime || !same_path(module_path(runtime), nl::fs::join(root, snapshot.runtime)))
       throw std::runtime_error("The owned RTX runtime is not active");
-    const auto library = GetModuleHandleW(L"lua_shared.dll");
-    using Factory = void* (__cdecl*)(const char*, int*);
-    const auto factory = library ? reinterpret_cast<Factory>(GetProcAddress(library, "CreateInterface")) : nullptr;
-    shared = factory ? static_cast<ILuaShared*>(factory(GMOD_LUASHARED_INTERFACE, nullptr)) : nullptr;
+    shared = lua_shared();
     if (!shared) throw std::runtime_error("The Lua shared interface is unavailable");
     // The owned environments keep api.read and the other callbacks reachable for the client
     // realm's lifetime, longer than the menu's require reference: never unload this code.
@@ -205,6 +257,7 @@ GMOD_MODULE_OPEN() {
     menu = LUA;
     status = "verified; waiting for the client realm";
     hook(LUA, true);
+    status += "; menu scripts " + std::to_string(run_menu_scripts(LUA));
   } catch (const std::exception& error) {
     status = error.what(); catalog.reset(); shared = nullptr; menu = nullptr;
   }

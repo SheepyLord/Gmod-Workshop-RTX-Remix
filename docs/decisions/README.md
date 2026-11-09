@@ -188,3 +188,12 @@ Each with the reason it lost.
 - [0132: A progress notice while imported characters' PBR converts](0132-progress-while-imported-pbr-converts.md) (R23,
   item 3): the fixes count the materials still converting, the companion shows a bar after 1.5 s; the top-right notice is
   one shared module.
+- [0133: The multiplayer notice in the companion](0133-the-multiplayer-notice-in-the-companion.md) (R24, item 1): the
+  RTX client module runs the companion's verified menu scripts in the menu realm; the notice is Lua there, its text
+  editable in the add-on, and turns the loader's own off. A different DirectX level for servers was declined.
+- [0134: What a map load is doing](0134-what-a-map-load-is-doing.md) (R24, item 3): a window of the engine guard
+  module's own shows the status, the Lua file running and the file being read during a load, and names the slowest
+  Lua files at its end.
+- [0135: View model materials and ARC9](0135-view-model-materials-and-arc9.md) (R24, item 2): view model and
+  attachment materials go through the material pipeline; ARC9's DirectX warning is answered, its stickers and gun
+  screens draw with their materials, gun screens redrawn as 2D.

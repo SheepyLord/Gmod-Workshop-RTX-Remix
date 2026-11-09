@@ -68,6 +68,10 @@ Exit code: unittest's (0 when all pass).
   grace and recovery during a normal 12 s load stall. Console retries check health after a 10 s
   send; known hung windows receive neither console text nor capture calls. A frozen capture worker
   times out and cannot save a late image; capture success and errors are checked too.
+- **Windows' verdict confirmed** (R24): `window_hung` sends a `WM_NULL` (SMTO_NORMAL, `HUNG_CONFIRM_MS`) only while
+  `IsHungAppWindow` calls the window hung, and a window that answers is not hung
+  (`test_a_window_windows_calls_hung_that_answers_is_not_hung`): Windows kept that verdict about 340 s for an
+  unfocused RTX start that answered at once, and the driver held its map command that long.
 - **Watchdog lifetime and evidence.** A real background thread polls fake prompts, survives a
   temporary lookup error, counts successful No/OK answers only and stops on process exit or explicit
   close. Prompt sends have a bounded timeout. A crash after map startup shows its prompt during the

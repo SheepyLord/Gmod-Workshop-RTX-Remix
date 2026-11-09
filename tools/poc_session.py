@@ -362,16 +362,24 @@ def game_window(pid: int) -> int | None:
 
 
 CRASH_PROMPT_TITLE = "RTX Remix Crash Report"
-WM_COMMAND, IDOK, IDNO = 0x0111, 1, 7
+WM_NULL, WM_COMMAND, IDOK, IDNO = 0x0000, 0x0111, 1, 7
 SMTO_ABORTIFHUNG = 0x0002
+HUNG_CONFIRM_MS = 2000
 user32.SendMessageTimeoutW.restype = ctypes.c_ssize_t
 user32.SendMessageTimeoutW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, ctypes.c_void_p, wintypes.UINT,
                                        wintypes.UINT, ctypes.POINTER(ctypes.c_size_t)]
 
 
 def window_hung(hwnd: int) -> bool:
-    """A non-blocking check; a busy map load may report hung until its message loop resumes."""
-    return bool(user32.IsHungAppWindow(hwnd))
+    """Windows' verdict (IsHungAppWindow, which sends nothing), confirmed with a WM_NULL that may wait
+    HUNG_CONFIRM_MS. Windows keeps that verdict for a window that went quiet, such as an unfocused game after
+    its Workshop remount, long after its thread pumps messages again (R24: about 340 s in RTX starts with 772
+    add-ons mounted, while the window answered in under a millisecond); a window that answers is not hung, and
+    the answer clears the verdict. A busy map load still reports hung until its message loop resumes."""
+    if not user32.IsHungAppWindow(hwnd):
+        return False
+    result = ctypes.c_size_t(0)
+    return not user32.SendMessageTimeoutW(hwnd, WM_NULL, 0, None, 0, HUNG_CONFIRM_MS, ctypes.byref(result))
 
 
 def crash_prompts(pid: int) -> list[int]:

@@ -5960,3 +5960,78 @@ evidence in the `r23` worktree's `out/r23/`).
   around 96-143 and metal parts 176-231. `_ID` maps hold material IDs in green (20-109) and a mask in red;
   hair has only a 256 x 256 tiling `_HN` detail normal. Chisa's coat family (`Alpha`) has `_D` and `_N` but
   no `_ID`/`_HM`, and Shorekeeper's coat normal is named `Ahpla_N` by the game.
+
+## R24: ARC9 view models, the menu realm, what a map load does (2026-11-08)
+
+PoC (`out/r24/poc_r24.py` in the `r24` worktree: the PoC's loader, deployed package and data moved aside and back,
+with a snapshot and a clean rollback each time), 1280 x 720, an unfocused window.
+
+- **ARC9's warning** is `ARC9.BadConfigStuff.dx` in `lua/arc9/client/cl_warnings.lua`: `(render.GetDXLevel() or 0) <
+  90 and !GetConVar("arc9_ignore_dx"):GetBool()`, checked on an ARC9 weapon's first deploy (`sh_think.lua`,
+  `ClientStarted`), opening "ARC9: BAD GMOD SETTINGS WARNING" ("Outdated DirectX version ... DirectX 8 or 8.1").
+  `render.GetDXLevel()` is 80 in an RTX start (95 with Remix off) although `mat_dxlevel` reads 90.
+- **Every view model material runs a fixed-function shader under RTX**: [ARC9] Gunsmith Arms: Source's M249 draws all
+  21 of its materials as `VertexLitGeneric_DX7` (lenses and reticles `UnlitGeneric_DX6`), each with a `$bumpmap` and
+  `$phong` the path tracer never receives.
+- **A client-side model's sub-materials do not reach the path-traced image**: ARC9 dresses a sticker's model (whose
+  only material, `models/weapons/customization/stickers/sticker`, exists in neither pack: `___error`) with
+  `SetSubMaterial(0..2, sticker)`. With Remix off the sticker shows; under RTX the error material shows (a white plate
+  that z-fights with the receiver), and the gun screen charm (`models/items/arc9/att_screenbase.mdl`, a circuit board
+  around `gs_screen`) its blank screen. `GetSubMaterial` reads back `""` for these models in both cases.
+  `render.MaterialOverrideByIndex` around `DrawModel` does reach the image (the sticker texture then gets a Remix
+  hash, `0x5255D21CEF521080`). R7 saw the same for `SetMaterial` on a client-side model.
+- **ARC9's gun screens** draw text into the render target `arc9_gunscreen` (`cam.Start2D`, every frame) and put
+  `effects/arc9/gunscreen` on the charm's index 2; drawn as 2D in the HUD pass the text is readable under RTX
+  ("KILLS / PLY | NPC 0 0").
+- **Stickers keep `$decal` as a flag**: `stickers/fas_logo` (`"$decal" "1"`, `$alphatest`, `$nocull`) has
+  `$flags` 73986 = `MATERIAL_VAR_DECAL` (1 << 16) + `NOCULL` + `ALPHATEST` + 2, and no `$decal` key or parameter.
+- **The render guard and ARC9**: ARC9's depth-of-field target (`GetRenderTargetEx("arc9_optic_dof_mask2", ..., I8)`)
+  becomes the guard's inert target, so its `SetTexture` calls at `cl_vm.lua:371-382` are ignored (console lines
+  only; ARC9's depth of field does not work under RTX anyway).
+- **Load timings** with the user's 772 subscriptions mounted (`--workshop`), gm_construct, the main thread sampled
+  every 10 ms (`out/r24/load_profiler.py`): RTX start: server Lua about 20 s (ARC9's `sh_atts.lua` and
+  `sh_arc9_autorun.lua` the largest Lua share, about 10 % of all samples; this package about 5 %), then about 8 s with
+  `filesystem_stdio.dll` CPU-bound at 93 % and almost no disk reads (file lookups across every mounted add-on), then
+  client Lua about 18 s: about 43 s from the map's first material to five seconds after `InitPostEntity`. Remix off:
+  about 29 s. Disk reads peak at 530 MB/s (Samsung 980 PRO NVMe), so the load is not waiting on the disk here.
+- **Windows' "hung" verdict outlives a busy moment, and held the PoC's map command about 340 s** (five runs, 339-343 s,
+  RTX starts with the Workshop add-ons mounted; `seconds_to_map` about 416 s against 57 s with Remix off). The game
+  was not holding anything: in that time the main thread ran `engine.dll`'s main loop (0x223c9a-0x223fc9: `PeekMessageA`
+  with `PM_REMOVE` until empty, then the frame through `[0x4f18d0]->vfunc 0x28`; `CEngine::Frame` at 0x224780 is its
+  frame limiter, `Plat_FloatTime` and `ThreadSleep` of at most 199 ms) and drew the menu at about 230 frames a second.
+  `IsHungAppWindow` still called the unfocused `Valve001` window and its IME windows hung (from the Workshop remount,
+  a blocking moment), and `poc_session.py` sent nothing to a "hung" window. A probe (`out/r24/hold_probe.py`) at 76 s:
+  hung, yet a `WM_NULL` sent to it was answered in 0.4 ms; at 121 s Windows no longer called it hung, and that run's
+  map loaded at 83.8 s. No hook on `PeekMessage`/`GetMessage` (user32's bytes as in any process; `engine.dll`'s import
+  points into `USER32.dll`). Windows evidently renews its verdict only when the quiet thread gets a message (a focused
+  window gets input all the time). `poc_session.py` now confirms a "hung" verdict with a `WM_NULL` (R24).
+- **The load itself, RTX against Remix off** (the profile phases): server Lua (`[Draconic Base] Loading` to `Clientside
+  Lua startup`) 8.4 s against 5.4 s, client Lua to `NL_PROFILE_READY` 35.7 s against 27.8 s; in the client phase
+  `filesystem_stdio.dll` held 29 % of the samples against 16 % (about 10.4 s against 4.4 s), reached mostly through
+  `client.dll` (70 %, where GMod's Lua file and material functions live) and `lua_shared.dll` (26 %).
+- **Lua's file and material calls during a load**, timed per calling script by wrapping `file.*`, `Material`,
+  `CreateMaterial`, `util.PrecacheModel`/`IsValidModel`/`GetModelMeshes`, `ClientsideModel`, `resource.AddFile` and
+  `player_manager.AddValidModel` from the first autorun (`out/r24/file_probe.lua`; 772 add-ons, gm_construct): server
+  4.1 s with RTX, 3.7 s without; client 6.1 s and 5.0 s. Largest: Extended Spawnmenu's
+  `lua/autorun/rb655_extended_spawnmenu.lua`, 2,274 `file.Find` on the client (3.5 s; 1.5 ms a call with that many
+  search paths); ARC9's `lua/arc9/common/attachments_bulk/*.lua`, `Material` for attachment icons on the server
+  (`snow_camos_titanfall_apex.lua` 652 calls 0.5 s, `eft_scopes_bulk.lua` 56 calls 0.46 s, `gsr_uni_optics.lua` 82
+  calls 0.36 s; about 2.5 s in all); `util.PrecacheModel` from the stock `util.lua` (111 calls, 0.6 s);
+  `ragdoll_pain_expression_transition_sv.lua` (202 `file.Find`, 0.23 s). This package's largest is
+  `remixlua/cl/cl_rtx_material_fixer.lua`, 724 `Material` calls, 0.42 s (RTX starts only).
+- **GMod's menu realm** has no `lua_run_menu` (not in `engine.dll`, `client.dll`, `menusystem.dll`,
+  `lua_shared.dll`); the loading panel is `lua/menu/loading.lua`: the engine gets it from the global `GetLoadPanel()`
+  once (its `Init` sizes it to the whole screen) and keeps that reference, so a later wrapper of `GetLoadPanel` sees
+  no load; then `OnActivate`, `StatusChanged(GetLoadStatus())` from its `Think`, `GameDetails(...)` and `OnDeactivate`.
+  The stock `IsInLoading()` and `GetLoadStatus()` can be polled from the menu's `Think` instead. For a single-player
+  game the engine calls `GameDetails` again late in the load with the server's own name ("My Garry's Mod Server")
+  while `IsHostingGame()` reads false.
+- **The menu realm cannot see a client realm's Lua convar**: with the companion's `nativeloader_language` created
+  (`CreateClientConVar`) and set from the console, the menu realm's `GetConVar("nativeloader_language")` returned
+  nothing (PoC, the notice's status line). The game keeps archived client Lua convars in `garrysmod/cfg/client.vdf`
+  (`"CVars" { "nativeloader_language" "en" ... }` in the field), but `file.Read("cfg/client.vdf", "MOD")` from the
+  menu realm did not give the value either (the line seeded there before the start); a file the client realm writes
+  under `data/` can be read (`DATA`). **The menu realm has no `CompileString`** ("attempt to call global
+  'CompileString' (a nil value)" in `[MENU ERROR]`); `RunString` it has (the stock `mainmenu.lua`'s `lua.Run` uses it). Steam Cloud keeps only `cfg/config.cfg` for GMod (`remotecache.vdf` of app
+  4000 lists no other cfg file), so `client.vdf` stays per install.
+

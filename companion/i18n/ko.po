@@ -2162,3 +2162,49 @@ msgstr "게임 창"
 #: nativeloader/lua/nativeloader/guide_pages.lua:364
 msgid "With RTX the game runs in a borderless window as large as your screen, because exclusive fullscreen crashes Remix. For another size, add -w and -h to the game's launch options in Steam, for example -w 1920 -h 1080."
 msgstr "RTX를 사용하면 독점 전체 화면에서 Remix가 크래시되므로 화면 전체 크기의 테두리 없는 창으로 실행됩니다. 크기를 바꾸려면 Steam의 게임 시작 옵션에 -w와 -h를 추가하세요. 예: -w 1920 -h 1080."
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:14
+msgid "Loading…"
+msgstr "불러오는 중…"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:15
+#, c-format
+msgid "Loading %s"
+msgstr "%s 불러오는 중"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:16
+#, c-format
+msgid "Joining %s"
+msgstr "%s 접속 중"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:17
+msgid "File"
+msgstr "파일"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
+msgid "Before you join a server"
+msgstr "서버에 참가하기 전에"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:13
+msgid "Some servers do not allow custom renderers and shaders such as RTX Remix and ReShade. A server likely won't be able to detect that you use them, but posting photos of using RTX Remix on those servers might cause concerns. Check a server's rules before you join."
+msgstr "일부 서버에서는 RTX Remix와 ReShade 같은 사용자 지정 렌더러 및 셰이더를 금지합니다. 서버가 이를 감지할 가능성은 낮지만, 그런 서버에서 RTX Remix를 사용한 사진을 올리면 문제가 될 수 있습니다. 참가하기 전에 서버 규칙을 확인하세요."
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:14
+msgid "Performance and stability are not guaranteed online, especially without the PBR resources (RTX content) for the map the server runs."
+msgstr "온라인 성능과 안정성은 보장되지 않습니다. 특히 서버에서 실행 중인 맵의 PBR 리소스(RTX 콘텐츠)를 설치하지 않은 경우 더욱 그렇습니다."
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:15
+msgid "You use this add-on on servers at your own risk: its developers take no responsibility for any consequences."
+msgstr "서버에서 이 애드온을 사용하는 데 따른 위험은 사용자 본인이 부담하며, 개발자는 그로 인한 어떠한 결과에도 책임을 지지 않습니다."
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+msgid "Don't show this again"
+msgstr "다시 표시하지 않기"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:17
+msgid "I understand, continue"
+msgstr "이해했으며 계속하기"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:18
+msgid "Back"
+msgstr "뒤로"

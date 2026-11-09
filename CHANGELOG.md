@@ -6,6 +6,62 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R24
+
+- **The multiplayer notice moved into the add-on, as Lua; the loader's own is turned off**
+  ([ADR 0133](docs/decisions/0133-the-multiplayer-notice-in-the-companion.md), [R24](docs/handover/R24-report.md); the
+  user's item 1): the RTX client module (`gmsv_nlrtxclient_win64.dll`, a package module the menu already loads in RTX
+  starts) runs the companion's verified `lua/nativeloader/menu/*.lua` once in the menu realm, where Workshop add-ons'
+  Lua never runs. The notice before the server browser is one of them (`multiplayer_notice.lua`): its text is
+  editable there (translations in `companion/i18n`), the user's new wording in all seven languages, "Don't show this
+  again" a green button of its own. An earlier "Don't show this again" carries over, and the notice of loaders
+  0.15.0-0.16.0 is turned off. `nativeloader_multiplayer_notice` shows it, `nativeloader_multiplayer_notice_reset`
+  brings it back. No loader change; the unreleased loader branch `r23-loader-mp-notice` is superseded. Making
+  servers believe the game runs at a higher DirectX level was declined (it would hide the client from a server's
+  own rule).
+- **ARC9 view models: stickers and gun screens draw, the DirectX warning is gone**
+  ([ADR 0135](docs/decisions/0135-view-model-materials-and-arc9.md); item 2): under RTX a client-side model's
+  sub-materials never reached the image, so ARC9's stickers drew their missing default material (a white plate
+  z-fighting with the receiver) and its gun screen charms (kill counter, clock) a black screen. The fixes' new ARC9
+  patch draws those parts with their materials, the companion redraws the live screens as 2D after upscaling (like
+  the toolgun's), and ARC9's DirectX check answers "fine" in RTX sessions (RTX runs Source at DirectX level 80; the
+  warning's advice does not apply).
+- **View model and attachment materials go through the material pipeline** (same ADR): a weapon's view model is one
+  entity whose model changes with every switch, and weapon bases' attachments are client-side models, so the map-load
+  sweep never saw them; they now get the Lua fixers and the auto-categorisation (decal, emissive, particle) twice a
+  second as they appear. The decal test also reads `MATERIAL_VAR_DECAL` from `$flags` (model decals such as stickers
+  keep it there).
+- **What a map load is doing** ([ADR 0134](docs/decisions/0134-what-a-map-load-is-doing.md); item 3): a small window of
+  the engine guard module's own, over the game's, shows during a map load the time so far, the stock status, the Lua
+  file running and the game file being read (sampled from the main thread four times a second), and keeps updating
+  while the game's own loading screen cannot (the Lua start). At the end the console names the Lua files that ran
+  longest. The engine guard now loads at menu start (its guard is in place before any map). `nativeloader_load_overlay
+  0` turns it off.
+- **Load time measured** (R24 report): with the user's 772 subscriptions mounted, the load itself takes about 43 s
+  in an RTX start and 29 s without RTX in the PoC, mostly Lua and file lookups across the mounted add-ons on the main
+  thread (ARC9 about a tenth, this package about a twentieth).
+- **`tools/poc_session.py` no longer waits on Windows' stale "hung" verdict** (R24 report): after the Workshop remount
+  of an RTX start, Windows kept calling the unfocused game window hung for about 340 s while it answered messages at
+  once, and the driver held its map command that long (the game was not waiting). A "hung" verdict is now confirmed
+  with a `WM_NULL` (2 s limit); in the same PoC start the map came at 83.8 s instead of about 416 s.
+- **The R24 review's findings fixed** (R24 report): the engine guard and the RTX client module recognize the menu by
+  the engine's own menu Lua state, not the `MENU_DLL` global any Lua can set (a server's Lua could otherwise have
+  written into the load overlay, or a listen server's add-on ended the RTX client's catalog), and only the `gmsv_`
+  engine guard has the overlay's functions; the notice draws Russian, Chinese, Japanese and Korean (its fonts were not
+  `extended`) and never swallows a server-browser click; the ARC9 patch draws stickers and screens only where ARC9
+  draws its parts (no floating stickers at distant players or in preset icons, no double charms); the screen provider
+  works whichever loads first and a failing one leaves the toolgun screen on; the overlay's race, leak, UTF-8 cut and
+  per-paint bitmap; the view-model pass's sub-material range. The load overlay keeps a single-player game's heading,
+  "Loading <map>", to the end (it turned into "Joining My Garry's Mod Server"). The menu realm cannot see the
+  companion's `nativeloader_language` (a client convar), so the companion keeps a copy of it for the menu in
+  `data/nativeloader_companion/language.txt`, which the notice and the overlay read, and they load their translations
+  through `RunString` (the menu realm has no `CompileString`); `nativeloader_multiplayer_notice_status` prints the
+  notice's state and language.
+- **Lua's file and material calls measured per script** (R24 report): about 4 s on the server and 6 s on the client
+  of a load with 772 add-ons, led by Extended Spawnmenu (3.5 s of `file.Find`) and ARC9's attachments (about 2.5 s);
+  this package's largest 0.4 s. The engine loads on one thread, so no module can spread it over cores; no speed-up
+  was built.
+
 ### R23
 
 - **ARC9 no longer stops RTX starts at "Starting Lua"; an engine guard cuts material fallback cycles**

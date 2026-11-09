@@ -4,9 +4,24 @@
 // Lua: nlengineguard.installed, nlengineguard.reason, nlengineguard.Status() -> table,
 // nlengineguard.StartupDone([seconds]) -> recovered, nlengineguard.SetMessage(title, body) (the first call
 // counts; the companion removes it from the table after its call).
+// R24 (ADR 0134): in the menu realm (the companion's menu script requires the gmsv_ copy there at menu start) it
+// installs the guard and drives the load overlay instead: nlengineguard.LoadStart(heading, {lua=, file=}),
+// LoadHeading(text), LoadStatus(text), LoadEnd() -> {seconds=, lua={{name=, seconds=}, ...}}. No watchdog runs
+// there, and the client and server realms, where any server's Lua runs, have no overlay functions: the menu realm is
+// the engine's own menu state (lua_shared's interface), never the MENU_DLL global, which any Lua can set, and only the
+// gmsv_ copy (the one the menu loads) has the overlay functions at all (NL_ENGINE_GUARD_MENU).
 #include "guard.h"
+#include "load_overlay.h"
 #include "watchdog.h"
 #include <GarrysMod/Lua/Interface.h>
+#include <GarrysMod/Lua/LuaInterface.h>
+#include <GarrysMod/Lua/LuaShared.h>
+#include <windows.h>
+#include <string>
+
+#ifndef NL_ENGINE_GUARD_MENU
+#define NL_ENGINE_GUARD_MENU 0
+#endif
 
 namespace {
 void push_status(GarrysMod::Lua::ILuaBase* LUA, const nl::engine_guard::Status& status) {
@@ -53,6 +68,75 @@ LUA_FUNCTION_STATIC(SetMessage) {
   nl::engine_guard::watchdog::set_message(title ? title : "", body ? body : "");
   return 0;
 }
+
+#if NL_ENGINE_GUARD_MENU
+std::string text_arg(GarrysMod::Lua::ILuaBase* LUA, int index) {
+  if (!LUA->IsType(index, GarrysMod::Lua::Type::String)) return {};
+  unsigned length = 0;
+  const char* text = LUA->GetString(index, &length);
+  return text ? std::string(text, length) : std::string();
+}
+
+std::string field(GarrysMod::Lua::ILuaBase* LUA, int table, const char* name, const char* fallback) {
+  if (!LUA->IsType(table, GarrysMod::Lua::Type::Table)) return fallback;
+  LUA->GetField(table, name);
+  std::string value = LUA->IsType(-1, GarrysMod::Lua::Type::String) ? std::string(LUA->GetString(-1)) : std::string(fallback);
+  LUA->Pop();
+  return value;
+}
+
+// Menu realm only. nlengineguard.LoadStart(heading, labels): the loading panel activated.
+LUA_FUNCTION_STATIC(LoadStart) {
+  nl::engine_guard::overlay::Labels labels;
+  labels.lua = field(LUA, 2, "lua", "Lua");
+  labels.file = field(LUA, 2, "file", "File");
+  nl::engine_guard::overlay::start(text_arg(LUA, 1), labels);
+  return 0;
+}
+
+LUA_FUNCTION_STATIC(LoadHeading) {
+  nl::engine_guard::overlay::heading(text_arg(LUA, 1));
+  return 0;
+}
+
+LUA_FUNCTION_STATIC(LoadStatus) {
+  nl::engine_guard::overlay::status(text_arg(LUA, 1));
+  return 0;
+}
+
+// nlengineguard.LoadEnd() -> {seconds = n, lua = {{name = "lua/x.lua", seconds = n}, ...}}
+LUA_FUNCTION_STATIC(LoadEnd) {
+  const auto summary = nl::engine_guard::overlay::finish();
+  LUA->CreateTable();
+  LUA->PushNumber(summary.seconds);
+  LUA->SetField(-2, "seconds");
+  LUA->CreateTable();
+  double index = 0;
+  for (const auto& [name, seconds] : summary.lua) {
+    LUA->PushNumber(++index);
+    LUA->CreateTable();
+    LUA->PushString(name.c_str());
+    LUA->SetField(-2, "name");
+    LUA->PushNumber(seconds);
+    LUA->SetField(-2, "seconds");
+    LUA->SetTable(-3);
+  }
+  LUA->SetField(-2, "lua");
+  return 1;
+}
+
+// The engine's own menu state, from lua_shared's interface: a client or server realm cannot pass for it.
+bool menu_realm(GarrysMod::Lua::ILuaBase* LUA) {
+  const auto library = GetModuleHandleW(L"lua_shared.dll");
+  using Factory = void*(__cdecl*)(const char*, int*);
+  const auto factory = library ? reinterpret_cast<Factory>(GetProcAddress(library, "CreateInterface")) : nullptr;
+  auto* shared = factory ? static_cast<GarrysMod::Lua::ILuaShared*>(factory(GMOD_LUASHARED_INTERFACE, nullptr)) : nullptr;
+  auto* state = shared ? shared->GetLuaInterface(GarrysMod::Lua::State::MENU) : nullptr;
+  return state && static_cast<GarrysMod::Lua::ILuaBase*>(state) == LUA;
+}
+#else
+bool menu_realm(GarrysMod::Lua::ILuaBase*) { return false; }  // gmcl_: never the menu's
+#endif
 }  // namespace
 
 #ifndef NL_ENGINE_GUARD_REALM
@@ -61,7 +145,8 @@ LUA_FUNCTION_STATIC(SetMessage) {
 
 GMOD_MODULE_OPEN() {
   const auto status = nl::engine_guard::install();
-  nl::engine_guard::watchdog::start(NL_ENGINE_GUARD_REALM);
+  const bool menu = menu_realm(LUA);
+  if (!menu) nl::engine_guard::watchdog::start(NL_ENGINE_GUARD_REALM);
   LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
   LUA->CreateTable();
   LUA->PushBool(status.installed);
@@ -70,10 +155,23 @@ GMOD_MODULE_OPEN() {
   LUA->SetField(-2, "reason");
   LUA->PushCFunction(Status);
   LUA->SetField(-2, "Status");
-  LUA->PushCFunction(StartupDone);
-  LUA->SetField(-2, "StartupDone");
-  LUA->PushCFunction(SetMessage);
-  LUA->SetField(-2, "SetMessage");
+  if (menu) {
+#if NL_ENGINE_GUARD_MENU
+    LUA->PushCFunction(LoadStart);
+    LUA->SetField(-2, "LoadStart");
+    LUA->PushCFunction(LoadHeading);
+    LUA->SetField(-2, "LoadHeading");
+    LUA->PushCFunction(LoadStatus);
+    LUA->SetField(-2, "LoadStatus");
+    LUA->PushCFunction(LoadEnd);
+    LUA->SetField(-2, "LoadEnd");
+#endif
+  } else {
+    LUA->PushCFunction(StartupDone);
+    LUA->SetField(-2, "StartupDone");
+    LUA->PushCFunction(SetMessage);
+    LUA->SetField(-2, "SetMessage");
+  }
   LUA->SetField(-2, "nlengineguard");
   LUA->Pop();
   return 0;

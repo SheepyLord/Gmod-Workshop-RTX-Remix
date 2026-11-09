@@ -23,6 +23,9 @@ Covers:
   `nativeloader_language` overrides it, a language without the text and English show the English, `N`
   returns its text, and the module lists the seven languages and watches `nativeloader_language`.
   Skipped when LuaJIT is not installed (on `PATH` or in `%LOCALAPPDATA%\Programs\LuaJIT\bin`).
+- **The copy for the main menu** (R24, `test_the_setting_is_kept_for_the_main_menu`): `nativeloader_language` is
+  written to `data/nativeloader_companion/language.txt` at load and on a change, not again while it is unchanged,
+  never when it is not a language code, and empty when it follows the game again.
 
 Side effects: the scratch folder, removed afterwards. Exit code: unittest's (0 when all pass).
 

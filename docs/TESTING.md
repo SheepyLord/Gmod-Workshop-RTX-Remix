@@ -2442,3 +2442,38 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   base and Gunsmith Reloaded as folders: the map loads, 6 cuts), `baseline` (the same with the published
   package: hung 300 s at Lua), `tfa` (TFA Base fetched by the game's Workshop download, with this build and
   with the published package).
+
+## R24: the notice in the menu realm, ARC9 view models, the load overlay (2026-11-08)
+
+- **Native:** `nl_engine_guard_tests` gains [`engine_guard/tests/test_overlay.cpp`](../engine_guard/tests/test_overlay.cpp)
+  (game file paths and Lua chunk names as the overlay shows them, the elapsed time, the bounded tally behind the
+  summary); `nl_client_catalog_tests`' module contract (`loader/client/tests/test_module.cpp`) checks the menu scripts:
+  the read API answers only in the menu realm and only for the companion's entries, only direct children of
+  `nativeloader/menu/` run, the API is removed after them, and they run once after the pin, never from the poll.
+- **Lua under LuaJIT and the page under Node:** [`test_multiplayer_notice.py`](../tools/tests/test_multiplayer_notice.py.md)
+  (the card, its three choices, the carried-over choice, the loader's notice turned off with its own token, only the
+  server browser's routes, a card that cannot be built never keeps the browser closed, the console commands; the
+  page's half against a mocked Angular page); [`test_loading_status.py`](../tools/tests/test_loading_status.py.md)
+  (the panel is never made early; a load from activation to the console summary; joining a server; a game started
+  here stays "Loading <map>"; translated; the off switch; nothing without the module).
+- **The PoC driver:** [`test_poc_session.py`](../tools/tests/test_poc_session.py.md) checks that a window Windows calls
+  hung but that answers a `WM_NULL` is not hung, and that nothing is sent while Windows does not call it hung.
+- **After the review:** [`test_arc9_patch.py`](../tools/tests/test_arc9_patch.py.md) (the RTX fixes' ARC9 patch under
+  LuaJIT: parts drawn only where ARC9 draws them, errors and results passed on, the off switch, the screen provider
+  whichever loads first); [`test_toolgun_screen.py`](../tools/tests/test_toolgun_screen.py.md) gains `provider` and
+  `provider_failure`; the notice's harness checks its fonts, the route, no swallowed click and no JavaScript queued
+  while the page loads (`loading-page`), and the page test `never-swallowed`; `nl_engine_guard_tests` checks UTF-8
+  clipping, `start()`/`finish()` without a game window and `module.cpp`'s realm contract; `nl_client_catalog_tests`
+  checks that the RTX client module takes the menu's part only in the engine's own menu state. The menu scripts'
+  harnesses gain `menu-compile` (the translations through `RunString`, the menu realm having no `CompileString`) and
+  `saved-language` (the companion's language from its copy in `data/`); `test_companion_i18n.py` checks that copy is
+  written. The PoC plan `notice` shows the card in another language (`notice ja`).
+- **PoC** (`out/r24/poc_r24.py` in the `r24` worktree; snapshot, move-aside and clean rollback each time): `vm`, `vm3`
+  and `vm4` (ARC9 base and Gunsmith Arms: Source as folders: the warning, the view model's shaders and materials,
+  stickers and the Kill Counter charm with Remix on and off, the ARC9 patch injected), `profile` (four runs) and
+  `profileoff`/`profilefocus` (every subscription mounted: the main thread sampled every 10 ms, screenshots every 15 s,
+  all threads twice), `verify` (this branch's package: the overlay during a load, the notice opened from the console
+  over the pause menu, the packaged ARC9 patch), `hold` (the game's windows, Windows' verdict and a `WM_NULL` at 30,
+  75, 120 and 200 s: the 340 s wait was the driver's), `files` (Lua's file and material calls timed per calling
+  script at start, RTX and Remix off, every subscription mounted).
+

@@ -6,13 +6,24 @@ sv_allowcslua, widen the native source allowlist, or create a general source-exe
 | File | Purpose |
 |---|---|
 | `catalog.h`, `catalog.cpp` | Validate the enabled RTX owner/source, bind the bootstrap module to its journaled SHA-256, and snapshot only owned add-on Lua whose exact bytes match the committed generation |
-| `module.cpp` | Menu-realm module entry, active-owned-runtime and committed-journal checks, client-realm lifecycle polling, private catalog callbacks, completion/status and cleanup. From loader 0.10.1 every client-realm access is raw and runs inside one protected call on that realm, the temporary API is raw-set, and the module pins itself while its callbacks stay reachable ([ADR 0056](../../docs/decisions/0056-guard-and-startup-fallbacks.md)) |
+| `module.cpp` | Menu-realm module entry, active-owned-runtime and committed-journal checks, the companion's menu scripts (R24), client-realm lifecycle polling, private catalog callbacks, completion/status and cleanup. From loader 0.10.1 every client-realm access is raw and runs inside one protected call on that realm, the temporary API is raw-set, and the module pins itself while its callbacks stay reachable ([ADR 0056](../../docs/decisions/0056-guard-and-startup-fallbacks.md)) |
 | `poll.h` | The polling policy: a client-realm check at most every 250 ms, and at most 480 initializer runs (two minutes) for a realm whose local player never becomes valid |
 | `bootstrap.lua` | Private client initializer: scoped include/require/file helpers, shared/client autoruns, client entity registration and owned initialization-hook replay |
 | `bootstrap.lua.md` | Initializer behavior and side effects |
 | `bootstrap_data.h.in` | CMake embedding template for the initializer |
 | `CMakeLists.txt` | Static catalog library, native module, script embedding and test targets |
 | `tests/` | Synthetic catalog policy, polling-policy and module source-contract checks; see [tests/README.md](tests/README.md) |
+
+R24 ([ADR 0133](../../docs/decisions/0133-the-multiplayer-notice-in-the-companion.md)): once verified, the module runs
+the companion's menu scripts, the catalog's `nativeloader/nativeloader/menu/*.lua` (direct children only, in name
+order), once in the menu realm, where Workshop add-ons' Lua never runs. While they run,
+`__NATIVELOADER_MENU_API.read(name)` returns a verified file of the companion add-on (`nativeloader/...` keys only)
+and `identity` the manifest digest; the global is removed afterwards, and `read` answers only in the menu realm. The
+multiplayer notice is one such script, so its text and behaviour change with the package, not the loader. The status
+line ends with `menu scripts <n>` (how many ran without an error). The module takes the menu's part only in the
+engine's own menu Lua state (`lua_shared`'s `GetLuaInterface(MENU)`): any realm's Lua can set `MENU_DLL`, and a
+listen server's realm that passed for the menu would have taken over the catalog and ended it when it closed (the R24
+review).
 
 The module consumes the existing protected native-loader journal and config through nl_core.
 Catalog preparation expects a validated committed generation; normal use refuses absent/pending

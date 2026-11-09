@@ -2162,3 +2162,49 @@ msgstr "遊戲視窗"
 #: nativeloader/lua/nativeloader/guide_pages.lua:364
 msgid "With RTX the game runs in a borderless window as large as your screen, because exclusive fullscreen crashes Remix. For another size, add -w and -h to the game's launch options in Steam, for example -w 1920 -h 1080."
 msgstr "啟用 RTX 時，遊戲會以與螢幕同大的無邊框視窗執行，因為獨佔全螢幕會導致 Remix 當機。若要使用其他大小，請在 Steam 中的遊戲啟動選項加入 -w 和 -h，例如 -w 1920 -h 1080。"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:14
+msgid "Loading…"
+msgstr "正在載入…"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:15
+#, c-format
+msgid "Loading %s"
+msgstr "正在載入 %s"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:16
+#, c-format
+msgid "Joining %s"
+msgstr "正在加入 %s"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:17
+msgid "File"
+msgstr "檔案"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
+msgid "Before you join a server"
+msgstr "加入伺服器前請注意"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:13
+msgid "Some servers do not allow custom renderers and shaders such as RTX Remix and ReShade. A server likely won't be able to detect that you use them, but posting photos of using RTX Remix on those servers might cause concerns. Check a server's rules before you join."
+msgstr "部分伺服器不允許使用 RTX Remix 和 ReShade 等自訂算繪器及著色器。伺服器很可能偵測不到你在使用它們，但在這些伺服器上發布使用 RTX Remix 的截圖可能會引起關注。加入前請查看伺服器規則。"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:14
+msgid "Performance and stability are not guaranteed online, especially without the PBR resources (RTX content) for the map the server runs."
+msgstr "線上遊戲的效能和穩定性無法保證，尤其是在未安裝伺服器所執行地圖的 PBR 資源（RTX 內容）時。"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:15
+msgid "You use this add-on on servers at your own risk: its developers take no responsibility for any consequences."
+msgstr "在伺服器上使用本附加元件的風險由你自行承擔，開發者不對任何後果負責。"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+msgid "Don't show this again"
+msgstr "不再顯示此提示"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:17
+msgid "I understand, continue"
+msgstr "我已了解，繼續"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:18
+msgid "Back"
+msgstr "返回"

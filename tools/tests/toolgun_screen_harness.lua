@@ -44,7 +44,9 @@ LocalPlayer=function() return player end
 function player:Alive() return true end
 function player:ShouldDrawLocalPlayer() return scenario=="third_person" end
 function player:GetHands() return nil end
-local weapon={valid=true,GetClass=function() return scenario=="other_weapon" and "weapon_pistol" or "gmod_tool" end}
+local weapon={valid=true,GetClass=function()
+    return (scenario=="other_weapon" or scenario=="provider") and "weapon_pistol" or "gmod_tool"
+end}
 local model={valid=true}
 function model:GetModel() return "models/weapons/c_toolgun.mdl" end
 function model:GetSkin() return 0 end
@@ -85,7 +87,30 @@ surface={
     end,
 }
 function ErrorNoHalt() warnings=warnings+1 end
+isstring=function(value) return type(value)=="string" end
+isfunction=function(value) return type(value)=="function" end
+local function is_screen(name) return name=="models/weapons/v_toolgun/screen" end
+if scenario=="provider" then
+    -- Another weapon's screen from a provider that was left before this file ran (the RTX fixes' ARC9 patch can apply
+    -- first): the table is kept and the provider's screen drawn.
+    NativeLoaderScreens={providers={early=function(p, w)
+        return {{model=model,screen=is_screen,texture=function() return texture end}}
+    end}}
+end
 dofile(source)
+if scenario=="provider_failure" then
+    -- Providers whose callbacks fail are skipped; the toolgun's screen still draws and nothing is turned off.
+    NativeLoaderScreens.Register("texture_fails",function()
+        return {{model=model,screen=is_screen,texture=function() error("no texture") end}}
+    end)
+    NativeLoaderScreens.Register("screen_fails",function()
+        return {{model=model,screen=function() error("no screen") end,texture=function() return texture end}}
+    end)
+    NativeLoaderScreens.Register("not_a_texture",function()
+        return {{model=model,screen=is_screen,texture=function() return 5 end}}
+    end)
+    NativeLoaderScreens.Register("provider_fails",function() error("no provider") end)
+end
 local function draw()
     hooks.PostDrawViewModel(model,player,weapon)
     hooks.HUDPaint()

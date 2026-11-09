@@ -3,7 +3,11 @@
 `test_module.cpp` checks the `poll.h` throttle and attempt bound, and reads `module.cpp` (its path is
 a compile definition) for the contracts a unit test cannot reach without a game: no field access
 on the client realm, the temporary API raw-set inside the protected initializing step, Poll only
-pushing and protect-calling that step, and the self-pin before the Think hook hands out callbacks.
+pushing and protect-calling that step, and the self-pin before the Think hook hands out callbacks. R24: the menu
+scripts' read API answers only in the menu realm and only for the companion's catalog entries, only direct
+children of `nativeloader/menu/` run, the API is removed after them, and they run once after the pin, never from Poll;
+and the module takes the menu's part only in the engine's own menu state (`GetLuaInterface(State::MENU)`), checked
+before `menu` is set (the R24 review: `MENU_DLL` alone can be set by any realm's Lua).
 
 `test_catalog.cpp` exercises the actual `catalog::prepare` policy in synthetic game folders under
 the test build's scratch directory. `CMakeLists.txt` builds `nl_client_catalog_tests` with the

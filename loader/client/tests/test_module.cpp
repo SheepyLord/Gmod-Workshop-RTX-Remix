@@ -63,3 +63,47 @@ TEST_CASE("client module: the helper pins itself before handing out callbacks") 
   REQUIRE(hook != std::string::npos);
   CHECK(pin < hook);
 }
+
+TEST_CASE("client module: menu scripts are the companion's own verified files, run once with a narrow API (R24)") {
+  const auto text = module_source();
+  CHECK(text.find("kMenuScripts = \"nativeloader/nativeloader/menu/\"") != std::string::npos);
+  CHECK(text.find("kMenuReadable = \"nativeloader/\"") != std::string::npos);
+  // The read callback answers only in the menu realm, only for the companion's catalog entries.
+  const auto read = body(text, "LUA_FUNCTION_STATIC(MenuRead)");
+  REQUIRE(!read.empty());
+  CHECK(read.find("LUA != menu") != std::string::npos);
+  CHECK(read.find("key.starts_with(kMenuReadable)") != std::string::npos);
+  CHECK(read.find("catalog->scripts.find(key)") != std::string::npos);
+  // Only direct children of the menu folder run, and the API is gone once they have.
+  const auto run = body(text, "unsigned run_menu_scripts(ILuaBase* lua)");
+  REQUIRE(!run.empty());
+  CHECK(run.find("name.starts_with(kMenuScripts)") != std::string::npos);
+  CHECK(run.find("name.find('/', kMenuScripts.size()) != std::string::npos") != std::string::npos);
+  const auto ran = run.find("RunStringEx(");
+  const auto cleared = run.rfind("lua->PushNil();");
+  REQUIRE(ran != std::string::npos);
+  REQUIRE(cleared != std::string::npos);
+  CHECK(ran < cleared);
+  CHECK(run.find("SetField(GarrysMod::Lua::INDEX_GLOBAL, kMenuApi)", cleared) != std::string::npos);
+  // They run once, after the module is pinned and verified, never from the client realm's poll.
+  const auto pin = text.find("GET_MODULE_HANDLE_EX_FLAG_PIN");
+  const auto call = text.find("run_menu_scripts(LUA)");
+  REQUIRE(call != std::string::npos);
+  CHECK(pin < call);
+  CHECK(body(text, "LUA_FUNCTION_STATIC(Poll)").find("run_menu_scripts") == std::string::npos);
+}
+
+TEST_CASE("client module: only the engine's own menu state takes the menu's part (R24 review)") {
+  const auto text = module_source();
+  // Any realm's Lua can set MENU_DLL; a server realm that passed for the menu would take over `menu` and, when it
+  // closed, end the catalog for the session.
+  const auto state = body(text, "bool is_menu_state(ILuaBase* lua)");
+  REQUIRE(!state.empty());
+  CHECK(state.find("GetLuaInterface(GarrysMod::Lua::State::MENU)") != std::string::npos);
+  CHECK(state.find("== lua") != std::string::npos);
+  const auto open = body(text, "GMOD_MODULE_OPEN()");
+  REQUIRE(!open.empty());
+  const auto check = open.find("!is_menu_state(LUA)) return 0;");
+  REQUIRE(check != std::string::npos);
+  CHECK(check < open.find("menu = LUA;"));
+}

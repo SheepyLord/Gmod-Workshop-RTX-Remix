@@ -248,14 +248,14 @@
    "imported": "2026-10-30T11:10:22+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\translation-review\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\cl_remix_category_0_manager.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\r24\\fixes-lua\\cl_remix_category_0_manager.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/translation-review",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "7d79c12606d8def4ca08e009008e4ac3524f8aa7",
-    "dirty": true
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
+    "dirty": false
    },
-   "imported": "2026-10-30T11:10:22+00:00"
+   "imported": "2026-11-09T00:14:49+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_flashlight.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r19-fixes\\out\\r19x\\stage\\fixes\\cl_remix_flashlight.lua",
@@ -528,14 +528,14 @@
    "imported": "2026-10-30T21:44:41+00:00"
   },
   "modules/gmsv_nlrtxclient_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r22\\out\\build\\win64-release\\loader\\client\\gmsv_nlrtxclient_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\build\\win64-release\\loader\\client\\gmsv_nlrtxclient_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r22",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "21e46457e884a58756c5f32f82bb9cde3fdfa2ee",
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
     "dirty": false
    },
-   "imported": "2026-11-07T07:41:44+00:00"
+   "imported": "2026-11-09T00:57:09+00:00"
   },
   "modules/gmcl_rtxdebug_win64.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\debug-multiplayer\\x86_64\\Release\\gmcl_rtxdebug_win64.dll",
@@ -678,24 +678,54 @@
    "imported": "2026-11-05T22:27:46+00:00"
   },
   "modules/gmcl_nlengineguard_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r23\\out\\build\\win64-release\\engine_guard\\gmcl_nlengineguard_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\build\\win64-release\\engine_guard\\gmcl_nlengineguard_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r23",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18",
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
     "dirty": false
    },
-   "imported": "2026-11-08T12:25:01+00:00"
+   "imported": "2026-11-09T00:57:10+00:00"
   },
   "modules/gmsv_nlengineguard_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r23\\out\\build\\win64-release\\engine_guard\\gmsv_nlengineguard_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\build\\win64-release\\engine_guard\\gmsv_nlengineguard_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r23",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18",
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
     "dirty": false
    },
-   "imported": "2026-11-08T12:25:02+00:00"
+   "imported": "2026-11-09T00:57:10+00:00"
+  },
+  "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_arc9.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\r24\\fixes-lua\\cl_arc9.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
+    "dirty": false
+   },
+   "imported": "2026-11-09T00:56:09+00:00"
+  },
+  "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_viewmodel_materials.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\r24\\fixes-lua\\cl_viewmodel_materials.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
+    "dirty": false
+   },
+   "imported": "2026-11-09T00:56:09+00:00"
+  },
+  "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_fix_bft_materials.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\r24\\fixes-lua\\cl_fix_bft_materials.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
+    "dirty": false
+   },
+   "imported": "2026-11-09T00:06:31+00:00"
   }
  },
  "files": {
@@ -1431,6 +1461,12 @@
    "mtime_ns": 1793349770009317600,
    "stored": "plain"
   },
+  "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_arc9.lua": {
+   "size": 11575,
+   "sha256": "6a770d1fdbd7e1b7331a1541191c17f0367de4e52f8dad87eaed707ffcd62cf0",
+   "mtime_ns": 1794185589183388600,
+   "stored": "plain"
+  },
   "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_mwbase.lua": {
    "size": 10011,
    "sha256": "753cb0b0fda89b0783d9e8c3ec321f46919097ed8405287fb2dd2bd5b388ad96",
@@ -1480,9 +1516,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_fix_bft_materials.lua": {
-   "size": 11547,
-   "sha256": "46543ba7d3798a3329bf9fc667b5f298e445f4d83ed716267a19362ddaf0e640",
-   "mtime_ns": 1792937990719997400,
+   "size": 11742,
+   "sha256": "ed97bbc9092065443232e3ee77ff1232e1bfe1f4aa75880000984ce23241d012",
+   "mtime_ns": 1794180901719965900,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_fix_pbr_materials.lua": {
@@ -1575,6 +1611,12 @@
    "mtime_ns": 1794138073661758000,
    "stored": "plain"
   },
+  "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_viewmodel_materials.lua": {
+   "size": 6077,
+   "sha256": "a5c40bcc977a1144dedb5f7c6ae24e98e6237fec323e90dec91e8bd079284a68",
+   "mtime_ns": 1794185716974292400,
+   "stored": "plain"
+  },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/customrender/cl_2d_skybox_renderer.lua": {
    "size": 9719,
    "sha256": "c1be17ff37d9c1512291eb6e92e1e22aa5f2c6e54caa867e8dce64f4f676c447",
@@ -1624,9 +1666,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua": {
-   "size": 145720,
-   "sha256": "fd45e276d1cf7baabe769fbd661d98f8a7fb15870ec9702a43d270ea09167bdb",
-   "mtime_ns": 1793349770347535500,
+   "size": 146069,
+   "sha256": "6b8ab5f593aec5cfd2bc0be4d68f9ec5865cac4efb870cd2f0d91f7f6c71e845",
+   "mtime_ns": 1794183289415630500,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_1_pseudoplayer.lua": {
@@ -3857,11 +3899,11 @@
   },
   "modules/gmcl_nlengineguard_win64.dll": {
    "size": 227328,
-   "sha256": "66ede81272c0046583c10ddeead0eb078a04daf7c057bbaf54a1e28bb4a6f9b8",
-   "mtime_ns": 1794140701003733900,
+   "sha256": "b20d1dfb4cf7f5e15a0128f3b5db1688d27936193989ee64a846355202848a37",
+   "mtime_ns": 1794185780187468900,
    "stored": "xz",
    "stored_size": 94984,
-   "stored_sha256": "7754f63c5cf742cddde6577684dc980fc04f436458d749935c37982a6af1de90"
+   "stored_sha256": "ca4bfb896d6417377dfedf0bfcdf183b9988fcc23246623ca05214b026a2ca9d"
   },
   "modules/gmcl_rtxdebug_win64.dll": {
    "size": 428032,
@@ -3888,20 +3930,20 @@
    "stored_sha256": "9100e4ffdd2c3bada743977392e056660fedb4804352d2701d214d456e09a4e9"
   },
   "modules/gmsv_nlengineguard_win64.dll": {
-   "size": 227328,
-   "sha256": "0913d30df1c3f7fcc7f5c20d7d25b3618533a2c708ee3ebfb7c569c57ea2c454",
-   "mtime_ns": 1794140701005733900,
+   "size": 259584,
+   "sha256": "7b5b4c5be1c00c26d5ee1f0fc4cc32df8905862549fc69f3164af5bf7c97a04a",
+   "mtime_ns": 1794185780188847600,
    "stored": "xz",
-   "stored_size": 94980,
-   "stored_sha256": "13d7e4c2015c451a57f8efdec5122982c8e92f0794b2317ae41ff1061034e898"
+   "stored_size": 107996,
+   "stored_sha256": "17a3b3daa8695b0c9c86a796a0409e20d4e41e794831931175bbaa12afcf6664"
   },
   "modules/gmsv_nlrtxclient_win64.dll": {
-   "size": 460800,
-   "sha256": "1b44fd7c1931e770e0ef8bef9d87456a6363e688949b1a2a3eb7d4d09a6391dd",
-   "mtime_ns": 1794034859026157200,
+   "size": 464384,
+   "sha256": "0c5b3dcb0eee20ca8740d1f36bfb27275e237b4469e5d87bbedf475597c1e7b0",
+   "mtime_ns": 1794185780747543400,
    "stored": "xz",
-   "stored_size": 182180,
-   "stored_sha256": "e7ad594ccd0c9b15f31c87bac303ab7487262fc917ea9cd116dbbd3f7796a01c"
+   "stored_size": 183360,
+   "stored_sha256": "21aa24f379f9e7cae2e15e9ef4db1a0611b1fa959d832255237551e3b26f9fe0"
   },
   "source/debug/addon/lua/autorun/client/rtx_debug.lua": {
    "size": 5345,

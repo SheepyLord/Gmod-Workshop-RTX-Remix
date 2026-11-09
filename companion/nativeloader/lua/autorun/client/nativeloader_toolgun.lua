@@ -1,9 +1,22 @@
 -- Draw only the toolgun's live screen in the HUD pass, after Remix's temporal reconstruction, as 2D.
 -- Its original renderer still owns the texture; custom tool screens and Dynamic Toolgun Screen
 -- keep updating it normally. No captured render-target hashes or persistent Remix categories.
+-- R24: other live screens on the view model come from providers (NativeLoaderScreens.Register): the RTX fixes'
+-- ARC9 patch gives its gun screen charms (kill counter, clock), whose render target is black in the path-traced image.
 local enabled = CreateClientConVar("nativeloader_toolgun_screen", "1", true, false,
     "Draw the live toolgun screen after Remix upscaling to keep animated text readable")
-local captured, cached, drawing, failed = nil, nil, false, false
+local others = CreateClientConVar("nativeloader_weapon_screens", "1", true, false,
+    "Draw other live screens on the view model (ARC9 gun screens) after Remix upscaling")
+local captured, drawing, failed = nil, false, false
+local cache, cacheSize = {}, 0
+-- Providers: function(player, weapon) returning a list of {model = <entity>, screen = function(material name) -> bool,
+-- texture = function(material name) -> ITexture or nil}; the model must have been set up for this frame.
+-- A table already there is kept: the RTX fixes' ARC9 patch may have left its provider in it before this file ran.
+NativeLoaderScreens = istable(NativeLoaderScreens) and NativeLoaderScreens or {}
+NativeLoaderScreens.providers = istable(NativeLoaderScreens.providers) and NativeLoaderScreens.providers or {}
+function NativeLoaderScreens.Register(id, provider)
+    if isstring(id) and (provider == nil or isfunction(provider)) then NativeLoaderScreens.providers[id] = provider end
+end
 local stats = {captures = 0, draws = 0}
 local white = "models/debug/debugwhite"
 local screen = CreateMaterial("nativeloader_toolgun_screen", "UnlitGeneric", {
@@ -24,36 +37,50 @@ local function bodygroups(model)
     return table.concat(groups, "")
 end
 
-local function template(model)
+-- The screen meshes of a model, by its path, skin and bodygroups and the screen test (the toolgun's and a provider's
+-- can differ for one model); a few models at most: the cache is bounded. A provider's failing test finds no screen.
+local function template(model, is_screen)
     local path, skin, groups = model:GetModel(), model:GetSkin(), bodygroups(model)
-    local key = path .. ":" .. skin .. ":" .. groups
-    if cached and cached.key == key then return cached end
+    local key = path .. ":" .. skin .. ":" .. groups .. ":" .. tostring(is_screen)
+    local cached = cache[key]
+    if cached then return cached end
+    if cacheSize >= 16 then cache, cacheSize = {}, 0 end
     cached = {key = key, screens = {}}
+    cache[key], cacheSize = cached, cacheSize + 1
     local meshes, bind = util.GetModelMeshes(path, 0, groups, skin)
     if not meshes or not bind then return cached end
     cached.bind = bind
     for _, part in ipairs(meshes) do
-        if screen_material(part.material) then
+        local ok, match = pcall(is_screen, part.material)
+        if ok and match then
             cached.screens[#cached.screens + 1] = {name = part.material, vertices = part.triangles}
         end
     end
     return cached
 end
 
-local function capture(model, player, weapon)
-    if drawing or failed or not enabled:GetBool() or not istable(RemixConfig) then return end
-    if render.GetRenderTarget() ~= nil or not IsValid(model) or not IsValid(weapon) then return end
-    if weapon:GetClass() ~= "gmod_tool" or player ~= LocalPlayer() then return end
-    if not player:Alive() or player:ShouldDrawLocalPlayer() or model:GetColor().a == 0 then return end
-    local view = render.GetViewSetup(true)
-    if VIEW_MAIN and view.viewid and view.viewid ~= VIEW_MAIN then return end
-    local data = template(model)
-    if #data.screens == 0 then return end
-    local parts, matrices = {}, {}
+-- A provider's texture, or nil when its callback fails or gives no usable texture: one provider's mistake never
+-- turns the toolgun's screen off.
+local function usable_texture(texture_of, name)
+    local ok, texture = pcall(texture_of, name)
+    if not ok or texture == nil then return nil end
+    local checked, is_error = pcall(function() return texture:IsError() end)
+    if checked and is_error == false then return texture end
+    return nil
+end
+
+local function base_texture(name)
+    return Material(name):GetTexture("$basetexture")
+end
+
+-- Adds a model's screen triangles, posed for this frame, to `parts`; false when a vertex has no bone pose.
+local function capture_model(parts, model, is_screen, texture_of)
+    local data = template(model, is_screen)
+    if #data.screens == 0 then return true end
+    local matrices = {}
     for _, part in ipairs(data.screens) do
-        local material = Material(part.name)
-        local texture = material:GetTexture("$basetexture")
-        if texture and not texture:IsError() then
+        local texture = usable_texture(texture_of, part.name)
+        if texture then
             local vertices = {}
             for _, vertex in ipairs(part.vertices) do
                 local position, total = Vector(0, 0, 0), 0
@@ -68,16 +95,44 @@ local function capture(model, player, weapon)
                         total = total + weight.weight
                     end
                 end
-                if total == 0 then return end
+                if total == 0 then return false end
                 vertices[#vertices + 1] = {position = position / total, u = vertex.u, v = vertex.v}
             end
             parts[#parts + 1] = {texture = texture, vertices = vertices}
+        end
+    end
+    return true
+end
+
+local function capture(model, player, weapon)
+    if drawing or failed or not istable(RemixConfig) then return end
+    if render.GetRenderTarget() ~= nil or not IsValid(model) or not IsValid(weapon) then return end
+    if player ~= LocalPlayer() or not player:Alive() or player:ShouldDrawLocalPlayer() or model:GetColor().a == 0 then return end
+    local toolgun = enabled:GetBool() and weapon:GetClass() == "gmod_tool"
+    local provided = {}
+    if others:GetBool() then
+        for _, provider in pairs(NativeLoaderScreens.providers) do
+            local ok, list = pcall(provider, player, weapon)
+            if ok and istable(list) then
+                for _, item in ipairs(list) do provided[#provided + 1] = item end
+            end
+        end
+    end
+    if not toolgun and #provided == 0 then return end
+    local view = render.GetViewSetup(true)
+    if VIEW_MAIN and view.viewid and view.viewid ~= VIEW_MAIN then return end
+    local parts = {}
+    if toolgun and not capture_model(parts, model, screen_material, base_texture) then return end
+    for _, item in ipairs(provided) do
+        if istable(item) and IsValid(item.model) and isfunction(item.screen) and isfunction(item.texture) then
+            capture_model(parts, item.model, item.screen, item.texture)
         end
     end
     if #parts > 0 then
         stats.captures = stats.captures + 1
         stats.texture = parts[1].texture:GetName()
         stats.triangles = #parts[1].vertices / 3
+        stats.screens = #parts
         captured = {frame = FrameNumber(), model = model, hands = player:GetHands(), view = view, parts = parts}
     end
 end
@@ -155,7 +210,7 @@ local function render_screen(data)
 end
 
 hook.Add("HUDPaint", "nativeloader_toolgun_screen", function()
-    if drawing or failed or not enabled:GetBool() then return end
+    if drawing or failed then return end
     local data = captured
     if not data or data.frame ~= FrameNumber() or not IsValid(data.model) then return end
     drawing = true
@@ -170,6 +225,8 @@ end)
 
 cvars.AddChangeCallback("nativeloader_toolgun_screen", function() failed = false; captured = nil; stats.error = nil end,
     "nativeloader_toolgun_screen")
+cvars.AddChangeCallback("nativeloader_weapon_screens", function() failed = false; captured = nil; stats.error = nil end,
+    "nativeloader_weapon_screens")
 
 concommand.Add("nativeloader_toolgun_status", function()
     print("[nativeloader] Toolgun screen " .. util.TableToJSON(stats))

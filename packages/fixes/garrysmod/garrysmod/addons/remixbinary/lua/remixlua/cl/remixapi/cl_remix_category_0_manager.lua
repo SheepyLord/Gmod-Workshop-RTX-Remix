@@ -523,6 +523,11 @@ function RemixCategoryManager.IsMaterialDecal(materialName)
     -- Method 2: Check standard GetInt (compiled params)
     local decal = mat:GetInt("$decal")
     if decal and decal == 1 then return true end
+
+    -- Method 2b (R24): a loaded model material keeps $decal as a material flag (MATERIAL_VAR_DECAL, 1 << 16), not as a
+    -- key or a parameter: ARC9's weapon stickers ("$decal" "1", $flags 73986) were not found by the methods above.
+    local flags = mat:GetInt("$flags")
+    if flags and bit.band(flags, 0x10000) ~= 0 then return true end
     
     -- Method 3: Check GetFloat (sometimes stored as float)
     local decalFloat = mat:GetFloat("$decal")

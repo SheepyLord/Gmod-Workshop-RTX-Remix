@@ -951,10 +951,21 @@ class HealthTests(unittest.TestCase):
         self.assertEqual(self.clock.now, 1010 + ps.HANG_GRACE)  # the 10 s send, then the whole grace
 
     def test_window_hung_uses_the_nonblocking_windows_query(self):
-        with mock.patch.object(ps.user32, 'IsHungAppWindow', side_effect=[1, 0]) as hung:
+        with mock.patch.object(ps.user32, 'IsHungAppWindow', side_effect=[1, 0]) as hung, \
+                mock.patch.object(ps.user32, 'SendMessageTimeoutW', return_value=0) as send:
             self.assertTrue(ps.window_hung(7))
             self.assertFalse(ps.window_hung(7))
         self.assertEqual(hung.call_args_list, [mock.call(7), mock.call(7)])
+        self.assertEqual(send.call_count, 1)  # sent only while Windows calls the window hung
+
+    def test_a_window_windows_calls_hung_that_answers_is_not_hung(self):
+        # R24: after the Workshop remount of an RTX start, Windows kept calling the unfocused game window hung for
+        # about 340 s while it answered a sent message at once; waiting for Windows' verdict alone held the map.
+        with mock.patch.object(ps.user32, 'IsHungAppWindow', return_value=1), \
+                mock.patch.object(ps.user32, 'SendMessageTimeoutW', return_value=1) as send:
+            self.assertFalse(ps.window_hung(7))
+        self.assertEqual(send.call_args.args[:2], (7, ps.WM_NULL))
+        self.assertEqual(send.call_args.args[4:6], (0, ps.HUNG_CONFIRM_MS))  # SMTO_NORMAL: wait for the answer
 
     def test_a_temporarily_locked_log_does_not_disable_hang_detection(self):
         health = self.health()

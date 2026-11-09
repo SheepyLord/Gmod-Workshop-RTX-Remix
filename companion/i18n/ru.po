@@ -2162,3 +2162,49 @@ msgstr "Окно игры"
 #: nativeloader/lua/nativeloader/guide_pages.lua:364
 msgid "With RTX the game runs in a borderless window as large as your screen, because exclusive fullscreen crashes Remix. For another size, add -w and -h to the game's launch options in Steam, for example -w 1920 -h 1080."
 msgstr "С RTX игра работает в окне без рамки размером с экран, потому что эксклюзивный полноэкранный режим вызывает сбой Remix. Для другого размера добавьте -w и -h в параметры запуска игры в Steam, например -w 1920 -h 1080."
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:14
+msgid "Loading…"
+msgstr "Загрузка…"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:15
+#, c-format
+msgid "Loading %s"
+msgstr "Загрузка %s"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:16
+#, c-format
+msgid "Joining %s"
+msgstr "Подключение к %s"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:17
+msgid "File"
+msgstr "Файл"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
+msgid "Before you join a server"
+msgstr "Перед входом на сервер"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:13
+msgid "Some servers do not allow custom renderers and shaders such as RTX Remix and ReShade. A server likely won't be able to detect that you use them, but posting photos of using RTX Remix on those servers might cause concerns. Check a server's rules before you join."
+msgstr "Некоторые серверы запрещают сторонние средства рендеринга и шейдеры, такие как RTX Remix и ReShade. Скорее всего, сервер не сможет обнаружить, что вы их используете, но публикация снимков с RTX Remix с таких серверов может вызвать вопросы. Перед подключением ознакомьтесь с правилами сервера."
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:14
+msgid "Performance and stability are not guaranteed online, especially without the PBR resources (RTX content) for the map the server runs."
+msgstr "Производительность и стабильность в сетевой игре не гарантируются, особенно без PBR-ресурсов (RTX-контента) для карты, запущенной на сервере."
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:15
+msgid "You use this add-on on servers at your own risk: its developers take no responsibility for any consequences."
+msgstr "Вы используете этот аддон на серверах на свой страх и риск: разработчики не несут ответственности за любые последствия."
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+msgid "Don't show this again"
+msgstr "Больше не показывать"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:17
+msgid "I understand, continue"
+msgstr "Понятно, продолжить"
+
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:18
+msgid "Back"
+msgstr "Назад"

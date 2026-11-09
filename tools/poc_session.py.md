@@ -127,13 +127,18 @@ copy. The record's `settings_back` is `restored`, `not sent` (a command was not 
     `rtx-remix\logs\remix-dxvk.log` (`device_lost: true`, `device_lost_marker`). The pre-launch log
     text is excluded if the file is unchanged or appended; a truncated/replaced log is read anew.
     A temporarily locked log is retried (`remix_log_read_error`) while window checks continue.
-    `IsHungAppWindow` checks the game window without sending a message. A continuously unresponsive
+    `IsHungAppWindow` checks the game window without sending a message; when Windows calls it hung, a
+    `WM_NULL` sent with a `HUNG_CONFIRM_MS` (2 s) limit confirms it, and a window that answers is not
+    hung. Windows keeps its verdict for a window that went quiet long after the thread pumps messages
+    again: in R24 an unfocused RTX start with 772 Workshop add-ons was "hung" for about 340 s after the
+    Workshop remount while it answered a sent message in under a millisecond, and the run held its map
+    command that long; the answered message also clears Windows' verdict. A continuously unresponsive
     window gets a 120 s grace (`--hang-grace <seconds>` changes it; `hung_seconds` only after that
     grace); recovery resets the timer, so shorter map-load stalls do not fail. A big map with hundreds
     of Workshop add-ons stalls for minutes (R8: gm_br_complex with 765 add-ons in the field), so such a
     run takes `--hang-grace 900` and a longer `--timeout`. Before console sends and captures, the run waits out such a
-    stall without touching the hung window. All long waits poll health at most every 0.5 s; an already
-    active console send retains its 10 s limit and checks health before retrying.
+    stall without sending the hung window anything but that `WM_NULL`. All long waits poll health at most every 0.5 s;
+    an already active console send retains its 10 s limit and checks health before retrying.
     On failure the record keeps `failed` and `normal_quit: false`, skips all remaining game operations,
     and gives Remix up to 60 s to exit while the prompt watchdog continues. It then uses the existing
     process ownership and creation-time checks to stop only this run's game/helpers. Records include

@@ -185,6 +185,10 @@ local function ProcessBFTMaterial(matPath)
     FixBFTMaterial(mat)
 end
 
+-- R24: the view model pass (cl_viewmodel_materials.lua) sends a weapon's and its attachments' materials here too.
+RTXFixBFT = RTXFixBFT or {}
+RTXFixBFT.ProcessMaterial = ProcessBFTMaterial
+
 -- =========================================================================
 -- Scan Existing Entities
 -- =========================================================================

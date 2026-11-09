@@ -30,3 +30,17 @@ session restarts.
 Resources: one private UnlitGeneric material. No disk, network or server changes.
 `nativeloader_toolgun_status` prints capture/draw counts, current texture, triangle count and a failure
 if any. No process exit code; errors go to the game's console.
+
+## Other screens (R24)
+
+Other live screens on the view model come from providers: `NativeLoaderScreens.Register(id, provider)`, where
+`provider(player, weapon)` returns a list of `{model = <entity>, screen = function(material name) -> bool,
+texture = function(material name) -> ITexture}` for models posed for this frame. The RTX fixes' ARC9 patch
+(`patcher/addons/cl_arc9.lua`, [ADR 0135](../../../../../docs/decisions/0135-view-model-materials-and-arc9.md))
+registers ARC9's gun screen charms (kill counter, clock): their screen shows a render target, which is black in the
+path-traced image. Their screen meshes are captured and drawn the same way, after the toolgun's. Templates are
+cached per model, skin, bodygroups and screen test (a provider passes the same function every frame; at most 16).
+A `NativeLoaderScreens` table that is already there is kept with its providers (the patch may apply before this file
+runs). A provider, its screen test or its texture callback that fails, or a texture that is not one, only leaves that
+screen out; the toolgun's screen goes on. `nativeloader_weapon_screens 0` (archived) turns the provided screens off;
+`nativeloader_toolgun_status` also prints how many screens the last capture had.

@@ -24,6 +24,13 @@ Imported 2026-11-09 with `inputs.py --file`; every other indexed input is unchan
   [wuwa-maps](licenses/oversized-skinning/wuwa-maps/README.md), gave Wuthering Waves characters their game's
   roughness and metalness.
 
+Published 2026-11-09 UTC: `main` was pushed at `bb9d5ad`, rebased on the skills commits that had landed meanwhile.
+The merge's hook built the package here and uploaded it to item 3829070317 as
+**0.0.0-dev.20261109091040+1d2e5aab** (2,182,488,545 bytes, SHA-256
+`85d98b215c6d5ad35983f55ae5cd8b679f1a10a27341d9ea23acd5004a00579d`); Steam's public record shows that size, updated
+09:11:11 UTC. The push's hook found the same inputs and uploaded nothing. No GitHub Action was started; the loader
+is unchanged (0.16.0).
+
 ## R20-Q client-bootstrap refresh
 
 The stored `modules/gmsv_nlrtxclient_win64.dll` is rebuilt from the current

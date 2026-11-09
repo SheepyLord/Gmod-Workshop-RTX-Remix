@@ -194,7 +194,10 @@ other two maps' equivalents are in `references/pipeline.md`.
     folder> --mod <mod folder> --title ... --type effects --tag scenic --gma out\packages\<map>-rtx.gma --link`,
     checked with `nlctl manifest` and the workshop-content-pack skill's `check_pack.py`. A hidden Workshop
     test item only on the user's request, never public, by that skill's procedure; players get it only by
-    subscribing (loader 0.14.0, ADR 0111).
+    subscribing (loader 0.14.0, ADR 0111). A mod over about 4 GB (one item's limit) is split by map into
+    parts that each fit with that skill's `fit_map_mod.py` (top mips left out, no re-encoding; the
+    Backrooms' 14 GB went out as two hidden items of 3.85 GB, 3836505482 and 3836505733, "A remaster
+    larger than one item").
 
 ## Standards and decisions (with the numbers)
 

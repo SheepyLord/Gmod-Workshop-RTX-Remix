@@ -403,9 +403,10 @@ def check_mod(r: Report, mod: str, hashes_files):
         key = os.path.splitext(os.path.basename(rel))[0]
         size, count, bad = 0, 0, 0
         for target in sorted(set(REFERENCE.findall(layer))):
-            if not target.startswith("../"):
+            # A character layer in models/ points at ../textures; a map mod's root layer at ./textures.
+            if not target.startswith(("../", "./")):
                 if not target.lower().endswith(".mdl"):
-                    r.error("%s references %r, neither a ../ path nor a Remix shader" % (key, target))
+                    r.error("%s references %r, neither a relative ./ or ../ path nor a Remix shader" % (key, target))
                     bad += 1
                 continue
             inner = os.path.normpath(os.path.join(os.path.dirname(rel), target)).replace("\\", "/")

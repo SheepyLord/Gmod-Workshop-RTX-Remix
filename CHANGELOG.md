@@ -6,6 +6,29 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### After R24: a map remaster too big for one Workshop item
+
+- **A remaster's Remix mod is split by map and fitted under each item's size**
+  (`skills/workshop-content-pack/scripts/fit_map_mod.py`, the user's request of 2026-11-09 to put the
+  Backrooms remaster on the Workshop in two items of at most 4 GB): the first part takes everything its map
+  draws and the Lua add-on, a later part only what its own map alone uses. Nothing is re-encoded: a cut
+  texture is the remaster's own next mip (the DDS files hold full chains), constant BC4/BC5 maps keep a 16 px
+  tail, identical files are stored once, and the cuts go in a fixed order of what shows least (roughness,
+  metal and height maps to half their albedo, models to twice their source size, the largest world textures
+  that cover least of the map to 2048, then normals), each on the least important textures first. The
+  Backrooms' `gm_br_rtx` (14.25 GB, 3,712 files) became two packages of 3.85 GB: `gm-br-complex-rtx` (the
+  add-on for both maps and the 540 materials gm_br_complex draws) and `gm-br-pitfalls-rtx` (the 587 materials
+  only gm_br_pitfalls draws). Merging maps into one texture's channels was measured and dropped: 92 of the 94
+  metallic maps and 26 other maps were exact constants (now 22 tails of 16 px), and the remaining
+  single-channel maps are already BC4 at half a byte per texel, so packing would save little and need a
+  runtime change; leaving out top mips needs none. The parts' mods are named `gm_br_rtx_complex` and
+  `gm_br_rtx_pitfalls`, so a subscription never takes over (ADR 0035) a full local build named `gm_br_rtx`.
+  On the PoC at 16 cameras (32 views), the packages differed from the full mod by a median 0.94 of 255 (wide)
+  and 0.81 (zoomed 3x) against 0.78 and 0.68 between two sessions of the full mod, and kept a median 99.3% of
+  its fine detail; the cistern lost the most (92.6%).
+- `check_pack.py` accepts a map remaster's root `materials.usda`, whose references are `./textures/...`
+  (it knew only the character layers' `../textures/...`).
+
 ### R24
 
 - **The multiplayer notice moved into the add-on, as Lua; the loader's own is turned off**

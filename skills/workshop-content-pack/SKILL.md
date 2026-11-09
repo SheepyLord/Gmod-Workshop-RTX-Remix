@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -21,7 +21,8 @@ Items made this way (all hidden; dates UTC):
 | 3829892354 | `robin-rtx` | Robin: preset `Default`, name `Robin`, 17 materials, 30 DDS (about 453 MB) | `0.0.0-dev.202611010515+3a6d9e61`, 2026-11-01 (C-16) | the Workshop page title is still the creation's `Robin R18 RTX (native loader package)`: only the owner can rename it on the page (to `Robin (Model Hotloader + RTX PBR)` by the naming rule) |
 | 3830769477 | `evernight-march7th-rtx` | Evernight and March 7th: two models, two layers (about 1.22 GB) | `0.0.0-dev.202611010518+103fde9b`, 2026-11-01 (C-16) | display names `Evernight` and `March 7th` with both terms records since the R5 rebuild (uploaded 2026-10-31 22:13 UTC); Evernight's terms forbid redistribution: stays hidden |
 
-Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3829070317 the RTX package. The
+Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3836505482 and 3836505733 the
+Backrooms remaster ("A remaster larger than one item"), 3829070317 the RTX package. The
 last builds are in the main checkout's `out\packages\guinaifen`, `out\packages\robin` and
 `out\packages\evernight-march7th` (each with a `pre-c16` copy of the earlier archive and layers).
 
@@ -304,6 +305,65 @@ Never ship the map or its files (the Workshop bans re-uploads): it is a Required
 Keep packs under about 4 GB (the Workshop's guideline). `check_pack.py --addon <folder> --mod <folder>
 --gma <file>` checks a plain Lua add-on without the Hotloader rules.
 
+### A remaster larger than one item
+
+The user allows a set number of items per remaster; each holds about 4 GB. `scripts/fit_map_mod.py`
+splits the remaster's mod by map and fits each part under 3.85 GB (room for the add-on and the
+archive's index), without re-encoding: a cut texture is the remaster's own lower mip, constant maps
+keep a 16 px tail, identical files are stored once. It cuts in a fixed order of what shows least
+(roughness, metal and height maps to half their albedo; models to twice their source; the largest world
+textures that cover least of the map to 2048; then normals; `fit_map_mod.py.md`), each tier on the
+least important textures first and only as far as the part needs.
+
+- **Split by map, first part complete for its map.** The first part takes everything its map draws
+  (shared textures included) and carries the Lua add-on for every map; a later part holds only what
+  its own map alone uses and names the first as a Required item. Players of the first map need one
+  item; players of the second need both. One item per map, each standalone, would store the shared
+  textures twice and cut far deeper (Backrooms: gm_br_pitfalls alone used 12.3 of the 14.25 GB).
+- **Name the parts' mods `<remaster>_<map>`** (`gm_br_rtx_complex`, `gm_br_rtx_pitfalls`), never the
+  remaster's own mod name: since loader 0.6.0 a package takes over someone else's files at its paths
+  (ADR 0035), so a part named `gm_br_rtx` would replace the author's own full-size build (hand-placed
+  in the field) with the cut one. Named apart, both sort after `gm_br_rtx` and the full build keeps
+  priority on the author's machine; the add-on, byte-identical, is merely adopted.
+- **Check what it cost in the game:** an A/B on the PoC with the full mod linked into
+  `rtx-remix\mods` (and the add-on into `garrysmod\addons`) against the parts deployed by the loader,
+  the same cameras (the pipeline's `cameras_<map>.json`), each view wide and zoomed 3x, each shot twice
+  for a noise floor (`poc_session.py run --mount-workshop <map item> --change-map <map> --lua <tour>
+  --lua-shots <s>`, under the shared PoC lock).
+
+```powershell
+$W = '<the remaster''s fork worktree>'; $O = '<repo>\out\packages\gm-br-rtx'
+python -I scripts\fit_map_mod.py --mod "$W\garrysmod\rtx-remix\mods\gm_br_rtx" `
+  --textures-json "$W\source\gm_br_rtx\work\textures.json" --inventory-json "$W\source\gm_br_rtx\work\inventory.json" `
+  --part "$O\complex\gm_br_rtx_complex=gm_br_complex" --part "$O\pitfalls\gm_br_rtx_pitfalls=gm_br_pitfalls" `
+  --mod-name "gm_br_rtx_pitfalls=The Backrooms - Complex RTX: gm_br_pitfalls" --report "$O\fit-report.json" --dry-run
+# then without --dry-run, and one package per part (the first with the add-on):
+python -I "$repo\tools\package_content.py" --id gm-br-complex-rtx --name "Backrooms Complex RTX" --requires-remix `
+  --addon "$W\garrysmod\garrysmod\addons\gm_br_rtx" --mod "$O\complex\gm_br_rtx_complex" `
+  --title "Backrooms Complex RTX (native loader package)" --type effects --tag scenic --tag realism `
+  --description $d --gma "$O\complex\gm-br-complex-rtx.gma" --link
+```
+
+The Backrooms remaster (The Backrooms - Complex, 2821179466; 14.25 GB) went out this way on
+2026-11-09 as two hidden items (the user allowed two; `gmpublish create` from the field root while
+another session held the PoC, the field's `gmpublish.exe` being byte-identical). Their build folder,
+with the archives, icons, descriptions (`description-page.txt` names the other item), the fit report
+and the A/B evidence, was the worktree `pbr-enhancement-workshop-upload-73b6af`'s
+`out\packages\gm-br-rtx`; `fit_map_mod.py` and `package_content.py` rebuild it in a minute.
+
+| Item | Package id | Holds | Archive |
+|---|---|---|---|
+| 3836505482 | `gm-br-complex-rtx` | add-on `gm_br_rtx` (both maps' lights and settings) and mod `gm_br_rtx_complex`: the 540 materials gm_br_complex draws, shared ones included | 3,845,663,403 bytes, SHA-256 `0780490f...` |
+| 3836505733 | `gm-br-pitfalls-rtx` | mod `gm_br_rtx_pitfalls`: the 587 materials only gm_br_pitfalls draws; requires the first | 3,842,173,711 bytes, SHA-256 `720c2ac5...` |
+
+On the PoC, the full mod against the two packages at 16 cameras (32 views, each shot twice): the
+median difference was 0.94 of 255 in wide views and 0.81 zoomed 3x, where the full mod in a second
+game session differed from the first by 0.78 and 0.68 (and one session from itself by 0.60 and 0.58).
+The packages kept a median 99.3% of the full mod's fine detail (mean luminance gradient; between the
+two full-mod sessions 100.2%); half the views were within the session-to-session noise, and the
+cistern's pipe and water (92.6%), the grey rooms and the conference room in wide view (94.5%) and
+nullzone4 (96.4%) lost the most.
+
 ## Scripts
 
 | Script | Route | Does |
@@ -313,6 +373,8 @@ Keep packs under about 4 GB (the Workshop's guideline). `check_pack.py --addon <
 | `scripts/add_hashes.py` | both | add hashes to a staged layer; `--check-json` coverage of rpai's live hashes |
 | `scripts/gma_diff.py` | diagnosis | compare two archives member by member (two imports' textures, a build and a download) |
 | `scripts/check_pack.py` | both | read-only preflight of a build folder: names, Hotloader package, mod, archive, nlctl, icon, description |
+| `scripts/fit_map_mod.py` | map remasters over about 4 GB | split a remaster's Remix mod by map into parts and fit each under a budget: top mips left out (no re-encoding), constant maps as 16 px tails, identical files once |
+| `scripts/test_fit_map_mod.py` | tests | `python -I -m unittest discover -p "test_fit_map_mod.py"` in `scripts\`: the split, the lossless step, the tier order, refusals |
 | `scripts/model_names.py` | both | the naming rule, imported by the scripts above |
 | `scripts/test_names.py` | tests | `python -I -m unittest -v` in `scripts\`: the naming rule and every refusal |
 | mmd-remix-pbr `scripts/hotloader_export.py` | preferred | Model Hotloader's own export through the running game |

@@ -161,7 +161,23 @@ it a general rule on 2026-11-08 (pitfall 24).
   gmpublish's process check failed early (`tools/publish_workshop.py.md`).
 - **Fix.** `publish_workshop.py` has a reviewed, hash-guarded fallback for the RTX item only. For a
   pack: stop and tell the user (restarting Steam is theirs to do). Never patch or copy gmpublish
-  yourself. If Steam is simply not running, gmpublish fails the same way: ask the user to start it.
+  yourself, and never write Steam's registry (not even the stale `pid`). If Steam is simply not
+  running, gmpublish fails the same way: ask the user to start it.
+- **Again on 2026-11-09** (the Backrooms upload): `ActiveProcess\pid` was 23908, a process that no
+  longer existed, while `steam.exe` ran as 19036; game sessions started by the tools still worked.
+  One line tells the two cases apart without touching anything (from the game root, `python -I -c
+  "import ctypes; f = ctypes.CDLL(r'bin\win64\steam_api64.dll').SteamAPI_IsSteamRunning; f.restype =
+  ctypes.c_bool; print(f())"`): `False` with `steam.exe` running is this stale PID. That session
+  set the value to the running client's PID, which made gmpublish work, then put it back on reading
+  this pitfall and left the restart to the user: the rule stands.
+- **A restart does not clear it here.** After the user restarted Steam (new `steam.exe` 31980) the
+  HKCU value stayed 23908 for minutes: this Steam client records its PID in
+  `HKLM\SOFTWARE\WOW6432Node\Valve\Steam\SteamPID` and no longer refreshes
+  `HKCU\...\ActiveProcess\pid`, which only gmpublish's early process check reads (game sessions start
+  fine). So do not ask the user for a restart; tell them the check fails until that value names the
+  running client, and let them decide how it gets there (ADR 0058 keeps agents off Steam's registry).
+  Here the user chose to have it set to the running client's PID (the value Steam keeps in HKLM);
+  gmpublish then created both items. It goes stale again at the next Steam restart.
 
 ### 14. A pack that needs the allowlist
 

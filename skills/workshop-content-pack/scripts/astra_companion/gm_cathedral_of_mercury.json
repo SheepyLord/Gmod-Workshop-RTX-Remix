@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "map": "gm_cathedral_of_mercury",
+  "addon": "gm_cathedral_of_mercury_rtx",
+  "mod": "gm_cathedral_of_mercury_rtx",
+  "title": "Cathedral of Mercury RTX",
+  "prefix": "mercury_rtx",
+  "global": "MercuryRTX",
+  "index": "data_static/astra_mercury_rtx/gm_cathedral_of_mercury/rtx/index.json",
+  "notes": [
+    "From the companion's tone.lua (the Blender scene's custom rational curve as Hable, fixed exposure), atmosphere.lua (the runtime's default haze over the package's Modern House values), color_capture.lua ($color2 to white on the PBR materials), special.lua (animated water on the pool, particle on the base map's volume sprites) and zz_astra_mercury_rtx_baked.lua (legacy emissive on the four UnlitGeneric bakes).",
+    "special.lua's ToPBR conversions of the glass and water are left out: since R19 MaterialPipeline.ToPBR.SetEnabled(true) takes effect only while the player's rtx_topbr_enabled is on.",
+    "The sky: rtx.skyMode 0 (the map's own skybox) and the scene's own sun light; the companion's physical sky would add a second sun."
+  ],
+  "sky_owner": true,
+  "fog_owner": true,
+  "sky_keys": ["rtx.skyMode"],
+  "clear_light2rtx": true,
+  "remix": [
+    ["rtx.skyMode", "0"],
+    ["rtx.ignoreGamePointLights", "True"],
+    ["rtx.ignoreGameSpotLights", "True"],
+    ["rtx.ignoreGameDirectionalLights", "True"],
+    ["rtx.volumetrics.transmittanceColor", "0.96,0.98,0.995"],
+    ["rtx.volumetrics.transmittanceMeasurementDistanceMeters", "200"],
+    ["rtx.volumetrics.singleScatteringAlbedo", "0.999,0.999,0.999"],
+    ["rtx.volumetrics.anisotropy", "0.0"],
+    ["rtx.tonemap.tonemapOperator", "3"],
+    ["rtx.tonemap.hable.exposureBias", "1"],
+    ["rtx.tonemap.hable.shoulderStrength", "0.9300000071525574"],
+    ["rtx.tonemap.hable.linearStrength", "0.5600000023841858"],
+    ["rtx.tonemap.hable.linearAngle", "0.05739232956097844"],
+    ["rtx.tonemap.hable.toeStrength", "0.2"],
+    ["rtx.tonemap.hable.toeNumerator", "0"],
+    ["rtx.tonemap.hable.toeDenominator", "0.7000000029802322"],
+    ["rtx.tonemap.hable.whitePoint", "1.4219857332156554"],
+    ["rtx.tonemap.exposureBias", "0"],
+    ["rtx.autoExposure.enabled", "False"],
+    ["rtx.tonemap.tonemappingEnabled", "True"],
+    ["rtx.tonemap.colorGradingEnabled", "False"]
+  ],
+  "runtime_defaults": {},
+  "engine": [
+    ["rtx_api_map_lights_autospawn", "0"]
+  ],
+  "tint": {"keys": ["$color2"], "materials": "pbr", "recompute": false},
+  "categories": [
+    {"name": "water", "flag": "animated_water", "materials": ["astra/gm_cathedral_of_mercury/water_pool", "astra/gm_cathedral_of_mercury/water_pool_bottom"]},
+    {"name": "mist", "flag": "particle", "materials": ["astra_mercury_volume_alpha_v2", "astra_mercury_volume_glow_v2"]},
+    {"name": "baked", "flag": "legacy_emissive", "materials": "baked_fallback"}
+  ],
+  "hooks_off": [],
+  "addon_json": {"title": "Cathedral of Mercury RTX", "type": "map", "tags": ["scenic", "realism"], "ignore": []}
+}

@@ -285,4 +285,8 @@ Remix.
   content-addressed `textures/<sha256>.dds` and `mod.usda.dat` into the layer, and publishes
   `rtx-remix/mods/!astra_startup_<map>/` after verifying every dependency. It accepts only the built-in
   `AperturePBR_Opacity.mdl`/`AperturePBR_Translucent.mdl` by name, and ships RTX IO off (it stalled texture
-  uploads). None of the three remasters used it.
+  uploads). None of the three remasters used it. The native loader removes that proxy (legacy migration); the
+  two companions made for it (Cathedral of Mercury, the Korolevskiy Theater) were converted into content packs
+  on 2026-11-09 with the workshop-content-pack skill's `astra_companion.py`. Their hash aliases, computed
+  offline for the fork's renderer `384581b1`, still match the package's runtime: every material of both maps
+  uploaded with a hash the mod replaces.

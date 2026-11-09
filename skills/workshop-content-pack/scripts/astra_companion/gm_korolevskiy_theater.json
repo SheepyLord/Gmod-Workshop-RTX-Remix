@@ -1,0 +1,62 @@
+{
+  "schema": 1,
+  "map": "gm_korolevskiy_theater",
+  "addon": "gm_korolevskiy_theater_rtx",
+  "mod": "gm_korolevskiy_theater_rtx",
+  "title": "Korolevskiy Theater RTX",
+  "prefix": "theater_rtx",
+  "global": "TheaterRTX",
+  "index": "data_static/astra/gm_korolevskiy_theater/rtx/index.json",
+  "notes": [
+    "From the companion's theater_rtx.lua: AgX with the punchy look and a fixed exposure, blue heterogeneous stage haze, bloom, coloured shadows through glass; $color and $color2 to white on the 144 PBR atlases (the vanilla grade passes 1.0 and wraps in the renderer's byte-sized texture factor); the base map's raster haze, bloom and stage-mist sheets off in RTX (the sheets formed an opaque wall there).",
+    "000_theater_rtx_config_baseline.lua is left out: it undid the Astra loader's process-local config copy, which the native loader never makes.",
+    "The sky: rtx.skyMode 0 (the map's own skybox); the companion's physical sky and weather would replace the stage haze."
+  ],
+  "sky_owner": true,
+  "fog_owner": true,
+  "sky_keys": ["rtx.skyMode"],
+  "clear_light2rtx": true,
+  "remix": [
+    ["rtx.skyMode", "0"],
+    ["rtx.ignoreGamePointLights", "True"],
+    ["rtx.ignoreGameSpotLights", "True"],
+    ["rtx.ignoreGameDirectionalLights", "True"],
+    ["rtx.autoExposure.enabled", "False"],
+    ["rtx.tonemap.tonemapOperator", "4"],
+    ["rtx.tonemap.agx.look", "2"],
+    ["rtx.tonemap.agx.saturation", "1.1"],
+    ["rtx.tonemap.exposureBias", "-3"],
+    ["rtx.tonemap.colorGradingEnabled", "False"],
+    ["rtx.volumetrics.enable", "True"],
+    ["rtx.volumetrics.enableAtmosphere", "False"],
+    ["rtx.volumetrics.enableFogRemap", "False"],
+    ["rtx.volumetrics.transmittanceColor", "0.93, 0.97, 0.997"],
+    ["rtx.volumetrics.transmittanceMeasurementDistanceMeters", "12"],
+    ["rtx.volumetrics.singleScatteringAlbedo", "0.35, 0.5, 0.9"],
+    ["rtx.volumetrics.anisotropy", "0.25"],
+    ["rtx.volumetrics.enableHeterogeneousFog", "True"],
+    ["rtx.volumetrics.noiseFieldDensityScale", "0.2"],
+    ["rtx.bloom.enable", "True"],
+    ["rtx.bloom.burnIntensity", "0.15"],
+    ["rtx.enableDirectTranslucentShadows", "True"]
+  ],
+  "runtime_defaults": {
+    "rtx.volumetrics.enable": "True",
+    "rtx.volumetrics.enableHeterogeneousFog": "False",
+    "rtx.volumetrics.noiseFieldDensityScale": "1",
+    "rtx.bloom.enable": "True",
+    "rtx.bloom.burnIntensity": "1",
+    "rtx.enableDirectTranslucentShadows": "False"
+  },
+  "engine": [
+    ["rtx_api_map_lights_autospawn", "0"]
+  ],
+  "tint": {"keys": ["$color", "$color2"], "materials": "pbr", "recompute": true},
+  "categories": [],
+  "hooks_off": [
+    ["SetupWorldFog", "theater_authored_room_haze"],
+    ["RenderScreenspaceEffects", "theater_authored_bloom"],
+    ["PostDrawTranslucentRenderables", "theater_authored_stage_volume"]
+  ],
+  "addon_json": {"title": "Korolevskiy Theater RTX", "type": "map", "tags": ["scenic", "realism"], "ignore": []}
+}

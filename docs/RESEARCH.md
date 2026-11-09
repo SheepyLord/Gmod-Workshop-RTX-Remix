@@ -6035,3 +6035,63 @@ with a snapshot and a clean rollback each time), 1280 x 720, an unfocused window
   'CompileString' (a nil value)" in `[MENU ERROR]`); `RunString` it has (the stock `mainmenu.lua`'s `lua.Run` uses it). Steam Cloud keeps only `cfg/config.cfg` for GMod (`remotecache.vdf` of app
   4000 lists no other cfg file), so `client.vdf` stays per install.
 
+
+## After R24: the Astra map companions under the native loader (2026-11-09)
+
+The user's two public RTX companions, Cathedral of Mercury RTX (3797839157, for the map 3797706957) and the
+Korolevskiy Theater's PBR resources (3803057911, for 3798883815), made in September 2026 by Codex Astra.
+
+- **Format.** `data_static/astra/<map>/rtx/startup.json` (version 1: `files[]` of `{path, target, bytes, sha256}`,
+  every `path` a `<sha256>.dds.dat` and every `target` `textures/<sha256>.dds`; `layer` the `mod.usda.dat`), an
+  `index.json` (`data_static/astra_mercury_rtx/<map>/rtx/` for the Cathedral, `data_static/astra/<map>/rtx/` for
+  the Theater: materials, `startup.hashes` with 6-8 hash aliases each, `lighting.lights` in Cycles' units), PNG
+  atlases for a map-time writer (`materials/<...>/pbr/*.png`: 1.17 GB of the Cathedral's 3.38 GB, 0.40 GB of the
+  Theater's 1.75 GB) and a client runtime that publishes through `AstraRTXBridge` (`require "astra_rtx_bridge"`,
+  API 1, `Capabilities().startupAssetDiscovery`). Without the bridge the runtime stops at `bridge_unavailable`
+  every 2 s and nothing else runs, lights included. The base maps are Blender imports: 574 (Cathedral) model
+  chunks drawn with atlas `VertexLitGeneric` materials (`$color2` tint, `$selfillum`), collision as
+  `PhysicsFromMesh` entities from `data_static/astra/<map>/collision/*.dat`, a BSP of 4 entities
+  (`worldspawn`, `info_player_start`, `light_environment` at pitch -70, and the Cathedral's `water_lod_control`).
+- **The hash aliases still match.** Computed offline for the fork's renderer `384581b1` (`xxh3_64` of the uploaded
+  mips), every material of both maps uploaded under the package's runtime with a hash its `mod.usda` overrides:
+  176/176 and 144/144 (`RemixMaterial.GetAllTextureHashes`, PoC, 1280 x 720).
+- **Formats.** The Cathedral's mod was BC7 sRGB albedo 2048, BC5 normals 2048, BC4 roughness and metallic 1024
+  (2.10 GiB); the Theater's every map BC7, roughness and metallic included (1.25 GiB). Remix reads roughness,
+  metallic and height from the red channel; 104 of the Theater's 144 roughness maps and 20 of its 69 metallic maps
+  hold other data in green and blue. As BC4 (each mip of the BC7 decoded, the red channel encoded again), 189
+  maps came out within 36 dB PSNR on every mip of 16 px or more (worst 36.1 dB; the top mips 49-60 dB), 24 did
+  not (sharp metal edges in the 128-512 px mips, block ranges of 120-220 levels, which BC4's eight levels per
+  block cannot hold): 236 MiB less.
+- **The old Cathedral runtime's cost.** Driven to its published state in LuaJIT (its own files, mocked GMod,
+  bridge and fixes API; `bench_old.lua` in the worktree `addon-migration-optimization-44b7dd`'s
+  `out/poc/astra-maps/bench`): 605-618 us of Lua and 752 KB of garbage per frame, at 60 fps 36 ms and 45 MB a
+  second. Its `atmosphere.lua` and `tone.lua` `Think` hooks each called the main runtime's `GetStatus()` every
+  frame, a deep copy of its whole state with all 176 materials' hash tables and every sub-runtime's status, the
+  colour module's 176 audit rows among them. The Theater's runtime: 4.7 us and 3.8 KB per frame (its 4 Hz timer
+  copies 144 hash sets).
+- **ToPBR from a map add-on.** The Cathedral runtime converted its glass and pool through
+  `MaterialPipeline.ToPBR.ProcessSingleMaterial` inside a `SetEnabled(true)` lease; since R19 (ADR 0112)
+  `SetEnabled(true)` takes effect only while the player's `rtx_topbr_enabled` is on (default 0), so that route is
+  closed to map add-ons.
+- **What the RTX package does on these maps without help.** RTX Water finds the Cathedral's pool ("24 water faces
+  on 1 planes (3204 tiles), type pool matched to the map's water; native core") and none in the Theater. The RTX
+  fixes' `RemixCategoryManager` tags the Cathedral's atlas textures `0x1000` at map start. Light2RTX would turn
+  `light_environment` into a distant light and set `rtx.skyBrightness` from its `_ambient` 1.5 s after
+  `InitPostEntity` unless `rtx_api_map_lights_autospawn` is 0 by then (the PoC's `client.vdf` had it 0 already).
+- **The companion's sky writes its own convars.** Following the map's sun, `startClock()` in
+  `nativeloader_sky.lua` writes `nativeloader_sky_hour` and `nativeloader_sky_direction` with `RunConsoleCommand`
+  at `InitPostEntity` (its own `changed()` ignores them through `writing`); another add-on's change callback on
+  them fires. A player's change to either switches `nativeloader_sky_follow_map` to 0.
+- **A Lua convar's saved value arrives as a change.** A callback added (by name) before another add-on creates
+  its archived client convar sees the creation's default replaced by the saved value: the converted add-ons'
+  autorun runs before the companion's (`gm_...` sorts before `nativeloader_sky.lua`) and saw
+  `nativeloader_weather partlyCloudy -> clear` on a PoC whose `client.vdf` holds `clear`. The companion adds its
+  own callbacks after creating the convars and never sees it. Callbacks added at `InitPostEntity` do not.
+- **Frame time.** The Cathedral's nave (camera 0, -400, 120, pitch -3, yaw 90; 1280 x 720 windowed,
+  `engine_no_focus_sleep 0`, `fps_max 0`, 20 s): with the converted companion (its own sky, 33 lights) 68.9 fps,
+  median 14.3 ms, p99 24.9 ms; the RTX package alone (the companion's physical sky, vanilla materials) 73.7 fps,
+  13.7 ms, 20.7 ms. One of seven PoC runs ended in a GPU device loss (Remix's `0x60D0DEAD`, 21:44:33, at a camera
+  cut 3 s after an NRC re-init, 5.5 of 32.9 GB of video memory in use); the NVIDIA driver logged `nvlddmkm` event
+  153 then, as it did 20 more times on this machine in the three days before, during other sessions' work.
+- **Load and deploy.** The loader deployed both packages (1,205 changes, 3.3 GB) in 19.3 s at the PoC's first
+  start with them; a new add-on build with unchanged textures was 4 changes in 1.1 s.

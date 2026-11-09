@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -22,7 +22,8 @@ Items made this way (all hidden; dates UTC):
 | 3830769477 | `evernight-march7th-rtx` | Evernight and March 7th: two models, two layers (about 1.22 GB) | `0.0.0-dev.202611010518+103fde9b`, 2026-11-01 (C-16) | display names `Evernight` and `March 7th` with both terms records since the R5 rebuild (uploaded 2026-10-31 22:13 UTC); Evernight's terms forbid redistribution: stays hidden |
 
 Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3836505482 and 3836505733 the
-Backrooms remaster ("A remaster larger than one item"), 3829070317 the RTX package. The
+Backrooms remaster ("A remaster larger than one item"), 3797839157 and 3803057911 the two converted
+Astra companions (public; "An Astra companion"), 3829070317 the RTX package. The
 last builds are in the main checkout's `out\packages\guinaifen`, `out\packages\robin` and
 `out\packages\evernight-march7th` (each with a `pre-c16` copy of the earlier archive and layers).
 
@@ -364,6 +365,78 @@ two full-mod sessions 100.2%); half the views were within the session-to-session
 cistern's pipe and water (92.6%), the grey rooms and the conference room in wide view (94.5%) and
 nullzone4 (96.4%) lost the most.
 
+### An Astra companion
+
+In September 2026 two of the user's maps got RTX companions in the Astra format: Cathedral of Mercury
+RTX (3797839157, for the map 3797706957) and the Korolevskiy Theater's PBR resources (3803057911, for
+3798883815). Both items are **public** with subscribers. They were made for the old RTXLauncher route:
+the Astra startup loader (a `d3d9.dll` proxy and `astra_rtx_prepare_assets.exe` in
+`bin\win64\astra-startup\`, which the native loader's legacy migration removes) unpacked their Remix
+mod from `data_static/astra/<map>/rtx/` (`startup.json`, `mod.usda.dat`, `<sha256>.dds.dat`), and a
+large client runtime published it through `AstraRTXBridge`. Under the native loader neither exists, so
+the old Lua waits for the bridge and nothing loads. Recognise one by
+`data_static/astra/<map>/rtx/startup.json` in the archive.
+
+`scripts/astra_companion.py` converts one into a content pack's two halves, from the Workshop's own
+copy of the item (`workshop\content\4000\<id>\*.gma`); the map's profile in
+`scripts/astra_companion/<map>.json` holds what the old Lua did by hand (tone curve, haze, tints,
+categories, the base map's hooks to switch off), with notes on where each came from.
+
+```powershell
+$K = "$repo\skills\workshop-content-pack\scripts"; $B = '<worktree>\out\packages\gm-cathedral-of-mercury-rtx'
+python -I "$K\astra_companion.py" --gma 'H:\SteamLibrary\steamapps\workshop\content\4000\3797839157\gm_cathedral_of_mercury_rtx.gma' `
+  --profile "$K\astra_companion\gm_cathedral_of_mercury.json" --out "$B\build" --bc4
+$d = (Get-Content -Raw -Encoding utf8 "$B\description.txt").Trim()
+python -I "$repo\tools\package_content.py" --id gm-cathedral-of-mercury-rtx --name "Cathedral of Mercury RTX" --requires-remix `
+  --addon "$B\build\addon\gm_cathedral_of_mercury_rtx" --mod "$B\build\mod\gm_cathedral_of_mercury_rtx" `
+  --title "Cathedral of Mercury RTX (native loader package)" --type effects --tag scenic --tag realism `
+  --description $d --gma "$B\gm-cathedral-of-mercury-rtx.gma" --link
+python -I "$K\check_pack.py" $B --addon "$B\build\addon\gm_cathedral_of_mercury_rtx" --mod "$B\build\mod\gm_cathedral_of_mercury_rtx" --gma "$B\gm-cathedral-of-mercury-rtx.gma"
+```
+
+- **The mod** is the companion's as it was published (every payload SHA-checked); `--bc4` re-encodes
+  BC7 roughness, metallic and height maps as BC4 (Remix reads one channel; half the size and memory),
+  keeping BC7 for any map whose BC4 loses more than 36 dB PSNR on some mip. The PNG fallback atlases
+  stay out.
+- **The add-on** (`<map>_rtx`, folder and mod named after the map, package id `<map with hyphens>-rtx`)
+  runs `astra_companion/runtime.lua` on its map only, in RTX sessions: the scene's Remix API lights,
+  map-scoped Remix options put back on leaving, the map's own sky and haze against the companion's
+  physical sky and weather (yielding the sun to a player who chose their own sky), Light2RTX kept from
+  adding a second sun, the vanilla bake's tint off the replaced materials, hash categories, the base
+  map's raster stand-ins off. Nothing per frame. `<prefix>_status` prints it all and the mod's
+  coverage (`mercury_rtx_status`, `theater_rtx_status`).
+- **Check it on the PoC** as a local archive (`allow.local` in the PoC's `config.json`, backed up and
+  put back after), with the base map from its Workshop item:
+  `poc_session.py run --addons --mount-workshop <map item> --change-map <map> --lua <tour>`. The status
+  must show every light, no refused option and every material "hashed as the mod expects".
+- **The base maps stay the user's**: never repack or re-upload them. Their descriptions still point
+  RTX players at the old route; suggest an update to the user, never edit an item page yourself.
+- **Updating the public items** goes to `gmpublish update -id`, only with the user's go-ahead
+  (AGENTS.md rule 5): the update turns a mountable add-on into a native-loader package, so players
+  without the loader see `Couldn't mount addon file`. The page's description (the build's
+  `description.txt`) and Required items (the map, 3829070317) are the user's to paste and add.
+
+Converted on 2026-11-09 (the builds in the worktree `addon-migration-optimization-44b7dd`'s
+`out\packages\gm-cathedral-of-mercury-rtx` and `out\packages\gm-korolevskiy-theater-rtx`):
+
+| Item | Package id | Archive | Was | Uploaded |
+|---|---|---|---|---|
+| 3797839157 | `gm-cathedral-of-mercury-rtx` | 2.21 GB: 176 materials (1056 hash aliases), 680 DDS, 33 lights, 21 options | 3.38 GB, 1.17 GB of it PNG fallbacks | `0.0.0-dev.202611090454+2b73d976`, 2,207,392,338 bytes, SHA-256 `3f3b29c4...`, 2026-11-09 05:14 UTC (`gmpublish update`, 17 s) |
+| 3803057911 | `gm-korolevskiy-theater-rtx` | 1.10 GB: 144 materials (1068 aliases), 513 DDS (189 BC4, 236 MiB less), 26 lights, 22 options | 1.75 GB, 0.40 GB of it PNG fallbacks | `0.0.0-dev.202611090457+a377ad1c`, 1,101,297,938 bytes, SHA-256 `0d25c95c...`, 2026-11-09 05:14 UTC (22 s) |
+
+Both items stayed public; the update set their tags from the archives (Effects, Scenic, Realism). The page
+descriptions (each build's `description.txt`) and the Required items (the map, 3829070317) are the
+owner's to set.
+
+On the PoC (2026-11-09) both deployed, every light and option applied, and every material uploaded
+with a hash the mod replaces (176/176, 144/144). Two sky pitfalls found there, both handled in the
+runtime: the companion writes its own `nativeloader_sky_hour`/`_direction` while following the map, and a
+callback added before the companion creates its convars sees their saved values arrive as changes, so the
+runtime watches the sky settings only from `InitPostEntity` and leaves those two out. The old Cathedral
+runtime, driven to its published state in LuaJIT with mocks, cost 0.6 ms of Lua and 750 KB of garbage
+per frame (two `Think` hooks deep-copying its whole status); the Theater's 5 us. The new runtime has no
+per-frame hook.
+
 ## Scripts
 
 | Script | Route | Does |
@@ -375,13 +448,17 @@ nullzone4 (96.4%) lost the most.
 | `scripts/check_pack.py` | both | read-only preflight of a build folder: names, Hotloader package, mod, archive, nlctl, icon, description |
 | `scripts/fit_map_mod.py` | map remasters over about 4 GB | split a remaster's Remix mod by map into parts and fit each under a budget: top mips left out (no re-encoding), constant maps as 16 px tails, identical files once |
 | `scripts/test_fit_map_mod.py` | tests | `python -I -m unittest discover -p "test_fit_map_mod.py"` in `scripts\`: the split, the lossless step, the tier order, refusals |
+| `scripts/astra_companion.py` | an Astra companion | its Remix mod (SHA-checked, optional BC7 to BC4 for one-channel maps) and a new add-on from `astra_companion/runtime.lua` and the map's profile `astra_companion/<map>.json` |
+| `scripts/astra_companion_harness.lua` | tests | the converted add-on against mocked GMod and Remix APIs (LuaJIT): lifecycle, restores, sky and haze ownership, no per-frame hook |
+| `scripts/test_astra_companion.py` | tests | `python -I -m unittest discover -p "test_astra_companion.py"` in `scripts\`: a synthetic companion with real BC7 blocks, the conversion, the BC4 encoder, refusals, the harness |
 | `scripts/model_names.py` | both | the naming rule, imported by the scripts above |
 | `scripts/test_names.py` | tests | `python -I -m unittest -v` in `scripts\`: the naming rule and every refusal |
 | mmd-remix-pbr `scripts/hotloader_export.py` | preferred | Model Hotloader's own export through the running game |
 | mmd-remix-pbr `scripts/stage_pbr_mod.py` | preferred | the Remix mod folder from `ai_pbr` |
 
 Each script has a `.md` beside it. This skill's scripts need only the standard library and run with
-`python -I`; `mmdhl_pack.py` and `check_pack.py --deep` need Windows. The mmd-remix-pbr scripts run
+`python -I`; `mmdhl_pack.py` and `check_pack.py --deep` need Windows; `astra_companion.py --bc4` needs
+numpy and Pillow (the system Python has both), and its harness LuaJIT. The mmd-remix-pbr scripts run
 with rpai's Python. `tools\package_content.py` and `tools\poc_session.py` run with `python -I` too.
 
 ## References

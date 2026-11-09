@@ -388,7 +388,11 @@ def check_mod(r: Report, mod: str, hashes_files):
     sub = re.search(r"subLayers\s*=\s*\[(.*?)\]", text, re.S)
     layers = [ref for ref in REFERENCE.findall(sub.group(1))] if sub else []
     if not layers:
-        r.error("mod.usda lists no subLayers")
+        if MATERIAL.search(text):
+            # A converted Astra companion (astra_companion.py) keeps its overrides in mod.usda itself.
+            layers = ["./mod.usda"]
+        else:
+            r.error("mod.usda lists no subLayers and replaces no material itself")
     used = {"mod.usda"}
     found = {}
     for ref in layers:

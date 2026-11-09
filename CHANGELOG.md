@@ -6,6 +6,34 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### After R24: the two Astra map companions on the native loader
+
+- **A map's Astra RTX companion converts into a native-loader content pack**
+  (`skills/workshop-content-pack/scripts/astra_companion.py`, the user's request of 2026-11-09 to migrate the
+  public Workshop items Cathedral of Mercury RTX, 3797839157, and the Korolevskiy Theater's PBR resources,
+  3803057911, and optimise them). Both were made in September for the RTXLauncher route: the Astra startup
+  loader (a `d3d9.dll` proxy the legacy migration removes) unpacked their Remix mod from `data_static` and a
+  bridge module published it, so under the native loader their Lua waited for `AstraRTXBridge` and no material
+  or light loaded. The converter writes each mod as it was published (every payload checked against
+  `startup.json`'s SHA-256) and a new add-on: one runtime (`astra_companion/runtime.lua`) with the map's
+  profile (`astra_companion/<map>.json`: the old Lua's tone curve, haze, tints, categories and switched-off
+  raster effects, as data). The runtime creates the Blender scene's Remix lights, scopes the Remix options to
+  the map and puts them back, keeps the map's sky and haze against the companion's physical sky and weather
+  (`NativeLoaderSkyOwner`, `NativeLoaderRemixFogOverride`) but leaves the sun to a player who chose their own
+  sky, keeps Light2RTX from adding the map's `light_environment` as a second sun, and neutralises the vanilla
+  bake's `$color`/`$color2` on the replaced materials. The ToPBR glass and water conversions of the old
+  Cathedral runtime are left out (since R19 a map add-on cannot switch ToPBR on); RTX Water takes the pool.
+- **Performance**: no per-frame Lua (the old Cathedral runtime deep-copied its whole status in two `Think`
+  hooks: 0.6 ms and 750 KB of garbage per frame in LuaJIT); the PNG fallback atlases left out; the Theater's
+  189 BC7 roughness and metallic maps re-encoded as BC4 (Remix reads one channel; 236 MiB less on disk and in
+  video memory, every mip of 16 px or more within 36 dB PSNR of the BC7, 24 detail-heavy maps kept as BC7).
+  Cathedral of Mercury 3.38 GB to 2.21 GB, the Korolevskiy Theater 1.75 GB to 1.10 GB. On the PoC both
+  deployed with every light and option, and all 176 and 144 materials uploaded with hashes the mod replaces;
+  the Cathedral's nave ran at 68.9 fps (median 14.3 ms) with the remaster against 73.7 fps (13.7 ms) with the
+  RTX package alone, at 1280 x 720. Both public items were updated with these builds on 2026-11-09 (the
+  user's go-ahead): `gm-cathedral-of-mercury-rtx` `+2b73d976` and `gm-korolevskiy-theater-rtx` `+a377ad1c`.
+- `check_pack.py` checks a `mod.usda` that holds its material overrides itself (a converted companion's).
+
 ### Skills: the lestnicha3 remaster
 
 - **`remix-map-pbr` updated from the lestnicha3 remaster** (Workshop map 3756151906, the user's request of

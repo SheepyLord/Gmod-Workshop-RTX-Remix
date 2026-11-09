@@ -8,10 +8,10 @@ earlier were measured then; the source is named where it is not this skill.
 | What | Where |
 | --- | --- |
 | Game | `H:\SteamLibrary\steamapps\common\GarrysMod`, the user's field install (Steam-managed, the native loader's `bin\win64\winmm.dll` in it); rpai stores it in `%USERPROFILE%\.rpai\config.json` (`game_root`). `GarrysMod_PoC` beside it is the development copy. `GarrysMod_RTX_c` is no longer a classic install (the user replaced it on 2026-10-30): never write there; its `rtx-remix\mods\ai_pbr` no longer exists (checked 2026-11-08) |
-| Remix runtime | deployed by the loader from the RTX package: `native-loader\packages\rtx-remix-runtime\<version>_<generation>\runtime\d3d9.dll`; RTX sessions load it, and `bin\win64\d3d9.dll` (the user's own DXVK or ReShade) is never written (the repository's ADR 0028). `nlctl status <game root>` or `native-loader\logs\loader.log` names the deployed package version |
+| Remix runtime | deployed by the loader from the RTX package: `native-loader\packages\gmod-rtx-remix\<version>_<generation>\runtime\d3d9.dll`; RTX sessions load it, and `bin\win64\d3d9.dll` (the user's own DXVK or ReShade) is never written (the repository's ADR 0028). `nlctl status <game root>` or `native-loader\logs\loader.log` names the deployed package version |
 | Remix log | `rtx-remix\logs\remix-dxvk.log`. It is buffered: the file stays empty while the game runs and is written at exit (the repository's RESEARCH.md, after R21). Never wait on it during a session; judge in game |
 | Mods | `rtx-remix\mods\`. rpai writes only the mod it is given (`ai_pbr`, or `--mod ai_pbr_2048`). Workshop packs deploy `pbr_<name>`; the RTX fixes write `~gmod_topbr` |
-| Remix config | the RTX package's layers, copied to `native-loader\remix\*.conf` at each RTX start, then the user's own `rtx.conf`, `dxvk.conf` and `user.conf` in the game root as top layers. Read them freely; never edit `user.conf`; ask before editing the others |
+| Remix config | the RTX package's layers (`config\dxvk\*.conf` in its payload), copied to `native-loader\remix\dxvk-<n>.conf` at each RTX start and listed in `DXVK_CONFIG_FILE` before the user's own `dxvk.conf`; for an `rtx.*` option the first listed file that holds it wins, so they beat the root `dxvk.conf`. The user's `rtx.conf`, then `user.conf`, in the game root outrank every DXVK file. `garrysmod\data\native-loader\status.json` (`activation.layers`) lists what the latest RTX start read. Read them freely; never edit `user.conf`; ask before editing the others |
 | Screenshots | `garrysmod\screenshots\<map>NNNN.jpg` (console `jpeg`) |
 | Console log | `garrysmod\console.log` (only with `-condebug`). Read only your own session's part, from the byte offset where it ended before you started; never search the user's log |
 | rpai runtime | `%USERPROFILE%\.rpai`: `venv` (Python 3.12, torch 2.8 cu129), `models\pbrify`, `work\<model key>`, `sources\` (rebuilt PMX copies), `ue_maps\` (converted game maps), `compiled_models.json`, `config.json` |
@@ -55,19 +55,33 @@ earlier were measured then; the source is named where it is not this skill.
 ## Texture hashes
 
 - A Remix override is keyed by the texture hash: XXH64 of the top mip as uploaded, because the
-  package's classic layer sets `rtx.useObsoleteHashOnTextureUpload = True`.
+  package's classic layer sets `rtx.useObsoleteHashOnTextureUpload = True` (Remix's own default is
+  False: XXH3).
+- **Where that option comes from** (rpai decides it as the runtime does since 2026-11-09,
+  `remixhash.resolve_obsolete_hash_option`; the order is in `tool/rpai/remixhash.py.md`): the loader
+  lists the package's layers first in `DXVK_CONFIG_FILE` (`native-loader\remix\dxvk-1.conf` is the
+  classic defaults, line 139 sets it), and for an `rtx.*` option the first listed file that holds it
+  wins; the game root's `rtx.conf` and then `user.conf` outrank every DXVK file. The game root's
+  `rtx.conf` has not set it since 2026-10-29, and rpai used to read only that file: its predictions
+  were XXH3 from then on, and none of the 191 live hashes recorded until 2026-11-08 matched one.
+  `rpai hashes` prints the function and the file and line that decided it.
 - **Live hashes are authoritative.** The game reports them through `RemixMaterial` in client Lua, and
   only for textures it has drawn.
-- **Offline prediction** from the VTF is only a fallback for parts the game has not drawn yet:
-  - VTFs with an alpha flag upload as BGRA (5 of 5 matched; 7 of 7 on the Robin import, every upload);
-  - opaque VTFs upload as BGR0, but only 4 of 7 matched. Why (verified 2026-10-26 on `c6b48ed1`):
-    Source uploads them as X8R8G8B8 and writes only the B, G, R bytes; the pad byte kept whatever the
-    upload memory held before, and Remix hashed it too. So an opaque sheet hashed to BGR0 (fresh
-    memory), BGRF (pad 0xFF) or leftover bytes: the Robin import's `衣.png` hash `0xA669FF339EF9704B` is
-    exactly its BGR plus the alpha of `inmon2.png`, the sheet uploaded before it. The map sessions
-    record that runtime builds from 2026-10-26 20:20 on hash with the pad bits zeroed and that the
-    packaged runtime has that change (remix-map-pbr's `references/remix-hashes-and-layers.md`); not
-    re-measured on characters, and rpai's union of hashes (below) covers both;
+- **Offline prediction** from the VTF is the fallback for parts the game has not drawn yet, one
+  candidate per texture:
+  - VTFs with an alpha flag (Model Hotloader sets 0x2000) upload as BGRA;
+  - opaque VTFs upload as X8R8G8B8 and hash as BGR0: the packaged runtime hashes the pad byte as zero
+    (`GetDefinedTexelBits` in `d3d9_texture_hash.h`). Before that change (verified 2026-10-26 on
+    `c6b48ed1`), Source wrote only the B, G, R bytes, the pad byte kept whatever the upload memory held,
+    and Remix hashed it too: an opaque sheet hashed to BGR0, BGRF or leftover bytes (the Robin import's
+    `衣.png` hash `0xA669FF339EF9704B` is exactly its BGR plus the alpha of `inmon2.png`, the sheet
+    uploaded before it). The map sessions record runtime builds from 2026-10-26 20:20 on with the pad
+    bits zeroed (remix-map-pbr's `references/remix-hashes-and-layers.md`);
+  - **measured on characters 2026-11-09:** XXH64 with these layouts reproduces 251 of the 264 live
+    hashes rpai recorded whose VTF the field still has (Fu Xuan, HuoHuo and Firefly 51 of 51), and 3 of
+    3 ToPBR recorded. The 13 misses are opaque sheets recorded by 2026-10-26 under the old pad byte:
+    one single-colour sheet (`c2013648c2e9b597`) hashed three ways in those records and as its BGR0 in
+    every record since. No other layout or hash function matched any of them;
   - on Guinevere 8 of 13 predictions agreed overall; the first Firefly layer's predictions for its
     hidden bunny suit, ears, beads and heels were all wrong (found 2026-11-06);
   - compiled addons' DXT5 VTFs upload their blocks unchanged: XXH64 of the top mip's raw blocks

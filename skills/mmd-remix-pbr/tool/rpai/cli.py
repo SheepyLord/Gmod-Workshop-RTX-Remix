@@ -115,7 +115,7 @@ def locate_game(game_root: str | None):
 # ---------------------------------------------------------------- hashes
 
 def cmd_hashes(ctx: Context) -> dict:
-    from .remixhash import predict, read_obsolete_hash_option
+    from .remixhash import predict, resolve_obsolete_hash_option
 
     asset = ctx.asset
     live: dict[str, set[str]] = {}
@@ -143,7 +143,13 @@ def cmd_hashes(ctx: Context) -> dict:
         if not spawned:
             log("note: this model is not spawned in the current map; only predicted hashes are available")
 
-    obsolete = read_obsolete_hash_option(ctx.game_root)
+    # The hash function, decided as the runtime decides rtx.useObsoleteHashOnTextureUpload: from the
+    # loader's layers too, not only rtx.conf (the field's has not set it since 2026-10-29, so every
+    # prediction until 2026-11-09 was XXH3 and missed).
+    option = resolve_obsolete_hash_option(ctx.game_root)
+    obsolete = option.obsolete
+    function = {True: "XXH64", False: "XXH3", None: "XXH64 or XXH3 (both predicted)"}[obsolete]
+    log(f"hash    {function}: {option.source}")
     # A hash the game reported once stays valid while the texture (its key is
     # content-addressed) and the hash rule are unchanged. Without this, a run
     # with --no-live, or with parts hidden in game, replaced verified hashes
@@ -178,7 +184,8 @@ def cmd_hashes(ctx: Context) -> dict:
         }
         if kept:
             table[key]["earlier"] = True  # reported by the game in an earlier run
-    ctx.write("hashes.json", {"asset": asset.asset_id, "spawned": spawned, "obsolete_hash": obsolete, "textures": table})
+    ctx.write("hashes.json", {"asset": asset.asset_id, "spawned": spawned, "obsolete_hash": obsolete,
+                              "obsolete_hash_source": option.source, "textures": table})
 
     log(f"\n{'texture':<20} {'size':>9}  {'hash(es)':<40} source")
     for key, entry in table.items():

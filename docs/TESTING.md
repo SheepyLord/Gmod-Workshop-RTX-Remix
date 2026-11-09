@@ -2495,3 +2495,16 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   the package built here (ARC9's own scope picture first, then the patch's, a turn, the hip, the customization view,
   frame times, the view model's attachment points measured while it is drawn). Each run found something the
   previous one did not (the R25 report).
+
+## After R25: rpai's offline hash prediction (2026-11-09)
+
+- **Python:** [`test_remix_hash_prediction.py`](../tools/tests/test_remix_hash_prediction.py.md), 14 tests: the conf reader
+  against the runtime's parser, which file decides `rtx.useObsoleteHashOnTextureUpload` in fake game roots (the field's
+  layout, list order, empty values, sections, `user.conf`, the loader's journal, no loader, the 260-character limit, a base
+  game mod), and, with numpy and xxhash, two recorded live hashes reproduced from VTFs the test writes in Model
+  Hotloader's layout, one candidate per hash function, BGRA/BGR0 and DXT5 blocks. GitHub's runner installs only Pillow,
+  so the three hash tests skip there.
+- **Field cross-check** (read only, scratch scripts in the worktree's `out/rpai-hash`): the shipped `predict` with the
+  option resolved from the field install reproduces 251 of rpai's 264 recorded live hashes; the code before the fix
+  decided XXH3 there and predicted `0x2CFFA54B8D957648` / `0x61E339C534AD021B` for the sheet whose live hash is
+  `0x84168AFC8CF54915`. No game was started.

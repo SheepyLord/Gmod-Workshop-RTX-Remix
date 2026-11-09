@@ -28,6 +28,14 @@ texture's folder; a missing one logs a warning and keeps the class values) to `c
 maps, and folds their paths, sizes and times into the texture's signature, so changing one regenerates
 that sheet (2026-11-03). A sheet without them keeps its old signature.
 
+`hashes` decides the hash function as the runtime decides `rtx.useObsoleteHashOnTextureUpload`
+(`remixhash.resolve_obsolete_hash_option`: `user.conf`, the Remix Config files, then the DXVK Config files
+the native loader lists, the package's first; 2026-11-09, before which it read only `rtx.conf` and predicted
+XXH3), prints it with the file and line that decided it, and records both in `hashes.json` (`obsolete_hash`,
+`obsolete_hash_source`). It predicts one hash per texture, one per function when the option cannot be told
+offline. Earlier live hashes are reused only from a record with the same `obsolete_hash`, so the records
+written from 2026-10-29 to 2026-11-08 (`false`) are not reused once; the predictions now equal those hashes.
+
 The model key is `config.model_key`: a slug of the PMX's English name (else its name) and the asset
 id's first 8 digits. It is an internal identifier (work folder, preset file, layer file name), never a
 display name: it can carry tags such as `r18` that the naming rule keeps out of names.

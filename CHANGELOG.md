@@ -6,6 +6,23 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: rpai's offline hash prediction
+
+- **`rpai` predicts the hashes the game uses again** (`skills/mmd-remix-pbr`, `remixhash.py`). It took the
+  hash function from the game root's `rtx.conf` alone, but in the native loader's install
+  `rtx.useObsoleteHashOnTextureUpload = True` comes from the RTX package's classic defaults, which the loader
+  lists in `DXVK_CONFIG_FILE` (`native-loader\remix\dxvk-1.conf`): from 2026-10-29 every prediction was XXH3,
+  and none of the 191 live hashes recorded since matched one. It now decides the option as the runtime
+  does: `user.conf`, the Remix Config files, the DXVK Config files (the first listed file that holds it wins),
+  then Remix's default; the lists come from the loader's `status.json` of its latest RTX start, else the
+  deployed package in its journal, and each conf is read as the runtime's parser reads it. `hashes` prints
+  the function and the file and line that decided it. One hash is predicted per texture (BGRA with the
+  alpha flag, BGR0 without, raw blocks for DXT), both functions' only when the option cannot be told
+  offline: this reproduces 251 of the 264 live hashes rpai recorded whose VTF the field still has, and 3 of
+  3 ToPBR recorded; the 13 misses predate the runtime's zeroed pad byte. Tests:
+  [`test_remix_hash_prediction.py`](tools/tests/test_remix_hash_prediction.py.md) (14 tests; two recorded
+  live hashes reproduced from VTFs the test writes).
+
 ### R25
 
 - **ARC9's magnified scopes are path traced** ([ADR 0136](docs/decisions/0136-arc9-scopes-path-traced.md),

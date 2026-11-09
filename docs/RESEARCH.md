@@ -6203,3 +6203,52 @@ the RTX fixes' module source (`garrys-mod-rtx-remixed`, `fc478c0`), GMod's own L
 - **The runtime keeps a frame's first render-to-texture camera**: `RtCamera::update` returns early once
   `m_frameLastTouched` equals the frame (`rtx_camera.cpp:638-640`), so the first draw into any raytraced render target
   sets the camera for all of them that frame.
+
+## After R25: what decides `rtx.useObsoleteHashOnTextureUpload`, and rpai's predictions measured (2026-11-09)
+
+Read in the patched runtime tree the RTX package's build came from (`3cb32fb8`, the main checkout's
+`out\worktrees\r17\out\runtime-src`); the facts rpai's `remixhash.resolve_obsolete_hash_option` follows:
+
+- **Layers** (`src/dxvk/rtx_render/rtx_option_layer.cpp:710-790`, `RtxOptionLayer::initializeSystemLayers`): DXVK
+  Config (priority 1), one layer per file of `DXVK_CONFIG_FILE`, else `dxvk.conf`; Hardcoded EXE Config (2), config.cpp's
+  defaults for the executable; Remix Config (3), one per file of `DXVK_RTX_CONFIG_FILE`, else `rtx.conf`; baseGameMod
+  Remix Config (4), a mod's `rtx.conf` when `rtx.baseGameModRegex` and `rtx.baseGameModPathRegex` match the game's
+  command line (`rtx_mod_manager.cpp:116-129`); Environment Variable Overrides (5), Derived Settings (6), User Settings
+  (`user.conf`, 0xFFFFFFFE), Quality Presets (0xFFFFFFFF) (`rtx_option_constants.h:186-194`). Paths are relative to the
+  working folder, the game root.
+- **Within one list the first file wins.** `makeLayerName` (`rtx_option_layer.cpp:51-61`) names a list's layers
+  `00_<name>`, `01_<name>`, ... and the last one `<name>`; layer keys sort by priority, then by name
+  (`rtx_option_constants.h:159-164`); `RtxOptionImpl::resolveValue` (`rtx_option.cpp:1134-1206`) takes a bool, int,
+  string or full-strength float from the first layer in that order. So for an `rtx.*` option the first listed file that
+  holds it wins in `DXVK_RTX_CONFIG_FILE` too (ADR 0062 measured it for `DXVK_CONFIG_FILE`). A package's
+  `rtx_conf_layers`, which the loader lists before the user's `rtx.conf`, would therefore outrank the user's `rtx.conf`
+  for `rtx.*` options, not lie below it as PACKAGE_FORMAT.md says; the RTX package has none.
+- **`user.conf` applies every option it holds**: the User Settings layer's `UserSetting` category only counts and migrates
+  miscategorized options (`rtx_option_layer.cpp:325-409`).
+- **The option** (`rtx_options.h:1433`): no flags, no environment variable, default False. config.cpp's `g_appDefaults`
+  sets it True only for `\hl2\.exe$` (the Portal-derived block from `config.cpp:469`, line 852) and `\halo(ce)?\.exe$`
+  (`:371`), nothing for `gmod.exe`. `SetupForRtxFrom` passes it to `HashTextureData` (`d3d9_common_texture.cpp:761-768`),
+  which zeroes X8R8G8B8's pad byte (`GetDefinedTexelBits`, `src/d3d9/d3d9_texture_hash.h:33-42`, `:123-152`).
+- **How a conf line is read** (`config.cpp:994-1094`): keys of `[0-9A-Za-z._]`, case-sensitive; a `[name]` line makes
+  the following lines count only when name equals `env::getExeName()` (`util_env.cpp:130-138`, case-sensitive); the
+  value is the rest of the line after `=` and the blanks after it, every `"` dropped and trailing blanks kept (NV-DXVK
+  removed upstream DXVK's stop at the first blank); a later line wins (`insert_or_assign`, `:1168`); an empty value counts
+  as absent (`Config::findOption`, `config.h:326-329`). A bool is `true`, `false`, `1` or `0` in ASCII lower case
+  (`:1242-1256`, `:1788-1792`); anything else leaves the layer's fresh value, 0, so False (`rtx_option.cpp:45-77`,
+  `:410-414`, `:643-658`). A UTF-8 byte order mark makes the first line no key.
+- **Lists**: `env::getEnvVar` reads into a `MAX_PATH` buffer (`util_env.cpp:47-55`), so a list of 260 characters or more
+  reads as empty and the default file is used; `splitPaths` skips empty entries and trims nothing
+  (`rtx_option_layer.cpp:34-47`).
+
+**rpai's records against these rules** (`%USERPROFILE%\.rpai\work\*\hashes.json` and the field's Model Hotloader GMAs,
+read only): XXH64 of the top mip as BGRA (flag 0x2000), BGR0 (no flag) or raw DXT blocks reproduced 251 of the 264 live
+hashes whose VTF the field still has (113 alpha, 138 opaque), and 3 of the 3 ToPBR recorded
+(`rtx-remix\mods\~gmod_topbr\game_materials.registry`, the hash being each record's fifth field). The 13 misses are
+opaque sheets in records written by 2026-10-26 (Castorice, Cyrene, the first Firefly import, two `new_mmd_model`
+imports): the single-colour sheet `c2013648c2e9b597` (1024 x 1024) was recorded as `0x4C8AA9BB54D3A930`,
+`0x6CD8A24E251A7BE3` and `0x28AF73A540847E13` then, and as `0x84168AFC8CF54915`, its BGR0, in all 9 later records. No
+record matched XXH3 or the other byte layout. rpai's own predictions had matched 122 of 135 live hashes in records made
+with the option read as True, and 0 of 191 in those made from 2026-10-29 to 2026-11-08 with it read as False. The first
+Firefly import's predictions of 2026-10-26 for its hidden ears and heels (XXH64, BGR0) equal the live hashes its remake
+recorded on 2026-11-06. Ten work folders were not checked: their VTFs are in neither the field's Model Hotloader assets
+nor its texture cache (compiled addons such as Robin, Eldreda and Elyms, and removed imports).

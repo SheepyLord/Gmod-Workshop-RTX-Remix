@@ -667,20 +667,40 @@ Eldreda's layer owns them, and the Alt's preset leaves them alone. `skin.png` is
 
 ## How the hashes are found
 
-Remix hashes the top mip of each texture as uploaded (`D3D9CommonTexture::SetupForRtxFrom`):
-`XXH64(data, size, 0)` because `rtx.useObsoleteHashOnTextureUpload = True` in this install's `rtx.conf`.
-Measured on Hyacine against the live hashes:
+Remix hashes the top mip of each texture as uploaded (`D3D9CommonTexture::SetupForRtxFrom`,
+`HashTextureData`): `XXH64(data, size, 0)` when `rtx.useObsoleteHashOnTextureUpload` is True, as the RTX
+package's classic defaults set it, and `XXH3_64bits` otherwise (Remix's default). What goes up:
 
-* VTFs with an alpha flag upload as BGRA: 5 of 5 reproduced.
-* Opaque VTFs mostly upload as X8R8G8B8 with a zero pad byte (BGR0): 4 of 7 reproduced. The face
-  sheet uploaded as BGRA, and the body and hair sheets matched nothing.
+* VTFs with an alpha flag (Model Hotloader sets 0x2000) upload as A8R8G8B8: BGRA.
+* Opaque VTFs upload as X8R8G8B8, and this project's runtime hashes the pad byte as zero: BGR0.
+* Compiled addons' block-compressed VTFs upload their top mip's blocks unchanged.
 
-So **live hashes win**, and prediction only fills in textures that have not been drawn yet. Predicted
-textures get every plausible candidate hash; an override for a hash nothing uses does nothing.
+**The hash function** is decided the way the runtime decides the option (`remixhash.resolve_obsolete_hash_option`;
+the full order is in [remixhash.py.md](rpai/remixhash.py.md)): `user.conf`, then the Remix Config files
+(`rtx.conf`), then the DXVK Config files, where the native loader lists the package's layers
+(`native-loader\remix\dxvk-<n>.conf`, the classic defaults first), then the default False. Within a list
+the first file that holds it wins. The lists come from the loader's `status.json` of its latest RTX start,
+else from the deployed package in the loader's journal, else the root confs. `hashes` prints the
+function and the file and line that decided it, and `hashes.json` records them (`obsolete_hash`,
+`obsolete_hash_source`). Until 2026-11-09 rpai read only the game root's `rtx.conf`, which in the
+native loader's install no longer sets it: every prediction from 2026-10-29 on was XXH3, and none of the
+191 live hashes recorded since matched one (122 of 135 had before).
+
+Measured 2026-11-09 against every live hash the game reported that still has its VTF in the field: 251 of
+rpai's 264 records and 3 of ToPBR's 3 reproduced with the rule above. The 13 misses are opaque sheets
+recorded by 2026-10-26, before the runtime zeroed the pad byte: it then held leftover bytes, so one
+single-colour sheet hashed three ways in those records and one way in every record since. That is also
+why Hyacine's face sheet once matched BGRA and its body and hair sheets matched nothing (2026-10-24). So
+**one candidate per texture** is predicted when the hash function is known, and one per function when it
+is not (only when the confs name a base game mod, whose `rtx.conf` the game's command line picks).
+
+**Live hashes still win**, and prediction only fills in textures that have not been drawn yet.
 `hashes` prints which textures are predicted. Show those parts in game and re-run it to confirm them.
 A hash the game reported once is kept for later runs, shown as "live (earlier run)", including
 `--no-live` runs and parts hidden at the time. Texture keys are content hashes, so it stays valid
-until the texture or `rtx.useObsoleteHashOnTextureUpload` changes. Before this, a `--no-live` run
+until the texture or `rtx.useObsoleteHashOnTextureUpload` changes (as `hashes.json` records it in
+`obsolete_hash`: the records written from 2026-10-29 to 2026-11-08 say `false`, so the first run after the
+fix does not reuse their earlier live hashes; its predictions equal them). Before this, a `--no-live` run
 swapped 3 of Guinevere's verified hashes for wrong predictions, and their overrides silently
 stopped applying.
 

@@ -6,6 +6,20 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## Endfield NPC, weapon and item maps (after R25)
+
+Imported 2026-11-09 with `inputs.py --file`; every other indexed input is unchanged
+([ADR 0137](../../docs/decisions/0137-endfield-npc-weapon-and-item-maps.md)).
+
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,519,360 bytes, SHA-256 `82ceef69...e5c4c5`): the public base with
+  the eight patches of `tools/ci/pins.json`, the eighth being
+  [endfield-maps.patch](licenses/oversized-skinning/endfield-maps/endfield-maps.patch), built with
+  `tools/ci/build_modules.ps1 -Only fixes`. ToPBR's imported game maps recognise Arknights: Endfield's NPC, weapon
+  and item families (`T_npc_major_*`, `T_wpn_misc_*`, `T_item_widget_*`) by a `_P` under their `t_<word>_` prefix
+  and pair them by exact name; UV matching and the conversion are unchanged. The seventh patch, R23's
+  [wuwa-maps](licenses/oversized-skinning/wuwa-maps/README.md), gave Wuthering Waves characters their game's
+  roughness and metalness. [Source, measurements and rebuild](licenses/oversized-skinning/endfield-maps/README.md).
+
 ## R20-Q client-bootstrap refresh
 
 The stored `modules/gmsv_nlrtxclient_win64.dll` is rebuilt from the current

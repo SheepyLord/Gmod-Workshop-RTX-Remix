@@ -6252,3 +6252,34 @@ with the option read as True, and 0 of 191 in those made from 2026-10-29 to 2026
 Firefly import's predictions of 2026-10-26 for its hidden ears and heels (XXH64, BGR0) equal the live hashes its remake
 recorded on 2026-11-06. Ten work folders were not checked: their VTFs are in neither the field's Model Hotloader assets
 nor its texture cache (compiled addons such as Robin, Eldreda and Elyms, and removed imports).
+
+## After R25: Endfield's NPC, weapon and item map families (2026-11-09)
+
+- **What Endfield rips ship** (41 models packed offline in `H:\BACKUP_20260815\Modding\ipg\AKEFRTX`, `work\src\NN`):
+  beside `T_actor_<name>_<part>_<nn>` families, `T_npc_major_<name>_<part>_<nn>` (NPCs; the unmasked
+  Endministrators are NPC rigs: `T_npc_major_endminfunmasked_*`, `..._endminmunmasked_*`), `T_wpn_misc_<nnnn>[_<nn>]`
+  (weapons: `0016_01` Laevatain's sword, `0020` Da Pan's, `0057_01` Camille's second form) and
+  `T_item_widget_<name>_<nn>`. The same roles: `_D`, `_N` (`_HN` for hair), `_P`, `_E`; NPC faces and bodies have
+  only `_N`. The maps sit in `other tex\`, in a shader folder (`CamilleWingsShader_v1.0\tex\`) or beside the diffuse.
+- **Why they abstained**: `Discovery::Named` (`game_matching.inl:130` after the seventh patch) took the Endfield layout
+  only for `t_actor_` stems; anything else needed `_ID`/`_HM` (WuWa) or an `_MRA` under its `t_<word>_` prefix
+  (Silver), so `Named` returned nothing and the family was never a UV candidate. An NPC sheet then abstained for
+  "insufficient UV edge evidence" (a folder of NPC families only) or "conflicting exported family" (a `t_actor_`
+  family won by UV, and the base's own exported stem differs).
+- **Probe, production matcher before and after the eighth patch** (`out/efm/probe` in the `eager-torvalds-992bf3`
+  worktree, names shown and hidden): AKEF 480 rows, 17 changed (222 to 239 accepted); R12's retained corpus
+  (`out/archive-20261103/worktrees/r12-pbr/out/r12-b/corpus.txt`, 1,133 bases) 2,266 rows, 7 changed (535 to 542:
+  copies of DeathGirl, Laevatain, Nefarith and the unmasked female Endministrator in `E:\G\Upload`), 18 rows
+  "invalid model folder" in both runs (sources removed since R12); R23's WuWa corpus 98 rows, none changed. Every
+  change is an exact-stem pairing with the Endfield layout; no names-hidden row changed.
+- **Automatic equals manual**: the AKEF pack's SDK-free `GamePBR::Convert` build (`tools\game_maps\akef_game_maps.cpp`)
+  on the patched headers gives, for all 17 sheets, the content keys and the byte-identical DDS of the pack's manual
+  pass (`work\maps_manual.jsonl`, Endfield layout): content keys hash the map bytes, the base name and the layout,
+  not the maps' paths. 14 convert; the `_N`-only faces and bodies find no eligible texel (`Convert` returns nothing).
+- **Build**: `tools\ci\build_modules.ps1 -Only fixes` through `subst R:` gave the patched tree `source` `81da263b...`
+  and a 5,519,360-byte module, SHA-256 `82ceef697486e28b9d44dfa9de5b03861e473aeb1dc7c8e0485f3745e9c5e4c5`.
+- **ToPBR's `_E` maps do not glow**: `WriteOpaqueMaterial` (`usda.cpp:407-414` in the fixes) writes
+  `emissive_mask_texture` and `emissive_intensity` but no `enable_emission`, whose default is false
+  (`rtx_material_data.h:65` at the packaged fork commit `c6b48ed1`), and `rtx_materials.h:970` caches the intensity
+  as 0 while it is off. Runtime patch 0001 carries that line as context only; 0019 enables emission for eye whites
+  only.

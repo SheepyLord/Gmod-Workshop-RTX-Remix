@@ -2509,3 +2509,16 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   option resolved from the field install reproduces 251 of rpai's 264 recorded live hashes; the code before the fix
   decided XXH3 there and predicted `0x2CFFA54B8D957648` / `0x61E339C534AD021B` for the sheet whose live hash is
   `0x84168AFC8CF54915`. No game was started.
+
+## After R25: Endfield NPC, weapon and item maps (2026-11-09)
+
+- **Release gate:** [`test_endfield_maps.py`](../tools/tests/test_endfield_maps.py.md) compiles the fixes' matching
+  regression (`packages/fixes/licenses/oversized-skinning/endfield-maps/tests/game_matching_test.cpp`) with `/W4 /WX`
+  and assertions on the ToPBR headers the module is built from, assembled from the patches' complete files (autopbr,
+  wuwa-maps, endfield-maps), and checks those files are the patch applied. The new case fails on the matcher before
+  the patch, at its first assertion.
+- **Offline, real files:** the production matcher (`game_match_probe.cpp`) built before and after the patch, over the
+  AKEF pack's 41 Endfield models, R12's retained corpus of every game and R23's WuWa corpus: only Endfield NPC,
+  weapon and item sheets change, each to an exact-stem pairing. The AKEF pack's SDK-free converter on the patched
+  headers converts its 17 sheets automatically to the content keys and DDS bytes of its manual pass. No game was
+  started: matching and conversion are the production code, and nothing else in the module changed.

@@ -1,0 +1,99 @@
+diff --git a/source/material_pipeline/to_pbr/game_matching.inl b/source/material_pipeline/to_pbr/game_matching.inl
+index cdd4b0f7c2d7407f52a41c3a71e3b4aa226f7a3e..a8919c13926d4fbcff12de2a9ba4e3bf70152cb8 100644
+--- a/source/material_pipeline/to_pbr/game_matching.inl
++++ b/source/material_pipeline/to_pbr/game_matching.inl
+@@ -112,6 +112,18 @@ public:
+         }
+         return false;
+     }
++    // Endfield maps: Endfield also ships NPC, weapon and item families (T_npc_major_<x>, T_wpn_misc_<n>,
++    // T_item_widget_<x>) with the same _N/_HN, _P and _E maps as its t_actor_ ones. Outside t_actor_ the
++    // game is known the way Silver hair is, by a packed map under the same "t_<word>_" prefix: here a _P,
++    // the family's own or a sibling's (faces and bodies have only _N). Silver's _MRA evidence comes first.
++    bool EndfieldPrefix(const std::string& stem) const {
++        const auto split=stem.find('_',2);
++        if(stem.compare(0,2,"t_")!=0 || split==std::string::npos)return false;
++        const auto prefix=stem.substr(0,split+1);
++        for(const auto& p:files_)
++            if(p.first.size()>prefix.size()+2 && p.first.compare(0,prefix.size(),prefix)==0 && p.first.compare(p.first.size()-2,2,"_p")==0)return true;
++        return false;
++    }
+     fs::path Find(const std::string& stem,const fs::path& beside) const {
+         auto p=files_.find(stem);if(p==files_.end())return {};
+         std::vector<fs::path> candidates;
+@@ -136,8 +148,9 @@ public:
+             const auto prefix=split==std::string::npos?std::string{}:stem.substr(0,split+1);
+             if(stem.find("t_")==0 && !prefix.empty())for(const auto& p:files_)
+                 if(p.first.compare(0,prefix.size(),prefix)==0 && p.first.size()>4 && p.first.substr(p.first.size()-4)=="_mra")silver=true;
+-            if(!silver)return {};
+-            m.layout=Maps::Silver;
++            if(silver)m.layout=Maps::Silver;
++            else if(EndfieldPrefix(stem)){m.layout=Maps::Endfield;m.packed=Find(stem+"_p",beside);if(m.normal.empty())m.normal=Find(stem+"_hn",beside);}
++            else return {};
+         }
+         m.recognized=!m.normal.empty() || !m.packed.empty();return m;
+     }
+@@ -156,6 +169,9 @@ public:
+                 // exact name or by hand, never by UV evidence alone: that is outside R12's calibration,
+                 // and a belly decal matched Chisa's Alpha atlas at 0.386.
+                 if(m.layout==Maps::Wuwa && Find(stem.first+"_id",root_).empty() && Find(stem.first+"_hm",root_).empty())continue;
++                // Endfield maps: so does an Endfield family outside t_actor_ (NPCs, weapons, items): R12
++                // calibrated UV matching on t_actor_ families, and a _P under a t_ prefix is weaker evidence.
++                if(m.layout==Maps::Endfield && stem.first.compare(0,8,"t_actor_")!=0)continue;
+                 Family family{stem.first,m,{}};
+                 for(const auto& path:{m.normal,m.packed})if(!path.empty())family.features.push_back({path,Feature(path)});
+                 families_.push_back(std::move(family));
+diff --git a/tests/game_matching_test.cpp b/tests/game_matching_test.cpp
+index 12868d026fa12c0f23e9d8679a35afa5f878d032..f81371e21317b3592cf09614f454fe84181ec8ea 100644
+--- a/tests/game_matching_test.cpp
++++ b/tests/game_matching_test.cpp
+@@ -126,6 +126,49 @@ int wmain(int argc,wchar_t** argv) {
+     GamePBR::DiscoveryCache reserveCache;
+     assert(!GamePBR::Discover(reserve,"hair.bmp",false,{},&reserveCache).recognized);
+     assert(!GamePBR::Discover(reserve,"base93.bmp",true,{},&reserveCache).recognized);
++    // Endfield maps: NPC, weapon and item families outside t_actor_ pair by their exact stem with the
++    // Endfield layout, known by a _P under their t_<word>_ prefix (their own, or a sibling's for the
++    // _N-only faces and bodies). They are never UV candidates; t_actor_ families still are; _MRA wins.
++    const auto endfield=root/"endfield";const auto other=endfield/"other tex";fs::create_directories(other);
++    BMP(endfield/"T_npc_major_test_cloth_01_D.bmp",0,true);BMP(other/"T_npc_major_test_cloth_01_N.bmp",0);
++    BMP(other/"T_npc_major_test_cloth_01_P.bmp",0);BMP(other/"T_npc_major_test_cloth_01_E.bmp",0);
++    BMP(endfield/"T_npc_major_test_hair_01_D.bmp",1,true);BMP(other/"T_npc_major_test_hair_01_HN.bmp",1);
++    BMP(other/"T_npc_major_test_hair_01_P.bmp",1);
++    BMP(endfield/"T_npc_major_test_body_01_D.bmp",1,true);BMP(other/"T_npc_major_test_body_01_N.bmp",1);
++    BMP(endfield/"T_wpn_misc_0001_01_D.bmp",1,true);BMP(other/"T_wpn_misc_0001_01_N.bmp",1);BMP(other/"T_wpn_misc_0001_01_P.bmp",1);
++    BMP(endfield/"T_prop_crate_01_D.bmp",0,true);BMP(other/"T_prop_crate_01_N.bmp",0);
++    BMP(endfield/"renamed.bmp",0,true);
++    GamePBR::DiscoveryCache endfieldCache;
++    auto endfieldMaps=[&](const char* base,bool hidden=false){
++        d={};return GamePBR::Discover(endfield,base,hidden,[&](const auto& v){if(!v.base.empty())d=v;},&endfieldCache);
++    };
++    const auto cloth=endfieldMaps("T_npc_major_test_cloth_01_D.bmp");
++    assert(cloth.recognized && cloth.layout==GamePBR::Maps::Endfield && d.reason=="exact stem" && d.family=="t_npc_major_test_cloth_01");
++    assert(cloth.normal.filename()=="T_npc_major_test_cloth_01_N.bmp" && cloth.packed.filename()=="T_npc_major_test_cloth_01_P.bmp" &&
++           cloth.emission.filename()=="T_npc_major_test_cloth_01_E.bmp");
++    const auto hairMaps=endfieldMaps("T_npc_major_test_hair_01_D.bmp");
++    assert(hairMaps.recognized && hairMaps.layout==GamePBR::Maps::Endfield && hairMaps.normal.filename()=="T_npc_major_test_hair_01_HN.bmp" &&
++           hairMaps.packed.filename()=="T_npc_major_test_hair_01_P.bmp" && hairMaps.emission.empty());
++    const auto body=endfieldMaps("T_npc_major_test_body_01_D.bmp");
++    assert(body.recognized && body.layout==GamePBR::Maps::Endfield && d.reason=="exact stem" && !body.normal.empty() && body.packed.empty());
++    const auto weapon=endfieldMaps("T_wpn_misc_0001_01_D.bmp");
++    assert(weapon.recognized && weapon.layout==GamePBR::Maps::Endfield && weapon.packed.filename()=="T_wpn_misc_0001_01_P.bmp");
++    // No _P under t_prop_: a plain T_*_D/T_*_N pair is no game family, as before.
++    assert(!endfieldMaps("T_prop_crate_01_D.bmp").recognized);
++    // The cloth's own UV layout, renamed: no candidate, with names or without.
++    assert(!endfieldMaps("renamed.bmp").recognized && d.family.empty() && d.reason=="insufficient UV edge evidence");
++    assert(!endfieldMaps("renamed.bmp",true).recognized && d.family.empty() && d.reason=="insufficient UV edge evidence");
++    const auto actor=root/"endfield-actor";fs::create_directory(actor);
++    BMP(actor/"T_actor_test_cloth_01_N.bmp",0);BMP(actor/"T_actor_test_cloth_01_P.bmp",0);
++    BMP(actor/"T_actor_test_hair_01_HN.bmp",1);BMP(actor/"T_actor_test_hair_01_P.bmp",1);BMP(actor/"renamed.bmp",0,true);
++    const auto actorMaps=GamePBR::Discover(actor,"renamed.bmp",true,[&](const auto& v){if(!v.base.empty())d=v;});
++    assert(actorMaps.recognized && actorMaps.layout==GamePBR::Maps::Endfield && d.family=="t_actor_test_cloth_01" && d.margin>.12);
++    const auto mra=root/"endfield-silver";fs::create_directory(mra);
++    BMP(mra/"T_npc_other_cloth_01_MRA.bmp",0);BMP(mra/"T_npc_other_hair_01_D.bmp",1,true);
++    BMP(mra/"T_npc_other_hair_01_N.bmp",1);BMP(mra/"T_npc_other_hair_01_P.bmp",1);
++    const auto silverFirst=GamePBR::Discover(mra,"T_npc_other_hair_01_D.bmp");
++    assert(silverFirst.recognized && silverFirst.layout==GamePBR::Maps::Silver && silverFirst.packed.empty());
++    std::cout<<"PASS Endfield maps: NPC/weapon/item families by exact stem (own or sibling _P), no UV candidates, t_actor_ unchanged, _MRA first\n";
+     // Drawn-hash evidence precedes material loading, including invalid/over-budget jobs.
+     int loads=0;auto load=[&](){++loads;return "mmd/t/0123456789abcdef";};
+     assert(GameRegistry::DrawnIdentity({},load).empty());assert(GameRegistry::DrawnIdentity({0},load).empty());

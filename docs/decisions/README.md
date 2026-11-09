@@ -202,3 +202,7 @@ Each with the reason it lost.
   a frame; the reticle over it after upscaling; ARC9's screen copies and 2D draws before its view model skipped and the
   screen read right after it, so the gun is path traced and ARC9's HUD stays rasterized; ARC9's sight blur, which drew
   a black copy of the scope into the image, skipped under RTX.
+- [0137: Endfield's NPC, weapon and item families in imported game PBR](0137-endfield-npc-weapon-and-item-maps.md)
+  (after R25; extends 0091 and 0131): outside `t_actor_`, a `t_` family is Endfield when a `_P` lies under its
+  `t_<word>_` prefix (its own, or a sibling's for faces and bodies), after every earlier rule; such a family pairs by
+  exact name or by hand, never by UV alone; the conversion is unchanged. The fixes' eighth native patch.

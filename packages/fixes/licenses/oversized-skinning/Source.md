@@ -1,5 +1,9 @@
 # Oversized mesh hardware-skinning source
 
+R23 adds the seventh native patch, [Wuthering Waves maps](wuwa-maps/README.md), and the eighth (after R25)
+gives [Endfield's NPC, weapon and item families](endfield-maps/README.md) imported game PBR; each folder holds
+its complete changed files, and `tools/ci/pins.json` records the patched native tree.
+
 R20-E adds the sixth native patch, [live upscaling readback](upscaling-state/README.md), after the
 R19 inputs below. Its complete changed files, bounded wire reader and SDK-free test are in that
 folder; `tools/ci/pins.json` records the patched native tree. It reads runtime patch 0040 and returns

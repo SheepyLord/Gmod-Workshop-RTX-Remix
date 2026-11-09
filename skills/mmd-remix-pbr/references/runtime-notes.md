@@ -144,7 +144,9 @@ fixes convert them on their own (R11-R13, R23; ADRs 0091, 0093, 0095, 0098):
   follow `aggressive.json`. Skin, face and eye texels stay protected, and faces get no generated
   material (so the companion's eye-white aliases keep working).
 - **Pairing**: exact game names first (a Wuthering Waves family is also known by its character
-  prefix `t_<...>md<5 digits>` when another family of that character has an `_ID` or `_HM` map, R23);
+  prefix `t_<...>md<5 digits>` when another family of that character has an `_ID` or `_HM` map, R23;
+  an Endfield family outside `T_actor_*`, such as `T_npc_major_*`, `T_wpn_misc_*` or `T_item_widget_*`,
+  by a `_P` under its `t_<word>_` prefix, ADR 0137; both kinds pair only by exact name or by hand);
   a renamed base (衣服.png) pairs by its UV layout only with clear evidence (correlation 0.28, score
   0.36, margin 0.12) and otherwise abstains (R12-B: 146 agree, 0 wrong, 113 abstain on 259 pairs).
 - **Source folder**: the import's source path comes from `garrysmod\data\mmd_hotloader\sources.local.json`.

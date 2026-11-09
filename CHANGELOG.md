@@ -6,6 +6,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### After R25: Endfield NPC, weapon and item maps
+
+- **Imported Arknights: Endfield NPCs, weapons and items get their game PBR automatically**
+  ([ADR 0137](docs/decisions/0137-endfield-npc-weapon-and-item-maps.md)): ToPBR's matcher took the Endfield layout
+  only for `T_actor_*` sheets, so `T_npc_major_*` (NPCs, the unmasked Endministrators), `T_wpn_misc_*` (Laevatain's
+  sword and other weapons) and `T_item_widget_*` sheets, with the same `_N`/`_HN`, `_P` and `_E` maps, got none
+  unless the player chose their maps in the Imported game PBR panel. Outside `t_actor_` a `t_` family is now Endfield
+  when a `_P` map lies under its `t_<word>_` prefix (its own, or a sibling's for faces and bodies, which ship only
+  `_N`), after the Silver, `t_actor_` and WuWa rules; it pairs by its exact name or by hand, never by UV evidence
+  alone, so R12's UV matching is unchanged. Measured on 41 Endfield models: the 17 sheets that abstained with maps
+  pair by name and convert to the bytes of the same maps chosen by hand; across R12's corpus of every game nothing
+  else changes. The conversion recipe is unchanged, so no cached map converts again. The fixes' eighth native patch
+  (`packages/fixes/licenses/oversized-skinning/endfield-maps`), `gmcl_RTXFixesBinary_win64.dll` rebuilt with
+  `tools/ci/build_modules.ps1`; the regression runs in the Release gate
+  ([`test_endfield_maps.py`](tools/tests/test_endfield_maps.py.md)).
+
 ### Skills: rpai's offline hash prediction
 
 - **`rpai` predicts the hashes the game uses again** (`skills/mmd-remix-pbr`, `remixhash.py`). It took the

@@ -588,14 +588,14 @@
    "imported": "2026-10-31T07:39:14+00:00"
   },
   "modules/gmcl_RTXFixesBinary_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r23\\out\\ci\\built\\fixes\\modules\\gmcl_RTXFixesBinary_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\.claude\\worktrees\\eager-torvalds-992bf3\\out\\ci\\built\\fixes\\modules\\gmcl_RTXFixesBinary_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r23",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/.claude/worktrees/eager-torvalds-992bf3",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "6ae29f434951552f6262e6ecd9fb8ca965820d18",
+    "commit": "41fa76b48da071a04b9d116d97e09e44b53ded6a",
     "dirty": false
    },
-   "imported": "2026-11-08T11:36:59+00:00"
+   "imported": "2026-11-09T07:52:15+00:00"
   },
   "garrysmod/garrysmod/addons/Glass-Rewrite-Remix/lua/autorun/server/glass_debris.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r5-glass\\out\\tmp\\glass-stage\\Glass-Rewrite-Remix\\lua\\autorun\\server\\glass_debris.lua",
@@ -3914,12 +3914,12 @@
    "stored_sha256": "9e6ebf35e4c1532ad09d33f873bee337ff797be7ff0396dec6ed3c2b226a5fa3"
   },
   "modules/gmcl_RTXFixesBinary_win64.dll": {
-   "size": 5518336,
-   "sha256": "45fc78ef3dc792beb85b714a584bcb2c2c2c71182f2a8597d61d6cc686aba77c",
-   "mtime_ns": 1794137784310701100,
+   "size": 5519360,
+   "sha256": "82ceef697486e28b9d44dfa9de5b03861e473aeb1dc7c8e0485f3745e9c5e4c5",
+   "mtime_ns": 1794210707868065500,
    "stored": "xz",
-   "stored_size": 1067616,
-   "stored_sha256": "d8c812ecd2033ed5b59877fc73d7bb0d446107cb42db223d845b96801f22fcb6"
+   "stored_size": 1068492,
+   "stored_sha256": "fecb1e693710987607a122b78325b097e2e8cabb26034d36c6c57367ccf448fe"
   },
   "modules/gmcl_rtxwater_win64.dll": {
    "size": 281088,

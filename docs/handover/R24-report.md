@@ -174,6 +174,15 @@ providers and the companion's language copy. The first run of the gate found the
 short of the round's four new Lua files (fixed, above). The packaged build was checked in the PoC after every change
 that reached the game (`verify 2`, `verify 3`, `notice ja`).
 
+## Published (2026-11-09 UTC)
+
+`main` was pushed at `8df9539` (three Git LFS objects: the engine guard's two modules and the RTX client module). The
+merge's hook built the package here and uploaded it to item 3829070317 as **0.0.0-dev.20261109012903+a4e42ab9**
+(2,182,350,494 bytes, SHA-256 `991204760b9e9c8e95da5df567e409540400abf885dc0c6a02e4f1fe15a34d6f`); Steam's public
+record shows that size, updated 01:29:36 UTC. The push's hook found the same inputs and uploaded nothing. No GitHub
+Action was started: this session's one was R23's package run. The notice, the ARC9 fixes and the load overlay reach
+players with the Workshop item; the loader is unchanged (0.16.0).
+
 ## Not changed
 
 - The loader: no change. The unreleased R23 branch `r23-loader-mp-notice` is superseded (the notice is the package's

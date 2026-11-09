@@ -150,9 +150,13 @@ tests and 752 Python tests, among them [`test_arc9_scope.py`](../../tools/tests/
 [`test_arc9_patch.py`](../../tools/tests/test_arc9_patch.py.md). The packaged build was checked in the PoC after the
 last change that reached the game (`verify -f`, above); each earlier PoC run is in the list of findings.
 
-## Published
+## Published (2026-11-09 UTC)
 
-Recorded once the merge's hook has uploaded the package (the commit after this round's).
+`main` was pushed at `eba469e`, rebased on the skills commits that had landed meanwhile. The merge's hook built the
+package here and uploaded it to item 3829070317 as **0.0.0-dev.20261109063824+42d02ecc** (2,182,395,122 bytes, SHA-256
+`e78660144190ebec8e5b605e760c1e995b13045dfba3a4eb512b97abac290639`); Steam's public record shows that size, updated
+06:38:57 UTC. The push's hook found the same inputs and uploaded nothing. No GitHub Action was started. The drag fix
+and the ARC9 patch reach players with the Workshop item; the loader is unchanged (0.16.0).
 
 ## Not changed
 

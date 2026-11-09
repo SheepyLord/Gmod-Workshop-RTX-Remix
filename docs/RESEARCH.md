@@ -6095,3 +6095,111 @@ Korolevskiy Theater's PBR resources (3803057911, for 3798883815), made in Septem
   153 then, as it did 20 more times on this machine in the three days before, during other sessions' work.
 - **Load and deploy.** The loader deployed both packages (1,205 changes, 3.3 GB) in 19.3 s at the PoC's first
   start with them; a new add-on build with unchanged textures was 4 changes in 1.1 s.
+
+## R25: ARC9's scopes and the RTX runtime's raytraced render targets, a stuck spawn-menu drag (2026-11-09)
+
+Read in the sources: ARC9 base from Workshop item 2910505837 (`gmpublisher.gma`, extracted to `out/r25/arc9base` in the
+`r25` worktree), the RTX runtime fork `sambow23/dxvk-remix-gmod` at `c6b48ed1` (the commit `runtime/base.json` builds),
+the RTX fixes' module source (`garrys-mod-rtx-remixed`, `fc478c0`), GMod's own Lua in the PoC install.
+
+- **What ends path tracing for a frame**: `D3D9Rtx::makeDrawCallType` (`src/d3d9/d3d9_rtx.cpp`) answers
+  "rasterized, inject RTX" for the first draw `isRenderingUI()` takes for UI: a fixed-function draw with an
+  orthographic projection (`projection[3][3] == 1`) and depth writes off, or a draw with a texture of
+  `rtx.uiTextures` bound. `internalPrepareDraw` then injects the path-traced image and preserves (rasterizes) or, with
+  `rtx.skipDrawCallsPostRTXInjection`, drops every later draw of the frame, unless it targets a raytraced render target.
+  A full-screen `render.DrawScreenQuad` drawn before the view model therefore leaves the view model rasterized over
+  the path-traced image for that frame.
+- **A read of the back buffer ends path tracing too**: the fork's `D3D9DeviceEx::StretchRect` and `GetRenderTargetData`
+  (`src/d3d9/d3d9_device.cpp`, "Flush RTX compositing before reading the back buffer", added for Source's screenshots)
+  call `D3D9Rtx::FlushCompositing` when the source is the implicit swap chain's back buffer: it injects the path-traced
+  image there and sets `m_rtxInjectTriggered`, so `internalPrepareDraw` rasterizes (or drops) every later draw of the
+  frame except draws into a raytraced render target. Source's `render.UpdateScreenEffectTexture`,
+  `UpdatePowerOfTwoTexture`, `UpdateRefractTexture` and `CopyRenderTargetToTexture` with the screen bound are such
+  copies. ARC9's `PreDrawViewModel` (`cl_vm.lua:240-243`) runs `render.UpdateScreenEffectTexture()` and
+  `render.CopyTexture(render.GetScreenEffectTexture(), rt_prevm)` in every frame while `arc9_fx_adsblur_bleeding` is on
+  (default 1; `arc9_prevm` feeds only `effects/arc9/vm_dof2`), and `DrawCheapBlur` (`:49-77`) another
+  `UpdateScreenEffectTexture` plus GMod's `DrawBokehDOF`: in the PoC the ARC9 view model and hands were rasterized in
+  every frame (Remix's albedo debug view showed them shaded, the stock SMG flat) with no 2D draw before them. Its
+  `DrawTranslucentPass` (`cl_drawmodel.lua:246-272`) runs `render.UpdatePowerOfTwoTexture()` before the first
+  translucent view model part; `DoHolosight` (`cl_holosight.lua:18`) an `UpdateScreenEffectTexture` that nothing reads,
+  from `PostDrawViewModel`, which the base gamemode calls after the hands (`GM:PostDrawViewModel` draws them first).
+- **Where the path-traced image goes**: `triggerInjectRTX` (a UI draw) passes no image, and `RtxContext::injectRTX`
+  then composites into the bound color target (`m_state.om.renderTargets.color[0]`, `rtx_context.cpp:618`).
+  `makeDrawCallType` takes UI only on a "primary" target, which `isRenderTargetPrimary` (`d3d9_rtx_utils.cpp:35`) decides
+  by size alone (the back buffer's width and height): a 2D draw into a screen-sized target of an add-on, as the first
+  2D draw of a frame, puts the frame's image into that target. ARC9's own `DrawRTReticle` pushes `arc9_optic_main`
+  (full frame) and draws 2D there: with its screen copy before the gun skipped, the PoC's screen stayed black while
+  aiming (HUD only, the albedo view as well) until a read of the screen came first.
+- **GMod names no `IMAGE_FORMAT_BGRX8888`**: the global is nil (GMod exports `IMAGE_FORMAT_DEFAULT`, `RGBA8888`,
+  `ABGR8888`, `RGB888`, `BGR888`, `RGB565`, `ARGB8888`, `BGRA8888`, `RGBA16161616` and `RGBA16161616F`); a
+  `GetRenderTargetEx` call with it passes nil as the format, which the companion's render guard answers with its inert
+  1 x 1 target ("unreviewed RTX color format"). Source's value, 16, is in the guard's reviewed list.
+- **Raytraced render targets** (`rtx.raytracedRenderTarget.enable`, default true; the package's defaults list one hash,
+  `0x6FFDC1AC626F4AA6`, in `rtx.raytracedRenderTargetTextures`): a target is known by its descriptor hash,
+  `D3D9_COMMON_TEXTURE_DESC::CalculateHash()` = XXH3-64 over the 44-byte description (`Width, Height, Depth, ArraySize,
+  MipLevels, Usage, Format, Pool, MultiSample, MultisampleQuality` as 32-bit values, then the bools `Discard,
+  IsBackBuffer, IsAttachmentOnly` and a zero byte; `d3d9_common_texture.h`); `dxvk_GetTextureHash` (the API) returns
+  the counter-based image hash instead, so the descriptor hash cannot be read from Lua. A draw into such a target is
+  path traced with `CameraType::RenderToTexture` (its camera taken from that draw's matrices,
+  `CameraManager::processCameraData`), unless the sky test calls it sky: for such draws `checkSkyAutoDetect` sees no
+  camera positions, so with `rtx.skyAutoDetect = 2` (the package's) a draw without a depth test counts as sky and is
+  dropped. A draw that samples such a target gets `OPAQUE_SURFACE_MATERIAL_FLAG_IS_RAYTRACED_RENDER_TARGET`; a primary
+  ray that hits it continues (PSR) as `rayCreateRenderTarget(renderTargetCamera, uv, ray)` (`ray.slangh`): from the
+  camera's position, through `frac(uv)` of its frustum. The continued ray keeps the hit surface's object mask, so from a
+  view model surface it can meet view model geometry (`primaryRayMaskToObjectMask`, `geometry_resolver.slangh`).
+- **Hash sets set through `RemixConfig` add**: the fixes' `RemixConfig.SetConfigVariable` calls `remixapi_SetConfigVariable`,
+  which reads the value into the runtime's user layer (`readOption(..., getUserLayer())`); for a hash set `readValue`
+  calls `HashSetLayer::parseFromStrings`, which inserts into the layer's positives (a `-` prefix: negatives) without
+  clearing, and the layers merge. `RemixConfig.GetConfigVariable` reads `rtx.conf` on disk, not the live value. The
+  fixes' Lua has no binding for `AddTextureHash` on this option (`RemixMaterial.SetHashCategory` maps fixed categories).
+- **ARC9's magnified ("new") scopes** (`ARC9_ENABLE_NEWSCOPES_MEOW`): `cl_rendertarget.lua`'s `PreRender` hook calls
+  `RenderRT(false, GetRTScopeMagnification())` while the active sight's scope model has `RTScopeDrawingRN`;
+  `RenderRTExpensive` pushes `arc9_optic_main` (full frame, RGB888, shared depth) and `render.RenderView`s a square of
+  the screen's height in the middle (`x = scrw/2 - scrh/2`, `w = h = scrh`, `fov = ScaleFOVByWidthRatio(viewfov, 0.75)
+  / magnification`, `aspectratio = 1`, `znear = 8`), then FXAA. Its `RenderScreenspaceEffects` hook (after the view
+  models) calls `DrawRTReticle` every frame: the reticle as a square of `2 * (4 * RTScopeReticleScale *
+  ScopeScreenRatio - (scrw/scrh - 16/9))` units 1.5 units ahead of a point that moves from the scope's front to the
+  eye's line (`math.ease.InBack` of the sight delta), seen with `cam.Start3D(nil, nil, 90, ...)`, shadows and 2D black
+  bars into `arc9_optic_main`, a copy to `arc9_optic_shaderpass` and the lens shader (`arc9/lense_shader`) over it; then
+  `effects/arc9/rt` (a `Refract` material: it samples its texture at the pixel's screen position) gets
+  `arc9_optic_shaderpass`, and `SetSubMaterial(RTScopeSubmatIndex, "effects/arc9/rt")` dresses the lens. Cheap scopes
+  (`arc9_cheapscopes`, collimators, or low zoom without `arc9_fx_rtvm`) copy the screen instead and zoom the whole view
+  (`GetMagnification`). Under RTX the guard refuses the FXAA and lens shader draws (the user's `cl_pipscope_new.lua:387,
+  388, 689, 690`).
+- **ARC9's sight blur draws into the image**: with `arc9_fx_adsblur_new` (default 1) and an RT scope as the active
+  sight, `PostDrawViewModel` calls `RenderDoFMask(false)`, which pushes `arc9_optic_dof_mask2` (`IMAGE_FORMAT_I8`, which
+  the guard replaces with its inert target and refuses to bind: the user's `cl_vm.lua:479`), refuses `ClearDepth`
+  (`:483`), and then draws the scope model with `effects/arc9/blackunlit` and its glass index with `whiteunlit`. The
+  guard suppresses screen-space draws inside a refused scope, not `Entity:DrawModel`, so that copy reached the image
+  every frame (R24 read the guard's lines as harmless). ARC9's other blurs (`arc9_fx_rtblur`, `_reloadblur`,
+  `_animblur`, `_inspectblur`, `arc9_cust_blur`; all default 0) run `DrawCheapBlur` in `PreDrawViewModel`: a
+  `render.DrawScreenQuad` of `arc9_mat_halfblur` into the image just before the view model.
+- **GMod's drag and drop never ends a drag whose release is lost**: `lua/includes/extensions/client/panel/dragdrop.lua`
+  ends a drag in `DragMouseRelease` on the dragged panel (which `MouseCapture`s the mouse); `dragndrop.Think`'s "no mouse
+  button is down, so force the drop" block is commented out, and the `DrawOverlay` hook `DragNDropPaint` paints every
+  dragged panel at `gui.MouseX() - x + 8` each frame. A `ContentIcon` (128 pixels, the NPC-weapon badge at its top right
+  for weapons) dragged while the spawn menu closes stays painted; the next `DragMousePress` on any draggable panel stops
+  it.
+- **Measured in the PoC** (`out/r25/qa-vm-c` in the `r25` worktree; RTX, 1280 x 720, DirectX level 80, the FA:S M249
+  with the ELCAN, the game's field of view 75): literal render targets of 1016 x 508 and 1000 x 1000 keep their size
+  (no power-of-two rounding). The descriptor hash formula above is right: with format 16 (`D3DFMT_X8R8G8B8`), the hashes
+  computed for 1024 x 512, 1016 x 508, 1000 x 1000 and 2048 x 128 made Remix's debug view 821 flag the lens copy drawn
+  with each target; for targets made the same way at 512 x 1024, 512 x 2048 and 256 x 1024, hashes computed as if they
+  were `A8R8G8B8`, `R8G8B8` or `D3DUSAGE_AUTOGENMIPMAP` did not. ARC9's `GetRTScopeMagnification` (2.8 for the ELCAN)
+  gave a scope field of view of 26.9 degrees (`ScaleFOVByWidthRatio` of the view's 91.3 by 0.75 is 75.0, divided by
+  it). Mean frame times over 3 s (other work on the machine): 12.0 ms at the hip, 11.3 ms through the scope with the
+  patch's path-traced picture, 19.5 ms with ARC9's own second view of the world. ARC9's HUD draws its hints ("Toggle
+  Attachments", "Customize", "Toggle Safe") and an ammo card in perspective in `HUDPaint`; with nothing ending path
+  tracing before it, the runtime traced them as lit objects (a white card in front of the gun in the albedo view).
+- **ARC9's view model is drawn twice a frame** (its opaque and its translucent pass, each with `PreDrawViewModel`,
+  `ViewModelDrawn` and `PostDrawViewModel`): the patch's lens count ran at twice its reticle count, and a screen read in
+  the first `PostDrawViewModel` rasterized the second draw (the scope shaded, the lens copy black, as Remix's debug views
+  23 and 821 showed). GMod's `PreDrawEffects` runs once after all view models. The FA:S M249 view model's render bounds
+  are -32..171 x -162..131 x -508..32 (a whole animation's reach, not the gun), and outside rendering its `GetPos` is
+  hundreds of units from the eye (757 in the PoC): measure it while it is drawn. Inside each pass ARC9 draws its
+  holosights from `PostDrawViewModel` (`DoHolosight`, `cl_holosight.lua:18`, reads the screen first) and its lights' and
+  lasers' lens flares from `ViewModelDrawn` (`DrawLightFlare`, `cl_light.lua:293-300`: `cam.Start2D` and
+  `surface.DrawTexturedRect` when the light faces the eye, always for `Flashlight360`).
+- **The runtime keeps a frame's first render-to-texture camera**: `RtCamera::update` returns early once
+  `m_frameLastTouched` equals the frame (`rtx_camera.cpp:638-640`), so the first draw into any raytraced render target
+  sets the camera for all of them that frame.

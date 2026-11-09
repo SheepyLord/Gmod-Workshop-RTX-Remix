@@ -473,6 +473,7 @@ lua/autorun/client/cl_remix_portals.lua
 lua/autorun/client/cl_render_core.lua
 lua/autorun/client/hl2rtx_model_compat_viewmodels.lua
 lua/autorun/client/nativeloader.lua
+lua/autorun/client/nativeloader_dragdrop.lua
 lua/autorun/client/nativeloader_eye_whites.lua
 lua/autorun/client/nativeloader_guide.lua
 lua/autorun/client/nativeloader_imported_normals.lua

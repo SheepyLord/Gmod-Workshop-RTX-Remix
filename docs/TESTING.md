@@ -2477,3 +2477,21 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   75, 120 and 200 s: the 340 s wait was the driver's), `files` (Lua's file and material calls timed per calling
   script at start, RTX and Remix off, every subscription mounted).
 
+## R25: a stuck spawn-menu drag, ARC9's path-traced scopes and gun (2026-11-09)
+
+- **Lua under LuaJIT:** [`test_stuck_drag.py`](../tools/tests/test_stuck_drag.py.md) (the companion's end to a drag GMod
+  never ends: ten scenarios, a hidden cursor, a hidden panel for two frames, a drop onto a spawn list, a right-drag's
+  menu, another add-on's failing callback) and [`test_arc9_scope.py`](../tools/tests/test_arc9_scope.py.md) (20 scenarios
+  of the RTX fixes' ARC9 patch: the scope's view, targets, hash, lens copy and reticle, cheap sights, the skipped 2D
+  draws and screen reads before the view model and in the translucent pass, the read in `PreDrawEffects` and before
+  ARC9's own scope picture, holosights and view-model flares drawn after the view models, the gun's front from the
+  view model's attachment points, parts ARC9 has not placed, the integrated-scope path, the off switch, no runtime, a
+  failing camera draw, the hash override). The harness defines no `IMAGE_FORMAT_BGRX8888`, as GMod defines none: a
+  patch that used the name would pass nil.
+- **PoC** (`out/r25/poc_r25.py` in the `r25` worktree; snapshot, move-aside and clean rollback each time; ARC9 base and
+  Gunsmith Arms: Source as folders, the FA:S M249 with the ELCAN): `vm`, `vm -b` and `vm -c` with the patch injected
+  (the drag with and without the fix, the gun and the scope in Remix's debug views 23, 820 and 821, candidate target
+  sizes and hashes, a frame's render hooks, 2D draws and screen reads in order), then `verify -d` and `verify -e` with
+  the package built here (ARC9's own scope picture first, then the patch's, a turn, the hip, the customization view,
+  frame times, the view model's attachment points measured while it is drawn). Each run found something the
+  previous one did not (the R25 report).

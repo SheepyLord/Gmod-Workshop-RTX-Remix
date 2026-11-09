@@ -6,6 +6,45 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R25
+
+- **ARC9's magnified scopes are path traced** ([ADR 0136](docs/decisions/0136-arc9-scopes-path-traced.md),
+  [R25](docs/handover/R25-report.md); the user's items 2 and 3): ARC9 drew a scope's picture as a second view of the
+  world in a render target and put it on the lens through screen-space shaders RTX cannot run, so the lens showed the
+  error material and nothing was magnified. Under RTX the RTX fixes' ARC9 patch now draws the lens with a render target
+  of its own that the RTX runtime treats as a raytraced render target: rays that hit the lens go on from the scope's
+  camera with ARC9's field of view, so the view through the scope is path traced, and one empty triangle a frame gives
+  the runtime that camera (no second view of the world is drawn). The lens copy's texture coordinates are its place on
+  the screen as ARC9 maps its picture, so the magnification is ARC9's (cheap sights such as collimators show ARC9's
+  view 1:1, as ARC9 does); the reticle is drawn over the lens where ARC9 would have drawn it. A lens nobody looks
+  through is black, as in ARC9. Off: `rtx_patcher_arc9_scopes 0`; state: `rtx_patcher_arc9_scope_status`. The target's
+  hash joins the RTX runtime's user layer from the first magnified scope of a session (saving the RTX settings then
+  writes it to `user.conf`; harmless).
+- **ARC9's gun is path traced** (the user's item 2): the RTX runtime finishes a frame's path-traced image at its first
+  2D draw or read of the back buffer and rasterizes what follows. ARC9 copied the screen just before its view model in
+  every frame (for its sight blur, `arc9_fx_adsblur_bleeding`, on by default), drew a full-screen 2D background or blur
+  quad there in its customization view and with its blur options, and copied the screen again before its translucent
+  parts: the gun, the hands and the accessories were rasterized, unlit by the scene. Those draws and copies are skipped
+  in RTX sessions (the customization view loses its darkened background), and the screen is read once after the view
+  models instead, so ARC9's HUD (partly drawn in perspective) and its own scope picture stay rasterized over the image,
+  as before. ARC9's holosights (a screen read) and the view model's lens flares (2D), which ARC9 draws inside each of
+  the view model's two passes a frame, are drawn after the view models too.
+- **No black copy of the scope over the real one** (the user's item 2): ARC9's sight blur drew the scope again every
+  frame, black with a white lens, into a mask target the render guard leaves inert, so the copy went into the image.
+  ARC9's sight blur and its mask are skipped in RTX sessions.
+- **A spawn-menu icon no longer stays on the screen** (the user's item 1,
+  `companion/.../autorun/client/nativeloader_dragdrop.lua`): GMod ends a drag only when the dragged panel gets the mouse
+  release (its own "no button held" check is commented out), so an icon held while the spawn menu closed was painted
+  at the cursor for the rest of the session (the user's "M249 SAW" card). The companion ends such a drag once no cursor
+  is visible, or once its panel has been hidden for two frames with the button up.
+- Tests: [`test_arc9_scope.py`](tools/tests/test_arc9_scope.py.md) (20 scenarios: the scope's view, targets, lens copy
+  and reticle, the black lens, cheap sights, scopes in the weapon's own view model, the skipped 2D draws, screen reads
+  and blur, the translucent pass, the read after the view models and before ARC9's own scope picture, holosights and
+  flares after the view models, the gun's front
+  from the view model's attachment points, parts ARC9 has not placed, the off switch, no runtime, a failing camera
+  draw, the hash override) and [`test_stuck_drag.py`](tools/tests/test_stuck_drag.py.md)
+  (10 scenarios).
+
 ### After R24: the two Astra map companions on the native loader
 
 - **A map's Astra RTX companion converts into a native-loader content pack**

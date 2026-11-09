@@ -698,14 +698,14 @@
    "imported": "2026-11-09T00:57:10+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_arc9.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\r24\\fixes-lua\\cl_arc9.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r25\\out\\r25\\fixes-lua\\cl_arc9.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r24",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r25",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "bed75b89d20bb3bc2a9d2768f6aceda0662e0f38",
+    "commit": "7c3b05cf38b554767ec8fe927874b9623b1aca4c",
     "dirty": false
    },
-   "imported": "2026-11-09T00:56:09+00:00"
+   "imported": "2026-11-09T06:27:30+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_viewmodel_materials.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r24\\out\\r24\\fixes-lua\\cl_viewmodel_materials.lua",
@@ -1462,9 +1462,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_arc9.lua": {
-   "size": 11575,
-   "sha256": "6a770d1fdbd7e1b7331a1541191c17f0367de4e52f8dad87eaed707ffcd62cf0",
-   "mtime_ns": 1794185589183388600,
+   "size": 52619,
+   "sha256": "492c26d9a5dd4622775c73eea9246077ead367b138502f12e425c7f44abd86cb",
+   "mtime_ns": 1794205613784439200,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_mwbase.lua": {

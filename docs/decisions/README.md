@@ -197,3 +197,8 @@ Each with the reason it lost.
 - [0135: View model materials and ARC9](0135-view-model-materials-and-arc9.md) (R24, item 2): view model and
   attachment materials go through the material pipeline; ARC9's DirectX warning is answered, its stickers and gun
   screens draw with their materials, gun screens redrawn as 2D.
+- [0136: ARC9's magnified scopes path traced; ARC9's gun path traced](0136-arc9-scopes-path-traced.md) (R25, items 2
+  and 3): the lens is a window onto a raytraced render target whose camera is the scope's, given by one empty triangle
+  a frame; the reticle over it after upscaling; ARC9's screen copies and 2D draws before its view model skipped and the
+  screen read right after it, so the gun is path traced and ARC9's HUD stays rasterized; ARC9's sight blur, which drew
+  a black copy of the scope into the image, skipped under RTX.

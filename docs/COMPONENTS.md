@@ -458,3 +458,10 @@ them, with the message's words from [`nativeloader/engine_guard_words.lua`](../c
 [`nativeloader/notice.lua`](../companion/nativeloader/lua/nativeloader/notice.lua.md) is the shared
 top-right notice, which [`nativeloader_pbr_progress.lua`](../companion/nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua.md)
 uses while imported game PBR converts.
+
+R25: the companion's [`nativeloader_dragdrop.lua`](../companion/nativeloader/lua/autorun/client/nativeloader_dragdrop.lua.md)
+ends a spawn-menu drag that GMod can no longer end (its icon was painted on the screen for the rest of the session),
+and the RTX fixes' ARC9 patch (`patcher/addons/cl_arc9.lua` in the fixes part) path-traces ARC9's magnified
+scopes through a raytraced render target and keeps ARC9's 2D draws and screen copies away from its view model pass,
+reading the screen right after it instead, so the gun is path traced
+([ADR 0136](decisions/0136-arc9-scopes-path-traced.md)).

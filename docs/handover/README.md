@@ -1,6 +1,11 @@
 # Handovers
 
-The latest round is R24, the user's follow-up of 2026-11-08 (the multiplayer notice as Lua in the add-on;
+The latest round is R25, the user's report of 2026-11-09 (a spawn-menu icon left on the screen by a drag GMod
+never ended; ARC9's magnified scopes path traced through a raytraced render target; ARC9's gun path traced, its
+screen reads and 2D before the view model skipped): [R25-report.md](R25-report.md), done by Claude with Claude
+subagents for two reviews (no Codex).
+
+Before it, R24, the user's follow-up of 2026-11-08 (the multiplayer notice as Lua in the add-on;
 ARC9 view models' stickers, gun screens and DirectX warning; view model materials through the pipeline; what a
 map load is doing, in an overlay; load time measured): [R24-report.md](R24-report.md), done by Claude with one
 Claude subagent for the review (no Codex).

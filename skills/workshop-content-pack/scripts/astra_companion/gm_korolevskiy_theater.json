@@ -12,6 +12,12 @@
     "000_theater_rtx_config_baseline.lua is left out: it undid the Astra loader's process-local config copy, which the native loader never makes.",
     "The sky: rtx.skyMode 0 (the map's own skybox); the companion's physical sky and weather would replace the stage haze."
   ],
+  "shell": {
+    "note": "The theater's mesh has no ground beside and under the stage; a camera there (noclip) saw the skybox, a uniform navy (31 48 88) Remix lights as sky (lavender). The mesh spans -1986.5 -1841.3 -182.6 to 1998.6 4182.2 2242.8 (its collision, the same triangles), the skybox box 128 units further out on every side; the shell is halfway. Its colour, measured in the field game 2026-11-09: the sky's navy came out saturated blue there (lit like the floor's underside), 20 20 22 a dark ground.",
+    "min": [-2051, -1905, -247],
+    "max": [2063, 4246, 2307],
+    "color": [20, 20, 22]
+  },
   "sky_owner": true,
   "fog_owner": true,
   "sky_keys": ["rtx.skyMode"],

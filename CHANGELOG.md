@@ -114,6 +114,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
   RTX package alone, at 1280 x 720. Both public items were updated with these builds on 2026-11-09 (the
   user's go-ahead): `gm-cathedral-of-mercury-rtx` `+2b73d976` and `gm-korolevskiy-theater-rtx` `+a377ad1c`.
 - `check_pack.py` checks a `mod.usda` that holds its material overrides itself (a converted companion's).
+- **Fixed: a lavender sheet under the Korolevskiy Theater's stage** (the user's report from the field game,
+  2026-11-09). The map's mesh has no ground beside and under the stage, and its BSP is only a skybox box
+  around the mesh, so a camera there saw the skybox, a uniform navy that Remix lights as sky. A profile's new
+  `shell` closes such a map: the runtime draws a box between the mesh and the skybox (24 triangles, one
+  `PostDrawOpaqueRenderables` draw a frame) in a dark matte material the add-on ships
+  (`materials/<addon>/shell.vtf`, `.vmt`). The theater's is 64 units outside its mesh, sRGB 20 20 22. The
+  converter can now take a folder for `--gma` and copy the mod from an earlier conversion (`--mod-from`), since
+  the Workshop update had replaced Steam's copy of the companion. Item 3803057911 updated with
+  `gm-korolevskiy-theater-rtx` `+494cf32b` (only the add-on changed; the mod is byte-identical).
 
 ### Skills: the lestnicha3 remaster
 

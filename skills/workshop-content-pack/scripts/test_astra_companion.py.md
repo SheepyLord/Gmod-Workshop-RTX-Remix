@@ -20,6 +20,9 @@ python -I -m unittest discover -v -p "test_astra_companion.py"
 | `test_profile_data` | restore values from the layer and from the profile's runtime defaults; `baked_fallback` resolved; category flags as numbers; the companion's left-out light not in the profile |
 | `test_refusals` | a payload whose SHA-256 differs, a texture `startup.json` lacks, a hash alias without an override |
 | `test_output_rules` | a non-empty `--out` without `--force`; `--force` only on an earlier conversion; a profile for another map |
+| `test_shell_files` | the shell's VTF (7.2, 4x4, RGB888, one mip, no thumbnail, the colour in every pixel) and VMT; its bounds and material in `profile.lua` and the report |
+| `test_shell_refusals` | a shell with a flat axis, two numbers, an infinite one, a colour of 256, an unknown key |
+| `test_mod_from_an_earlier_conversion` | an extraction holding only the manifests: refused alone, and with `--mod-from` an earlier `--bc4` conversion gives the same mod and add-on byte for byte and the same report records; `--mod-from` the same folder as `--out`, or a conversion of another map, refused |
 | `Bc4Test` | constant, binary and two-level blocks exact; random data within range/14 of each block; a smooth map above 45 dB |
 | `LuaTextTest` | Lua string escapes (three-digit decimal escapes, so a following digit stays apart), numbers, keyword keys, a non-finite number refused; a UTF-8 string written as Lua reads back the same in LuaJIT |
 | `RuntimeTest.test_harness_scenarios` | [`astra_companion_harness.lua`](astra_companion_harness.lua.md) passes every scenario on the converted add-on |

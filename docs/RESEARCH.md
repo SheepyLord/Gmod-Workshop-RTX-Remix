@@ -6095,6 +6095,23 @@ Korolevskiy Theater's PBR resources (3803057911, for 3798883815), made in Septem
   153 then, as it did 20 more times on this machine in the three days before, during other sessions' work.
 - **Load and deploy.** The loader deployed both packages (1,205 changes, 3.3 GB) in 19.3 s at the PoC's first
   start with them; a new add-on build with unchanged textures was 4 changes in 1.1 s.
+- **The Korolevskiy Theater's gaps** (the user's field report, 2026-11-09). Its collision (`data_static/astra/<map>/collision/`:
+  `index.json` chunks with `origin`, `triangles`, `bounds`; each `.dat` 36-byte float triangles relative to the
+  origin; 350,975 triangles) spans -1986.5 -1841.3 -182.6 to 1998.6 4182.2 2242.8, and the BSP's skybox box
+  (`tools/toolsskybox`, traced from 0 1170 1000) -2115 -1970 -311 to 2127 4311 2371: 128 units out on every side.
+  A 16-unit top-down grid of the lowest surface below z 400 found 35,006 of 94,250 cells with none, inside the
+  footprint too: beside the stage, between the stage block and the -80 lower level. The sky `astra_gm_korolevskiy_theater`
+  is six identical 512 px RGBA8888 faces of one colour, 31 48 88 (the Blender World's), which Remix under the
+  map's `rtx.skyMode 0` and AgX grade showed as a bright lavender sheet (looking up) or black (looking down) in a
+  gap. The floor there is `atlas_0008` (hash 3758E0FF63CC316C).
+- **`PostDrawOpaqueRenderables`' second argument** (`bDrawingSkybox`) was true in the main view on every frame
+  in the field game on the theater (126 of 126 calls in 2 s, with `false, true, false`), whose 2D sky shows; a hook
+  that returns on it never draws. Only the 3D-skybox argument marks a separate pass.
+- **An RGB888 VTF's Remix hash** is XXH64 (seed 0) of the top mip uploaded as X8R8G8B8, the bytes BGR0: a 4x4
+  VTF of 31 48 88 hashed `0xFD37A6C7E845E677` in the game (`RemixMaterial.GetAllTextureHashes`), as predicted
+  offline (the package's layer sets `rtx.useObsoleteHashOnTextureUpload = True`). A Lua `IMesh` drawn with an
+  `UnlitGeneric` material is ray traced as a lit surface with the legacy material (roughness 0.7, metallic 0.01
+  from the layer): the shell's navy read saturated blue under the theater's floor, a 20 20 22 grey as dark ground.
 
 ## R25: ARC9's scopes and the RTX runtime's raytraced render targets, a stuck spawn-menu drag (2026-11-09)
 

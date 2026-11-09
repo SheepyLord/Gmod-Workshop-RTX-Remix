@@ -1,6 +1,7 @@
 -- Runs an add-on made by astra_companion.py against mocked GMod and Remix APIs (LuaJIT).
 -- usage: luajit astra_companion_harness.lua <add-on folder> <scenario>
--- scenarios: lifecycle, other_map, no_remix, disable, reload, player_sky, sky_takeover.
+-- scenarios: lifecycle, other_map, no_remix, disable, reload, player_sky, sky_takeover, shell (a
+-- profile with a shell only).
 -- Prints PASS <scenario> or exits nonzero.
 
 local ADDON, SCENARIO = arg[1], arg[2] or "lifecycle"
@@ -126,6 +127,30 @@ function Material(name)
     return mat
 end
 
+-- meshes: what was built and drawn
+MATERIAL_TRIANGLES = 2
+local meshes, building = {}, nil
+local MeshMeta = {}
+MeshMeta.__index = MeshMeta
+function MeshMeta:Draw() check(not self.destroyed, "a destroyed mesh drawn") self.draws = self.draws + 1 end
+function MeshMeta:Destroy() self.destroyed = true end
+function Mesh() local g = setmetatable({ vertices = {}, draws = 0 }, MeshMeta) meshes[#meshes + 1] = g return g end
+local vertex = {}
+mesh = {
+    Begin = function(g, kind, count) check(kind == MATERIAL_TRIANGLES and not building, "mesh.Begin") building = g g.count = count end,
+    Position = function(v) vertex.pos = v end,
+    Normal = function(v) vertex.normal = v end,
+    TexCoord = function(stage, u, v) vertex.uv = { u, v } end,
+    Color = function() end,
+    AdvanceVertex = function() building.vertices[#building.vertices + 1] = vertex vertex = {} end,
+    End = function()
+        check(#building.vertices == building.count * 3, "%d vertices for %d triangles", #building.vertices, building.count)
+        building = nil
+    end,
+}
+local drawnWith = {}
+render = { SetMaterial = function(mat) drawnWith[#drawnWith + 1] = mat end }
+
 ------------------------------------------------------------ Remix
 
 local rtxConf = {}
@@ -184,11 +209,17 @@ local function countLights() local n = 0 for _ in pairs(RemixLight.lights) do n 
 
 local PER_FRAME = { "Think", "Tick", "PreRender", "PostRender", "RenderScene", "PreDrawOpaqueRenderables", "PostDrawOpaqueRenderables",
     "PreDrawTranslucentRenderables", "PostDrawTranslucentRenderables", "HUDPaint", "RenderScreenspaceEffects", "CalcView", "SetupWorldFog" }
+-- The one per-frame hook allowed is the shell's draw.
+local SHELL_HOOK = profile.id .. "_shell"
 local function assertNoPerFrameHooks()
     for _, event in ipairs(PER_FRAME) do
-        check(not (hooks[event] and hooks[event][profile.id]), "the add-on hooks %s (per frame)", event)
+        for id in pairs(hooks[event] or {}) do
+            local ours = id == profile.id or id:sub(1, #profile.id + 1) == profile.id .. "_"
+            check(not ours or (event == "PostDrawOpaqueRenderables" and id == SHELL_HOOK), "the add-on hooks %s/%s (per frame)", event, id)
+        end
     end
 end
+local function shellHook() return hooks.PostDrawOpaqueRenderables and hooks.PostDrawOpaqueRenderables[SHELL_HOOK] end
 
 local function prepareWorld()
     newConVar("rtx_api_map_lights_autospawn", "1")
@@ -203,6 +234,12 @@ local function prepareWorld()
                 mat.vars[key] = i <= 2 and Vector(0.5, 0.6, 0.7) or Vector(1, 1, 1)
             end
         end
+    end
+    -- the shell's material, as the add-on's materials/ folder provides it
+    if profile.shell then
+        local base = ADDON .. "/materials/" .. profile.shell.material
+        check(readFile(base .. ".vmt") and readFile(base .. ".vtf"), "the add-on ships %s.vmt and .vtf", profile.shell.material)
+        Material(profile.shell.material).error = false
     end
     -- a stand-in hook of the base map for each hooks_off entry
     for _, h in ipairs(profile.hooks_off or {}) do hook.Add(h[1], h[2], function() end) end
@@ -451,8 +488,71 @@ local function skyTakeover()
     check(countLights() == 0, "no light left after the map")
 end
 
+-- The shell: a closed box at the profile's bounds, drawn in the main view only, gone with the map,
+-- when switched off and on a reload; without its material the map runs without it.
+local function shell()
+    check(profile.shell, "the profile has no shell")
+    installRemix()
+    prepareWorld()
+    currentMap = profile.map
+    loadAddon()
+    check(not shellHook(), "no shell before the start")
+    start()
+    local M = _G[profile.global]
+    local draw = shellHook()
+    check(draw and #meshes == 1, "the shell is built and hooked at the start")
+    local g = meshes[1]
+    check(g.count == 24, "6 faces x 2 windings x 2 triangles (%d)", g.count)
+    local lo, hi = profile.shell.min, profile.shell.max
+    local corners = {}
+    for _, v in ipairs(g.vertices) do
+        local p, n = v.pos, v.normal
+        for axis, key in ipairs({ "x", "y", "z" }) do
+            check(p[key] == lo[axis] or p[key] == hi[axis], "a vertex off the box: %s %s", key, tostring(p[key]))
+        end
+        corners[p.x .. "," .. p.y .. "," .. p.z] = true
+        -- the normal points into the box: from the face the vertex lies on, towards the other side
+        local inward = 0
+        for axis, key in ipairs({ "x", "y", "z" }) do
+            if n[key] ~= 0 then
+                inward = inward + 1
+                check((n[key] > 0 and p[key] == lo[axis]) or (n[key] < 0 and p[key] == hi[axis]), "normal %s faces out", key)
+            end
+        end
+        check(inward == 1, "one axis per normal")
+    end
+    local count = 0
+    for _ in pairs(corners) do count = count + 1 end
+    check(count == 8, "eight corners (%d)", count)
+    draw(true, false, false)
+    draw(false, false, true)
+    check(g.draws == 0, "not drawn in the depth or 3D skybox passes")
+    -- the main view passes true as the second argument whenever the 2D sky shows
+    draw(false, true, false)
+    draw(false, false, false)
+    check(g.draws == 2 and drawnWith[#drawnWith] == Material(profile.shell.material), "drawn in the main view with its material")
+    output = {}
+    commands[profile.prefix .. "_status"]()
+    check(table.concat(output, "\n"):find("shell closed (drawn 2 times)", 1, true), "the status names the shell")
+    convars[profile.prefix .. "_enable"]:SetString("0")
+    check(not shellHook() and g.destroyed, "switched off: the shell goes")
+    convars[profile.prefix .. "_enable"]:SetString("1")
+    check(shellHook() and #meshes == 2, "on again: a new shell")
+    loadAddon()
+    runSimple()
+    check(shellHook() and meshes[2].destroyed and #meshes == 3, "a reload replaces the shell")
+    hook.Run("ShutDown")
+    check(not shellHook() and meshes[3].destroyed, "gone with the map")
+    -- without the material
+    Material(profile.shell.material).error = true
+    hook.Run("InitPostEntity")
+    runSimple()
+    check(_G[profile.global].started and not shellHook(), "no material: started, no shell")
+    check(table.concat(output, "\n"):find("material " .. profile.shell.material .. " is missing", 1, true), "it says so")
+end
+
 local scenarios = { lifecycle = lifecycle, other_map = otherMap, no_remix = noRemix, disable = disable, reload = reload,
-    player_sky = playerSky, sky_takeover = skyTakeover }
+    player_sky = playerSky, sky_takeover = skyTakeover, shell = shell }
 check(scenarios[SCENARIO], "unknown scenario %s", SCENARIO)
 scenarios[SCENARIO]()
 print("PASS " .. SCENARIO)

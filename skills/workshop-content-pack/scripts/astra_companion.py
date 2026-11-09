@@ -115,6 +115,38 @@ class Gma:
         self.fh.close()
 
 
+class CompanionFolder:
+    """An extracted companion (the archive's files under their paths), read like Gma. With --mod-from
+    only its manifests are read, so a folder whose payloads were pruned still converts."""
+
+    def __init__(self, path: str):
+        self.path = os.path.abspath(path)
+        self.title = os.path.basename(self.path)
+        self.members: dict[str, tuple[str, int]] = {}
+        for root, _dirs, names in os.walk(self.path):
+            for name in names:
+                full = os.path.join(root, name)
+                rel = os.path.relpath(full, self.path).replace("\\", "/").lower()
+                self.members[rel] = (full, os.path.getsize(full))
+
+    def size(self, name: str) -> int:
+        return self.members[name.lower()][1]
+
+    def read(self, name: str, limit: int = MAX_MEMBER) -> bytes:
+        full, size = self.members[name.lower()]
+        if size > limit:
+            raise Refused(f"{name}: {size} bytes, more than {limit}")
+        with open(full, "rb") as handle:
+            return handle.read()
+
+    def close(self) -> None:
+        pass
+
+
+def open_companion(path: str):
+    return CompanionFolder(path) if os.path.isdir(path) else Gma(path)
+
+
 def verified(gma: Gma, path: str, size: int, sha256: str) -> bytes:
     if path.lower() not in gma.members:
         raise Refused(f"missing from the archive: {path}")
@@ -511,7 +543,40 @@ def load_profile(path: str) -> dict:
     for category in profile.get("categories", []):
         if category.get("flag") not in CATEGORY_FLAGS:
             raise Refused(f"{path}: unknown category flag {category.get('flag')!r}")
+    if "shell" in profile:
+        check_shell(profile["shell"], path)
     return profile
+
+
+def check_shell(shell, path: str) -> None:
+    """The shell: {"min": [x, y, z], "max": [x, y, z], "color": [r, g, b]} (game units, sRGB bytes)."""
+    if not isinstance(shell, dict) or set(shell) - {"min", "max", "color", "note"}:
+        raise Refused(f"{path}: the shell takes min, max, color (and a note)")
+    for key in ("min", "max"):
+        value = shell.get(key)
+        if not (isinstance(value, list) and len(value) == 3 and all(isinstance(v, (int, float)) and finite(v) for v in value)):
+            raise Refused(f"{path}: the shell's {key} must be three finite numbers")
+    if not all(lo < hi for lo, hi in zip(shell["min"], shell["max"])):
+        raise Refused(f"{path}: the shell's min must be below its max on every axis")
+    color = shell.get("color")
+    if not (isinstance(color, list) and len(color) == 3 and all(isinstance(c, int) and 0 <= c <= 255 for c in color)):
+        raise Refused(f"{path}: the shell's color must be three integers 0-255")
+
+
+def shell_vtf(color: list[int], size: int = 4) -> bytes:
+    """A size x size VTF 7.2 of one colour: RGB888, one mip, no low-resolution image, clamped."""
+    flags = 0x4 | 0x8 | 0x100 | 0x200  # CLAMPS | CLAMPT | NOMIP | NOLOD
+    header = struct.pack("<4sII I HH I HH 4x 3f 4x f I B i BB H", b"VTF\0", 7, 2, 80, size, size, flags, 1, 0,
+                         *(c / 255.0 for c in color), 1.0, 2, 1, -1, 0, 0, 1)
+    header += b"\0" * (80 - len(header))
+    return header + bytes(color) * (size * size)
+
+
+def shell_vmt(material: str) -> str:
+    return ('"UnlitGeneric"\n{\n'
+            f'\t"$basetexture" "{material}"\n'
+            '\t"$nofog" "1"\n'
+            '}\n')
 
 
 def material_list(spec, index: dict) -> list[str]:
@@ -528,13 +593,26 @@ def convert(args) -> dict:
     t0 = time.time()
     profile = load_profile(args.profile)
     out = os.path.abspath(args.out)
+    earlier = None
+    if getattr(args, "mod_from", None):
+        # The mod half of an earlier conversion of this companion, for when its archive is gone (a
+        # Workshop update replaced it) or its payloads were pruned: only the manifests are read again.
+        earlier = os.path.abspath(args.mod_from)
+        if os.path.normcase(earlier) == os.path.normcase(out):
+            raise Refused("--mod-from must be another folder than --out")
+        earlier_report_path = os.path.join(earlier, "report.json")
+        earlier_mod = os.path.join(earlier, "mod", profile["mod"])
+        if not (os.path.isfile(earlier_report_path) and os.path.isfile(os.path.join(earlier_mod, "mod.usda"))):
+            raise Refused(f"{earlier} is not an earlier conversion with mod/{profile['mod']}/mod.usda")
+        with open(earlier_report_path, encoding="utf-8") as handle:
+            earlier_report = json.load(handle)
     if os.path.exists(out) and os.listdir(out):
         if not args.force:
             raise Refused(f"{out} is not empty (use --force)")
         if not os.path.isfile(os.path.join(out, "report.json")):
             raise Refused(f"{out} holds something else than an earlier conversion")
         shutil.rmtree(out)
-    gma = Gma(args.gma)
+    gma = open_companion(args.gma)
     try:
         startup_path, map_name = find_startup(gma)
         if map_name != profile["map"]:
@@ -545,59 +623,10 @@ def convert(args) -> dict:
         index = load_json(gma, index_path)
         check_index(index, map_name)
 
-        layer = startup["layer"]
-        usda = verified(gma, layer["path"], layer["bytes"], layer["sha256"]).decode("utf-8")
-        roles: dict[str, set[str]] = {}
-        for _, role, sha, _ in TEXREF_RE.findall(usda):
-            roles.setdefault(sha, set()).add(role)
-        files = {item["sha256"]: item for item in startup["files"]}
-        missing = sorted(set(roles) - set(files))
-        if missing:
-            raise Refused(f"mod.usda names {len(missing)} textures startup.json lacks, first {missing[0]}")
-        overrides = re.findall(r'over "mat_([0-9A-F]{16})"', usda)
-        if len(overrides) != len(set(overrides)):
-            raise Refused("mod.usda overrides a hash twice")
-
-        mod_dir = os.path.join(out, "mod", profile["mod"])
-        tex_dir = os.path.join(mod_dir, "textures")
-        os.makedirs(tex_dir)
-        renamed: dict[str, str] = {}
-        report = {"map": map_name, "source": os.path.basename(args.gma), "source_bytes": os.path.getsize(args.gma),
-                  "source_files": {}, "textures": 0, "texture_bytes": 0, "bc4": [], "bc4_kept": [], "unreferenced": 0}
-        for sha, item in sorted(files.items()):
-            if sha not in roles:
-                report["unreferenced"] += 1
-                continue
-            data = verified(gma, item["path"], item["bytes"], sha)
-            info = dds_info(data)
-            if args.bc4 and roles[sha] <= SINGLE_CHANNEL_ROLES and info["dxgi"] == DXGI_BC7:
-                converted, psnr = bc7_to_bc4(data)
-                entry = {"from": sha, "roles": sorted(roles[sha]), "size": [info["width"], info["height"]],
-                         "bytes_before": len(data), "bytes_after": len(converted), "psnr_db": round(psnr, 2)}
-                if psnr < args.bc4_min_psnr:
-                    # Detail BC4's eight levels a block cannot hold: this map keeps its BC7.
-                    report["bc4_kept"].append(entry)
-                else:
-                    new_sha = hashlib.sha256(converted).hexdigest()
-                    entry["to"] = new_sha
-                    renamed[sha] = new_sha
-                    report["bc4"].append(entry)
-                    sha, data = new_sha, converted
-            with open(os.path.join(tex_dir, sha + ".dds"), "wb") as handle:
-                handle.write(data)
-            report["textures"] += 1
-            report["texture_bytes"] += len(data)
-
-        if renamed:
-            usda = TEXREF_RE.sub(lambda m: m.group(1) + renamed.get(m.group(3), m.group(3)) + m.group(4), usda)
-        with open(os.path.join(mod_dir, "mod.usda"), "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(usda)
-        written = set(os.path.splitext(n)[0] for n in os.listdir(tex_dir))
-        referenced = set(sha for _, _, sha, _ in TEXREF_RE.findall(usda))
-        if written != referenced:
-            raise Refused("the mod's textures and mod.usda's references differ")
-        report["overrides"] = len(overrides)
-        report["shaders"] = sorted(set(re.findall(r"info:mdl:sourceAsset = @([^@]+)@", usda)))
+        if earlier:
+            usda, overrides, report = reuse_mod(earlier, earlier_report, out, profile, map_name, args.gma)
+        else:
+            usda, overrides, report = convert_mod(gma, startup, out, profile, map_name, args)
 
         # What became of the companion's files: the startup payloads are the mod now, the Lua is
         # replaced by the new add-on, the PNG atlases (the old map-time writer's fallback) and the
@@ -616,79 +645,173 @@ def convert(args) -> dict:
             entry = report["source_files"].setdefault(group, {"files": 0, "bytes": 0})
             entry["files"] += 1
             entry["bytes"] += size
+        if earlier:
+            report["source_files"] = earlier_report.get("source_files", report["source_files"])
 
-        lights = [convert_light(light) for light in (index.get("lighting") or {}).get("lights", [])]
-        layer_defaults = read_layer_defaults(args.defaults_layer)
-        runtime_defaults = profile.get("runtime_defaults", {})
-        defaults = {}
-        for key, _ in profile.get("remix", []):
-            value = layer_defaults.get(key, runtime_defaults.get(key))
-            if value is None:
-                raise Refused(f"no default for {key}: add it to the profile's runtime_defaults")
-            defaults[key] = value
-        tint = None
-        if profile.get("tint"):
-            tint = {"keys": list(profile["tint"]["keys"]), "recompute": bool(profile["tint"].get("recompute")),
-                    "materials": material_list(profile["tint"]["materials"], index)}
-        categories = []
-        for category in profile.get("categories", []):
-            names = material_list(category["materials"], index)
-            if names:
-                categories.append({"name": category["name"], "flag": CATEGORY_FLAGS[category["flag"]], "materials": names})
-        hashes = {name: ["0x" + a.upper() for a in aliases] for name, aliases in sorted(((index.get("startup") or {}).get("hashes") or {}).items())}
-        override_set = set(overrides)
-        unreplaced = sorted(a for aliases in hashes.values() for a in aliases if a[2:] not in override_set)
-        if unreplaced:
-            raise Refused(f"{len(unreplaced)} hash aliases have no override in mod.usda, first {unreplaced[0]}")
-
-        lua = {
-            "schema": 1, "id": profile["addon"], "title": profile["title"], "map": map_name, "prefix": profile["prefix"],
-            "global": profile["global"], "sky_owner": bool(profile.get("sky_owner")), "fog_owner": bool(profile.get("fog_owner")),
-            "sky_keys": list(profile.get("sky_keys", ["rtx.skyMode"])), "clear_light2rtx": bool(profile.get("clear_light2rtx", True)),
-            "remix": [list(pair) for pair in profile.get("remix", [])], "defaults": defaults,
-            "engine": [list(pair) for pair in profile.get("engine", [])], "lights": lights,
-            "hooks_off": [list(pair) for pair in profile.get("hooks_off", [])], "hashes": "hashes.lua",
-        }
-        if tint:
-            lua["tint"] = tint
-        if categories:
-            lua["categories"] = categories
-
-        addon_dir = os.path.join(out, "addon", profile["addon"])
-        lua_dir = os.path.join(addon_dir, "lua", profile["addon"])
-        os.makedirs(os.path.join(addon_dir, "lua", "autorun"))
-        os.makedirs(lua_dir)
-        names = {"title": profile["title"], "map": map_name, "mod": profile["mod"], "addon": profile["addon"], "prefix": profile["prefix"]}
-        with open(os.path.join(addon_dir, "lua", "autorun", profile["addon"] + ".lua"), "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(AUTORUN.format(**names))
-        shutil.copyfile(os.path.join(TEMPLATE_DIR, "runtime.lua"), os.path.join(lua_dir, "runtime.lua"))
-        with open(os.path.join(lua_dir, "profile.lua"), "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(f"-- {profile['title']}: what runtime.lua does on {map_name}. Written by astra_companion.py from\n"
-                         f"-- {os.path.basename(args.profile)} and the companion's {index_path}; do not edit, convert again.\n")
-            handle.write("return " + lua_value(lua) + "\n")
-        with open(os.path.join(lua_dir, "hashes.lua"), "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(f"-- The texture hashes the mod rtx-remix/mods/{profile['mod']} replaces, per material (the\n"
-                         f"-- {profile['prefix']}_status coverage check). Written by astra_companion.py.\n")
-            handle.write("return " + lua_value(hashes) + "\n")
-        addon_json = dict(profile.get("addon_json") or {})
-        addon_json.setdefault("title", profile["title"])
-        with open(os.path.join(addon_dir, "addon.json"), "w", encoding="utf-8", newline="\n") as handle:
-            json.dump(addon_json, handle, indent=4, ensure_ascii=True)
-            handle.write("\n")
-
-        report.update({
-            "materials": len(index["materials"]), "hash_aliases": sum(len(a) for a in hashes.values()),
-            "lights": len(lights), "lights_left_out": (index.get("lighting") or {}).get("unsupported", []),
-            "remix_settings": len(lua["remix"]), "tint_materials": len(tint["materials"]) if tint else 0,
-            "categories": {c["name"]: len(c["materials"]) for c in categories}, "hooks_off": len(lua["hooks_off"]),
-            "mod_bytes": report["texture_bytes"] + len(usda.encode("utf-8")),
-            "bc4_converted": len(report["bc4"]), "bc4_kept_bc7": len(report["bc4_kept"]),
-            "bc4_saved_bytes": sum(e["bytes_before"] - e["bytes_after"] for e in report["bc4"]),
-            "bc4_min_psnr_db": min((e["psnr_db"] for e in report["bc4"]), default=None),
-            "seconds": round(time.time() - t0, 1), "addon": addon_dir, "mod": mod_dir,
-        })
+        return write_addon(gma, index, index_path, usda, overrides, report, out, profile, map_name, args, t0)
     finally:
         gma.close()
+
+
+def reuse_mod(earlier: str, earlier_report: dict, out: str, profile: dict, map_name: str, source: str):
+    if earlier_report.get("map") != map_name:
+        raise Refused(f"{earlier} converted {earlier_report.get('map')}, not {map_name}")
+    mod_dir = os.path.join(out, "mod", profile["mod"])
+    shutil.copytree(os.path.join(earlier, "mod", profile["mod"]), mod_dir)
+    with open(os.path.join(mod_dir, "mod.usda"), encoding="utf-8") as handle:
+        usda = handle.read()
+    tex_dir = os.path.join(mod_dir, "textures")
+    written = set(os.path.splitext(n)[0] for n in os.listdir(tex_dir)) if os.path.isdir(tex_dir) else set()
+    if written != set(sha for _, _, sha, _ in TEXREF_RE.findall(usda)):
+        raise Refused(f"{earlier}: the mod's textures and mod.usda's references differ")
+    overrides = re.findall(r'over "mat_([0-9A-F]{16})"', usda)
+    keep = ("source", "source_bytes", "textures", "texture_bytes", "bc4", "bc4_kept", "unreferenced", "overrides", "shaders")
+    report = {"map": map_name, "source_files": {}, **{k: earlier_report[k] for k in keep if k in earlier_report}}
+    report["mod_from"] = {"folder": os.path.basename(earlier), "companion": os.path.basename(os.path.abspath(source))}
+    return usda, overrides, report
+
+
+def convert_mod(gma, startup: dict, out: str, profile: dict, map_name: str, args):
+    layer = startup["layer"]
+    usda = verified(gma, layer["path"], layer["bytes"], layer["sha256"]).decode("utf-8")
+    roles: dict[str, set[str]] = {}
+    for _, role, sha, _ in TEXREF_RE.findall(usda):
+        roles.setdefault(sha, set()).add(role)
+    files = {item["sha256"]: item for item in startup["files"]}
+    missing = sorted(set(roles) - set(files))
+    if missing:
+        raise Refused(f"mod.usda names {len(missing)} textures startup.json lacks, first {missing[0]}")
+    overrides = re.findall(r'over "mat_([0-9A-F]{16})"', usda)
+    if len(overrides) != len(set(overrides)):
+        raise Refused("mod.usda overrides a hash twice")
+
+    mod_dir = os.path.join(out, "mod", profile["mod"])
+    tex_dir = os.path.join(mod_dir, "textures")
+    os.makedirs(tex_dir)
+    renamed: dict[str, str] = {}
+    report = {"map": map_name, "source": os.path.basename(args.gma), "source_bytes": os.path.getsize(args.gma),
+              "source_files": {}, "textures": 0, "texture_bytes": 0, "bc4": [], "bc4_kept": [], "unreferenced": 0}
+    for sha, item in sorted(files.items()):
+        if sha not in roles:
+            report["unreferenced"] += 1
+            continue
+        data = verified(gma, item["path"], item["bytes"], sha)
+        info = dds_info(data)
+        if args.bc4 and roles[sha] <= SINGLE_CHANNEL_ROLES and info["dxgi"] == DXGI_BC7:
+            converted, psnr = bc7_to_bc4(data)
+            entry = {"from": sha, "roles": sorted(roles[sha]), "size": [info["width"], info["height"]],
+                     "bytes_before": len(data), "bytes_after": len(converted), "psnr_db": round(psnr, 2)}
+            if psnr < args.bc4_min_psnr:
+                # Detail BC4's eight levels a block cannot hold: this map keeps its BC7.
+                report["bc4_kept"].append(entry)
+            else:
+                new_sha = hashlib.sha256(converted).hexdigest()
+                entry["to"] = new_sha
+                renamed[sha] = new_sha
+                report["bc4"].append(entry)
+                sha, data = new_sha, converted
+        with open(os.path.join(tex_dir, sha + ".dds"), "wb") as handle:
+            handle.write(data)
+        report["textures"] += 1
+        report["texture_bytes"] += len(data)
+
+    if renamed:
+        usda = TEXREF_RE.sub(lambda m: m.group(1) + renamed.get(m.group(3), m.group(3)) + m.group(4), usda)
+    with open(os.path.join(mod_dir, "mod.usda"), "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(usda)
+    written = set(os.path.splitext(n)[0] for n in os.listdir(tex_dir))
+    referenced = set(sha for _, _, sha, _ in TEXREF_RE.findall(usda))
+    if written != referenced:
+        raise Refused("the mod's textures and mod.usda's references differ")
+    report["overrides"] = len(overrides)
+    report["shaders"] = sorted(set(re.findall(r"info:mdl:sourceAsset = @([^@]+)@", usda)))
+    return usda, overrides, report
+
+
+def write_addon(gma, index: dict, index_path: str, usda: str, overrides: list, report: dict, out: str,
+                profile: dict, map_name: str, args, t0: float) -> dict:
+    lights = [convert_light(light) for light in (index.get("lighting") or {}).get("lights", [])]
+    layer_defaults = read_layer_defaults(args.defaults_layer)
+    runtime_defaults = profile.get("runtime_defaults", {})
+    defaults = {}
+    for key, _ in profile.get("remix", []):
+        value = layer_defaults.get(key, runtime_defaults.get(key))
+        if value is None:
+            raise Refused(f"no default for {key}: add it to the profile's runtime_defaults")
+        defaults[key] = value
+    tint = None
+    if profile.get("tint"):
+        tint = {"keys": list(profile["tint"]["keys"]), "recompute": bool(profile["tint"].get("recompute")),
+                "materials": material_list(profile["tint"]["materials"], index)}
+    categories = []
+    for category in profile.get("categories", []):
+        names = material_list(category["materials"], index)
+        if names:
+            categories.append({"name": category["name"], "flag": CATEGORY_FLAGS[category["flag"]], "materials": names})
+    hashes = {name: ["0x" + a.upper() for a in aliases] for name, aliases in sorted(((index.get("startup") or {}).get("hashes") or {}).items())}
+    override_set = set(overrides)
+    unreplaced = sorted(a for aliases in hashes.values() for a in aliases if a[2:] not in override_set)
+    if unreplaced:
+        raise Refused(f"{len(unreplaced)} hash aliases have no override in mod.usda, first {unreplaced[0]}")
+
+    lua = {
+        "schema": 1, "id": profile["addon"], "title": profile["title"], "map": map_name, "prefix": profile["prefix"],
+        "global": profile["global"], "sky_owner": bool(profile.get("sky_owner")), "fog_owner": bool(profile.get("fog_owner")),
+        "sky_keys": list(profile.get("sky_keys", ["rtx.skyMode"])), "clear_light2rtx": bool(profile.get("clear_light2rtx", True)),
+        "remix": [list(pair) for pair in profile.get("remix", [])], "defaults": defaults,
+        "engine": [list(pair) for pair in profile.get("engine", [])], "lights": lights,
+        "hooks_off": [list(pair) for pair in profile.get("hooks_off", [])], "hashes": "hashes.lua",
+    }
+    if tint:
+        lua["tint"] = tint
+    if categories:
+        lua["categories"] = categories
+    shell = profile.get("shell")
+    if shell:
+        lua["shell"] = {"min": list(shell["min"]), "max": list(shell["max"]), "material": profile["addon"] + "/shell"}
+
+    mod_dir = os.path.join(out, "mod", profile["mod"])
+    addon_dir = os.path.join(out, "addon", profile["addon"])
+    lua_dir = os.path.join(addon_dir, "lua", profile["addon"])
+    os.makedirs(os.path.join(addon_dir, "lua", "autorun"))
+    os.makedirs(lua_dir)
+    if shell:
+        material_dir = os.path.join(addon_dir, "materials", profile["addon"])
+        os.makedirs(material_dir)
+        with open(os.path.join(material_dir, "shell.vtf"), "wb") as handle:
+            handle.write(shell_vtf(shell["color"]))
+        with open(os.path.join(material_dir, "shell.vmt"), "w", encoding="ascii", newline="\n") as handle:
+            handle.write(shell_vmt(profile["addon"] + "/shell"))
+    names = {"title": profile["title"], "map": map_name, "mod": profile["mod"], "addon": profile["addon"], "prefix": profile["prefix"]}
+    with open(os.path.join(addon_dir, "lua", "autorun", profile["addon"] + ".lua"), "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(AUTORUN.format(**names))
+    shutil.copyfile(os.path.join(TEMPLATE_DIR, "runtime.lua"), os.path.join(lua_dir, "runtime.lua"))
+    with open(os.path.join(lua_dir, "profile.lua"), "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(f"-- {profile['title']}: what runtime.lua does on {map_name}. Written by astra_companion.py from\n"
+                     f"-- {os.path.basename(args.profile)} and the companion's {index_path}; do not edit, convert again.\n")
+        handle.write("return " + lua_value(lua) + "\n")
+    with open(os.path.join(lua_dir, "hashes.lua"), "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(f"-- The texture hashes the mod rtx-remix/mods/{profile['mod']} replaces, per material (the\n"
+                     f"-- {profile['prefix']}_status coverage check). Written by astra_companion.py.\n")
+        handle.write("return " + lua_value(hashes) + "\n")
+    addon_json = dict(profile.get("addon_json") or {})
+    addon_json.setdefault("title", profile["title"])
+    with open(os.path.join(addon_dir, "addon.json"), "w", encoding="utf-8", newline="\n") as handle:
+        json.dump(addon_json, handle, indent=4, ensure_ascii=True)
+        handle.write("\n")
+
+    report.update({
+        "materials": len(index["materials"]), "hash_aliases": sum(len(a) for a in hashes.values()),
+        "lights": len(lights), "lights_left_out": (index.get("lighting") or {}).get("unsupported", []),
+        "remix_settings": len(lua["remix"]), "tint_materials": len(tint["materials"]) if tint else 0,
+        "categories": {c["name"]: len(c["materials"]) for c in categories}, "hooks_off": len(lua["hooks_off"]),
+        "shell": lua.get("shell"),
+        "mod_bytes": report["texture_bytes"] + len(usda.encode("utf-8")),
+        "bc4_converted": len(report["bc4"]), "bc4_kept_bc7": len(report["bc4_kept"]),
+        "bc4_saved_bytes": sum(e["bytes_before"] - e["bytes_after"] for e in report["bc4"]),
+        "bc4_min_psnr_db": min((e["psnr_db"] for e in report["bc4"]), default=None),
+        "seconds": round(time.time() - t0, 1), "addon": addon_dir, "mod": mod_dir,
+    })
     with open(os.path.join(out, "report.json"), "w", encoding="utf-8", newline="\n") as handle:
         json.dump(report, handle, indent=2, ensure_ascii=True)
         handle.write("\n")
@@ -697,7 +820,9 @@ def convert(args) -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Convert an Astra RTX companion .gma into a content pack's add-on and Remix mod.")
-    parser.add_argument("--gma", required=True, help="the companion archive (the Workshop item's .gma)")
+    parser.add_argument("--gma", required=True, help="the companion archive (the Workshop item's .gma), or a folder it was extracted to")
+    parser.add_argument("--mod-from", help="take the mod from this earlier conversion of the companion and read only its manifests "
+                        "(when the archive or its payloads are gone); the add-on is written again")
     parser.add_argument("--profile", required=True, help="the map's profile JSON (astra_companion/<map>.json)")
     parser.add_argument("--out", required=True, help="build folder: addon/<addon>/, mod/<mod>/, report.json")
     parser.add_argument("--bc4", action="store_true", help="re-encode BC7 maps Remix reads one channel of as BC4 (needs numpy and Pillow)")

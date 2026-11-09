@@ -16,10 +16,12 @@
 --     whose PBR albedo already carries the colour;
 --   * tags the texture hashes of a few materials with Remix categories (animated water, particle,
 --     legacy emissive) and takes the tags off again when the map unloads;
---   * removes the base map's rasterised stand-ins (fog, bloom, mist sheets) the profile names.
+--   * removes the base map's rasterised stand-ins (fog, bloom, mist sheets) the profile names;
+--   * closes the map with a shell when the profile has one: a box just outside the map's mesh, so a
+--     gap in the mesh (no ground under the stage) shows a matte surface, not Remix's sky.
 -- The PBR materials are the Remix mod the native loader deploys beside this add-on.
 --
--- Nothing runs per frame. The work happens once, three seconds after the map's entities exist,
+-- Only the shell runs per frame (one draw of 24 triangles). The rest happens once, three seconds after the map's entities exist,
 -- then the options are set again 20, 40 and 60 s later (other add-ons finish their map setup over
 -- the first minute). Hashes that only exist once a texture was first drawn are looked for every
 -- 2 s until all are found, for at most a minute.
@@ -360,6 +362,70 @@ return function(P, DIR)
         M.hooksOff = {}
     end
 
+    ------------------------------------------------------------ the shell
+
+    -- An Astra map is a mesh in a BSP that is only a skybox box around it, and the mesh is closed
+    -- only where the Blender scene's cameras looked: under the stage there is no ground. A camera in
+    -- such a gap sees the skybox, which Remix renders as a lit sky (the theater's uniform navy came
+    -- out lavender). The shell is a box just outside the mesh's bounds and inside the skybox, in a
+    -- matte material of the profile's colour, drawn with both windings so either side faces in.
+    local SHELL_HOOK = P.id .. "_shell"
+
+    local function shellMesh(lo, hi)
+        local c = {
+            Vector(lo.x, lo.y, lo.z), Vector(hi.x, lo.y, lo.z), Vector(hi.x, hi.y, lo.z), Vector(lo.x, hi.y, lo.z),
+            Vector(lo.x, lo.y, hi.z), Vector(hi.x, lo.y, hi.z), Vector(hi.x, hi.y, hi.z), Vector(lo.x, hi.y, hi.z),
+        }
+        -- Each face's corners and the normal facing into the box.
+        local faces = {
+            { 1, 2, 3, 4, Vector(0, 0, 1) }, { 5, 8, 7, 6, Vector(0, 0, -1) },
+            { 1, 5, 6, 2, Vector(0, 1, 0) }, { 4, 3, 7, 8, Vector(0, -1, 0) },
+            { 1, 4, 8, 5, Vector(1, 0, 0) }, { 2, 6, 7, 3, Vector(-1, 0, 0) },
+        }
+        local uv = { { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, 1 } }
+        local g = Mesh()
+        mesh.Begin(g, MATERIAL_TRIANGLES, #faces * 4)
+        for _, f in ipairs(faces) do
+            for _, order in ipairs({ { 1, 2, 3, 1, 3, 4 }, { 1, 3, 2, 1, 4, 3 } }) do
+                for _, k in ipairs(order) do
+                    mesh.Position(c[f[k]])
+                    mesh.Normal(f[5])
+                    mesh.TexCoord(0, uv[k][1], uv[k][2])
+                    mesh.Color(255, 255, 255, 255)
+                    mesh.AdvanceVertex()
+                end
+            end
+        end
+        mesh.End()
+        return g
+    end
+
+    function M.ShellOn()
+        if not P.shell or M.shell then return M.shell ~= nil end
+        local mat = Material(P.shell.material)
+        if not mat or mat:IsError() then
+            log("the shell's material %s is missing; the map's gaps keep showing the sky", P.shell.material)
+            return false
+        end
+        local g = shellMesh(Vector(unpack(P.shell.min)), Vector(unpack(P.shell.max)))
+        M.shell = { mesh = g, material = mat, draws = 0 }
+        -- The second argument is true in the main view whenever the 2D sky is visible (every frame
+        -- on these maps, measured 2026-11-09): only the depth and 3D-skybox passes are skipped.
+        hook.Add("PostDrawOpaqueRenderables", SHELL_HOOK, function(depth, _, skybox3d)
+            if depth or skybox3d or not M.shell then return end
+            render.SetMaterial(M.shell.material)
+            M.shell.mesh:Draw()
+            M.shell.draws = M.shell.draws + 1
+        end)
+        return true
+    end
+
+    function M.ShellOff()
+        hook.Remove("PostDrawOpaqueRenderables", SHELL_HOOK)
+        if M.shell and M.shell.mesh and M.shell.mesh.Destroy then pcall(M.shell.mesh.Destroy, M.shell.mesh) end
+        M.shell = nil
+    end
+
     ------------------------------------------------------------ lifecycle
 
     local TIMER_SETTINGS, TIMER_CATEGORIES = P.id .. "_settings", P.id .. "_categories"
@@ -378,6 +444,7 @@ return function(P, DIR)
         M.ApplySettings()
         local tints = M.ApplyTints()
         M.HooksOff()
+        local shell = M.ShellOn()
         local pending = M.ApplyCategories()
         timer.Create(TIMER_SETTINGS, 20, 3, function()
             if not M.started then return end
@@ -390,10 +457,10 @@ return function(P, DIR)
                 if not M.started or M.ApplyCategories() == 0 then timer.Remove(TIMER_CATEGORIES) end
             end)
         end
-        log("started: %d of %d lights, %d Remix settings%s, %d tints neutral, %d stand-ins off, %d hash tags (%d materials not drawn yet)",
+        log("started: %d of %d lights, %d Remix settings%s, %d tints neutral, %d stand-ins off, %d hash tags (%d materials not drawn yet)%s",
             lights, #P.lights, M.settingsApplied,
             not P.sky_owner and "" or M.PlayerSkyInCharge() and " (the player's sky: the scene's suns left out)" or " (its own sky)",
-            tints, #M.hooksOff, M.CategoryCount(), pending)
+            tints, #M.hooksOff, M.CategoryCount(), pending, shell and ", the shell closed" or "")
     end
 
     function M.Stop(reason)
@@ -407,6 +474,7 @@ return function(P, DIR)
         if istable(RemixConfig) and isfunction(RemixConfig.SetConfigVariable) then M.RestoreSettings() end
         M.ReleaseCategories()
         M.HooksOn()
+        M.ShellOff()
         if reason ~= "shutdown" then M.RestoreTints() end
     end
 
@@ -463,8 +531,9 @@ return function(P, DIR)
             #M.lights, #P.lights, #M.lightFailures, M.SunCount(), M.settingsApplied,
             #M.settingsRefused > 0 and table.concat(M.settingsRefused, ", ") or "none", sky,
             P.fog_owner and ", haze the map's" or "")
-        log("tints neutral %d, stand-ins off %d, hash tags %d, materials not drawn yet %d",
-            M.TintCount(), #M.hooksOff, M.CategoryCount(), M.pendingCategories)
+        log("tints neutral %d, stand-ins off %d, hash tags %d, materials not drawn yet %d%s",
+            M.TintCount(), #M.hooksOff, M.CategoryCount(), M.pendingCategories,
+            not P.shell and "" or M.shell and string.format(", shell closed (drawn %d times)", M.shell.draws) or ", shell open")
         local coverage = M.Coverage()
         if coverage then
             log("mod coverage: %d materials hashed as the mod expects, %d not drawn yet, %d with other hashes",

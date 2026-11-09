@@ -403,8 +403,18 @@ python -I "$K\check_pack.py" $B --addon "$B\build\addon\gm_cathedral_of_mercury_
   map-scoped Remix options put back on leaving, the map's own sky and haze against the companion's
   physical sky and weather (yielding the sun to a player who chose their own sky), Light2RTX kept from
   adding a second sun, the vanilla bake's tint off the replaced materials, hash categories, the base
-  map's raster stand-ins off. Nothing per frame. `<prefix>_status` prints it all and the mod's
-  coverage (`mercury_rtx_status`, `theater_rtx_status`).
+  map's raster stand-ins off. Nothing per frame but the shell's one draw. `<prefix>_status` prints it
+  all and the mod's coverage (`mercury_rtx_status`, `theater_rtx_status`).
+- **Close the map's gaps with a `shell`.** An Astra map is a mesh in a BSP that is only a skybox box
+  128 units around it, and the mesh is closed only where the Blender cameras looked. In a gap (noclip
+  under the stage) Remix shows the skybox as a lit sky: a flat lavender sheet in the theater, its
+  "ground has no mesh". Find the mesh's bounds from its collision (`data_static/astra/<map>/collision/`,
+  the same triangles, `index.json` chunk origins plus 36-byte triangles), put the profile's `shell` box
+  halfway to the skybox and pick its colour in the game: a sky's own colour comes out bright there
+  (lit like everything else), a dark neutral (20 20 22) reads as ground.
+- **The archive gone?** A Workshop update replaces Steam's copy of the companion with the pack, so an
+  add-on change after the upload runs `--gma <the folder it was extracted to> --mod-from <the earlier
+  build>`: the add-on from the manifests, the mod copied (the theater's shell, 2026-11-09).
 - **Check it on the PoC** as a local archive (`allow.local` in the PoC's `config.json`, backed up and
   put back after), with the base map from its Workshop item:
   `poc_session.py run --addons --mount-workshop <map item> --change-map <map> --lua <tour>`. The status
@@ -422,7 +432,7 @@ Converted on 2026-11-09 (the builds in the worktree `addon-migration-optimizatio
 | Item | Package id | Archive | Was | Uploaded |
 |---|---|---|---|---|
 | 3797839157 | `gm-cathedral-of-mercury-rtx` | 2.21 GB: 176 materials (1056 hash aliases), 680 DDS, 33 lights, 21 options | 3.38 GB, 1.17 GB of it PNG fallbacks | `0.0.0-dev.202611090454+2b73d976`, 2,207,392,338 bytes, SHA-256 `3f3b29c4...`, 2026-11-09 05:14 UTC (`gmpublish update`, 17 s) |
-| 3803057911 | `gm-korolevskiy-theater-rtx` | 1.10 GB: 144 materials (1068 aliases), 513 DDS (189 BC4, 236 MiB less), 26 lights, 22 options | 1.75 GB, 0.40 GB of it PNG fallbacks | `0.0.0-dev.202611090457+a377ad1c`, 1,101,297,938 bytes, SHA-256 `0d25c95c...`, 2026-11-09 05:14 UTC (22 s) |
+| 3803057911 | `gm-korolevskiy-theater-rtx` | 1.10 GB: 144 materials (1068 aliases), 513 DDS (189 BC4, 236 MiB less), 26 lights, 22 options | 1.75 GB, 0.40 GB of it PNG fallbacks | `0.0.0-dev.202611090457+a377ad1c`, 1,101,297,938 bytes, SHA-256 `0d25c95c...`, 2026-11-09 05:14 UTC (22 s); with the shell (`--mod-from`): `0.0.0-dev.202611091044+494cf32b`, 1,101,303,302 bytes, SHA-256 `5afae4ad...`, 10:48 UTC |
 
 Both items stayed public; the update set their tags from the archives (Effects, Scenic, Realism). The page
 descriptions (each build's `description.txt`) and the Required items (the map, 3829070317) are the
@@ -449,7 +459,7 @@ per-frame hook.
 | `scripts/fit_map_mod.py` | map remasters over about 4 GB | split a remaster's Remix mod by map into parts and fit each under a budget: top mips left out (no re-encoding), constant maps as 16 px tails, identical files once |
 | `scripts/test_fit_map_mod.py` | tests | `python -I -m unittest discover -p "test_fit_map_mod.py"` in `scripts\`: the split, the lossless step, the tier order, refusals |
 | `scripts/astra_companion.py` | an Astra companion | its Remix mod (SHA-checked, optional BC7 to BC4 for one-channel maps) and a new add-on from `astra_companion/runtime.lua` and the map's profile `astra_companion/<map>.json` |
-| `scripts/astra_companion_harness.lua` | tests | the converted add-on against mocked GMod and Remix APIs (LuaJIT): lifecycle, restores, sky and haze ownership, no per-frame hook |
+| `scripts/astra_companion_harness.lua` | tests | the converted add-on against mocked GMod and Remix APIs (LuaJIT): lifecycle, restores, sky and haze ownership, the shell, no other per-frame hook |
 | `scripts/test_astra_companion.py` | tests | `python -I -m unittest discover -p "test_astra_companion.py"` in `scripts\`: a synthetic companion with real BC7 blocks, the conversion, the BC4 encoder, refusals, the harness |
 | `scripts/model_names.py` | both | the naming rule, imported by the scripts above |
 | `scripts/test_names.py` | tests | `python -I -m unittest -v` in `scripts\`: the naming rule and every refusal |

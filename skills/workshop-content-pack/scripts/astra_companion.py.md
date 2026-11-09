@@ -42,6 +42,8 @@ python -I "$K\astra_companion.py" --gma <companion.gma> --profile "$K\astra_comp
    - `lua/<addon>/profile.lua`: what the runtime does on this map (below);
    - `lua/<addon>/hashes.lua`: per material the hash aliases the mod replaces, read only by the
      `<prefix>_status` coverage check;
+   - with a `shell` in the profile, `materials/<addon>/shell.vtf` (4x4 RGB888 of its colour, one
+     mip, clamped) and `shell.vmt` (`UnlitGeneric`), the material the runtime closes the map with;
    - `addon.json` from the profile.
 5. **Leaves out** what only the old route needed: the PNG fallback atlases, `startup.json`,
    `index.json` and every old Lua file.
@@ -69,6 +71,7 @@ python -I "$K\astra_companion.py" --gma <companion.gma> --profile "$K\astra_comp
 | `tint` | `keys` (`$color`, `$color2`), `materials` (`"pbr"`: every material of `index.json`, or a list), `recompute` |
 | `categories` | each `{name, flag, materials}`: `flag` one of `particle`, `animated_water`, `legacy_emissive`; `materials` a list or `"baked_fallback"` (the index's UnlitGeneric bakes) |
 | `hooks_off` | `[event, id]` hooks of the base map removed while the runtime runs |
+| `shell` | optional `{min, max, color}` (and a `note`): a closed box from `min` to `max` (game units, each axis below the other; between the map's mesh and its skybox box) in a matte `color` (three sRGB bytes), which the runtime draws so a gap in the mesh shows a surface instead of the sky |
 | `addon_json` | the add-on's `addon.json` |
 
 The restore value of each `remix` key comes from `--defaults-layer` (default: this repository's
@@ -83,8 +86,17 @@ least 0.0573 degrees after the energy is fixed. The companion's `unsupported` li
 
 ## Options
 
-`--gma` and `--profile` and `--out` are required. `--bc4`, `--bc4-min-psnr DB`, `--defaults-layer FILE`,
+`--gma` and `--profile` and `--out` are required. `--gma` is the archive or a folder it was extracted
+to (the members under their paths). `--bc4`, `--bc4-min-psnr DB`, `--defaults-layer FILE`,
 `--force` (replace an earlier conversion in `--out`: only a folder holding a `report.json` is removed).
+
+`--mod-from <earlier build>` writes the add-on again from the profile and the companion's manifests
+and copies the mod from an earlier conversion of the same map (its `report.json` names the map; its
+`mod.usda`'s references must be its textures), keeping that report's texture and BC4 records; the
+report gains `mod_from`. For when the archive is gone or its payloads were pruned: a Workshop update
+of the item replaces Steam's copy of the companion with the pack, so the theater's shell (2026-11-09)
+was added this way from `out\migrate\src\theater`, which had kept only the manifests. The earlier build
+must be another folder than `--out`.
 
 ## Requirements, side effects, exit codes
 

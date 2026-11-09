@@ -14,11 +14,23 @@ startup report, no batches; the PBR materials are the Remix mod the native loade
 | 3 s after `InitPostEntity` (the start) | `Light2RTX.Clear()`; the profile's lights through `RemixLight.Create*`; the Remix options (`RemixConfig.SetConfigVariable`, each one's restore value saved first); `$color`/`$color2` to white on the profile's materials; the base map's stand-in hooks removed; Remix hash categories on the hashes of the profile's materials; one log line with the counts |
 | 20, 40 and 60 s after the start | the engine convars, the options and the tints again (other add-ons finish their map setup over the first minute) |
 | every 2 s, at most 30 times | hash categories of materials not drawn yet (no texture hash until the first draw), until all are found |
-| `ShutDown` | lights destroyed, options put back in reverse order, convars put back, categories released, hooks re-added; the tints stay (map-only materials; a material changed in `ShutDown` can crash the map change) |
+| `ShutDown` | lights destroyed, options put back in reverse order, convars put back, categories released, hooks re-added, the shell's mesh destroyed; the tints stay (map-only materials; a material changed in `ShutDown` can crash the map change) |
 
-Nothing runs per frame: no `Think`, `Tick`, render or HUD hook (the harness checks it). The companions
-it replaces deep-copied their whole status, 176 materials with their hash lists, in two `Think` hooks
-every frame and in their 4 Hz timers.
+Only the shell runs per frame: with a `shell` in the profile, one `PostDrawOpaqueRenderables` hook
+(`<addon>_shell`) draws a 24-triangle mesh. No `Think`, `Tick`, HUD or other render hook (the harness
+checks it). The companions it replaces deep-copied their whole status, 176 materials with their hash
+lists, in two `Think` hooks every frame and in their 4 Hz timers.
+
+- **The shell.** An Astra map is a mesh inside a BSP that is only a skybox box around it, and the
+  mesh is closed only where the Blender scene's cameras looked: the Korolevskiy Theater has no ground
+  beside and under its stage. A camera in such a gap (noclip) sees the skybox, which Remix renders as a
+  lit sky: the theater's uniform navy came out as a bright lavender sheet. At the start the runtime
+  builds a box from the profile's `min` to `max`, each face with both windings and its normal facing
+  in, and draws it with `materials/<addon>/shell` in the main view; the depth pass and the 3D skybox
+  are skipped, but not the hook's second argument, which is true in the main view whenever the 2D sky
+  shows (every frame there, measured in the field game on 2026-11-09: a shell that skipped it never
+  drew). Without the material it logs that and runs without the shell. It goes at `Stop` (the map's
+  end, `<prefix>_enable 0`, a reload).
 
 - **Restore values.** `RemixConfig.GetConfigVariable` reports `rtx.conf`, not the live value, so an
   option goes back to the player's `rtx.conf` value, else the profile's default (the RTX package's
@@ -45,7 +57,7 @@ every frame and in their 4 Hz timers.
 
 | | |
 |---|---|
-| `<prefix>_status` | running or not; lights (failed, suns); options (refused ones by name); whose sky; tints, stand-ins, hash tags, materials not drawn yet; the mod's coverage: per material of `hashes.lua`, whether the texture hashes uploaded so far are the ones the mod replaces |
+| `<prefix>_status` | running or not; lights (failed, suns); options (refused ones by name); whose sky; tints, stand-ins, hash tags, materials not drawn yet, the shell (closed and how often drawn, or open); the mod's coverage: per material of `hashes.lua`, whether the texture hashes uploaded so far are the ones the mod replaces |
 | `<prefix>_enable 0/1` | archived; 0 stops everything and puts the tints back, 1 starts again |
 | `<prefix>_reload` | stop and start |
 

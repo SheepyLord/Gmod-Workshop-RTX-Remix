@@ -177,6 +177,7 @@ PROFILE = {
     "categories": [{"name": "baked", "flag": "legacy_emissive", "materials": "baked_fallback"},
                    {"name": "mist", "flag": "particle", "materials": ["test_mist_a", "test_mist_b"]}],
     "hooks_off": [["SetupWorldFog", "test_fog"]],
+    "shell": {"min": [-100, -200.5, -30], "max": [300, 400, 250], "color": [31, 48, 88]},
 }
 
 
@@ -323,13 +324,89 @@ class ConvertTest(Base):
             json.dump(wrong, handle)
         self.assertEqual(self.run_convert(gma, out=os.path.join(self.tmp, "wrong"))[0], 1)
 
+    def test_shell_files(self):
+        gma, _ = build_companion(self.tmp)
+        code, out = self.run_convert(gma)
+        self.assertEqual(code, 0)
+        folder = os.path.join(out, "addon", "gm_test_map_rtx", "materials", "gm_test_map_rtx")
+        with open(os.path.join(folder, "shell.vtf"), "rb") as handle:
+            vtf = handle.read()
+        self.assertEqual(vtf[:4], b"VTF\0")
+        self.assertEqual(struct.unpack("<IIIHHI", vtf[4:24]), (7, 2, 80, 4, 4, 0x4 | 0x8 | 0x100 | 0x200))
+        self.assertEqual(struct.unpack("<HH", vtf[24:28]), (1, 0))  # one frame
+        self.assertEqual(struct.unpack("<IBiBBH", vtf[52:65]), (2, 1, -1, 0, 0, 1))  # RGB888, one mip, no thumbnail
+        self.assertEqual(len(vtf), 80 + 4 * 4 * 3)
+        self.assertEqual(vtf[80:], bytes([31, 48, 88]) * 16)
+        with open(os.path.join(folder, "shell.vmt"), encoding="ascii") as handle:
+            vmt = handle.read()
+        self.assertIn('"UnlitGeneric"', vmt)
+        self.assertIn('"$basetexture" "gm_test_map_rtx/shell"', vmt)
+        with open(os.path.join(out, "addon", "gm_test_map_rtx", "lua", "gm_test_map_rtx", "profile.lua"), encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertIn('material = "gm_test_map_rtx/shell"', text)
+        self.assertIn("min = { -100, -200.5, -30 }", text)
+        with open(os.path.join(out, "report.json"), encoding="utf-8") as handle:
+            self.assertEqual(json.load(handle)["shell"]["max"], [300, 400, 250])
+
+    def test_shell_refusals(self):
+        for shell, message in (({"min": [0, 0, 0], "max": [1, 1, 0], "color": [0, 0, 0]}, "below its max"),
+                               ({"min": [0, 0], "max": [1, 1, 1], "color": [0, 0, 0]}, "three finite numbers"),
+                               ({"min": [0, 0, 0], "max": [1, 1, float("inf")], "color": [0, 0, 0]}, "three finite numbers"),
+                               ({"min": [0, 0, 0], "max": [1, 1, 1], "color": [0, 0, 256]}, "0-255"),
+                               ({"min": [0, 0, 0], "max": [1, 1, 1], "color": [0, 0, 0], "size": 4}, "takes min, max")):
+            with self.subTest(message=message):
+                with open(self.profile, "w", encoding="utf-8") as handle:
+                    json.dump(dict(PROFILE, shell=shell), handle)
+                with self.assertRaises(ac.Refused) as caught:
+                    ac.load_profile(self.profile)
+                self.assertIn(message, str(caught.exception))
+
+    def test_mod_from_an_earlier_conversion(self):
+        gma, info = build_companion(self.tmp)
+        code, first = self.run_convert(gma, "--bc4")
+        self.assertEqual(code, 0)
+        # The archive is gone; an extraction of it kept only the manifests (payloads pruned).
+        extracted = os.path.join(self.tmp, "extracted")
+        archive = ac.Gma(gma)
+        for name in archive.members:
+            if name.endswith(".dat"):
+                continue
+            path = os.path.join(extracted, *name.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as handle:
+                handle.write(archive.read(name))
+        archive.close()
+        self.assertEqual(self.run_convert(extracted, out=os.path.join(self.tmp, "no_mod"))[0], 1)  # payloads needed
+        code, second = self.run_convert(extracted, "--mod-from", first, out=os.path.join(self.tmp, "second"))
+        self.assertEqual(code, 0)
+        for root in ("mod", "addon"):
+            a, b = os.path.join(first, root), os.path.join(second, root)
+            names = sorted(os.path.relpath(os.path.join(r, n), a) for r, _, ns in os.walk(a) for n in ns)
+            self.assertEqual(names, sorted(os.path.relpath(os.path.join(r, n), b) for r, _, ns in os.walk(b) for n in ns))
+            for name in names:
+                with open(os.path.join(a, name), "rb") as x, open(os.path.join(b, name), "rb") as y:
+                    self.assertEqual(x.read(), y.read(), name)
+        with open(os.path.join(first, "report.json"), encoding="utf-8") as handle:
+            report1 = json.load(handle)
+        with open(os.path.join(second, "report.json"), encoding="utf-8") as handle:
+            report2 = json.load(handle)
+        for key in ("textures", "texture_bytes", "bc4", "overrides", "source_files", "mod_bytes", "hash_aliases"):
+            self.assertEqual(report1[key], report2[key], key)
+        self.assertEqual(report2["mod_from"], {"folder": "out", "companion": "extracted"})
+        # the same folder, another map's conversion
+        self.assertEqual(self.run_convert(extracted, "--mod-from", second, out=second)[0], 1)
+        report1["map"] = "gm_other"
+        with open(os.path.join(first, "report.json"), "w", encoding="utf-8") as handle:
+            json.dump(report1, handle)
+        self.assertEqual(self.run_convert(extracted, "--mod-from", first, out=os.path.join(self.tmp, "third"))[0], 1)
+
 
 def argparse_namespace(gma, profile, out, layer):
     class Args:
         pass
     args = Args()
     args.gma, args.profile, args.out, args.defaults_layer = gma, profile, out, layer
-    args.bc4, args.bc4_min_psnr, args.force = False, 36.0, False
+    args.bc4, args.bc4_min_psnr, args.force, args.mod_from = False, 36.0, False, None
     return args
 
 
@@ -384,7 +461,7 @@ class RuntimeTest(Base):
         code, out = self.run_convert(gma)
         self.assertEqual(code, 0)
         addon = os.path.join(out, "addon", "gm_test_map_rtx")
-        for scenario in ("lifecycle", "other_map", "no_remix", "disable", "reload", "player_sky", "sky_takeover"):
+        for scenario in ("lifecycle", "other_map", "no_remix", "disable", "reload", "player_sky", "sky_takeover", "shell"):
             with self.subTest(scenario=scenario):
                 result = subprocess.run([LUAJIT, os.path.join(HERE, "astra_companion_harness.lua"), addon, scenario],
                                         capture_output=True, text=True, timeout=60)

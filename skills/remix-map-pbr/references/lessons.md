@@ -1,8 +1,10 @@
-# Lessons from the four remasters
+# Lessons from the five remasters
 
 Each entry: what you would see, why, what fixed it, and where and when it was found (local dates). PR =
 gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_house (2026-10-27/29),
-L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
+L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09), BM = gm_brmovie_complete, the
+A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677 light entities
+(2026-11-09).
 
 ## Skinned models and engine settings
 
@@ -143,6 +145,19 @@ L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
 **Five textures predicted wrong** (MH, 2026-10-27)
 - 106 of 110 predictions matched; HL2's `lights/white*` and two de_elysion metals are uploaded from other
   mounted copies. Fixed with `live_hashes.py` merged by `tex_jobs.py`.
+
+**The mirrors grey, 42 textures unchanged though composed: gmRTX's solid-colour fix** (BM, 2026-11-09)
+- Symptom: the store's mirrors (a 16 px grey texture) kept their grey; the blue hotel wall, car paint and
+  chrome, the frosted glass and a few signs kept the game's look. `RemixMaterial.GetAllTextureHashes`
+  returned hashes no prediction had, and `Material(...):GetTexture("$basetexture")` named
+  `rtx_solidcolor_<material>_rt`.
+- Cause: gmRTX's `cl_fix_solid_color_materials.lua` (`rtx_fixsolidcolor_enabled 1`) gives every material
+  whose base texture is a solid colour its own render target (the colour, two pixels toggled by a hash of
+  the material name) so that Remix can tell such materials apart. The hash Remix sees is that target's, one
+  per material: every cubemap-patched copy (`maps/<map>/..._x_y_z`) has its own.
+- Fix: the live hashes. Draw the whole map (`bmrtx_vis all`), move the *player* through every region (the
+  server sends entities by the player's PVS, not the held camera's), run `live_hashes.py`, then `tex_jobs.py`
+  (merges them) and `compose.py` (it refreshes the hashes in `composed.json`) and `build_mod.py`.
 
 **Old mods never applied** (the blood mods, 2026-10-27)
 - Keyed to the other texture-hash scheme; and where they would have matched, the normal and roughness maps
@@ -293,6 +308,16 @@ L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
   mirror rule anchored at the name's end never matched because the key includes the texture name. Strip
   cubemap names first, order rules from specific to general, check every class on contact sheets.
 
+**Carpet loops read as cobblestones** (BM, 2026-11-09)
+- The movie's loop-pile carpets (2-3 cm loops in the source) at normal 1.3 and parallax 0.0016 became a
+  pebbled surface up close and on the intro rooms' carpeted walls. Normal 0.75, height 0.0008, the CC0
+  carpet scan's normal at 0.45.
+
+**A chandelier's brass glowed** (BM, 2026-11-09)
+- The light class's emission threshold (luminance) caught the brass's highlights in the atlas; only the
+  candles should glow. `emit_rects` limits the emission to the candles' part (find it from the
+  low-saturation white pixels), and the class is metal for the rest.
+
 **`compose.py` failed with "image has wrong mode"** (BR, 2026-10-27)
 - Pillow's Gaussian blur does not take 16-bit images: use scipy's `gaussian_filter` on floats.
 
@@ -300,6 +325,26 @@ L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
 
 **Light calibration 10x too dim; entity brightness up to 75000** (BR, 2026-10-27)
 - Calibrate from flux, compress above a knee (1000), cap radiance (2000, growing the radius instead).
+
+**Switched-off strip lights still glowing** (BM, 2026-11-09)
+- The store's hanging strip lights swap to "off" models when its breaker or the flicker switches them,
+  and both use one texture: `light_shop2_off` is `light_shop2` without `$selfillum`. A glowing replacement
+  for the texture made the off models glow. Fix: the server sets an add-on material on the off models
+  (`Entity:SetMaterial`, networked); its tag texture (the same pixels as BGRA8888) has its own hash and a
+  dark replacement (`overrides.json` "from" the lit material, emission off).
+
+**Following the map's light switches** (BM, 2026-11-09)
+- Named light entities stay on the server, and `CLight::TurnOff` sets the "start off" spawn flag, `TurnOn`
+  clears it: the server reads `HasSpawnFlags(1)` per name (an `AcceptInput` hook for TurnOn/TurnOff/Toggle,
+  and a 1 s poll), networks one `SetGlobal2Bool` per group and bumps a version int; the client switches the
+  group's API lights when the version changes (the flicker shows). Generated lights record their group
+  from the targetname of the fixture's prop or brush or of the light entity they took their colour from.
+
+**Pole lights lit nothing** (BM, 2026-11-09)
+- A sphere light inside a closed lamp head is shadowed by the housing: hang it just under the head, spot
+  shaped downwards. The emitting area must come from the radius actually used (a lamp post's bounding
+  radius of 180 units, clamped to 8 for the light, still set its radiance: 0.3 instead of about 400). A
+  parking-lot pole 10 m up needs street-light flux (15 troffers), not 3.
 
 **Batched troffer models gave no panels** (BR, 2026-10-27)
 - Prop-combined lamp models cannot be split by vertex proximity; split them by VTX triangle connectivity.
@@ -346,6 +391,19 @@ L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
   map; otherwise read its sun (wrap `RemixConfig.SetConfigVariable` for `rtx.atmosphere.sunElevation` and
   `sunRotation` while the map is loaded) and fade the night lights and haze by it. Tests that need the
   addon's own sky set `follow_map 1` before the map loads and put it back.
+
+**A slab of terrain floating over the parking lot; the horizon empty** (BM, 2026-11-09)
+- gmRTX's whole-map drawing (`r_novis 1`) draws the 3D skybox room as world geometry at its real place,
+  2000 units over the lot. Visibility by the PAS removes it (the room is in no PAS of the playable map).
+- The map turns its 3D skybox on at spawn, but Remix cannot draw Source's second camera pass (`r_3dsky 0`),
+  so the lot lost its hills, mountains and town. `gen_skybox.py` puts the room's contents where they
+  appear: world = 16 x (skybox point - sky camera); props at their `modelscale` x 16 (skybox props carry
+  0.0625, so they become life size); displacements decoded from the dispinfo (176-byte records) and
+  dispvert (5 floats) lumps, the base quad starting at the corner nearest the start position. The room also
+  models the playable area in low detail (its pavement 1 unit over the real lot): leave out everything
+  over the real outdoor footprint, and draw the rest only while the camera is outdoors, where the levels
+  that share those coordinates are not drawn. Props baked into one static mesh per material
+  (`util.GetModelMeshes`) keep it to a few dozen draws.
 
 ## Mirrors, sprites and map clean-up
 
@@ -394,6 +452,12 @@ L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
 
 **HUD in the shots** (MH, 2026-10-27)
 - The toolgun's panel ignores `cl_drawhud`: switch to `weapon_physgun` for tours.
+
+**`VK_ERROR_DEVICE_LOST` with the AI stage running** (BM, 2026-11-09)
+- The game lost its device at a sky change while `ai_tex.py` ran on the same GPU (as on Backrooms). Keep
+  the game closed during the AI stage and the DDS encodes (NVTT also uses the GPU, and starves the AI
+  stage); the user also wants idle games closed. Pause the AI stage by stopping its process (a finished job
+  keeps its `done.json`; the rest resume) when a game session is needed.
 
 **The console stops answering** (BR, MH)
 - During a map load, gmRTX's model reloads, Light2RTX processing or a lost device. Wait once; if the device is

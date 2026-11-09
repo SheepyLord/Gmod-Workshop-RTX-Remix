@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: the A24 Backrooms Movie map remastered
+
+- **`remix-map-pbr` learns from gm_brmovie_complete** (the user's request of 2026-11-09: an RTX Remix
+  version of Workshop 3761466972, "A24 Backrooms Movie (EVERYTHING MUST GO!)"). The remaster itself lives
+  on a local branch of the user's fork (`claude/brmovie-rtx`, its doc `docs/GM_BRMOVIE_COMPLETE_RTX.md`)
+  and in the user's game; its textures derive from the map's and stay local (the authors ask to be
+  contacted before a port or redistribution). The skill records it and what it taught
+  (`references/lessons.md`): gmRTX's solid-colour fix gives each solid-colour material its own texture,
+  so mirrors and 42 other textures needed live hashes; a store's "off" lights sharing the lit texture
+  get a tag material per entity; following a map's light switches from the server; pole lights hung
+  under their heads; the 3D skybox drawn at its true scale (16 x its offset from the sky camera, props at
+  `modelscale` x 16, displacements decoded, the skybox's copy of the playable area left out); the AI
+  stage and a game on one GPU losing the device. With PAS visibility and API lights on the fixtures the
+  map runs at 13.4 ms a frame where stock GMod RTX takes 79.2 ms (median of 32 cameras, 4K, RTX 5090).
+
 ### R26: the sky without a horizon
 
 - **No horizon, for maps that float in the sky or in space** ([ADR 0139](docs/decisions/0139-the-sky-without-a-horizon.md);

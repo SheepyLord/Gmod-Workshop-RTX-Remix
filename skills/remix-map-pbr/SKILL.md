@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house and lestnicha3 remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload follows workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3 and gm_brmovie_complete remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload follows workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -21,7 +21,11 @@ commands; it holds no code from them. The most complete for interiors is Modern 
 (`source/modern_house_rtx/tools`, branch `claude/modern-house-rtx`), copied from Backrooms, which grew out
 of the gm_poolrooms work. The newest, lestnicha3 (`source/lestnicha3_rtx/tools`, branch
 `claude/lestnicha3-rtx`), is Modern House's copied for an island in the open air: the physical sky as the
-main light, CC0 photoscans for grain, ground and plants, night lights driven by the sun.
+main light, CC0 photoscans for grain, ground and plants, night lights driven by the sun. gm_brmovie_complete
+(`source/gm_brmovie_complete_rtx/tools`, branch `claude/brmovie-rtx`) is lestnicha3's with Backrooms'
+fixture lights, for a big interior map with an outdoor lot: lights that follow the map's switches, PAS
+visibility, live hashes for gmRTX's per-material solid-colour textures, and the 3D skybox drawn at its true
+scale.
 
 Read the references when you reach their stage:
 
@@ -133,11 +137,14 @@ other two maps' equivalents are in `references/pipeline.md`.
 6. **Hashes, predicted and live.** `python tex_jobs.py` writes `work/textures.json` (per texture: its
    predicted Remix hash per animation frame, size, format, materials, class, world-area share, tint),
    decodes the sources to `work/src/` and writes the AI job list `work/jobs_ai.json`, most visible first.
-   Then load the map, look around so its textures are uploaded, and run `python live_hashes.py`
+   Then load the map, look around so its textures are uploaded (on a big map: draw it whole and move the
+   player, not only the camera, through every region), and run `python live_hashes.py`
    (gmRTX's `RemixMaterial.GetAllTextureHashes` for every inventoried material); run `tex_jobs.py` again to
    merge the live hashes. Report the match count: on modern_house 106 of 110 predictions matched, and the 5
    textures that other mounted content overrides (HL2's `lights/white*`, two de_elysion metals) got their
-   live hashes added. Details: `references/remix-hashes-and-layers.md`.
+   live hashes added. gmRTX's solid-colour fix gives every material whose texture is one colour its own
+   texture (`rtx_solidcolor_<material>_rt`), so those hashes exist only live (gm_brmovie_complete's mirrors
+   and 42 textures). Details: `references/remix-hashes-and-layers.md`.
 7. **AI maps.** `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only name,...]` writes `work/ai/<name>/`:
    the upscaled `albedo.png` (and `alpha.png`), `normal_raw.npy`, `rough.png`, `height.png`. Tiling world
    textures are processed with wrap-around padding so they stay seamless. A finished job is skipped on the
@@ -169,8 +176,10 @@ other two maps' equivalents are in `references/pipeline.md`.
 11. **Lights.** Edit `tools/lights_style.json`, run `python gen_lights.py`; it writes the addon's light list
     (`lua/<addon>/lights.lua`). Light sources come from what the map really has: fixture models (lens size
     from the model geometry), emissive brush faces (LED strips, light openings), the light entities no
-    fixture accounts for, and extras the place lacks (Modern House's pool lights). Each light records its
-    BSP vis cluster. The addon creates them with `RemixLight.Create*`, hides the game's own lights from
+    fixture accounts for, and extras the place lacks (Modern House's pool lights). A fixture or entity in a
+    switch group (a named light the map turns on and off: a breaker box, a flicker) records the group; the
+    add-on's server follows the named lights (`HasSpawnFlags(1)` is "off") and the client switches the group
+    (gm_brmovie_complete). Each light records its BSP vis cluster. The addon creates them with `RemixLight.Create*`, hides the game's own lights from
     Remix (`rtx.ignoreGamePointLights/SpotLights/DirectionalLights True`, only once its lights exist),
     suspends gmRTX's light-updater hooks for the map and turns Light2RTX's autospawn off. Colours are
     kelvin per kind and per region box.
@@ -184,7 +193,10 @@ other two maps' equivalents are in `references/pipeline.md`.
     poolrooms tools. Outdoors (lestnicha3): the mapper's `light_environment` as the sun; a dim "haze sun"
     distant light along it, since the atmosphere's sun does not light the froxels; the froxel range raised
     to the space (45 m); `r_3dsky 0` scoped and the 3D skybox room's props hidden; night lights faded by
-    the sun's elevation. When the companion drives the sky (`nativeloader_sky_follow_map 0`, the user's
+    the sun's elevation. A map whose 3D skybox holds its surroundings (gm_brmovie_complete's lot: hills, a
+    town, a railway) gets them back at true scale (`gen_skybox.py`: 16 x the offset from the sky camera,
+    props at `modelscale` x 16, the skybox's copy of the playable area left out, drawn only outdoors). When
+    the companion drives the sky (`nativeloader_sky_follow_map 0`, the user's
     field setting) leave it its sky and follow its sun instead of answering `NativeLoaderSkyOwner`. Fix a
     texture's category from the addon (`RemixMaterial`): IGNORE hides fake shafts, removing DECAL_STATIC
     stops an overflowing tint.
@@ -316,6 +328,10 @@ calling them standards for a new map):
 | Water renders black | Source draws the floor under opaque water only into its refraction target: flag the water materials translucent, or install RTX Water |
 | Tiles 16x too large on arches and columns | `$seamless_scale` triplanar mapping, which Remix ignores: unfold the faces offline and redraw them (`unwrap_stretchy.py`) |
 | Mirrors missing, or the world vanishes after loading a save | gmRTX deletes `func_reflective_glass`; a save load or clean-up recreated them (fixed in gmRTX `d958da6`) |
+| A solid-colour surface (mirror, painted wall, car paint) unchanged though composed | gmRTX's solid-colour fix gave its material its own texture: take the live hashes (`live_hashes.py`, then `tex_jobs.py`, `compose.py`, `build_mod.py`) |
+| A store's switched-off lights still glow | the "off" material shares the lit texture: a per-entity tag material from the server (`SetMaterial`) with a dark replacement |
+| A slab of terrain floating over an outdoor area; its horizon empty | the 3D skybox room drawn whole at its real place, and Remix cannot draw the skybox pass: PAS visibility, and the skybox at true scale (`gen_skybox.py`) |
+| A pole or street light lights nothing | the light sits inside the lamp's closed head: hang it under the head, spot-shaped down |
 | Rooms next door missing from reflections, shadows and bounce | PVS culling on the client or the server: `references/pipeline.md`, visibility |
 | ~45 ms a frame on a huge map in a fresh session | `r_novis 1` from the RTX `autoexec.cfg` draws the whole map: scope `r_novis 0` too, then move the camera to another room |
 | GPU at 35-40 %, three pegged game threads | gmRTX's light updater runs: the addon is missing or not booted (look for its `created` log line) |

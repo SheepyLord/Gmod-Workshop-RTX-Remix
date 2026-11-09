@@ -58,6 +58,7 @@ pool floor hidden in the user's game (2026-10-26).
 | Cause | Example | What to do |
 | --- | --- | --- |
 | Another mounted copy of the texture path | modern_house's `lights/white*`, de_elysion metals | live hashes, merged by `tex_jobs.py` |
+| gmRTX's solid-colour fix (`rtx_fixsolidcolor_enabled 1`) gave the material its own texture | gm_brmovie_complete's mirrors (16 px grey), a blue wall, car paint and chrome, frosted glass: 42 textures; one hash per material, cubemap copies each their own | live hashes from every material (draw the map whole, move the player through it), merged by `tex_jobs.py`; recompose to refresh `composed.json` |
 | A different hash scheme | the old blood mods | check `rtx.useObsoleteHashOnTextureUpload` where the mod will run |
 | The draw binds another slot than you tagged | the Water shader hashes `$normalmap`, not `$basetexture` | tag the slot the shader binds; read the live hash back |
 | A tag texture created after the game mounted content | Modern House's mirror tag resolved to `vgui/white` | bind it at runtime with `SetTexture`; it also works after a restart |

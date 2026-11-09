@@ -1,6 +1,6 @@
 # The pipeline, stage by stage
 
-The four implementations live in the user's fork `H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed`
+The five implementations live in the user's fork `H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed`
 (GPL-2.0). Read them there with `git -C <fork> show <branch>:<path>` or in their worktrees; this page
 describes what they do. Script names are the Modern House ones unless a column says otherwise.
 
@@ -10,6 +10,7 @@ describes what they do. Script names are the Modern House ones unless a column s
 | gm_br_complex + gm_br_pitfalls (Workshop 2821179466) | `claude/rtx-remix-map-enhancement-bda9ac` (`.claude\worktrees\rtx-remix-map-enhancement-bda9ac`) | `source/gm_br_rtx/tools`, doc `docs/GM_BR_RTX.md` |
 | modern_house (Workshop 3495468649) | `claude/modern-house-rtx` (`.claude\worktrees\modern-house-rtx`), local only | `source/modern_house_rtx/tools`, doc `docs/MODERN_HOUSE_RTX.md` |
 | lestnicha3 (Workshop 3756151906, "lentnicha") | `claude/lestnicha3-rtx` (`.claude\worktrees\lestnicha3-rtx`), local only | `source/lestnicha3_rtx/tools` (copied from Modern House), doc `docs/LESTNICHA3_RTX.md` |
+| gm_brmovie_complete (Workshop 3761466972, "A24 Backrooms Movie") | `claude/brmovie-rtx` (`.claude\worktrees\brmovie-rtx`), local only | `source/gm_brmovie_complete_rtx/tools` (lestnicha3's with Backrooms' `gen_lights.py`), doc `docs/GM_BRMOVIE_COMPLETE_RTX.md` |
 
 lestnicha3 is the open-air case: few textures (14), the physical sky as the main light, CC0 photoscans
 where the source has too little detail, and night lights driven by the sun. Copy it for an outdoor map;
@@ -74,6 +75,16 @@ docs/<MAP>_RTX.md, docs/<map>_rtx/            write-up, gallery.jpg, gallery/, c
 | Restart | `restart.py` | `restart.py` | `restart.py` |
 | Install | `deploy.py` | `deploy.py` | junctions (`mklink /J`) or copies |
 | Review | `contact_sheet.py` | sheets in `work/` | composites in `work/` |
+
+gm_brmovie_complete uses lestnicha3's scripts with `bm_paths.py` and the `BMRTX_` prefix, Backrooms'
+`gen_lights.py` (extended: tube lights for hanging strip lights, the ceiling's light-panel brushes as rect
+lights, switch groups, pole lights hung under their heads, night lights) and adds: `plan_map.py` (top-down
+plans per storey with lights and named places), `where.py` (where a material or model is), `survey.py`
+(cameras from the floors), `shoot_points.py` (named points turned to their longest sightline),
+`wait_ready.py` (waits for the map and the add-on), `inspect_tex.py` (crops of source and composed maps),
+`gen_tags.py` (the tag texture of the store's switched-off lights) and `gen_skybox.py` (the 3D skybox at its
+true scale, displacements decoded). Its add-on adds haze by place (zones), the skybox module
+(`cl_skybox.lua`, props baked into one mesh per material) and `bmrtx_vis`, `bmrtx_skybox`, `bmrtx_lights`.
 
 lestnicha3 uses Modern House's scripts with `l3_paths.py` and the `L3RTX_` prefix, and adds:
 `detail_bake.py` (Source `$detail` baked into the base before the AI stage), `plant_atlas.py` (CC0

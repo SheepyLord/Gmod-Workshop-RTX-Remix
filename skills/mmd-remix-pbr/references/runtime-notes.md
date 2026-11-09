@@ -11,7 +11,7 @@ earlier were measured then; the source is named where it is not this skill.
 | Remix runtime | deployed by the loader from the RTX package: `native-loader\packages\gmod-rtx-remix\<version>_<generation>\runtime\d3d9.dll`; RTX sessions load it, and `bin\win64\d3d9.dll` (the user's own DXVK or ReShade) is never written (the repository's ADR 0028). `nlctl status <game root>` or `native-loader\logs\loader.log` names the deployed package version |
 | Remix log | `rtx-remix\logs\remix-dxvk.log`. It is buffered: the file stays empty while the game runs and is written at exit (the repository's RESEARCH.md, after R21). Never wait on it during a session; judge in game |
 | Mods | `rtx-remix\mods\`. rpai writes only the mod it is given (`ai_pbr`, or `--mod ai_pbr_2048`). Workshop packs deploy `pbr_<name>`; the RTX fixes write `~gmod_topbr` |
-| Remix config | the RTX package's layers (`config\dxvk\*.conf` in its payload), copied to `native-loader\remix\dxvk-<n>.conf` at each RTX start and listed in `DXVK_CONFIG_FILE` before the user's own `dxvk.conf`; for an `rtx.*` option the first listed file that holds it wins, so they beat the root `dxvk.conf`. The user's `rtx.conf`, then `user.conf`, in the game root outrank every DXVK file. `garrysmod\data\native-loader\status.json` (`activation.layers`) lists what the latest RTX start read. Read them freely; never edit `user.conf`; ask before editing the others |
+| Remix config | the RTX package's layers (`config\dxvk\*.conf` in its payload), copied to `native-loader\remix\dxvk-<n>.conf` at each RTX start and listed in `DXVK_CONFIG_FILE` before the user's own `dxvk.conf`; for an `rtx.*` option the first listed file that holds it wins, so they beat the root `dxvk.conf`. The user's `rtx.conf` in the game root outranks every DXVK file, and `user.conf` outranks `rtx.conf`. `garrysmod\data\native-loader\status.json` (`activation.layers`) lists what the latest RTX start read. Read them freely; never edit `user.conf`; ask before editing the others |
 | Screenshots | `garrysmod\screenshots\<map>NNNN.jpg` (console `jpeg`) |
 | Console log | `garrysmod\console.log` (only with `-condebug`). Read only your own session's part, from the byte offset where it ended before you started; never search the user's log |
 | rpai runtime | `%USERPROFILE%\.rpai`: `venv` (Python 3.12, torch 2.8 cu129), `models\pbrify`, `work\<model key>`, `sources\` (rebuilt PMX copies), `ue_maps\` (converted game maps), `compiled_models.json`, `config.json` |
@@ -61,7 +61,7 @@ earlier were measured then; the source is named where it is not this skill.
   `remixhash.resolve_obsolete_hash_option`; the order is in `tool/rpai/remixhash.py.md`): the loader
   lists the package's layers first in `DXVK_CONFIG_FILE` (`native-loader\remix\dxvk-1.conf` is the
   classic defaults, line 139 sets it), and for an `rtx.*` option the first listed file that holds it
-  wins; the game root's `rtx.conf` and then `user.conf` outrank every DXVK file. The game root's
+  wins; the game root's `rtx.conf` outranks every DXVK file, and `user.conf` outranks `rtx.conf`. The game root's
   `rtx.conf` has not set it since 2026-10-29, and rpai used to read only that file: its predictions
   were XXH3 from then on, and none of the 191 live hashes recorded until 2026-11-08 matched one.
   `rpai hashes` prints the function and the file and line that decided it.

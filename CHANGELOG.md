@@ -20,7 +20,7 @@ Versions follow the loader's CMake project version once it ships; until then eve
   alpha flag, BGR0 without, raw blocks for DXT), both functions' only when the option cannot be told
   offline: this reproduces 251 of the 264 live hashes rpai recorded whose VTF the field still has, and 3 of
   3 ToPBR recorded; the 13 misses predate the runtime's zeroed pad byte. Tests:
-  [`test_remix_hash_prediction.py`](tools/tests/test_remix_hash_prediction.py.md) (14 tests; two recorded
+  [`test_remix_hash_prediction.py`](tools/tests/test_remix_hash_prediction.py.md) (15 tests; two recorded
   live hashes reproduced from VTFs the test writes).
 
 ### R25

@@ -29,6 +29,10 @@ Also runs in `tools\test.ps1`.
   (`native/assets.cpp`: an 80-byte 7.2 header, the mip chain smallest first); one candidate per known
   hash function and both when unknown; BGRA with the alpha flag, BGR0 without, and a DXT5 top mip's
   raw blocks, against XXH64 of bytes built by hand.
+- **`rpai hashes`** (`cli.cmd_hashes` with a stand-in context and no game; with `numpy` and `xxhash`): it logs
+  `hash    XXH64: native-loader/remix/dxvk-1.conf line 139 ...`, records `obsolete_hash` and
+  `obsolete_hash_source` in `hashes.json`, predicts the one recorded hash, and reuses an earlier live hash only
+  from a record whose `obsolete_hash` matches.
 
 ## Inputs and outputs
 

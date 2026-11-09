@@ -1,16 +1,19 @@
 """rpai's offline Remix texture hashes: the hash function the game uses, and the hash of a VTF."""
 import codecs
+import contextlib
 import importlib.util
+import io
 import json
 import struct
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / 'skills' / 'mmd-remix-pbr' / 'tool'))
-from rpai import remixhash
+from rpai import cli, remixhash
 
 HASHING = all(importlib.util.find_spec(name) for name in ('numpy', 'xxhash'))  # rpai's requirements
 OPTION = 'rtx.useObsoleteHashOnTextureUpload'
@@ -214,6 +217,32 @@ class PredictionTests(GameRootTests):
         blocks = bytes(range(64))  # DXT5 8x8: four 16-byte blocks, uploaded unchanged
         dxt5 = hotloader_vtf(8, 8, [blocks, bytes(16), bytes(16), bytes(16)], image_format=15)
         self.assertEqual(remixhash.predict(dxt5), h64(blocks))
+
+    def test_hashes_command_logs_and_records_the_decision(self):
+        """`rpai hashes` without the game: the field's decision in its log and hashes.json, one predicted hash,
+        and earlier live hashes reused only from a record made under the same decision."""
+        self.field()
+        key, live = 'b0d75d0b692bd65c', '0x37B3BC9B48184AA9'
+        texture = SimpleNamespace(vtf=f'mmd/t/{key}', source=None, width=520, height=520, materials=[0])
+        blob = one_colour_vtf(520, 520, (69, 69, 69, 255))
+        asset = SimpleNamespace(asset_id='0' * 40, mdl=None, vmts={0: f'mmd/0000/{key}_1'}, textures={key: texture},
+                                iter_vtf_data=lambda: iter([(key, texture, blob)]))
+        for earlier_rule, reused in ((True, True), (False, False)):
+            with self.subTest(earlier_obsolete_hash=earlier_rule):
+                earlier = {'obsolete_hash': earlier_rule, 'textures': {key: {
+                    'vtf': texture.vtf, 'live': ['0x0123456789ABCDEF'], 'verified': True}}}
+                files = {'hashes.json': earlier}
+                ctx = SimpleNamespace(asset=asset, game_root=self.root, bridge=None, args=SimpleNamespace(no_live=True),
+                                      read=lambda name: files.get(name, {}), write=files.__setitem__)
+                with contextlib.redirect_stdout(io.StringIO()) as out:
+                    table = cli.cmd_hashes(ctx)
+                self.assertIn('hash    XXH64: native-loader/remix/dxvk-1.conf line 139 (DXVK Config;', out.getvalue())
+                record = files['hashes.json']
+                self.assertIs(record['obsolete_hash'], True)
+                self.assertTrue(record['obsolete_hash_source'].startswith('native-loader/remix/dxvk-1.conf line 139'))
+                self.assertEqual(table[key]['predicted'], [live])
+                self.assertEqual(table[key]['use'], ['0x0123456789ABCDEF'] if reused else [live])
+                self.assertEqual(table[key]['verified'], reused)
 
 
 if __name__ == '__main__':

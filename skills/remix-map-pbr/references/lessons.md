@@ -1,7 +1,8 @@
-# Lessons from the three remasters
+# Lessons from the four remasters
 
 Each entry: what you would see, why, what fixed it, and where and when it was found (local dates). PR =
-gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_house (2026-10-27/29).
+gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_house (2026-10-27/29),
+L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09).
 
 ## Skinned models and engine settings
 
@@ -54,6 +55,16 @@ gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_
   the server (16.6 ms against 17.1 ms, within the noise). BR widens every PVS lookup to the PAS
   (`rtx_patch_vis_pas`, 2-5 % of the map; 13.2 against 13.6 ms) and switches its lights by PAS with no
   distance limit. The user confirmed both, with no performance change.
+
+**Every camera 30-40 % slower, the views without the change too** (L3, 2026-11-09)
+- The user had started a game of their own on the same GPU (`nvidia-smi` listed it). A uniform slowdown
+  across unrelated views is outside load, not the change. Check the GPU's process list before timing; on
+  a shared machine compare stock and remaster back to back in one session and report ratios, and keep
+  heavy test sessions short while the user plays.
+
+**Nothing to cull on an open map** (L3, 2026-11-08)
+- lestnicha3's visibility data lets 93 of its 94 clusters see each other: PVS culling would win nothing,
+  and the path tracer needs the whole island anyway. Measure the PVS before writing culling.
 
 **Fresh sessions ran Backrooms at 41-48 ms instead of 13 ms** (BR, 2026-10-27)
 - Cause: gmRTX turns the PVS off twice, `autoexec.cfg`'s `r_novis 1` and the `rtx_patch_forcenovis` patch;
@@ -149,12 +160,91 @@ gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_
   light the room through GI, so their colour sets the white balance as much as the lights. Pass sRGB values;
   a bound emissive texture overrides the colour constant.
 
-**Material tints: baked, or applied twice?** (unverified)
-- Modern House multiplies a material's `$color`/`$color2` into the composed albedo (the near-black slatted
-  wood, the 51 % grey gloss panels). A memory note from the blood work (2026-10-27) says that on gmRTX's
-  fixed-function paths a material's `$color` reaches Remix as the texture factor and tints even a replaced
-  albedo live. Whether tinted world materials end up tinted twice was not checked: compare a tinted surface
-  with and without the baked tint before relying on either.
+**Material tints are applied live: baking them tints twice** (L3, verified 2026-11-08; MH bakes them)
+- gmRTX's fixed-function shaders pass a material's `$color`/`$color2` as `D3DRS_TEXTUREFACTOR`. Remix
+  applies that factor only to textures in the decal, particle or allowBakedLighting categories, and gmRTX's
+  smart-mark puts every world texture and every BSP static-prop material in DECAL_STATIC (0x1000). So the
+  tint reaches the replacement albedo live (the albedo debug view, index 23, shows it; index 32 is the raw
+  albedo). lestnicha3's pavers (`$color2` 0.51) came out right only with the tint left out of the bake.
+- Modern House multiplies tints into its composed albedo (the near-black slatted wood, the 51 % grey gloss
+  panels), so on its DECAL_STATIC textures they apply twice. A new map: don't bake tints; compare views 23
+  and 32 on a tinted surface first.
+
+**An edging near black** (L3, 2026-11-08)
+- `$color2` 1.59 on the arches' and rims' edging overflowed through the texture factor to near black.
+- Fix: the addon takes that one texture out of DECAL_STATIC (`RemixMaterial` category remove, then set,
+  after gmRTX's smart-mark has run: it marks 5 s after load and again for pending textures, so recheck on a
+  timer for a minute), and `compose.py` bakes the brightening (`bake_tint`). Don't edit the material's
+  `$color2` live instead: a `Material:SetVector` right after a camera cut lost the device
+  (`VK_ERROR_DEVICE_LOST`, 2026-11-08).
+
+**The concrete's grain was gone** (L3, 2026-11-08)
+- Source draws `$detail` as a second fixed-function pass, and gmRTX marks the detail texture decal plus
+  ignore (0x1008), so Remix shows the bare base. Bake it into the base before the AI stage: mod2x,
+  `base * lerp(1, 2 * detail, $detailblendfactor)` in gamma space, the gain normalised to a mean of 1, a
+  whole number of repeats on tiling textures (`detail_bake.py`).
+
+**Halftone blobs after the upscale** (L3, 2026-11-08)
+- The walkways' pavers had a strong detail grain (`$detailblendfactor` 0.76) over a speckled base; the
+  DAT upscaler turned the baked grain into black-and-white blobs. Weaker grains (0.56) came out fine.
+- Fix: upscale the plain base (`tex_jobs.py` override `detail_bake: false`) and add the grain after the AI
+  stage from a CC0 photoscan at full resolution (`compose.py` `micro` with an albedo share). Crop the same
+  spot from source, bake, AI output and final before trusting an upscale.
+
+**The walkway floor blurry, joints soft** (L3, 2026-11-08; the user's screenshot)
+- Sampler-feedback streaming left the pavers at a tiny mip at a distance. `preload_textures = 1` for this
+  0.6 GB mod fixed it; stream only mods of several GB.
+
+**Overlays, detail sprites and the sky missing from the inventory** (L3, 2026-11-08)
+- Overlays are not faces: they are BSP lump 45 (`doverlay_t`, 352 bytes, up to 64 faces each). The
+  worldspawn's `detailmaterial`, the `skyname` faces and particle materials are not faces either. Add them
+  (`inventory.py` reads lump 45 and an `EXTRA_MATERIALS` list).
+
+**"Lump 0 is LZMA compressed"** (L3, 2026-11-08)
+- A map repacked with `bspzip -repack` LZMA-compresses each lump (`LZMA`, actual size, packed size, five
+  property bytes) and each game lump on its own (flags bit 0, the packed size in its own header). Python's
+  `lzma` reads it as FORMAT_ALONE: properties, a 64-bit size, the stream (`bsp.py` `lzma_lump`).
+
+**A dark band on ribbed ledges** (L3, 2026-11-08)
+- The concrete class's high-pass on the normal (2 % of the side) flattened board-formed ribs 120-240 px wide
+  at 4096; the ledges read smooth and dark. A per-texture override keeps the broad relief.
+
+**Painted grass and a 512 px meadow** (L3, 2026-11-08/09; the user asked for better plants)
+- An upscale gives a painted atlas pixels, not blades. Replace the plants with CC0 photoscanned cards at
+  the places the model's UVs expect them (`plant_atlas.py`: measure the cards' UV boxes, cut each scan card
+  by its alpha component, trim the scan's stretched padding, re-encode its normal, recompute
+  transmission). Replace a low-resolution ground with a CC0 ground scan, divided by the material's live
+  tint so the result matches (`compose.py` `scan` with `tint_compensate`).
+
+**A dark navy line along every planter and rim** (L3, 2026-11-09; the user's "Gap" screenshot)
+- The edging model laid its 17-unit lips 1-1.6 units above the paver floor and left their inner edges
+  open. Source's lightmap lit the floor in that slot like the rest; the path tracer shadows it, and seen at
+  an angle the slot reads as a uniform navy line. Traces pass through the model (no collision) and hit the
+  floor, which is the clue; a cross-section of model and brush faces (`mdlgeo.py`, `bsp.py`) shows it.
+- Fix (`gen_skirts.py`): every open boundary edge of the model's upward-facing triangles (welded by
+  position) that floats 0.05-4 units over a world floor face, split into the stretches that do; the addon
+  draws one mesh of fillets from those edges down into the floor with the model's own material, in
+  `PreDrawTranslucentRenderables`. A vertical wall there, in the shade beside a sunlit floor, still read as
+  a dark line: 45-degree fillets catch the sky, their foot extended past both ends so corners meet, UVs
+  run down the slope (outward plus down cancel on a 45-degree face).
+
+**Backlit grass a lavender carpet** (L3, 2026-11-09)
+- A grey `subsurface_single_scattering_albedo` (0.8) made thin-opaque blades scatter white, so backlit
+  grass glowed with the sky's colour; on the darker photoscanned blades it read as lavender. Debug views
+  23, 32 and 89 were all fine; `rtx.subsurface.enableThinOpaque False` gave green again. Fix: a green
+  scattering albedo (0.45, 0.70, 0.12). Test it live by editing `materials.usda` and touching `mod.usda`.
+
+**Dandelion clocks drawn as paper fans** (L3, 2026-11-09; the user's screenshot)
+- A white disc with a seed head on the model's crossed cards looked like folded paper with a dark heart.
+  Draw the clock as it is built (`plant_atlas.py`): 130 seeds on a Fibonacci sphere, each a beak from a
+  small seed head to a parachute of 18 hairs in a shallow cone, the back half darker, lines supersampled
+  3x; about 80 % coverage inside after the alpha test, so it stays see-through, and a wispy rim. Draw the
+  stem first and the clock over it, a dome normal for the sphere, near-white transmission.
+
+**Grass sheen bluish; dandelions white discs** (L3, 2026-11-08)
+- Foliage at roughness 0.4 mirrored the sky: 0.60-0.88. A white blob in the atlas read as a flat disc:
+  fibrous seed hairs, a seed head, a dome normal and near-white transmission (`puffs`). Snap alpha-tested
+  foliage to 0 and 255 so opacity micromaps classify it.
 
 **Clear glass turned emerald** (MH, 2026-10-27)
 - Brush panes with nodraw faces leave a refracting volume open, which keeps absorbing over metres. Fix:
@@ -231,6 +321,31 @@ gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_
 **Hall panels read grey** (PR, 2026-10-26)
 - Smaller and brighter: 64 x 160 units, radiance and emission 18.
 
+**A white ellipse and a dark ring on the horizon** (L3, 2026-11-08)
+- The 3D skybox room (`sky_camera`) is drawn at its real position, and under the physical sky Remix shows
+  its props as geometry. Scope `r_3dsky 0`, and on the server hide the room's props (`SetNoDraw`) at
+  `InitPostEntity` and `PostCleanupMap`: gmRTX's `r_novis 1` still draws them.
+
+**Flat cards of fake light shafts** (L3, 2026-11-08)
+- A `vol_lightmask` model painted shafts into the air. Hide its texture hash; the volumetrics make real ones.
+
+**No sunlit haze** (L3, 2026-11-08)
+- The physical sky's sun does not light the froxel volumetrics. A dim distant light along the sun's direction
+  does (radiance 0.2, `volumetricRadianceScale` 10). Raise `rtx.volumetrics.froxelMaxDistanceMeters` from 20
+  to what the space needs (45 m on the island), with `froxelGridResolutionScale` 4.
+
+**Night lights too costly as rects** (L3, 2026-11-08)
+- 17 rect lights under a gallery ceiling cost 7-11 ms at night; 8 shaped spheres (a cone of 72 degrees, hung
+  under the ceiling) gave the look for about 4 ms. Fade night lights by the sun's elevation (on below 3
+  degrees, full at -6) and recreate them only when the level changes by more than 2 %.
+
+**The addon's sky ignored** (L3, 2026-11-08)
+- With the native loader's `nativeloader_sky_follow_map 0` (time passing, its own weather: the user's field
+  setting) the companion owns sun, clouds and fog. Answer `NativeLoaderSkyOwner` only when it follows the
+  map; otherwise read its sun (wrap `RemixConfig.SetConfigVariable` for `rtx.atmosphere.sunElevation` and
+  `sunRotation` while the map is loaded) and fade the night lights and haze by it. Tests that need the
+  addon's own sky set `follow_map 1` before the map loads and put it back.
+
 ## Mirrors, sprites and map clean-up
 
 **Mirrors missing** (MH, 2026-10-27)
@@ -264,7 +379,9 @@ gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_
 
 **Settings not readable** (PR, 2026-10-26)
 - `RemixConfig.GetConfigVariable` returns the `rtx.conf` value, not the live one; the addons re-apply their
-  options three times in the first minute and restore from `rtx.conf` or their defaults.
+  options three times in the first minute and restore from `rtx.conf` or their defaults. For an option
+  `rtx.conf` does not set it returns an empty string: a test that switches such an option off must put
+  back the known default itself (L3 left `rtx.subsurface.enableThinOpaque` off once, 2026-11-09).
 
 **Lua autorefresh** (PR, 2026-10-26)
 - Editing an installed addon's file re-runs it (repeated `created` lines); hook closures can keep the old
@@ -281,6 +398,11 @@ gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_
 - During a map load, gmRTX's model reloads, Light2RTX processing or a lost device. Wait once; if the device is
   lost, the game must be closed (with permission). Running the AI batch beside the game caused one
   `VK_ERROR_DEVICE_LOST`.
+
+**Another session needs the PoC** (L3, 2026-11-08)
+- Sessions share the PoC through a lock file (`out\r10\poc.lock` in this repository's main checkout, owner
+  and start time inside). When a peer asks, hand it over at a natural pause, quit your game with the
+  field's config put back, and wait for the lock to come back; AI and DDS work can go on meanwhile.
 
 **Script text corrupted by the shell** (all)
 - Heredocs turned `\b` in a regex into a backspace and `\n` in a Lua string into a newline (an autorun syntax

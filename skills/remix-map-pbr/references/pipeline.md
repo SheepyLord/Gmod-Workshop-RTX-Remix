@@ -1,6 +1,6 @@
 # The pipeline, stage by stage
 
-The three implementations live in the user's fork `H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed`
+The four implementations live in the user's fork `H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed`
 (GPL-2.0). Read them there with `git -C <fork> show <branch>:<path>` or in their worktrees; this page
 describes what they do. Script names are the Modern House ones unless a column says otherwise.
 
@@ -9,6 +9,11 @@ describes what they do. Script names are the Modern House ones unless a column s
 | gm_poolrooms (Workshop 2849511871) | `sheepylord/rtx-water-poolrooms` (the main checkout) | `source/gm_poolrooms_rtx/tools`, doc `docs/GM_POOLROOMS_RTX.md` |
 | gm_br_complex + gm_br_pitfalls (Workshop 2821179466) | `claude/rtx-remix-map-enhancement-bda9ac` (`.claude\worktrees\rtx-remix-map-enhancement-bda9ac`) | `source/gm_br_rtx/tools`, doc `docs/GM_BR_RTX.md` |
 | modern_house (Workshop 3495468649) | `claude/modern-house-rtx` (`.claude\worktrees\modern-house-rtx`), local only | `source/modern_house_rtx/tools`, doc `docs/MODERN_HOUSE_RTX.md` |
+| lestnicha3 (Workshop 3756151906, "lentnicha") | `claude/lestnicha3-rtx` (`.claude\worktrees\lestnicha3-rtx`), local only | `source/lestnicha3_rtx/tools` (copied from Modern House), doc `docs/LESTNICHA3_RTX.md` |
+
+lestnicha3 is the open-air case: few textures (14), the physical sky as the main light, CC0 photoscans
+where the source has too little detail, and night lights driven by the sun. Copy it for an outdoor map;
+copy Modern House for an interior with many fixtures.
 
 The Modern House branch also carries copies of the other two pipelines and docs, but the Backrooms branch
 has one newer commit (`e4d548d`, the PAS visibility) and a newer `docs/GM_BR_RTX.md`: read Backrooms from its
@@ -70,6 +75,15 @@ docs/<MAP>_RTX.md, docs/<map>_rtx/            write-up, gallery.jpg, gallery/, c
 | Install | `deploy.py` | `deploy.py` | junctions (`mklink /J`) or copies |
 | Review | `contact_sheet.py` | sheets in `work/` | composites in `work/` |
 
+lestnicha3 uses Modern House's scripts with `l3_paths.py` and the `L3RTX_` prefix, and adds:
+`detail_bake.py` (Source `$detail` baked into the base before the AI stage), `plant_atlas.py` (CC0
+photoscanned plants and a drawn dandelion clock in the grass atlas, run after `compose.py`),
+`gen_skirts.py` (fillets that close the slot under the edging model's lips, for the addon),
+`sheets.py` (comparison sheets),
+`addon_state.py` (the addon's live state as JSON), `rtxcfg.py` (live Remix options), `explore.py`
+(overview cameras from the map's bounds); `times_tour.py` shoots the times of day; `abtest.py` switches
+thin-opaque transmission, parallax, the froxel range, cloud shadows or all volumetrics off.
+
 ## Stage details
 
 ### Paths module
@@ -86,7 +100,8 @@ with `pak_listing.txt`, the entity lump to `entities.json`, the static props to 
 parsed faces (polygons, materials, texinfo) to `work/<map>/faces.pkl`. `bsp.py` is a minimal VBSP v19-21
 reader: entities, pakfile, texdata/texinfo, faces (normal from the plane; applying `side` on top flips it
 twice, a bug fixed on poolrooms), models, static props, lightmap luminance, and (Backrooms on) the vis lump
-for clusters, PVS and PAS rows.
+for clusters, PVS and PAS rows. lestnicha3's adds LZMA-compressed lumps and game lumps (maps repacked with
+`bspzip -repack`: `lzma_lump`, Python's FORMAT_ALONE) and the overlay lump 45 (`overlays()`).
 
 ### Readers (`vtf.py`, `vmt.py`, `vpk.py`, `mdl.py`, `mdlgeo.py`)
 
@@ -105,7 +120,10 @@ instance count, and for every material its shader, its texture slots (`$basetext
 `$bumpmap`, `$normalmap`, `$envmapmask`, `$selfillummask`, `$detail`, ...), its flags (`$translucent`,
 `$alphatest`, `$additive`, `$selfillum`, `$surfaceprop`, `$seamless_scale`, `$color`, `$color2`, ...), and for
 each texture where it was found (pak, gma or vpk), its size, format, frames and flags. Output
-`work/inventory.json`; prints the most important entries.
+`work/inventory.json`; prints the most important entries. Faces are not everything the map draws:
+lestnicha3's inventory adds the overlays (lump 45), the worldspawn's `detailmaterial`, the skybox faces
+(`skyname`) and an `EXTRA_MATERIALS` list (a particle's material), and records `$detailscale`,
+`$detailblendfactor` and `$detailblendmode`.
 
 ### Classification (`classify.py`)
 
@@ -146,6 +164,12 @@ Counts: Modern House 153 textures (145 from the map's GMA, 8 from base-game VPKs
 
 `merge_live_hashes` (Modern House) adds, for a texture whose materials reported live hashes that match none
 of its predictions, those live hashes, unless they are another texture's own prediction.
+
+lestnicha3's `tex_jobs.py` bakes a material's `$detail` into the AI input (`detail_bake.py`: mod2x at
+twice the base resolution, `detail_upsample` 4 for the cliff whose stone detail repeats four times), since
+gmRTX hides the detail pass from Remix. A `JOB_OVERRIDES` entry sets size, tiling (the models' textures
+tile: their UVs run past 0..1), `skip`, or `detail_bake: false` where the upscaler would turn a strong
+grain into blobs (the pavers); the grain then comes from a scan in `compose.py`.
 
 ### Live hashes (`live_hashes.py`)
 
@@ -194,9 +218,32 @@ Per texture, from `work/ai/<name>/` and the originals in `work/src/`, writes `wo
 | `emit_rects` | the [u0, v0, u1, v1] parts of an atlas that are the lamp |
 | `backdrop` | the whole colour emits (painted distant views) |
 
-The `$color`/`$color2` tint is multiplied into the albedo. Alpha is kept only for translucent or alpha-tested
-materials; an alpha that carries an envmap, self-illumination or phong mask is dropped. Normals are written
-in Remix's octahedral encoding; a material without a metal map gets `metallic_constant 0`.
+lestnicha3's `compose.py` adds:
+
+| Key | Effect |
+| --- | --- |
+| `bake_tint` | bake the material's tint (only where the addon takes the texture out of DECAL_STATIC; otherwise Remix applies the tint live) |
+| `normal_hp`, `height_hp` | high-pass the AI normal's slopes and the height (sigma as a fraction of the side): stains stop reading as broad tilts |
+| `height_pct` | the percentiles the height is normalised between (`[1, 72]` clips the deep pits of concrete) |
+| `damp_low` | darker, glossier hollows from the height (eroded soil) |
+| `micro` | `{name, repeats, albedo, normal}`: a CC0 scan's normal and colour, tiled `repeats` times, high-passed at 1/64 of a repeat, added as fine relief and (with `albedo` > 0) grain |
+| `scan` | the whole surface from a CC0 scan (colour, normal, roughness) |
+| `tint_compensate` | divide a scan's colour by the material's live tint, so the result matches after Remix applies it |
+| `transmission` | thin-opaque foliage: `subsurface_transmittance_texture` from the albedo (gain, saturation), a measurement distance, a single-scattering albedo (a colour: green (0.45, 0.70, 0.12) for grass; a grey one made backlit grass lavender), anisotropy |
+| `puffs` | dandelion clocks at atlas circles: seed hairs, a seed head, a dome normal, a fluffy alpha fringe |
+| `max_size` | cap the output size |
+
+Modern House multiplies the `$color`/`$color2` tint into the albedo; lestnicha3 does not, because gmRTX's
+DECAL_STATIC marking makes Remix apply it live (`lessons.md`). Alpha is kept only for translucent or
+alpha-tested materials (lestnicha3 snaps alpha-tested foliage to 0 and 255 for opacity micromaps); an alpha
+that carries an envmap, self-illumination or phong mask is dropped. Normals are written in Remix's
+octahedral encoding; a material without a metal map gets `metallic_constant 0`.
+
+lestnicha3's classes: concrete 0.62-0.94 (h 0.0025, micro Concrete025 x4, albedo 0.12, normal 0.5),
+concrete_damp 0.40-0.92, stair 0.60-0.92, pavers 0.50-0.86 (h 0.0045; their walkways' texture micro
+albedo 0.55 after an upscale without the detail), ground 0.74-1.00 (h 0.0055), ground_grass (the Grass001
+scan), ground_eroded (h 0.008, damp hollows), rock 0.58-0.95 (normal 1.35), foliage 0.60-0.88 (saturation
+0.88, transmission at 0.05 m), plus sky_face, light_shaft, sky3d and particle, which get no AI.
 
 Roughness ranges (lo-hi), with `height` where set:
 
@@ -226,6 +273,28 @@ Roughness ranges (lo-hi), with `height` where set:
 poolrooms composed by hand: a procedural 4K tile (glaze 0.075, grout 0.88), plaster 0.86-0.96 with the
 artist's normal plus high-pass relief, gate steel metallic 0.85 rough 0.38 with alpha cutout, ladder parts by
 colour (stainless metal 1 rough 0.14, plastic 0.42, enamel 0.28).
+
+### CC0 photoscans (lestnicha3: `compose.py` `micro` and `scan`, `plant_atlas.py`)
+
+Where an upscale has nothing to work from (a 512 px meadow, painted grass, a grain the upscaler turns into
+blobs), lestnicha3 uses CC0 photoscans, downloaded once with the user's permission to
+`out\l3rtx\cc0\` in this repository's main checkout (`L3RTX_SCANS`): ambientCG Concrete025 (micro-relief
+and grain on every concrete class) and Grass001 (the meadow ground), both their 4K-JPG sets (`Color`,
+`NormalDX`, `Roughness`, `Displacement`); Poly Haven's grass_medium_01 at 4K (diffuse with alpha,
+`nor_dx`, 16-bit roughness and alpha) for the plants. A scan must tile itself to be used as `micro` or
+`scan`.
+
+`plant_atlas.py` replaces plants in the grass model's atlas at the places the model's cards expect them,
+measured from the model's UVs (the clump cards span x 8-480, y 240-504 of 512, 60 % of the grass; the seed
+grass x 152-496, y 40-232). It clears those regions, cuts each scan card by its largest alpha component,
+trims the scan's stretched padding from the card's bottom, scales and places three clumps and four seed
+stalks (two mirrored, their normals' x negated), composites albedo (linear), alpha, normal (decoded from
+and re-encoded to octahedral) and roughness (kept in the foliage range 0.55-0.85), snaps alpha, and
+recomputes the transmission colour from the new albedo. It also draws the dandelion clock where the
+source had a white blob (seeds on a sphere with beaks and parachutes of hairs, see `lessons.md`) over a
+stem straightened from Poly Haven's dandelion_01 photo and recoloured green. It writes a stamp and redoes
+the work only when `compose.py` rewrote the atlas or its parameters changed; `--preview` writes a
+composite over blue.
 
 ### Hand-made materials (`overrides.json` "materials"; poolrooms `materials.json`)
 
@@ -306,6 +375,11 @@ PAS. Radiance is linear RGB in Remix units.
   spot and 22 point lights converted from the entities not inside an opening (a light entity's `pitch`
   key is an elevation, -90 pointing down, the opposite sign of a camera pitch); 28 ceiling panels with
   visible emissive fixtures for the unlit north hall.
+- **lestnicha3** (22 night lights; the map has no light entities and no fixtures): 8 lamps under the
+  gallery's ceiling (spheres hung 10 units below it, cone 72 degrees, 4300 K, radiance 85), 6 uplights in
+  front of the arches' legs (3000 K, 1200, cone 14, leaning 6 degrees to the arch), 8 uplights washing the
+  four towers (2900 K, 1400, cone 13, two per tower spread 55 degrees apart). `lights_style.json` "night"
+  gives the fade: on below 3 degrees of sun elevation, full at -6.
 
 ### Sky (`gen_sky.py`, the physical sky)
 
@@ -320,6 +394,18 @@ bk +y, ft -y, up, dn; `--debug` writes labelled faces) as the fallback where the
 The native loader's companion has its own physical sky; a map add-on that sets the sky answers the hook
 `NativeLoaderSkyOwner` with its name (this repository's ADR 0031; Modern House is recognised by its
 `MHRTX_Config`).
+
+lestnicha3, an island in the open air, takes the sun from the map's own `light_environment` (40 degrees,
+azimuth 250, 5200 K) with clouds at coverage 0.30, voxel cloud shadows on at strength 0.55, and times noon
+60/248, afternoon 40/250, golden 9/262, dusk -3/270, night -32/290 (`l3rtx_time`, `l3rtx_sun <elev>
+<azimuth>`). The froxel volumetrics' range goes from 20 m to 45 m (`froxelMaxDistanceMeters`, grid scale 4),
+transmittance over 90 m. A "haze sun" (a distant light along the sun, radiance 0.2, volumetric scale 10,
+3200-5600 K by elevation) lights the haze, which the atmosphere's sun does not reach. It owns the sky only
+when the companion follows the map (`nativeloader_sky_follow_map 1`: it answers `NativeLoaderSkyOwner`
+and calls `hook.Run("NativeLoaderSkySet")` after a change). With `follow_map 0` (the user's field setting:
+time passing, the companion's weather) it reads the companion's sun from the
+`RemixConfig.SetConfigVariable` calls for `rtx.atmosphere.sunElevation`/`sunRotation` (a wrapper installed
+while the map is loaded) and fades its night lights and haze sun by that.
 
 ### Mirrors (`gen_mirrors.py`)
 
@@ -400,6 +486,15 @@ another room.
   `viewPos` override so tours light the held camera), the sun, mirrors and fixes (a missing texture bound
   to the house glass with `SetTexture`), logs one `created: ...` line, and on `ShutDown` destroys its lights
   and meshes and restores the options. It leaves world materials alone at unload.
+- **lestnicha3's additions.** Texture categories by hash from `sh_config.lua`: `hide` (IGNORE, 1 << 3: the
+  fake light shafts) and `untint` (DECAL_STATIC, 1 << 12, removed: the overflowing edging), applied with
+  `RemixMaterial` remove-then-set after gmRTX's smart-mark (a 2 s timer for the first two minutes, then
+  every 30 s) and put back at shutdown; `r_3dsky 0` scoped and the 3D skybox room's props hidden with
+  `SetNoDraw` on the server; the night lights and haze sun on a 1 s timer; the lip skirts from
+  `skirts.lua` built once as a `Mesh` and drawn with the edging's material in
+  `PreDrawTranslucentRenderables` (skipping the depth and skybox passes), destroyed at shutdown. The
+  generated data files (`lights.lua`, `skirts.lua`) are read with `file.Read(..., "LUA")` and sent to
+  clients with `AddCSLuaFile`.
 
 ### Game drivers (`game.py`, `restart.py`, `loadprof.py`, `stackprof.py`)
 
@@ -421,7 +516,8 @@ another room.
 
 ### Deploy (`deploy.py`)
 
-With the game closed: copies the addon to `<game>/garrysmod/addons/<addon>` and the mod to
+With the game closed (and `MHRTX_GAME`, `L3RTX_GAME`, ... set to the install): copies the addon to
+`<game>/garrysmod/addons/<addon>` and the mod to
 `<game>/rtx-remix/mods/<mod>`, textures as hard links on the same volume (no second copy of 3.2 or 14 GB;
 the game keeps them when the worktree goes), after removing a development junction (the link only), and
 deletes files the build no longer has. For live iteration the sessions used junctions instead
@@ -429,20 +525,20 @@ deletes files the build no longer has. For live iteration the sessions used junc
 with the native loader, a folder the loader deployed is its own: test through a content package instead
 (`testing.md`), or give a hand-copied development mod another folder name (unverified as a workflow).
 
-## How the three maps differ
+## How the four maps differ
 
-| | gm_poolrooms | Backrooms | modern_house |
-| --- | --- | --- | --- |
-| Done | 2026-10-26 | 2026-10-27, PAS 2026-10-28 | 2026-10-27, culling fix the same evening, R3-016 2026-10-29 |
-| Textures | 7 materials plus 8 caustic classes, hand-built; 16 DDS, 150 MB | 1162 textures, automated, 3712 DDS, 14 GB | 153 textures, automated, 490 DDS, 3.2 GB |
-| Materials | procedural tile, AI plaster, gate, ladder; tags for water, openings, panels, caustics | recipes per class, damp carpets, muted Level 0 grade, backdrops | recipes per class, hand-made glass, mirrors, LEDs, water wall |
-| Lights | 116: openings, entities, hall panels | 1700-2700 per map on the fixtures, switched by PAS (80-90 on, at most about 400) | 341 on the fixtures and LED faces, all on |
-| Sky | the map's black skybox | the map's own | physical sky with times of day; painted fallback |
-| Visibility | not addressed (whole map drawn by gmRTX) | PAS (`rtx_patch_vis_pas`) | whole map + 31 PVS-cover points |
-| Special | black water fix, triplanar unfolding, caustics, RTX Water | three loading fixes in gmRTX and RTXFixesBinary, light-updater suspension | mirrors, glow sprites, missing texture, pool lights, the skybox-boundary load fix in gmRTX |
-| Frame time (4K, RTX 5090) | median 15-16 ms | pitfalls 13.2 ms (stock 121), complex 12.8 ms | 16.6 ms (stock 37.2) |
-| Load from `map` | about 142 s | 3.5 min / 4 min | about 2.5 min |
-| Where it ships | fork branch (pushed) and the RTX package's fixes part | local only | hidden item 3829275998 |
+| | gm_poolrooms | Backrooms | modern_house | lestnicha3 |
+| --- | --- | --- | --- | --- |
+| Done | 2026-10-26 | 2026-10-27, PAS 2026-10-28 | 2026-10-27, culling fix the same evening, R3-016 2026-10-29 | 2026-11-09 |
+| Textures | 7 materials plus 8 caustic classes, hand-built; 16 DDS, 150 MB | 1162 textures, automated, 3712 DDS, 14 GB | 153 textures, automated, 490 DDS, 3.2 GB | 14 textures, automated, 51 DDS, 0.6 GB (preloaded) |
+| Materials | procedural tile, AI plaster, gate, ladder; tags for water, openings, panels, caustics | recipes per class, damp carpets, muted Level 0 grade, backdrops | recipes per class, hand-made glass, mirrors, LEDs, water wall | recipes per class, `$detail` baked, CC0 scans for grain, the meadow and the plants, a drawn dandelion clock, thin-opaque foliage scattering green |
+| Lights | 116: openings, entities, hall panels | 1700-2700 per map on the fixtures, switched by PAS (80-90 on, at most about 400) | 341 on the fixtures and LED faces, all on | the sun; 22 night lights faded by its elevation |
+| Sky | the map's black skybox | the map's own | physical sky with times of day; painted fallback | physical sky with the mapper's sun, cloud shadows, haze sun, 45 m froxels; follows the companion's time |
+| Visibility | not addressed (whole map drawn by gmRTX) | PAS (`rtx_patch_vis_pas`) | whole map + 31 PVS-cover points | whole map (93 of 94 clusters see each other) |
+| Special | black water fix, triplanar unfolding, caustics, RTX Water | three loading fixes in gmRTX and RTXFixesBinary, light-updater suspension | mirrors, glow sprites, missing texture, pool lights, the skybox-boundary load fix in gmRTX | tint overflow fixed by category, fake shafts hidden, 3D skybox off, the slot under the edging's lips closed by fillets, LZMA BSP |
+| Frame time (4K, RTX 5090) | median 15-16 ms | pitfalls 13.2 ms (stock 121), complex 12.8 ms | 16.6 ms (stock 37.2) | 12.4 ms by day (stock 10.7), 18-19 ms at night in the gallery |
+| Load from `map` | about 142 s | 3.5 min / 4 min | about 2.5 min | seconds (a small map) |
+| Where it ships | fork branch (pushed) and the RTX package's fixes part | local only | hidden item 3829275998 | local branch; installed in the user's game |
 
 ## Reusable as-is vs map-specific
 
@@ -463,7 +559,8 @@ fixes); poolrooms' generators, written for that map's few surfaces.
 1. Ask the user (permissions, install, destination, licence of the map's assets). Subscribe only with
    their OK.
 2. New worktree of the fork on a new branch (local; push only if asked). Copy Modern House's `tools/`
-   folder and addon folder; rename `mh_paths.py`, the `MHRTX_` prefix, the `MHRTX` Lua table, the
+   folder and addon folder (lestnicha3's for an outdoor map: sky, CC0 scans, night lights by the sun);
+   rename `mh_paths.py`, the `MHRTX_` prefix, the `MHRTX` Lua table, the
    `mhrtx_` console names, the data folder name, the mod name in `build_mod.py`, the light hash base, and
    the `.gitignore` lines.
 3. Clear the copied map data: `cameras_*.json`, `gallery.json`, `overrides.json` entries, `FIXTURES`,

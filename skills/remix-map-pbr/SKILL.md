@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms and modern_house remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), build a Remix mod of mat_HASH layers keyed by texture hashes checked live, and add a map-only Lua add-on with Remix API lights, the physical sky, mirrors, glass, water, caustics, scoped settings and visibility for path tracing; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need normal, roughness, metal, height or emissive maps, or the task is a map's Remix mod, lights, sky, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload follows workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house and lestnicha3 remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload follows workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -17,9 +17,11 @@ modern_house that was 1069 helper models a frame, the GPU at 35-40 % and 22 engi
 
 The working pipelines are Python scripts in the user's fork `H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed`
 (GPL-2.0; branches and paths in `README.md`). This skill describes their behaviour, inputs, outputs and
-commands; it holds no code from them. The newest and most complete is Modern House
+commands; it holds no code from them. The most complete for interiors is Modern House
 (`source/modern_house_rtx/tools`, branch `claude/modern-house-rtx`), copied from Backrooms, which grew out
-of the gm_poolrooms work.
+of the gm_poolrooms work. The newest, lestnicha3 (`source/lestnicha3_rtx/tools`, branch
+`claude/lestnicha3-rtx`), is Modern House's copied for an island in the open air: the physical sky as the
+main light, CC0 photoscans for grain, ground and plants, night lights driven by the sun.
 
 Read the references when you reach their stage:
 
@@ -47,7 +49,9 @@ Read the references when you reach their stage:
   map is loaded and puts them back when the map unloads; it writes no config file. Leave the user's own
   choices alone (their archived `rtx_lightupdater 1`, their PsychoV17 purity 1.33).
 - **Ask before downloads or the network:** subscribing to the map (a Steam download), rpai's `setup.ps1`
-  (72 MB of weights), the Remix Toolkit, reading the Workshop page or the Remix documentation online.
+  (72 MB of weights), the Remix Toolkit, reading the Workshop page or the Remix documentation online. When
+  the user allows free resources (lestnicha3, 2026-11-08), take CC0 ones (Poly Haven, ambientCG), keep the
+  downloads under this repository's `out\`, and credit them in the doc page.
 - **Installs.** Develop and test on the PoC, `H:\SteamLibrary\steamapps\common\GarrysMod_PoC`. Touch the
   field install `...\common\GarrysMod` only when the user asks, after backing up what you will change.
   Never write into `GarrysMod_RTX_c` or its backups (the user replaced it on 2026-10-30). The fork's
@@ -123,7 +127,9 @@ other two maps' equivalents are in `references/pipeline.md`.
    a class by regexes on the material and texture names (VBSP's cubemap copies `maps/<map>/..._x_y_z`
    stripped first), then `$surfaceprop`, then the shader. `python contact_sheet.py` shows the base
    textures; pin mistakes in `tools/overrides.json`. Glass, mirrors, water, emitters, decals and unlit
-   materials get no AI: they are hand-made.
+   materials get no AI: they are hand-made. Faces are not all the map draws: add overlays (BSP lump 45),
+   detail sprites, sky faces and particle materials (lestnicha3's `inventory.py`), and note each material's
+   `$detail` and tint.
 6. **Hashes, predicted and live.** `python tex_jobs.py` writes `work/textures.json` (per texture: its
    predicted Remix hash per animation frame, size, format, materials, class, world-area share, tint),
    decodes the sources to `work/src/` and writes the AI job list `work/jobs_ai.json`, most visible first.
@@ -135,11 +141,19 @@ other two maps' equivalents are in `references/pipeline.md`.
 7. **AI maps.** `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only name,...]` writes `work/ai/<name>/`:
    the upscaled `albedo.png` (and `alpha.png`), `normal_raw.npy`, `rough.png`, `height.png`. Tiling world
    textures are processed with wrap-around padding so they stay seamless. A finished job is skipped on the
-   next run. Measured on the RTX 5090: 139 jobs in 2722 s (modern_house), 1132 jobs in 5548 s (Backrooms).
+   next run. Measured on the RTX 5090: 139 jobs in 2722 s (modern_house), 1132 jobs in 5548 s (Backrooms),
+   14 in 316 s (lestnicha3). A material's `$detail` is invisible under gmRTX: bake it into the AI input,
+   except a strong grain, which the upscaler turns into blobs (upscale the plain base, add the grain from a
+   scan in step 8). Crop one spot from source, input, AI output and final to check.
 8. **Compose.** `python compose.py [--only ...] [--force]` turns the AI outputs and the originals into
    `work/tex/<name>/{albedo,normal,roughness,metallic,height,emissive}.png` and `work/composed.json`, from
    the class recipe (`RECIPES` in `compose.py`) and per-texture changes in `overrides.json` "textures".
-   Inspect the maps before building. Recipes and what each key does: `references/pipeline.md`.
+   Inspect the maps before building. Recipes and what each key does: `references/pipeline.md`. Don't bake
+   a world or BSP-prop material's tint: gmRTX's DECAL_STATIC marking makes Remix apply it live (compare
+   debug views 23 and 32). Where the source has no detail to upscale, use CC0 photoscans: `micro` (a
+   high-passed scan's relief and grain), `scan` (a whole ground), `plant_atlas.py` (photoscanned plants in a
+   foliage atlas at the places the model's UVs expect them); give foliage thin-opaque transmission and
+   alpha snapped to 0 and 255.
 9. **Hand-made materials and tag textures.** In `overrides.json` "materials": clear glass (translucent,
    thin-walled), frosted glass, mirrors, LED emitters, water sheets, sky faces, each listing the textures
    (or hashes) it replaces. Where a replacement must apply only on this map, or to a texture that is shared
@@ -147,7 +161,8 @@ other two maps' equivalents are in `references/pipeline.md`.
    the tag's hash (poolrooms water and openings, Modern House mirrors).
 10. **Build the mod.** `python build_mod.py [--no-prune]` encodes the DDS (BC7 colour, BC5 normals, BC4
     roughness/metallic/height) with NVTT, writes `materials.usda` and rewrites `mod.usda` atomically, and
-    prunes unused DDS. A running game hot-reloads on the `mod.usda` timestamp; a brand-new mod folder is
+    prunes unused DDS. Preload (`preload_textures = 1`) a mod under about 1 GB: streaming left lestnicha3's
+    walkway floor at a tiny mip. A running game hot-reloads on the `mod.usda` timestamp; a brand-new mod folder is
     found only at startup or with Alt+X → Enhancements → Loaded USD Files → "Rescan Mods & Reload USD
     Stage" (the user's click, or your own test session's restart). Keep `MHRTX_DDS_QUALITY` at its default
     (`normal`): production BC7 took about 3 hours on modern_house for no visible gain.
@@ -166,12 +181,19 @@ other two maps' equivalents are in `references/pipeline.md`.
     and a tag texture and the addon draws them in `PreDrawTranslucentRenderables`. Water: RTX Water's
     `RTXWater_MapProfile` hook (calm), or the translucent-flag fix. Hide glow sprites and fake beam cones on
     the server at `InitPostEntity` and `PostCleanupMap`. Caustics and curved-tile unfolding are the
-    poolrooms tools.
+    poolrooms tools. Outdoors (lestnicha3): the mapper's `light_environment` as the sun; a dim "haze sun"
+    distant light along it, since the atmosphere's sun does not light the froxels; the froxel range raised
+    to the space (45 m); `r_3dsky 0` scoped and the 3D skybox room's props hidden; night lights faded by
+    the sun's elevation. When the companion drives the sky (`nativeloader_sky_follow_map 0`, the user's
+    field setting) leave it its sky and follow its sun instead of answering `NativeLoaderSkyOwner`. Fix a
+    texture's category from the addon (`RemixMaterial`): IGNORE hides fake shafts, removing DECAL_STATIC
+    stops an overflowing tint.
 13. **Visibility.** Never cull what the path tracer needs. Small maps: keep gmRTX's whole-map drawing and add
     PVS-cover points on the server (`python gen_vis.py` → `vis_points.lua`, 31 points cover modern_house) so
     every networked prop is sent. Huge maps where the whole map is CPU-bound (Backrooms, about 46 ms): the
     engine's PVS widened to the PAS (`rtx_patch_vis_pas 1`, 2-5 % of the map) with `r_novis 0` and
     `rtx_patch_forcenovis 0` scoped. Check with `cullcheck.py`/`vischeck.py` (`references/testing.md`).
+    Measure the PVS first: on an open map (lestnicha3, 93 of 94 clusters see each other) culling wins nothing.
 14. **Deploy to a test install.** With that game closed: `python deploy.py` with `MHRTX_GAME` set to the test
     install (it copies the addon and hard-links the textures on the same volume, removes a development
     junction first, and removes files the build no longer has); or junctions into the worktree for live
@@ -215,7 +237,11 @@ Decided or confirmed by the user:
 - **One package per map, not in the RTX package** (ADR 0023): players of other maps should not download
   3.3 GB. Modern House is the hidden item 3829275998; its source stays local.
 - **No add-on forces `r_forcehwlight 1`** (R3-016, 2026-10-29; the user confirmed the fix in game).
-- No size limit on a remaster's resources (said in all three requests); performance still counts.
+- No size limit on a remaster's resources (said in all four requests); performance still counts.
+- **Low-resolution textures may be replaced, not only upscaled** (lestnicha3, 2026-11-08: "You don't have to
+  stick on the textures on the original map ... you could upscale or replace them", free resources
+  allowed): CC0 photoscans for the grass, the meadow ground and the concrete's grain. The map's layout
+  (joints, stains, per-paver tones) stays.
 
 Set by the sessions and not contested (chosen by eye on tour sheets, not A/B-measured; re-measure before
 calling them standards for a new map):
@@ -244,6 +270,13 @@ calling them standards for a new map):
   draws it (not at mod load), so a preloaded map mod's cost lands in the map's first frames.
 - **Precedence:** an authored map mod always beats the RTX fixes' generated `~gmod_topbr` (runtime patch
   0020); ToPBR's world conversion stays opt-in (`rtx_topbr_enabled 0`).
+- **Tints** are left to Remix on DECAL_STATIC textures (verified on lestnicha3, 2026-11-08); a tint above 1
+  is baked after the addon removes that texture's DECAL_STATIC category. Modern House's baked tints predate
+  this finding.
+- **Outdoor light** (lestnicha3): the sun at the mapper's angle, radiance 4.5 at 5200 K; clouds 0.30 with
+  voxel shadows at 0.55; haze sun 0.2 with volumetric scale 10; froxels to 45 m; night lights as shaped
+  spheres (gallery 4300 K/85, uplights 2900-3000 K/1200-1400) faded in below 3 degrees of sun elevation.
+  The remaster cost 1.7 ms over stock by day at 4K (12.4 against 10.7 ms).
 
 ## Commands
 
@@ -256,6 +289,8 @@ calling them standards for a new map):
 | `python live_hashes.py` | live hashes from the running game |
 | `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only ...]` | upscale, normal, roughness, height |
 | `python compose.py [--only ...] [--force]` | PBR maps per recipe |
+| `python plant_atlas.py [--cc0 DIR] [--preview]` | lestnicha3: CC0 photoscanned plants and a drawn dandelion clock into the grass atlas (after `compose.py`) |
+| `python gen_skirts.py [--min A] [--max B] [--debug x y r]` | lestnicha3: fillets for the open lip edges of a model floating over the floor, into the addon |
 | `python build_mod.py [--no-prune]` | DDS, `materials.usda`, atomic `mod.usda` |
 | `python gen_lights.py` / `gen_mirrors.py` / `gen_sky.py [--size N]` / `gen_vis.py` | lights, mirror quads and tag, fallback sky, PVS-cover points |
 | `python survey.py <label> [count]` / `find_cameras.py <map>` | candidate cameras |
@@ -290,11 +325,24 @@ calling them standards for a new map):
 | A setting never reaches an install | An archived client convar keeps its old saved value: rename the convar |
 | Game "hangs" after a crash at "Parsed config file" | The Remix crash-report prompt: let the launch time out; never set `RTX_AUTOMATION_DISABLE_BLOCKING_DIALOG_BOXES` |
 | "console message not accepted" | The game is loading, reloading models or has lost its device: wait once, then check it is alive; don't loop |
+| A surface near black, its albedo fine in the files | A tint above 1 overflows through the texture factor (debug view 23 shows it): take the texture out of DECAL_STATIC from the addon and bake the tint |
+| Tinted surfaces too dark | The tint baked into the albedo and applied again live: don't bake tints on DECAL_STATIC textures |
+| The concrete's grain missing | `$detail` is a separate pass gmRTX hides: bake it into the base before the AI stage |
+| Black-and-white blobs after the upscale | A strong baked grain: upscale the plain base and add the grain from a scan (`micro` with albedo) |
+| A floor blurry at a distance, sharp up close | Texture streaming left it at a low mip: `preload_textures = 1` for a mod under about 1 GB |
+| A white ellipse or dark ring at the horizon | The 3D skybox room drawn as geometry under the physical sky: `r_3dsky 0` and hide its props |
+| No sunlit haze between buildings | The atmosphere's sun does not light the froxels: a dim haze sun along it, a longer froxel range |
+| The addon's sun and times ignored | The companion owns the sky (`nativeloader_sky_follow_map 0`): follow its sun, or set `follow_map 1` for tests |
+| `VK_ERROR_DEVICE_LOST` after a material edit | `Material:SetVector` on a world material right after a camera cut: change Remix categories instead |
+| A dark navy line along kerbs, copings or planter rims | A model's lip floats over the floor with its inner edge open; the path tracer shadows the slot: close it with fillets from the addon (`gen_skirts.py`) |
+| Backlit grass or leaves lavender or white | A grey thin-opaque scattering albedo: give it the foliage's green |
+| Every view slower by the same share | Another program on the GPU (`nvidia-smi`), often the user's own game: measure stock and remaster back to back and report ratios |
 
 ## Done criteria for a map
 
 - Every region of the camera file shot after the last build, with no artifact left unexplained; the user saw
-  the gallery and the stock-vs-remaster pairs.
+  the gallery and the stock-vs-remaster pairs. An outdoor map also at golden hour, dusk and night, with
+  the night lights' cost measured, and under the user's own sky setting (the companion's time passing).
 - Hash coverage reported: predictions matched live, textures with live hashes added, textures left to Remix
   and why.
 - A frame-time table, stock against remaster in one session, median and slowest region, with the noise.

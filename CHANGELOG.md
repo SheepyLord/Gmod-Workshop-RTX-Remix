@@ -6,6 +6,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: the lestnicha3 remaster
+
+- **`remix-map-pbr` updated from the lestnicha3 remaster** (Workshop map 3756151906, the user's request of
+  2026-11-08; the remaster itself is on the fork's local branch `claude/lestnicha3-rtx`): gmRTX marks every world
+  and BSP-prop texture DECAL_STATIC, so Remix applies material tints live and a baked tint applies twice; a tint
+  above 1 is fixed by taking that texture out of the category; `$detail` passes are invisible under gmRTX and are
+  baked, except strong grains, which the upscaler turns into blobs and which come back from CC0 scans; CC0
+  photoscans replace low-resolution ground and painted plants (`plant_atlas.py`, with a dandelion clock drawn as
+  seeds and parachutes on a sphere); thin-opaque foliage needs a green scattering albedo (a grey one made backlit
+  grass lavender); a model's lip floating over the floor leaves a slot the path tracer shows as a dark line, closed
+  by fillets the addon draws (`gen_skirts.py`); a mod under about 1 GB is preloaded; outdoor maps get the 3D skybox
+  off, a haze sun for the volumetrics, night lights by the sun's elevation, and follow the native loader's sky when
+  it drives the time of day; frame times on a GPU the user is gaming on count only as same-session ratios. The
+  skill's description, workflow, standards, troubleshooting, lessons, pipeline and testing references say how,
+  with the measurements.
+
 ### After R24: a map remaster too big for one Workshop item
 
 - **A remaster's Remix mod is split by map and fitted under each item's size**

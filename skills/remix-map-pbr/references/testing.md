@@ -72,7 +72,9 @@ for the denoiser), takes the engine's
 `jpeg` screenshot (the presented, path-traced frame at the game's resolution) and moves it to
 `work/shots/<map>/<label>/<camera>.jpg`, then writes `_sheet.jpg` (three thumbnails a row, labelled) and
 puts the HUD and view back. `times_tour.py` (Modern House) shoots a few cameras at golden hour, dusk and
-night and returns the sun to the afternoon. Keep labels simple: a label with slashes broke the path.
+night and returns the sun to the afternoon. Keep labels simple: a label with slashes broke the path. An
+open-air map needs the times of day in its done criteria: lestnicha3 was toured at afternoon, golden hour,
+dusk and night, and its night lights measured separately (rect lights cost 7-11 ms there, spheres about 4).
 
 Go through every region on the sheet. The three remasters were judged region by region this way, and
 what was wrong was fixed and shot again (`v1` to `v19` on gm_poolrooms, `wip2` to `wip5` on Backrooms).
@@ -221,3 +223,25 @@ python tools\poc_session.py --evidence $e uninstall
 prints becomes a screenshot). Modern House's Workshop item was checked in the field install this way: the
 map mounted with `--mount-workshop 3495468649`, then `--change-map`, the add-on's lines present, the terrace
 camera within 0.4 of the gallery shot's mean RGB.
+
+lestnicha3 confirmed the fork's tools on the PoC (2026-11-08): junctions from the PoC's `addons` and
+`rtx-remix\mods` into the worktree, one long `poc_session.py run --addons --mount-workshop 3756151906
+--change-map lestnicha3 --settle 30000 --hang-grace 600` per sitting (in the background), then `game.py`,
+`tour.py`, `perf.py`, `abtest.py` and `times_tour.py` against it with `L3RTX_GAME` at the PoC. Around such a
+session:
+
+- **The PoC lock.** Sessions share the PoC through `out\r10\poc.lock` in this repository's main checkout
+  (owner, start time, note). Take it before a launch, give it to a peer that asks at a natural pause, and
+  wait for it to be written back.
+- **The cloud config.** GMod's `config.cfg` is synced by Steam Cloud, so a PoC quit writes its settings into
+  the field's. End each session by `exec`ing a copy of the field's `config.cfg` and `host_writeconfig`
+  before `quit`.
+- **The sky.** An addon owns the sky only when the native loader's companion follows the map: set
+  `nativeloader_sky_follow_map 1` before the map loads for tests of the addon's own times of day, and put
+  the user's value back before the quit (it is archived in `client.vdf`). Test the user's setting too
+  (`follow_map 0`, time passing): the companion's sun then drives the addon.
+- **Auto-exposure.** After a big change of light (a time of day, the mod on or off) wait about 8 s before a
+  shot; `times_tour.py` does.
+- **A shared GPU.** Look at `nvidia-smi`'s process list before timing frames: on 2026-11-09 the user's own
+  game ran beside the session and every camera was 30-40 % slower. Then only same-session ratios of stock
+  and remaster count, and long 4K sessions should wait until the user's game ends.

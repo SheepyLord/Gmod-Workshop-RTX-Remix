@@ -71,7 +71,29 @@ pool floor hidden in the user's game (2026-10-26).
   or `RemixConfig.SetConfigVariable("rtx.enableReplacementMaterials", "False")` and back to `"True"`.
 - Roughness overrides that are hard to see in shading show in Remix debug view 89 (primary perceptual
   roughness): with the debug module under `sv_cheats 1`, `Remix.SetDebugView(89, 0)`, undone with
-  `Remix.RestoreConfig("rtx.debugView.debugViewIdx")` (used for character hair, 2026-10-26).
+  `Remix.RestoreConfig("rtx.debugView.debugViewIdx")` (used for character hair, 2026-10-26). The debug
+  module 0.2.1 (`RTXDebug.Remix.SetDebugView(idx, restore)`) needs no `sv_cheats` where it may configure
+  rendering. Views used on lestnicha3: 23 albedo after the texture-stage ops (tints included), 32 raw
+  albedo, 18 vertex colour, 22 material type, 89 roughness, 277 geometry hash, 812 height.
+  `RTXDebug.SessionConfig(key)` returns only what the module itself set (nil otherwise), not a live value.
+
+## Tints, detail passes and texture categories
+
+gmRTX's smart-mark sorts every texture into Remix categories when a map loads (about 5 s after it, then
+again for textures still pending). It puts every world texture and every BSP static-prop material into
+DECAL_STATIC (0x1000). Remix applies the fixed-function texture factor (`D3DRS_TEXTUREFACTOR`, which
+carries a material's `$color`/`$color2` on gmRTX's paths) only to decal, particle and allowBakedLighting
+textures, so on those textures a tint multiplies the replacement albedo live. Consequences, verified on
+lestnicha3 (2026-11-08):
+
+- Don't bake tints into a replacement albedo of a DECAL_STATIC texture: the tint would apply twice.
+- A tint above 1 (an edging's `$color2` 1.59) overflows to near black. Take that texture out of
+  DECAL_STATIC from the addon (`RemixMaterial` category remove, then set, after smart-mark; recheck on a
+  timer) and bake the tint instead.
+- A material's `$detail` texture is drawn as a separate pass, which gmRTX marks decal plus ignore (0x1008):
+  Remix never sees the grain. Bake it into the base.
+- Hide a texture (fake light shafts) with the IGNORE category (1 << 3) from the addon rather than an empty
+  replacement.
 - A surface still unchanged after a correct hash: another mod that sorts earlier replaces the same hash
   (below).
 
@@ -108,13 +130,14 @@ over "RootNode" { over "Looks" { over "mat_0123456789ABCDEF" { over "Shader" {
 | --- | --- | --- |
 | `info:mdl:sourceAsset` | uniform asset | `@AperturePBR_Opacity.mdl@` or `@AperturePBR_Translucent.mdl@`, the runtime's built-in MDLs |
 | `info:mdl:sourceAsset:subIdentifier` | uniform token | the same name without `.mdl` |
-| `inputs:preload_textures` | bool | 0 to stream (Modern House and Backrooms, GBs), 1 to preload (poolrooms, 150 MB). Since runtime patch 0030 (ADR 0103, `rtx.texturemanager.preloadOnFirstDraw`, default True) a preload loads whole in the first frame that draws the material, not when the mod loads: a map's preloaded materials load in its first frames, all at once. Keep GB-size map mods streaming |
+| `inputs:preload_textures` | bool | 0 to stream (Modern House and Backrooms, GBs), 1 to preload (poolrooms, 150 MB; lestnicha3, 0.6 GB, where streaming left the walkway floor at a tiny mip seen from a distance). Since runtime patch 0030 (ADR 0103, `rtx.texturemanager.preloadOnFirstDraw`, default True) a preload loads whole in the first frame that draws the material, not when the mod loads: a map's preloaded materials load in its first frames, all at once. Keep GB-size map mods streaming |
 | `inputs:diffuse_texture` | asset, `colorSpace = "auto"` | the albedo DDS as `@./textures/<file>@`; `@@` authors it empty, which a constant diffuse needs |
 | `inputs:normalmap_texture` | asset, `raw` | octahedral BC5; `int inputs:encoding = 0` |
 | `inputs:reflectionroughness_texture`, `inputs:metallic_texture` | asset, `raw` | BC4 |
 | `inputs:height_texture` | asset, `raw` | BC4 with max-filtered mips; `float inputs:displace_in` (depth over one texture repeat), `displace_out` |
 | `inputs:emissive_mask_texture` | asset, `auto` | BC7; with `bool inputs:enable_emission`, `float inputs:emissive_intensity` |
 | `inputs:transmittance_texture` | asset, `auto` | translucent materials |
+| `inputs:subsurface_transmittance_texture` | asset, `auto` | thin-opaque foliage (lestnicha3): with `float inputs:subsurface_measurement_distance` > 0 and no diffusion profile, `subsurface_single_scattering_albedo`, `subsurface_volumetric_anisotropy`; `rtx.subsurface.enableThinOpaque` is True by default |
 | constants | bool, int, float, color3f | `reflection_roughness_constant`, `metallic_constant`, `diffuse_color_constant`, `emissive_color_constant`, `ior_constant`, `thin_walled`, `thin_wall_thickness`, `transmittance_color`, `transmittance_measurement_distance`, `use_diffuse_layer`, `sprite_sheet_rows`, `sprite_sheet_cols`, `sprite_sheet_fps`, `use_legacy_alpha_state`, `blend_enabled`, `blend_type` |
 
 ### Textures

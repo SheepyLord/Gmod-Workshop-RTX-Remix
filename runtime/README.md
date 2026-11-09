@@ -1,5 +1,37 @@
 # runtime/
 
+R26 adds `0041-Atmosphere-the-sky-without-a-horizon.patch`
+([ADR 0139](../docs/decisions/0139-the-sky-without-a-horizon.md)): `rtx.atmosphere.noHorizon` (bool,
+default False), for maps that float in the sky or in space. A view direction below the horizon gets
+the sky instead of the ground-level haze the planet's sky gave it:
+
+- **the air's gradient** of its mirror above (`noHorizonMirror` in `atmosphere_common.slangh`): the
+  sky-view LUT's bake marches the mirror's air into the LUT's lower half, with the true direction's
+  angle to the sun and moons for the phase terms (`evalAtmosphereRadiance`'s new `phaseDir`), so the
+  sun's aureole stays around the sun;
+- **the clouds and the high layer** of its antipode (`noHorizonCloudDir`): the screen-space cloud pass
+  marches `-dir` for a pixel below the horizon (`marchCloudLayers`' new `phaseDirYUp` keeps the true
+  direction for the clouds' phase), the high layer meets the antipode's shell, and secondary rays read
+  the antipode's texel of the dome LUT. A mirror of the clouds read as a lake's reflection. Within
+  0.0015 of the horizon the cloud ray is held just above it, so no line of bare sky is left. The
+  cloud bleed fades out over the first 6 degrees below (a dome texel's silver lining belongs to its own
+  direction);
+- **what lies beyond the air** where it is: the stars and the night sky image without the horizon's
+  fade (the airglow's boost toward the horizon is its mirror's), the moons and their glow lit through
+  the air of their mirror. The sun disc keeps the time of day: below the horizon it is night.
+
+`AtmosphereArgs::noHorizon` takes the former `r18Pad0` slot (the buffer keeps its size); it stays in the
+sky-view LUT's key, and the transmittance/multiscattering and voxel-grid keys zero it. Off, every site
+computes what it did before. The dev menu's No Horizon (Atmosphere) shows the option's description;
+both are translated in the six catalogs, and `RtxOptions.md` is regenerated.
+
+Built in `out/worktrees/r17/out/runtime-src` on 0040 (`3cb32fb8`) as `17dcc86c` (branch
+`claude/r26-sky`), exported alone (`format-patch -1 --start-number 41`), then built and imported by
+`build_runtime.ps1` (the tree checked against the base and the 37 patches, both compile passes):
+`d3d9.dll` 418,258,944 bytes, SHA-256 `35ce500857c852e7babf0bd5a6fdc9495eef39703cfb2d4c33547c0bcec33054`,
+build identity `remix-main+17dcc86c`; 61,618,824 bytes xz in Git LFS. No texture, buffer or new pass;
+the DLL grows by 0.7 MB of shader code. PoC checks in [TESTING.md](../docs/TESTING.md) ("R26").
+
 R20-E adds `0040-Publish-live-upscaling-state-for-startup-advice.patch`
 ([ADR 0123](../docs/decisions/0123-live-upscaling-readback.md)). The selected device publishes one
 versioned atomic snapshot at `rtx.runtime.upscalingState`, through the existing
@@ -287,6 +319,7 @@ NVIDIA's SDKs, is about 3.6 GB and keeps its own history, so this repository hol
 | `0032-Atmosphere-...` | R17's limits: a profile depth per weather so thin stratiform decks close; the middle deck's own patch mask and cloudlet size; sun dogs, the circumzenithal arc and the 46 degree halo; the aerosol's absorption and phase per weather (a milky haze); the twilight kept to 8 degrees down ([ADR 0110](../docs/decisions/0110-thin-decks-a-middle-deck-of-its-own-ice-arcs-a-milky-haze-and-twilight.md)) |
 | `0033-Bound-the-DDS-readers-...` | The pre-release review's runtime findings: both DDS readers check a file's headers against the file before reading it; string options copied under the update mutex beside the render thread; a shared texture takes its users' strongest preload; the middle deck's patch probes and moon-shadow taps; config saves through links and non-finite floats ([R19-R report](../docs/handover/R19-R-report.md)) |
 | `0040-Publish-live-upscaling-...` | Runtime-owned atomic effective upscaling/frame-generation state and capabilities, gated on presets and callback convergence, for the native startup hint readback; pending the combined R20 runtime import ([ADR 0123](../docs/decisions/0123-live-upscaling-readback.md)) |
+| `0041-Atmosphere-the-sky-without-...` | `rtx.atmosphere.noHorizon`: below the horizon the mirror's sky gradient, the antipode's clouds and high clouds, the true angle to the sun for every phase term, the stars and moons where they are ([ADR 0139](../docs/decisions/0139-the-sky-without-a-horizon.md)) |
 
 - [`build_runtime.ps1`](build_runtime.ps1.md): applies them in a worktree of a fork clone, builds, and
   stores the new `d3d9.dll` in [`packages/runtime`](../packages/README.md).

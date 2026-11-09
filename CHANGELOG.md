@@ -6,6 +6,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R26: the sky without a horizon
+
+- **No horizon, for maps that float in the sky or in space** ([ADR 0139](docs/decisions/0139-the-sky-without-a-horizon.md);
+  the user's request): a checkbox under Sky in the RTX Remix tab's Sky and weather panel
+  (`nativeloader_sky_no_horizon`, off by default). The physical sky was a planet's: wherever a map let
+  the camera see below the horizon, it showed an even haze in the ground's place, without clouds or
+  stars, under a sharp horizon line. With No horizon the sky goes on below the horizon: its colours are
+  the mirror image of the sky above, it has clouds and high clouds (the antipode's, so they are not a
+  reflection), the sun's glow and halos stay around the sun, and the stars, the galaxy and the moon
+  show in every direction. The sun still sets: below the horizon it is night. Reflections and indirect
+  light see the same sky. The setting reaches a map add-on's own sky too, without taking it over. The
+  runtime's option `rtx.atmosphere.noHorizon` (patch 0041; the dev menu's No Horizon under Atmosphere)
+  changes nothing while off; on, the clouds are also marched below the horizon (at 3840x2160, 0.5 ms
+  more in clear weather, 1.2-1.8 ms partly cloudy, up to 3.2 ms overcast). The guide's Sky and weather
+  picture shows the new checkbox; the texts are in the six languages.
+
 ### R26: faster map loads
 
 - **The load accelerator** ([ADR 0140](docs/decisions/0140-the-load-accelerator.md),

@@ -108,6 +108,7 @@ local PAGES = {
         { "h", N("Sky and weather"), id = "sky" },
         { "image", "nativeloader/guide/sky_weather.jpg",
             N("Sky: the physical sky, or the map's own skybox."),
+            N("No horizon: the sky in every direction, for maps that float in the sky or in space."),
             N("Follow the map's sun: the sun stands where the map's own sun is."),
             N("Time of day, with buttons for sunrise, morning, noon, sunset and night."),
             N("Sun direction: turns the sun's path around the map."),

@@ -1,5 +1,9 @@
 # guide_pages.lua
 
+R26 adds the Sky and weather picture's legend entry for No horizon, the panel's new checkbox under
+Sky: badge 2 of `sky_weather.jpg`, recaptured with it, between Sky (1) and the eight entries after it
+(now 3 to 10). No page ids or links change.
+
 R20-B updates the sky caption and paragraph: time passes by default, a whole day takes 20 real
 minutes, Time passes stops the clock, and Day length (min) changes its speed. The text also keeps
 the map sky add-on ownership exception explicit. No page ids, picture assets or links change.

@@ -40,6 +40,14 @@ task here"). Decision: [ADR 0153](../decisions/0153-no-entity-hands-gmod-a-lua-m
 
 Evidence: `out/hlfix/qa/<run>/` in the main checkout (the crash's dump in `repro-portal_probe-160945/hl-repro-crash/`).
 
+## Published
+
+`main` was fast-forwarded to `0b88a93` and pushed (`2afe398..0b88a93`). The merge's hook built the package here and
+uploaded it to item 3829070317 as **0.0.0-dev.20261110231921+1325306e** (2,183,945,535 bytes, SHA-256
+`7abf65bd845c9509d29b74f96191a75be8755db875a0df8cd58406e5878334c9`); its content digest `d7c6fc3b...` is that of the
+package checked in the PoC (`verify-portal_probe-161140`). The push's hook found the inputs unchanged. No GitHub Action
+was started; the loader and the runtime are unchanged.
+
 ## Built and tested
 
 - `cl_init.lua` re-imported with `tools\inputs.py import fixes --file` (`inputs.py verify`: 14 parts, 0 problems).

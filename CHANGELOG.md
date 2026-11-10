@@ -39,9 +39,12 @@ Versions follow the loader's CMake project version once it ships; until then eve
   fits the 8.7 GB mod into 3.92 GB by leaving out top mip levels (no second encode): the surfaces covering
   0.2 % of the map or more keep 4096, normal maps keep their albedo's size, props are sized by their
   model's bounding box and never fall below the game's own texture. The package (`gm-brmovie-complete-rtx`,
-  3,923,815,823 bytes) deploys its mod as `gm_brmovie_complete_rtx_pack`, apart from the full build, which
-  it would otherwise take over; it is built, checked and not uploaded. The skill records when to keep what
-  shows instead of `fit_map_mod.py`'s placement-ranked tiers.
+  3,923,816,786 bytes) deploys its mod as `gm_brmovie_complete_rtx_pack`, apart from the full build, which
+  it would otherwise take over; it is built, checked in the game and not uploaded. The skill records when to
+  keep what shows instead of `fit_map_mod.py`'s placement-ranked tiers.
+- **No "You have enabled r_3dsky" dialog on gm_brmovie_complete:** the map's own `lua_run` switched the 3D
+  skybox on as it spawned, which the RTX fixes answer with a warning; the remaster's add-on now replaces that
+  code before the entity spawns (`EntityKeyValue`). The skill records how to find and stop such map commands.
 
 ### R26: the sky without a horizon
 

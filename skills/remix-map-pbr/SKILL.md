@@ -336,6 +336,7 @@ calling them standards for a new map):
 | A store's switched-off lights still glow | the "off" material shares the lit texture: a per-entity tag material from the server (`SetMaterial`) with a dark replacement |
 | A slab of terrain floating over an outdoor area; its horizon empty | the 3D skybox room drawn whole at its real place, and Remix cannot draw the skybox pass: PAS visibility, and the skybox at true scale (`gen_skybox.py`) |
 | A pole or street light lights nothing | the light sits inside the lamp's closed head: hang it under the head, spot-shaped down |
+| "You have enabled r_3dsky" at the map's load | the map's own `lua_run` sets `r_3dsky 1` as it spawns: replace its code in the add-on's `EntityKeyValue` hook |
 | Rooms next door missing from reflections, shadows and bounce | PVS culling on the client or the server: `references/pipeline.md`, visibility |
 | ~45 ms a frame on a huge map in a fresh session | `r_novis 1` from the RTX `autoexec.cfg` draws the whole map: scope `r_novis 0` too, then move the camera to another room |
 | GPU at 35-40 %, three pegged game threads | gmRTX's light updater runs: the addon is missing or not booted (look for its `created` log line) |

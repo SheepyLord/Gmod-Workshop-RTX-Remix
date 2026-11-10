@@ -474,7 +474,24 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
 - Name the packed mod apart from the full build (`gm_brmovie_complete_rtx_pack`): a package takes over the
   files at its paths, so under the full build's name it would replace the user's hand-placed 8.7 GB build
   with the cut one. `nlctl apply` into a scratch game holding both: the mod added, the identical add-on
-  adopted, the full build untouched; `uninstall` left the full build and the add-on.
+  adopted, the full build untouched; `uninstall` left the full build and the add-on. An add-on file a later
+  version of the package replaced is the package's from then on and leaves with it (`deploy.py` puts it back).
+- In the game (PoC, 4K, the package deployed by the loader, the full build moved out of `rtx-remix\mods`):
+  against the full build's views of an earlier session, a median difference of 1.77 of 255 and 97.6 % of
+  the fine detail; two package sessions against each other 1.25 and 100.5 %, but up to 7 % apart on one
+  view. Texture streaming in a freshly loaded map moves single views that much: compare sessions of the
+  same age, or shoot each view after the map has been up a while.
+
+**A map that switches `r_3dsky` on** (BM, 2026-11-10)
+- Symptom: at the map's load the RTX fixes showed "You have enabled r_3dsky which may cause rendering
+  issues..." (`cl_rtx_settings.lua`, a change callback on `r_3dsky`, unless `rtx_show_3dsky_warning 0`); the
+  add-on's scoped settings logged `r_3dsky 1 -> 0` and put the 1 back when the map unloaded.
+- Cause: a `lua_run` named `lua_skyboxon` (`RunConsoleCommand('r_3dsky', '1')`) with spawn flag 1, which
+  GMod's `lua_run` runs in `Initialize`, as it spawns, before any input; a `logic_auto` and a button fire
+  it again. An `AcceptInput` hook cannot stop the spawn-time run.
+- Fix: the add-on's server replaces the entity's code before it spawns, in `EntityKeyValue` (it runs before
+  the entity's own `KeyValue`): `r_3dsky` stays 0, no dialog. Look for `r_3dsky`, `mat_` and `r_` commands in
+  a map's `lua_run`, `point_clientcommand` and `point_servercommand` entities when extracting it.
 
 **The console stops answering** (BR, MH)
 - During a map load, gmRTX's model reloads, Light2RTX processing or a lost device. Wait once; if the device is

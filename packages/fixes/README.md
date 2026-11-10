@@ -16,6 +16,14 @@ was imported with `inputs.py import --file` without that sublayer (514 bytes, SH
 other indexed input is unchanged. The fixes repository still has the map: a part imported from it again must
 leave it out, which [`test_removed_content.py`](../../tools/tests/test_removed_content.py.md) checks.
 
+Published 2026-11-10 UTC: `main` was pushed at `e2978c0` after `tools\test.ps1 -Config Release` passed (in a
+short-path worktree) and a package built from that commit differed from the published one only by the six files
+and the two edited ones (`base_mod/mod.usda`, the manifest). The merge's hook built the package here and uploaded
+it to item 3829070317 as **0.0.0-dev.20261110235744+da03eba6** (2,119,614,344 bytes, SHA-256
+`b70226a752a62aa40786a51ec1a1a58546bcc358060aca610b5e3d3c41ad989b`); Steam's public record shows that size, updated
+23:58:30 UTC. The push's hook found the same inputs and uploaded nothing. No GitHub Action was started; the loader
+is unchanged.
+
 ## Seamless Portals off the GetRenderMesh path (2026-11-10)
 
 Imported 2026-11-10 with `inputs.py --file`; every other indexed input is unchanged

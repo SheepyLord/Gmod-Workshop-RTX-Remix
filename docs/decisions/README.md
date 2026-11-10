@@ -239,3 +239,8 @@ Each with the reason it lost.
   lights or more the fixes' updater works out from the map's world lights which helpers set steady point lights
   alone and draws those only while such a light is in view, near the eye or a dynamic light, and in turns, instead
   of one helper per map light every frame.
+- [0152: Hotloader imports: detailed collision serves one import, every slow stage shows a percentage, static props draw their own meshes](0152-hotloader-imports-fast-by-default-and-props-drawn-without-render-meshes.md)
+  (the user's report of 2026-11-10): a remembered detailed collision (CoACD, 26-54 s for a 1,584-triangle flower) made
+  every static import slow; it now serves one import. CoACD's passes, read from its log, and an estimate of its merge
+  give its stage a percentage, as Source materials and their package do for characters. Static props no longer go
+  through `GetRenderMesh` entities, whose `DrawModel` crashed queued rendering at `studiorender.dll+0x6603b`.

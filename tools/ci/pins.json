@@ -75,7 +75,7 @@
     ],
     "policy": "packages/model-hotloader/mmd_hotloader/lua/mmdhl/native_policy.lua",
     "policy_in_part": "mmd_hotloader/lua/mmdhl/native_policy.lua",
-    "why": "the shipped 2.3.1 natives were built from that commit with staged, uncommitted changes (buoyancy, secondary water); this repository keeps that source (ADR 0107)"
+    "why": "the shipped 2.3.1 natives were built from that commit with staged, uncommitted changes (buoyancy, secondary water); this repository keeps that source (ADR 0107), with its own changes on top, each recorded in source/Source.md with its patch: R19's review fixes (r19-changes.patch) and the import progress of 2026-11-10 (import-progress.patch, ADR 0152)"
   },
   "repository_builds": [
     {

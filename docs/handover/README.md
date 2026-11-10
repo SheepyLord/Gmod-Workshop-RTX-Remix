@@ -6,6 +6,10 @@ lagging the game: periodic screen read-backs stopped, repeated font definitions 
 `nativeloader_lag_report`; the light updater's bounded draw list): [R28-report.md](R28-report.md), done by Claude with a
 Claude subagent for the review (no Codex).
 
+Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
+percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),
+by Claude (no Codex).
+
 Before it, R27, the user's report of 2026-11-09 (HUD add-ons that turned the screen white under RTX:
 HUD Mk.2's "depth-only" colour target and the render guard's refused bindings): [R27-report.md](R27-report.md),
 done by Claude with a Claude subagent for the review (no Codex).

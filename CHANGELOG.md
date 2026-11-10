@@ -6,6 +6,27 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The Model Hotloader's imports (the user's report of 2026-11-10)
+
+- **A new import no longer crashes the game when the importer shows it**
+  ([ADR 0152](docs/decisions/0152-hotloader-imports-fast-by-default-and-props-drawn-without-render-meshes.md),
+  [handover](docs/handover/hotloader-import-report.md)): static props were drawn through hidden client entities whose
+  `GetRenderMesh` handed GMod the prop's Lua mesh, drawn with `DrawModel`, the path that faults on the material
+  system's render thread under queued rendering (`mat_queue_mode 2`; `studiorender.dll+0x6603b`, the user's crash,
+  0xC0000005), and the importer previews every new import at once. Static props now draw their meshes themselves
+  under their model matrix, with materials of the prop's colour for tinted ones and released meshes destroyed eight
+  frames late, as the glass add-on's shards do.
+- **Detailed static-prop collision serves one import** (ADR 0152): CoACD's decomposition took 26-54 s for a
+  1,584-triangle flower that the single hull does in 0.08 s, and it was a remembered choice, so a game where it was
+  picked once (the user's) decomposed every later import. An import that starts with it sets the choice back to the
+  single hull; a remembered choice goes back once; a reimport keeps a prop's own detailed collision. The option says
+  "next import only" in all seven languages.
+- **Every slow import stage shows a percentage** (ADR 0152): detailed collision's percentage follows CoACD's passes,
+  read from its log through a pipe on the worker's standard output, and estimates its silent merge (that stage spans
+  10-95 % of such an import's bar); a character's Source materials report per material and their package per byte.
+  The Hotloader's natives were rebuilt from the source copy (`source/import-progress.patch`), with the add-on's hash
+  records regenerated.
+
 ### R28: GitHub issue 2 (memory at a crash, lag from add-ons) and what else lags an RTX frame
 
 - **A crashed RTX game no longer fills the memory while Windows reports it**

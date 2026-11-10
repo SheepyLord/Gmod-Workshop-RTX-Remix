@@ -6678,3 +6678,58 @@ said, an RTX 5090. Driver `out/r28/lab.py` in the `r28` worktree; report [handov
   (364), gm_liminal_hotel 561 (547); gm_cathedral_of_mercury and gm_korolevskiy_theater have two.
 - **The game's hook library** (`garrysmod/lua/includes/modules/hook.lua`, this build) is the classic one: a live
   table from `hook.GetTable()`, `pairs` in `hook.Call`, six return values.
+
+## Model Hotloader imports: slow physics, no percentage, the crash once the importer shows a prop (2026-11-10, Claude)
+
+The user's report: importing `E:\G\Upload\Ganyu_alt\1_PMX\花.pmx` (a static flower, "SkillObj_Ganyu_IceLotus_Model",
+1,584 triangles, 2 materials) took long on its physics at what the user knew as the defaults, showed no percentage,
+and every new import crashed the game once the importer showed it. Handover:
+[hotloader-import-report.md](handover/hotloader-import-report.md).
+
+- **The user's crash** (`native-loader/logs/sessions/2026-11-10T212505.066Z-36508-crash`, the Remix minidump; the
+  field's and the PoC's `studiorender.dll` are the same build, SHA-256 `1dcb270d...`, `materialsystem.dll`
+  `6c9075c5...`): access violation reading `0xffffffffffffffff` (a non-canonical address) at
+  `studiorender.dll+0x6603b`, `movups xmm5,[rdx+0x20]` in the SSE 3x4 matrix concatenation at `+0x66030`, called from
+  `+0x141b9` on a `vstdlib.dll` job thread running the material system's queued context (`+0x5cb21` <- `+0x5fea7` <-
+  `materialsystem.dll+0x30f3a` ... `+0x1b311`). The caller at `+0x14080` is studiorender's loop over a model's
+  **render meshes**, GMod's `ENT:GetRenderMesh`: count at `[rc+0x380]`, `IMesh*` at `[rc+0x388+i*8]` (four slots),
+  `IMaterial*` at `[rc+0x3a8+i*8]`, 64-byte matrices at `[rc+0x3c8+i*64]`; per mesh it sets the material up
+  (`+0x40a0`; it also reads the 32 per-index override slots `[rc+0x260+i*8]` and their types `[rc+0x360+i]`, GMod's
+  `render.MaterialOverrideByIndex`), concatenates `[this+0xe0]` with the mesh's matrix, `LoadMatrix`es it (vtable
+  `+0xa8`) and calls `IMesh::Draw(-1, 0)` (vtable `+0x68`). `rc` (`[this+8]`) was `materialsystem.dll+0x45be10`, in
+  its 33 MB `.data` (the queued call's copy of the studio render context); `this` is the studiorender global
+  (`+0xb2470`). The faulting pass was the first (`r14` 0, `r15` 0x388), yet `rbx`, the index times 64, held
+  `0x18000000000`; `rbx` comes back from `+0x40a0`'s home slot, which held 0 when the dump was written, so the value
+  changed under the thread while it ran. The same offset is R4's procedural glass crash and three of issue 2's.
+- **The Hotloader's static props** drew through client entities `mmdhl_prop_piece`/`_translucent` (NoDraw, a
+  placeholder model) whose `GetRenderMesh` returned `{Mesh=<the prop's Lua mesh>, Material=<its material>}`, drawn with
+  `ent:DrawModel()` from `P.DrawAsset` (the importer's preview, the placed `mmdhl_prop`, the tool's ghost, the parts
+  editor). The importer selects every new import itself (`ui.lua`, `library.lastImported`), so it drew the new prop at
+  once. Characters draw natively (no `GetRenderMesh`). The fixes part's Seamless Portals add-on still uses
+  `GetRenderMesh` + `DrawModel` (`seamless_portal/cl_init.lua`).
+- **The importer's preview needs room**: it is docked to fill what the right column leaves, and the window scales with
+  `ScrH()/1080` (1 to 2): at 1280x720 the controls take the whole column and the preview never paints (the PoC's
+  default window); from 1080p, as at the user's 4K, about 170 x scale pixels are left for it.
+- **What took the time** (the field's import registry `data/mmd_hotloader/static/sources.local.json` and
+  `cfg/client.vdf`, read only; offline imports with the shipped worker, `mmdhl_worker.exe --request`): the user's game
+  had `mmdhl_prop_import_collision "balanced"` saved (the convar's default has been `hull` since it exists, 2.1.0), and
+  its registry holds the flower imported both ways (assets `e91a8f45...` detailed, `ec923e10...` single hull; offline
+  imports give the same ids). The flower: 0.08 s with the single hull (every stage under 20 ms), 26.1, 36.2 and
+  37.6 s detailed; as a character 0.16 s ("Fitting native collision anatomy" 11 ms: its fit fails, no humanoid bones).
+  Ganyu (`甘雨.pmx`, 39,147 triangles, 24 materials): 3.3-4.4 s as a character (textures 2.2-2.4 s, Source materials
+  0.5-0.9 s with their package 0.75 s, the fit 64-150 ms), 0.97 s as a single-hull prop.
+- **CoACD 1.0.14** (the pinned wheel's `lib_coacd.dll`): imports only KERNEL32 (with `GetStdHandle`, `WriteFile`,
+  `WriteConsoleW`, `GetConsoleMode`), ADVAPI32 and VCOMP140, so its C runtime is static and its logger is spdlog's
+  Windows console sink, which writes through `GetStdHandle(STD_OUTPUT_HANDLE)` (`WriteFile` when that is not a console).
+  `CoACD_setLogLevel` accepts `off`, `error`, `warn`, `warning`, `critical`, `info` and `debug`, and throws a C++
+  exception (0xE06D7363) for `trace`. At `info` it logs its parameters, " - Manifold Check", " - Preprocess"
+  (`Mesh Manifoldness: false` for the flower, remeshed at resolution 30 into 15,778 points and 31,568 triangles),
+  " - Decomposition (MCTS)", then per pass `iter N ---- waiting pool: K` and `Processing [x%]` at about every tenth of
+  the pool (unordered: OpenMP), " - Merge Convex Hulls", a warning when 16 hulls cannot reach the threshold ("Max
+  concavity 0.17 exceeds the threshold 0.05 due to 16 convex hull limitation"), " - Simplify Convex Hulls" and
+  `Compute Time`. `debug` adds nothing to the merge. Each pass splits every piece still above the threshold in two
+  (pool K(n+1) = 2 x the unfinished pieces of pass n), so the pieces finished in pass n weigh 2^-n of the mesh and add
+  up to exactly 1. The worker's flower: 16 passes, 138 pieces in 18 s, merge 17 s; a direct call with another weld
+  order: 20 passes, 246 pieces in 21 s, merge 24-27 s (the merge costs every pair: about n^2 pair costs, 0.4-1.7 ms
+  each); Ganyu's mesh: 10 passes, 36 pieces in 5.1 s, merge 2.0 s. The detailed asset ids are the same before and
+  after this round's change.

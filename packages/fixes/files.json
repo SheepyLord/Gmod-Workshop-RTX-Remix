@@ -726,6 +726,16 @@
     "dirty": false
    },
    "imported": "2026-11-09T00:06:31+00:00"
+  },
+  "garrysmod/garrysmod/addons/GMod-Seamless-Portals-Remix/lua/entities/seamless_portal/cl_init.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\portals\\packages\\fixes\\garrysmod\\garrysmod\\addons\\GMod-Seamless-Portals-Remix\\lua\\entities\\seamless_portal\\cl_init.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/portals",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "2afe398ef48cfcd523977750b8a2f95bf4227798",
+    "dirty": true
+   },
+   "imported": "2026-11-10T23:06:41+00:00"
   }
  },
  "files": {
@@ -1012,9 +1022,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/GMod-Seamless-Portals-Remix/lua/entities/seamless_portal/cl_init.lua": {
-   "size": 7207,
-   "sha256": "e6ba2ac997a2048280cb4b203993a7b5bbab4639fd7144accbc4d8e5e5296981",
-   "mtime_ns": 1792912216623325900,
+   "size": 7293,
+   "sha256": "72da2681e9cbc1918db30d75cb8c467bf8a933bda52906b51239fd75d4c67470",
+   "mtime_ns": 1794351892828068700,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/GMod-Seamless-Portals-Remix/lua/entities/seamless_portal/init.lua": {

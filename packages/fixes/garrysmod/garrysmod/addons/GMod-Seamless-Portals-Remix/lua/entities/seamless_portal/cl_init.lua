@@ -27,15 +27,11 @@ end
 -- Garry decided a hunter plate should be 47.9 rendering units wide and 51 physical units
 local drawMat = Material("models/dav0r/hoverball")
 
-local render_matrix = Matrix()
-function ENT:GetRenderMesh()
-	return {
-		Mesh     = SeamlessPortals.GetRenderMesh(self:GetSidesInternal()),
-		Matrix   = render_matrix,
-		Material = drawMat
-	}
-end
-
+-- The portal's frame is drawn as its mesh under the portal's model matrix, never through
+-- ENT:GetRenderMesh: an entity that hands GMod a Lua mesh that way, drawn with DrawModel,
+-- crashes the material system's render thread when rendering is queued (mat_queue_mode 2;
+-- access violation at studiorender.dll+0x6603b: R4's glass shards, the Model Hotloader's
+-- static props, ADR 0152 and 0153). The meshes are built once per number of sides and kept.
 function ENT:DrawModelMesh(portalSize)
 	local draw_mesh = SeamlessPortals.GetRenderMesh(self:GetSidesInternal())
 	local render_matrix = self:GetWorldTransformMatrix()
@@ -48,23 +44,17 @@ end
 -- So the size is in source units (remember we are using sine/cosine)
 local size_mult = Vector(math.sqrt(2), math.sqrt(2), 1)
 
--- DrawModel inside of a non Draw hook will call Draw instead of DrawModel (thanks, gmod API)
--- this check is so we can call DrawModel inside of DrawStenciled
-local draw_model = false
 function ENT:DrawStenciled(texture, flip)
-	draw_model = true
-
 	local portalSize = self:GetSize()
 	portalSize:Mul(size_mult)
 
 	local backface_disabled = self:GetDisableBackface()
 
-	render_matrix:Identity()
-	render_matrix:SetScale(portalSize)
-
-	-- outside frame (backface)
+	-- outside frame (backface): the whole mesh, as DrawModel drew it from GetRenderMesh
+	-- (the portal's transform times its size); the flat face below keeps this material
 	if !backface_disabled then
-		self:DrawModel()
+		render.SetMaterial(drawMat)
+		self:DrawModelMesh(portalSize)
 	end
 
 	-- frame flat face
@@ -102,21 +92,16 @@ function ENT:DrawStenciled(texture, flip)
 
 		render.SetStencilEnable(false)
 	end
-
-	draw_model = false
 end
 
 function ENT:Draw(flags)
 	-- resetting the stencil buffer when drawing halos will cause horrible flashing
 	if halo.RenderedEntity() == self then return end
 
-	if draw_model then
-		self:DrawModel(flags)
-	elseif SeamlessPortals.IsRemixPortalClaimed and SeamlessPortals.IsRemixPortalClaimed(self) then
+	if SeamlessPortals.IsRemixPortalClaimed and SeamlessPortals.IsRemixPortalClaimed(self) then
 		return
-	else
-		self:DrawStenciled(SeamlessPortals.GetPortalRT())
 	end
+	self:DrawStenciled(SeamlessPortals.GetPortalRT())
 end
 
 function ENT:Think()

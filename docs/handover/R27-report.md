@@ -100,4 +100,7 @@ session's screenshots, which show the scene and the HUD under it.
 
 ## Published
 
-(Filled in after the push.)
+`main` was fast-forwarded to `df6abe0` and pushed (8bc63c5..df6abe0). The merge's hook built the package here and
+uploaded it to item 3829070317 as **0.0.0-dev.20261110015622+0577fbf1** (2,183,836,235 bytes, SHA-256
+`37078b0f5a7905ef4a08216c2de4376f1d326e2b09642218f6da6d7e12dd053a`); Steam's public record shows that size, updated
+01:56:56 UTC. No GitHub Action was started. The loader (0.16.0) and the runtime are unchanged.

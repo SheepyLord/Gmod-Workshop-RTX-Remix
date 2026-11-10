@@ -762,9 +762,14 @@ def from_here(path: str) -> str:
 def config_content(args) -> tuple[dict, bytes]:
     """The config.json that the install and config steps write, as a value and as the exact bytes
     on disk (line breaks as the text-mode write has always made them)."""
+    # The user's own subscriptions hold content packages (map and character packs, several GB each) that the
+    # loader unpacks into a test install whenever it deploys afresh: twenty-odd GB at every lab in the PoC
+    # (the user, 2026-11-10: "Additional assets should be skipped to save load time in testing"). Only what the
+    # test names is deployed unless --subscribed-content on (loader 0.4.0's switch, ADR 0027).
     value = {"schema": 1, "enabled": True,
              "allow": {"workshop": args.allow_workshop, "local": [from_here(p) for p in args.allow_local],
-                       "dev_folders": [from_here(p) for p in args.allow_dev]},
+                       "dev_folders": [from_here(p) for p in args.allow_dev],
+                       "subscribed_content": getattr(args, "subscribed_content", "off") == "on"},
              "remix": {"enabled": args.remix == "on"}, "patch_sets": {"require_insecure": args.require_insecure == "yes"}}
     if getattr(args, "reshade", None):
         value["remix"]["reshade"] = args.reshade  # loader 0.5.0 (ADR 0028); left out, the loader's default (auto)
@@ -1282,6 +1287,9 @@ def main(argv=None) -> int:
         command.add_argument("--allow-local", action="append", default=[], help="allowlist a .gma/.bin (repeatable)")
         command.add_argument("--allow-dev", action="append", default=[], help="allowlist a package folder (repeatable)")
         command.add_argument("--allow-workshop", action="append", default=[], help="allowlist a Workshop item id (repeatable)")
+        command.add_argument("--subscribed-content", choices=["on", "off"], default="off",
+                             help="deploy the content packages of the user's other subscriptions too (allow.subscribed_content); "
+                                  "off by default: they are many GB and only slow a test down")
         command.add_argument("--remix", choices=["on", "off"], default="on")
         command.add_argument("--reshade", choices=["auto", "on", "off"],
                              help="write remix.reshade (loader 0.5.0); left out by default")

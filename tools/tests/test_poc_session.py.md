@@ -83,3 +83,6 @@ Exit code: unittest's (0 when all pass).
 - A temporarily locked Remix log still allows hang detection. A failed dump-copy retry preserves
   the previous complete evidence file. A capture timeout follows bounded session cleanup and still
   collects the logs.
+- R28: a test install's `config.json` has `allow.subscribed_content` false unless `--subscribed-content on`
+  (`test_subscribed_content_packages_stay_out_of_a_test_install_unless_asked`): the user's other subscriptions hold
+  content packages of several GB each that only slow a test down.

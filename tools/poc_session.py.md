@@ -71,7 +71,11 @@ copy. The record's `settings_back` is `restored`, `not sent` (a command was not 
   and writes `native-loader\config.json` from `--allow-local`, `--allow-dev`, `--allow-workshop`
   (each repeatable; a relative `--allow-local` or `--allow-dev` path that exists from the current
   folder is written as an absolute path, because the loader reads relative entries against the game
-  root: R10's `out\...` package deployed nothing, "file not found"; other entries are written as given), `--remix on|off`, `--reshade auto|on|off` (`remix.reshade`, loader 0.5.0; left out
+  root: R10's `out\...` package deployed nothing, "file not found"; other entries are written as given),
+  `--subscribed-content on|off` (`allow.subscribed_content`, **off by default** since R28: the user's other
+  subscriptions hold content packages, map and character packs of several GB each, which the loader otherwise
+  unpacks into the test install at every fresh deployment, twenty-odd GB in the PoC; a test of those packages
+  says `on`), `--remix on|off`, `--reshade auto|on|off` (`remix.reshade`, loader 0.5.0; left out
   unless given), `--performance-tier auto|high|medium|low`, `--memory-profile auto|minimum|recommended|high` (`remix.memory_profile`, loader 0.13.0), `--gpu-crash-dumps off|next_start|always`
   and `--memory-telemetry on|off` (`remix.performance_tier` and the `diagnostics` keys, loader 0.11.0;
   each left out unless given, since an older loader rejects them) and `--require-insecure yes|no`. An

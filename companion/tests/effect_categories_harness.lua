@@ -100,6 +100,18 @@ elseif scenario=='hash_budget' then
  local _,count=opt('particle'):gsub('0x','')
  eq(count,64)
  assert(not opt('particle'):find('0000000000000041',1,true),'material hash cap')
+elseif scenario=='quiet' then
+ -- R28: nothing changed, so the lists are not built again (no sort, no write); a change builds them once more.
+ local sorts,realSort=0,table.sort
+ table.sort=function(...)sorts=sorts+1 return realSort(...)end
+ local before=attempts
+ tick(0.3,400);tick(5,400)
+ eq(sorts,0)eq(attempts,before)
+ data.sprite.hashes={'0xC','0xCC'};tick(3,60)
+ assert(sorts>=3 and sorts<=6,'one rebuild for the change: '..sorts)
+ assert(opt('particle'):find('00000000000000cc',1,true))
+ local after=sorts;tick(5,400);eq(sorts,after)
+ table.sort=realSort
 elseif scenario=='late_hash' then
  data.cold.hashes={'0x123'};Material=function(name)
   name=name:gsub('^!','');return {IsError=function()return false end,GetShader=function()return 'Sprite' end,

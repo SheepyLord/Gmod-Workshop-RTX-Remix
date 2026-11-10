@@ -729,23 +729,23 @@ msgstr "[GMRTX - 맵 수정] 수정 기능이 꺼져 있던 맵: "
 msgid "[GMRTX - Map Fixes] Auto-enabled for map: "
 msgstr "[GMRTX - 맵 수정] 자동으로 활성화한 맵: "
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1129
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1269
 msgid " (EMERGENCY)"
 msgstr "(긴급 조정)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1131
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1271
 msgid " (MOVED)"
 msgstr "(이동됨)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1139
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1279
 msgid " (OUT OF BOUNDS)"
 msgstr "(범위 밖)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1176
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1316
 msgid "BOUNDS CHECK FAILED"
 msgstr "경계 검사 실패"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1207
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1347
 msgid " (NO UPDATER)"
 msgstr "(광원 갱신기 없음)"
 

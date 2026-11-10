@@ -171,6 +171,9 @@ function render.GetScreenEffectTexture() return texture("_rt_FullFrameFB",1920,1
 function render.CopyRenderTargetToTexture(...) copyCalls=copyCalls+1 return "copy",... end
 function render.CopyTexture(...) copyCalls=copyCalls+1 return "copy-texture",... end
 function render.Clear() clearCalls=clearCalls+1 end
+local captureCalls,readCalls,screenValue=0,0,10
+function render.CapturePixels(...) captureCalls=captureCalls+1 return "captured",... end
+function render.ReadPixel(x,y) readCalls=readCalls+1 return screenValue,math.floor(x)%256,math.floor(y)%256,255,"native" end
 function render.RedownloadAllLightmaps() depthCalls=depthCalls+1 return "reload" end
 local function nativeMaterialArgument(mat)
     assert(type(mat)=="table" and type(mat.GetShader)=="function","native binding needs an IMaterial")
@@ -187,6 +190,8 @@ render.BrushMaterialOverride=render.MaterialOverride
 render.WorldMaterialOverride=render.MaterialOverride
 surface={SetMaterial=nativeMaterialArgument,DrawTexturedRect=function()surfaceDraws=surfaceDraws+1 end,SetTexture=function()end}
 surface.DrawTexturedRectUV=surface.DrawTexturedRect
+local fontCalls={}
+function surface.CreateFont(name,data,...) fontCalls[#fontCalls+1]={name,data,...} return "font",name end
 function render.DepthRange(a,b) depthRange={a,b} end
 function render.PushCustomClipPlane() clipDepth=clipDepth+1 end
 function render.PopCustomClipPlane() assert(clipDepth>0) clipDepth=clipDepth-1 end
@@ -395,7 +400,7 @@ if scenario=="verified_multiplayer" then
     for _=1,3 do timers["owned-timer"]() end
     local installed=hook.Add
     local again=assert(loadfile(source)) setfenv(again,privateEnvironment) again()
-    eq(hook.Add,installed) eq(createCount,1) eq(NativeLoaderRenderGuard,guard)
+    eq(hook.Add,installed) eq(createCount,2) eq(NativeLoaderRenderGuard,guard)
 elseif scenario=="cached_multiplayer" then
     eq(guard.installation,"verified multiplayer bootstrap") eq(guard.late_render_wrappers,true)
     local registry=hook.GetTable()
@@ -428,7 +433,7 @@ elseif scenario=="install" then
     eq(guard.installation,"early")
     local call,rt=hook.Call,GetRenderTargetEx
     dofile(source)
-    eq(createCount,1) eq(hook.Call,call) eq(GetRenderTargetEx,rt)
+    eq(createCount,2) eq(hook.Call,call) eq(GetRenderTargetEx,rt)
     eq(GetConVar("mat_motion_blur_enabled"):GetString(),"1")
     eq(cv.mat_motion_blur_enabled.value,"0")
     DrawBloom() halo.Render() eq(postCalls,0)
@@ -773,6 +778,306 @@ elseif scenario=="hooks" then
     eq(#errorReports,reportsBefore+1,"one report per callback per interval")
     hook.Add("UnrelatedEvent","bad",bad) assert(not pcall(hook.Call,"UnrelatedEvent"))
     for _,message in ipairs(messages) do assert(not message:find("private-person",1,true)) end
+elseif scenario=="cost_safeguards" then
+    -- R28 (ADR 0143). Read-backs: a calling file may read back eight times at once and five times in four seconds.
+    local function addon(path,code) return assert(loadstring(code,"@"..path))() end
+    local eye=addon("addons/eye/lua/autorun/client/eye.lua",
+        "return function(x,y) local a=render.CapturePixels() local r,g,b,alpha=render.ReadPixel(x,y) return r,g,b,alpha,a end")
+    now=100
+    -- Twice a second: nineteen are made before the allowance is used up.
+    for i=1,19 do
+        local r,g,b,a,captured=eye(3,4) eq(r,10) eq(g,3) eq(b,4) eq(a,255) eq(captured,"captured","native returns kept")
+        now=now+0.5
+    end
+    eq(captureCalls,19,"the allowance: nineteen reads at two a second") eq(guard.readbacks.allowed,19)
+    eq(select("#",render.ReadPixel(3,4)),5,"a read after a read-back that was made returns what the engine returns")
+    screenValue=99
+    local blockedBefore=#guard.blocked
+    local r,g,b,a,captured=eye(3,4)
+    eq(captureCalls,19,"the twentieth is not made") eq(captured,nil)
+    eq(r,10,"answered from the last picture read") eq(g,3) eq(b,4) eq(a,255)
+    eq(#guard.blocked,blockedBefore+1) eq(guard.blocked[#guard.blocked].api,"render.CapturePixels")
+    eq(guard.blocked[#guard.blocked].source,"lua/autorun/client/eye.lua:1")
+    local reads=readCalls
+    r,g,b,a=eye(7,8) eq(r,10,"a pixel the picture does not hold gets its last pixel") eq(g,3) eq(b,4) eq(a,255)
+    eq(readCalls,reads,"no native read while refused")
+    eq(select("#",render.ReadPixel(3,4)),4,"an answer from memory is one colour")
+    for _=1,40 do now=now+0.5 eye(3,4) end
+    eq(captureCalls,19,"a periodic reader stays refused while it keeps asking") eq(guard.readbacks.refused,42)
+    eq(#guard.blocked,blockedBefore+1,"told once")
+    -- Another add-on reads its own picture meanwhile; the refused one still gets its last values.
+    local picker=addon("addons/picker/lua/autorun/client/picker.lua",
+        "return function(x,y) render.CapturePixels() return render.ReadPixel(x,y) end")
+    eq(picker(5,6),99,"another caller's read is real") eq(captureCalls,20)
+    eq(eye(3,4),10,"and the refused caller keeps its own last picture") eq(captureCalls,20)
+    eq(picker(5,6),99) eq(captureCalls,21)
+    -- Quiet for five seconds: read again, and the picture is new.
+    now=now+5.1
+    eq(eye(3,4),99,"after five quiet seconds the read is made") eq(captureCalls,22)
+    -- About once a second is never limited, however long and however unevenly.
+    local meter=addon("addons/meter/lua/autorun/client/meter.lua",
+        "return function() render.CapturePixels() return render.ReadPixel(1,1) end")
+    local before=captureCalls
+    for _=1,30 do now=now+1.2 eq(meter(),99) end
+    for i=1,300 do now=now+(i%2==0 and 0.85 or 1.15) eq(meter(),99) end
+    eq(captureCalls,before+330,"a reader that asks about once a second is never limited")
+    -- Four at once every 1.1 seconds is more than the allowance refills: the third burst is cut.
+    local burst=addon("addons/burst/lua/autorun/client/burst.lua",
+        "return function() for _=1,4 do render.CapturePixels() render.ReadPixel(1,1) end end")
+    before=captureCalls
+    for _=1,6 do now=now+1.1 burst() end
+    eq(captureCalls,before+10,"bursts that keep coming use the allowance up")
+    -- Eight at once, one time, are all made.
+    local batch=addon("addons/batch/lua/autorun/client/batch.lua",
+        "return function(n) for _=1,n do render.CapturePixels() render.ReadPixel(1,1) end end")
+    before=captureCalls
+    now=now+20 batch(8)
+    eq(captureCalls,before+8,"a batch of eight is made in full")
+    -- The package's own tools are never limited.
+    local tool=addon("addons/!advanced_material_editor/lua/advmat/cl_56_texops.lua",
+        "return function() render.CapturePixels() return render.ReadPixel(2,2) end")
+    before=captureCalls
+    for _=1,50 do eq(tool(),99) end
+    eq(captureCalls,before+50,"bundled callers read as often as they ask")
+    -- Two targets read through one helper keep a picture each; a target read for the first time is read.
+    local fx=addon("addons/fx/lua/autorun/client/fx.lua",
+        "return function(rt,x,y) render.PushRenderTarget(rt) render.CapturePixels() local r=render.ReadPixel(x,y) render.PopRenderTarget() return r end")
+    local scol,lum,third=GetRenderTarget("fx_scol",16,16),GetRenderTarget("fx_lum",16,16),GetRenderTarget("fx_third",16,16)
+    now=now+20
+    before=captureCalls
+    local made=0
+    for _=1,12 do
+        screenValue=21 eq(fx(scol,0,0),21)
+        screenValue=42 eq(fx(lum,0,0),42)
+        now=now+0.5
+    end
+    made=captureCalls-before
+    assert(made>=8 and made<24,"the pair of read-backs is limited after its allowance: "..made)
+    screenValue=77
+    before=captureCalls
+    eq(fx(scol,0,0),21,"a refused read of one target gets that target's last picture")
+    eq(fx(lum,0,0),42,"and the other target its own")
+    eq(captureCalls,before,"neither is made")
+    eq(fx(third,0,0),77,"a target this call never read is read") eq(captureCalls,before+1)
+    eq(fx(third,0,0),77,"and is then answered from that picture") eq(captureCalls,before+1)
+    screenValue=99
+    -- A read-back through pcall belongs to the file that called pcall, not to one shared caller.
+    local first=addon("addons/first/lua/autorun/client/first.lua",
+        "return function() local ok=pcall(render.CapturePixels) return render.ReadPixel(1,1) end")
+    local second=addon("addons/second/lua/autorun/client/second.lua",
+        "return function() local ok=pcall(render.CapturePixels) return render.ReadPixel(1,1) end")
+    now=now+20
+    before=captureCalls
+    blockedBefore=#guard.blocked
+    for _=1,12 do first() end
+    eq(captureCalls,before+8,"the first file's allowance")
+    eq(guard.blocked[#guard.blocked].source,"lua/autorun/client/first.lua:1")
+    for _=1,3 do second() end
+    eq(captureCalls,before+11,"the second file has its own")
+    -- Pixel coordinates are truncated as the engine does, in the picture and in the answer.
+    local frac=addon("addons/frac/lua/autorun/client/frac.lua",
+        "return function(x,y) render.CapturePixels() return render.ReadPixel(x,y) end")
+    now=now+20
+    screenValue=31
+    for _=1,8 do eq(frac(1.5,2.25),31) end
+    screenValue=99
+    before=captureCalls
+    eq(frac(1.9,2.75),31,"a fractional coordinate finds its pixel") eq(captureCalls,before)
+    -- A file that reads more pixels than a picture holds is scanning an image: never limited.
+    local scan=addon("addons/scan/lua/autorun/client/scan.lua",
+        "return function(n) render.CapturePixels() local last for i=0,n-1 do last=render.ReadPixel(i%64,math.floor(i/64)) end return last end")
+    now=now+20
+    before=captureCalls
+    eq(scan(1100),99)
+    for _=1,40 do eq(scan(4),99) end
+    eq(captureCalls,before+41,"an image scan is never answered from memory")
+    -- A refused picture stops answering after five quiet seconds, also without a new read-back.
+    now=now+20
+    for _=1,10 do eye(3,4) now=now+0.1 end
+    before=captureCalls
+    screenValue=55
+    eq(eye(3,4),99,"refused again after a new run, answered from its last picture") eq(captureCalls,before)
+    local direct=addon("addons/eye/lua/autorun/client/eye.lua","return function(x,y) return render.ReadPixel(x,y) end")
+    eq(direct(3,4),99,"a later read without a read-back still gets the picture")
+    now=now+5.1
+    eq(direct(3,4),55,"but not after five seconds")
+    -- A reader of one sample a second that overran once is let in again when its requests have fallen back.
+    local steady=addon("addons/steady/lua/autorun/client/steady.lua",
+        "return function() render.CapturePixels() return render.ReadPixel(1,1) end")
+    now=now+20
+    before=captureCalls
+    for _=1,5 do now=now+1 steady() end
+    for _=1,9 do steady() end
+    eq(captureCalls,before+12,"the burst uses the allowance up: seven of its nine are made")
+    local back
+    for i=1,40 do
+        now=now+1
+        local calls=captureCalls
+        steady()
+        if captureCalls>calls then back=back or i end
+    end
+    assert(back and back>4 and back<30,"let in again after a while, not for good: "..tostring(back))
+    before=captureCalls
+    for _=1,30 do now=now+1 steady() end
+    eq(captureCalls,before+30,"and never limited after that")
+    -- Read-backs every frame, and a pixel read only afterwards: the engine's last picture, not black.
+    local late=addon("addons/late/lua/autorun/client/late.lua",
+        "return {grab=function() render.CapturePixels() end, read=function() return render.ReadPixel(2,3) end}")
+    now=now+20
+    before=captureCalls
+    for _=1,20 do late.grab() now=now+0.0125 end
+    eq(captureCalls,before+8,"a read-back every frame is limited although nothing was read from it")
+    screenValue=88
+    reads=readCalls
+    eq(late.read(),88,"nothing remembered: the engine's last picture is read") eq(readCalls,reads+1)
+    screenValue=99
+    late.grab()
+    eq(late.read(),88,"and remembered") eq(readCalls,reads+1)
+    -- Two add-ons that read through one shared library are two readers.
+    LIBRARY=addon("addons/shared/lua/autorun/client/shared_lib.lua",
+        "return function(x,y) render.CapturePixels() return render.ReadPixel(x,y) end")
+    local viaFirst=addon("addons/user_a/lua/autorun/client/user_a.lua","return function() local r=LIBRARY(4,4) return r end")
+    local viaSecond=addon("addons/user_b/lua/autorun/client/user_b.lua","return function() local r=LIBRARY(4,4) return r end")
+    now=now+20
+    screenValue=41
+    before=captureCalls
+    for _=1,12 do viaFirst() end
+    eq(captureCalls,before+8,"the first add-on's allowance")
+    screenValue=99
+    eq(viaFirst(),41,"it is answered from its last picture")
+    eq(viaSecond(),99,"the second add-on's single read through the same library is made") eq(captureCalls,before+9)
+    -- Another file reading a great many pixels of a reader's picture does not make that reader a scanner.
+    local owner=addon("addons/owner/lua/autorun/client/owner.lua",
+        "return function() render.CapturePixels() return render.ReadPixel(0,0) end")
+    local stranger=addon("addons/stranger/lua/autorun/client/stranger.lua",
+        "return function(n) local last for i=0,n-1 do last=render.ReadPixel(i%64,math.floor(i/64)) end return last end")
+    now=now+20
+    owner() stranger(1100)
+    before=captureCalls
+    for _=1,20 do owner() end
+    assert(captureCalls-before<=8,"still limited: "..(captureCalls-before))
+    screenValue=55
+    -- The switch allows every read: a refused caller reads the screen itself again at once.
+    now=now+20
+    for _=1,10 do eye(3,4) now=now+0.1 end
+    screenValue=66
+    before=captureCalls
+    eq(eye(3,4),55,"refused again") eq(captureCalls,before)
+    cv.nativeloader_guard_readbacks:SetString("1")
+    eq(direct(3,4),66,"the limit off: a real read at once")
+    for _=1,10 do eq(eye(3,4),66) end eq(captureCalls,before+10,"nativeloader_guard_readbacks 1 allows them")
+    cv.nativeloader_guard_readbacks:SetString("0")
+    screenValue=99
+    -- The same font definition is made once.
+    local arial={font="Arial",size=20,weight=500}
+    eq(select(2,surface.CreateFont("r28",arial)),"r28","native returns kept")
+    for _=1,20 do surface.CreateFont("r28",{font="Arial",size=20,weight=500}) end
+    eq(#fontCalls,1,"the same definition again is not made again") eq(guard.fonts.calls,20)
+    arial.size=22 surface.CreateFont("r28",arial) eq(#fontCalls,2,"a changed definition is made")
+    surface.CreateFont("r28",arial) eq(#fontCalls,2,"and is then known, although the caller reused its table")
+    surface.CreateFont("r28",{font="Arial",size=22}) eq(#fontCalls,3,"fewer keys is another definition")
+    surface.CreateFont("r28",{font="Arial",size=22,weight=500}) eq(#fontCalls,4)
+    surface.CreateFont("r28b",{font="Arial",size=22,weight=500}) eq(#fontCalls,5,"another name")
+    surface.CreateFont("r28",{font="Arial",size=22,weight=500},"extra") eq(#fontCalls,6,"unknown arguments go to the engine")
+    surface.CreateFont(nil,nil) eq(#fontCalls,7,"the engine answers invalid arguments itself")
+    surface.CreateFont("R28",{font="Arial",size=22,weight=500}) eq(#fontCalls,7,"the engine knows a font's name without case")
+    now=now+11
+    surface.CreateFont("r28",{font="Arial",size=22,weight=500}) eq(#fontCalls,8,"after ten seconds the same definition is made again")
+    surface.CreateFont("r28",{font="Arial",size=22,weight=500}) eq(#fontCalls,8)
+    local inherited=setmetatable({size=22},{__index={font="Arial"}})
+    surface.CreateFont("r28c",inherited) surface.CreateFont("r28c",inherited)
+    eq(#fontCalls,10,"a table with a metatable goes to the engine every time")
+    -- Slow render callbacks are named once, with their hook; PreDrawViewModels is protected now.
+    local function frames(count,body)
+        for _=1,count do hook.Call("PreRender") now=now+0.010 body() end
+    end
+    hook.Add("PreDrawViewModels","R28Slow",function() now=now+0.006 end)
+    hook.Add("PreDrawViewModels","quick",function() now=now+0.0005 end)
+    local told=#messages
+    frames(400,function() hook.Call("PreDrawViewModels") end)
+    eq(#guard.slow,1,"one record for the slow callback") eq(guard.slow[1].api,"PreDrawViewModels") eq(guard.slow[1].id,"R28Slow")
+    assert(guard.slow[1].ms>5.9 and guard.slow[1].ms<6.1,"about 6 ms of every frame: "..guard.slow[1].ms)
+    assert(guard.slow[1].worst_ms>5.9 and guard.slow[1].worst_ms<6.1)
+    local named=0
+    for i=told+1,#messages do if messages[i]:find("R28Slow takes",1,true) then named=named+1 end end
+    eq(named,1,"named once in the console")
+    frames(400,function() hook.Call("PreDrawViewModels") end)
+    eq(#guard.slow,1,"a later window updates the record")
+    -- Another function under the same name (a timing wrapper, a closure added again) continues the record.
+    for i=1,3 do
+        hook.Add("PreDrawViewModels","R28Slow",function() now=now+0.006+i*0.0001 end)
+        frames(400,function() hook.Call("PreDrawViewModels") end)
+    end
+    eq(#guard.slow,1,"one record for one hook name")
+    hook.Remove("PreDrawViewModels","R28Slow")
+    -- A function that times another one (the lag report's) says so: the record names the function it times, and a
+    -- callback the guard leaves out stays left out under its timer.
+    TICK=function(seconds) now=now+seconds end
+    local hog=addon("addons/hog/lua/autorun/client/hog.lua","return function() TICK(0.007) end")
+    local timing=addon("addons/nativeloader/lua/autorun/nativeloader_lag_report.lua",
+        "return function(fn) return function(...) return fn(...) end end")
+    local hogTimer=timing(hog)
+    guard.timed[hogTimer]=hog
+    hooks.PreDrawViewModels=hooks.PreDrawViewModels or {}
+    hooks.PreDrawViewModels.hog=hogTimer
+    frames(400,function() hook.Call("PreDrawViewModels") end)
+    eq(#guard.slow,2) eq(guard.slow[2].id,"hog") eq(guard.slow[2].source,"lua/autorun/client/hog.lua")
+    hooks.PreDrawViewModels.hog=nil
+    local ran=0
+    COUNT=function() ran=ran+1 end
+    local glow=addon("addons/lifemod/lua/lifemod/render/modules/glow.lua","return function() COUNT() end")
+    local glowTimer=timing(glow)
+    hooks.PostDrawHUD=hooks.PostDrawHUD or {}
+    hooks.PostDrawHUD.glow=glowTimer
+    hook.Call("PostDrawHUD") eq(ran,1,"a timer the guard was not told about is an ordinary callback")
+    guard.timed[glowTimer]=glow
+    hook.Call("PostDrawHUD") eq(ran,1,"told, the callback it times stays left out")
+    guard.timed[glowTimer]="not a function"
+    hook.Call("PostDrawHUD") eq(ran,2,"anything but a function is no entry")
+    hooks.PostDrawHUD.glow=nil
+    hook.Add("PreDrawViewModels","R28Slow",function() now=now+0.006 end)
+    hook.Remove("PreDrawViewModels","R28Slow") hook.Remove("PreDrawViewModels","quick")
+    -- A window needs thirty frames as well as five seconds: twelve frames say nothing yet, a slide show is measured.
+    hook.Add("PostRender","rare",function() now=now+0.5 end)
+    for _=1,12 do hook.Call("PreRender") hook.Call("PostRender") end
+    eq(#guard.slow,2,"twelve frames are no window")
+    for _=1,20 do hook.Call("PreRender") hook.Call("PostRender") end
+    eq(#guard.slow,3,"thirty frames at two a second are one") eq(guard.slow[3].id,"rare")
+    assert(guard.slow[3].ms>499 and guard.slow[3].ms<501)
+    hook.Remove("PostRender","rare")
+    -- A gamemode method is named as the gamemode's; an entity's hook by its kind.
+    local gm={PostDrawHUD=function() now=now+0.008 end}
+    frames(400,function() hook.Call("PostDrawHUD",gm) end)
+    eq(#guard.slow,4) eq(guard.slow[4].id,"the gamemode")
+    local object={valid=true}
+    hook.Add("PreDrawHUD",object,function() now=now+0.008 end)
+    frames(400,function() hook.Call("PreDrawHUD") end)
+    eq(#guard.slow,5) eq(guard.slow[5].id,"<table>")
+    hook.Remove("PreDrawHUD",object)
+    -- The records are bounded.
+    for i=1,40 do hook.Add("HUDPaint","hog"..i,function() now=now+0.005 end) end
+    frames(60,function() hook.Call("HUDPaint") end)
+    eq(#guard.slow,32,"at most 32 records")
+    -- A failing PreDrawViewModels callback is contained like any protected render callback.
+    hook.Add("PreDrawViewModels","bad",function() error("view model stage failed") end)
+    hook.Call("PreDrawViewModels") eq(#guard.errors,1)
+    hook.Remove("PreDrawViewModels","bad")
+    -- A hook the guard stopped after repeated errors stays stopped under a timer, and after the timer is gone.
+    local fails=0
+    local failing=function() fails=fails+1 error("always fails") end
+    hook.Add("PostDrawHUD","failing_hud",failing)
+    for _=1,12 do hook.Call("PostDrawHUD") end
+    local stoppedAt=fails
+    assert(stoppedAt>=1 and stoppedAt<12,"stopped after repeated errors: "..stoppedAt)
+    local failingTimer=timing(failing)
+    guard.timed[failingTimer]=failing
+    hooks.PostDrawHUD.failing_hud=failingTimer
+    for _=1,6 do hook.Call("PostDrawHUD") end
+    eq(fails,stoppedAt,"still out under its timer")
+    hooks.PostDrawHUD.failing_hud=failing
+    for _=1,6 do hook.Call("PostDrawHUD") end
+    eq(fails,stoppedAt,"and after the timer is taken away")
+    hook.Remove("PostDrawHUD","failing_hud")
 elseif scenario=="report_caps" then
     -- A flood of refusals from many sources cannot hide later error records.
     for i=1,140 do

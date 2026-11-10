@@ -20,7 +20,7 @@ msgid ""
 "If that happens again, disable that add-on."
 msgstr ""
 
-#: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:201
+#: nativeloader/lua/autorun/_nativeloader_effect_categories.lua:230
 #, c-format
 msgid "Effect categories: %d observed materials"
 msgstr ""
@@ -801,7 +801,7 @@ msgid "Performance and memory guide"
 msgstr ""
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:252
-#: nativeloader/lua/nativeloader/guide_pages.lua:329
+#: nativeloader/lua/nativeloader/guide_pages.lua:332
 msgid "Print the loader's status to the console"
 msgstr ""
 
@@ -1896,12 +1896,12 @@ msgid "Choosing the tier or profile yourself"
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:291
-#: nativeloader/lua/nativeloader/guide_pages.lua:359
+#: nativeloader/lua/nativeloader/guide_pages.lua:362
 msgid "Close Garry's Mod."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:292
-#: nativeloader/lua/nativeloader/guide_pages.lua:360
+#: nativeloader/lua/nativeloader/guide_pages.lua:363
 msgid "Open native-loader\\config.json in the Garry's Mod folder with a text editor."
 msgstr ""
 
@@ -1978,178 +1978,190 @@ msgid "The loader also records native-loader\\logs\\memory.csv: the game's RAM a
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:313
-msgid "After a crash"
+msgid "When add-ons slow the game"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/guide_pages.lua:314
+msgid "Console: nativeloader_lag_report measures for ten seconds and then lists which add-ons' code takes the most time of every frame, for the game and for a local server. The list is also saved as garrysmod\\data\\nativeloader\\lag_report_client.txt and lag_report_server.txt: attach both to a report about lag."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:315
-msgid "Before you start the game again, copy status.json, session.json and both vram CSV files from garrysmod\\data\\native-loader\\, and copy the rtx-remix\\logs\\ folder. The next start replaces the two JSON files and Remix's logs."
+msgid "Post-processing add-ons (bloom, color grading and the like) show nothing with RTX: their effects cannot be applied to the path-traced picture. Some of them also read the screen many times a second, and each read makes the game wait for the path tracer, so those repeated reads are stopped. nativeloader_guard_readbacks 1 allows them again."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:316
-msgid "At the next start the loader keeps a copy of the last session's logs, crash dumps and memory history in native-loader\\logs\\sessions\\, for the last five sessions and at most 200 MB. Copy that folder before newer sessions replace it; if none was kept, copy crashes\\ and native-loader\\logs\\gpu\\ yourself."
-msgstr ""
-
-#: nativeloader/lua/nativeloader/guide_pages.lua:317
-msgid "This loader keeps no copies of earlier sessions: also copy the matching dumps from crashes\\ before you restart, and update bin\\win64\\winmm.dll to loader 0.11.0 or later."
+msgid "After a crash"
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:318
-msgid "To report the crash, send those files, copies of rtx.conf, dxvk.conf and user.conf from the Garry's Mod folder, and garrysmod\\console.log if you have it."
+msgid "Before you start the game again, copy status.json, session.json and both vram CSV files from garrysmod\\data\\native-loader\\, and copy the rtx-remix\\logs\\ folder. The next start replaces the two JSON files and Remix's logs."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:319
-msgid "Say which map, characters and mods you used, what you did just before, the time and time zone, the frame rate and the Committed reading."
+msgid "At the next start the loader keeps a copy of the last session's logs, crash dumps and memory history in native-loader\\logs\\sessions\\, for the last five sessions and at most 200 MB. Copy that folder before newer sessions replace it; if none was kept, copy crashes\\ and native-loader\\logs\\gpu\\ yourself."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:320
-msgid "For a GPU hang, also send the Display or nvlddmkm events from Event Viewer > Windows Logs > System, and any matching dump in C:\\Windows\\LiveKernelReports\\WATCHDOG. Dumps can hold some of the game's memory: check what you share."
+msgid "This loader keeps no copies of earlier sessions: also copy the matching dumps from crashes\\ before you restart, and update bin\\win64\\winmm.dll to loader 0.11.0 or later."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:321
-msgid "If you are asked for a GPU crash dump: change diagnostics.gpu_crash_dumps from \"off\" to \"next_start\" in the complete example above, and restart. The value stays \"next_start\"; to ask for another diagnostic start, delete native-loader\\remix\\gpu-crash-dumps.used. Diagnostics slow the game a little."
+msgid "To report the crash, send those files, copies of rtx.conf, dxvk.conf and user.conf from the Garry's Mod folder, and garrysmod\\console.log if you have it."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/guide_pages.lua:322
+msgid "Say which map, characters and mods you used, what you did just before, the time and time zone, the frame rate and the Committed reading."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:323
-msgid "Troubleshooting"
+msgid "For a GPU hang, also send the Display or nvlddmkm events from Event Viewer > Windows Logs > System, and any matching dump in C:\\Windows\\LiveKernelReports\\WATCHDOG. Dumps can hold some of the game's memory: check what you share."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:324
-msgid "First look"
+msgid "If you are asked for a GPU crash dump: change diagnostics.gpu_crash_dumps from \"off\" to \"next_start\" in the complete example above, and restart. The value stays \"next_start\"; to ask for another diagnostic start, delete native-loader\\remix\\gpu-crash-dumps.used. Diagnostics slow the game a little."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:326
-msgid "Open the console with the ~ key. If it does not open, turn on Options > Keyboard > Advanced > Enable developer console."
+msgid "Troubleshooting"
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:327
-msgid "Type nativeloader_status and press Enter, or click the button below and then open the console."
+msgid "First look"
 msgstr ""
 
-#: nativeloader/lua/nativeloader/guide_pages.lua:328
-msgid "nativeloader_status prints what the loader installed and started, and whether the Remix API is ready. activation: active means that RTX is on."
+#: nativeloader/lua/nativeloader/guide_pages.lua:329
+msgid "Open the console with the ~ key. If it does not open, turn on Options > Keyboard > Advanced > Enable developer console."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:330
-msgid "Common problems"
+msgid "Type nativeloader_status and press Enter, or click the button below and then open the console."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:331
-msgid "The RTX Remix tab is missing."
-msgstr ""
-
-#: nativeloader/lua/nativeloader/guide_pages.lua:332
-msgid "RTX is off in this session. Run nativeloader_status: it says why, for example \"enabled\": false under \"remix\" in config.json, or a graphics card without ray tracing."
+msgid "nativeloader_status prints what the loader installed and started, and whether the Remix API is ready. activation: active means that RTX is on."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:333
-msgid "The game closes while it starts."
+msgid "Common problems"
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:334
-msgid "Look in rtx-remix\\logs for a file named last_crash, and at the end of remix-dxvk.log. Keep the game in its window, as it is by default: exclusive fullscreen crashes Remix."
+msgid "The RTX Remix tab is missing."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:335
-msgid "Changes made in Alt+X are lost when the game restarts."
+msgid "RTX is off in this session. Run nativeloader_status: it says why, for example \"enabled\": false under \"remix\" in config.json, or a graphics card without ray tracing."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:336
-msgid "Save them in Alt+X. For single settings, first set Graphics Preset, or DLSS Preset for the DLSS settings, to Custom. The Remix menu (Alt+X) shows the steps."
+msgid "The game closes while it starts."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:337
-msgid "The frame rate is low."
+msgid "Look in rtx-remix\\logs for a file named last_crash, and at the end of remix-dxvk.log. Keep the game in its window, as it is by default: exclusive fullscreen crashes Remix."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:338
-msgid "Choose a lower graphics preset, or a faster DLSS mode such as Performance. Frame generation is off by default; on RTX 40 and 50 cards it can make motion smoother."
+msgid "Changes made in Alt+X are lost when the game restarts."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:339
-msgid "An add-on draws over the picture or undoes RTX settings."
+msgid "Save them in Alt+X. For single settings, first set Graphics Preset, or DLSS Preset for the DLSS settings, to Custom. The Remix menu (Alt+X) shows the steps."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:340
-msgid "The console names it, in a line that starts with [nativeloader] RTX guard. To compare, untick RTX session guard in Start here, and tick it again afterwards."
+msgid "The frame rate is low."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:341
-msgid "Couldn't mount file appears for the RTX Workshop item."
+msgid "Choose a lower graphics preset, or a faster DLSS mode such as Performance. Frame generation is off by default; on RTX 40 and 50 cards it can make motion smoother."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:342
-msgid "That is expected: the loader installs this item itself, instead of the game."
+msgid "An add-on draws over the picture or undoes RTX settings."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:343
-msgid "An imported character looks grey, or its eyes look dirty."
+msgid "The console names it, in a line that starts with [nativeloader] RTX guard. To compare, untick RTX session guard in Start here, and tick it again afterwards."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:344
-msgid "Check Rendering > Model outlines: Imported game PBR and Steady eye whites for imported characters should be ticked. Characters explains both."
+msgid "Couldn't mount file appears for the RTX Workshop item."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:345
-msgid "An imported character has a dark band over its eyes, or holes in its hair."
+msgid "That is expected: the loader installs this item itself, instead of the game."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:346
-msgid "Check Rendering > Model outlines: Hide painted shadows and Solid hair should be ticked. Characters explains both."
+msgid "An imported character looks grey, or its eyes look dirty."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:347
-msgid "The first spawn of a character takes a few seconds."
+msgid "Check Rendering > Model outlines: Imported game PBR and Steady eye whites for imported characters should be ticked. Characters explains both."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:348
-msgid "That is expected: a character is loaded the first time you use it in a game."
+msgid "An imported character has a dark band over its eyes, or holes in its hair."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:349
-msgid "Files to look at"
+msgid "Check Rendering > Model outlines: Hide painted shadows and Solid hair should be ticked. Characters explains both."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:350
-msgid "These paths start in the Garry's Mod folder, the one that holds gmod.exe."
+msgid "The first spawn of a character takes a few seconds."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/guide_pages.lua:351
+msgid "That is expected: a character is loaded the first time you use it in a game."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:352
-msgid "native-loader\\logs\\loader.log: what the loader did at this start."
+msgid "Files to look at"
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:353
-msgid "garrysmod\\data\\native-loader\\status.json and session.json: the same, as data."
-msgstr ""
-
-#: nativeloader/lua/nativeloader/guide_pages.lua:354
-msgid "rtx-remix\\logs\\remix-dxvk.log: Remix's own log, with every setting in effect near the top."
+msgid "These paths start in the Garry's Mod folder, the one that holds gmod.exe."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:355
-msgid "native-loader\\logs\\sessions\\: copies kept from earlier sessions."
+msgid "native-loader\\logs\\loader.log: what the loader did at this start."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:356
-msgid "After a crash: what to copy and send"
+msgid "garrysmod\\data\\native-loader\\status.json and session.json: the same, as data."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:357
+msgid "rtx-remix\\logs\\remix-dxvk.log: Remix's own log, with every setting in effect near the top."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/guide_pages.lua:358
+msgid "native-loader\\logs\\sessions\\: copies kept from earlier sessions."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/guide_pages.lua:359
+msgid "After a crash: what to copy and send"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/guide_pages.lua:360
 msgid "Turning RTX off for a while"
 msgstr ""
 
-#: nativeloader/lua/nativeloader/guide_pages.lua:361
+#: nativeloader/lua/nativeloader/guide_pages.lua:364
 msgid "Add \"enabled\": false inside \"remix\", as in the example below. If the file has no \"remix\" part yet, add the one shown. Keep your other settings."
 msgstr ""
 
-#: nativeloader/lua/nativeloader/guide_pages.lua:362
+#: nativeloader/lua/nativeloader/guide_pages.lua:365
 msgid "Save the file and start the game: it is plain Garry's Mod, without the RTX add-ons. To turn RTX back on, change false to true."
 msgstr ""
 
-#: nativeloader/lua/nativeloader/guide_pages.lua:364
+#: nativeloader/lua/nativeloader/guide_pages.lua:367
 msgid "The game window"
 msgstr ""
 
-#: nativeloader/lua/nativeloader/guide_pages.lua:365
+#: nativeloader/lua/nativeloader/guide_pages.lua:368
 msgid "With RTX the game runs in a borderless window as large as your screen, because exclusive fullscreen crashes Remix. For another size, add -w and -h to the game's launch options in Steam, for example -w 1920 -h 1080."
 msgstr ""
 

@@ -101,3 +101,8 @@ native lookups can return transient wrappers. The regression repeats 300 preview
 wrappers without exhausting the material budget. The DX7 fallback uses a representative base map
 through the global studio override; entity submaterials are untouched and explicit indexed/global
 caller overrides retain precedence. Multi-material/custom-shader thumbnails are approximate.
+
+R28: mocks of `render.CapturePixels`, `render.ReadPixel` (the "screen" is a value the scenario changes) and
+`surface.CreateFont`, and the `cost_safeguards` scenario (ADR 0143) described in
+[test_render_guard.py](test_render_guard.py.md). The guard now makes two client convars (`nativeloader_guard` and
+`nativeloader_guard_readbacks`), which the install scenarios count.

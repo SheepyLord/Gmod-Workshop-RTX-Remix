@@ -10,6 +10,9 @@
 // there, and the client and server realms, where any server's Lua runs, have no overlay functions: the menu realm is
 // the engine's own menu state (lua_shared's interface), never the MENU_DLL global, which any Lua can set, and only the
 // gmsv_ copy (the one the menu loads) has the overlay functions at all (NL_ENGINE_GUARD_MENU).
+// R28 (ADR 0142): every realm's load also switches off Windows Error Reporting's snapshot of this process
+// (crash_report.h); nlengineguard.crash_snapshots_off and .crash_snapshots say how that went.
+#include "crash_report.h"
 #include "guard.h"
 #include "load_overlay.h"
 #include "watchdog.h"
@@ -145,6 +148,7 @@ bool menu_realm(GarrysMod::Lua::ILuaBase*) { return false; }  // gmcl_: never th
 
 GMOD_MODULE_OPEN() {
   const auto status = nl::engine_guard::install();
+  const auto snapshots = nl::engine_guard::crash_report::disable_snapshots();
   const bool menu = menu_realm(LUA);
   if (!menu) nl::engine_guard::watchdog::start(NL_ENGINE_GUARD_REALM);
   LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
@@ -155,6 +159,10 @@ GMOD_MODULE_OPEN() {
   LUA->SetField(-2, "reason");
   LUA->PushCFunction(Status);
   LUA->SetField(-2, "Status");
+  LUA->PushBool(snapshots.applied);
+  LUA->SetField(-2, "crash_snapshots_off");
+  LUA->PushString(snapshots.reason.c_str());
+  LUA->SetField(-2, "crash_snapshots");
   if (menu) {
 #if NL_ENGINE_GUARD_MENU
     LUA->PushCFunction(LoadStart);

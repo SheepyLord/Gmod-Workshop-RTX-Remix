@@ -6,6 +6,10 @@ local HASHES_PER_MATERIAL, PUBLISHED_HASHES = 64, 4096
 local names, list, cursor, bound = {}, {}, 1, nil
 local sent, retry, delay = {}, {}, {}
 local nextScan, nextWrite, cache, cacheIndex = 0, 0, nil, 1
+-- R28: the published lists are built again only after a material's hashes or kinds changed, a material left, or
+-- a write failed. Building them four times a second from thousands of observed materials took up to 4.7 ms of
+-- a frame with 654 add-ons (the issue 2 report).
+local dirty = true
 local options = {
     particle = "rtx.gmod.particleTexturesForSession",
     decal = "rtx.gmod.decalTexturesForSession",
@@ -106,7 +110,19 @@ local function hashList(values)
     end
     return hashes
 end
-local function lookup(state, now)
+local function sameKeys(a, b)
+    if a == b then return true end
+    if not a or not b then return false end
+    for key in pairs(a) do if not b[key] then return false end end
+    for key in pairs(b) do if not a[key] then return false end end
+    return true
+end
+local function sameKinds(a, b)
+    if a == b then return true end
+    if not a or not b then return false end
+    return (not a.decal) == (not b.decal) and (not a.particle) == (not b.particle) and (not a.color) == (not b.color)
+end
+local function inspect(state, now)
     -- Hash queries read only the existing draw cache. Never load undrawn materials or characters.
     local hashes = hashList(RemixMaterial.GetAllTextureHashes(state.name))
     state.hashes, state.kinds = nil, nil
@@ -135,6 +151,11 @@ local function lookup(state, now)
     state.irrelevant = not (decal or kinds.particle or color)
     state.due = now + 2
 end
+local function lookup(state, now)
+    local hashes, kinds = state.hashes, state.kinds
+    inspect(state, now)
+    if not sameKeys(hashes, state.hashes) or not sameKinds(kinds, state.kinds) then dirty = true end
+end
 local function sync()
     if not RemixConfig or not RemixConfig.SetConfigVariable or not RemixMaterial or
         not RemixMaterial.GetAllTextureHashes or not RemixMaterial.GetCachedMaterials then return end
@@ -154,11 +175,13 @@ local function sync()
         if cursor > #list then cursor = 1 end
         local state = list[cursor]
         if now - state.seen > TTL then
+            if state.hashes then dirty = true end
             names[state.name], list[cursor] = nil, list[#list]
             list[#list] = nil
         else
             if now >= state.due then lookup(state, now) end
             if state.irrelevant and not state.particle and not state.decal then
+                if state.hashes then dirty = true end
                 names[state.name], list[cursor] = nil, list[#list]
                 list[#list] = nil
             else cursor = cursor + 1 end
@@ -166,6 +189,8 @@ local function sync()
     end
     if now < nextWrite then return end
     nextWrite = now + 0.25
+    if not dirty then return end
+    local pending = false
     local sets, counts = {particle = {}, decal = {}, color = {}}, {particle = 0, decal = 0, color = 0}
     for _, state in ipairs(list) do
         if state.hashes then
@@ -186,15 +211,19 @@ local function sync()
         for hash in pairs(set) do values[#values + 1] = hash end
         table.sort(values)
         local value = table.concat(values, ", ")
-        if sent[kind] ~= value and now >= (retry[kind] or 0) then
-            if RemixConfig.SetConfigVariable(options[kind], value) then
+        if sent[kind] ~= value then
+            if now < (retry[kind] or 0) then
+                pending = true
+            elseif RemixConfig.SetConfigVariable(options[kind], value) then
                 sent[kind], retry[kind], delay[kind] = value, 0, 1
             else
                 delay[kind] = math.min((delay[kind] or 0.5) * 2, 60)
                 retry[kind] = now + delay[kind]
+                pending = true
             end
         end
     end
+    dirty = pending
 end
 NativeLoaderEffectCategories = {Status = function()
     local L = include("nativeloader/i18n.lua").L

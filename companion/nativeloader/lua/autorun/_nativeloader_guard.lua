@@ -104,7 +104,7 @@ local playerMeta, convarMeta = FindMetaTable("Player"), FindMetaTable("ConVar")
 -- The native getter: the motion-blur read compatibility below wraps ConVar:GetBool.
 local getBool = convarMeta and convarMeta.GetBool
 local state = {version = 2, installation = installation, policy = "inert screen-space shaders under RTX",
-    blocked = {}, adapted = {}, errors = {}, cleanup_errors = {}, limitations = {
+    blocked = {}, adapted = {}, errors = {}, cleanup_errors = {}, slow = {}, limitations = {
     "Lua errors only: native faults, GPU failures and infinite loops are not caught",
     "Unknown native state and partially built meshes cannot be universally restored",
     "Later API replacements or unwrapped native aliases can bypass these guards"}}
@@ -494,6 +494,7 @@ lua/autorun/mmd_vmd_npc.lua
 lua/autorun/mmdhl.lua
 lua/autorun/nativeloader_defaults.lua
 lua/autorun/nativeloader_i18n.lua
+lua/autorun/nativeloader_lag_report.lua
 lua/autorun/nativeloader_sky.lua
 lua/autorun/nlglass.lua
 lua/autorun/poolrooms_rtx.lua
@@ -1552,6 +1553,165 @@ for _, name in ipairs({"CopyRenderTargetToTexture", "CopyTexture"}) do
         end
     end
 end
+-- R28 (ADR 0143): a screen read-back (render.CapturePixels) waits until the GPU has drawn everything queued, which
+-- under the path tracer is one to two whole frames: 20-28 ms a call at 80 frames a second, about 200 ms at 7 (the
+-- issue 2 report: HyperReal FX read a 1x1 target twice a second and took 67 ms of every frame). Each reader (the
+-- calling file, together with the file that called it: two add-ons that read through one shared library are two
+-- readers) has an allowance: BURST read-backs at once, refilled at RATE a second, so a tool that reads a handful
+-- of targets once, and a reader that asks about once a second, are never limited. A reader that uses its
+-- allowance up is a periodic reader (eye adaptation, a tint measured from the screen): its read-backs stop until
+-- its requests have fallen back under half the allowance, or it has asked nothing for QUIET seconds.
+-- render.ReadPixel is then answered from the last picture really read by the same call, which is the calling line
+-- and the render target it read: a pixel that picture does not hold gets the picture's last pixel, and while it
+-- holds none the engine's own last picture is read (and remembered). A call that was never made yet is made. A
+-- file that reads more than PIXELS pixels of its own picture is scanning an image (an icon, a map), which cannot
+-- be answered from memory: it is never limited. Nor are a screenshot (render.Capture) and the package's own tools.
+do
+    local allow = CreateClientConVar("nativeloader_guard_readbacks", "0", true, false,
+        "1 lets add-ons read the screen back as often as they ask under RTX (each read waits for the path tracer)")
+    local capture, readPixel, readTarget = nativeRender.CapturePixels, nativeRender.ReadPixel, nativeRender.GetRenderTarget
+    local RATE, BURST, QUIET, READERS, PICTURES, PIXELS = 1.25, 8, 5, 256, 8, 1024
+    local readClock = SysTime or RealTime or os.clock
+    local readers, readerCount = {}, 0
+    -- The picture the next render.ReadPixel calls belong to: one being filled, after a read-back that was made, or
+    -- one that answers, after a read-back that was refused. nil after a read-back that is not limited.
+    local current, answering, answeredAt = nil, false, 0
+    local counts = {allowed = 0, refused = 0}
+    state.readbacks = counts
+    local function fileOf(source) return (source:gsub(":%-?%d+$", "")) end
+    local function limited()
+        if getBool then return not getBool(allow) end
+        return not allow:GetBool()
+    end
+    local function nameOf(target) return target:GetName() end
+    local function targetName()
+        if not readTarget then return "" end
+        local ok, target = pcall(readTarget)
+        if not ok or target == nil then return "" end
+        local named, name = pcall(nameOf, target)
+        return named and type(name) == "string" and name:sub(1, 96) or "?"
+    end
+    -- The file that called the function a read-back was made from (level 4 from the wrapper's helper).
+    local function outerFile()
+        local info = getinfo(4, "S")
+        return info and virtual(info.source) or ""
+    end
+    if capture and readPixel then
+        render.CapturePixels = function(...)
+            if not active() or not limited() then current = nil return capture(...) end
+            local source = caller()
+            -- Called through pcall or another native function: the first Lua caller outside the guard.
+            if source:sub(1, 13) == "<dynamic Lua>" then source = externalCaller() end
+            if policy.bundled(source) then current = nil return capture(...) end
+            local file = fileOf(source)
+            local who = file .. "<" .. outerFile()
+            local reader = readers[who]
+            if not reader then
+                -- Beyond the table's bound a caller is simply not limited.
+                if readerCount >= READERS then current = nil return capture(...) end
+                reader = {last = -math.huge, level = 0, blocked = false, scans = false, pictures = {}, count = 0}
+                readers[who], readerCount = reader, readerCount + 1
+            end
+            if reader.scans then current = nil return capture(...) end
+            local now = readClock()
+            local gap = now - reader.last
+            reader.last = now
+            -- Every request counts, made or refused, so a reader that keeps coming stays refused, and one that
+            -- only overran once is let in again when its requests are back under half the allowance.
+            local level = reader.level - gap * RATE
+            level = (level > 0 and level or 0) + 1
+            if level > BURST * 2 then level = BURST * 2 end
+            if reader.blocked then
+                if gap >= QUIET then
+                    reader.blocked, level = false, 1
+                elseif level <= BURST / 2 then
+                    reader.blocked = false
+                end
+            elseif level > BURST then
+                reader.blocked = true
+            end
+            reader.level = level
+            local pictures = reader.pictures
+            local name = source .. "|" .. targetName()
+            local picture = pictures[name]
+            if not picture then
+                -- More calls than a reader has pictures: the others share one.
+                if reader.count >= PICTURES then name = "*" picture = pictures[name] end
+                if not picture then
+                    picture = {reader = reader, file = file, held = 0}
+                    pictures[name] = picture
+                    if name ~= "*" then reader.count = reader.count + 1 end
+                end
+            end
+            if reader.blocked and picture.made then
+                counts.refused = counts.refused + 1
+                current, answering, answeredAt = picture, true, now
+                reject("render.CapturePixels", "repeated screen read-backs wait for the path tracer: answered from the"
+                    .. " last picture read (nativeloader_guard_readbacks 1 allows them)", source)
+                return
+            end
+            counts.allowed = counts.allowed + 1
+            -- What the picture held stays until this read-back's first pixel is read.
+            picture.made, picture.fresh = true, true
+            current, answering = picture, false
+            return capture(...)
+        end
+        -- The engine truncates a pixel's coordinates.
+        local function key(x, y)
+            x, y = whole(x), whole(y)
+            if x and y and x >= 0 and y >= 0 and x < 65536 and y < 65536 then return x * 65536 + y end
+        end
+        local function keep(picture, x, y, ...)
+            local r, g, b, a = ...
+            local at = key(x, y)
+            if at and integer(r) and integer(g) and integer(b) and r >= 0 and r < 256 and g >= 0 and g < 256
+                and b >= 0 and b < 256 then
+                if picture.fresh or not picture.values then
+                    picture.values, picture.held, picture.latest, picture.fresh = {}, 0, nil, false
+                end
+                local values = picture.values
+                if values[at] == nil then
+                    if picture.held >= PIXELS then
+                        -- More pixels than a picture holds. Read by the file that made the read-back, this is
+                        -- an image scan: that reader is not limited any more.
+                        if fileOf(externalCaller()) == picture.file then
+                            local reader = picture.reader
+                            reader.scans, reader.blocked = true, false
+                        end
+                        current = nil
+                        return ...
+                    end
+                    picture.held = picture.held + 1
+                end
+                local packed = ((r * 256 + g) * 256 + b) * 256 + (integer(a) and a >= 0 and a < 256 and a or 255)
+                values[at], picture.latest = packed, packed
+            end
+            return ...
+        end
+        render.ReadPixel = function(x, y, ...)
+            local picture = current
+            if not picture then return readPixel(x, y, ...) end
+            if not answering then return keep(picture, x, y, readPixel(x, y, ...)) end
+            -- A refused read-back answers until the guard or the limit is switched off, or QUIET seconds pass.
+            if not active() or not limited() or readClock() - answeredAt > QUIET then
+                current = nil
+                return readPixel(x, y, ...)
+            end
+            local values = not picture.fresh and picture.values
+            local at = key(x, y)
+            local value = values and (at and values[at] or picture.latest)
+            -- Nothing remembered for this call (its read-backs were made, but no pixel read after the last one):
+            -- the engine still has the last picture really read.
+            if not value then return keep(picture, x, y, readPixel(x, y, ...)) end
+            local a = value % 256
+            value = (value - a) / 256
+            local b = value % 256
+            value = (value - b) / 256
+            local g = value % 256
+            return (value - g) / 256, g, b, a
+        end
+    end
+end
 local viewDepth = 0
 if nativeRender.RenderView then
     render.RenderView = function(view, ...)
@@ -1567,9 +1727,18 @@ if nativeRender.RenderView then
         return unpack(result, 2, result.n)
     end
 end
+-- A function that times another one (the companion's nativeloader_lag_report) enters itself here with the function
+-- it times. The guard's records then name that function, and a callback the guard leaves out stays left out under
+-- its timer. An entry can only add to what is left out: what a callback may do never follows from this table.
+local timed = setmetatable({}, {__mode = "k"})
+state.timed = timed
+local function timedFunction(fn)
+    local original = timed[fn]
+    return type(original) == "function" and original or nil
+end
 local function sourceOf(f)
     local source = f.source
-    if not source then source = functionSource(f.fn) f.source = source end
+    if not source then source = functionSource(timedFunction(f.fn) or f.fn) f.source = source end
     return source
 end
 -- PostRender's suppressed-lighting previews need a raster-safe material after RTX injection.
@@ -1735,12 +1904,84 @@ end
 local function quarantined(fn, event)
     local record = failures[fn]
     if not record or record.streak < quarantineFailures then return false end
-    report("errors", event, "callback quarantined after " .. quarantineFailures .. " consecutive Lua errors", functionSource(fn))
+    report("errors", event, "callback quarantined after " .. quarantineFailures .. " consecutive Lua errors",
+        functionSource(timedFunction(fn) or fn))
     return true
+end
+-- R28 (ADR 0143): what each protected render callback costs. One that takes SLOW_MS or more of every frame over a
+-- window of SLOW_WINDOW seconds is named once in the console and kept in state.slow, with its hook's name: the
+-- companion's nativeloader_lag_report lists them. Nothing is stopped: a slow HUD is still the player's HUD.
+local SLOW_MS, SLOW_WINDOW, SLOW_RECORDS, SLOW_NAMES = 4, 5, 32, 2048
+-- A hook added under a name is known by its event and name, so a function put in its place (a timing wrapper, a
+-- closure added again) continues the same count; a hook of an object, and a call outside hook.Call, by function.
+local costs, slowRecords = setmetatable({}, {__mode = "k"}), setmetatable({}, {__mode = "k"})
+local namedCosts, namedCount, namedRecords = {}, 0, {}
+local framesSeen, pendingId = 0, nil
+local function spent(f, finished)
+    local fn, took = f.fn, finished - f.began
+    local name = type(f.id) == "string" and f.id or nil
+    local cost, named
+    if name then
+        named = namedCosts[f.event]
+        cost = named and named[name]
+    else
+        cost = costs[fn]
+    end
+    if not cost then
+        -- This frame's PreRender is already counted: the first call belongs to one frame.
+        cost = {sum = 0, worst = 0, since = f.began, frames = framesSeen - 1}
+        if not name then
+            costs[fn] = cost
+        else
+            -- Names made up anew all the time are not kept for ever.
+            if namedCount >= SLOW_NAMES then namedCosts, namedCount, named = {}, 0, nil end
+            if not named then
+                named = {}
+                namedCosts[f.event] = named
+            end
+            named[name], namedCount = cost, namedCount + 1
+        end
+    end
+    cost.sum = cost.sum + took
+    if took > cost.worst then cost.worst = took end
+    -- A window is at least SLOW_WINDOW seconds and thirty frames, so a slide show is measured too.
+    local frames = framesSeen - cost.frames
+    if finished - cost.since < SLOW_WINDOW or frames < 30 then return end
+    local share, worst = cost.sum / frames * 1000, cost.worst * 1000
+    cost.sum, cost.worst, cost.since, cost.frames = 0, 0, finished, framesSeen
+    if share < SLOW_MS then return end
+    local records = name and namedRecords[f.event]
+    local record
+    if name then record = records and records[name] else record = slowRecords[fn] end
+    if record then
+        if share > record.ms then record.ms = share end
+        if worst > record.worst_ms then record.worst_ms = worst end
+        return
+    end
+    if #state.slow >= SLOW_RECORDS then return end
+    local id = f.id
+    if type(id) ~= "string" then id = id == nil and "?" or "<" .. type(id) .. ">" end
+    record = {api = f.event, id = id:sub(1, 120), source = sourceOf(f), ms = share, worst_ms = worst}
+    record.reason = string.format("%.1f ms of every frame", share)
+    if not name then
+        slowRecords[fn] = record
+    else
+        if not records then
+            records = {}
+            namedRecords[f.event] = records
+        end
+        records[name] = record
+    end
+    state.slow[#state.slow + 1] = record
+    if MsgN then
+        MsgN(string.format("[nativeloader] RTX guard: %s: %s takes %.1f ms of every frame (worst %.0f ms): %s",
+            record.api, record.id, share, worst, record.source))
+    end
 end
 local function settle(f, ok, ...)
     frame = f.parent
     f.completed = ok
+    spent(f, clock())
     if not ok then cleanup(f) return false end
     local record = failures[f.fn]
     if record then record.streak = 0 end
@@ -1758,8 +1999,12 @@ local function settle(f, ok, ...)
     return true, ...
 end
 local function protectedCall(fn, event, ...)
+    local id = pendingId
+    pendingId = nil
     if policy.skipCallback(fn, event) then return true end
-    local f = {event = event, fn = fn, parent = frame}
+    local original = timedFunction(fn)
+    if original and policy.skipCallback(original, event) then return true end
+    local f = {event = event, fn = fn, parent = frame, id = id, began = clock()}
     frame = f
     return settle(f, xpcall(fn, handler, ...))
 end
@@ -1767,7 +2012,7 @@ local events = {Initialize = true, InitPostEntity = true, OnReloaded = true,
     PreRender = true, PostRender = true, RenderScene = true, RenderScreenspaceEffects = true,
     PreDrawEffects = true, PostDrawEffects = true, PreDrawOpaqueRenderables = true,
     PostDrawOpaqueRenderables = true, PreDrawTranslucentRenderables = true, PostDrawTranslucentRenderables = true,
-    PreDrawViewModel = true, PostDrawViewModel = true, PostDrawPlayerHands = true,
+    PreDrawViewModel = true, PostDrawViewModel = true, PostDrawPlayerHands = true, PreDrawViewModels = true,
     HUDPaint = true, PreDrawHUD = true, PostDrawHUD = true, PostRenderVGUI = true,
     SetupWorldFog = true, SetupSkyboxFog = true, NeedsDepthPass = true,
     InitPostShaderlib = true, InitPostReconstruction = true, PreDrawReconstruction = true, PostDrawReconstruction = true}
@@ -1778,25 +2023,34 @@ if not late then
     hook.Call = function(name, gm, ...)
         if not events[name] or not active() then return originalCall(name, gm, ...) end
         if name == "NeedsDepthPass" then return false end
-        if name == "PreRender" and not frameNumber and frame == nil and busy == 0 then resync() end
+        if name == "PreRender" then
+            framesSeen = framesSeen + 1
+            if not frameNumber and frame == nil and busy == 0 then resync() end
+        end
         local entries = getHooks()[name]
         local stopped = quarantine[name]
         if not stopped then stopped = setmetatable({}, {__mode = "k"}) quarantine[name] = stopped end
         if entries then
             for id, fn in pairs(entries) do
+                local out = stopped[id]
                 if type(id) ~= "string" and not IsValid(id) then entries[id] = nil
-                elseif stopped[id] ~= fn then
+                elseif out == nil or (out ~= fn and out ~= timedFunction(fn)) then
                     local ok, a, b, c, d, e, g
+                    pendingId = id
                     if type(id) == "string" then ok, a, b, c, d, e, g = protectedCall(fn, name, ...)
                     else ok, a, b, c, d, e, g = protectedCall(fn, name, id, ...) end
                     if not ok then
-                        if quarantined(fn, name) then stopped[id] = fn end
+                        -- Stopped as the function itself, also when it failed under a timer of it.
+                        if quarantined(fn, name) then stopped[id] = timedFunction(fn) or fn end
                     elseif a ~= nil then return a, b, c, d, e, g end
                 end
             end
         end
         local fn = gm and gm[name]
-        if fn then return gamemodeResult(protectedCall(fn, name, gm, ...)) end
+        if fn then
+            pendingId = "the gamemode"
+            return gamemodeResult(protectedCall(fn, name, gm, ...))
+        end
     end
 end
 -- Capability policy applies to remote callbacks too, without catching their unrelated errors.
@@ -1907,6 +2161,50 @@ if cvars and cvars.AddChangeCallback then
         if protects(fn) then fn = callback(fn, "cvars.AddChangeCallback") end
         fn = policy.filter("cvars.AddChangeCallback", fn)
         return original(name, fn, id, ...)
+    end
+end
+-- R28 (ADR 0143): surface.CreateFont for a name that already has that definition makes the engine build every
+-- font's glyph pages again; twenty such calls a frame (a font made in a paint hook) took a 12 ms frame to 29 ms
+-- (PoC). The same definition again changes nothing, so it is made once; a changed one is made as before.
+do
+    local createFont = surface and surface.CreateFont
+    if createFont then
+        -- The same definition is made again once FONT_REFRESH seconds have passed, in case the engine's font
+        -- was changed by a route this wrapper does not see.
+        local fonts, fontCount, FONTS, FONT_REFRESH = {}, 0, 4096, 10
+        local fontClock = SysTime or RealTime or os.clock
+        local skipped = {calls = 0}
+        state.fonts = skipped
+        local function same(known, data)
+            local values, count = known.values, 0
+            for k, v in pairs(data) do
+                count = count + 1
+                if values[k] ~= v then return false end
+            end
+            return count == known.count
+        end
+        surface.CreateFont = function(name, data, ...)
+            if not active() or type(name) ~= "string" or type(data) ~= "table" or select("#", ...) > 0
+                or getmetatable(data) ~= nil then
+                return createFont(name, data, ...)
+            end
+            -- The engine knows a font by its name without case.
+            local id, now = name:lower(), fontClock()
+            local known = fonts[id]
+            if known and now - known.at < FONT_REFRESH and same(known, data) then
+                skipped.calls = skipped.calls + 1
+                return
+            end
+            local result = pack(createFont(name, data, ...))
+            if known or fontCount < FONTS then
+                if not known then fontCount = fontCount + 1 end
+                -- A copy: the caller may reuse and change its table.
+                local copy, count = {}, 0
+                for k, v in pairs(data) do copy[k], count = v, count + 1 end
+                fonts[id] = {values = copy, count = count, at = now}
+            end
+            return unpack(result, 1, result.n)
+        end
     end
 end
 local postprocess = {"DrawBloom", "DrawColorModify", "DrawSharpen", "DrawMotionBlur", "DrawToyTown",

@@ -38,3 +38,8 @@ forwarding preserves untrusted shader filtering and source attribution.
 Live DX7 coverage: normalize shader _DX suffixes, read packed $flags, recognize standard white
 aliases and clear stale observer bindings on both color-material helpers. The packed_flags and
 color_helper scenarios supplement the hash budgets and normal classifications.
+
+R28: the published lists are built again only after an observed material's hashes or kinds changed, a material with
+hashes left the list, or a write failed and is still due. Until then the quarter-second step returns at once: with 654
+add-ons the rebuild from thousands of observed materials took up to 4.7 ms of a frame (the issue 2 report). The
+`quiet` scenario counts the sorts: none while nothing changes, one rebuild after a change.

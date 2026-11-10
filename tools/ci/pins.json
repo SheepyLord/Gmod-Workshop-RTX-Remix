@@ -157,16 +157,16 @@
         "engine_guard/tests"
       ],
       "packaged": {
-        "sha256": "b20d1dfb4cf7f5e15a0128f3b5db1688d27936193989ee64a846355202848a37",
+        "sha256": "85e849e6aceccb6972f8e551f3d35e1d4d92eb68468d92cf51e7090389e6ec23",
         "sources": {
           "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "engine_guard": "b469ac2ffa3422ed968ad11c591d57d9d9980c91e36291909a91fe11c7c8e9a1",
+          "engine_guard": "d5e59b376a197e7007a08a66164b332a01c1a76199dd15b1c6f1deb8435a533a",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a (with uncommitted changes)",
+        "commit": "f352570ac17d3b6c8517ab0a87e86931318479fe (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "kept: a build of these sources is the same image"
+        "how": "imported: built from these sources"
       }
     },
     {
@@ -184,16 +184,16 @@
         "engine_guard/tests"
       ],
       "packaged": {
-        "sha256": "7b5b4c5be1c00c26d5ee1f0fc4cc32df8905862549fc69f3164af5bf7c97a04a",
+        "sha256": "c9f15055c90352b12ad3e891a76de67faf1b6432f65f2c5fcaded63ba4d93993",
         "sources": {
           "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "engine_guard": "b469ac2ffa3422ed968ad11c591d57d9d9980c91e36291909a91fe11c7c8e9a1",
+          "engine_guard": "d5e59b376a197e7007a08a66164b332a01c1a76199dd15b1c6f1deb8435a533a",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a (with uncommitted changes)",
+        "commit": "f352570ac17d3b6c8517ab0a87e86931318479fe (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "kept: a build of these sources is the same image"
+        "how": "imported: built from these sources"
       }
     },
     {

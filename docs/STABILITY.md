@@ -78,6 +78,36 @@ saved Remix settings can override these defaults; check the effective values in
 with an older runtime package may report no layer, or use the loader's low compatibility fallback
 without the package's smaller night-sky assets. Read the reason shown in **Start here**.
 
+## With hundreds of add-ons (R28)
+
+What the diagnosis of GitHub issue 2 found with a player's 654 Workshop add-ons
+([handover/issue-2-memory-report.md](handover/issue-2-memory-report.md)), and what the package does about it since
+R28 ([ADR 0142](decisions/0142-no-crash-snapshot-of-the-game.md),
+[0143](decisions/0143-read-backs-font-definitions-and-slow-render-hooks.md),
+[0144](decisions/0144-the-light-updater-draws-what-the-runtime-needs.md)):
+
+- **An RTX session needs more memory than the same add-ons without RTX**: about 20 GB committed and 12 GB of RAM in
+  use on the largest map of that set, against 15 and 6 GB. The textures of everything the add-ons precache are kept
+  in memory Windows cannot page out. Fewer weapon, NPC and model packs is what lowers it; the page file advice above
+  still applies.
+- **When the game crashes, wait for it to go.** Before R28 Windows copied the crashed game for its error report and
+  charged that copy the game's whole memory again: the memory gauge at 97-99 %, a frozen desktop and a gmod.exe that
+  stayed for ten seconds or more, End task or not. The package now tells Windows to report without the copy (same
+  report, no second 20 GB). This needs the current Workshop item; the loader need not be updated.
+- **Post-processing add-ons show nothing under RTX** (screen-space shaders cannot be applied to the path-traced
+  picture; the console lists what the render guard refused), and some cost a great deal anyway. HyperReal FX read
+  the screen back twice a second, and each read waited one to two frames for the path tracer: 67 ms of every frame
+  on that player's set. Since R28 such repeated read-backs stop within a few seconds
+  (`nativeloader_guard_readbacks 1` allows them again, with their cost).
+- **On a map with hundreds of lights** (256 or more) the package's light updater no longer draws a helper for
+  every light every frame, only for the lights in view, near you and near lamps, and the rest in turns. If a
+  light out of view should ever come and go, or while you use the Remix free camera (developer menu), enter
+  `rtx_lightupdater_all 1`: every helper every frame, as before R28. `rtx_lightupdater_status` prints the counts.
+- **To see which add-ons cost a frame's time**, stand where the game lags and enter `nativeloader_lag_report` in the
+  console. Ten seconds later it lists the most expensive hooks of the client and of the local server with their
+  add-ons, and writes the same to `garrysmod\data\nativeloader\lag_report_client.txt` and `lag_report_server.txt`.
+  Attach those to a report about lag.
+
 ## Read memory during a session
 
 Console `rtx_vram_stats` prints the driver's VRAM budget/use, DXVK totals and Remix categories when

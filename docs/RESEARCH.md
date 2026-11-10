@@ -6512,3 +6512,169 @@ published package, the loader's minimum memory profile and low tier, 1920x1080; 
   `tier0.dll+0x1c9d0`, in sessions with and without RTX and the collection; WER dumps keep only 4-5 KB of that stack.
 - **`game.MountGMA`** refuses absolute paths and takes paths relative to `garrysmod/`; a map inside a mounted archive
   logs "Couldn't write cache/map_pack.bsp to mount embedded content!" although GMod writes the file.
+
+## R28: what lags an RTX frame, the runtime's light lifetime, and the crash behind issue 2 (2026-11-10)
+
+Measured in this round's own vanilla copy of the game (`out/r28/game` in the main checkout, 2,877 depot files copied
+with `make_vanilla_copy.py`; another session held the PoC), 1920x1080 windowed, `-noworkshop`, gm_construct unless
+said, an RTX 5090. Driver `out/r28/lab.py` in the `r28` worktree; report [handover/R28-report.md](handover/R28-report.md).
+
+- **What a render hook's calls cost under RTX** (`cost_probe.lua`, the published package, 12.2 ms a frame): four
+  `render.UpdateScreenEffectTexture()` 0.012 ms; `render.UpdateRefractTexture()` 0.009 ms;
+  `render.CopyRenderTargetToTexture` of a full-screen target 0.011 ms; a full-screen target pushed, cleared and popped
+  0.021 ms; eight plain passes into it 0.079 ms, eight with a refused `screenspace_general` material 0.180 ms (the
+  guard's refusals); `render.ReadPixel` 0.002 ms. **`render.CapturePixels()` 20-29 ms each** (a 1x1 target or the back
+  buffer, every 15th frame), 12.4 ms each when made every frame (the frame then 24.5 ms): it waits until the GPU has
+  drawn everything queued, one to two frames. `render.RenderView` into a 256x256 target 2.6 ms and +6.5 ms a frame.
+  `render.Capture` (a JPEG of the screen) 76 ms. **Twenty `surface.CreateFont` calls a frame with one unchanged
+  definition:** 0.4 ms in the calls, the frame 29.4 ms instead of 12.2 (the engine builds every font's glyph pages
+  again).
+- **HyperReal FX's 67 ms a frame were read-backs.** Its two `ReadRTPixel` sites read a 1x1 target every 0.5 s
+  (`render.CapturePixels`, `render.ReadPixel`); at the issue's 143 ms a frame a read waits about 200 ms (the hooks'
+  worst calls: 207 and 196 ms), and two of those a second are the measured 49.4 + 17.9 ms a frame. Its copies and
+  passes cost hundredths of a millisecond once the guard refuses its shaders.
+- **A test add-on shaped like it** (`out/r28/addons/r28_hrxlike`: three stages, 18 `screenspace_general` passes and
+  three screen copies a frame, two 1x1 read-backs every 0.5 s), gm_construct: with the published package 78 read-backs
+  in 20 s at 11.4 ms each (worst 26 ms), frames 9.64 ms on average, 11.95 ms at the 95th percentile, worst 90.8 ms;
+  with R28's package the same 78 calls take 0.02 ms each on average (eleven made in the first
+  three seconds, the rest answered from the last picture), frames 7.99 / 9.08 / 13.4 ms; with the add-on
+  switched off 7.80 / 8.75 / 11.9 ms. (The round's first rule, four fast reads running, made four: 0.02 ms each, frames 8.40 /
+  10.32 / 14.9 ms.)
+- **`WerGetFlags` from outside** (`kernel32`, a handle with `PROCESS_QUERY_INFORMATION | PROCESS_VM_READ`): a game
+  with the published package answers `0x80070490` (not found: the process never set a flag); with R28's package
+  `S_OK` and 384 (`WER_FAULT_REPORTING_DISABLE_SNAPSHOT_CRASH | _HANG`) from about 25 s after the process started
+  (the menu's Lua loads the engine guard), for the rest of the session.
+- **The engine's fail-fast in issue 2 is GMod's crash handler failing.** The Windows Error Reporting dumps of the
+  issue 2 lab (`out/issue2/wer-dumps`, read with `out/r28/crash_stack.py`, which takes a thread's stack from the
+  dump's Memory64 list) show the failing thread inside the C runtime's `_write` (`engine.dll+0x36f588`): the file
+  descriptor (3) is in range (`_nhandle` 64) but not open, so the runtime calls its invalid-parameter routine
+  (`+0x34b59c`), which fails fast (`+0x34b6bc`, `int 29h` with 5) because no handler is set. The buffer being written
+  starts `-Console Buffer-`: the text half of GMod's own crash report (`crashes/<id>.txt`), which in all six sessions
+  ends after `-Lua Stack Traces-`. So a first fault had already happened and GMod's handler had written its
+  minidump. Those minidumps (`evidence/engine-crashes`) give the first faults: an access violation at
+  **`studiorender.dll+0x6603b`** (reading `0xffffffffffffffff`; three sessions, two of them in an NPC wave with the
+  654 add-ons) and at **`shaderapidx9.dll+0xd7ff` / `+0xd759`** (reading `0x1c` from a null pointer; three sessions,
+  one while quitting, one on gm_construct with nothing mounted), the latter the same fault as R27's two PoC crashes (a
+  null vertex buffer). Every one of them then reached Windows Error Reporting through the handler's own fail-fast.
+- **How the runtime keeps a game light** (`out/worktrees/r17/out/runtime-src`, `17dcc86c`):
+  `LightManager::garbageCollectionInternal` (`src/dxvk/rtx_render/rtx_light_manager.cpp:110-136`) erases a light not
+  set in the current frame when `rtx.suppressLightKeeping` is on (the package's `classic_remix_defaults.conf:109`),
+  unless light anti-culling (`:61` of that file) marked it outside the view and fewer than
+  `rtx.antiCulling.light.numFramesToExtendLightLifetime` (1000, `rtx_options.h:744`) frames have passed since it was
+  set. Only `D3DLIGHT_POINT` lights get the anti-culling type that can be outside (`addGameLight`, `:650-669`):
+  their sphere (the light's position and the converted radius, `rtx.lightConversionSphereLightFixedRadius` 9 here,
+  `rtx_lights_data.cpp:399`) is tested against the camera's own frustum (`RtCamera::updateAntiCulling`,
+  `rtx_camera.cpp:582-592`, `fovScale` 1); spot and directional lights keep "inside" (`:152-186`). With
+  `suppressLightKeeping` off a light steady for 50 frames (`numFramesToKeepLights / 2`) is never erased again.
+- **What a helper's draw sets.** The engine lights a model with the strongest world lights where it stands: up to
+  four (`r_worldlights`), none dimmer there than `r_worldlightmin` (0.0002), each from a cluster the model's leaf can
+  see and reached by a ray against the world. A helper therefore sets its own light and three neighbours, and the
+  world lights (BSP lumps 15 and 54, 88 bytes each: origin, intensity, normal, cluster, type, style, cone,
+  attenuation) include what no entity stands for. `out/r28/world_lights.py` on the test maps: gm_construct 138 (108
+  point, 28 spot, the sun and its ambient; 31 with a style; 78 plain `light` entities, each on a point world
+  light); gm_backrooms_classic 1,126, all point, one with a style; gm_backrooms 1,007 (960 point, 47 spot);
+  **modern_house 2,828: 991 point, 35 spot, 1,800 texture lights** (`emit_surface`), the sun; gm_br_pitfalls 2,649
+  (564 point, 1,709 spot, 374 texture lights); gm_liminal_hotel 566 (547 point, 13 spot, 4 texture lights). Their
+  visibility lumps are 0.2-1.1 MB (2,098 clusters on gm_backrooms_classic, 2,377 on modern_house). With the light
+  updater on, the fixes switch `rtx.ignoreGamePointLights` and `rtx.ignoreGameSpotLights` off
+  (`cl_rtx_settings.lua`), so a texture light the engine sets for a helper reaches the runtime, as a spot light,
+  which the runtime drops the frame it is not set.
+- **The runtime hands a light that stops to a new one.** `LightManager::dynamicLightMatching`
+  (`rtx_light_manager.cpp:190-238`, called every frame from `rtx_scene_manager.cpp:3029`, before the garbage
+  collection): a light whose last touch was the frame before (`getFrameLastTouched() + 1 == currentFrame`) and
+  that is not new is compared with every light that is new this frame; the most similar one within
+  `rtx.uniqueObjectDistance` (300, `rtx_options.h:594`; `isSimilar`, `:567`: the same type, a point light with a
+  point light) becomes "dynamic", takes over its buffer index and identity (`updateLight`, `:614`), and the old
+  light is erased. A game light's identity is its position (`LightData::createFromPointSpot`,
+  `rtx_lights_data.cpp:392-451`: the hash is the position and, for a spot light, its cone; not its brightness), so
+  a dynamic light that moves is a new light every frame. With every helper drawn every frame no map light is ever
+  in the first state; with the draw list each bounded light is, for the frame after its helper stops.
+- **In the game the hand-over shows as copies of the moving light.** gm_backrooms_classic, six poses 260 units
+  from a map light and looking away from it, a white `DynamicLight` from Lua going round the eye at 120 units once
+  a second and standing still for the last 30 frames before a screenshot, a model of its own drawn where it is
+  every frame, `rtx.autoExposure.enabled` off for the probe (`out/r28/light_probe9.lua`); a pair is every helper
+  (260 frames) and then the list (500 frames). **The build before the fix** (the list by view and turns alone): all
+  six pairs differ, the list's picture brighter by 12.4-42.1 levels in red and green and by 8.9-22.7 in blue
+  (largest of 64 blocks 17-72), the share of blue up in every pose (0.05 to 0.22 where the standing light itself
+  is behind a wall). By the code: the new light that takes a stale light's buffer index is no longer new
+  (`updateLight`), so when a stopped map light is matched first, the moving light's own previous copy finds no
+  match; out of view it is a point light the anti-culling keeps for 1000 frames. **The final build:** poses 1, 3
+  and 5 match (0.3-0.6 levels, blocks 1-2.5); poses 2, 4 and 6 differ by 22.9-25.0. **The control** (the final
+  build with every helper in both pictures of a pair, `--bounded 1`): poses 1, 3 and 5 match (0-0.9), poses 2, 4
+  and 6 differ by 32.4-33.5. So in those three poses the second picture is brighter whatever is drawn: the probe's
+  moving light leaves copies there by itself (the pictures are taken 260 and 760 frames into a pose, and a copy
+  lives 1000), also with every helper and with the model that carries it. Why that model does not keep every frame's
+  light matched was not pursued; it is the runtime's and older than this round. **A light that stands still**
+  (`light_probe8.lua`, 120 units ahead): every helper, the list, every helper again: share of blue 0.248, 0.249,
+  0.253, red and green the same within 0.4; without the light 0.031 and 0.027.
+- **Judging a moving light by screenshots needs a control.** The first probes of this finding
+  (`light_probe5.lua`, `light_probe6.lua`: no model at the light, the exposure free or held) showed more white
+  with the list in both builds, which looked like a fix that did not work: a moving light with no model of its own
+  reaches the runtime only in the frames a helper stands within its radius, every gap leaves a copy out of view,
+  and the automatic exposure is still settling 30 frames after the light stops. A pair of pictures taken one after
+  the other at one place also differs by what the first half left behind.
+- **A dynamic light's fields can be written from Lua, not read.** `DynamicLight(key)` returns a `dlight_t` object
+  (a fresh one per call); `light.pos` and `light.size` read back as nil with no error (`out/r28/light_probe7.lua` in
+  the game). Whoever needs a Lua light's position has to see it written (the object's metatable has `__newindex`).
+- **The runtime's light frustum is a frame late in its angle.** `RtCamera::update` calls `updateAntiCulling`
+  (`rtx_camera.cpp:696`), which builds the frustum from `getViewToProjection()`, before it stores the frame's
+  projection (`:703`): a zoom shows in the light test one frame later.
+- **The free camera** (`rtx.camera.enableFreeCamera`, `rtx_camera.h:112`) makes `isLightAntiCullingEnabled()` false
+  (`rtx_options.h:752`): no light is kept out of view. It is switched in the Remix menu; the fixes'
+  `GetConfigVariable` reads `rtx.conf`.
+- **ULib's hook library** (github.com/TeamUlysses/ulib, `lua/ulib/shared/hook.lua`): `Hooks[event][priority][name]
+  = { fn, isstring }` behind `hook.GetULibTable()`, called in priority order -2..2, and beside it a plain table
+  that `hook.GetTable()` returns. The render guard's `hook.Call` runs the events it protects from
+  `hook.GetTable()`, so with ULib those hooks run from the plain table.
+- **The light updater's cost** (the list as shipped, after the review): `PostDrawTranslucentRenderables` runs once a
+  frame (`r_WaterDrawReflection 0`, `r_WaterDrawRefraction 0`). gm_construct has 171 light entities, 142 after the
+  updater's ids, 78 of them steady point lights (no name, no style); every helper every
+  frame 0.90-1.00 ms in the hook and 7.3 ms a frame. The map is under 256 lights, so that is also what the
+  default does. With the list asked for (`rtx_lightupdater_all -1`; all 78 bounded, the 58 spot and switched
+  world lights being set by their own helpers every frame): 65-71 helpers looking away from the buildings and
+  88-121 looking at them, 0.46-0.84 ms in the hook and 5.4-6.8 ms a frame. (At 7 ms a frame the probe's second
+  screenshot of a view is taken while the exposure still settles: a view looking down after one looking up differs
+  by a uniform 5 %, block ratios 1.05-1.07.)
+- **A helper costs the frame about three times what its hook shows.** gm_backrooms_classic (Workshop 2732733089,
+  1,126 light entities, 1,125 of them steady point lights, all of their helpers bounded: the one styled light is
+  set by its own helper), from one spot inside the map, six views, 1920x1080: every helper every frame 9.1-9.2 ms in
+  the hook (8.2 us a helper) and 38.5-38.6 ms a frame; the list 28, 142, 652, 536, 13 and 13 helpers: 0.4, 1.3, 5.3,
+  4.3, 0.3 and 0.3 ms in the hook, and frames of 9.4, 12.4, 26.1, 22.8, 9.2 and 9.2 ms. So each helper left out
+  gives back 27-35 us: its draw is also an instance the runtime processes. Screenshot pairs (every helper against
+  the list, the scene's left 60 %): mean differences of 0.6-0.8 of 255 levels, the largest of 64 blocks 1-2 levels,
+  in all six views; after 400 frames facing one way and a turn to the opposite view, the settled picture matches. (The spawn point differs from run to run; the round's first list, bounded by a
+  helper's own light alone, measured 30.9, 23.5, 11.4, 18.6, 9.5 and 9.5 ms from another spot.) gm_backrooms of the
+  same item (1,011 helpers: 919 of steady point lights, all bounded, 47 of spot lights and 41 of switched lights,
+  each set by its own helper), with the build before the rule for the lights round the eye: 39.2-39.3 ms against 15.3, 22.5, 25.6, 16.6,
+  15.4 and 15.1 ms (115 to 489 helpers).
+- **The same on a map with texture lights**, modern_house (Workshop 3495468649; 1,027 light entities, 990 of them
+  plain `light`): 989 steady point lights, 959 of their helpers bounded (21 spot and switched
+  lights are set by their own helpers; the 30 other helpers stand where a texture light could be among the
+  engine's four). Six views from the spawn point, a fixed clear sky: every helper every frame 8.3-8.6 ms in the hook
+  and 38.2-38.9 ms a frame; the list 634, 252, 431, 564, 318 and 197 helpers: 5.2, 2.2, 3.7, 4.8, 2.8 and 1.9 ms and
+  frames of 27.7, 17.5, 22.8, 26.4, 20.0 and 16.4 ms; the pairs match (0.5-1.3 mean, largest block 1-3, 7 where a
+  cloud drifted), and so do six pairs with a light 260 units behind the camera (0.6-0.8, block 1-2). Without the fixed sky (`nativeloader_weather clear`, `nativeloader_sky_time_passes 0`) the pairs
+  differ by 20-30 levels: the sun goes behind a cloud between two screenshots. **Texture lights in the game:** the
+  round's first list (bounded by a helper's own light alone) matched in six pairs there as well, and 19 helpers
+  drawn 24 units in front of texture lights, with the updater's own hook off, changed nothing visible (0.54 mean,
+  block 2): a patch's brightness there is 2-14 against the hundreds of a point light, and a point light stood
+  within 83 units of every candidate, so the engine's four were mostly point lights. The rule stays for the rooms
+  a texture light lights alone.
+- **The preload with base content only** (gm_construct, then gm_backrooms_classic; the minimum profile, the low
+  tier; `[RTX Managed Textures]` in the runtime's log): with `mat_forcemanagedtextureintohardware` 1 (the published
+  package) 663 images (243 MB) were made by draws by the first pass and 720 (279 MB) after the second load; with 0
+  (R28's package; the console echoes `"mat_forcemanagedtextureintohardware" = "0" ( def. "1" )`) 216 (97 MB) and 265
+  (128 MB).
+- **The helper's frame cost is not the path tracer's geometry.** The same spot on gm_backrooms_classic, every
+  helper drawn under `render.MaterialOverride(rtx_lightupdater/rtx_lightupdater)` with that material's texture
+  (hash `0xAC138F27DCFD8FA8`) set to the runtime's Ignore category (the runtime takes a draw's lights before it
+  rejects an ignored texture, `D3D9Rtx::processRenderState`): 40.1 ms a frame against 40.2 and 40.4 ms as shipped,
+  the hook 9.7 ms either way; with the bounded list 17.3 against 16.8 ms. Not used.
+- **`render.GetViewSetup()`** on a 16:9 screen with a 90 degree view: `fov` 106.26 (the screen's own horizontal
+  angle), `fov_unscaled` 90, `aspect` 1.778.
+- **Light entities in the user's subscribed maps** (`out/r28/count_lights.py`, entity lumps read in place):
+  gm_br_pitfalls 2,274 (564 point lights), gm_brmovie_complete 1,678 (293), gm_br_complex 1,253 (145),
+  gm_backrooms_classic 1,126 (all point), modern_house 1,027 (991), gm_backrooms 1,007 (960), gm_mallparking_plus 701
+  (364), gm_liminal_hotel 561 (547); gm_cathedral_of_mercury and gm_korolevskiy_theater have two.
+- **The game's hook library** (`garrysmod/lua/includes/modules/hook.lua`, this build) is the classic one: a live
+  table from `hook.GetTable()`, `pairs` in `hook.Call`, six return values.

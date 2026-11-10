@@ -251,3 +251,36 @@ bundled callers keep native behaviour. The exact names of targets the guard refu
 (`policy.refuseName`, cleared by `policy.allowName` on a later allocation, never an `_rt_` name, at most 1,024) are
 refused as a `$basetexture` like the inert target, at a material's first creation and in `SetTexture`/`SetString`. The `hud_composite` scenario of
 [`render_guard_harness.lua`](../../../../tools/tests/render_guard_harness.lua.md) covers each.
+
+R28 ([ADR 0143](../../../../docs/decisions/0143-read-backs-font-definitions-and-slow-render-hooks.md)), three cost
+safeguards. **Read-backs:** `render.CapturePixels` waits for everything the GPU has queued, one to two frames under
+the path tracer (20-29 ms a call at 82 frames a second; HyperReal FX's two reads a second were 67 ms of every frame at
+7). Each reader (the calling Lua file together with the file that called it, so two add-ons reading through one
+shared library are two readers; through `pcall`, the first Lua caller outside the guard) has an allowance of eight
+read-backs at once, refilled at 1.25 a second: a batch of eight and a reader that asks about once a second are never
+limited. A reader that uses it up (two a second do after nineteen, a pair every half second after eleven) is
+refused. Every request counts, made or not: a reader that keeps coming stays refused, and it is let in again when
+its requests have fallen back under half the allowance or it has asked nothing for five seconds.
+`render.ReadPixel` after a refused read-back answers, without a native read, from the last picture really read by
+the same call: the calling line and the render target read, so two targets read through one helper keep a picture
+each (eight a reader, further ones share one), kept until the next read-back's first pixel is read. Coordinates are
+truncated as the engine does; a pixel the picture does not hold gets the picture's last pixel; while it holds none
+the engine's own last picture is read and remembered; a call never made yet is made; a refused picture stops
+answering after five seconds without a read-back. A file that reads more than 1,024 pixels of its own picture scans
+an image and is never limited (it could not be answered from memory). `render.Capture`, bundled callers and
+`nativeloader_guard_readbacks 1` (a saved client convar, default 0) are never limited; 256 readers at most;
+`NativeLoaderRenderGuard.readbacks` counts `allowed` and `refused`. A tail call (`return render.CapturePixels()`) is
+counted for the function's own caller: the frame is gone. **Fonts:** `surface.CreateFont(name, data)` with the definition the name (without case) already has, made less
+than ten seconds ago, is not made again (the engine rebuilds every font's glyph pages on each call: 20 a frame took
+a 12 ms frame to 29 ms); a changed definition, other arguments or a table with a metatable go to the engine; 4,096
+names at most; `NativeLoaderRenderGuard.fonts.calls` counts the calls left out. **Slow render callbacks:** every
+protected callback is timed (two clock reads a call), `PreDrawViewModels` is a protected event now, and one that
+takes 4 ms or more of every frame over a window of at least five seconds and thirty frames gets one console line and
+a record in `NativeLoaderRenderGuard.slow` (`api`, the hook's `id`, `source`, `ms`, `worst_ms`; 32 at most). A hook
+added under a name is counted by its event and name (2,048 names at most), so another function under the same name
+continues the count; a hook of an object and a gamemode's function by the function. Nothing is stopped.
+**Timers:** `NativeLoaderRenderGuard.timed[wrapper] = fn` (weak keys) tells the guard that one function times
+another: its records then name `fn`, a callback the guard leaves out stays left out under its timer, and a hook the
+guard stopped after repeated errors stays stopped under it and after it. An entry can only add to what is left out. The `cost_safeguards` scenario of
+[`render_guard_harness.lua`](../../../../tools/tests/render_guard_harness.lua.md) covers each;
+[`nativeloader_lag_report.lua`](nativeloader_lag_report.lua.md) uses the table and prints the records.

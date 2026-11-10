@@ -76,3 +76,27 @@ texture bound by ID afterwards draws; a material created naming a refused target
 loaded material keeps drawing; a name refused and then allocated, one allocated and then refused once, a similar name
 (`rt_scale_0.75` against `rt_scale_0.5`) and an engine `_rt_` name keep drawing; a repeat creation changes nothing; a
 depth-only request in a float format still gets the inert target.
+
+R28 adds `test_periodic_read_backs_repeated_font_definitions_and_slow_render_callbacks` (the `cost_safeguards`
+scenario, ADR 0143). Read-backs: at two a second nineteen are made and the twentieth is not; a refused reader gets
+the last picture's values, the picture's last pixel for one it does not hold, and no native read; it stays refused
+while it keeps asking and is told once; another add-on's reads stay real meanwhile; after five quiet seconds it reads
+again. A reader of about one read a second (330 of them, unevenly spaced) and a bundled caller are never limited; a
+batch of eight is made in full; bursts of four every 1.1 s are cut in the third. Two targets read through one helper
+keep a picture each, and a target read for the first time is read. Two files that read back through `pcall` have an
+allowance each. A fractional coordinate finds its pixel. A file that reads 1,100 pixels of a picture is never
+limited. A refused picture stops answering after five seconds, and at once with `nativeloader_guard_readbacks 1`.
+A reader of one sample a second that overran once (seven of a burst of nine made) is let in again after a while and
+never limited after that. Read-backs every frame with no pixel read are limited, and a pixel read afterwards is
+the engine's last picture, then remembered. Two add-ons that read through one shared library have an allowance
+each. Another file reading 1,100 pixels of a reader's picture leaves that reader limited.
+What `render.ReadPixel` returns after a read-back that was made is what the engine returned. Fonts: the same
+definition is made once, also under another case of the name, and again after ten seconds; a changed one, one with
+fewer keys, another name, a call with other arguments and a table with a metatable go to the engine, and a caller
+that reuses its table is compared with a copy. Slow callbacks: one that takes 6 ms of every frame is recorded once
+with its hook's name and its cost (a later window updates the record, and so does another function added under the
+same name), a quick one is not, twelve frames are no window and thirty at two a second are, a gamemode method and an
+entity's hook are named as such, 32 records at most, and a failing `PreDrawViewModels` callback is contained. A
+function entered in `NativeLoaderRenderGuard.timed` is recorded as the function it times, an effect callback the
+guard leaves out stays left out under it, and a hook stopped after repeated errors stays stopped under its timer
+and after it.

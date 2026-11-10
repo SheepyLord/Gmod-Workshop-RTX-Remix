@@ -7,7 +7,9 @@ several players report near memory overflow; one, with 24 GB of RAM and an RTX 5
 subscriptions as Workshop collection 3836929038. During the investigation the user observed the game lagging without
 any VRAM or RAM jump and asked what causes the lag, likely a heavy Lua call.
 
-Diagnosis only, by Claude, 2026-11-09/10: nothing in the package, the runtime or the loader was changed. Evidence is
+Diagnosis only, by Claude, 2026-11-09/10: nothing in the package, the runtime or the loader was changed. **What
+became of it:** [R28-report.md](R28-report.md) (recommended fixes 1 to 4 and 7 made in the package; 5 open; 6: the
+`engine.dll` fail-fast turned out to be GMod's own crash handler failing after a first fault elsewhere). Evidence is
 in this worktree's git-ignored `out/issue2/`; paths below are relative to it.
 
 ## In short

@@ -93,3 +93,8 @@ R14-H rewrote the guide (`guide_pages.lua`) and reworded help lines of the RTX R
 weather panel and the eye-white chooser. Its new and changed English messages were merged in
 untranslated (they show in English meanwhile); their translation and a text check are R14-T's (Codex),
 and `check` and the package build fail until then. Unchanged messages kept their translations.
+
+R28 added three messages to the guide's Performance and memory page ("When add-ons slow the game": the
+`nativeloader_lag_report` command and why post-processing add-ons' repeated screen reads are stopped). Their
+translations in all six catalogs are agent-written by Claude and not yet human-reviewed; the console command, the
+file names and `nativeloader_guard_readbacks 1` are kept as they are.

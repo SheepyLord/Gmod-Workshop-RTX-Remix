@@ -22,6 +22,11 @@ local debugmissing = CreateConVar( "rtx_lightupdater_debug_missing", 0,  FCVAR_A
 local forcemove = CreateConVar( "rtx_lightupdater_force_move", 0, FCVAR_NONE )
 local dynamicscan = CreateConVar( "rtx_lightupdater_dynamic_scan", 1, FCVAR_ARCHIVE )
 local dynamicupdate = CreateConVar( "rtx_lightupdater_dynamic_update", 1, FCVAR_ARCHIVE )
+-- 1 draws every light's helper every frame, as before R28; 0 (default) uses the draw list on maps with many
+-- lights; -1 on every map (not saved).
+local drawall = CreateConVar( "rtx_lightupdater_all", 0, FCVAR_NONE )
+-- Set whenever known_lights gains or loses a light: the draw list is built again (R28).
+local lights_dirty = true
 
 -- Cached world bounds and helpers (refreshed per map)
 local cached_world_min, cached_world_max
@@ -640,6 +645,7 @@ local function AddLight(light)
 			
 			table.insert(lights, light)
 			light_positions[#lights] = adjusted_pos
+			lights_dirty = true
 			
 			return true
 		else
@@ -661,6 +667,7 @@ local function AddLight(light)
 				
 				table.insert(lights, light)
 				light_positions[#lights] = emergency_pos
+				lights_dirty = true
 				
 				return true
 			end
@@ -777,6 +784,7 @@ local function InitializeLights()
 			end
 		end
 		
+		lights_dirty = true
 		-- Report processing results
 		if debugconsole:GetBool() or lights_processed < total_lights_found then
 			if debugconsole:GetBool() then
@@ -840,6 +848,7 @@ local function ScanForNewDynamicLights()
 			known_lights[light_id] = nil
 			all_discovered_lights[light_id] = nil
 			removed_lights = removed_lights + 1
+			lights_dirty = true
 		end
 	end
 	
@@ -999,25 +1008,520 @@ local function GetHelper(light_id, pos)
     return helper
 end
 
--- Per-frame rendering of helper models
-local function RenderLightUpdaters(bDrawingDepth, bDrawingSkybox)
-    if bDrawingDepth or bDrawingSkybox then return end
-    if not updatelights:GetBool() or not known_lights then return end
-    -- Ensure lights are initialized
-    if not InitializeLights() then return end
-    local alpha = debugtext:GetBool() and 1 or 0.001
-    local prevR, prevG, prevB = render.GetColorModulation()
-    local prevBlend = render.GetBlend()
-    render.SetColorModulation(1, 1, 1)
-    render.SetBlend(alpha)
+-- R28 (native-loader ADR 0144): which helpers a frame draws.
+--
+-- A helper is drawn so that the engine sets lights for its draw and the Remix runtime sees them: the four
+-- strongest of the map's lights in sight where the helper stands (r_worldlights), which are its own light and
+-- that light's neighbours, texture lights and spot lights among them. With the package's settings
+-- (rtx.suppressLightKeeping, rtx.antiCulling.light) the runtime drops a light the frame it is not set, except a
+-- point light whose position is outside the view: that one it keeps for
+-- rtx.antiCulling.light.numFramesToExtendLightLifetime (1000) frames after it was last set
+-- (LightManager::garbageCollectionInternal; a spot light, which a texture light is for the runtime, and a
+-- directional light always count as in view). So a helper is needed every frame when it may set a light that
+-- no helper drawn every frame sets (a texture light), and while a point light that only it sets is in view;
+-- otherwise only now and then. What a helper may set is worked out once a map from the map's world lights, by
+-- the engine's rule with a margin (StudyHelper). Until that is done, and wherever it cannot be done, every
+-- helper is drawn every frame, as before R28: that cost 6.5-10.7 us a light in this hook and about three times
+-- that in the frame (40 ms a frame on a map with 1,126 lights).
+--
+-- One more rule of the runtime decides where a light may stop being set at all. A light set in the last frame
+-- and not in this one is taken for a light that moved: a new point light within rtx.uniqueObjectDistance (300
+-- units) inherits it, and the old one is erased (LightManager::dynamicLightMatching). A new point light is a
+-- dynamic light that starts or moves: a muzzle flash, an explosion, a lamp being carried. So the lights within
+-- that distance (and 150 units more) of the eye, and of every dynamic light this file can know of (the gmod_light
+-- and gmod_lamp entities, and lights made with DynamicLight from Lua), count as in view: they never stop being set.
+-- The engine's own dynamic lights farther from the eye cannot be seen from Lua (ADR 0144 says what that leaves).
+local REFRESH_FRAMES = 120     -- a helper no light in view needs is still drawn at least this often
+local VIEW_PAD = 96            -- units added around the view's sides (the light's own size, and some slack)
+local VIEW_WIDEN = 1.15        -- the view's half-angles are widened by this factor
+local MATCH_UNITS = 300        -- the runtime's rtx.uniqueObjectDistance: how far a "moved" light is looked for
+local MATCH_PAD = 150          -- added to it: what a light or the eye moves before the next frame, and slack
+local HOLD_FRAMES = 2          -- a light that left the view counts as in view this long: the runtime tests a
+                               -- frame's lights with the view of the frame before
+local DYNAMIC_FRAMES = 12      -- a light made from Lua counts as there this long after its last DynamicLight call
+local DYNAMIC_MAX = 32         -- how many of them are followed
+local BOUNDED_FROM = 256       -- the list is used where a map has at least this many lights (rtx_lightupdater_all 0)
+local LOCAL_LIGHTS = 4         -- how many world lights the engine sets for a model (r_worldlights)
+local LOCAL_MINIMUM = 0.0002   -- the engine's r_worldlightmin: a dimmer light is not set for a model
+local SIGHT_MARGIN = 4         -- steady lights in sight, beyond the engine's count, that must outshine any other kind
+local NEIGHBOURS_MAX = 48      -- how many of the strongest steady lights around a helper are remembered
+local WORLD_LIGHTS_MAX = 20000 -- a map with more world lights is not studied: every helper every frame
+local STUDY_SECONDS = 0.001    -- the least a frame spends on working out helpers' lights
+local STUDY_SHARE = 0.05       -- and the share of a long frame it may spend
+
+-- The draw list: one record per light. A steady point light also has a slot: its origin as plain numbers.
+local order, order_source = {}, nil
+local todo = {}
+local slot_x, slot_y, slot_z, slot_seen, slot_shared, slot_held = {}, {}, {}, {}, {}, {}
+local slot_count = 0
+-- After the list is built again, that frame and the next draw every light, so each new light is set at once.
+local warm_until = -1
+local draw_stats = { lights = 0, steady = 0, bounded = 0, drawn = 0 }
+
+-- What the list relies on in the runtime, as far as Lua can see it: the game folder's rtx.conf
+-- (RemixConfig.GetConfigVariable reads that file, not the live value; a change made in the Remix menu and not
+-- saved there is not seen, and rtx_lightupdater_all 1 is the switch for that).
+local bounded_ok, bounded_note = true, nil
+local refresh_frames, view_scale, match_units = REFRESH_FRAMES, 1, MATCH_UNITS
+
+local function ReadRuntimeOptions()
+    bounded_ok, bounded_note, refresh_frames, view_scale, match_units = true, nil, REFRESH_FRAMES, 1, MATCH_UNITS
+    local config = RemixConfig
+    if not config or not config.GetConfigVariable then return end
+    local function option(name)
+        local ok, value = pcall(config.GetConfigVariable, name)
+        if ok and type(value) == "string" then
+            value = string.lower(string.match(value, "^%s*(.-)%s*$"))
+            if value ~= "" then return value end
+        end
+        return nil
+    end
+    local enable = option("rtx.antiCulling.light.enable")
+    if enable == "false" or enable == "0" then
+        bounded_ok, bounded_note = false, "rtx.antiCulling.light.enable is off in rtx.conf"
+        return
+    end
+    local free = option("rtx.camera.enableFreeCamera")
+    if free == "true" or free == "1" then
+        bounded_ok, bounded_note = false, "rtx.camera.enableFreeCamera is on in rtx.conf"
+        return
+    end
+    local frames = tonumber(option("rtx.antiCulling.light.numFramesToExtendLightLifetime") or "")
+    if frames then
+        if frames < 40 then
+            bounded_ok, bounded_note = false, "rtx.antiCulling.light.numFramesToExtendLightLifetime is under 40 in rtx.conf"
+            return
+        end
+        refresh_frames = math.min(REFRESH_FRAMES, math.floor(frames / 4))
+    end
+    local scale = tonumber(option("rtx.antiCulling.light.fovScale") or "")
+    if scale and scale > 1 then
+        if scale > 4 then
+            bounded_ok, bounded_note = false, "rtx.antiCulling.light.fovScale is over 4 in rtx.conf"
+            return
+        end
+        view_scale = scale
+    end
+    local match = tonumber(option("rtx.uniqueObjectDistance") or "")
+    if match and match > MATCH_UNITS then
+        if match > 4000 then
+            bounded_ok, bounded_note = false, "rtx.uniqueObjectDistance is over 4000 in rtx.conf"
+            return
+        end
+        match_units = match
+    end
+end
+
+-- Dynamic lights made from Lua: every DynamicLight call is noted by the light's key, so that the lights near it
+-- are kept set (see the top of this block). The object the game returns can be written, not read (light.pos is
+-- nil), so the position is noted as it is written, through the object's metatable; where that cannot be done, an
+-- entity with the light's key stands for the light (add-ons key a light by its entity's index). The wrapper is
+-- installed once a game: a reload of this file finds it.
+local lua_lights = rawget(_G, "RTXLightUpdaterDynamicLights")
+if type(lua_lights) ~= "table" or type(lua_lights.lights) ~= "table" or type(lua_lights.count) ~= "number" then
+    lua_lights = { lights = {}, count = 0, objects = setmetatable({}, { __mode = "k" }) }
+    if type(DynamicLight) == "function" then
+        local native, noted = DynamicLight, lua_lights
+        local watched = false
+        local function watch(light)
+            local meta = debug.getmetatable(light)
+            local set = type(meta) == "table" and rawget(meta, "__newindex")
+            if type(set) ~= "function" then return end
+            rawset(meta, "__newindex", function(object, field, value)
+                if field == "pos" and isvector(value) then
+                    local entry = noted.objects[object]
+                    if entry then entry.x, entry.y, entry.z = value.x, value.y, value.z end
+                end
+                return set(object, field, value)
+            end)
+        end
+        DynamicLight = function(key, ...)
+            local light = native(key, ...)
+            if light ~= nil and key ~= nil then
+                if not watched then
+                    watched = true
+                    pcall(watch, light)
+                end
+                local entry = noted.lights[key]
+                if entry then
+                    entry.frame = FrameNumber()
+                elseif noted.count < DYNAMIC_MAX then
+                    entry = { frame = FrameNumber() }
+                    noted.lights[key] = entry
+                    noted.count = noted.count + 1
+                end
+                if entry then noted.objects[light] = entry end
+            end
+            return light
+        end
+        _G.RTXLightUpdaterDynamicLights = lua_lights
+    end
+end
+-- The lamps among the lights (records with an entity), listed when the draw list is built.
+local lamp_records, lamp_count = {}, 0
+
+local function Finite(value)
+    return type(value) == "number" and value == value and value > -math.huge and value < math.huge
+end
+
+-- A map "light" that nothing switches or animates: no entity behind it, no name a map could address it by, no
+-- light style. Only these are point lights whose colour and position never change.
+local function IsSteadyPointLight(light)
+    if not light or light.entity or light.classname ~= "light" or not light.origin then return false end
+    local name, style = light.targetname, light.style
+    if name ~= nil and name ~= "" then return false end
+    if style ~= nil and style ~= 0 and style ~= "0" and style ~= "" then return false end
+    local origin = light.origin
+    return Finite(origin.x) and Finite(origin.y) and Finite(origin.z)
+end
+
+-- The map's world lights (what the engine lights models with) as plain arrays: nil before they are read for
+-- this map, false when they cannot be used.
+local world, world_map = nil, nil
+local sight_out, sight_world = {}, nil
+-- Per light id: where its helper stood when its lights were worked out, and what was found.
+local study_cache, study_mark = {}, nil
+local study_queue, study_next, study_total = {}, 1, 0
+local study_frame = -1
+-- Per cluster of the map: the clusters that can be seen from it (the map's PVS), as NikNaks reads them. Only
+-- the last few are kept, and none once the study is done: a set has an entry for every cluster in sight.
+local pvs_cache, pvs_count = {}, 0
+
+local function OriginKey(x, y, z)
+    return ((math.floor(x + 0.5) + 32768) * 65536 + (math.floor(y + 0.5) + 32768)) * 65536 + (math.floor(z + 0.5) + 32768)
+end
+
+local function ReadWorldLights()
+    world, world_map = false, current_map_name
+    study_cache, study_mark, pvs_cache, pvs_count = {}, nil, {}, 0
+    sight_world = game.GetWorld and game.GetWorld() or nil
+    local map = NikNaks and NikNaks.CurrentMap
+    if not map or not map.GetWorldLights then return end
+    local ok, list = pcall(function()
+        local found
+        if render.GetHDREnabled and render.GetHDREnabled() and map.GetWorldLightsHDR then
+            found = map:GetWorldLightsHDR()
+        end
+        if type(found) ~= "table" or found[0] == nil then found = map:GetWorldLights() end
+        return found
+    end)
+    if not ok or type(list) ~= "table" or list[0] == nil then return end
+    local w = { count = 0, x = {}, y = {}, z = {}, pos = {}, gray = {}, radius = {}, c = {}, l = {}, q = {},
+        surface = {}, steady = {}, slot = {}, kept = {}, cluster = {}, sky = {} }
+    local count = 0
+    for index = 0, WORLD_LIGHTS_MAX do
+        local light = list[index]
+        if not light then break end
+        if index == WORLD_LIGHTS_MAX then return end
+        local kind, origin, intensity = light.type, light.origin, light.intensity
+        -- Anything but the six emit types means the lump is not the layout NikNaks reads: no study.
+        if not Finite(kind) or kind < 0 or kind > 5 or kind % 1 ~= 0 or not origin or not intensity then return end
+        if kind == 3 then
+            -- The sun: set for a model that sees the sky along it.
+            local normal = light.normal
+            if normal and #w.sky < 4 then w.sky[#w.sky + 1] = normal end
+        elseif kind <= 2 then
+            local gray = 0.299 * intensity.x + 0.587 * intensity.y + 0.114 * intensity.z
+            local x, y, z = origin.x, origin.y, origin.z
+            if Finite(gray) and gray > 0 and Finite(x) and Finite(y) and Finite(z) then
+                count = count + 1
+                w.x[count], w.y[count], w.z[count], w.pos[count] = x, y, z, origin
+                w.gray[count] = gray
+                w.radius[count] = Finite(light.radius) and light.radius or 0
+                w.c[count] = Finite(light.constant_attn) and light.constant_attn or 0
+                w.l[count] = Finite(light.linear_attn) and light.linear_attn or 0
+                w.q[count] = Finite(light.quadratic_attn) and light.quadratic_attn or 0
+                w.surface[count] = kind == 0
+                w.steady[count] = kind == 1 and light.style == 0
+                w.slot[count], w.kept[count] = 0, false
+                w.cluster[count] = Finite(light.cluster) and light.cluster or -1
+            end
+        end
+    end
+    w.count = count
+    world = w
+end
+
+-- The engine's occlusion rule for a model's lights: no test within 8 units, else a ray against the world alone
+-- that must come within 8 units of the light.
+local sight_in = { mask = MASK_OPAQUE, output = sight_out, filter = function(ent) return ent == sight_world end }
+
+local function Sees(from, index, distance)
+    if distance < 8 then return true end
+    sight_in.start, sight_in.endpos = from, world.pos[index]
+    util.TraceLine(sight_in)
+    return (1 - (sight_out.Fraction or 0)) * distance <= 8
+end
+
+local function SeesSky(from)
+    local sky = world.sky
+    for index = 1, #sky do
+        sight_in.start, sight_in.endpos = from, from - sky[index] * 56000
+        util.TraceLine(sight_in)
+        if sight_out.HitSky then return true end
+    end
+    return false
+end
+
+-- The clusters a model standing at pos may take lights from: the engine's first test is that the light's
+-- cluster is in the PVS of the model's leaf. Taken for the spot and six spots 12 units around it, since the
+-- engine measures at the model's lighting origin. nil when that cannot be told (no visibility data, the spot in
+-- no cluster): then every light counts, as it does for the engine.
+local PVS_AROUND = { { 0, 0, 0 }, { 12, 0, 0 }, { -12, 0, 0 }, { 0, 12, 0 }, { 0, -12, 0 }, { 0, 0, 12 }, { 0, 0, -12 } }
+
+local function VisibleSets(pos)
+    local map = NikNaks.CurrentMap
+    local sets, count = {}, 0
+    for index = 1, #PVS_AROUND do
+        local around = PVS_AROUND[index]
+        local spot = index == 1 and pos or Vector(pos.x + around[1], pos.y + around[2], pos.z + around[3])
+        local cluster = map:ClusterFromPoint(spot)
+        if not Finite(cluster) or cluster < 0 then
+            if index == 1 then return nil end
+        else
+            local set = pvs_cache[cluster]
+            if set == nil then
+                set = map:PVSForOrigin(spot)
+                if type(set) ~= "table" then return nil end
+                if pvs_count >= 64 then pvs_cache, pvs_count = {}, 0 end
+                pvs_cache[cluster], pvs_count = set, pvs_count + 1
+            end
+            local known = false
+            for at = 1, count do
+                if sets[at] == set then known = true break end
+            end
+            if not known then
+                count = count + 1
+                sets[count] = set
+            end
+        end
+    end
+    return sets
+end
+
+local function InSets(sets, cluster)
+    if not sets then return true end
+    if cluster < 0 then return false end
+    for at = 1, #sets do
+        if sets[at][cluster] then return true end
+    end
+    return false
+end
+
+-- What the engine may set for a model standing at pos. The engine takes the LOCAL_LIGHTS strongest lights in
+-- sight there (brightness by distance, none dimmer than LOCAL_MINIMUM), measured at a spot within some 30 units
+-- of the model with its own occlusion test. So the answer here keeps a margin:
+--   own: the helper's own light is among the two strongest there, its leaf can see the light's cluster and a
+--     ray reaches it, so this helper sets it. For a light whose helper is drawn every frame (a spot light, a
+--     named or styled light; own_world is its world light) this is all that is asked: such a light needs no
+--     other helper.
+--   unbounded: a light that no helper is known to set every frame (a texture light, a light whose helper could
+--     not be placed or does not set it) may be among the engine's. It may unless LOCAL_LIGHTS + SIGHT_MARGIN
+--     steady lights in sight are stronger than the strongest such light the helper's leaf can see (its PVS),
+--     taken at its full brightness (no cone, no light style) and whether a ray reaches it or not. The same when
+--     the helper sees the sky along the sun.
+--   near: the strongest steady lights around, for the lights whose own helper does not set them.
+local rank_light, rank_value = {}, {}
+
+local function StudyHelper(pos, own_slot, own_world)
+    local w = world
+    local px, py, pz = pos.x, pos.y, pos.z
+    local wx, wy, wz, gray, radius, slots, kept_light = w.x, w.y, w.z, w.gray, w.radius, w.slot, w.kept
+    local wc, wl, wq, surface, cluster = w.c, w.l, w.q, w.surface, w.cluster
+    local visible, sets = pcall(VisibleSets, pos)
+    if not visible then sets = nil end
+    local keep, kept = NEIGHBOURS_MAX, 0
+    local least = LOCAL_MINIMUM / 4
+    local threat, first, second = 0, 0, 0
+    local own_index, own_value = nil, 0
+    for index = 1, w.count do
+        local dx, dy, dz = wx[index] - px, wy[index] - py, wz[index] - pz
+        local d2 = dx * dx + dy * dy + dz * dz
+        local reach = radius[index]
+        if reach == 0 or d2 <= (reach + 64) * (reach + 64) then
+            local ratio
+            if surface[index] then
+                ratio = 1 / (d2 > 1 and d2 or 1)
+            else
+                local fall = wc[index] + wl[index] * math.sqrt(d2) + wq[index] * d2
+                ratio = fall > 1e-30 and 1 / fall or 1e30
+            end
+            local value = ratio * gray[index]
+            if value >= least then
+                if value > first then
+                    first, second = value, first
+                elseif value > second then
+                    second = value
+                end
+                local slot = slots[index]
+                if own_world then
+                    if index == own_world then own_index, own_value = index, value end
+                elseif slot == 0 then
+                    if not kept_light[index] and value > threat and InSets(sets, cluster[index]) then threat = value end
+                else
+                    if slot == own_slot and value > own_value then own_index, own_value = index, value end
+                    if kept < keep or value > rank_value[kept] then
+                        local at = kept
+                        if kept < keep then
+                            kept = kept + 1
+                            at = kept
+                        end
+                        while at > 1 and rank_value[at - 1] < value do
+                            rank_value[at], rank_light[at] = rank_value[at - 1], rank_light[at - 1]
+                            at = at - 1
+                        end
+                        rank_value[at], rank_light[at] = value, index
+                    end
+                end
+            end
+        end
+    end
+    local own = true
+    if own_index then
+        local dx, dy, dz = wx[own_index] - px, wy[own_index] - py, wz[own_index] - pz
+        own = own_value >= second and InSets(sets, cluster[own_index])
+            and Sees(pos, own_index, math.sqrt(dx * dx + dy * dy + dz * dz))
+    end
+    -- A light with a helper every frame: found too dim here to be told (own_index nil), it is not set by it.
+    if own_world then return { x = px, y = py, z = pz, own = own and own_index ~= nil, owns = own_world } end
+    local known = { x = px, y = py, z = pz, unbounded = false, own = own, near = {} }
+    for at = 1, kept do known.near[at] = rank_light[at] end
+    if threat > 0 then
+        local need, seen = LOCAL_LIGHTS + SIGHT_MARGIN, 0
+        for at = 1, kept do
+            if rank_value[at] <= threat then break end
+            local index = rank_light[at]
+            local dx, dy, dz = wx[index] - px, wy[index] - py, wz[index] - pz
+            if InSets(sets, cluster[index]) and Sees(pos, index, math.sqrt(dx * dx + dy * dy + dz * dz)) then
+                seen = seen + 1
+                if seen >= need then break end
+            end
+        end
+        if seen < need then known.unbounded = true end
+    end
+    if not known.unbounded and #w.sky > 0 and SeesSky(pos) then known.unbounded = true end
+    return known
+end
+
+-- Which world lights are steady lights with helpers, and which others their own helpers set: what was worked
+-- out for the steady lights' helpers holds while this stays the same.
+local function StudyMark()
+    local slots, kept_light = world.slot, world.kept
+    local count, sum = 0, 0
+    for index = 1, world.count do
+        if slots[index] ~= 0 then
+            count, sum = count + 1, (sum + index * 31) % 2147483647
+        elseif kept_light[index] then
+            count, sum = count + 1, (sum + index * 17) % 2147483647
+        end
+    end
+    return count .. ":" .. sum
+end
+
+-- Every steady light has been studied: which records are bounded, and what each waits for. A light whose own
+-- helper does not set it is set by its neighbours' helpers, so each of those waits for it as well.
+local function ResolveAll()
+    local total, bounded = #order, 0
+    for index = 1, total do
+        local record = order[index]
+        if record.steady then
+            local known = study_cache[record.id]
+            slot_shared[record.slot] = not (known and known.own)
+        end
+    end
+    local slots = world.slot
+    for index = 1, total do
+        local record = order[index]
+        record.bounded, record.needs = false, nil
+        local known = record.steady and study_cache[record.id]
+        if known and not known.unbounded then
+            local needs, count = { record.slot }, 1
+            local near = known.near
+            for at = 1, #near do
+                local slot = slots[near[at]]
+                if slot and slot ~= 0 and slot ~= record.slot and slot_shared[slot] then
+                    count = count + 1
+                    needs[count] = slot
+                end
+            end
+            record.needs, record.bounded = needs, true
+            bounded = bounded + 1
+        end
+    end
+    draw_stats.bounded = bounded
+    study_mark = StudyMark()
+end
+
+local function Study(frame)
+    if study_frame == frame or study_next > study_total or not world then return end
+    study_frame = frame
+    local spare = RealFrameTime and RealFrameTime() * STUDY_SHARE or 0
+    local stop = SysTime() + math.min(math.max(STUDY_SECONDS, spare), 0.02)
+    repeat
+        local record = study_queue[study_next]
+        study_queue[study_next] = nil
+        study_next = study_next + 1
+        local ok, known = pcall(StudyHelper, record.data.pos, record.slot, record.owns)
+        -- A helper that could not be studied is drawn every frame, and its light counts as set by others.
+        if not ok or not known then
+            local pos = record.data.pos
+            known = { x = pos.x, y = pos.y, z = pos.z, unbounded = true, own = false, near = {}, owns = record.owns }
+        end
+        study_cache[record.id] = known
+        if record.owns then world.kept[record.owns] = known.own == true end
+    until study_next > study_total or SysTime() >= stop
+    if study_next > study_total then
+        study_queue, study_next, study_total = {}, 1, 0
+        pvs_cache, pvs_count = {}, 0
+        ResolveAll()
+    end
+end
+
+local function RebuildOrder()
+    if world == nil or world_map ~= current_map_name then ReadWorldLights() end
+    ReadRuntimeOptions()
+    local count, steady = 0, 0
+    local by_origin, owners = {}, {}
+    for index = lamp_count, 1, -1 do lamp_records[index] = nil end
+    lamp_count = 0
     for light_id, light_data in pairs(known_lights) do
-        local helper = GetHelper(light_id, light_data.pos)
-        if helper then helper:DrawModel() end
+        count = count + 1
+        local record = order[count]
+        if not record then
+            record = {}
+            order[count] = record
+        end
+        record.id, record.data = light_id, light_data
+        if light_data.light and light_data.light.entity then
+            lamp_count = lamp_count + 1
+            lamp_records[lamp_count] = record
+        end
+        record.steady = IsSteadyPointLight(light_data.light) and light_data.pos ~= nil
+        record.bounded, record.needs, record.slot, record.owns = false, nil, nil, nil
+        if record.steady then
+            steady = steady + 1
+            local origin = light_data.light.origin
+            slot_x[steady], slot_y[steady], slot_z[steady] = origin.x, origin.y, origin.z
+            record.slot = steady
+            record.turn = steady % refresh_frames
+            by_origin[OriginKey(origin.x, origin.y, origin.z)] = steady
+        else
+            -- A map light whose helper is drawn every frame: a spot light, a named or styled light.
+            local light = light_data.light
+            local origin = light and not light.entity and light_data.pos and light.origin
+            if origin and (light.classname == "light" or light.classname == "light_spot")
+                and Finite(origin.x) and Finite(origin.y) and Finite(origin.z) then
+                owners[OriginKey(origin.x, origin.y, origin.z)] = record
+            end
+        end
     end
-    render.SetBlend(prevBlend or 1)
-    if prevR and prevG and prevB then
-        render.SetColorModulation(prevR, prevG, prevB)
+    for index = #order, count + 1, -1 do order[index] = nil end
+    for slot = slot_count, steady + 1, -1 do
+        slot_x[slot], slot_y[slot], slot_z[slot], slot_seen[slot], slot_shared[slot] = nil, nil, nil, nil, nil
     end
+    -- Slots are given anew: nothing is held over from the list before.
+    for slot = 1, math.max(slot_count, steady) do slot_held[slot] = nil end
+    slot_count = steady
     -- Lights that were removed or recalculated under a new id
     for id, helper in pairs(helpers) do
         if not known_lights[id] then
@@ -1026,7 +1530,271 @@ local function RenderLightUpdaters(bDrawingDepth, bDrawingSkybox)
             helperPos[id] = nil
         end
     end
+    order_source, lights_dirty = known_lights, false
+    draw_stats.lights, draw_stats.steady, draw_stats.bounded = count, steady, 0
+    study_queue, study_next, study_total = {}, 1, 0
+    if not world or not bounded_ok or steady == 0 then return end
+    -- Which world light is which steady light's own. A map whose steady lights are mostly not found among its
+    -- world lights is not what the study takes it for: every helper every frame.
+    local matched, slots, steady_light, kept_light = 0, world.slot, world.steady, world.kept
+    for index = 1, world.count do
+        local key = OriginKey(world.x[index], world.y[index], world.z[index])
+        local slot = steady_light[index] and by_origin[key] or 0
+        slots[index], kept_light[index] = slot, false
+        if slot ~= 0 then
+            matched = matched + 1
+        else
+            -- The world light of a light whose helper is drawn every frame (the first one at its origin).
+            local owner = owners[key]
+            if owner and not owner.owns then owner.owns = index end
+        end
+    end
+    if matched * 2 < steady then
+        bounded_ok, bounded_note = false, "the map's world lights do not match its light entities"
+        return
+    end
+    for id in pairs(study_cache) do
+        if not known_lights[id] then study_cache[id] = nil end
+    end
+    -- First the lights with a helper every frame: whether that helper sets its light decides what the steady
+    -- lights' helpers may be left to set.
+    local pending, stale = 0, false
+    for index = 1, count do
+        local record = order[index]
+        if record.owns then
+            local known, pos = study_cache[record.id], record.data.pos
+            if known and known.owns == record.owns and known.x == pos.x and known.y == pos.y and known.z == pos.z then
+                kept_light[record.owns] = known.own == true
+            else
+                study_cache[record.id] = nil
+                pending = pending + 1
+                study_queue[pending] = record
+                stale = true
+            end
+        end
+    end
+    -- (No mark yet: the first study is still going, under these same lights.)
+    if stale or (study_mark ~= nil and study_mark ~= StudyMark()) then
+        for index = 1, count do
+            local record = order[index]
+            if record.steady then study_cache[record.id] = nil end
+        end
+        study_mark = nil
+    end
+    for index = 1, count do
+        local record = order[index]
+        if record.steady then
+            local known, pos = study_cache[record.id], record.data.pos
+            if not (known and known.x == pos.x and known.y == pos.y and known.z == pos.z) then
+                study_cache[record.id] = nil
+                pending = pending + 1
+                study_queue[pending] = record
+            end
+        end
+    end
+    study_total = pending
+    if pending == 0 then ResolveAll() end
 end
+
+-- Fills todo with the indices of the records to draw now; returns how many. Plain numbers only, so the loop is
+-- cheap for thousands of lights. The helpers nothing in view needs take their turn in every view of their
+-- frame: a frame's first view can be a secondary one (a camera, a mirror) whose draws the runtime takes no
+-- lights from.
+local dynamic_x, dynamic_y, dynamic_z = {}, {}, {}
+
+local function SelectLights()
+    local count, total = 0, #order
+    local eye, angles = EyePos(), EyeAngles()
+    local forward, right, up = angles:Forward(), angles:Right(), angles:Up()
+    local ex, ey, ez = eye.x, eye.y, eye.z
+    local fx, fy, fz = forward.x, forward.y, forward.z
+    local rx, ry, rz = right.x, right.y, right.z
+    local ux, uy, uz = up.x, up.y, up.z
+    local view = render.GetViewSetup and render.GetViewSetup() or nil
+    local fov = view and tonumber(view.fov) or 90
+    if fov < 10 then fov = 10 elseif fov > 170 then fov = 170 end
+    local aspect = view and tonumber(view.aspect) or 0
+    if aspect <= 0 then aspect = ScrW() / math.max(ScrH(), 1) end
+    -- GMod's view setup gives the screen's own horizontal angle as fov and Source's 4:3 angle as fov_unscaled
+    -- (106.26 and 90 on a 16:9 screen). Without fov_unscaled the angle is taken as the 4:3 one and widened for
+    -- the screen, which can only make the view tested larger.
+    local tan_h = math.tan(math.rad(fov) * 0.5)
+    local unscaled = view and tonumber(view.fov_unscaled) or nil
+    if unscaled and unscaled >= 10 and unscaled <= 170 then
+        tan_h = math.max(tan_h, math.tan(math.rad(unscaled) * 0.5) * math.max(1, aspect / (4 / 3)))
+    else
+        tan_h = tan_h * math.max(1, aspect / (4 / 3))
+    end
+    local tan_v = tan_h / aspect
+    if view_scale > 1 then
+        -- rtx.antiCulling.light.fovScale: the runtime scales the view's vertical angle, up to 89 degrees a side.
+        local scaled = math.tan(math.min(math.atan(tan_v) * view_scale, 1.55)) / tan_v
+        tan_h, tan_v = tan_h * scaled, tan_v * scaled
+    end
+    tan_h, tan_v = tan_h * VIEW_WIDEN, tan_v * VIEW_WIDEN
+    -- Beyond the view's far plane (a map's clip distance) a light is out of the runtime's view as well.
+    local far = view and tonumber(view.zfar) or 0
+    far = far > 0 and far * 1.05 + VIEW_PAD or math.huge
+    local near = match_units + MATCH_PAD
+    local near_sqr = near * near
+    local frame = FrameNumber()
+    -- The dynamic lights known here: the lamps among the lights, and lights made from Lua a moment ago.
+    local dynamic = 0
+    for index = 1, lamp_count do
+        local entity = lamp_records[index].data.light.entity
+        if IsValid(entity) then
+            local pos = entity:GetPos()
+            dynamic = dynamic + 1
+            dynamic_x[dynamic], dynamic_y[dynamic], dynamic_z[dynamic] = pos.x, pos.y, pos.z
+        end
+    end
+    if lua_lights.count > 0 then
+        for key, entry in pairs(lua_lights.lights) do
+            if frame - entry.frame > DYNAMIC_FRAMES or frame < entry.frame then
+                lua_lights.lights[key] = nil
+                lua_lights.count = lua_lights.count - 1
+            elseif entry.x then
+                dynamic = dynamic + 1
+                dynamic_x[dynamic], dynamic_y[dynamic], dynamic_z[dynamic] = entry.x, entry.y, entry.z
+            elseif type(key) == "number" then
+                -- No position was seen being written: the entity the light is keyed by.
+                local entity = Entity(key)
+                if IsValid(entity) then
+                    local pos = entity:GetPos()
+                    dynamic = dynamic + 1
+                    dynamic_x[dynamic], dynamic_y[dynamic], dynamic_z[dynamic] = pos.x, pos.y, pos.z
+                end
+            end
+        end
+    end
+    -- Which steady point lights the runtime counts as in view now
+    for slot = 1, slot_count do
+        local dx, dy, dz = slot_x[slot] - ex, slot_y[slot] - ey, slot_z[slot] - ez
+        local seen = true
+        local depth = dx * fx + dy * fy + dz * fz
+        if depth < -VIEW_PAD or depth > far then
+            seen = false
+        else
+            local reach = depth > 0 and depth or 0
+            local side = dx * rx + dy * ry + dz * rz
+            local limit = reach * tan_h + VIEW_PAD
+            if side > limit or side < -limit then
+                seen = false
+            else
+                local height = dx * ux + dy * uy + dz * uz
+                limit = reach * tan_v + VIEW_PAD
+                if height > limit or height < -limit then seen = false end
+            end
+        end
+        if not seen and dx * dx + dy * dy + dz * dz < near_sqr then seen = true end
+        if not seen and dynamic > 0 then
+            local x, y, z = slot_x[slot], slot_y[slot], slot_z[slot]
+            for at = 1, dynamic do
+                local ax, ay, az = x - dynamic_x[at], y - dynamic_y[at], z - dynamic_z[at]
+                if ax * ax + ay * ay + az * az < near_sqr then
+                    seen = true
+                    break
+                end
+            end
+        end
+        if seen then
+            slot_held[slot] = frame
+        else
+            local held = slot_held[slot]
+            if held and frame - held <= HOLD_FRAMES and frame >= held then seen = true end
+        end
+        slot_seen[slot] = seen
+    end
+    local turn = frame % refresh_frames
+    for index = 1, total do
+        local record = order[index]
+        local draw = true
+        if record.bounded then
+            draw = record.turn == turn
+            if not draw then
+                local needs = record.needs
+                for at = 1, #needs do
+                    if slot_seen[needs[at]] then
+                        draw = true
+                        break
+                    end
+                end
+            end
+        end
+        if draw then
+            count = count + 1
+            todo[count] = index
+        end
+    end
+    return count
+end
+
+-- Per-frame rendering of helper models
+local function RenderLightUpdaters(bDrawingDepth, bDrawingSkybox)
+    if bDrawingDepth or bDrawingSkybox then return end
+    if not updatelights:GetBool() or not known_lights then return end
+    -- Ensure lights are initialized
+    if not InitializeLights() then return end
+    local frame = FrameNumber()
+    if lights_dirty or order_source ~= known_lights then
+        RebuildOrder()
+        warm_until = frame + 1
+    end
+    local total = #order
+    if total == 0 then return end
+    local count
+    local mode = drawall:GetInt()
+    if mode > 0 or not bounded_ok or frame <= warm_until or (mode == 0 and total < BOUNDED_FROM) then
+        count = total
+        for index = 1, total do todo[index] = index end
+    else
+        count = SelectLights()
+    end
+    draw_stats.drawn = count
+    if count > 0 then
+        local alpha = debugtext:GetBool() and 1 or 0.001
+        local prevR, prevG, prevB = render.GetColorModulation()
+        local prevBlend = render.GetBlend()
+        render.SetColorModulation(1, 1, 1)
+        render.SetBlend(alpha)
+        for index = 1, count do
+            local record = order[todo[index]]
+            local helper = GetHelper(record.id, record.data.pos)
+            if helper then helper:DrawModel() end
+        end
+        render.SetBlend(prevBlend or 1)
+        if prevR and prevG and prevB then
+            render.SetColorModulation(prevR, prevG, prevB)
+        end
+    end
+    Study(frame)
+end
+
+concommand.Add("rtx_lightupdater_status", function()
+    local pending = study_total - study_next + 1
+    if pending < 0 then pending = 0 end
+    print(string.format("[gmRTX - Lightupdater] %d lights, %d of them steady point lights: %d helpers are drawn only while a light they set is in view and on their turn, %d are still being worked out; %d helpers drawn in the last view",
+        draw_stats.lights, draw_stats.steady, draw_stats.bounded, pending, draw_stats.drawn))
+    if world then
+        local kept, other = 0, 0
+        for index = 1, world.count do
+            if world.kept[index] then kept = kept + 1 elseif world.slot[index] == 0 then other = other + 1 end
+        end
+        print(string.format("[gmRTX - Lightupdater] %d world lights: %d more are set by their own helpers every frame, %d have none (texture lights and the like)",
+            world.count, kept, other))
+    end
+    if drawall:GetInt() > 0 then
+        print("[gmRTX - Lightupdater] rtx_lightupdater_all 1: every light every frame")
+    elseif not bounded_ok then
+        print("[gmRTX - Lightupdater] every light every frame: " .. tostring(bounded_note))
+    elseif not world then
+        print("[gmRTX - Lightupdater] every light every frame: the map's world lights could not be read")
+    elseif drawall:GetInt() == 0 and draw_stats.lights < BOUNDED_FROM then
+        print(string.format("[gmRTX - Lightupdater] every light every frame: the map has fewer than %d lights (rtx_lightupdater_all -1 uses the list all the same)", BOUNDED_FROM))
+    else
+        print("[gmRTX - Lightupdater] With the Remix free camera (developer menu) no light is kept outside the game's own view: rtx_lightupdater_all 1 while it is used")
+    end
+end, nil, "Print how many light updater helpers the last view drew")
 
 -- Helper function to draw a circle on screen
 local function DrawScreenCircle(center_x, center_y, radius, color, step)

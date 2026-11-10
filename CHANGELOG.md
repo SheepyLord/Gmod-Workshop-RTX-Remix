@@ -6,6 +6,65 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R28: GitHub issue 2 (memory at a crash, lag from add-ons) and what else lags an RTX frame
+
+- **A crashed RTX game no longer fills the memory while Windows reports it**
+  ([ADR 0142](docs/decisions/0142-no-crash-snapshot-of-the-game.md), [R28](docs/handover/R28-report.md); GitHub
+  issue 2 and its [diagnosis](docs/handover/issue-2-memory-report.md)): Windows Error Reporting copied the dying
+  game before reporting it and charged the copy the game's whole memory again (+22 to +26 GB with a player's 654
+  add-ons: the memory gauge at 97-99 %, a frozen desktop, a gmod.exe that stayed after End task). The engine guard
+  module now sets `WER_FAULT_REPORTING_DISABLE_SNAPSHOT_CRASH` and `_HANG` for the game in every realm, from the
+  menu's start: the same report and dump, made from the suspended process (+0.06 GB, gone in half the time). No
+  loader change; the flags reach players with the Workshop item.
+- **No texture preload at the end of a load in RTX sessions** (ADR 0142): `mat_forcemanagedtextureintohardware 0`
+  is one of the package's session settings. Source drew one triangle with every loaded texture, and the runtime made
+  a GPU image for each: 7,574 images (4.9 GB) at once with the 654 add-ons, most of them precached and never seen,
+  and a peak of 11 GB of VRAM where 7 are needed.
+- **Add-ons that read the screen back many times a second no longer stall the game under RTX**
+  ([ADR 0143](docs/decisions/0143-read-backs-font-definitions-and-slow-render-hooks.md)): each
+  `render.CapturePixels` waits one to two frames for the path tracer (20-29 ms at 82 frames a second, about 200 ms
+  at 7), which is what made HyperReal FX take 67 ms of every frame in the issue. Each reader (a file and the file
+  that calls it) has an allowance of eight read-backs at once, refilled at 1.25 a second; one that uses it up gets
+  no more until its requests fall back or it has been quiet for five seconds, and `render.ReadPixel` is answered
+  from the last picture really read by the same call (the calling line and the render target). A reader of about one sample a second, a single batch, a file
+  that scans a whole image, screenshots and the package's tools are not limited; `nativeloader_guard_readbacks 1`
+  allows everything.
+- **A font defined again and again is made once** (ADR 0143): `surface.CreateFont` with the definition a name
+  already has made the engine rebuild every font's glyph pages (twenty such calls a frame: 12 ms frames became
+  29 ms). The same definition is made again only after ten seconds.
+- **`nativeloader_lag_report`** (ADR 0143): a console command that times every Lua hook, every function of the
+  gamemode and every net receiver of the client and of the local server for ten seconds and lists the most
+  expensive ones with their add-ons; the same text is written to `garrysmod/data/nativeloader/lag_report_client.txt`
+  and `lag_report_server.txt` for an issue report. It works with ULib's hook library too (a hook keeps its
+  priority). The render guard also names, once, any render hook that takes 4 ms or more of every frame
+  (`PreDrawViewModels` hooks are now among those it protects). The guide's Performance and memory page says so
+  ("When add-ons slow the game", in the six languages).
+- **The light updater draws what the runtime needs** ([ADR 0144](docs/decisions/0144-the-light-updater-draws-what-the-runtime-needs.md)):
+  it drew one helper model for every map light every frame (1.1 ms on gm_construct, about 49 ms on a map with 4,606
+  lights). A helper's draw sets the engine's four strongest lights where it stands, and the runtime keeps a point
+  light out of view for 1000 frames but drops every other light the frame it is not set. So on a map with 256
+  lights or more the updater works out once, from the map's world lights, which helpers set steady point lights
+  alone, and draws those only while such a light is in view, within 450 units of the eye or of a lamp or Lua
+  dynamic light, and in turns, once in 120 frames; a spot light's or a switched light's own helper, and
+  any helper that may set a texture light or the sun, is drawn every frame as before. On a map with 1,126 point lights a frame went from
+  39 ms to between 9 and 26 ms, depending on the view, with the same picture; on one with 1,800 texture lights as
+  well (modern_house) from 38 ms to between 16 and 28 ms.
+  `rtx_lightupdater_all 1` is the old behaviour (use it with the Remix free camera, which keeps no light out of
+  the game's own view), `-1` the list on every map, `rtx_lightupdater_status` the counts.
+- **The effect categories' lists are rebuilt only when something changed** (up to 4.7 ms of a frame every quarter
+  second with thousands of observed materials).
+- **What the issue's crash was** (RESEARCH, R28): the fail-fast in `engine.dll` that Windows reported is GMod's own
+  crash handler failing while it writes its report's console section; the first faults are access violations in
+  `studiorender.dll+0x6603b` and `shaderapidx9.dll+0xd7ff`.
+- **Test installs leave the user's other subscriptions out** (the user, 2026-11-10: the PoC took long to unpack
+  assets at each launch since a Workshop item was subscribed): [`poc_session.py`](tools/poc_session.py.md)
+  `install` and `config` write `"allow": {"subscribed_content": false}` unless `--subscribed-content on`, so the
+  loader deploys only the packages a test names. The PoC's loader had been deploying ten of the user's content
+  packages (map and character packs of 1-4 GB each) at every fresh deployment.
+- Tests: the render guard's `cost_safeguards` scenario, the effect categories' `quiet` scenario, the lag report's
+  harness ([`test_lag_report.py`](companion/tests/test_lag_report.py.md)), a harness for the fixes' light updater
+  ([`test_light_updater.py`](tools/tests/test_light_updater.py.md)) and the engine guard's `test_crash_report.cpp`.
+
 ### R27: HUD add-ons that turned the screen white
 
 - **No white screen from HUD add-ons under RTX**

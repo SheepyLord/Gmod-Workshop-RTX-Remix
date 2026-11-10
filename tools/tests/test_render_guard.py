@@ -72,6 +72,10 @@ class RenderGuardTests(unittest.TestCase):
     def test_depth_only_colour_targets_and_refused_base_textures(self):
         self.run_case("hud_composite")
 
+    def test_periodic_read_backs_repeated_font_definitions_and_slow_render_callbacks(self):
+        # R28 (ADR 0143): what lagged the game in GitHub issue 2, and what else was measured to.
+        self.run_case("cost_safeguards")
+
     def test_known_unsupported_shader_depth_and_mrt_paths(self):
         self.run_case("shaders")
 

@@ -729,23 +729,23 @@ msgstr "[GMRTX - マップ修正] 修正が無効だったマップ: "
 msgid "[GMRTX - Map Fixes] Auto-enabled for map: "
 msgstr "[GMRTX - マップ修正] 自動で有効にしたマップ: "
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1129
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1269
 msgid " (EMERGENCY)"
 msgstr "（緊急調整）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1131
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1271
 msgid " (MOVED)"
 msgstr "（移動済み）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1139
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1279
 msgid " (OUT OF BOUNDS)"
 msgstr "（範囲外）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1176
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1316
 msgid "BOUNDS CHECK FAILED"
 msgstr "境界チェック失敗"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1207
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1347
 msgid " (NO UPDATER)"
 msgstr "（ライト更新機能なし）"
 

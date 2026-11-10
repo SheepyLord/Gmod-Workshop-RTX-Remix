@@ -2593,3 +2593,53 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   hurts it and the player): `repro` with the published package (RTX: white; without RTX: the HUD), `verify` with the
   package built here (RTX: the HUD with its effects, no white), `bisect` (HUD Mk.2's effects turned on one by one under
   RTX), `hudonly`, `rtprobe`, `stencil` and `blend` (render-target probes; RESEARCH, R27).
+
+## R28: issue 2's fixes and the cost safeguards (2026-11-10)
+
+- **Lua under LuaJIT:** the render guard's `cost_safeguards` scenario
+  ([`test_render_guard.py`](../tools/tests/test_render_guard.py.md)): the read-back allowance (a periodic reader
+  refused and answered from the last picture of the same call, the quiet time, readers of about one a second, a
+  batch, bursts, two targets through one helper, callers through `pcall`, fractional coordinates, an image scan,
+  bundled callers and the switch); one font definition made once, its name without case, made again after ten
+  seconds; slow render callbacks recorded once by their hook's name, the frame-and-time window, the cap,
+  `PreDrawViewModels` protected, and a timer entered in `NativeLoaderRenderGuard.timed`. The effect categories'
+  `quiet` scenario ([`test_effect_categories.py`](../companion/tests/test_effect_categories.py.md)): no rebuild
+  while nothing changes. The lag report's harness
+  ([`test_lag_report.py`](../companion/tests/test_lag_report.py.md)): hooks and gamemode functions timed and put
+  back, return values and errors kept, the add-on named (also for its files under folders the game has too), both
+  realms, ULib's hook table, a hook library it does not know, a report that cannot be written. **The light
+  updater's harness** ([`test_light_updater.py`](../tools/tests/test_light_updater.py.md)), new: the packaged
+  `cl_rtx_light_updater.lua` under a fake GMod API with a map of forty lights: which helpers a frame draws, with a
+  texture light or the sun nearby, a spot light and a switched light that their own helpers set, a light only
+  its neighbours' helpers set, the map's visibility data, a lamp and a Lua dynamic light (the lights near them
+  never stop), the hold after a light leaves the view, the list by map size, the runtime's options in `rtx.conf`,
+  unusable world lights, and a lamp spawned later.
+- **C++:** `engine_guard/tests/test_crash_report.cpp` in `nl_engine_guard_tests`: the flag values, the test process
+  as the game (the flags read back with `WerGetFlags`), the module's contract.
+- **The game** (`out/r28/lab.py` in the `r28` worktree): this round's own vanilla copy (`out/r28/game` in the main
+  checkout, made with `make_vanilla_copy.py`; another session held the PoC), a `field_snapshot.py` snapshot and a
+  clean rollback around every lab, the registry key of the game compared before and after, `-noworkshop`, a Workshop
+  map mounted read-only from the user's subscription where one was needed. Plans: `cost` (what render calls cost
+  under RTX), `hrx` and `suite` (the HyperReal-like test add-on with the published package and with this round's,
+  the Windows Error Reporting flags of the running game read from outside, the light updater's cost and screenshots
+  with every helper against the bounded list), `report` (`nativeloader_lag_report` in both realms), `lights` (the
+  light updater on gm_backrooms_classic, 1,126 point lights, and on modern_house, which has 1,800 texture lights:
+  costs, and pairs of screenshots, also with a light behind the camera, and with a white Lua dynamic light
+  going round the eye and held still for each screenshot (`light_probe9.lua`: the light with a model of its own
+  and the exposure held; the share of blue in a picture tells the white light from the map's yellow ones; run on
+  the build before the fix, on the final build, and as a control with every helper in both pictures of a pair,
+  `--bounded 1`, because such a light leaves copies of its own in some poses), a Lua light that stands still
+  (`light_probe8.lua`), and what the updater sees of a Lua light (`light_probe7.lua`); `--gma` runs an earlier build of the package for a comparison, `--bounded`
+  gives the probes the `rtx_lightupdater_all` value that asks for the list, `--console` a fixed clear sky:
+  `nativeloader_weather clear`, `nativeloader_sky_time_passes 0`, without which the sun and the clouds move
+  between two screenshots), `preload` (the runtime's texture counts after a load with and without the preload),
+  `final` (the test add-on with the lag report, then the lights on gm_construct, with the package as published).
+  Numbers in [handover/R28-report.md](handover/R28-report.md) and RESEARCH (R28). `out/r28/world_lights.py` lists a
+  map's world lights by kind without the game.
+- **Test installs** ([`poc_session.py`](../tools/poc_session.py.md)) now write `allow.subscribed_content` false
+  unless `--subscribed-content on`: the PoC's loader had deployed ten of the user's subscribed content packages (map
+  and character packs, about 25 GB in all) at every fresh deployment, as every lab that moves `native-loader\`
+  aside makes. A test of those packages says `--subscribed-content on`. The PoC's own `config.json` got the switch
+  (`out/r28/poc_check.py`, under the PoC lock): its next start removed the ten packages (8,698 file changes, 84.7 s,
+  once), and the start after that deployed nothing (0.4 s; the loader's start-up 0.5 s, the whole session to
+  gm_construct and back out 23 s).

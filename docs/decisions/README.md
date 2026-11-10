@@ -224,3 +224,18 @@ Each with the reason it lost.
   target with its own depth buffer (HUD Mk.2's full-screen HUD target); a material Lua created whose `$basetexture`
   binding the guard refuses draws nothing until a binding goes through, instead of its placeholder over the screen; the
   name of a refused target is refused like the target.
+- [0142: No Windows Error Reporting snapshot of the game, and no texture preload at the end of a load](0142-no-crash-snapshot-of-the-game.md)
+  (R28, GitHub issue 2): the engine guard sets `WER_FAULT_REPORTING_DISABLE_SNAPSHOT_CRASH` and `_HANG` for the game
+  in every realm, so a crashed game is reported without a second copy of its memory; RTX sessions run with
+  `mat_forcemanagedtextureintohardware 0`, so the end of a load no longer makes a GPU image for every loaded texture.
+- [0143: Periodic screen read-backs stop under RTX; repeated font definitions are made once; slow hooks are named](0143-read-backs-font-definitions-and-slow-render-hooks.md)
+  (R28, adds to 0086): `render.CapturePixels` waits one to two frames for the path tracer, so a caller that uses up
+  its allowance (eight at once, refilled at 1.25 a second) is answered from the last picture of the same call until
+  its requests fall back or it is quiet; the same `surface.CreateFont` definition is made once; render callbacks of
+  4 ms a frame or more are named; `nativeloader_lag_report` lists the most expensive hooks with their add-ons.
+- [0144: On maps with many lights the light updater draws a helper only while a light it sets needs it](0144-the-light-updater-draws-what-the-runtime-needs.md)
+  (R28): the runtime keeps a point light out of view for 1000 frames after it was last set and drops every other
+  light the frame it is not; a helper sets the engine's four strongest lights where it stands, so on a map with 256
+  lights or more the fixes' updater works out from the map's world lights which helpers set steady point lights
+  alone and draws those only while such a light is in view, near the eye or a dynamic light, and in turns, instead
+  of one helper per map light every frame.

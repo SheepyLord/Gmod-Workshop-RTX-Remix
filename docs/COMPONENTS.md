@@ -474,3 +474,13 @@ of GMod's add-on table. The companion's
 [`menu/load_accel.lua`](../companion/nativeloader/lua/nativeloader/menu/load_accel.lua.md) installs it at menu start
 in RTX starts, and [`menu/loading_status.lua`](../companion/nativeloader/lua/nativeloader/menu/loading_status.lua.md)
 counts its answers in the load overlay. Recorded as repository builds ([`tools/ci/pins.json`](../tools/ci/pins.json)).
+
+R28: the engine guard gains [`crash_report.cpp`](../engine_guard/README.md) (Windows Error Reporting's snapshot of the
+game switched off in every realm, [ADR 0142](decisions/0142-no-crash-snapshot-of-the-game.md)). The companion's render
+guard ([`_nativeloader_guard.lua`](../companion/nativeloader/lua/autorun/_nativeloader_guard.lua.md)) stops periodic
+screen read-backs, makes a repeated font definition once and times the render callbacks it protects
+([ADR 0143](decisions/0143-read-backs-font-definitions-and-slow-render-hooks.md)); the new
+[`nativeloader_lag_report.lua`](../companion/nativeloader/lua/autorun/nativeloader_lag_report.lua.md) is the console
+command that lists the most expensive hooks with their add-ons, with its harness
+[`companion/tests/test_lag_report.py`](../companion/tests/test_lag_report.py.md). The fixes' light updater keeps a draw
+list ([ADR 0144](decisions/0144-the-light-updater-draws-what-the-runtime-needs.md), [packages/fixes](../packages/fixes/README.md)).

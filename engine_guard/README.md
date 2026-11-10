@@ -43,15 +43,26 @@ the client realm by the early view of `includes/init.lua`, which also covers rem
   set, and only the `gmsv_` copy is built with them (`NL_ENGINE_GUARD_MENU`). The window thread keeps its paint buffer
   while the window keeps its size, never cuts a UTF-8 character, and lets an unowned window go (the game's window
   went) to own the next one.
+- **No Windows Error Reporting snapshot of the game (R28, [ADR 0142](../docs/decisions/0142-no-crash-snapshot-of-the-game.md)).**
+  Every realm's load (the menu's at menu start, so before any map) sets `WER_FAULT_REPORTING_DISABLE_SNAPSHOT_CRASH`
+  and `_HANG` for the process with kernel32's `WerSetFlags` (resolved at run time; the process's other flags are
+  kept). Without them Windows copies a crashed game before it reports it and charges the copy the game's whole
+  private memory again: 20 GB and more with hundreds of add-ons under RTX, which on a 24 GB computer is the freeze,
+  the memory gauge at 97-99 % and the gmod.exe that stays after End task (GitHub issue 2). With them the same report
+  and dump are made from the suspended process (measured: +0.06 GB of commit instead of +23 GB, the game gone in
+  5.8 s instead of 11.8 s). `nlengineguard.crash_snapshots_off` and `.crash_snapshots` ("ok", or the reason) say how
+  it went.
 
 | File | Purpose |
 |---|---|
 | `CMakeLists.txt` | `nl_engine_guard` (static, with the load overlay; links user32 and gdi32), the client and server modules (the server's with `NL_ENGINE_GUARD_MENU`), `nl_engine_guard_tests` (given `module.cpp`'s path for its contract test), and the end-to-end `nl_engine_guard_detour_tests` with its stand-in `materialsystem.dll` |
 | `guard.h`, `guard.cpp` | The patterns (call site, GetName call), name comparison, the cycle rules, the filter, the stub and the detour's installation (SEH-guarded scan, pins the module, idempotent across the two copies) |
+| `crash_report.h`, `crash_report.cpp` | Windows Error Reporting's crash and hang snapshots switched off for the process (R28): the flags, `WerGetFlags`/`WerSetFlags` from kernel32 at run time, once per process and copy |
 | `watchdog.h`, `watchdog.cpp` | The start-up watchdog: sampling the committed stack, Lua chunk names on it, the deadline, the report and the message |
 | `load_overlay.h`, `load_overlay.cpp` | The load overlay (R24): the window thread, its sampling of the main thread, the game file paths and Lua chunk names it shows, the elapsed time and the tally behind the summary |
-| `module.cpp` | `gmod13_open`: installs the guard; in the client and server realms starts the watchdog for its realm (`NL_ENGINE_GUARD_REALM`, set per target) and publishes `nlengineguard` (`installed`, `reason`, `Status()`, `StartupDone([seconds])` -> recovered, `SetMessage(title, body)`); in the menu realm publishes `installed`, `reason`, `Status()` and the overlay's `LoadStart`, `LoadHeading`, `LoadStatus`, `LoadEnd` |
+| `module.cpp` | `gmod13_open`: installs the guard and switches the crash snapshots off (`crash_snapshots_off`, `crash_snapshots`); in the client and server realms starts the watchdog for its realm (`NL_ENGINE_GUARD_REALM`, set per target) and publishes `nlengineguard` (`installed`, `reason`, `Status()`, `StartupDone([seconds])` -> recovered, `SetMessage(title, body)`); in the menu realm publishes `installed`, `reason`, `Status()` and the overlay's `LoadStart`, `LoadHeading`, `LoadStatus`, `LoadEnd` |
 | `tests/fake_materialsystem.asm`, `tests/fake_materialsystem.cpp` | A stand-in `materialsystem.dll` for the end-to-end test: one function whose machine code (exact bytes in the code segment) holds the call site (key values in r13, the material in r14), the loop's GetName call and a stand-in `KeyValues::GetString`; the C++ file exports its address |
 | `tests/test_detour.cpp` | End to end, in its own process: `install()` finds and detours the stand-in's call site, which then gets `""` for a fallback to the material itself and the fallback for another |
 | `tests/test_overlay.cpp` | The load overlay: game file paths and Lua chunk names as shown, the elapsed time, UTF-8 clipping, the bounded tally, `start()`/`finish()` in a process without a game window, and `module.cpp`'s contract (the menu realm from `lua_shared`, the overlay functions only with `NL_ENGINE_GUARD_MENU`) |
+| `tests/test_crash_report.cpp` | The crash report switch (R28): the flag values, this test process as the game (the flags read back with `WerGetFlags`, a second call answers the same), and `module.cpp`'s contract (called before the realms part, the two fields published) |
 | `tests/test_guard.cpp` | The patterns (on the real bytes, and on an installed `materialsystem.dll` when there is one, with its GetName calls), names, the cycle rules, the filter with fake materials, the stub, the watchdog's stack scan and report |

@@ -1090,8 +1090,9 @@ class InstallConfigTests(unittest.TestCase):
         self.assertEqual([Path(backup['path'])], self.backups())
         self.assertEqual(Path(backup['path']).read_bytes(), self.USER)
         self.assertEqual(backup['sha256'], hashlib.sha256(self.USER).hexdigest())
+        # The user's other subscriptions stay out of a test install (R28).
         self.assertEqual(json.loads(self.config.read_text(encoding='utf-8'))['allow'],
-                         {'workshop': [], 'local': [], 'dev_folders': []})
+                         {'workshop': [], 'local': [], 'dev_folders': [], 'subscribed_content': False})
 
     def test_only_an_unchanged_config_is_rewritten(self):
         ps.step_config(self.args())  # the same config this install writes: no flag, no backup needed
@@ -1211,6 +1212,21 @@ class PowerShellTests(unittest.TestCase):
             os.chdir(here)
         self.assertEqual(value['allow']['local'], [str((folder / 'pkg.gma').resolve()), 'garrysmod/addons/x.gma'])
         self.assertEqual(value['allow']['dev_folders'], [str((folder / 'dev').resolve())])
+
+    def test_subscribed_content_packages_stay_out_of_a_test_install_unless_asked(self):
+        """R28: the user's other subscriptions hold many GB of content packages; a test deploys only what it names."""
+        args = SimpleNamespace(allow_local=[], allow_dev=[], allow_workshop=['3829070317'], remix='on',
+                               require_insecure='yes')
+        value, data = ps.config_content(args)
+        self.assertIs(value['allow']['subscribed_content'], False)
+        self.assertIn(b'"subscribed_content": false', data)
+        args.subscribed_content = 'on'
+        self.assertIs(ps.config_content(args)[0]['allow']['subscribed_content'], True)
+        args.subscribed_content = 'off'
+        self.assertIs(ps.config_content(args)[0]['allow']['subscribed_content'], False)
+        # The command line offers it for install and config, off unless given.
+        source = Path(ps.__file__).read_text(encoding='utf-8')
+        self.assertIn('command.add_argument("--subscribed-content", choices=["on", "off"], default="off"', source)
 
     @unittest.skipUnless(shutil.which('powershell'), 'Windows PowerShell is not installed')
     def test_windows_powershell_finds_get_filehash_under_a_powershell_7_module_path(self):

@@ -1,6 +1,12 @@
 # Handovers
 
-The latest round is R27, the user's report of 2026-11-09 (HUD add-ons that turned the screen white under RTX:
+The latest round is R28, the user's request of 2026-11-10 (GitHub issue 2 resolved in the package: no Windows Error
+Reporting snapshot of a crashed game, no texture preload at the end of a load; add-ons like HyperReal FX kept from
+lagging the game: periodic screen read-backs stopped, repeated font definitions made once, slow hooks named and
+`nativeloader_lag_report`; the light updater's bounded draw list): [R28-report.md](R28-report.md), done by Claude with a
+Claude subagent for the review (no Codex).
+
+Before it, R27, the user's report of 2026-11-09 (HUD add-ons that turned the screen white under RTX:
 HUD Mk.2's "depth-only" colour target and the render guard's refused bindings): [R27-report.md](R27-report.md),
 done by Claude with a Claude subagent for the review (no Codex).
 
@@ -10,8 +16,8 @@ floating-island maps; faster map loads with hundreds of add-ons, the load accele
 Codex).
 
 Beside it, a diagnosis of GitHub issue #2 (lag, high RAM use, a game that lingers after a crash) with a player's 654
-Workshop add-ons: [issue-2-memory-report.md](issue-2-memory-report.md), by Claude; nothing changed yet, the
-recommended fixes are in the report.
+Workshop add-ons: [issue-2-memory-report.md](issue-2-memory-report.md), by Claude; R28 made its fixes 1 to 4 and 7,
+and says what is left of 5 and 6.
 
 Before it, R25, the user's report of 2026-11-09 (a spawn-menu icon left on the screen by a drag GMod
 never ended; ARC9's magnified scopes path traced through a raytraced render target; ARC9's gun path traced, its

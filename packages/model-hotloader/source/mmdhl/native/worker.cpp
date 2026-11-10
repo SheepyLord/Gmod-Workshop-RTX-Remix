@@ -130,6 +130,22 @@ public:
     }
     props::Json complete(props::Json result){stop();auto now=GetTickCount64();timings.push_back({{"stage",state["stage"]},{"milliseconds",now-stageStarted}});result["elapsed_ms"]=now-started;result["stage_timings"]=timings;result["filename"]=filename;return result;}
 };
+// Detailed collision is nearly all of an import that asks for it (CoACD: 26-54 s for a
+// 1,584-triangle flower whose other stages take 0.06 s), yet its stage is .65-.86 of the
+// import's scale: such an import shows it over .10-.95 instead, the steps before it over
+// .00-.10 and the cache after it over .95-1.
+float detailedShare(float p){
+    if(p<=.55f)return p*(.08f/.55f);
+    if(p<=.65f)return .08f+(p-.55f)*(.02f/.10f);
+    if(p<=.86f)return .10f+(p-.65f)*(.85f/.21f);
+    return std::min(1.f,.95f+(p-.86f)*(.05f/.14f));
+}
+props::Progress reporter(PropProgress& progress,bool detailed){
+    return {[&progress,detailed](const props::ProgressUpdate& event){
+        if(!detailed){progress.update(event);return;}
+        auto scaled=event;scaled.progress=detailedShare(event.progress);progress.update(scaled);
+    }};
+}
 // A PMX imported as a prop may really be a character. Humanoid landmark bones
 // (Japanese or English names) and physics bodies decide; the UI then offers to
 // import it under Character Models instead.
@@ -148,7 +164,7 @@ props::Json importProp(const mmd::fs::path& source,const mmd::fs::path& cache,co
     if(mmd::isVrmPath(source))throw std::runtime_error("This is a VRM avatar. Import it under Character Models, where it becomes a posable ragdoll with its spring-bone physics.");
     auto options=props::parseOptions(request);auto root=cache/L"static";
     PropProgress progress(status,mmd::utf8(source.filename().wstring()));
-    props::Progress report{[&](const props::ProgressUpdate& event){progress.update(event);}};
+    auto report=reporter(progress,options.collision!="hull");
     auto asset=props::importModel(source,options,report);bool created=false;auto id=props::saveAsset(root,asset,report,options.limits,&created);
     // Local-only registry for Reimport. It is never shared with a server. A damaged one is set aside, not overwritten.
     // The library lists the bundle: a failure here removes the one this import wrote.
@@ -195,7 +211,7 @@ props::Json deriveProp(const mmd::fs::path& cache,const props::Json& request,con
     // The editor keeps 60 characters (code points, as Lua's utf8.sub counts them), whatever their bytes.
     auto characters=codePoints(presetName);if(presetName.empty()||!characters||*characters>60)throw std::runtime_error("Choose a preset name of up to 60 characters");
     PropProgress progress(status,presetName);
-    props::Progress report{[&](const props::ProgressUpdate& event){progress.update(event);}};
+    auto report=reporter(progress,request.value("collision",std::string("hull"))!="hull");
     report("Reading the original prop",.05f);
     // A preset of a prop imported with full_textures keeps its textures (fullTextureLimits).
     auto a=props::loadAsset(root,parent,props::fullTextureLimits());

@@ -246,8 +246,11 @@ end
 -- Reimport a static prop from its recorded source with the current options.
 function library.ReimportProp(id)
  if library.job then return false,L'library.import.busy' end
- local handle,err=native.PropReload(id,util.TableToJSON(mmdhl.props.ImportOptions()))
+ local P=mmdhl.props
+ local options=isfunction(P.ReimportOptions) and P.ReimportOptions(id) or P.ImportOptions()
+ local handle,err=native.PropReload(id,util.TableToJSON(options))
  if not library.StartImport(handle,err,'static') then return false,(library.StartError(err)) end
+ if isfunction(P.ImportStarted) then P.ImportStarted(options) end
  library.reimportOf=id library.status=L'library.import.reimporting_prop' return true
 end
 -- Reload a character from its recorded source (the entity editor's Reload). The new
@@ -488,6 +491,8 @@ function library.StartStaticImport(source,objects)
  if objects then options.objects=objects elseif isBlend(source) then options.kind='blend_scene' end
  local handle,err=native.BeginImport(source,util.TableToJSON(options))
  if not library.StartImport(handle,err,'static') then return false,err end
+ -- Listing a .blend's objects is not the import: the choice waits for the import of the objects.
+ if options.kind~='blend_scene' and isfunction(mmdhl.props.ImportStarted) then mmdhl.props.ImportStarted(options) end
  library.status=options.kind=='blend_scene' and L'library.import.reading_blend' or L'library.import.importing_prop' return true
 end
 local function startImport(kind,source)

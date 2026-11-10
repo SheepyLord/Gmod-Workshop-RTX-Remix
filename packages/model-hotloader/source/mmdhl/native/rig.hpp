@@ -1,5 +1,6 @@
 #pragma once
 #include "runtime.hpp"
+#include <functional>
 #include <map>
 namespace mmd {
 // The on-disk formats use 32-bit offsets even in the 64-bit engine.
@@ -48,10 +49,13 @@ std::map<std::string,Bytes> carrierFiles(const Rig&,const Model* armsModel=nullp
 Bytes makeGma(const std::map<std::string,Bytes>&,const std::string& title);
 // A package entry held in memory, or streamed from `file` when that is set.
 struct GmaEntry { Bytes data; fs::path file; };
-// Writes the same bytes as makeGma without loading the file entries into memory.
-void writeGma(const fs::path&,const std::map<std::string,GmaEntry>&,const std::string& title);
+// Writes the same bytes as makeGma without loading the file entries into memory. progress, when given,
+// hears the bytes of the file entries read so far over both passes (checksums, then the copy).
+void writeGma(const fs::path&,const std::map<std::string,GmaEntry>&,const std::string& title,const std::function<void(uint64_t,uint64_t)>& progress={});
 void prepareSourceMaterials(const fs::path&,const std::string&);
-// The same from a manifest not yet on disk: an import writes its manifest last.
-void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Json& manifest);
+// The same from a manifest not yet on disk: an import writes its manifest last. progress, when
+// given, hears the step's fraction done (its materials 0-.45, writing their package .45-1) and the
+// material it is on (materials done, materials).
+void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Json& manifest,const std::function<void(double,size_t,size_t)>& progress={});
 Json packageCarrier(const fs::path& cache,const Rig&,Bytes physics);
 }

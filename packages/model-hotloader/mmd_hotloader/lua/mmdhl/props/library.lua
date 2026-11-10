@@ -142,11 +142,21 @@ end
 -- Import options apply to the next import and to Reimport.
 local options={
  axis=CreateClientConVar('mmdhl_prop_import_axis','auto',true,false,'Up axis for static prop imports: auto, y_up or z_up'),
- collision=CreateClientConVar('mmdhl_prop_import_collision','hull',true,false,'Static prop collision: hull (fast single hull) or balanced (multiple hulls)'),
+ collision=CreateClientConVar('mmdhl_prop_import_collision','hull',true,false,'Static prop collision for the next import: hull (a single hull, instant) or balanced (detailed, up to 16 hulls; can take minutes; one import, then hull again)'),
  scale=CreateClientConVar('mmdhl_prop_import_scale','1',true,false,'Extra scale applied when importing static props',.01,100),
  yaw=CreateClientConVar('mmdhl_prop_import_yaw','0',true,false,'Turn static props when importing (degrees)',-180,180),
  fullTextures=CreateClientConVar('mmdhl_prop_import_full_textures','0',true,false,'Keep textures larger than 4096 pixels at full size when importing static props (more memory, slower loading)',0,1),
 }
+-- Detailed collision (CoACD's decomposition, then a merge down to 16 hulls) takes seconds to
+-- minutes: 26-54 s for a 1,584-triangle flower that the single hull does at once. It was a
+-- remembered choice, so a game where it was picked once decomposed every later import. It
+-- now applies to the import it is picked for (P.ImportStarted), and a choice remembered from
+-- before goes back to the single hull, once.
+local collisionVersion=CreateClientConVar('mmdhl_prop_import_collision_version','0',true,false,'Model Hotloader: 1 once a remembered detailed collision choice went back to the single hull')
+if collisionVersion:GetInt()<1 then
+ if options.collision:GetString()~='hull' then options.collision:SetString('hull') end
+ collisionVersion:SetInt(1)
+end
 CreateClientConVar('mmdhl_prop_spawn_frozen','0',true,false,'Freeze newly placed static props',0,1)
 -- Shared with the Static Prop tool (its ClientConVars collide, gravity and
 -- physprop), so they are user info the server can read.
@@ -178,6 +188,18 @@ function P.ImportOptions()
   if P.FullTexturesEdge() then result.full_textures=true
   elseif not P.fullTexturesNoticed then P.fullTexturesNoticed=true needsUpdate() end
  end
+ return result
+end
+-- An import that started with detailed collision used the choice: the next one is the single hull again.
+function P.ImportStarted(started)
+ if istable(started) and started.collision=='balanced' and options.collision:GetString()~='hull' then options.collision:SetString('hull') end
+end
+-- Reimport: the current options, but a prop imported with detailed collision (more than one
+-- hull; the single hull is always one) keeps it.
+function P.ReimportOptions(id)
+ local result=P.ImportOptions()
+ local entry=Lib.entries[id]
+ if entry and istable(entry.info) and (tonumber(entry.info.collision_hulls) or 1)>1 then result.collision='balanced' end
  return result
 end
 -- Turned on with a binary module that cannot keep full-size textures: it stays off.

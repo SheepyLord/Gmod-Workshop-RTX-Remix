@@ -462,11 +462,14 @@ Bytes makeGma(const std::map<std::string,Bytes>& files,const std::string& title)
  std::vector<GmaItem> items;size_t total=0;for(auto& [name,data]:files){items.push_back({name,data.size(),crc(data)});total+=data.size();}
  auto b=gmaHeader(items,title);b.reserve(b.size()+total+4);for(auto& [name,data]:files)b.insert(b.end(),data.begin(),data.end());b.resize(b.size()+4);return b;
 }
-void writeGma(const fs::path& path,const std::map<std::string,GmaEntry>& files,const std::string& title){
+void writeGma(const fs::path& path,const std::map<std::string,GmaEntry>& files,const std::string& title,const std::function<void(uint64_t,uint64_t)>& progress){
  std::vector<unsigned char> buffer(4u<<20);
+ // Every file entry is read twice: for the header's checksums, then into the package.
+ uint64_t total=0,done=0;
+ if(progress)for(auto& [name,entry]:files)if(!entry.file.empty()){std::error_code ec;auto n=fs::file_size(ioPath(entry.file),ec);if(!ec)total+=2*n;}
  auto stream=[&](const fs::path& file,const std::function<void(const unsigned char*,size_t)>& use){
   std::ifstream in(ioPath(file),std::ios::binary);if(!in)throw std::runtime_error("Cannot read "+utf8(file.wstring()));uint64_t size=0;
-  while(in.read(reinterpret_cast<char*>(buffer.data()),std::streamsize(buffer.size()))||in.gcount()>0){auto n=size_t(in.gcount());use(buffer.data(),n);size+=n;}
+  while(in.read(reinterpret_cast<char*>(buffer.data()),std::streamsize(buffer.size()))||in.gcount()>0){auto n=size_t(in.gcount());use(buffer.data(),n);size+=n;if(progress){done+=n;progress(std::min(done,total),total);}}
   if(in.bad())throw std::runtime_error("Cannot read "+utf8(file.wstring()));return size;};
  std::vector<GmaItem> items;
  for(auto& [name,entry]:files){

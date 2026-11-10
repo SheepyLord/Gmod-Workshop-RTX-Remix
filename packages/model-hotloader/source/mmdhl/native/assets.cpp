@@ -221,7 +221,7 @@ static bool pngSize(const fs::path& path,int& width,int& height){
 static bool fullTextures(const Json& manifest){auto it=manifest.find("fullTextures");return it!=manifest.end()&&*it==true;}
 // Source-readable derivatives allow normal IMaterial/VMT editor workflows.
 void prepareSourceMaterials(const fs::path& cache,const std::string& id){prepareSourceMaterials(cache,id,readJson(cache/L"assets"/wide(id)/L"manifest.json"));}
-void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Json& manifest){
+void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Json& manifest,const std::function<void(double,size_t,size_t)>& progress){
  auto directory=cache/L"assets"/wide(id),package=directory/L"materials-v5.gma";
  registerShortName(cache,"assets",id);
  std::vector<fs::path> retained={fs::path(L"assets")/wide(id)};
@@ -232,6 +232,7 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
  // 4096 textures never holds them all, plus a packed copy, in memory.
  std::map<std::string,GmaEntry> files;
  for(size_t i=0;i<manifest["materials"].size();i++){
+  if(progress)progress(.45*double(i)/double(manifest["materials"].size()),i,manifest["materials"].size());
   auto& material=manifest["materials"][i];auto& texture=manifest["textures"][i];std::string base=texture.value("base","");auto at=place("material",int64_t(i),material.value("name",""));
   std::string texturePath="models/debug/debugwhite";
   if(validId(base)){
@@ -274,7 +275,10 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
   value("$bumpmap","mmdhl/scmi/normal");value("$lightwarptexture","mmdhl/scmi/lightwarptexture");value("$halflambert","0");value("$phong","1");value("$phongboost","24");value("$phongalbedotint","1");value("$phongexponenttexture","mmdhl/scmi/phong_exp");value("$phongfresnelranges","[0 0 1]");value("$rimlight","1");value("$rimlightexponent","2");value("$rimlightboost","2");vmt<<"}\n";
   auto text=vmt.str();files["materials/"+materialPath(id,i,material.value("name",""))+".vmt"].data=Bytes(text.begin(),text.end());
  }
- writeGma(package,files,"Model Hotloader materials "+id);
+ const size_t materials=manifest["materials"].size();
+ if(!progress){writeGma(package,files,"Model Hotloader materials "+id);return;}
+ progress(.45,materials,materials);
+ writeGma(package,files,"Model Hotloader materials "+id,[&](uint64_t done,uint64_t total){progress(.45+.55*double(done)/double(std::max<uint64_t>(1,total)),materials,materials);});
 }
 Json openSourceRegistry(const fs::path& path,std::string& setAside){
     setAside.clear();std::error_code ec;if(!fs::exists(ioPath(path),ec))return Json::object();
@@ -331,7 +335,7 @@ Json importAsset(const fs::path& source,const fs::path& cache,const Json& option
     auto fullOption=options.find("fullTextures");const bool full=fullOption!=options.end()&&*fullOption==true;bool largeKept=false;
     for(size_t i=0;i<model->materials.size();i++){auto& material=model->materials[i];Json textures;bool alpha=false;
         auto image=material.base.substr(material.base.find_last_of("/\\")+1);
-        report("Preparing textures","textures",.1f+.8f*float(i)/std::max<size_t>(1,model->materials.size()),"Material "+std::to_string(i+1)+" of "+std::to_string(model->materials.size())+(material.name.empty()?std::string():" “"+cleanText(material.name)+"”")+(image.empty()?std::string():": "+cleanText(image)),i+1,model->materials.size());
+        report("Preparing textures","textures",.1f+.52f*float(i)/std::max<size_t>(1,model->materials.size()),"Material "+std::to_string(i+1)+" of "+std::to_string(model->materials.size())+(material.name.empty()?std::string():" “"+cleanText(material.name)+"”")+(image.empty()?std::string():": "+cleanText(image)),i+1,model->materials.size());
         for(auto entry:std::array<std::pair<const char*,std::string>,3>{{{"base",material.base},{"sphere",material.sphere},{"toon",material.toon}}}){
             std::string id;bool localAlpha=false;if(!entry.second.empty())try{
                 if(embeddedSource){auto found=embedded.find(entry.second);if(found==embedded.end())throw std::runtime_error("Missing embedded VRM texture "+entry.second);
@@ -352,7 +356,7 @@ Json importAsset(const fs::path& source,const fs::path& cache,const Json& option
         }
         textures["alpha"]=alpha;manifest["textures"].push_back(textures);
     }
-    report("Saving to the cache","cache",.9f);
+    report("Saving to the cache","cache",.62f);
     // Only an asset that kept a texture past 4096 says so (prepareSourceMaterials keeps it at
     // full size): a model whose textures all fit has the same identity with or without the option.
     if(largeKept)manifest["fullTextures"]=true;
@@ -363,7 +367,10 @@ Json importAsset(const fs::path& source,const fs::path& cache,const Json& option
     std::string setAside;Json fit;
     try{
      writeAtomic(directory/L"model.bin",raw);
-     model->id=id;report("Preparing Source materials","materials",.91f);prepareSourceMaterials(cache,id,manifest);
+     model->id=id;report("Preparing Source materials","materials",.62f);
+     // Each material may make its Source texture (a PNG decoded, its mip levels built), then the package is written.
+     prepareSourceMaterials(cache,id,manifest,[&](double fraction,size_t done,size_t total){
+      report("Preparing Source materials","materials",.62f+.32f*float(fraction),done<total?"Material "+std::to_string(done+1)+" of "+std::to_string(total):std::string("Writing the materials package"),done,total);});
      // A damaged registry (Reload's source paths) must not block every import: it is set aside and a new one starts.
      auto registryPath=cache/L"sources.local.json";Json registry=openSourceRegistry(registryPath,setAside);
      registry[id]={{"source",utf8(fs::absolute(source).wstring())},{"options",options}};writeJson(registryPath,registry);

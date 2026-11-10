@@ -101,10 +101,20 @@ end
 local function convarChoices(parent,cvar,choices,s,font)
  local combo=parent:Add('DComboBox') combo:SetTall(s(30)) styleChoices(combo,s,font)
  for _,choice in ipairs(choices) do combo:AddChoice(choice[2],choice[1]) end
- local value=GetConVar(cvar):GetString() local chosen=1
- for i,choice in ipairs(choices) do if choice[1]==value then chosen=i end end
- combo:ChooseOptionID(chosen)
+ local function show(value)
+  local chosen=1
+  for i,choice in ipairs(choices) do if choice[1]==value then chosen=i end end
+  combo.shownValue=value combo:ChooseOptionID(chosen)
+ end
+ show(GetConVar(cvar):GetString())
  combo.OnSelect=function(_,_,_,data) if GetConVar(cvar):GetString()~=data then RunConsoleCommand(cvar,data) end end
+ -- The setting can change elsewhere (detailed collision returns to the single hull once an import used it).
+ local think=combo.Think
+ combo.Think=function(self,...)
+  if think then think(self,...) end
+  local value=GetConVar(cvar):GetString()
+  if value~=self.shownValue and not self:IsMenuOpen() then show(value) end
+ end
  return combo
 end
 local function releasePreview(owner)

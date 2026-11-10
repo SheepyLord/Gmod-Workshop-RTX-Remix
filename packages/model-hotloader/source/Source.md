@@ -48,6 +48,31 @@ a local machine. `lib_coacd.dll` is CoACD's own wheel build, which the workflow 
 - **F-03:** `scripts/bootstrap.py` fetches the locked commits with git instead of GitHub's archives.
 - The C++ tests for these, and `THIRD_PARTY.md`'s sentence on the bootstrap.
 
+## Changes made here (2026-11-10: import progress)
+
+`import-progress.patch` holds this repository's changes for the user's report of 2026-11-10 (a static prop's physics
+took long with no percentage; [handover](../../../docs/handover/hotloader-import-report.md),
+[ADR 0152](../../../docs/decisions/0152-hotloader-imports-fast-by-default-and-props-drawn-without-render-meshes.md));
+applied after `r19-changes.patch`, it gives `mmdhl/` as it is now. Not in the origin repository:
+
+- `native/props/collision.cpp`: detailed collision's percentage. CoACD 1.0.14 has no progress callback, but at log
+  level `info` its logger (spdlog's Windows console sink, `GetStdHandle` and `WriteFile`; the wheel's DLL links its
+  C runtime statically) writes each decomposition pass to standard output. Before the DLL loads, standard output
+  becomes a pipe (`CoacdProgress`), a thread reads the passes, and the stage's percentage follows them: a piece
+  finished in pass N is 2^-N of the mesh, so the finished shares add up to 1 at the end; the merge down to 16 hulls
+  logs nothing and is estimated from the number of pieces it merges. Afterwards the log is turned off and standard
+  output put back. Without the pipe the stage reports as before (no percentage). Windows only; the Linux build is
+  unchanged.
+- `native/worker.cpp`: an import with detailed collision (and a part preset with it) shows that stage over 10-95 %
+  of its bar instead of 65-86 % (`detailedShare`), since it is nearly all of the import's time.
+- `native/assets.cpp`, `native/rig.hpp`: `prepareSourceMaterials` takes an optional progress callback; a character
+  import reports "Preparing Source materials" per material (71-93 %), and its textures over 10-70 % (was 10-90 %,
+  with the materials at a fixed 91 %), as measured on a 24-material character (2.2 s and 0.9 s of 3.3 s).
+
+The Lua side of the same report is in the add-on in `../mmd_hotloader`: static props draw their meshes themselves
+(no `GetRenderMesh` entity: the importer's preview crashed queued rendering), and detailed collision serves one
+import instead of being a remembered default.
+
 ## Lua installation override (R21-B)
 
 `../overrides/installation.lua` replaces the add-on's `mmdhl/installation.lua` through

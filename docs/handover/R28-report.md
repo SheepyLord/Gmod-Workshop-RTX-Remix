@@ -197,4 +197,11 @@ last in the game was built from the committed tree's code (only documents change
 
 ## Published
 
-(Filled in after the push.)
+`main` was fast-forwarded to `a37e704` and pushed (a9b9c16..a37e704). With it went the VR plan's commit (`a0074b1`,
+made on `main` by the plan's session) and the diagnosis as one commit (`1643c1a`): its two local commits and this
+branch's merges were made into a linear history with the same content, so that no commit message refers to the issue
+by its number and GitHub adds nothing to the issue's page by itself. The merge's hook built the package here and
+uploaded it to item 3829070317 as **0.0.0-dev.20261110142116+be270f89** (2,183,922,826 bytes, SHA-256
+`e98e9b6e7f9a5e068b4dfd87748e53206fcce14842b6275dbc896556538a6373`); Steam's public record shows that size, updated
+14:21:52 UTC. No GitHub Action was started, and nothing was written on the issue. The loader (0.16.0) and the runtime
+are unchanged.

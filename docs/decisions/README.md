@@ -219,3 +219,8 @@ Each with the reason it lost.
   table, by a package part, in RTX starts (without RTX the loader hides the package's add-ons; running there needs a
   loader change, not made); a native start-up marker; the bullet-break simulator's rebuild on every start removed;
   what was dropped from the plan and why.
+- [0141: "Depth-only" colour targets become colour targets; a refused base texture draws nothing](0141-depth-only-colour-targets-and-refused-base-textures.md)
+  (R27, amends 0086): under RTX a `MATERIAL_RT_DEPTH_ONLY` request in an 8-bit colour format is allocated as a colour
+  target with its own depth buffer (HUD Mk.2's full-screen HUD target); a material Lua created whose `$basetexture`
+  binding the guard refuses draws nothing until a binding goes through, instead of its placeholder over the screen; the
+  name of a refused target is refused like the target.

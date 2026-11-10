@@ -69,6 +69,9 @@ class RenderGuardTests(unittest.TestCase):
     def test_native_enum_snapshot_reserved_targets_and_normal_texture_controls(self):
         self.run_case("targets")
 
+    def test_depth_only_colour_targets_and_refused_base_textures(self):
+        self.run_case("hud_composite")
+
     def test_known_unsupported_shader_depth_and_mrt_paths(self):
         self.run_case("shaders")
 

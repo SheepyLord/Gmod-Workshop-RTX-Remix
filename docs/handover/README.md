@@ -1,6 +1,10 @@
 # Handovers
 
-The latest round is R26, the user's request of 2026-11-09 (the sky without a horizon, for universe and
+The latest round is R27, the user's report of 2026-11-09 (HUD add-ons that turned the screen white under RTX:
+HUD Mk.2's "depth-only" colour target and the render guard's refused bindings): [R27-report.md](R27-report.md),
+done by Claude with a Claude subagent for the review (no Codex).
+
+Before it, R26, the user's request of 2026-11-09 (the sky without a horizon, for universe and
 floating-island maps; faster map loads with hundreds of add-ons, the load accelerator, in RTX starts):
 [R26-report.md](R26-report.md), done by Claude with Claude subagents for the sky option and the review (no
 Codex).

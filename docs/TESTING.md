@@ -2580,3 +2580,16 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   leave the hooks out once; then, with the review's fixes and the sky merged, `timing`: the published package against
   the one built here, RTX starts, alternating, twice each, every session ending only once the module had taken its
   marker off (RESEARCH, R26).
+
+## R27: HUD add-ons and render targets (2026-11-09)
+
+- **Lua under LuaJIT:** the render guard's `hud_composite` scenario
+  ([`test_render_guard.py`](../tools/tests/test_render_guard.py.md)): HUD Mk.2's request becomes a colour target with
+  its own depth buffer and its composite draws; a depth-only request in an unreviewed format still gets the inert
+  target; a created material whose base texture is refused draws nothing through `surface` and `render` until a binding
+  goes through; naming a refused target is refused; a loaded material keeps drawing.
+- **PoC** (`out/r27/poc_r27.py` in the `r27` worktree; snapshot, move-aside and clean rollback each time; HUD Mk.2 and
+  SYNTHETIK targets health bars as loose folders, `-noworkshop`, gm_construct, a probe that spawns an NPC, aims at it and
+  hurts it and the player): `repro` with the published package (RTX: white; without RTX: the HUD), `verify` with the
+  package built here (RTX: the HUD with its effects, no white), `bisect` (HUD Mk.2's effects turned on one by one under
+  RTX), `hudonly`, `rtprobe`, `stencil` and `blend` (render-target probes; RESEARCH, R27).

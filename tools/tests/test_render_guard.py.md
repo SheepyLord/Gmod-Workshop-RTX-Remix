@@ -67,3 +67,12 @@ native lookups can return transient wrappers. The regression repeats 300 preview
 wrappers without exhausting the material budget. The DX7 fallback uses a representative base map
 through the global studio override; entity submaterials are untouched and explicit indexed/global
 caller overrides retain precedence. Multi-material/custom-shader thumbnails are approximate.
+
+R27 adds `test_depth_only_colour_targets_and_refused_base_textures` (the `hud_composite` scenario, ADR 0141): HUD
+Mk.2's "depth-only" full-screen target in a color format is allocated with its own depth buffer and its composite
+draws; a depth-only request in an unreviewed format still gets the inert target; a created material whose
+`$basetexture` binding is refused draws nothing through `surface` or `render` until a binding goes through, and a
+texture bound by ID afterwards draws; a material created naming a refused target, or set to that name, is refused; a
+loaded material keeps drawing; a name refused and then allocated, one allocated and then refused once, a similar name
+(`rt_scale_0.75` against `rt_scale_0.5`) and an engine `_rt_` name keep drawing; a repeat creation changes nothing; a
+depth-only request in a float format still gets the inert target.

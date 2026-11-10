@@ -104,7 +104,7 @@ local playerMeta, convarMeta = FindMetaTable("Player"), FindMetaTable("ConVar")
 -- The native getter: the motion-blur read compatibility below wraps ConVar:GetBool.
 local getBool = convarMeta and convarMeta.GetBool
 local state = {version = 2, installation = installation, policy = "inert screen-space shaders under RTX",
-    blocked = {}, errors = {}, cleanup_errors = {}, limitations = {
+    blocked = {}, adapted = {}, errors = {}, cleanup_errors = {}, limitations = {
     "Lua errors only: native faults, GPU failures and infinite loops are not caught",
     "Unknown native state and partially built meshes cannot be universally restored",
     "Later API replacements or unwrapped native aliases can bypass these guards"}}
@@ -792,6 +792,71 @@ function policy.reserved(name)
     return base:match("^_rt_shadowdepthtexture") or base:match("^_rt_resolvedfullframedepth")
         or base:match("^_nativeloader_inert_rt")
 end
+-- R27 (ADR 0141). Names of render targets the guard refused and allocated nothing for: a material whose base texture
+-- names one would show a missing texture. Exact names only (a .vtf suffix aside), never an engine `_rt_` target (those
+-- exist whatever an add-on asks), cleared when the name is allocated later, at most 1,024.
+local refusedNames, refusedCount = {}, 0
+local function targetKey(name)
+    local key = name:gsub("\\", "/"):lower()
+    return (key:gsub("%.vtf$", ""))
+end
+function policy.refuseName(name)
+    if type(name) ~= "string" or #name == 0 or #name > 256 or name:find("%z") or refusedCount >= 1024 then return end
+    local key = targetKey(name)
+    if key:find("^_rt_") or key:find("/_rt_") or refusedNames[key] then return end
+    refusedNames[key], refusedCount = true, refusedCount + 1
+end
+function policy.allowName(name)
+    if type(name) ~= "string" then return end
+    local key = targetKey(name)
+    if refusedNames[key] then refusedNames[key], refusedCount = nil, refusedCount - 1 end
+end
+function policy.refusedName(value)
+    if refusedCount == 0 or value == nil then return false end
+    if type(value) ~= "string" then
+        local ok, name = pcall(function() return value:GetName() end)
+        if not ok or type(name) ~= "string" then return false end
+        value = name
+    end
+    return refusedNames[targetKey(value)] == true
+end
+-- R27 (ADR 0141). Materials that lost their base texture: Lua created them (CreateMaterial) and the guard refused the
+-- texture their `$basetexture` was set to, so drawn they would show their placeholder (HUD Mk.2's
+-- models/debug/debugwhite over the whole screen). Untrusted bindings of them bind the transparent material until a
+-- `$basetexture` binding goes through. Kept by material name, since two Lua objects can stand for one material; loaded
+-- materials are shared (the world, other add-ons) and are never marked.
+local materialNames = setmetatable({}, {__mode = "k"})
+local function materialKey(mat)
+    if mat == nil then return nil end
+    local key = materialNames[mat]
+    if key ~= nil then return key or nil end
+    local ok, name = pcall(function() return mat:GetName() end)
+    key = ok and type(name) == "string" and (name:lower():gsub("^!", "")) or false
+    local kind = type(mat)
+    if kind == "userdata" or kind == "table" or kind == "IMaterial" then materialNames[mat] = key end
+    return key or nil
+end
+local lostBase, createdNames, createdCount = {}, {}, 0
+function policy.lost(mat)
+    if mat == nil or next(lostBase) == nil then return false end
+    local key = materialKey(mat)
+    return key ~= nil and lostBase[key] == true
+end
+function policy.setLost(mat, on)
+    if not on and next(lostBase) == nil then return end
+    local key = materialKey(mat)
+    if key == nil then return end
+    if not on then lostBase[key] = nil
+    elseif createdNames[key] then lostBase[key] = true end
+end
+-- Returns whether this is the first creation of that name (CreateMaterial returns a cached material for a repeat).
+function policy.created(name)
+    if type(name) ~= "string" then return false end
+    local key = name:lower():gsub("^!", "")
+    if createdNames[key] or createdCount >= 8192 then return false end
+    createdNames[key], createdCount = true, createdCount + 1
+    return true
+end
 do
     local meta = FindMetaTable("ProjectedTexture")
     local remove = meta and meta.Remove
@@ -870,6 +935,9 @@ do
         [11] = 4, [12] = 4, [16] = 4, [24] = 8, [25] = 8, [27] = 4}
     -- Stock D3D9 enum values: late multiplayer globals may already have been replaced.
     local fullFrame = {[3] = true, [4] = true, [6] = true}
+    -- R27 (ADR 0141): the 8-bit colour formats a "depth-only" request may come in as a colour target. Float, 16-bit,
+    -- R32F and default formats are what real depth passes use, and keep the inert target.
+    local colourOnly = {[0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [11] = true, [12] = true, [16] = true}
     local allocations, counts, bytes, total = {}, {}, {}, 0
     state.allocations_by_source, state.allocation_bytes_by_source = counts, bytes
     local function check(name, w, h, sizeMode, format, source)
@@ -899,14 +967,19 @@ do
             return nil, key, owner, cost
         end
     end
-    local function allocated(target, key, owner, cost)
+    local function allocated(target, key, owner, cost, name)
         if not target or not key then return end
+        policy.allowName(name)
         allocations[key], counts[owner] = true, (counts[owner] or 0) + 1
         bytes[owner], total = (bytes[owner] or 0) + cost, total + cost
         state.allocation_bytes = total
     end
     local function fallback(api, reason, source, name)
         reject(api, reason, source)
+        -- A name already allocated natively keeps its texture: only a name the engine never got is refused by name.
+        if type(name) == "string" and not policy.reserved(name) and not allocations[canonical(name)] then
+            policy.refuseName(name)
+        end
         -- The getter only fetches Source's texture; NeedsDepthPass is suppressed below. Never
         -- call GetRenderTarget[Ex] with the reserved name (that may reconfigure a live resource).
         if type(name) == "string" and canonical(name) == "_rt_resolvedfullframedepth"
@@ -920,7 +993,7 @@ do
             local reason, key, owner, cost = check(name, w, h, nil, -1, source)
             if reason then return fallback("GetRenderTarget", reason, source, name) end
             local result = pack(nativeRT(name, w, h, ...))
-            allocated(result[1], key, owner, cost)
+            allocated(result[1], key, owner, cost, name)
             return unpack(result, 1, result.n)
         end
     end
@@ -930,7 +1003,7 @@ do
             local source, reason = caller()
             if not integer(size) or size < 0 or size > 9 then reason = "unknown size mode"
             elseif not integer(depth) or depth < 0 or depth > 3 then reason = "unknown depth mode"
-            elseif depth == 3 then reason = "depth-only targets are unsupported under RTX"
+            elseif depth == 3 and not colourOnly[format] then reason = "depth-only targets are unsupported under RTX"
             elseif not integer(flags) or not integer(rtFlags) or flags < 0 or flags > 4294967295
                 or rtFlags < 0 or rtFlags > 4294967295 then reason = "flags must be finite unsigned integers"
             elseif math.floor(flags / 16384) % 2 == 1 then reason = "cubemap render targets are unsafe" end
@@ -938,8 +1011,15 @@ do
             local key, owner, cost
             reason, key, owner, cost = check(name, w, h, size, format, source)
             if reason then return fallback("GetRenderTargetEx", reason, source, name) end
+            -- R27 (ADR 0141): "depth-only" in a colour format is how some add-ons ask for a colour target they draw
+            -- into (HUD Mk.2 draws its whole HUD into one, then that target over the screen; stock GMod gives them
+            -- a colour target). Under RTX it becomes a colour target with its own depth buffer, never a depth texture.
+            if depth == 3 then
+                depth = 1
+                report("adapted", "GetRenderTargetEx", "depth-only colour target given its own depth buffer under RTX", source)
+            end
             local result = pack(nativeRTEx(name, w, h, size, depth, flags, rtFlags, format, ...))
-            allocated(result[1], key, owner, cost)
+            allocated(result[1], key, owner, cost, name)
             return unpack(result, 1, result.n)
         end
     end
@@ -979,7 +1059,7 @@ do
     -- ExoPBR/GPBR conversion and MMDHL's immediate shaders. No guard VMT/FS lookup is needed.
     function policy.incompatibleMaterial(mat)
         if mat == nil then return false end
-        if policy.inertMaterials[mat] or creationHints[mat] then return true end
+        if policy.inertMaterials[mat] or creationHints[mat] or policy.lost(mat) then return true end
         if checks[mat] ~= nil then return checks[mat] end
         local denied = policy.shader(shaderName(mat))
         if not denied then
@@ -1005,6 +1085,15 @@ do
             local result = pack(nativeCreate(name, shader, data, ...))
             -- CreateMaterial caches by name: safe parameters on a later call cannot clear a hint.
             if on and result[1] and policy.shader(shader, data) then creationHints[result[1]] = true end
+            -- R27: a material first created with a refused target's name as its base texture has lost it already.
+            if result[1] ~= nil and policy.created(name) and on and type(data) == "table" then
+                for key, value in pairs(data) do
+                    if type(key) == "string" and key:lower() == "$basetexture" and policy.refusedName(value) then
+                        policy.setLost(result[1], true)
+                        break
+                    end
+                end
+            end
             return unpack(result, 1, result.n)
         end
     end
@@ -1024,18 +1113,33 @@ do
                 if active() then
                     local source = caller()
                     local denied = policy.inertMaterials[self]
+                    local base, valueDenied = false, false
                     if not policy.bundled(source) then
                         denied = denied or policy.effect(source)
                         if method == "SetShader" or method == "SetShaderAndParams" then
                             denied = denied or policy.shader(key, value)
                         elseif method == "SetTexture" or method == "SetString" then
-                            denied = denied or policy.inertTextures[value] or policy.reserved(value)
+                            base = type(key) == "string" and key:lower() == "$basetexture"
+                            valueDenied = policy.inertTextures[value] or policy.reserved(value)
+                                or (base and policy.refusedName(value)) or false
+                            denied = denied or valueDenied
                         end
                     end
-                    if denied then reject("IMaterial." .. method, "incompatible material mutation ignored", source) return end
+                    if denied then
+                        -- R27: the refused texture itself (not the caller) leaves the material's placeholder in place,
+                        -- which then draws nothing instead (policy.lost).
+                        if base and valueDenied and not policy.inertMaterials[self] and not policy.effect(source) then
+                            policy.setLost(self, true)
+                        end
+                        reject("IMaterial." .. method, "incompatible material mutation ignored", source) return
+                    end
                 end
                 shaderNames[self], checks[self] = nil, nil
                 if method == "SetShader" or method == "SetShaderAndParams" then creationHints[self] = nil end
+                if method == "SetShaderAndParams" or ((method == "SetTexture" or method == "SetString")
+                    and type(key) == "string" and key:lower() == "$basetexture") then
+                    policy.setLost(self, false)
+                end
                 return original(self, ...)
             end
         end
@@ -1076,13 +1180,25 @@ do
         surface.SetMaterial = function(mat, ...)
             local on, source = active()
             if on then source = caller() end
-            policy.surfaceInert = on and (policy.inertMaterials[mat] or
-                (not policy.bundled(source) and (policy.effect(source) or policy.incompatibleMaterial(mat))))
+            local trusted = on and policy.bundled(source)
+            local lost = on and not trusted and policy.lost(mat)
+            policy.surfaceInert = on and (policy.inertMaterials[mat] or lost or
+                (not trusted and (policy.effect(source) or policy.incompatibleMaterial(mat))))
             if policy.surfaceInert then
-                reject("surface.SetMaterial", "unsupported RTX surface material", source)
+                reject("surface.SetMaterial", lost and "its base texture was refused: drawn as nothing, not its placeholder"
+                    or "unsupported RTX surface material", source)
                 return setMaterial(policy.inertMaterial(), ...)
             end
             return setMaterial(mat, ...)
+        end
+    end
+    -- R27: a texture bound by ID (draw.RoundedBox's corners, draw.TexturedQuad) replaces an earlier refused material,
+    -- so the next textured draws are that texture's, not inert.
+    local setTexture = surface and surface.SetTexture
+    if setTexture then
+        surface.SetTexture = function(...)
+            policy.surfaceInert = false
+            return setTexture(...)
         end
     end
     for _, method in ipairs({"DrawTexturedRect", "DrawTexturedRectUV", "DrawTexturedRectRotated", "DrawPoly"}) do
@@ -1103,12 +1219,15 @@ for _, name in ipairs({"SetMaterial", "MaterialOverride", "BrushMaterialOverride
         render[name] = function(mat, ...)
             local on, source = active()
             if on then source = caller() end
-            local denied = on and (policy.inertMaterials[mat] or
-                (not policy.bundled(source) and (policy.effect(source) or policy.incompatibleMaterial(mat))))
+            local trusted = on and policy.bundled(source)
+            local lost = on and not trusted and policy.lost(mat)
+            local denied = on and (policy.inertMaterials[mat] or lost or
+                (not trusted and (policy.effect(source) or policy.incompatibleMaterial(mat))))
             if name == "SetMaterial" then policy.boundInert = denied end
             if name == "MaterialOverride" and not denied then policy.modelOverride = mat end
             if denied then
-                reject("render." .. name, "unsupported RTX shader draw", source)
+                reject("render." .. name, lost and "its base texture was refused: drawn as nothing, not its placeholder"
+                    or "unsupported RTX shader draw", source)
                 if name == "SetMaterial" then return original(policy.inertMaterial(), ...) end
                 return
             end

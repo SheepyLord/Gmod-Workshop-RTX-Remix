@@ -5,6 +5,8 @@ source and scenario; test_render_guard.py invokes it through LuaJIT. Checks no m
 verified early/native-client RTX proof, idempotence, immediate
 off switch, legacy PostFX/motion-blur behavior, typed/multi-command pins, reviewed numeric enums,
 reserved/invalid allocations, normal texture UI and importer copies, unsupported shaders/depth/MRT,
+a "depth-only" color target given its own depth buffer and materials whose refused base texture draws
+nothing (`hud_composite`, R27),
 sequential and nested views, hook registry/function identity, object self and return values,
 quarantine, timer/cvar callback arguments and private diagnostics. Embedded-NUL console names,
 command bodies, material names/shaders and material paths must be refused before native mocks.

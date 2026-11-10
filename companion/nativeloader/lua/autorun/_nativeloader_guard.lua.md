@@ -84,7 +84,8 @@ ErrorNoHaltWithStack or callback quarantine. Actual add-on/native API Lua errors
 
 Supported color IDs are -1,0,1,2,3,4,11,12,16,24,25,27; raw R32F27 is an explicit MMDHL control.
 The stock size modes 0-9 and depth modes 0-3 are numeric policy constants, independent of later
-add-on enum exports. Depth-only mode 3 is refused. Fractional dimensions follow native truncation;
+add-on enum exports. Depth-only mode 3 is refused, except in a supported color format: R27 allocates that
+as a color target with its own depth buffer (mode 1; ADR 0141). Fractional dimensions follow native truncation;
 full-frame/HDR modes preserve -1/-1. Rounded-up frame buffers are budgeted at rounded-up dimensions.
 Bounds: 16,384 per axis, 64 Mi pixels, estimated 128 MiB color bytes per new target, 128 names and
 512 MiB per virtual source file, 1 GiB total tracked Lua allocations. Canonical cache-name reuse
@@ -235,3 +236,18 @@ native lookups can return transient wrappers. The regression repeats 300 preview
 wrappers without exhausting the material budget. The DX7 fallback uses a representative base map
 through the global studio override; entity submaterials are untouched and explicit indexed/global
 caller overrides retain precedence. Multi-material/custom-shader thumbnails are approximate.
+
+R27 ([ADR 0141](../../../../docs/decisions/0141-depth-only-colour-targets-and-refused-base-textures.md)): a
+"depth-only" request in a supported color format (HUD Mk.2 draws its whole HUD into one and that target over the
+screen; stock GMod gives it a color target) becomes a color target with its own depth buffer, with one note in the
+new `adapted` records; only the 8-bit color formats (0-4, 11, 12, 16), since default, float, 16-bit and R32F formats
+are what real depth passes use. A material Lua created (`CreateMaterial`; `policy.created`, at most 8,192 names) whose
+`$basetexture` binding the guard refuses because of the texture itself (not an effect-source caller) is marked by its
+name (`policy.setLost`, `policy.lost`): untrusted surface and render bindings of it bind the transparent material and
+the draws after them are skipped, rather than drawing its placeholder (HUD Mk.2's `models/debug/debugwhite` covered the
+screen); a binding of `$basetexture` that goes through, or `SetShaderAndParams`, clears the mark, and `surface.SetTexture`
+ends the refusal of the material bound before it. Loaded materials are shared and keep drawing with their own texture;
+bundled callers keep native behaviour. The exact names of targets the guard refused and the engine never allocated
+(`policy.refuseName`, cleared by `policy.allowName` on a later allocation, never an `_rt_` name, at most 1,024) are
+refused as a `$basetexture` like the inert target, at a material's first creation and in `SetTexture`/`SetString`. The `hud_composite` scenario of
+[`render_guard_harness.lua`](../../../../tools/tests/render_guard_harness.lua.md) covers each.

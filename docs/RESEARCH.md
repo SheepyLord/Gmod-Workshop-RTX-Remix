@@ -6440,3 +6440,37 @@ The PoC's `bin/win64/filesystem_stdio.dll`: 970,064 bytes, linked 2026-10-26 20:
 - **The off switch cannot be a convar the menu reads**: the add-on's `nativeloader_load_accel` is a client realm's
   Lua convar, which the menu realm does not see (R24, above), so the client keeps `data/nativeloader/load_accel_off.txt`
   for the menu while it is 0.
+
+## R27: HUD add-ons and render targets under RTX (2026-11-09)
+
+- **HUD Mk.2 (Workshop 3505713469, `lua/hud_mkii/utils/sfx.lua`)** asks at `timer.Simple(0)` for
+  `GetRenderTargetEx('NeneS-hud-hudrt-<W>-<H>', W, H, RT_SIZE_NO_CHANGE, MATERIAL_RT_DEPTH_ONLY, 16+256+512+32768,
+  CREATERENDERTARGETFLAGS_UNFILTERABLE_OK, IMAGE_FORMAT_RGBA8888)`, creates three `UnlitGeneric` materials with
+  `$basetexture models/debug/debugwhite` (`$translucent`, alpha 0.75; two tinted, one `$additive`) and sets the target
+  as their base texture. Each frame it pushes the target, clears it (`render.Clear(0, 0, 0, 0, true, true)`), draws the
+  HUD (stencil masks in `utils/rect.lua`, scanlines with `render.OverrideBlend(true, SRC_ALPHA, SRC_ALPHA, ADD, ZERO,
+  ONE, ADD)`), pops it and draws the three materials over the screen.
+- **Stock GMod** (the PoC without RTX) gives that request a colour target: the material's base texture became
+  `nenes-hud-hudrt-1280-720` and the HUD drew normally.
+- **Under RTX before R27** the guard refused the target (ADR 0086), refused the three `SetTexture` calls (inert target),
+  made the push virtual (its clears and textured draws skipped) and let the composite through with
+  `models/debug/debugwhite`: the screen was white.
+- **A full-screen colour target under RTX** (a probe, 1280x720 RGBA8888, 90 frames of 2D into it and 90 of it over the
+  screen, `MATERIAL_RT_DEPTH_NONE`, `_SHARED` and `_SEPARATE`, clears of colour or of all, stencil and colour/alpha
+  write overrides): no fault in any. The stencil test inside the target works with `_SEPARATE`, `_SHARED` and with
+  `_ONLY` allocated natively (the guard switched off for the allocation); `_NONE` has no stencil (lines everywhere).
+- **Separate alpha blending in a target under RTX**: black lines drawn over a transparent target with alpha factors
+  ZERO/ONE ("keep the target's alpha"), the target then drawn over the screen: stripes outside the drawn rectangle 0.1
+  levels without RTX, 2.7 with RTX; with alpha writes off for the pass also 2.8; plain blending 4.7 and 6.7. HUD Mk.2's
+  scanlines therefore show faintly over the whole screen under RTX (7.8 levels on the sky against 0.1 with them off).
+- **Two crashes during the checks were not the fix's**: two PoC sessions with both add-ons ended in an access
+  violation in `shaderapidx9.dll+0xd7ff` (a mesh's vertex buffer null at `SetStreamSource`, `[rbx+28h]`; the frames
+  below are `materialsystem.dll` and `engine.dll`, not the 2D surface), at 17:06 and 17:15 local, while another
+  session's RTX game ran its RAM-exhaustion reproduction on the same GPU and crashed itself at 16:54, 17:04 and 17:13;
+  that game, without this change, also ended in the same `engine.dll` 0xC0000409 at 16:07, 17:49, 17:56 and 18:01
+  (GMod's crash handler after a fault). The dump recorded 32 GiB of RAM available and a peak commit of 104 GiB. Later
+  sessions with both add-ons and the fix passed (two), as did HUD Mk.2 alone, a step-by-step bisect of its effects and
+  every render-target probe.
+- **The loader's running-game check refused a deployment once** ("Garry's Mod is running from this folder") while
+  another copy's game ran: `deploy.cpp` `game_running` counts a `gmod.exe` it cannot open (`ERROR_ACCESS_DENIED`) as
+  running from this folder; at the next start every other `gmod.exe` could be opened and the deployment went through.

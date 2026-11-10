@@ -134,8 +134,8 @@ local mutationCalls=0
 for _,method in ipairs({"SetShader","SetShaderAndParams","SetTexture","SetString","SetInt","SetFloat","SetVector","SetMatrix","SetUndefined","Recompute"}) do
     materialMeta[method]=function(self,key,value) mutationCalls=mutationCalls+1 self[key or "recomputed"]=value or true end
 end
-local function material(shader,data)
-    return setmetatable({shader=shader,data=data or {},
+local function material(shader,data,name)
+    return setmetatable({shader=shader,data=data or {},name=name,GetName=function(self)return self.name end,
         GetShader=function(self)shaderQueries=shaderQueries+1 return self.shader end,
         GetString=function(self,key)stringQueries=stringQueries+1 return self.data[key] end,
         GetTexture=function(self,key)return self.data[key] end,
@@ -147,12 +147,12 @@ function materialMeta:SetString(key,value) mutationCalls=mutationCalls+1 self.da
 function materialMeta:SetTexture(key,value) mutationCalls=mutationCalls+1 self.data[key]=value end
 function CreateMaterial(name,shader,data)
     if name~="_nativeloader_inert_material_v1" then created[#created+1]={name,shader,data} end
-    nativeMaterials[name]=nativeMaterials[name] or material(shader,data)
+    nativeMaterials[name]=nativeMaterials[name] or material(shader,data,name)
     return nativeMaterials[name]
 end
 function Material(name,...)
     mats[#mats+1]=name materialRequests[#materialRequests+1]={name,...}
-    nativeMaterials[name]=nativeMaterials[name] or material(name=="bad_shader" and "screenspace_general" or "UnlitGeneric")
+    nativeMaterials[name]=nativeMaterials[name] or material(name=="bad_shader" and "screenspace_general" or "UnlitGeneric",nil,name)
     return nativeMaterials[name]
 end
 local depthCalls,quadCalls,setMaterialCalls,rtExCalls,targetQueries=0,0,0,0,0
@@ -185,7 +185,7 @@ render.DrawQuad=render.DrawScreenQuad
 render.DrawSprite=render.DrawScreenQuad
 render.BrushMaterialOverride=render.MaterialOverride
 render.WorldMaterialOverride=render.MaterialOverride
-surface={SetMaterial=nativeMaterialArgument,DrawTexturedRect=function()surfaceDraws=surfaceDraws+1 end}
+surface={SetMaterial=nativeMaterialArgument,DrawTexturedRect=function()surfaceDraws=surfaceDraws+1 end,SetTexture=function()end}
 surface.DrawTexturedRectUV=surface.DrawTexturedRect
 function render.DepthRange(a,b) depthRange={a,b} end
 function render.PushCustomClipPlane() clipDepth=clipDepth+1 end
@@ -539,6 +539,77 @@ elseif scenario=="targets" then
     eq(rtExCalls,calls+3)
     for _,slot in ipairs({4,-1,1.5}) do denied(function()render.SetRenderTargetEx(slot,nil)end) end
     eq(rtExCalls,calls+3)
+elseif scenario=="hud_composite" then
+    -- R27 (ADR 0141): HUD Mk.2 asks for a "depth-only" full-screen target in a colour format, draws its HUD into it
+    -- and that target over the screen; refused, its composite showed the white placeholder over everything.
+    local before=#rtCalls
+    local rt=GetRenderTargetEx("NeneS-hud-hudrt-1920-1080",1920,1080,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_ONLY,33552,4,IMAGE_FORMAT_RGBA8888)
+    eq(#rtCalls,before+1,"allocated natively") eq(rtCalls[#rtCalls][5],MATERIAL_RT_DEPTH_SEPARATE,"a colour target with its own depth buffer")
+    eq(rt.name,"NeneS-hud-hudrt-1920-1080","not the inert target") eq(fallbackRTCalls,0)
+    local noted=false
+    for _,line in ipairs(messages) do noted=noted or line:find("depth-only colour target given its own depth buffer",1,true)~=nil end
+    assert(noted,"one note says so")
+    local hud=CreateMaterial("NeneS-hud-hudrt","UnlitGeneric",{["$basetexture"]="models/debug/debugwhite"})
+    hud:SetTexture("$basetexture",rt) eq(hud.data["$basetexture"],rt,"bound")
+    render.PushRenderTarget(rt) eq(currentRT,rt) render.Clear(0,0,0,0,true,true) eq(clearCalls,1) render.PopRenderTarget()
+    surface.SetMaterial(hud) surface.DrawTexturedRect(0,0,1920,1080) eq(surfaceDraws,1,"the composite is drawn")
+    -- A depth-only request in a format with no colour still gets the inert target; a material Lua created whose base
+    -- texture was refused draws nothing, not its placeholder, until a binding goes through.
+    local depth=GetRenderTargetEx("realdepth",512,512,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_ONLY,0,0,9999)
+    eq(fallbackRTCalls,1,"the inert target")
+    local placeholder=CreateMaterial("composite","UnlitGeneric",{["$basetexture"]="models/debug/debugwhite"})
+    denied(function()placeholder:SetTexture("$basetexture",depth)end)
+    eq(placeholder.data["$basetexture"],"models/debug/debugwhite","the binding was refused")
+    surface.SetMaterial(placeholder) surface.DrawTexturedRectUV(0,0,1920,1080,0,0,1,1) eq(surfaceDraws,1,"not drawn")
+    local binds=setMaterialCalls
+    render.SetMaterial(placeholder) eq(setMaterialCalls,binds+1,"the transparent material bound instead")
+    eq(render.DrawScreenQuad(),nil) eq(quadCalls,0,"no quad")
+    placeholder:SetTexture("$basetexture",rt) eq(placeholder.data["$basetexture"],rt)
+    surface.SetMaterial(placeholder) surface.DrawTexturedRect(0,0,1920,1080) eq(surfaceDraws,2,"drawn again")
+    render.SetMaterial(placeholder) eq(render.DrawScreenQuad(),"quad")
+    -- Naming a refused target, by creation or by SetString, is refused the same way.
+    local named=CreateMaterial("named","UnlitGeneric",{["$basetexture"]="RealDepth"})
+    surface.SetMaterial(named) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,2,"created naming a refused target")
+    local later=CreateMaterial("later","UnlitGeneric",{["$basetexture"]="models/debug/debugwhite"})
+    denied(function()later:SetString("$basetexture","realdepth")end)
+    surface.SetMaterial(later) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,2,"SetString of a refused name")
+    -- A shared loaded material keeps its own texture and keeps drawing.
+    local shared=Material("shared_stock")
+    denied(function()shared:SetTexture("$basetexture",depth)end)
+    surface.SetMaterial(shared) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,3,"a loaded material still draws")
+    -- A texture bound by ID after a refused material draws (draw.RoundedBox's corners).
+    surface.SetMaterial(placeholder) placeholder:SetTexture("$basetexture",depth)
+    surface.SetMaterial(placeholder) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,3,"refused again")
+    surface.SetTexture(5) surface.DrawTexturedRectUV(0,0,10,10,0,0,1,1) eq(surfaceDraws,4,"SetTexture ends the refusal")
+    -- A name refused, then allocated: it is a real target, and binding or naming it draws.
+    GetRenderTargetEx("mirror_rt",64,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,16384,0,IMAGE_FORMAT_RGBA8888)
+    local mirror=GetRenderTargetEx("mirror_rt",64,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,0,0,IMAGE_FORMAT_RGBA8888)
+    eq(mirror.name,"mirror_rt","allocated on the second request")
+    local mirrored=CreateMaterial("mirrored","UnlitGeneric",{["$basetexture"]="models/debug/debugwhite"})
+    mirrored:SetTexture("$basetexture",mirror) eq(mirrored.data["$basetexture"],mirror)
+    surface.SetMaterial(mirrored) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,5,"its binding goes through")
+    local byname=CreateMaterial("byname","UnlitGeneric",{["$basetexture"]="mirror_rt"})
+    surface.SetMaterial(byname) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,6,"and naming it draws")
+    -- A name allocated, then refused once: still its texture. Names are exact: rt_scale_0.75 is not rt_scale_0.5.
+    GetRenderTargetEx("shared_rt",64,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,0,0,IMAGE_FORMAT_RGBA8888)
+    GetRenderTargetEx("shared_rt",0,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,0,0,IMAGE_FORMAT_RGBA8888)
+    GetRenderTargetEx("rt_scale_0.75",0,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,0,0,IMAGE_FORMAT_RGBA8888)
+    GetRenderTargetEx("rt_scale_0.5",64,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,0,0,IMAGE_FORMAT_RGBA8888)
+    GetRenderTargetEx("_rt_FullFrameFB",0,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_SEPARATE,0,0,IMAGE_FORMAT_RGBA8888)
+    for i,name in ipairs({"shared_rt","rt_scale_0.5","_rt_FullFrameFB"}) do
+        local m=CreateMaterial("uses_"..i,"UnlitGeneric",{["$basetexture"]=name})
+        surface.SetMaterial(m) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,6+i,name.." still draws")
+    end
+    -- Created naming a refused target, then bound to a real one: drawn again. A repeat creation of a name changes nothing.
+    local lazy=CreateMaterial("lazy","UnlitGeneric",{["$basetexture"]="realdepth"})
+    surface.SetMaterial(lazy) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,9,"lost at creation")
+    lazy:SetTexture("$basetexture",rt) surface.SetMaterial(lazy) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,10)
+    local again=CreateMaterial("NeneS-hud-hudrt","UnlitGeneric",{["$basetexture"]="realdepth"})
+    surface.SetMaterial(again) surface.DrawTexturedRect(0,0,10,10) eq(surfaceDraws,11,"the cached material keeps drawing")
+    -- Depth-only in a float format is what real depth passes use: still the inert target.
+    local calls=#rtCalls
+    GetRenderTargetEx("float_depth",64,64,RT_SIZE_NO_CHANGE,MATERIAL_RT_DEPTH_ONLY,0,0,24)
+    eq(#rtCalls,calls,"not allocated")
 elseif scenario=="shaders" then
     eq(CreateMaterial("depth","DepthWrite",{}):GetShader(),"DepthWrite")
     eq(CreateMaterial("fx","SCREENSPACE_GENERAL",{}):GetShader(),"SCREENSPACE_GENERAL")

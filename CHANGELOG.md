@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### R27: HUD add-ons that turned the screen white
+
+- **No white screen from HUD add-ons under RTX**
+  ([ADR 0141](docs/decisions/0141-depth-only-colour-targets-and-refused-base-textures.md),
+  [R27](docs/handover/R27-report.md); the user's report of 2026-11-09 with HUD Mk.2 and SYNTHETIK targets health bars):
+  HUD Mk.2 draws its HUD into a full-screen render target it asks for as "depth-only" in a colour format and then
+  that target over the screen. The render guard refused the target, then the materials' binding to it, so the
+  composite drew their white placeholder over everything. Now a depth-only request in a colour format becomes a colour
+  target with its own depth buffer (stock GMod gives these add-ons a colour target too), so HUD Mk.2 draws as designed;
+  and, for any add-on, a material whose base texture the guard refuses draws nothing instead of its placeholder, and
+  the name of a refused target is refused like the target. SYNTHETIK targets health bars drew correctly throughout.
+  HUD Mk.2's scanlines show faintly over the whole screen under RTX (the runtime's blending in render targets);
+  `hud_mk2_scanline 0` turns them off.
+- Tests: the render guard's `hud_composite` scenario ([`test_render_guard.py`](tools/tests/test_render_guard.py.md)).
+
 ### Skills: the A24 Backrooms Movie map remastered
 
 - **`remix-map-pbr` learns from gm_brmovie_complete** (the user's request of 2026-11-09: an RTX Remix

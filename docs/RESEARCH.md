@@ -6733,3 +6733,14 @@ and every new import crashed the game once the importer showed it. Handover:
   order: 20 passes, 246 pieces in 21 s, merge 24-27 s (the merge costs every pair: about n^2 pair costs, 0.4-1.7 ms
   each); Ganyu's mesh: 10 passes, 36 pieces in 5.1 s, merge 2.0 s. The detailed asset ids are the same before and
   after this round's change.
+- **Reproduced in the PoC** (the published package, RTX on, `mat_queue_mode 2`, gm_construct, 1280x720): the flower
+  imported, placed and drawn for 1,078 frames, imported again with detailed collision, then about 3 s after a character
+  import the game died (exit 0xC0000409, GMod's handler after the first fault). GMod's report: client Lua in
+  `DrawModel` <- `addons/remixbinary/lua/remixlua/cl/cl_rtx_misc.lua:145` (the RTX fixes' wrapper of `DrawModel`) <-
+  `mmdhl/props/render.lua:15` (the proxy's `ENT:Draw`, which `Entity:DrawModel` called on a drawn proxy) <- `:272`
+  `drawPieces` <- `DrawAsset` <- `entities/mmdhl_prop/cl_init.lua:22`; its dump: the access violation at
+  `studiorender.dll+0x6603b` from `+0x141b9`, `r14` 0, `r15` 0x388, a garbage `rbx` (`0x3b15a5be3c00`), as in the
+  user's dump. With static props drawn directly, the same sequence at 2560x1440 (the preview painting too) ran to a
+  normal quit. One earlier run of the published package did not crash in 155 frames of a preview that never painted.
+- **The importer's percentage in the game** is `library.progress`, the largest `progress` the worker's `status.json`
+  reported (polled every 0.1 s): the published package's detailed import showed 65 % from 0.2 s to 41.3 s.

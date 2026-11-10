@@ -67,7 +67,7 @@ about 80-90 % to the end. The worker's output is unchanged (the same asset ids b
   `render.SetMaterial` and `IMesh:Draw`, in the colour pass and in `render.RenderFlashlights`, as R4's glass shards do.
   A coloured prop (colour tool, the tool's translucent ghost) draws with materials of its colour, eight colours a
   prop; released meshes are destroyed eight frames late.
-- **Verified in the PoC** with the package built here: see "Checked in the PoC".
+- **Verified in the PoC** with the package built here (see "Checked in the PoC"): the same sequence at 2560x1440, where the importer's preview also paints, with no crash.
 
 ## Checked in the PoC
 
@@ -81,7 +81,17 @@ with detailed collision, then Ganyu (`甘雨.pmx`, a character) imported, shown 
 |---|---|---|
 | `repro-151943` (1280x720) | published (item 3829070317, `0.0.0-dev.20261110142116+be270f89`) | no crash; the preview never painted at 720p (the window leaves it no room), the placement failed (aimed only client-side) |
 | `repro-153720` (1280x720) | the same | **crashed** as above, after 1,078 frames of the placed flower and the character's import |
-| `verify-154149` (2560x1440) | built here (`gmod-rtx-remix-0.0.0-dev.20261110223921_3d75f479`, SHA-256 `c06f1a47...`) | (pending) |
+| `verify-154149` (2560x1440) | built here (`gmod-rtx-remix-0.0.0-dev.20261110223921_3d75f479`, SHA-256 `c06f1a47...`) | **no crash**, a normal quit, all seven screenshots: the flower imported in 0.27 s (single hull), shown by the importer's preview for 557 frames and placed and looked at for 681; the detailed import ran (the choice back to the single hull after it starts, the registry recording `balanced` for that asset only); Ganyu imported (6.3 s), shown by the importer, spawned as a ragdoll beside the flower |
+
+The percentage the importer showed in the game (`HLQA_PROGRESS`, every change of `library.progress`):
+
+| Import | Published package (`repro-153720`) | Built here (`verify-154149`) |
+|---|---|---|
+| The flower, single hull | 0 %, 99 %, 100 % in 0.2 s | the same |
+| The flower, detailed | 0 %, then **65 % for 41 s**, then 100 % (3 updates) | 59 updates: 18 % at 3 s, 37 % at 25 s, 53 % at 34 s, 75 % at 40 s, 90 % at 55 s, 100 % at 58 s |
+| Ganyu, character | 12 updates; 91 % from 2.6 to 3.8 s | 24 updates; 51 % at 3.3 s, 72 % at 4.1 s, 94 % at 5.2 s |
+
+The verify run's detailed import took 58 s against 41 s because the C++ test gate was compiling on the same machine; the screenshots `shot-04-flower-detailed-progress.png` show "Decomposing collision 64%" (published, 12 s in, as for its whole 41 s) and "Decomposing collision 24%" (built here, 12 s in). Evidence: `out/hlfix/qa/<run>/` in the main checkout (each run's `qa-summary.json`, `restoration.json`, `poc/<session>/` with the console and screenshots; the crash's GMod report and dump in `repro-153720/hl-repro-crash/`).
 
 ## Tests
 
@@ -93,6 +103,8 @@ with detailed collision, then Ganyu (`甘雨.pmx`, a character) imported, shown 
   setting. It fails at once against the old files.
 - The add-on's catalogs: `tools\check_addon_i18n.py`, 0 problems; the existing Hotloader tests pass.
 - Offline imports with `mmdhl_worker.exe --request` (`out/hlfix/time_import.py`): the timings above, the same asset ids.
+- `tools\test.ps1 -Config Release` in `out\worktrees\hlfix`: all checks passed (CTest 30 of 30, 791 Python tests, one
+  skipped).
 
 ## Built and recorded
 

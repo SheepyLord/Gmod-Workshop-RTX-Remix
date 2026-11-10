@@ -117,6 +117,15 @@ The verify run's detailed import took 58 s against 41 s because the C++ test gat
 - New SHA-256: `gmcl_mmdhl_win64.dll` `8cb7a7a2...`, `gmsv_mmdhl_win64.dll` `2a209177...`,
   `mmdhl_runtime_win64.dll` `1a357381...`, `mmdhl_worker.exe` `88fd2d60...`.
 
+## Published
+
+`main` was fast-forwarded to `c90801c` and pushed (`c0c55fb..c90801c`, four LFS objects, 6.2 MB). The merge's hook built
+the package here and uploaded it to item 3829070317 as **0.0.0-dev.20261110225814+5855bc92** (2,183,945,449 bytes,
+SHA-256 `2829de2a8831ae9329489495ddd6813d7f503bbacb698a13c4b8602bfcf89251`; gmpublish's "Couldn't initialize Steam!"
+passed by the publisher's own retry); its content digest `9664b706...` is that of the package checked in the PoC
+(`verify-154149`). The push's hook found the inputs unchanged. No GitHub Action was started; the loader (0.16.0) and
+the runtime are unchanged.
+
 ## Not done, follow-ups
 
 - The fixes part's Seamless Portals (`seamless_portal/cl_init.lua`) still draw through `GetRenderMesh` and `DrawModel`,

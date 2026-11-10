@@ -6742,5 +6742,17 @@ and every new import crashed the game once the importer showed it. Handover:
   `studiorender.dll+0x6603b` from `+0x141b9`, `r14` 0, `r15` 0x388, a garbage `rbx` (`0x3b15a5be3c00`), as in the
   user's dump. With static props drawn directly, the same sequence at 2560x1440 (the preview painting too) ran to a
   normal quit. One earlier run of the published package did not crash in 155 frames of a preview that never painted.
+- **The preview alone crashes it.** At 2560x1440, where the importer's preview paints, the previous package crashed
+  the PoC 52 s into the session, while the preview showed the flower just imported: the same fault, `rbx`
+  `0x18000000000` as in the user's dump (`r14` 0, `r15` 0x388); the fixed package ran the whole sequence there.
 - **The importer's percentage in the game** is `library.progress`, the largest `progress` the worker's `status.json`
   reported (polled every 0.1 s): the published package's detailed import showed 65 % from 0.2 s to 41.3 s.
+- **Seamless Portals took the same path** (2026-11-10, [portals-render-mesh-report.md](handover/portals-render-mesh-report.md)):
+  the fixes part's portal drew its frame with `self:DrawModel()` from `ENT:DrawStenciled` through an
+  `ENT:GetRenderMesh` that returned its cylinder mesh with its size as `Matrix`, re-entering `ENT:Draw` through a
+  `draw_model` flag (`DrawModel` called outside the entity's own draw calls `ENT:Draw`). With the published package
+  of 2026-11-10 (the Hotloader fixed, the portal not), `seamless_portals_remix 0` and `mat_queue_mode 2`, the PoC
+  died about 2 s after a linked pair was spawned with `gm_spawnsent seamless_portal`: `studiorender.dll+0x6603b`,
+  `r14` 0, `r15` 0x388, a garbage `rbx`. Drawn with `ENT:DrawModelMesh` instead, the same session ran 70 s with two
+  pairs. Only portals the runtime does not render itself reach that code (unlinked, past its portal slots, or with
+  `seamless_portals_remix 0`).

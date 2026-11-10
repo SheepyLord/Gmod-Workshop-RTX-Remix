@@ -81,6 +81,7 @@ with detailed collision, then Ganyu (`甘雨.pmx`, a character) imported, shown 
 |---|---|---|
 | `repro-151943` (1280x720) | published (item 3829070317, `0.0.0-dev.20261110142116+be270f89`) | no crash; the preview never painted at 720p (the window leaves it no room), the placement failed (aimed only client-side) |
 | `repro-153720` (1280x720) | the same | **crashed** as above, after 1,078 frames of the placed flower and the character's import |
+| `repro-160807` (2560x1440, after the publish) | the previous published package, still the Workshop folder's copy (`0.0.0-dev.20261110142116+be270f89`) | **crashed** 52 s in, while the importer's preview showed the newly imported flower: the same access violation at `studiorender.dll+0x6603b` with `rbx` `0x18000000000`, the value in the user's dump |
 | `verify-154149` (2560x1440) | built here (`gmod-rtx-remix-0.0.0-dev.20261110223921_3d75f479`, SHA-256 `c06f1a47...`) | **no crash**, a normal quit, all seven screenshots: the flower imported in 0.27 s (single hull), shown by the importer's preview for 557 frames and placed and looked at for 681; the detailed import ran (the choice back to the single hull after it starts, the registry recording `balanced` for that asset only); Ganyu imported (6.3 s), shown by the importer, spawned as a ragdoll beside the flower |
 
 The percentage the importer showed in the game (`HLQA_PROGRESS`, every change of `library.progress`):
@@ -128,8 +129,8 @@ the runtime are unchanged.
 
 ## Not done, follow-ups
 
-- The fixes part's Seamless Portals (`seamless_portal/cl_init.lua`) still draw through `GetRenderMesh` and `DrawModel`,
-  the same path; a portal under queued rendering is exposed to the same fault.
+- The fixes part's Seamless Portals (`seamless_portal/cl_init.lua`) still drew through `GetRenderMesh` and `DrawModel`,
+  the same path. Done afterwards: [portals-render-mesh-report.md](portals-render-mesh-report.md).
 - Detailed collision itself is still slow: CoACD decomposes to a concavity of 0.05 and then merges to 16 hulls, which
   leaves a concavity of about 0.17 anyway; decomposing to a threshold near what 16 hulls reach would be much faster,
   but changes what the option builds, so it was not done here.

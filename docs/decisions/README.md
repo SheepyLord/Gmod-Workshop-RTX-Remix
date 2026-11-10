@@ -244,3 +244,7 @@ Each with the reason it lost.
   every static import slow; it now serves one import. CoACD's passes, read from its log, and an estimate of its merge
   give its stage a percentage, as Source materials and their package do for characters. Static props no longer go
   through `GetRenderMesh` entities, whose `DrawModel` crashed queued rendering at `studiorender.dll+0x6603b`.
+- [0153: No entity in the package hands GMod a Lua mesh to draw; Seamless Portals draw their frame themselves](0153-no-entity-hands-gmod-a-lua-mesh-to-draw.md)
+  (after ADR 0152): an entity whose `GetRenderMesh` returns a Lua mesh, drawn with `DrawModel`, crashes queued
+  rendering at `studiorender.dll+0x6603b`; package code draws such meshes itself under the entity's model matrix, a
+  test scans the package's Lua for it, and the Seamless Portals entity, the last user, draws its frame that way.

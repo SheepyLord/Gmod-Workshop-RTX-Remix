@@ -6,6 +6,22 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## Seamless Portals off the GetRenderMesh path (2026-11-10)
+
+Imported 2026-11-10 with `inputs.py --file`; every other indexed input is unchanged
+([ADR 0153](../../docs/decisions/0153-no-entity-hands-gmod-a-lua-mesh-to-draw.md)).
+
+- `garrysmod/garrysmod/addons/GMod-Seamless-Portals-Remix/lua/entities/seamless_portal/cl_init.lua`: a local change
+  (GPL-2.0, as the part is). A portal drew its frame (backface) with `self:DrawModel()` from `ENT:DrawStenciled`,
+  through an `ENT:GetRenderMesh` that returned the portal's cylinder mesh scaled by its size, re-entering `ENT:Draw`
+  through a `draw_model` flag. That is the path that crashes the material system's render thread under queued
+  rendering (`mat_queue_mode 2`; `studiorender.dll+0x6603b`, ADR 0152, reproduced in the PoC with the Model
+  Hotloader's static props). The entity has no `GetRenderMesh` now: the frame is the same mesh drawn by
+  `ENT:DrawModelMesh` (the portal's world matrix scaled by its size) with the portal's material bound, before the flat
+  face and the stencilled inside; `ENT:Draw` no longer re-enters itself. Checked without a game by
+  [`tools/tests/seamless_portal_draw_harness.lua`](../../tools/tests/seamless_portal_draw_harness.lua.md), and
+  `tools/tests/test_render_mesh_entities.py` fails on any Lua in the package whose `GetRenderMesh` returns something.
+
 ## R28: the light updater's draw list, no texture preload, the engine guard's crash switch
 
 Imported 2026-11-10 (`inputs.py --file` for the two text files, `repo_builds.py refresh` for the modules); every

@@ -6,6 +6,16 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Seamless Portals off the GetRenderMesh crash path (after the Hotloader report, 2026-11-10)
+
+- **Portals no longer draw through `GetRenderMesh`**
+  ([ADR 0153](docs/decisions/0153-no-entity-hands-gmod-a-lua-mesh-to-draw.md),
+  [handover](docs/handover/portals-render-mesh-report.md)): the fixes part's Seamless Portals drew a portal's frame
+  with `DrawModel` through `ENT:GetRenderMesh`, the path that crashed the game under queued rendering
+  (`mat_queue_mode 2`, `studiorender.dll+0x6603b`; ADR 0152). A portal the Remix runtime does not render itself (an
+  unlinked one, a pair past its portal slots, or `seamless_portals_remix 0`) now draws the same mesh under its model
+  matrix with its material. A test fails on any Lua in the package whose `GetRenderMesh` returns a mesh.
+
 ### The Model Hotloader's imports (the user's report of 2026-11-10)
 
 - **A new import no longer crashes the game when the importer shows it**

@@ -6474,3 +6474,41 @@ The PoC's `bin/win64/filesystem_stdio.dll`: 970,064 bytes, linked 2026-10-26 20:
 - **The loader's running-game check refused a deployment once** ("Garry's Mod is running from this folder") while
   another copy's game ran: `deploy.cpp` `game_running` counts a `gmod.exe` it cannot open (`ERROR_ACCESS_DENIED`) as
   running from this folder; at the next start every other `gmod.exe` could be opened and the deployment went through.
+
+## Issue #2: lag, RAM and the game that lingers after a crash, with 654 Workshop add-ons (2026-11-09, Claude)
+
+Report: [handover/issue-2-memory-report.md](handover/issue-2-memory-report.md). A vanilla copy of the game with the
+published package, the loader's minimum memory profile and low tier, 1920x1080; the 654 public items of collection
+3836929038 mounted with `game.MountGMA`.
+
+- **Where a frame goes** (gm_friluft, hook timing alone): with RTX 7 fps (142.7 ms a frame), 599.9 ms of every second
+  inside client Lua hooks; without RTX 50 fps (19.9 ms), 505.4 ms/s. HyperReal FX (item 3830761570) takes 49.4 ms
+  (`HRX_StageB`, `PreDrawViewModels`) and 17.9 ms (`HRX_StageC`, `RenderScreenspaceEffects`) a frame with RTX,
+  0.46 and 0.31 ms without: its `render.UpdateScreenEffectTexture` copies, full-screen shader passes and
+  `render.CapturePixels`/`ReadPixel` read-back every 0.5 s cost about 90 times more through the runtime.
+- **The fixes' light updater** draws one helper model per map light each frame
+  (`cl_rtx_light_updater.lua:1013-1016`): 1.95 ms a frame for 182 lights on gm_friluft (10.7 us a light); gm_skyport
+  has 4,606.
+- **Hooks with the collection**: 3,150 client hooks and 945 net receivers, 2,547 server hooks and 739 receivers. Many
+  server `Think` hooks walk `ents.GetAll()` every tick; the hottest sampled lines were the base game's
+  `Entity:__index` (`lua/includes/extensions/entity.lua:30`), `IsValid` (`util.lua:316`) and `GetConVarNumber`
+  (`util.lua:588`).
+- **Source's preload pass**: `materialsystem.dll` holds `mat_forcemanagedtextureintohardware` (default 1) and the
+  material `engine/preloadtexture`; at the end of a load every loaded texture is drawn once and the runtime creates
+  its image (7,574 images, 4.87 GB with the collection). At 0 the pass is gone (VRAM peak 10.96 -> 7.06 GB); Lua's
+  `RunConsoleCommand` refuses the convar (`client.dll` lists it beside `mat_picmip`).
+- **Game-texture copies stay resident**: DXVK keeps a managed texture's CPU copy in a host-visible Vulkan buffer
+  (`d3d9_common_texture.cpp:255-283`); at a crash Windows trimmed the game's private working set exactly to its GPU
+  shared memory (6.99 of 6.99 GB) and no further.
+- **Windows Error Reporting snapshots a crashed process** (Windows 11 26300, default settings): the system's commit
+  rises by the process's private bytes while the first WerFault runs (+9.3 GB for an 8 GB Python process with error
+  mode 0, +22-26 GB for the 20 GB RTX game), the page file grows, the process's working set is trimmed; the game took
+  11-12 s to go, and terminating it does not release the snapshot. `WerSetFlags(WER_FAULT_REPORTING_DISABLE_SNAPSHOT_CRASH)`
+  (`werapi.h:69-72`, value 128) removes all of it (+0.06 GB, 5.8 s) and WER still files its report with a dump.
+  A process whose error mode has `SEM_NOGPFAULTERRORBOX` (agent shells pass it on) never reaches WER.
+- **End task** on a frozen or a responsive RTX game (`user32.EndTask(hwnd, FALSE, TRUE)`): gone within a second, no
+  WER, no hang report (window ghosting is off since loader 0.12.1).
+- **GMod's engine fail-fast**: `0xC0000409`, parameter 5, at `engine.dll+0x34b6bc` on a worker thread started at
+  `tier0.dll+0x1c9d0`, in sessions with and without RTX and the collection; WER dumps keep only 4-5 KB of that stack.
+- **`game.MountGMA`** refuses absolute paths and takes paths relative to `garrysmod/`; a map inside a mounted archive
+  logs "Couldn't write cache/map_pack.bsp to mount embedded content!" although GMod writes the file.

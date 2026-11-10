@@ -9,6 +9,10 @@ floating-island maps; faster map loads with hundreds of add-ons, the load accele
 [R26-report.md](R26-report.md), done by Claude with Claude subagents for the sky option and the review (no
 Codex).
 
+Beside it, a diagnosis of GitHub issue #2 (lag, high RAM use, a game that lingers after a crash) with a player's 654
+Workshop add-ons: [issue-2-memory-report.md](issue-2-memory-report.md), by Claude; nothing changed yet, the
+recommended fixes are in the report.
+
 Before it, R25, the user's report of 2026-11-09 (a spawn-menu icon left on the screen by a drag GMod
 never ended; ARC9's magnified scopes path traced through a raytraced render target; ARC9's gun path traced, its
 screen reads and 2D before the view model skipped): [R25-report.md](R25-report.md), done by Claude with Claude

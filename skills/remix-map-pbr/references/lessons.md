@@ -459,6 +459,23 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
   stage); the user also wants idle games closed. Pause the AI stage by stopping its process (a finished job
   keeps its `done.json`; the rest resume) when a game session is needed.
 
+**One map over 4 GB: keep what shows** (BM, 2026-11-09)
+- The user asked for one package under 4 GB; the mod was 8.7 GB (2,349 DDS). Every DDS holds its own mips,
+  so leaving out top levels costs nothing but resolution: packed files decode to the source's own mip
+  (mean difference 0-3 of 255 against a box downscale).
+- `fit_map_mod.py` (workshop-content-pack) reached 3.92 GB by cutting all 29 world textures above 2048 to
+  2048, the halls' wallpaper, carpet and ceilings included; with those kept it had to halve all 566 prop
+  normal maps. It ranks props by placements, so a door knob placed 28 times outranks a bed placed once.
+- The fork's `pack_mod.py` instead keeps the 22 surfaces covering at least 0.2 % of the map (and pictures
+  whose own source is 2048 or more) at 4096, other world textures at 2048 or 1024 by share, and sizes props
+  by texel density over their model's bounding box from the `.mdl` header (6.25 texels per unit fitted),
+  never below the game's own texture; roughness, metallic, height, emission and subsurface one size below
+  their albedo. Flat maps kept as tails would have freed only 23 MB at those sizes.
+- Name the packed mod apart from the full build (`gm_brmovie_complete_rtx_pack`): a package takes over the
+  files at its paths, so under the full build's name it would replace the user's hand-placed 8.7 GB build
+  with the cut one. `nlctl apply` into a scratch game holding both: the mod added, the identical add-on
+  adopted, the full build untouched; `uninstall` left the full build and the add-on.
+
 **The console stops answering** (BR, MH)
 - During a map load, gmRTX's model reloads, Light2RTX processing or a lost device. Wait once; if the device is
   lost, the game must be closed (with permission). Running the AI batch beside the game caused one

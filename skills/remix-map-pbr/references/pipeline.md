@@ -82,7 +82,8 @@ lights, switch groups, pole lights hung under their heads, night lights) and add
 plans per storey with lights and named places), `where.py` (where a material or model is), `survey.py`
 (cameras from the floors), `shoot_points.py` (named points turned to their longest sightline),
 `wait_ready.py` (waits for the map and the add-on), `inspect_tex.py` (crops of source and composed maps),
-`gen_tags.py` (the tag texture of the store's switched-off lights) and `gen_skybox.py` (the 3D skybox at its
+`gen_tags.py` (the tag texture of the store's switched-off lights), `pack_mod.py` (the mod under a byte
+budget by leaving out top mips, sized by what shows, and the native-loader package) and `gen_skybox.py` (the 3D skybox at its
 true scale, displacements decoded). Its add-on adds haze by place (zones), the skybox module
 (`cl_skybox.lua`, props baked into one mesh per material) and `bmrtx_vis`, `bmrtx_skybox`, `bmrtx_lights`.
 
@@ -536,20 +537,20 @@ deletes files the build no longer has. For live iteration the sessions used junc
 with the native loader, a folder the loader deployed is its own: test through a content package instead
 (`testing.md`), or give a hand-copied development mod another folder name (unverified as a workflow).
 
-## How the four maps differ
+## How the five maps differ
 
-| | gm_poolrooms | Backrooms | modern_house | lestnicha3 |
-| --- | --- | --- | --- | --- |
-| Done | 2026-10-26 | 2026-10-27, PAS 2026-10-28 | 2026-10-27, culling fix the same evening, R3-016 2026-10-29 | 2026-11-09 |
-| Textures | 7 materials plus 8 caustic classes, hand-built; 16 DDS, 150 MB | 1162 textures, automated, 3712 DDS, 14 GB | 153 textures, automated, 490 DDS, 3.2 GB | 14 textures, automated, 51 DDS, 0.6 GB (preloaded) |
-| Materials | procedural tile, AI plaster, gate, ladder; tags for water, openings, panels, caustics | recipes per class, damp carpets, muted Level 0 grade, backdrops | recipes per class, hand-made glass, mirrors, LEDs, water wall | recipes per class, `$detail` baked, CC0 scans for grain, the meadow and the plants, a drawn dandelion clock, thin-opaque foliage scattering green |
-| Lights | 116: openings, entities, hall panels | 1700-2700 per map on the fixtures, switched by PAS (80-90 on, at most about 400) | 341 on the fixtures and LED faces, all on | the sun; 22 night lights faded by its elevation |
-| Sky | the map's black skybox | the map's own | physical sky with times of day; painted fallback | physical sky with the mapper's sun, cloud shadows, haze sun, 45 m froxels; follows the companion's time |
-| Visibility | not addressed (whole map drawn by gmRTX) | PAS (`rtx_patch_vis_pas`) | whole map + 31 PVS-cover points | whole map (93 of 94 clusters see each other) |
-| Special | black water fix, triplanar unfolding, caustics, RTX Water | three loading fixes in gmRTX and RTXFixesBinary, light-updater suspension | mirrors, glow sprites, missing texture, pool lights, the skybox-boundary load fix in gmRTX | tint overflow fixed by category, fake shafts hidden, 3D skybox off, the slot under the edging's lips closed by fillets, LZMA BSP |
-| Frame time (4K, RTX 5090) | median 15-16 ms | pitfalls 13.2 ms (stock 121), complex 12.8 ms | 16.6 ms (stock 37.2) | 12.4 ms by day (stock 10.7), 18-19 ms at night in the gallery |
-| Load from `map` | about 142 s | 3.5 min / 4 min | about 2.5 min | seconds (a small map) |
-| Where it ships | fork branch (pushed) and the RTX package's fixes part | local only | hidden item 3829275998 | local branch; installed in the user's game |
+| | gm_poolrooms | Backrooms | modern_house | lestnicha3 | gm_brmovie_complete |
+| --- | --- | --- | --- | --- | --- |
+| Done | 2026-10-26 | 2026-10-27, PAS 2026-10-28 | 2026-10-27, culling fix the same evening, R3-016 2026-10-29 | 2026-11-09 | 2026-11-09 |
+| Textures | 7 materials plus 8 caustic classes, hand-built; 16 DDS, 150 MB | 1162 textures, automated, 3712 DDS, 14 GB | 153 textures, automated, 490 DDS, 3.2 GB | 14 textures, automated, 51 DDS, 0.6 GB (preloaded) | 709 textures, automated, 2349 DDS, 8.7 GB (one 3.92 GB package) |
+| Materials | procedural tile, AI plaster, gate, ladder; tags for water, openings, panels, caustics | recipes per class, damp carpets, muted Level 0 grade, backdrops | recipes per class, hand-made glass, mirrors, LEDs, water wall | recipes per class, `$detail` baked, CC0 scans for grain, the meadow and the plants, a drawn dandelion clock, thin-opaque foliage scattering green | recipes per class with CC0 grain (carpet, paper, plaster, asphalt, concrete), mirrors, glass, a tag for switched-off lights |
+| Lights | 116: openings, entities, hall panels | 1700-2700 per map on the fixtures, switched by PAS (80-90 on, at most about 400) | 341 on the fixtures and LED faces, all on | the sun; 22 night lights faded by its elevation | 2079 on the fixtures in 9 switch groups that follow the map's lights, switched by PAS (58-853 on, median 170) |
+| Sky | the map's black skybox | the map's own | physical sky with times of day; painted fallback | physical sky with the mapper's sun, cloud shadows, haze sun, 45 m froxels; follows the companion's time | physical sky with the mapper's sun; the 3D skybox at its true scale |
+| Visibility | not addressed (whole map drawn by gmRTX) | PAS (`rtx_patch_vis_pas`) | whole map + 31 PVS-cover points | whole map (93 of 94 clusters see each other) | PAS (`rtx_patch_vis_pas`) |
+| Special | black water fix, triplanar unfolding, caustics, RTX Water | three loading fixes in gmRTX and RTXFixesBinary, light-updater suspension | mirrors, glow sprites, missing texture, pool lights, the skybox-boundary load fix in gmRTX | tint overflow fixed by category, fake shafts hidden, 3D skybox off, the slot under the edging's lips closed by fillets, LZMA BSP | live hashes for gmRTX's solid-colour textures, haze by place, the true-scale skybox |
+| Frame time (4K, RTX 5090) | median 15-16 ms | pitfalls 13.2 ms (stock 121), complex 12.8 ms | 16.6 ms (stock 37.2) | 12.4 ms by day (stock 10.7), 18-19 ms at night in the gallery | 13.4 ms median of 32 cameras (stock 79.2) |
+| Load from `map` | about 142 s | 3.5 min / 4 min | about 2.5 min | seconds (a small map) | not measured |
+| Where it ships | fork branch (pushed) and the RTX package's fixes part | local only | hidden item 3829275998 | local branch; installed in the user's game | local branch; installed in the user's game; a package built, not uploaded |
 
 ## Reusable as-is vs map-specific
 

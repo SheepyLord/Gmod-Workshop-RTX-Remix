@@ -35,6 +35,13 @@ Versions follow the loader's CMake project version once it ships; until then eve
   `modelscale` x 16, displacements decoded, the skybox's copy of the playable area left out); the AI
   stage and a game on one GPU losing the device. With PAS visibility and API lights on the fixtures the
   map runs at 13.4 ms a frame where stock GMod RTX takes 79.2 ms (median of 32 cameras, 4K, RTX 5090).
+- **The remaster as one package under 4 GB** (the user's request of 2026-11-09). The fork's `pack_mod.py`
+  fits the 8.7 GB mod into 3.92 GB by leaving out top mip levels (no second encode): the surfaces covering
+  0.2 % of the map or more keep 4096, normal maps keep their albedo's size, props are sized by their
+  model's bounding box and never fall below the game's own texture. The package (`gm-brmovie-complete-rtx`,
+  3,923,815,823 bytes) deploys its mod as `gm_brmovie_complete_rtx_pack`, apart from the full build, which
+  it would otherwise take over; it is built, checked and not uploaded. The skill records when to keep what
+  shows instead of `fit_map_mod.py`'s placement-ranked tiers.
 
 ### R26: the sky without a horizon
 

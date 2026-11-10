@@ -231,7 +231,11 @@ other two maps' equivalents are in `references/pipeline.md`.
     subscribing (loader 0.14.0, ADR 0111). A mod over about 4 GB (one item's limit) is split by map into
     parts that each fit with that skill's `fit_map_mod.py` (top mips left out, no re-encoding; the
     Backrooms' 14 GB went out as two hidden items of 3.85 GB, 3836505482 and 3836505733, "A remaster
-    larger than one item").
+    larger than one item"). One map over 4 GB can keep what shows instead: gm_brmovie_complete's
+    `pack_mod.py` (fork) kept its hero surfaces at 4096 and every normal map at its albedo's size and
+    sized props by their model's bounding box (8.7 GB to one 3.92 GB package, `references/lessons.md`).
+    A packed mod is named apart from the full build (`<mod>_pack`, `<remaster>_<map>`): under the full
+    build's name the package would take over a full build placed by hand.
 
 ## Standards and decisions (with the numbers)
 

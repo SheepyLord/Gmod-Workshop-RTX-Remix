@@ -6,6 +6,16 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## gm_construct_rtx removed (2026-11-10)
+
+The user's request ([ADR 0154](../../docs/decisions/0154-gm-construct-rtx-leaves-the-rtx-package.md)): the map
+gm_construct_rtx confused players beside the gm_construct RTX remaster of GMod's own map. Its five files under
+`garrysmod/garrysmod/addons/remixbinary/maps/` (`gm_construct_rtx.bsp`, `.png`, `.prt`, `.vmf`, `.vmx`) and
+`garrysmod/rtx-remix/mods/base_mod/maps/gm_construct_rtx.usda` left the index and the part. `base_mod/mod.usda`
+was imported with `inputs.py import --file` without that sublayer (514 bytes, SHA-256 `d037f80f...7eb682`); every
+other indexed input is unchanged. The fixes repository still has the map: a part imported from it again must
+leave it out, which [`test_removed_content.py`](../../tools/tests/test_removed_content.py.md) checks.
+
 ## Seamless Portals off the GetRenderMesh path (2026-11-10)
 
 Imported 2026-11-10 with `inputs.py --file`; every other indexed input is unchanged
@@ -44,7 +54,7 @@ other indexed input is unchanged.
 - `garrysmod/garrysmod/cfg/autoexec.cfg`: `mat_forcemanagedtextureintohardware 0` in the RTX section, so it is one
   of the package's session convars: Source no longer draws every loaded texture once at the end of a load, which
   made the runtime create a GPU image for each
-  ([ADR 0142](../../docs/decisions/0142-no-crash-snapshot-of-the-game.md)).
+  ([ADR 0154](../../docs/decisions/0142-no-crash-snapshot-of-the-game.md)).
 - `modules/gmcl_nlengineguard_win64.dll`, `modules/gmsv_nlengineguard_win64.dll`: rebuilt from
   [engine_guard](../../engine_guard/README.md) with `crash_report.cpp`: each realm's load switches Windows Error
   Reporting's crash and hang snapshots off for the game (ADR 0142). `tools/ci/pins.json` records the builds.

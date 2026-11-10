@@ -6,6 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The gm_construct_rtx map leaves the RTX package
+
+- **No more gm_construct_rtx in the RTX package**
+  ([ADR 0154](docs/decisions/0154-gm-construct-rtx-leaves-the-rtx-package.md), the user's request of 2026-11-10):
+  the fixes' separate map gm_construct_rtx (its `.bsp`, thumbnail, `.prt`, `.vmf`, `.vmx`) and its Remix layer
+  `base_mod/maps/gm_construct_rtx.usda` are out of `packages/fixes`, and `base_mod/mod.usda` no longer lists the
+  layer. Next to the gm_construct RTX remaster of GMod's own map, players did not know which to use. The loader
+  removes the deployed map at the next deployment; gm_construct_in_flatgrass_rtx stays.
+- Tests: [`test_removed_content.py`](tools/tests/test_removed_content.py.md) keeps removed content out of a later
+  import of a part from its source repository.
+
 ### Seamless Portals off the GetRenderMesh crash path (after the Hotloader report, 2026-11-10)
 
 - **Portals no longer draw through `GetRenderMesh`**
@@ -40,7 +51,7 @@ Versions follow the loader's CMake project version once it ships; until then eve
 ### R28: GitHub issue 2 (memory at a crash, lag from add-ons) and what else lags an RTX frame
 
 - **A crashed RTX game no longer fills the memory while Windows reports it**
-  ([ADR 0142](docs/decisions/0142-no-crash-snapshot-of-the-game.md), [R28](docs/handover/R28-report.md); GitHub
+  ([ADR 0154](docs/decisions/0142-no-crash-snapshot-of-the-game.md), [R28](docs/handover/R28-report.md); GitHub
   issue 2 and its [diagnosis](docs/handover/issue-2-memory-report.md)): Windows Error Reporting copied the dying
   game before reporting it and charged the copy the game's whole memory again (+22 to +26 GB with a player's 654
   add-ons: the memory gauge at 97-99 %, a frozen desktop, a gmod.exe that stayed after End task). The engine guard

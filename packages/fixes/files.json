@@ -736,6 +736,16 @@
     "dirty": true
    },
    "imported": "2026-11-10T23:06:41+00:00"
+  },
+  "garrysmod/rtx-remix/mods/base_mod/mod.usda": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\.claude\\worktrees\\rtx-remix-flatgrass-construct-98548e\\out\\tmp\\cfrtx_fix\\mod.usda",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/.claude/worktrees/rtx-remix-flatgrass-construct-98548e",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "0eda807631b20ec5698ae2c7ad2cfd5336632666",
+    "dirty": false
+   },
+   "imported": "2026-11-10T23:42:14+00:00"
   }
  },
  "files": {
@@ -1897,44 +1907,6 @@
    "stored_size": 308756,
    "stored_sha256": "891acb08c70de31c5bbf968fa9f539285f9c885f29a3fbdbb00cd01bad31ec13"
   },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.bsp": {
-   "size": 51698684,
-   "sha256": "c56a0d999a579726133bc6739849e8e072edff256be78708716a6473a34233ef",
-   "mtime_ns": 1792912214008192700,
-   "stored": "xz",
-   "stored_size": 12305924,
-   "stored_sha256": "3065a978baffd1623d944411665608b95b654bb447db1048b8e95069565b0558"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.png": {
-   "size": 20399,
-   "sha256": "e6e34ccbff2076481bdc6f16197a4083bd22159861d81124a3c526b1f983eb32",
-   "mtime_ns": 1792912214010192900,
-   "stored": "xz",
-   "stored_size": 20460,
-   "stored_sha256": "998ac1243eeb8ecaecc6a2782a51a352a49be89b6ae49f59336b09985bf3aa57"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.prt": {
-   "size": 138196,
-   "sha256": "fbb67602f91e36881c13474f273c66ac8bd1a366389f09a121b2e53ba0fa8769",
-   "mtime_ns": 1792912214010192900,
-   "stored": "plain"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.vmf": {
-   "size": 7173562,
-   "sha256": "f1ef69fe79baa4350bdfdd81db09b5332d3e5a339ce6733c5a9f4191f2030a28",
-   "mtime_ns": 1792912214026737100,
-   "stored": "xz",
-   "stored_size": 381552,
-   "stored_sha256": "97575bc99a0681387345425d4d1a2e0804ba0f69fb367709289d29796b393a34"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.vmx": {
-   "size": 5282675,
-   "sha256": "cc43b5242c0f4fb08bccc936386dcd295501fe2987c7c3a09f48d9178fee78bb",
-   "mtime_ns": 1792912214037243300,
-   "stored": "xz",
-   "stored_size": 278172,
-   "stored_sha256": "c580275803c3372d3bef9a708f00d27a2266df297664d8d82e961e1e3e004447"
-  },
   "garrysmod/garrysmod/addons/remixbinary/materials/debug/debugwhite.png": {
    "size": 976,
    "sha256": "43dce9c30846e6d8424dd9322e43e7c8a04a76330ccb3d9264e1e89f1102fa41",
@@ -2671,12 +2643,6 @@
    "mtime_ns": 1792912214060258200,
    "stored": "plain"
   },
-  "garrysmod/rtx-remix/mods/base_mod/maps/gm_construct_rtx.usda": {
-   "size": 15990,
-   "sha256": "c8e3efea75ac69be072a187612dde820b46c721796e105d0de7d7fbdd86ef7b0",
-   "mtime_ns": 1792912214061762000,
-   "stored": "plain"
-  },
   "garrysmod/rtx-remix/mods/base_mod/marker/marker.usda": {
    "size": 728,
    "sha256": "9b15d177e637e1f2807f90f788c71669d46325c9e71022e501dac829ad471618",
@@ -2738,9 +2704,9 @@
    "stored_sha256": "bdd65ad979ddca4bdc814749f6cebf5554bf627a8436a9c0e672d971b681b2cf"
   },
   "garrysmod/rtx-remix/mods/base_mod/mod.usda": {
-   "size": 555,
-   "sha256": "0980d9e08f768e250d84dad74349f5805f16a5cd07fb44f7ab1fb409e13c430d",
-   "mtime_ns": 1792912214070765700,
+   "size": 514,
+   "sha256": "d037f80f6b4d771a7f6d912956b917d5e102cb49602c43c9d701af920e7eb682",
+   "mtime_ns": 1794353885981407900,
    "stored": "plain"
   },
   "garrysmod/rtx-remix/mods/base_mod/water/replacements.usda": {

@@ -248,3 +248,7 @@ Each with the reason it lost.
   (after ADR 0152): an entity whose `GetRenderMesh` returns a Lua mesh, drawn with `DrawModel`, crashes queued
   rendering at `studiorender.dll+0x6603b`; package code draws such meshes itself under the entity's model matrix, a
   test scans the package's Lua for it, and the Seamless Portals entity, the last user, draws its frame that way.
+- [0154: The gm_construct_rtx map leaves the RTX package](0154-gm-construct-rtx-leaves-the-rtx-package.md)
+  (the user's request, 2026-11-10): the fixes' separate gm_construct_rtx map and its `base_mod` layer leave
+  `packages/fixes`, beside the gm_construct RTX remaster of GMod's own map; `test_removed_content.py` keeps them
+  out of a later import from the fixes repository; gm_construct_in_flatgrass_rtx stays.

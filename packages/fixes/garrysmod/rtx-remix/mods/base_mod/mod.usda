@@ -11,8 +11,7 @@
         @./mirrors/replacements.usda@,
         @./marker/marker.usda@,
         @./breakable_glass/glass.usda@,
-        @./flashlight/flashlight.usda@,
-        @./maps/gm_construct_rtx.usda@
+        @./flashlight/flashlight.usda@
     ]
     timeCodesPerSecond = 24
     upAxis = "Z"

@@ -495,8 +495,9 @@ with the laser; the dominant hand. From what V1 found I would put five things in
   `construct-085`), `out\vr\review` (the reviews), `out\vr\s1`, `s5`, `c`, `d`, `e` (the spikes and the tasks). The
   bulky copies of the PoC that failed runs had kept were deleted after their restorations were verified; logs,
   numbers, dumps and pictures stay.
-- **The machine as it was left:** SteamVR running (never quit, no setting changed), no game running, no lock held,
-  the PoC restored and verified after every run, the field install untouched, Steam's registry untouched.
+- **The machine as it was left:** SteamVR running (never quit by this work, no setting changed; see the last note
+  of "Approval and merge" for who started it), no game running, no lock held, the PoC restored and verified after
+  every run, the field install untouched, Steam's registry untouched.
 
 ## Approval and merge (2026-11-10)
 
@@ -533,3 +534,9 @@ with the laser; the dominant hand. From what V1 found I would put five things in
 - **A note for the next squash merge.** Staging a squash makes git run the merge hook before the commit exists. The
   publish tool refused that run, because the packaging inputs were still uncommitted, and published from the
   commit's own hook a moment later: nothing went out early, but the first log of such a merge is a refusal.
+- **SteamVR was started by the fix's proof.** SteamVR ran during the user's looks and was no longer running when
+  the proof of the fix began (its process list of 22:43 has no SteamVR process). The proof's look pressed Start VR
+  at 22:45, which starts SteamVR when it is not running, and SteamVR was left running afterwards rather than
+  closed; the user was told. The session driver does not check that SteamVR is running before an agent's test. It
+  should refuse then, as the user's rule for these tests says ("if SteamVR is not available, tell me"); that
+  check belongs to the next change of the tool.

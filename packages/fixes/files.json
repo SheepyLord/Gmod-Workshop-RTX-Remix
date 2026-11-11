@@ -1877,36 +1877,6 @@
    "mtime_ns": 1793349770990667200,
    "stored": "plain"
   },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_in_flatgrass_rtx.bsp": {
-   "size": 23879868,
-   "sha256": "47977170b008639e0d0fe8c9cfec49642132a6942b0f0e4cad7b0a94e6a95452",
-   "mtime_ns": 1792912213912447200,
-   "stored": "xz",
-   "stored_size": 6881152,
-   "stored_sha256": "276c56ff2c53c4fc172f526c7ae80d54f29b17b16c72bf0a816dc41148e400b0"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_in_flatgrass_rtx.prt": {
-   "size": 312271,
-   "sha256": "62e5a7037fed9a948f01bc3cf3b1ef278b80611c36825e97e28802d2a800277c",
-   "mtime_ns": 1792912213914447500,
-   "stored": "plain"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_in_flatgrass_rtx.vmf": {
-   "size": 5777682,
-   "sha256": "885bb83a61612b3a74812b2a0b363bcbbe08cf4531d07284d9d1f4dcff8c7300",
-   "mtime_ns": 1792912213926910900,
-   "stored": "xz",
-   "stored_size": 308716,
-   "stored_sha256": "82b7c5a8e8442250dc6f4dc4df6156fca239084e2bfce45a7f4f35ab39a2bdc1"
-  },
-  "garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_in_flatgrass_rtx.vmx": {
-   "size": 5782508,
-   "sha256": "5b0ef1b50aafa55a00191e07ee65a07882befdeaf83e23073f831bd7a0440064",
-   "mtime_ns": 1792912213938419000,
-   "stored": "xz",
-   "stored_size": 308756,
-   "stored_sha256": "891acb08c70de31c5bbf968fa9f539285f9c885f29a3fbdbb00cd01bad31ec13"
-  },
   "garrysmod/garrysmod/addons/remixbinary/materials/debug/debugwhite.png": {
    "size": 976,
    "sha256": "43dce9c30846e6d8424dd9322e43e7c8a04a76330ccb3d9264e1e89f1102fa41",

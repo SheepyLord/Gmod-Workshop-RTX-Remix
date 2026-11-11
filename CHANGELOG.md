@@ -6,14 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
-### The gm_construct_rtx map leaves the RTX package
+### The fixes' maps leave the RTX package
 
 - **No more gm_construct_rtx in the RTX package**
   ([ADR 0154](docs/decisions/0154-gm-construct-rtx-leaves-the-rtx-package.md), the user's request of 2026-11-10):
   the fixes' separate map gm_construct_rtx (its `.bsp`, thumbnail, `.prt`, `.vmf`, `.vmx`) and its Remix layer
   `base_mod/maps/gm_construct_rtx.usda` are out of `packages/fixes`, and `base_mod/mod.usda` no longer lists the
   layer. Next to the gm_construct RTX remaster of GMod's own map, players did not know which to use. The loader
-  removes the deployed map at the next deployment; gm_construct_in_flatgrass_rtx stays.
+  removes the deployed map at the next deployment.
+- **gm_construct_in_flatgrass_rtx leaves too** ([ADR 0155](docs/decisions/0155-gm-construct-in-flatgrass-rtx-leaves-the-rtx-package.md),
+  the user's answer "Remove it too"): the fixes' other map (its `.bsp`, `.prt`, `.vmf`, `.vmx`), whose name mixes
+  the two remastered maps, is out of `packages/fixes` as well; the RTX package ships no map of its own.
 - Tests: [`test_removed_content.py`](tools/tests/test_removed_content.py.md) keeps removed content out of a later
   import of a part from its source repository.
 

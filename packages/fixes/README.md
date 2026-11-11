@@ -6,6 +6,14 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## gm_construct_in_flatgrass_rtx removed (2026-11-10)
+
+The user's answer "Remove it too" ([ADR 0155](../../docs/decisions/0155-gm-construct-in-flatgrass-rtx-leaves-the-rtx-package.md)):
+the fixes' other map left the index and the part, its four files under `garrysmod/garrysmod/addons/remixbinary/maps/`
+(`gm_construct_in_flatgrass_rtx.bsp`, `.prt`, `.vmf`, `.vmx`; it had no thumbnail or Remix layer). The folder is gone;
+every other indexed input is unchanged. [`test_removed_content.py`](../../tools/tests/test_removed_content.py.md)
+keeps it out of a later import from the fixes repository.
+
 ## gm_construct_rtx removed (2026-11-10)
 
 The user's request ([ADR 0154](../../docs/decisions/0154-gm-construct-rtx-leaves-the-rtx-package.md)): the map

@@ -252,3 +252,6 @@ Each with the reason it lost.
   (the user's request, 2026-11-10): the fixes' separate gm_construct_rtx map and its `base_mod` layer leave
   `packages/fixes`, beside the gm_construct RTX remaster of GMod's own map; `test_removed_content.py` keeps them
   out of a later import from the fixes repository; gm_construct_in_flatgrass_rtx stays.
+- [0155: The gm_construct_in_flatgrass_rtx map leaves the RTX package too](0155-gm-construct-in-flatgrass-rtx-leaves-the-rtx-package.md)
+  (the user's request, 2026-11-10; amends 0154): the fixes' other map leaves `packages/fixes` as well, so the
+  `remixbinary` add-on ships no map; `test_removed_content.py` keeps it out too.

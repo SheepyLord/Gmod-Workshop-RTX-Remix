@@ -6,15 +6,18 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
-# part -> (paths in the part, or prefixes ending in "*"), the reason
-REMOVED = {
-    'fixes': (
-        ('garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.*',
-         'garrysmod/rtx-remix/mods/base_mod/maps/gm_construct_rtx.usda'),
-        'the gm_construct_rtx map, beside the gm_construct RTX remaster, left players unsure which to use '
-        '(the user, 2026-11-10; ADR 0154)',
-    ),
-}
+# (part, paths in the part or prefixes ending in "*", the reason)
+REMOVED = (
+    ('fixes',
+     ('garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_rtx.*',
+      'garrysmod/rtx-remix/mods/base_mod/maps/gm_construct_rtx.usda'),
+     'the gm_construct_rtx map, beside the gm_construct RTX remaster, left players unsure which to use '
+     '(the user, 2026-11-10; ADR 0154)'),
+    ('fixes',
+     ('garrysmod/garrysmod/addons/remixbinary/maps/gm_construct_in_flatgrass_rtx.*',),
+     'the gm_construct_in_flatgrass_rtx map went for the same reason, beside the gm_construct and gm_flatgrass '
+     'RTX remasters (the user, 2026-11-10; ADR 0155)'),
+)
 # a mod layer that must not list a removed file as a sublayer
 LAYERS = {
     'fixes': {'garrysmod/rtx-remix/mods/base_mod/mod.usda': 'maps/gm_construct_rtx.usda'},
@@ -27,7 +30,7 @@ def matches(path: str, pattern: str) -> bool:
 
 class RemovedContentTests(unittest.TestCase):
     def test_removed_files_are_not_indexed_or_stored(self):
-        for part, (patterns, reason) in REMOVED.items():
+        for part, patterns, reason in REMOVED:
             index = json.loads((REPO / 'packages' / part / 'files.json').read_text(encoding='utf-8'))
             back = [p for p in index['files'] if any(matches(p, pat) for pat in patterns)]
             self.assertEqual(back, [], f'{part}: {reason}; remove these from the index again')

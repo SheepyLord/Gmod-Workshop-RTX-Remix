@@ -14,6 +14,13 @@ the fixes' other map left the index and the part, its four files under `garrysmo
 every other indexed input is unchanged. [`test_removed_content.py`](../../tools/tests/test_removed_content.py.md)
 keeps it out of a later import from the fixes repository.
 
+Published 2026-11-11 UTC: `main` was pushed at `a50fc0b` after `tools	est.ps1 -Config Release` passed (in a
+short-path worktree) and a package built from that commit differed from the published one only by the four files
+and the manifest. The merge's hook uploaded it to item 3829070317 as **0.0.0-dev.20261111002201+f3f533a6**
+(2,083,860,807 bytes, SHA-256 `e17d4d0e2d54bb4fe6c5570fc4f9ecc517eea0a46548835832a76a4f5f514901`); Steam's public
+record shows that size, updated 00:22:55 UTC. The push's hook found the same inputs and uploaded nothing. No
+GitHub Action was started; the loader is unchanged.
+
 ## gm_construct_rtx removed (2026-11-10)
 
 The user's request ([ADR 0154](../../docs/decisions/0154-gm-construct-rtx-leaves-the-rtx-package.md)): the map

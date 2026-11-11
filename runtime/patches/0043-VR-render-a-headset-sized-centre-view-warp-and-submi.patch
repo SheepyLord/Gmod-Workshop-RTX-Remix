@@ -1,0 +1,1235 @@
+From 3c01260f838919c624fb27c31b86e77e1afeddd8 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 07:58:20 -0700
+Subject: [PATCH] VR: render a headset-sized centre view, warp and submit eyes,
+ mirror and feed overlays
+
+The module owns OpenVR. Keep the runtime output and preset in a device-scoped session, flush under DXVK queue exclusion, match queued camera poses, capture PNGs and publish pass timestamps. Enable five supported prerequisite extension names without loading OpenVR in flat sessions.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/d3d9/d3d9.def                             |   9 +
+ src/d3d9/d3d9_rtx_shim.cpp                    |  28 ++
+ src/d3d9/d3d9_swapchain.cpp                   |   3 +
+ src/dxvk/dxvk_adapter.cpp                     |   8 +
+ src/dxvk/dxvk_context.cpp                     |   6 +
+ src/dxvk/dxvk_device.cpp                      |   6 +
+ src/dxvk/dxvk_device.h                        |   8 +
+ src/dxvk/dxvk_instance.cpp                    |   6 +
+ src/dxvk/dxvk_instance.h                      |   7 +
+ src/dxvk/dxvk_objects.h                       |  10 +
+ src/dxvk/meson.build                          |   4 +
+ src/dxvk/rtx_render/rtx_camera_manager.cpp    |  12 +-
+ src/dxvk/rtx_render/rtx_camera_manager.h      |   1 +
+ src/dxvk/rtx_render/rtx_context.cpp           |  23 +-
+ src/dxvk/rtx_render/rtx_remix_api.cpp         |  33 ++
+ src/dxvk/rtx_render/rtx_vr.cpp                | 461 ++++++++++++++++++
+ src/dxvk/rtx_render/rtx_vr.h                  |  77 +++
+ src/dxvk/rtx_render/rtx_vr_api.h              |   1 +
+ src/dxvk/rtx_render/rtx_vr_exports.h          |  20 +
+ src/dxvk/rtx_render/rtx_vr_png.h              |  46 ++
+ .../shaders/rtx/pass/vr/vr_warp.comp.slang    |  45 ++
+ src/dxvk/shaders/rtx/pass/vr/vr_warp.h        |  12 +
+ tests/rtx/unit/meson.build                    |   4 +-
+ 23 files changed, 824 insertions(+), 6 deletions(-)
+ create mode 100644 src/dxvk/rtx_render/rtx_vr.cpp
+ create mode 100644 src/dxvk/rtx_render/rtx_vr.h
+ create mode 100644 src/dxvk/rtx_render/rtx_vr_exports.h
+ create mode 100644 src/dxvk/rtx_render/rtx_vr_png.h
+ create mode 100644 src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+ create mode 100644 src/dxvk/shaders/rtx/pass/vr/vr_warp.h
+
+diff --git a/src/d3d9/d3d9.def b/src/d3d9/d3d9.def
+index 6829b194..b87de345 100644
+--- a/src/d3d9/d3d9.def
++++ b/src/d3d9/d3d9.def
+@@ -20,3 +20,12 @@ EXPORTS
+ 
+   Direct3DCreate9 @37
+   Direct3DCreate9Ex @38
++
++  rtxvr_GetApiVersion
++  rtxvr_Start
++  rtxvr_Stop
++  rtxvr_UpdateEyes
++  rtxvr_PushFramePose
++  rtxvr_SetOverlaySource
++  rtxvr_Capture
++  rtxvr_GetStatus
+diff --git a/src/d3d9/d3d9_rtx_shim.cpp b/src/d3d9/d3d9_rtx_shim.cpp
+index 617e7ea3..da6b3128 100644
+--- a/src/d3d9/d3d9_rtx_shim.cpp
++++ b/src/d3d9/d3d9_rtx_shim.cpp
+@@ -24,6 +24,8 @@
+ // DLL from the same directory as itself and forwards every export to it via GetProcAddress.
+ // This lets arm systems to use arm64ec implementation without client app changes.
+ 
++#include "../dxvk/rtx_render/rtx_vr_exports.h"
++#include "../dxvk/rtx_render/rtx_vr_api.h"
+ #include <filesystem>
+ #include <mutex>
+ 
+@@ -71,6 +73,15 @@ namespace {
+   using PFN_remixinternal_GetDlssNeuralRenderingStatus = int(*)();
+ 
+   struct ShimExports {
++    decltype(&::rtxvr_GetApiVersion) rtxvr_GetApiVersion = nullptr;
++    decltype(&::rtxvr_Start) rtxvr_Start = nullptr;
++    decltype(&::rtxvr_Stop) rtxvr_Stop = nullptr;
++    decltype(&::rtxvr_UpdateEyes) rtxvr_UpdateEyes = nullptr;
++    decltype(&::rtxvr_PushFramePose) rtxvr_PushFramePose = nullptr;
++    decltype(&::rtxvr_SetOverlaySource) rtxvr_SetOverlaySource = nullptr;
++    decltype(&::rtxvr_Capture) rtxvr_Capture = nullptr;
++    decltype(&::rtxvr_GetStatus) rtxvr_GetStatus = nullptr;
++
+     PFN_D3DPERF_BeginEvent                       D3DPERF_BeginEvent = nullptr;
+     PFN_D3DPERF_EndEvent                         D3DPERF_EndEvent = nullptr;
+     PFN_D3DPERF_GetStatus                        D3DPERF_GetStatus = nullptr;
+@@ -180,6 +191,14 @@ namespace {
+     LOAD_SHIM_EXPORT(writeMarkdownDocumentation);
+     LOAD_SHIM_EXPORT(writeRemixCategoriesSchemaUsda);
+     LOAD_SHIM_EXPORT(remixinternal_GetDlssNeuralRenderingStatus);
++    LOAD_SHIM_EXPORT(rtxvr_GetApiVersion);
++    LOAD_SHIM_EXPORT(rtxvr_Start);
++    LOAD_SHIM_EXPORT(rtxvr_Stop);
++    LOAD_SHIM_EXPORT(rtxvr_UpdateEyes);
++    LOAD_SHIM_EXPORT(rtxvr_PushFramePose);
++    LOAD_SHIM_EXPORT(rtxvr_SetOverlaySource);
++    LOAD_SHIM_EXPORT(rtxvr_Capture);
++    LOAD_SHIM_EXPORT(rtxvr_GetStatus);
+ #undef LOAD_SHIM_EXPORT
+   }
+ 
+@@ -272,6 +291,15 @@ extern "C" {
+ 
+ extern "C" {
+ 
++  REMIXAPI uint32_t REMIXAPI_CALL rtxvr_GetApiVersion(void) { return shim().rtxvr_GetApiVersion ? shim().rtxvr_GetApiVersion() : 0; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_Start(const rtxvr_StartInfo* info) { return shim().rtxvr_Start ? shim().rtxvr_Start(info) : RTXVR_E_INTERFACE; }
++  REMIXAPI void REMIXAPI_CALL rtxvr_Stop(void) { if (shim().rtxvr_Stop) { shim().rtxvr_Stop(); } }
++  REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]) { return shim().rtxvr_UpdateEyes ? shim().rtxvr_UpdateEyes(eyes) : RTXVR_E_INTERFACE; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose* pose) { return shim().rtxvr_PushFramePose ? shim().rtxvr_PushFramePose(pose) : RTXVR_E_INTERFACE; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t handle, uint32_t w, uint32_t h) { return shim().rtxvr_SetOverlaySource ? shim().rtxvr_SetOverlaySource(handle,w,h) : RTXVR_E_INTERFACE; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_Capture(const wchar_t* folder, uint32_t what) { return shim().rtxvr_Capture ? shim().rtxvr_Capture(folder,what) : RTXVR_E_INTERFACE; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status* status) { return shim().rtxvr_GetStatus ? shim().rtxvr_GetStatus(status) : RTXVR_E_INTERFACE; }
++
+   REMIXAPI uint64_t REMIXAPI_CALL QueryFeatureVersion(version::Feature feat) {
+     return shim().QueryFeatureVersion ? shim().QueryFeatureVersion(feat) : 0ull;
+   }
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index 138bcc27..6a91916e 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -560,6 +560,9 @@ namespace dxvk {
+     }
+     // NV-DXVK end
+ 
++    // NV-DXVK start: SteamVR paces VR frames; the mirror must not wait for the monitor
++    if (m_device->getCommon()->metaVr().active()) { presentInterval = 0; }
++    // NV-DXVK end
+     bool vsync  = presentInterval != 0;
+ 
+     HWND window = m_presentParams.hDeviceWindow;
+diff --git a/src/dxvk/dxvk_adapter.cpp b/src/dxvk/dxvk_adapter.cpp
+index 14383c0f..20faef92 100644
+--- a/src/dxvk/dxvk_adapter.cpp
++++ b/src/dxvk/dxvk_adapter.cpp
+@@ -493,6 +493,11 @@ namespace dxvk {
+ 
+     // Enable additional extensions if necessary
+     extensionsEnabled.merge(m_extraExtensions);
++    // NV-DXVK start: SteamVR starts after device creation; these add no feature or allocation
++    for (const char* name : {VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME, VK_KHR_WIN32_KEYED_MUTEX_EXTENSION_NAME}) {
++      if (m_deviceExtensions.supports(name)) { extensionsEnabled.add(name); }
++    }
++    // NV-DXVK end
+     DxvkNameList extensionNameList = extensionsEnabled.toNameList();
+ 
+     // Enable additional device features if supported
+@@ -919,6 +924,9 @@ namespace dxvk {
+     Rc<DxvkDevice> result = new DxvkDevice(m_vki, instance, this,
+       new vk::DeviceFn(true, m_vki->instance(), device),
+       devExtensions, enabledFeatures, queueInfos);
++    // NV-DXVK start: Preserve provider names for the late OpenVR check
++    result->setEnabledExtensionNames(extensionsEnabled);
++    // NV-DXVK end
+     result->initResources();
+ 
+     // NV-DXVK start: Update Sentry GPU tags now that the real adapter has been chosen.
+diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
+index eed91601..912b57af 100644
+--- a/src/dxvk/dxvk_context.cpp
++++ b/src/dxvk/dxvk_context.cpp
+@@ -165,6 +165,12 @@ namespace dxvk {
+   void DxvkContext::bindRenderTargets(
+     const DxvkRenderTargets& targets) {
+     ScopedCpuProfileZone();
++    // NV-DXVK start: Copy an overlay canvas when its raster pass ends
++    if (m_common->metaVr().active()) {
++      const auto& old = m_state.om.renderTargets.color[0].view;
++      if (old != nullptr && old != targets.color[0].view) { m_common->metaVr().observeTarget(*this, old->image()); }
++    }
++    // NV-DXVK end
+     // Set up default render pass ops
+     m_state.om.renderTargets = targets;
+ 
+diff --git a/src/dxvk/dxvk_device.cpp b/src/dxvk/dxvk_device.cpp
+index 830c83a0..dac4e610 100644
+--- a/src/dxvk/dxvk_device.cpp
++++ b/src/dxvk/dxvk_device.cpp
+@@ -443,6 +443,9 @@ namespace dxvk {
+           bool                      insertReflexRenderMarkers /*= false*/,
+           uint64_t                  cachedReflexFrameId /*= 0*/) {
+     ScopedCpuProfileZone();
++    // NV-DXVK start: SteamVR explicit timing uses the submission queue lock
++    if (getCommon()->metaVr().active()) { getCommon()->metaVr().beforeSubmission(); }
++    // NV-DXVK end
+     DxvkSubmitInfo submitInfo;
+     submitInfo.cmdList  = commandList;
+     submitInfo.waitSync = waitSync;
+@@ -535,6 +538,9 @@ namespace dxvk {
+ 
+   DxvkObjects::DxvkObjects(DxvkDevice* device)
+     : m_device(device),
++    // NV-DXVK start: On-demand VR output
++    m_vr(device),
++    // NV-DXVK end
+     m_memoryManager(device),
+     // NV-DXVK start: Local memory diagnostics
+     m_memoryDiagnostics(device),
+diff --git a/src/dxvk/dxvk_device.h b/src/dxvk/dxvk_device.h
+index a2944bec..f53292bb 100644
+--- a/src/dxvk/dxvk_device.h
++++ b/src/dxvk/dxvk_device.h
+@@ -199,6 +199,11 @@ namespace dxvk {
+      * \brief Enabled device extensions
+      * \returns Enabled device extensions
+      */
++    // NV-DXVK start: Actual enabled names, including extension providers
++    const DxvkNameSet& enabledExtensionNames() const { return m_enabledExtensionNames; }
++    void setEnabledExtensionNames(const DxvkNameSet& names) { m_enabledExtensionNames = names; }
++    // NV-DXVK end
++
+     const DxvkDeviceExtensions& extensions() const {
+       return m_extensions;
+     }
+@@ -660,6 +665,9 @@ namespace dxvk {
+     Rc<DxvkAdapter>             m_adapter;
+     Rc<vk::DeviceFn>            m_vkd;
+     DxvkDeviceExtensions        m_extensions;
++    // NV-DXVK start: Actual enabled names
++    DxvkNameSet m_enabledExtensionNames;
++    // NV-DXVK end
+     Rc<vk::Presenter>           m_presenterInFlight;
+ 
+     DxvkDeviceFeatures          m_features;
+diff --git a/src/dxvk/dxvk_instance.cpp b/src/dxvk/dxvk_instance.cpp
+index 6b53d5be..5f3bc6c4 100644
+--- a/src/dxvk/dxvk_instance.cpp
++++ b/src/dxvk/dxvk_instance.cpp
+@@ -759,6 +759,12 @@ namespace dxvk {
+       extensionsEnabled.add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+     // NV-DXVK end
+ 
++    // NV-DXVK start: SteamVR starts after device creation; enable supported prerequisites now
++    for (const char* name : {VK_KHR_EXTERNAL_FENCE_CAPABILITIES_EXTENSION_NAME, VK_NV_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME}) {
++      if (extensionsAvailable.supports(name)) { extensionsEnabled.add(name); }
++    }
++    m_enabledExtensionNames = extensionsEnabled;
++    // NV-DXVK end
+     DxvkNameList extensionNameList = extensionsEnabled.toNameList();
+     
+     Logger::info("Enabled instance extensions:");
+diff --git a/src/dxvk/dxvk_instance.h b/src/dxvk/dxvk_instance.h
+index 4ee97f45..fcee27cd 100644
+--- a/src/dxvk/dxvk_instance.h
++++ b/src/dxvk/dxvk_instance.h
+@@ -132,6 +132,10 @@ namespace dxvk {
+       return m_extensions;
+     }
+ 
++    // NV-DXVK start: Retain actual enabled names, including extension providers
++    const DxvkNameSet& enabledExtensionNames() const { return m_enabledExtensionNames; }
++    // NV-DXVK end
++
+   private:
+     Config              m_config;
+     DxvkOptions         m_options;
+@@ -145,6 +149,9 @@ namespace dxvk {
+     Rc<vk::LibraryFn>       m_vkl;
+     Rc<vk::InstanceFn>      m_vki;
+     DxvkInstanceExtensions  m_extensions;
++    // NV-DXVK start: Retain actual enabled names
++    DxvkNameSet m_enabledExtensionNames;
++    // NV-DXVK end
+     // NV-DXVK start: use EXT_debug_utils
+     VkDebugUtilsMessengerEXT m_debugUtilsMessenger = nullptr;
+     // NV-DXVK end
+diff --git a/src/dxvk/dxvk_objects.h b/src/dxvk/dxvk_objects.h
+index 1167d3a4..e965a15b 100644
+--- a/src/dxvk/dxvk_objects.h
++++ b/src/dxvk/dxvk_objects.h
+@@ -21,6 +21,9 @@
+ */
+ #pragma once
+ 
++// NV-DXVK start: On-demand VR output
++#include "rtx_render/rtx_vr.h"
++// NV-DXVK end
+ #include "dxvk_gpu_event.h"
+ #include "dxvk_gpu_query.h"
+ #include "dxvk_memory.h"
+@@ -106,6 +109,10 @@ namespace dxvk {
+ 
+     explicit DxvkObjects(DxvkDevice* device);
+ 
++    // NV-DXVK start: On-demand VR output
++    RtxVr& metaVr() { return m_vr.get(); }
++    // NV-DXVK end
++
+     DxvkMemoryAllocator& memoryManager() {
+       return m_memoryManager;
+     }
+@@ -385,6 +392,9 @@ namespace dxvk {
+ 
+     DxvkDevice*                       m_device;
+ 
++    // NV-DXVK start: On-demand VR output
++    Active<RtxVr>                      m_vr;
++    // NV-DXVK end
+     DxvkMemoryAllocator               m_memoryManager;
+ 
+     // NV-DXVK start: Local memory diagnostics
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index 8bb46c7c..113ca72e 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -201,6 +201,10 @@ dxvk_src = files([
+   'rtx_render/rtx_bloom.cpp',
+   'rtx_render/rtx_bloom.h',
+   'rtx_render/rtx_bridge_message_channel.h',
++  'rtx_render/rtx_vr.cpp',
++  'rtx_render/rtx_vr.h',
++  'rtx_render/rtx_vr_exports.h',
++  'rtx_render/rtx_vr_png.h',
+   'rtx_render/rtx_vr_api.h',
+   'rtx_render/rtx_vr_math.h',
+   'rtx_render/rtx_camera.cpp',
+diff --git a/src/dxvk/rtx_render/rtx_camera_manager.cpp b/src/dxvk/rtx_render/rtx_camera_manager.cpp
+index d8cd6553..8b4cf2dd 100644
+--- a/src/dxvk/rtx_render/rtx_camera_manager.cpp
++++ b/src/dxvk/rtx_render/rtx_camera_manager.cpp
+@@ -22,6 +22,7 @@
+ #include "rtx_camera_manager.h"
+ 
+ #include "dxvk_device.h"
++#include "dxvk_objects.h"
+ 
+ namespace {
+   constexpr float kFovToleranceRadians = 0.001f;
+@@ -98,7 +99,8 @@ namespace dxvk {
+         }
+         if (getCamera(CameraType::Main).isValid(frameId)) {
+           // FOV is different from Main camera => assume that it's a ViewModel one
+-          if (!areFovsClose(fov, getCamera(CameraType::Main))) {
++          const float mainFov = m_device->getCommon()->metaVr().active() ? m_gameMainFov : getCamera(CameraType::Main).getFov();
++          if (std::abs(fov - mainFov) >= kFovToleranceRadians) {
+             return true;
+           }
+         }
+@@ -118,7 +120,7 @@ namespace dxvk {
+     }
+     
+     // Check fov consistency across frames
+-    if (frameId > 0) {
++    if (frameId > 0 && !m_device->getCommon()->metaVr().active()) {
+       if (getCamera(cameraType).isValid(frameId - 1) && !areFovsClose(decomposeProjectionParams.fov, getCamera(cameraType))) {
+         ONCE(Logger::warn("[RTX] CameraManager: FOV of a camera changed between frames"));
+       }
+@@ -132,6 +134,12 @@ namespace dxvk {
+     bool isCameraCut = false;
+     Matrix4 worldToView = input.getTransformData().worldToView;
+     Matrix4 viewToProjection = input.getTransformData().viewToProjection;
++    if (shouldUpdateMainCamera) {
++      m_gameMainFov = decomposeProjectionParams.fov;
++      if (m_device->getCommon()->metaVr().active()) {
++        m_device->getCommon()->metaVr().projection(viewToProjection, decomposeProjectionParams.fov, decomposeProjectionParams.aspectRatio);
++      }
++    }
+     if (isPlaying || isBrowsing) {
+       if (shouldUpdateMainCamera) {
+         RtCamera::RtCameraSetting setting;
+diff --git a/src/dxvk/rtx_render/rtx_camera_manager.h b/src/dxvk/rtx_render/rtx_camera_manager.h
+index 8ce94427..b377a0a0 100644
+--- a/src/dxvk/rtx_render/rtx_camera_manager.h
++++ b/src/dxvk/rtx_render/rtx_camera_manager.h
+@@ -81,6 +81,7 @@ namespace dxvk {
+   private:
+     std::array<RtCamera, CameraType::Count> m_cameras;
+     CameraType::Enum m_lastSetCameraType = CameraType::Unknown;
++    float m_gameMainFov = 0;
+     uint32_t m_lastCameraCutFrameId = -1;
+     uint32_t m_lastCameraViewHistoryInvalidationFrameId = -1;
+     fast_unordered_cache<DecomposeProjectionParams> m_decompositionCache;
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index 7ec2bac6..ec1384e2 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -556,6 +556,10 @@ namespace dxvk {
+ 
+     m_device->setPresentThrottleDelay(computedPresentThrottleDelay);
+ 
++    auto& vr = common->metaVr();
++    // Consume Stop even on a menu frame, where there may be no camera or surface buffer.
++    if (vr.hasWork() && !vr.active()) { vr.beginFrame(*this, {1,1,1}); }
++
+     // Early out if ray tracing is not supported or if Remix has already been injected
+ 
+     if (!m_rayTracingSupported) {
+@@ -692,7 +696,9 @@ namespace dxvk {
+       // If we really don't have any RT to do, just bail early (could be UI/menus rendering)
+       if (getSceneManager().getSurfaceBuffer() != nullptr) {
+ 
+-        VkExtent3D downscaledExtent = onInjectRtxFrameBegin(targetImage->info().extent);
++        const VkExtent3D outputExtent = vr.hasWork() ? vr.beginFrame(*this, targetImage->info().extent) : targetImage->info().extent;
++        VkExtent3D downscaledExtent = onInjectRtxFrameBegin(outputExtent);
++        if (vr.active()) { vr.timestamp(*this, 0); }
+ 
+         Resources::RaytracingOutput& rtOutput = getResourceManager().getRaytracingOutput();
+ 
+@@ -708,7 +714,7 @@ namespace dxvk {
+         getCommonObjects()->getTextureManager().prepareSamplerFeedback(this);
+ 
+         // Generate ray tracing constant buffer
+-        updateRaytraceArgsConstantBuffer(rtOutput, downscaledExtent, targetImage->info().extent);
++        updateRaytraceArgsConstantBuffer(rtOutput, downscaledExtent, outputExtent);
+ 
+         // Volumetric Lighting
+         dispatchVolumetrics(rtOutput);
+@@ -760,7 +766,8 @@ namespace dxvk {
+         }
+ 
+         getCommonObjects()->getTextureManager().copySamplerFeedbackToHost(this);
+-        dispatchObjectPicking(rtOutput, downscaledExtent, targetImage->info().extent);
++        dispatchObjectPicking(rtOutput, downscaledExtent, outputExtent);
++        if (vr.active()) { vr.timestamp(*this, 1); }
+ 
+         // Upscaling if DLSS/NIS enabled, or the Composition Pass will do upscaling
+         if (m_currentUpscaler == InternalUpscaler::DLSS) {
+@@ -793,6 +800,7 @@ namespace dxvk {
+         }
+         fork_hooks::dispatchRcasSharpening(*this, rtOutput);
+         m_previousUpscaler = m_currentUpscaler;
++        if (vr.active()) { vr.timestamp(*this, 2); }
+ 
+         RtxDustParticles& dust = m_common->metaDustParticles();
+         dust.simulateAndDraw(this, m_state, rtOutput);
+@@ -844,6 +852,10 @@ namespace dxvk {
+         // Match FSR-3.1 sequencing: configure/prepare frame generation before final game-target blit.
+         fork_hooks::dispatchFsrFrameGeneration(*this, srcImage);
+ 
++        // VR owns the centre output; the original target remains the game's raster canvas.
++        if (vr.active()) {
++          vr.output(*this, srcImage, rtOutput.m_primaryLinearViewZ.view, targetImage);
++        } else {
+         // Blit to the game target
+         {
+           ScopedGpuProfileZone(this, "Blit to Game");
+@@ -854,6 +866,8 @@ namespace dxvk {
+           blitImageHelper(this, srcImage, targetImage, VkFilter::VK_FILTER_NEAREST);
+         }
+ 
++        }
++
+         // Log stats when an image is taken
+         if (captureScreenImage) {
+           getSceneManager().logStatistics();
+@@ -916,6 +930,9 @@ namespace dxvk {
+ 
+   // Called right before D3D9 present
+   void RtxContext::onPresent(Rc<DxvkImage> targetImage) {
++    if (m_common->metaVr().hasWork()) {
++      m_common->metaVr().present(*this, targetImage != nullptr ? targetImage : m_state.om.renderTargets.color[0].view->image());
++    }
+     m_common->getRtxInitializer().publishUpscalingState();
+     m_common->metaMemoryDiagnostics().onFrame(getSceneManager().getCameraManager().isCameraCutThisFrame());
+     {
+diff --git a/src/dxvk/rtx_render/rtx_remix_api.cpp b/src/dxvk/rtx_render/rtx_remix_api.cpp
+index cebdaced..57eb5172 100644
+--- a/src/dxvk/rtx_render/rtx_remix_api.cpp
++++ b/src/dxvk/rtx_render/rtx_remix_api.cpp
+@@ -34,6 +34,7 @@
+ #include "rtx_debug_view.h"
+ #include "rtx_fork_game_state.h"
+ #include "rtx_weather.h"
++#include "rtx_vr.h"
+ 
+ #include "../dxvk_device.h"
+ #include "../dxvk_objects.h"
+@@ -2852,6 +2853,38 @@ extern "C"
+     return REMIXAPI_ERROR_CODE_SUCCESS;
+   }
+ 
++  REMIXAPI uint32_t REMIXAPI_CALL rtxvr_GetApiVersion(void) { return RTXVR_API_VERSION; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_Start(const rtxvr_StartInfo* info) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().start(info) : RTXVR_E_NO_DEVICE;
++  }
++  REMIXAPI void REMIXAPI_CALL rtxvr_Stop(void) {
++    std::lock_guard lock(s_mutex);
++    if (s_dxvkDevice) { s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().stop(); }
++  }
++  REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().updateEyes(eyes) : RTXVR_E_NO_DEVICE;
++  }
++  REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose* pose) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().pushPose(pose) : RTXVR_E_NO_DEVICE;
++  }
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t handle, uint32_t width, uint32_t height) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().overlaySource(handle,width,height) : RTXVR_E_NO_DEVICE;
++  }
++  REMIXAPI int REMIXAPI_CALL rtxvr_Capture(const wchar_t* folder, uint32_t what) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().capture(folder,what) : RTXVR_E_NO_DEVICE;
++  }
++  REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status* status) {
++    std::lock_guard lock(s_mutex);
++    if (!status || status->structSize != sizeof(*status)) { return RTXVR_E_ARGUMENT; }
++    if (!s_dxvkDevice) { *status={}; status->structSize=sizeof(*status); return RTXVR_OK; }
++    return s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().status(status);
++  }
++
+   remixapi_ErrorCode REMIXAPI_CALL remixapi_GetGameValue(
+     const char* key,
+     char*       out_buffer,
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+new file mode 100644
+index 00000000..d948c59c
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -0,0 +1,461 @@
++// SPDX-License-Identifier: MIT
++#include <algorithm>
++#include <chrono>
++#include <cstring>
++#include <sstream>
++#include <utility>
++#include <vector>
++#include "../../../include/openvr_vr/openvr.h"
++#include "rtx_vr.h"
++#include "rtx_vr_png.h"
++#include "rtx_context.h"
++#include "rtx_option_manager.h"
++#include "rtx_option_layer.h"
++#include "rtx_shader_manager.h"
++#include "../dxvk_device.h"
++#include "../dxvk_instance.h"
++#include "../dxvk_adapter.h"
++#include "rtx/pass/vr/vr_warp.h"
++#include <rtx_shaders/vr_warp.h>
++
++namespace dxvk {
++  namespace {
++    constexpr RtxOptionLayerKey kVrLayer {0xFFFFFFFFu, "! VR session"};
++    class VrWarpShader : public ManagedShader {
++      SHADER_SOURCE(VrWarpShader, VK_SHADER_STAGE_COMPUTE_BIT, vr_warp)
++      PUSH_CONSTANTS(VrWarpArgs)
++      BEGIN_PARAMETER()
++        TEXTURE2D(0)
++        TEXTURE2D(1)
++        RW_TEXTURE2D(2)
++      END_PARAMETER()
++    };
++    bool finitePose(const rtxvr_FramePose& p) {
++      for (int i=0; i<3; ++i) {
++        if (!std::isfinite(p.cameraOrigin[i]) || !std::isfinite(p.cameraAngles[i])) { return false; }
++        for (int j=0; j<4; ++j) { if (!std::isfinite(p.hmdToTracking.m[i][j])) { return false; } }
++      }
++      return true;
++    }
++    bool missingExtension(const std::string& required, const DxvkNameSet& enabled, std::string& missing) {
++      std::istringstream words(required);
++      std::string word;
++      while (words>>word) {
++        if (!enabled.supports(word.c_str())) { missing=word; return true; }
++      }
++      return false;
++    }
++    struct SubmissionLock {
++      DxvkDevice* device;
++      explicit SubmissionLock(DxvkDevice* d) : device(d) { device->lockSubmission(); }
++      ~SubmissionLock() { device->unlockSubmission(); }
++    };
++  }
++
++  RtxVr::~RtxVr() { stop(); clearResources(); }
++
++  int RtxVr::start(const rtxvr_StartInfo* info) {
++    if (!info || info->structSize!=sizeof(*info)) { return RTXVR_E_ARGUMENT; }
++    if (info->apiVersion!=RTXVR_API_VERSION) { return RTXVR_E_VERSION; }
++    vrmath::Projection p;
++    if ((info->flags & ~(RTXVR_START_NO_SUBMIT|RTXVR_START_NO_MIRROR)) ||
++        (!(info->flags&RTXVR_START_NO_SUBMIT) && !info->getGenericInterface) ||
++        !std::isfinite(info->worldUnitsPerMetre) || info->worldUnitsPerMetre<=0 || info->worldUnitsPerMetre>10000 ||
++        !std::isfinite(info->refreshHz) || info->refreshHz<=0 || info->refreshHz>1000 ||
++        !vrmath::centreProjection(info->eyes,info->eyeWidth,info->eyeHeight,info->renderScale,p)) {
++      return RTXVR_E_ARGUMENT;
++    }
++    std::lock_guard lock(m_requestMutex);
++    if (m_active) { return RTXVR_E_ALREADY; }
++    m_requested=*info; m_projection=p; ++m_generation;
++    m_poses.clear(); m_overlayRequests.clear(); m_captureWhat=0;
++    m_status={}; m_status.structSize=sizeof(m_status); m_status.state=RTXVR_STATE_STARTING;
++    m_active.store(true,std::memory_order_release); m_work.store(true,std::memory_order_release);
++    return RTXVR_OK;
++  }
++
++  void RtxVr::stop() {
++    {
++      std::lock_guard lock(m_requestMutex);
++      m_active.store(false,std::memory_order_release); ++m_generation;
++      m_status.state=RTXVR_STATE_OFF;
++      m_poses.clear(); m_overlayRequests.clear(); m_captureWhat=0;
++    }
++    // The module may unload OpenVR as soon as Stop returns.
++    std::lock_guard calls(m_openVrMutex);
++    if (m_overlay) {
++      for (uint64_t handle:m_submittedOverlays) { m_overlay->ClearOverlayTexture(handle); }
++      m_submittedOverlays.clear();
++    }
++    if (m_compositor) { m_compositor->ClearLastSubmittedFrame(); }
++    m_compositor=nullptr; m_overlay=nullptr;
++  }
++
++  int RtxVr::updateEyes(const rtxvr_Eye eyes[2]) {
++    if (!eyes) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active) { return RTXVR_E_NOT_RUNNING; }
++    vrmath::Projection p;
++    if (!vrmath::centreProjection(eyes,m_requested.eyeWidth,m_requested.eyeHeight,m_requested.renderScale,p)) { return RTXVR_E_ARGUMENT; }
++    std::copy(eyes,eyes+2,m_requested.eyes); m_projection=p; ++m_generation;
++    return RTXVR_OK;
++  }
++
++  int RtxVr::pushPose(const rtxvr_FramePose* pose) {
++    if (!pose || pose->structSize!=sizeof(*pose) || (pose->flags&~RTXVR_POSE_SCRIPTED) || !finitePose(*pose)) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active) { return RTXVR_E_NOT_RUNNING; }
++    return m_poses.push(*pose) ? RTXVR_OK : RTXVR_E_ARGUMENT;
++  }
++
++  int RtxVr::overlaySource(uint64_t handle,uint32_t w,uint32_t h) {
++    if (!handle || ((!w)!=(!h)) || w>8192 || h>8192) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active) { return RTXVR_E_NOT_RUNNING; }
++    if (m_overlayRequests.size()>=16 && !m_overlayRequests.count(handle)) { return RTXVR_E_RESOURCES; }
++    m_overlayRequests[handle]={w,h}; return RTXVR_OK;
++  }
++
++  int RtxVr::capture(const wchar_t* folder,uint32_t what) {
++    if (!folder || !*folder || !what || (what&~15u)) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active) { return RTXVR_E_NOT_RUNNING; }
++    m_captureFolder=folder; m_captureWhat=what; return RTXVR_OK;
++  }
++
++  int RtxVr::status(rtxvr_Status* out) {
++    if (!out || out->structSize!=sizeof(*out)) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex); *out=m_status; return RTXVR_OK;
++  }
++
++  bool RtxVr::projection(Matrix4& matrix,float& fov,float& aspect) {
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active) { return false; }
++    matrix[0][0]=float(1/m_projection.tanX); matrix[1][1]=float(1/m_projection.tanY);
++    matrix[2][0]=0; matrix[2][1]=0;
++    fov=float(2*std::atan(m_projection.tanY)); aspect=float(m_projection.tanX/m_projection.tanY);
++    return true;
++  }
++
++  void RtxVr::fail(int error,const std::string& message) {
++    std::lock_guard lock(m_requestMutex);
++    m_status.state=RTXVR_STATE_FAILED; m_status.lastError=error;
++    std::snprintf(m_status.lastErrorText,sizeof(m_status.lastErrorText),"%s",message.c_str());
++    m_active.store(false,std::memory_order_release);
++    Logger::err(str::format("RTX VR: ",message));
++  }
++
++  RtxVr::Image RtxVr::makeImage(DxvkContext& ctx,VkExtent3D size,VkFormat format) {
++    DxvkImageCreateInfo desc {};
++    desc.type=VK_IMAGE_TYPE_2D; desc.format=format; desc.sampleCount=VK_SAMPLE_COUNT_1_BIT;
++    desc.extent=size; desc.numLayers=1; desc.mipLevels=1;
++    desc.usage=VK_IMAGE_USAGE_STORAGE_BIT|VK_IMAGE_USAGE_SAMPLED_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT|VK_IMAGE_USAGE_TRANSFER_DST_BIT;
++    desc.stages=VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT|VK_PIPELINE_STAGE_TRANSFER_BIT;
++    desc.access=VK_ACCESS_SHADER_READ_BIT|VK_ACCESS_SHADER_WRITE_BIT|VK_ACCESS_TRANSFER_READ_BIT|VK_ACCESS_TRANSFER_WRITE_BIT;
++    desc.tiling=VK_IMAGE_TILING_OPTIMAL; desc.layout=VK_IMAGE_LAYOUT_GENERAL;
++    Image result; result.image=m_device->createImage(desc,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,DxvkMemoryStats::Category::RTXRenderTarget,"VR image");
++    DxvkImageViewCreateInfo view {};
++    view.type=VK_IMAGE_VIEW_TYPE_2D; view.format=format; view.usage=desc.usage; view.aspect=VK_IMAGE_ASPECT_COLOR_BIT;
++    view.numLevels=1; view.numLayers=1;
++    result.view=m_device->createImageView(result.image,view);
++    return result;
++  }
++
++  void RtxVr::clearResources() {
++    RtxOptionManager::releaseLayer(m_layer); m_layer=nullptr;
++    m_eyes={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
++    m_frameCaptureWhat=0;
++  }
++
++  bool RtxVr::initialise(RtxContext& ctx) {
++    std::lock_guard calls(m_openVrMutex);
++    {
++      std::lock_guard lock(m_requestMutex);
++      if (!m_active || m_renderGeneration!=m_generation) { return false; }
++    }
++    if (!(m_frame.flags&RTXVR_START_NO_SUBMIT)) {
++      int error=0;
++      m_compositor=static_cast<vr::IVRCompositor*>(m_frame.getGenericInterface(vr::IVRCompositor_Version,&error));
++      m_overlay=static_cast<vr::IVROverlay*>(m_frame.getGenericInterface(vr::IVROverlay_Version,&error));
++      if (!m_compositor || !m_overlay) { fail(RTXVR_E_INTERFACE,"Pinned OpenVR compositor or overlay interface is unavailable"); return false; }
++      std::vector<char> instance(m_compositor->GetVulkanInstanceExtensionsRequired(nullptr,0)+1,0);
++      m_compositor->GetVulkanInstanceExtensionsRequired(instance.data(),uint32_t(instance.size()));
++      std::vector<char> device(m_compositor->GetVulkanDeviceExtensionsRequired(m_device->adapter()->handle(),nullptr,0)+1,0);
++      m_compositor->GetVulkanDeviceExtensionsRequired(m_device->adapter()->handle(),device.data(),uint32_t(device.size()));
++      Logger::info(str::format("RTX VR required instance extensions: ",instance.data()));
++      Logger::info(str::format("RTX VR required device extensions: ",device.data()));
++      std::string missing;
++      if (missingExtension(instance.data(),m_device->instance()->enabledExtensionNames(),missing) || missingExtension(device.data(),m_device->enabledExtensionNames(),missing)) {
++        fail(RTXVR_E_EXTENSION,"Vulkan extension not enabled: "+missing); return false;
++      }
++      m_compositor->SetExplicitTimingMode(vr::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
++    }
++    // The session layer precedes quality presets and never has a file path.
++    Config preset({{"rtx.dlfg.enable","False"},{"rtx.fsrfg.enable","False"},{"rtx.frameGenerationType","0"},
++      {"rtx.upscalerType","1"},{"rtx.qualityDLSS","2"},{"rtx.enableRayReconstruction","True"},
++      {"rtx.pathMinBounces","1"},{"rtx.pathMaxBounces","4"},
++      {"rtx.postfx.enableMotionBlur","False"},{"rtx.postfx.enableChromaticAberration","False"},
++      {"rtx.postfx.enableVignette","False"},{"rtx.enablePresentThrottle","False"}});
++    m_layer=RtxOptionManager::acquireLayer("",kVrLayer,1,0.1f,true,&preset);
++    RtxOptionManager::applyPendingValues(m_device,false);
++    const VkExtent3D size {std::max(1u,uint32_t(std::ceil(m_frame.eyeWidth*m_frame.renderScale))),
++      std::max(1u,uint32_t(std::ceil(m_frame.eyeHeight*m_frame.renderScale))),1};
++    for (auto& eye:m_eyes) { eye=makeImage(ctx,size); }
++    for (auto& timer:m_timers) {
++      for (auto& q:timer.queries) { q=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0); }
++    }
++    m_frames=0; m_timerIndex=0; m_ready=true;
++    Logger::info(str::format("RTX VR: centre ",m_frameProjection.width,"x",m_frameProjection.height,
++      ", eyes ",size.width,"x",size.height,", window unchanged, refresh ",m_frame.refreshHz));
++    return true;
++  }
++
++  VkExtent3D RtxVr::beginFrame(RtxContext& ctx,VkExtent3D flat) {
++    uint64_t generation;
++    bool requested;
++    {
++      std::lock_guard lock(m_requestMutex);
++      generation=m_generation; requested=m_active;
++      m_frame=m_requested; m_frameProjection=m_projection;
++    }
++    if (generation!=m_renderGeneration || !requested) {
++      clearResources(); m_renderGeneration=generation;
++      if (!requested) {
++        RtxOptionManager::applyPendingValues(m_device,false);
++        std::lock_guard lock(m_requestMutex);
++        if (m_generation==generation && !m_active) { m_work=false; }
++        return flat;
++      }
++    }
++    try {
++      if (!m_ready && !initialise(ctx)) { return flat; }
++    } catch (const std::exception& e) { fail(RTXVR_E_RESOURCES,e.what()); return flat; }
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active || generation!=m_generation) { return flat; }
++    for (const auto& item:m_overlayRequests) {
++      if (!item.second.first) { m_overlays.erase(item.first); }
++      else if (m_overlays[item.first].width!=item.second.first || m_overlays[item.first].height!=item.second.second) {
++        m_overlays[item.first]={item.second.first,item.second.second,{},false};
++      }
++    }
++    m_overlayRequests.clear();
++    m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
++    const auto& camera=ctx.getSceneManager().getCamera();
++    const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto right=camera.getRight(false);
++    const float angles[3] {float(std::atan2(-dir.z,std::hypot(dir.x,dir.y))*180/M_PI),
++      float(std::atan2(dir.y,dir.x)*180/M_PI),float(std::atan2(-right.z,camera.getUp(false).z)*180/M_PI)};
++    const float pos[3] {origin.x,origin.y,origin.z};
++    if (m_poses.match(pos,angles,m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
++    m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
++    m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
++    if ((m_frames%120)==0) {
++      Logger::info(str::format("RTX VR camera: main, cut=",camera.isCameraCut(),", FOV=",camera.getFov(),
++        ", pose=",m_framePose.sequence,", matched=",m_status.posesMatched,", unmatched=",m_status.posesUnmatched));
++    }
++    return {m_frameProjection.width,m_frameProjection.height,1};
++  }
++
++  void RtxVr::timestamp(RtxContext& ctx,uint32_t stage) {
++    if (!m_ready || !active()) { return; }
++    if (!stage) {
++      auto& old=m_timers[m_timerIndex]; m_timer=nullptr;
++      if (old.pending) {
++        std::array<DxvkQueryData,6> data {};
++        bool ready=true;
++        for (int i=0;i<6;++i) { ready &= old.queries[i]->getData(data[i])==DxvkGpuQueryStatus::Available; }
++        if (!ready) { return; }
++        const double factor=m_device->properties().core.properties.limits.timestampPeriod/1e6;
++        std::lock_guard lock(m_requestMutex);
++        m_status.gpuMsTotal=float((data[5].timestamp.time-data[0].timestamp.time)*factor);
++        m_status.gpuMsPathTrace=float((data[1].timestamp.time-data[0].timestamp.time)*factor);
++        m_status.gpuMsUpscale=float((data[2].timestamp.time-data[1].timestamp.time)*factor);
++        m_status.gpuMsWarp=float((data[4].timestamp.time-data[3].timestamp.time)*factor);
++        m_status.gpuMsOther=std::max(0.f,m_status.gpuMsTotal-m_status.gpuMsPathTrace-m_status.gpuMsUpscale-m_status.gpuMsWarp);
++      }
++      old.pending=false; m_timer=&old;
++    }
++    if (m_timer && stage<6) { ctx.writeTimestamp(m_timer->queries[stage]); }
++    if (stage==5) {
++      if (m_timer) { m_timer->pending=true; }
++      m_timer=nullptr; m_timerIndex=(m_timerIndex+1)%m_timers.size();
++    }
++  }
++
++  void RtxVr::output(RtxContext& ctx,const Rc<DxvkImage>& colour,const Rc<DxvkImageView>& depth,const Rc<DxvkImage>& game) {
++    if (!m_ready || !active()) { return; }
++    timestamp(ctx,3);
++    DxvkImageViewCreateInfo desc {};
++    desc.type=VK_IMAGE_VIEW_TYPE_2D; desc.format=colour->info().format; desc.aspect=VK_IMAGE_ASPECT_COLOR_BIT;
++    desc.usage=VK_IMAGE_USAGE_SAMPLED_BIT; desc.numLevels=1; desc.numLayers=1;
++    auto view=m_device->createImageView(colour,desc);
++    ctx.setPushConstantBank(DxvkPushConstantBank::RTX);
++    for (int i=0;i<2;++i) {
++      const auto& e=m_frame.eyes[i]; const auto& m=e.eyeToHead.m;
++      VrWarpArgs args {};
++      args.tangents={e.tanLeft,e.tanRight,e.tanTop,e.tanBottom};
++      args.eyeRow0={m[0][0],m[0][1],m[0][2],m[0][3]*m_frame.worldUnitsPerMetre};
++      args.eyeRow1={m[1][0],m[1][1],m[1][2],m[1][3]*m_frame.worldUnitsPerMetre};
++      args.eyeRow2={m[2][0],m[2][1],m[2][2],m[2][3]*m_frame.worldUnitsPerMetre};
++      args.centre={float(m_frameProjection.tanX),float(m_frameProjection.tanY),0,0};
++      ctx.changeImageLayout(m_eyes[i].image,VK_IMAGE_LAYOUT_GENERAL);
++      ctx.bindResourceView(0,view,nullptr); ctx.bindResourceView(1,depth,nullptr); ctx.bindResourceView(2,m_eyes[i].view,nullptr);
++      ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrWarpShader::getShader());
++      ctx.pushConstants(0,sizeof(args),&args);
++      auto size=m_eyes[i].image->info().extent;
++      ctx.dispatch((size.width+15)/16,(size.height+15)/16,1);
++    }
++    timestamp(ctx,4);
++    if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
++      // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
++      const auto src=m_eyes[0].image->info().extent; const auto dst=game->info().extent;
++      uint32_t w=src.width,h=src.height;
++      if (uint64_t(w)*dst.height>uint64_t(h)*dst.width) { w=uint32_t(uint64_t(h)*dst.width/dst.height); }
++      else { h=uint32_t(uint64_t(w)*dst.height/dst.width); }
++      VkImageBlit blit {};
++      blit.srcSubresource={VK_IMAGE_ASPECT_COLOR_BIT,0,0,1}; blit.dstSubresource=blit.srcSubresource;
++      blit.srcOffsets[0]={int32_t((src.width-w)/2),int32_t((src.height-h)/2),0};
++      blit.srcOffsets[1]={blit.srcOffsets[0].x+int32_t(w),blit.srcOffsets[0].y+int32_t(h),1};
++      blit.dstOffsets[1]={int32_t(dst.width),int32_t(dst.height),1};
++      const VkComponentMapping identity {VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY};
++      ctx.blitImage(game,identity,m_eyes[0].image,identity,blit,VK_FILTER_LINEAR);
++    }
++    if (m_frameCaptureWhat) {
++      std::error_code error; std::filesystem::create_directories(m_frameCaptureFolder,error);
++      if (m_frameCaptureWhat&RTXVR_CAPTURE_CENTRE) {
++        captureImage(ctx,colour,m_frameCaptureFolder/L"centre.png");
++        captureImage(ctx,depth->image(),m_frameCaptureFolder/L"centre_depth.png",true);
++      }
++      if (m_frameCaptureWhat&RTXVR_CAPTURE_EYES) {
++        captureImage(ctx,m_eyes[0].image,m_frameCaptureFolder/L"left.png"); captureImage(ctx,m_eyes[1].image,m_frameCaptureFolder/L"right.png");
++      }
++    }
++    timestamp(ctx,5);
++    {
++      std::lock_guard lock(m_requestMutex);
++      ++m_status.framesRendered; m_status.state=RTXVR_STATE_RUNNING;
++      m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
++    }
++    ++m_frames;
++    submit(ctx);
++  }
++
++  vr::VRVulkanTextureData_t RtxVr::textureData(const Image& image) const {
++    const auto& queue=m_device->queues().graphics;
++    const auto& info=image.image->info();
++    return {uint64_t(image.image->handle()),m_device->handle(),m_device->adapter()->handle(),m_device->instance()->handle(),
++      queue.queueHandle,queue.queueFamily,info.extent.width,info.extent.height,uint32_t(info.format),1};
++  }
++
++  void RtxVr::submit(RtxContext& ctx) {
++    if (m_frame.flags&RTXVR_START_NO_SUBMIT) { return; }
++    std::lock_guard calls(m_openVrMutex);
++    if (!active() || !m_compositor) { return; }
++    for (auto& eye:m_eyes) { ctx.changeImageLayout(eye.image,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); }
++    ctx.flushCommandList();
++    SubmissionLock queue(m_device);
++    const auto begin=std::chrono::steady_clock::now();
++    bool success=true;
++    for (int i=0;i<2;++i) {
++      auto data=textureData(m_eyes[i]);
++      vr::VRTextureWithPose_t texture {};
++      texture.handle=&data; texture.eType=vr::TextureType_Vulkan; texture.eColorSpace=vr::ColorSpace_Gamma;
++      std::memcpy(&texture.mDeviceToAbsoluteTracking,&m_framePose.hmdToTracking,sizeof(m_framePose.hmdToTracking));
++      const auto flags=(m_framePose.structSize && !(m_framePose.flags&RTXVR_POSE_SCRIPTED)) ? vr::Submit_TextureWithPose : vr::Submit_Default;
++      const auto error=m_compositor->Submit(vr::EVREye(i),&texture,nullptr,flags);
++      if (error!=vr::VRCompositorError_None) {
++        success=false;
++        std::lock_guard lock(m_requestMutex); ++m_status.submitErrors; m_status.lastSubmitError=error;
++      }
++    }
++    const float ms=std::chrono::duration<float,std::milli>(std::chrono::steady_clock::now()-begin).count();
++    m_compositor->PostPresentHandoff();
++    std::lock_guard lock(m_requestMutex); if (success) { ++m_status.framesSubmitted; } m_status.cpuMsSubmit=ms;
++  }
++
++  void RtxVr::observeTarget(DxvkContext& ctx,const Rc<DxvkImage>& image) {
++    if (!m_ready || !active() || image == nullptr) { return; }
++    const auto size=image->info().extent;
++    for (auto& item:m_overlays) {
++      auto& overlay=item.second;
++      if (size.width!=overlay.width || size.height!=overlay.height) { continue; }
++      if (overlay.texture.image == nullptr) { overlay.texture=makeImage(ctx,size); }
++      RtxContext::blitImageHelper(&ctx,image,overlay.texture.image,VK_FILTER_NEAREST);
++      overlay.dirty=true;
++    }
++  }
++
++  void RtxVr::present(RtxContext& ctx,const Rc<DxvkImage>& game) {
++    if (!m_ready || !active()) { return; }
++    bool updates=false;
++    uint32_t bound=0;
++    for (auto& item:m_overlays) {
++      auto& overlay=item.second;
++      if (overlay.texture.image == nullptr) { continue; }
++      ++bound;
++      if (overlay.dirty) { ctx.changeImageLayout(overlay.texture.image,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); updates=true; }
++      if ((m_frameCaptureWhat&RTXVR_CAPTURE_OVERLAYS)) {
++        captureImage(ctx,overlay.texture.image,m_frameCaptureFolder/(L"overlay_"+std::to_wstring(item.first)+L".png"));
++      }
++    }
++    if (updates && !(m_frame.flags&RTXVR_START_NO_SUBMIT)) {
++      std::lock_guard calls(m_openVrMutex);
++      if (active() && m_overlay) {
++        ctx.flushCommandList(); SubmissionLock queue(m_device);
++        for (auto& item:m_overlays) {
++          if (!item.second.dirty) { continue; }
++          auto data=textureData(item.second.texture);
++          vr::Texture_t texture {&data,vr::TextureType_Vulkan,vr::ColorSpace_Gamma};
++          const auto error=m_overlay->SetOverlayTexture(item.first,&texture);
++          if (error==vr::VROverlayError_None) {
++            std::lock_guard lock(m_requestMutex); ++m_status.overlayUpdates; m_submittedOverlays.insert(item.first);
++          } else { Logger::warn(str::format("RTX VR overlay ",item.first,": error ",int(error))); }
++          item.second.dirty=false;
++        }
++      }
++    }
++    if ((m_frameCaptureWhat&RTXVR_CAPTURE_MIRROR) && game != nullptr) { captureImage(ctx,game,m_frameCaptureFolder/L"mirror.png"); }
++    m_frameCaptureWhat=0;
++    std::lock_guard lock(m_requestMutex); m_status.overlaysBound=bound;
++  }
++
++  void RtxVr::beforeSubmission() {
++    std::unique_lock calls(m_openVrMutex,std::try_to_lock);
++    if (!calls.owns_lock() || !active() || !m_compositor || m_timingFrame==m_device->getCurrentFrameId()) { return; }
++    SubmissionLock queue(m_device);
++    const auto error=m_compositor->SubmitExplicitTimingData();
++    if (error!=vr::VRCompositorError_None) { Logger::warn(str::format("RTX VR explicit timing error: ",int(error))); }
++    m_timingFrame=m_device->getCurrentFrameId();
++  }
++
++  void RtxVr::captureImage(RtxContext& ctx,const Rc<DxvkImage>& image,const std::filesystem::path& path,bool depth) {
++    Rc<DxvkImage> source=image;
++    Image temp;
++    if (!depth && image->info().format!=VK_FORMAT_R8G8B8A8_UNORM) {
++      temp=makeImage(ctx,image->info().extent);
++      RtxContext::blitImageHelper(&ctx,image,temp.image,VK_FILTER_NEAREST); source=temp.image;
++    }
++    const auto size=source->info().extent;
++    const VkDeviceSize bytes=VkDeviceSize(size.width)*size.height*4;
++    DxvkBufferCreateInfo desc {};
++    desc.size=bytes; desc.usage=VK_BUFFER_USAGE_TRANSFER_DST_BIT|VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
++    desc.stages=VK_PIPELINE_STAGE_TRANSFER_BIT|VK_PIPELINE_STAGE_HOST_BIT;
++    desc.access=VK_ACCESS_TRANSFER_READ_BIT|VK_ACCESS_TRANSFER_WRITE_BIT|VK_ACCESS_HOST_READ_BIT;
++    auto buffer=m_device->createBuffer(desc,VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT|VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,DxvkMemoryStats::Category::RTXBuffer,"VR capture");
++    ctx.copyImageToBuffer(buffer,0,1,1,source,{VK_IMAGE_ASPECT_COLOR_BIT,0,0,1},{0,0,0},size);
++    ctx.getCommonObjects()->metaExporter().copyBufferFromGPU(&ctx,DxvkBufferSlice(buffer,0,bytes),[path,size,depth](Rc<DxvkBuffer> readback) {
++      const auto* data=static_cast<const uint8_t*>(readback->mapPtr(0));
++      if (!data) { return; }
++      std::vector<uint8_t> rgba;
++      if (depth) {
++        rgba.resize(size_t(size.width)*size.height*4);
++        const auto* z=reinterpret_cast<const float*>(data);
++        for (size_t i=0;i<size_t(size.width)*size.height;++i) {
++          const uint8_t value=uint8_t(std::clamp(std::log2(1.f+std::abs(z[i]))/16.f,0.f,1.f)*255);
++          rgba[i*4]=value; rgba[i*4+1]=value; rgba[i*4+2]=value; rgba[i*4+3]=255;
++        }
++        data=rgba.data();
++      }
++      if (!vrpng::save(path,size.width,size.height,data)) { Logger::err("RTX VR: PNG capture write failed"); }
++    });
++  }
++}
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+new file mode 100644
+index 00000000..9250cc62
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -0,0 +1,77 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++#include <array>
++#include <atomic>
++#include <filesystem>
++#include <map>
++#include <mutex>
++#include <set>
++#include "../../util/util_matrix.h"
++#include "rtx_common_object.h"
++#include "rtx_vr_exports.h"
++#include "rtx_vr_math.h"
++#include "../dxvk_image.h"
++#include "../dxvk_gpu_query.h"
++
++namespace vr { class IVRCompositor; class IVROverlay; struct VRVulkanTextureData_t; }
++namespace dxvk {
++  class RtxContext;
++  class DxvkContext;
++  class RtxOptionLayer;
++  class RtCamera;
++  class RtxVr : public CommonDeviceObject {
++  public:
++    explicit RtxVr(DxvkDevice* device) : CommonDeviceObject(device) { m_status.structSize=sizeof(m_status); }
++    ~RtxVr();
++    bool hasWork() const { return m_work.load(std::memory_order_acquire); }
++    bool active() const { return m_active.load(std::memory_order_acquire); }
++    int start(const rtxvr_StartInfo* info);
++    void stop();
++    int updateEyes(const rtxvr_Eye eyes[2]);
++    int pushPose(const rtxvr_FramePose* pose);
++    int overlaySource(uint64_t handle, uint32_t w, uint32_t h);
++    int capture(const wchar_t* folder, uint32_t what);
++    int status(rtxvr_Status* out);
++    bool projection(Matrix4& matrix, float& fov, float& aspect);
++    VkExtent3D beginFrame(RtxContext& ctx, VkExtent3D flat);
++    void timestamp(RtxContext& ctx, uint32_t stage);
++    void output(RtxContext& ctx, const Rc<DxvkImage>& colour, const Rc<DxvkImageView>& depth, const Rc<DxvkImage>& game);
++    void observeTarget(DxvkContext& ctx, const Rc<DxvkImage>& image);
++    void beforeSubmission();
++    void present(RtxContext& ctx, const Rc<DxvkImage>& game);
++  private:
++    struct Image { Rc<DxvkImage> image; Rc<DxvkImageView> view; };
++    struct Overlay { uint32_t width=0,height=0; Image texture; bool dirty=false; };
++    struct Timer { std::array<Rc<DxvkGpuQuery>,6> queries; bool pending=false; };
++    Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
++    void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
++    void submit(RtxContext& ctx);
++    void clearResources();
++    bool initialise(RtxContext& ctx);
++    void fail(int error, const std::string& message);
++    vr::VRVulkanTextureData_t textureData(const Image& image) const;
++    std::mutex m_requestMutex, m_openVrMutex;
++    std::atomic<bool> m_active {false}, m_work {false};
++    uint64_t m_generation=0, m_renderGeneration=0;
++    rtxvr_StartInfo m_requested {}, m_frame {};
++    vrmath::Projection m_projection {}, m_frameProjection {};
++    vrmath::PoseRing m_poses;
++    rtxvr_FramePose m_framePose {};
++    rtxvr_Status m_status {};
++    std::map<uint64_t,Overlay> m_overlays;
++    std::map<uint64_t,std::pair<uint32_t,uint32_t>> m_overlayRequests;
++    std::filesystem::path m_captureFolder, m_frameCaptureFolder;
++    uint32_t m_captureWhat=0, m_frameCaptureWhat=0;
++    std::array<Image,2> m_eyes;
++    std::array<Timer,8> m_timers;
++    Timer* m_timer=nullptr;
++    uint32_t m_timerIndex=0;
++    uint64_t m_frames=0;
++    vr::IVRCompositor* m_compositor=nullptr;
++    vr::IVROverlay* m_overlay=nullptr;
++    const RtxOptionLayer* m_layer=nullptr;
++    bool m_ready=false;
++    std::set<uint64_t> m_submittedOverlays;
++    uint64_t m_timingFrame=~uint64_t(0);
++  };
++}
+diff --git a/src/dxvk/rtx_render/rtx_vr_api.h b/src/dxvk/rtx_render/rtx_vr_api.h
+index 013cf49a..b3b70cf2 100644
+--- a/src/dxvk/rtx_render/rtx_vr_api.h
++++ b/src/dxvk/rtx_render/rtx_vr_api.h
+@@ -2,6 +2,7 @@
+ #pragma once
+ #include <stdint.h>
+ #include <wchar.h>
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+diff --git a/src/dxvk/rtx_render/rtx_vr_exports.h b/src/dxvk/rtx_render/rtx_vr_exports.h
+new file mode 100644
+index 00000000..714a5985
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_vr_exports.h
+@@ -0,0 +1,20 @@
++﻿// SPDX-License-Identifier: MIT
++#pragma once
++#include <stdint.h>
++#include <wchar.h>
++#include "../../util/util_export_macros.h"
++
++struct rtxvr_StartInfo;
++struct rtxvr_Eye;
++struct rtxvr_FramePose;
++struct rtxvr_Status;
++extern "C" {
++  REMIXAPI uint32_t REMIXAPI_CALL rtxvr_GetApiVersion(void);
++  REMIXAPI int REMIXAPI_CALL rtxvr_Start(const rtxvr_StartInfo*);
++  REMIXAPI void REMIXAPI_CALL rtxvr_Stop(void);
++  REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye*);
++  REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose*);
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t,uint32_t,uint32_t);
++  REMIXAPI int REMIXAPI_CALL rtxvr_Capture(const wchar_t*,uint32_t);
++  REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status*);
++}
+diff --git a/src/dxvk/rtx_render/rtx_vr_png.h b/src/dxvk/rtx_render/rtx_vr_png.h
+new file mode 100644
+index 00000000..87a95930
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_vr_png.h
+@@ -0,0 +1,46 @@
++﻿// SPDX-License-Identifier: MIT
++#pragma once
++#include <cstdint>
++#include <filesystem>
++#include <fstream>
++#include <vector>
++
++namespace dxvk::vrpng {
++  inline void word(std::vector<uint8_t>& out, uint32_t v) {
++    for (int i=24; i>=0; i-=8) { out.push_back(uint8_t(v>>i)); }
++  }
++  inline void chunk(std::vector<uint8_t>& out, const char* type, const std::vector<uint8_t>& data) {
++    word(out,uint32_t(data.size()));
++    const size_t begin=out.size();
++    out.insert(out.end(),type,type+4); out.insert(out.end(),data.begin(),data.end());
++    uint32_t crc=~0u;
++    for (size_t i=begin; i<out.size(); ++i) {
++      crc^=out[i];
++      for (int b=0; b<8; ++b) { crc=(crc>>1)^((0u-(crc&1))&0xedb88320u); }
++    }
++    word(out,~crc);
++  }
++  inline bool save(const std::filesystem::path& path, uint32_t w, uint32_t h, const uint8_t* rgba) {
++    std::vector<uint8_t> raw; raw.reserve((size_t(w)*4+1)*h);
++    uint32_t a=1,b=0;
++    for (uint32_t y=0; y<h; ++y) {
++      raw.push_back(0);
++      raw.insert(raw.end(),rgba+size_t(y)*w*4,rgba+size_t(y+1)*w*4);
++    }
++    for (auto v:raw) { a=(a+v)%65521; b=(b+a)%65521; }
++    std::vector<uint8_t> z {0x78,0x01};
++    for (size_t start=0; start<raw.size();) {
++      const uint16_t len=uint16_t(std::min(size_t(65535),raw.size()-start));
++      z.push_back(start+len==raw.size()?1:0);
++      z.push_back(uint8_t(len)); z.push_back(uint8_t(len>>8));
++      z.push_back(uint8_t(~len)); z.push_back(uint8_t((~len)>>8));
++      z.insert(z.end(),raw.begin()+start,raw.begin()+start+len); start+=len;
++    }
++    word(z,(b<<16)|a);
++    std::vector<uint8_t> png {137,80,78,71,13,10,26,10}, header;
++    word(header,w); word(header,h); header.insert(header.end(),{8,6,0,0,0});
++    chunk(png,"IHDR",header); chunk(png,"IDAT",z); chunk(png,"IEND",{});
++    std::ofstream file(path,std::ios::binary); file.write(reinterpret_cast<const char*>(png.data()),png.size());
++    return bool(file);
++  }
++}
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+new file mode 100644
+index 00000000..4926e14c
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+@@ -0,0 +1,45 @@
++﻿// SPDX-License-Identifier: MIT
++#include "rtx/pass/vr/vr_warp.h"
++[[vk::binding(0)]] Texture2D<float4> Centre;
++[[vk::binding(1)]] Texture2D<float> Depth;
++[[vk::binding(2)]] RWTexture2D<float4> Eye;
++layout(push_constant) ConstantBuffer<VrWarpArgs> cb;
++float2 project(float3 p) {
++  return float2(0.5 + p.x/(-p.z)/(2*cb.centre.x), 0.5 - p.y/(-p.z)/(2*cb.centre.y));
++}
++float readDepth(float2 uv) {
++  uint w,h; Depth.GetDimensions(w,h);
++  int2 p=clamp(int2(uv*float2(w,h)),int2(0),int2(w-1,h-1));
++  const float z=abs(Depth.Load(int3(p,0)));
++  return isfinite(z) && z>0 ? z : 1e20;
++}
++float4 colour(float2 uv) {
++  uint w,h; Centre.GetDimensions(w,h);
++  float2 pos=uv*float2(w,h)-0.5;
++  int2 base=int2(floor(pos)); float2 f=frac(pos);
++  int2 hi=int2(w-1,h-1);
++  return lerp(lerp(Centre.Load(int3(clamp(base,int2(0),hi),0)), Centre.Load(int3(clamp(base+int2(1,0),int2(0),hi),0)), f.x),
++              lerp(Centre.Load(int3(clamp(base+int2(0,1),int2(0),hi),0)), Centre.Load(int3(clamp(base+int2(1,1),int2(0),hi),0)), f.x), f.y);
++}
++[shader("compute")]
++[numthreads(16,16,1)]
++void main(uint2 id:SV_DispatchThreadID) {
++  uint w,h; Eye.GetDimensions(w,h);
++  if (any(id>=uint2(w,h))) { return; }
++  const float2 uvEye=(float2(id)+0.5)/float2(w,h);
++  const float3 eyeRay=float3(lerp(cb.tangents.x,cb.tangents.y,uvEye.x),-lerp(cb.tangents.z,cb.tangents.w,uvEye.y),-1);
++  const float3 ray=float3(dot(cb.eyeRow0.xyz,eyeRay),dot(cb.eyeRow1.xyz,eyeRay),dot(cb.eyeRow2.xyz,eyeRay));
++  const float3 origin=float3(cb.eyeRow0.w,cb.eyeRow1.w,cb.eyeRow2.w);
++  float2 uv=project(ray);
++  float2 farUv=uv;
++  float farDepth=0;
++  for (int step=0; step<8; ++step) {
++    const float depth=readDepth(uv);
++    const float t=(depth+origin.z)/(-ray.z);
++    const float2 next=project(float3(origin.xy+ray.xy*t,-depth));
++    if (depth>farDepth) { farDepth=depth; farUv=next; }
++    if (length(next-uv)<1e-6) { farUv=next; break; }
++    uv=next;
++  }
++  Eye[id]=colour(saturate(farUv));
++}
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.h b/src/dxvk/shaders/rtx/pass/vr/vr_warp.h
+new file mode 100644
+index 00000000..ece68509
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.h
+@@ -0,0 +1,12 @@
++﻿// SPDX-License-Identifier: MIT
++#ifndef RTX_VR_WARP_H
++#define RTX_VR_WARP_H
++#include "rtx/utility/shader_types.h"
++struct VrWarpArgs {
++  vec4 tangents;
++  vec4 eyeRow0;
++  vec4 eyeRow1;
++  vec4 eyeRow2;
++  vec4 centre;
++};
++#endif
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index 0062125c..b19b7ec2 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -223,8 +223,10 @@ exe = executable('test_upscaling_options', files('test_upscaling_options.cpp'),
+ test('test_upscaling_options', exe, env: test_env)
+ tests += exe
+ 
+-alias_target('unit_tests', tests)
++
+ 
+ exe = executable('test_vr_math', files('test_vr_math.cpp'), dependencies : test_unit_deps, win_subsystem : 'console', override_options: ['cpp_std='+dxvk_cpp_std])
+ test('test_vr_math', exe, env: test_env)
+ tests += exe
++
++alias_target('unit_tests', tests)
+-- 
+2.56.0.windows.1
+

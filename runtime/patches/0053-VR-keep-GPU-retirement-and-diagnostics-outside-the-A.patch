@@ -1,0 +1,101 @@
+From 056f4ebd3eb10b18b586dfa25dc28a044b8eb0e7 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 09:03:21 -0700
+Subject: [PATCH] VR: keep GPU retirement and diagnostics outside the API
+ request lock
+
+Snapshot requests before render-thread waits so status and pose calls remain quick. Report failed overlay allocations through the API instead of unwinding the game render path.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 51 ++++++++++++++++++++--------------
+ 1 file changed, 30 insertions(+), 21 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index d418a022..b3ed0bbe 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -143,10 +143,12 @@ namespace dxvk {
+   }
+ 
+   void RtxVr::fail(int error,const std::string& message) {
+-    std::lock_guard lock(m_requestMutex);
+-    m_status.state=RTXVR_STATE_FAILED; m_status.lastError=error;
+-    std::snprintf(m_status.lastErrorText,sizeof(m_status.lastErrorText),"%s",message.c_str());
+-    m_active.store(false,std::memory_order_release);
++    {
++      std::lock_guard lock(m_requestMutex);
++      m_status.state=RTXVR_STATE_FAILED; m_status.lastError=error;
++      std::snprintf(m_status.lastErrorText,sizeof(m_status.lastErrorText),"%s",message.c_str());
++      m_active.store(false,std::memory_order_release);
++    }
+     Logger::err(str::format("RTX VR: ",message));
+   }
+ 
+@@ -267,9 +269,24 @@ namespace dxvk {
+     try {
+       if (!m_ready && !initialise(ctx)) { return flat; }
+     } catch (const std::exception& e) { fail(RTXVR_E_RESOURCES,e.what()); return flat; }
+-    std::lock_guard lock(m_requestMutex);
+-    if (!m_active || generation!=m_generation) { return flat; }
+-    for (const auto& item:m_overlayRequests) {
++    std::map<uint64_t,std::pair<uint32_t,uint32_t>> overlayRequests;
++    const auto& camera=ctx.getSceneManager().getCamera();
++    const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto right=camera.getRight(false);
++    const float angles[3] {float(std::atan2(-dir.z,std::hypot(dir.x,dir.y))*180/M_PI),
++      float(std::atan2(dir.y,dir.x)*180/M_PI),float(std::atan2(-right.z,camera.getUp(false).z)*180/M_PI)};
++    const float pos[3] {origin.x,origin.y,origin.z};
++    uint64_t matched=0,unmatched=0;
++    {
++      std::lock_guard lock(m_requestMutex);
++      if (!m_active || generation!=m_generation) { return flat; }
++      overlayRequests.swap(m_overlayRequests);
++      m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
++      if (m_poses.match(pos,angles,m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
++      m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
++      m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
++      matched=m_status.posesMatched; unmatched=m_status.posesUnmatched;
++    }
++    for (const auto& item:overlayRequests) {
+       const auto found=m_overlays.find(item.first);
+       if (!item.second.first) {
+         retireOverlay(ctx,item.first);
+@@ -278,19 +295,9 @@ namespace dxvk {
+         m_overlays[item.first]={item.second.first,item.second.second,{},false};
+       }
+     }
+-    m_overlayRequests.clear();
+-    m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
+-    const auto& camera=ctx.getSceneManager().getCamera();
+-    const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto right=camera.getRight(false);
+-    const float angles[3] {float(std::atan2(-dir.z,std::hypot(dir.x,dir.y))*180/M_PI),
+-      float(std::atan2(dir.y,dir.x)*180/M_PI),float(std::atan2(-right.z,camera.getUp(false).z)*180/M_PI)};
+-    const float pos[3] {origin.x,origin.y,origin.z};
+-    if (m_poses.match(pos,angles,m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+-    m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+-    m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
+     if ((m_frames%120)==0 || camera.isCameraCut()) {
+       Logger::info(str::format("RTX VR camera: main, cut=",camera.isCameraCut(),", FOV=",camera.getFov(),
+-        ", pose=",m_framePose.sequence,", matched=",m_status.posesMatched,", unmatched=",m_status.posesUnmatched));
++        ", pose=",m_framePose.sequence,", matched=",matched,", unmatched=",unmatched));
+     }
+     return {m_frameProjection.width,m_frameProjection.height,1};
+   }
+@@ -426,9 +433,11 @@ namespace dxvk {
+     for (auto& item:m_overlays) {
+       auto& overlay=item.second;
+       if (size.width!=overlay.width || size.height!=overlay.height) { continue; }
+-      if (overlay.texture.image == nullptr) { overlay.texture=makeImage(ctx,size); }
+-      RtxContext::blitImageHelper(&ctx,image,overlay.texture.image,VK_FILTER_NEAREST);
+-      overlay.dirty=true;
++      try {
++        if (overlay.texture.image == nullptr) { overlay.texture=makeImage(ctx,size); }
++        RtxContext::blitImageHelper(&ctx,image,overlay.texture.image,VK_FILTER_NEAREST);
++        overlay.dirty=true;
++      } catch (const std::exception& e) { fail(RTXVR_E_RESOURCES,e.what()); return; }
+     }
+   }
+ 
+-- 
+2.56.0.windows.1
+

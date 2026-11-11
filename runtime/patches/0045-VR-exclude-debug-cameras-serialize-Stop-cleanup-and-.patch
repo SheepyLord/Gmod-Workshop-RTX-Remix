@@ -1,0 +1,81 @@
+From ea2b4c21fd812ebb75470a18b3f002ae6731f11c Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:18:56 -0700
+Subject: [PATCH] VR: exclude debug cameras, serialize Stop cleanup and
+ preserve the SDK pin bytes
+
+Keep compositor texture retirement under queue exclusion, record every camera cut, and respect fourteen-bit rendering extents.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ .gitattributes                    | 4 ++++
+ src/dxvk/rtx_render/rtx_vr.cpp    | 7 +++++--
+ src/dxvk/rtx_render/rtx_vr_math.h | 4 ++--
+ 3 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/.gitattributes b/.gitattributes
+index 016a9ccb..3ba110a7 100644
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -30,3 +30,7 @@
+ # Note: Missing from buit-in linguist extensions for some reason, treat .comp
+ # the same as other GLSL files such as .vert and .frag.
+ *.comp linguist-language=GLSL
++
++# Pinned Valve SDK inputs are byte-identical to their upstream blobs.
++include/openvr_vr/openvr.h -text
++include/openvr_vr/LICENSE -text
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 1461904f..85947b64 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -83,6 +83,8 @@ namespace dxvk {
+     }
+     // The module may unload OpenVR as soon as Stop returns.
+     std::lock_guard calls(m_openVrMutex);
++    std::unique_ptr<SubmissionLock> queue;
++    if (m_overlay || m_compositor) { queue=std::make_unique<SubmissionLock>(m_device); }
+     if (m_overlay) {
+       for (uint64_t handle:m_submittedOverlays) { m_overlay->ClearOverlayTexture(handle); }
+       m_submittedOverlays.clear();
+@@ -200,7 +202,8 @@ namespace dxvk {
+       {"rtx.upscalerType","1"},{"rtx.qualityDLSS","2"},{"rtx.enableRayReconstruction","True"},
+       {"rtx.pathMinBounces","1"},{"rtx.pathMaxBounces","4"},
+       {"rtx.postfx.enableMotionBlur","False"},{"rtx.postfx.enableChromaticAberration","False"},
+-      {"rtx.postfx.enableVignette","False"},{"rtx.enablePresentThrottle","False"}});
++      {"rtx.postfx.enableVignette","False"},{"rtx.enablePresentThrottle","False"},
++      {"rtx.camera.enableFreeCamera","False"},{"rtx.shakeCamera","False"}});
+     m_layer=RtxOptionManager::acquireLayer("",kVrLayer,1,0.1f,true,&preset);
+     RtxOptionManager::applyPendingValues(m_device,false);
+     const VkExtent3D size {std::max(1u,uint32_t(std::ceil(m_frame.eyeWidth*m_frame.renderScale))),
+@@ -260,7 +263,7 @@ namespace dxvk {
+     if (m_poses.match(pos,angles,m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+     m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+     m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
+-    if ((m_frames%120)==0) {
++    if ((m_frames%120)==0 || camera.isCameraCut()) {
+       Logger::info(str::format("RTX VR camera: main, cut=",camera.isCameraCut(),", FOV=",camera.getFov(),
+         ", pose=",m_framePose.sequence,", matched=",m_status.posesMatched,", unmatched=",m_status.posesUnmatched));
+     }
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 7aa3c2d3..5e0a4ba2 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -1,4 +1,4 @@
+-﻿// SPDX-License-Identifier: MIT
++// SPDX-License-Identifier: MIT
+ #pragma once
+ 
+ #include <algorithm>
+@@ -71,7 +71,7 @@ namespace dxvk::vrmath {
+     }
+     const double w = std::ceil(2*out.tanX*densityX/8)*8;
+     const double h = std::ceil(2*out.tanY*densityY/8)*8;
+-    if (!(w >= 8 && h >= 8 && w <= 16384 && h <= 16384)) { return false; }
++    if (!(w >= 8 && h >= 8 && w < 16384 && h < 16384)) { return false; }
+     out.width = uint32_t(w); out.height = uint32_t(h);
+     return true;
+   }
+-- 
+2.56.0.windows.1
+

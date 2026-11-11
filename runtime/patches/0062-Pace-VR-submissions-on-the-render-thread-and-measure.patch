@@ -1,0 +1,208 @@
+From 54498f0a92091d245d97f758f8d71aa086c2cc28 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 12:53:03 -0700
+Subject: [PATCH] Pace VR submissions on the render thread and measure display
+ prediction
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp   | 58 +++++++++++++++++++++++++++++---
+ src/dxvk/rtx_render/rtx_vr.h     |  7 +++-
+ src/dxvk/rtx_render/rtx_vr_api.h | 10 +++++-
+ 3 files changed, 69 insertions(+), 6 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 795e02fe..d0d84da9 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -68,7 +68,7 @@ namespace dxvk {
+     if (!info || info->structSize!=sizeof(*info)) { return RTXVR_E_ARGUMENT; }
+     if (info->apiVersion!=RTXVR_API_VERSION) { return RTXVR_E_VERSION; }
+     vrmath::Projection p;
+-    if ((info->flags & ~(RTXVR_START_NO_SUBMIT|RTXVR_START_NO_MIRROR)) ||
++    if ((info->flags & ~(RTXVR_START_NO_SUBMIT|RTXVR_START_NO_MIRROR|RTXVR_START_RENDER_PACING)) ||
+         (!(info->flags&RTXVR_START_NO_SUBMIT) && !info->getGenericInterface) ||
+         !std::isfinite(info->worldUnitsPerMetre) || info->worldUnitsPerMetre<=0 || info->worldUnitsPerMetre>10000 ||
+         !std::isfinite(info->refreshHz) || info->refreshHz<=0 || info->refreshHz>1000 ||
+@@ -78,7 +78,7 @@ namespace dxvk {
+     std::lock_guard lock(m_requestMutex);
+     if (m_active) { return RTXVR_E_ALREADY; }
+     m_requested=*info; m_projection=p; ++m_generation;
+-    m_poses.clear(); m_latestPose=0; m_consumedPose=0; m_overlayRequests.clear(); m_captureWhat=0;
++    m_poseTimings.clear(); m_poses.clear(); m_latestPose=0; m_consumedPose=0; m_overlayRequests.clear(); m_captureWhat=0;
+     m_status={}; m_status.structSize=sizeof(m_status); m_status.state=RTXVR_STATE_STARTING;
+     m_active.store(true,std::memory_order_release); m_work.store(true,std::memory_order_release);
+     return RTXVR_OK;
+@@ -100,7 +100,7 @@ namespace dxvk {
+       m_submittedOverlays.clear();
+     }
+     if (m_compositor) { m_compositor->ClearLastSubmittedFrame(); }
+-    m_compositor=nullptr; m_overlay=nullptr;
++    m_compositor=nullptr; m_overlay=nullptr; m_system=nullptr;
+   }
+ 
+   int RtxVr::updateEyes(const rtxvr_Eye eyes[2]) {
+@@ -224,6 +224,7 @@ namespace dxvk {
+     if (!(m_frame.flags&RTXVR_START_NO_SUBMIT)) {
+       int error=0;
+       m_compositor=static_cast<vr::IVRCompositor*>(m_frame.getGenericInterface(vr::IVRCompositor_Version,&error));
++      m_system=static_cast<vr::IVRSystem*>(m_frame.getGenericInterface(vr::IVRSystem_Version,&error));
+       m_overlay=static_cast<vr::IVROverlay*>(m_frame.getGenericInterface(vr::IVROverlay_Version,&error));
+       if (!m_compositor || !m_overlay) { fail(RTXVR_E_INTERFACE,"Pinned OpenVR compositor or overlay interface is unavailable"); return false; }
+       const uint32_t instanceBytes=m_compositor->GetVulkanInstanceExtensionsRequired(nullptr,0);
+@@ -243,6 +244,7 @@ namespace dxvk {
+       }
+       m_compositor->SetExplicitTimingMode(vr::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+       m_timingFrame=~uint64_t(0);
++      if (m_frame.flags&RTXVR_START_RENDER_PACING) { pace(); }
+     }
+     // The session layer precedes quality presets and never has a file path.
+     Config preset({{"rtx.dlfg.enable","False"},{"rtx.fsrfg.enable","False"},{"rtx.frameGenerationType","0"},
+@@ -548,6 +550,10 @@ namespace dxvk {
+         m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
+       }
+     }
++    if (m_frame.flags&RTXVR_START_RENDER_PACING) {
++      std::lock_guard calls(m_openVrMutex);
++      if (active() && m_compositor) { pace(); }
++    }
+     ++m_frames; m_lastOutputFrame=m_device->getCurrentFrameId();
+     // Menu and camera-only frames must not arm a query set with missing dispatch timestamps.
+     if (m_timer) { m_timer->pending=true; }
+@@ -577,6 +583,45 @@ namespace dxvk {
+       queue.queueHandle,queue.queueFamily,info.extent.width,info.extent.height,uint32_t(info.format),1};
+   }
+ 
++  namespace {
++    double poseClock() { LARGE_INTEGER t{},f{}; QueryPerformanceCounter(&t); QueryPerformanceFrequency(&f); return double(t.QuadPart)/double(f.QuadPart); }
++  }
++  void RtxVr::resolvePoses() {
++    vr::Compositor_FrameTiming frames[32] {};
++    for (auto& frame:frames) { frame.m_nSize=sizeof(frame); }
++    const auto count=m_compositor->GetFrameTimings(frames,32);
++    for (auto at=m_poseTimings.begin();at!=m_poseTimings.end();) {
++      bool resolved=false;
++      for (uint32_t i=0;i<count;++i) {
++        const auto& t=frames[i];
++        if (t.m_nFrameIndex!=at->index || !t.m_nNumFramePresents || !t.m_nNumVSyncsToFirstView) { continue; }
++        const double photons=m_system ? m_system->GetFloatTrackedDeviceProperty(0,vr::Prop_SecondsFromVsyncToPhotons_Float) : 0;
++        const double afterSubmit=t.m_nNumVSyncsToFirstView/double(m_frame.refreshHz)-t.m_flNewFrameReadyMs/1000.0+photons;
++        const double display=at->submit+afterSubmit;
++        const double age=display-at->pose.sampleTimeSeconds;
++        if (at->pose.sampleTimeSeconds>0 && afterSubmit>=0 && afterSubmit<0.25 && age>=0 && age<0.5) {
++          const double intervals=std::max(0.0,(age-at->pose.baseSecondsToPhotons)*m_frame.refreshHz);
++          std::lock_guard lock(m_requestMutex);
++          m_status.pipelineIntervals=m_status.timingSamples ? m_status.pipelineIntervals*0.9+intervals*0.1 : intervals;
++          ++m_status.timingSamples; m_status.poseAgeMs=age*1000;
++          m_status.predictionErrorMs=(display-at->pose.predictedDisplayTimeSeconds)*1000;
++          m_status.lastPoseSequence=at->pose.sequence;
++        }
++        resolved=true; break;
++      }
++      if (resolved || m_poseTimings.size()>24) { at=m_poseTimings.erase(at); } else { ++at; }
++    }
++  }
++  void RtxVr::pace() {
++    std::array<vr::TrackedDevicePose_t,vr::k_unMaxTrackedDeviceCount> unused {};
++    const auto began=std::chrono::steady_clock::now();
++    const auto error=m_compositor->WaitGetPoses(unused.data(),uint32_t(unused.size()),nullptr,0);
++    const auto ms=std::chrono::duration<float,std::milli>(std::chrono::steady_clock::now()-began).count();
++    { std::lock_guard lock(m_requestMutex); ++m_status.renderWaitCalls; m_status.renderWaitMs=ms;
++      m_status.renderWaitMaxMs=std::max(m_status.renderWaitMaxMs,ms); }
++    if (error!=vr::VRCompositorError_None) { fail(RTXVR_E_INTERFACE,str::format("Render-side WaitGetPoses: ",int(error))); }
++    resolvePoses();
++  }
+   void RtxVr::submit(RtxContext& ctx) {
+     if (m_frame.flags&RTXVR_START_NO_SUBMIT) { return; }
+     ScopedCpuProfileZoneN("SteamVR Submit");
+@@ -584,6 +629,7 @@ namespace dxvk {
+     if (!active() || !m_compositor) { return; }
+     for (auto& eye:m_eyes) { ctx.changeImageLayout(eye.image,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); }
+     ctx.flushCommandList();
++    {
+     SubmissionLock queue(m_device);
+     const auto begin=std::chrono::steady_clock::now();
+     bool success=true;
+@@ -601,7 +647,11 @@ namespace dxvk {
+     }
+     const float ms=std::chrono::duration<float,std::milli>(std::chrono::steady_clock::now()-begin).count();
+     m_compositor->PostPresentHandoff();
+-    std::lock_guard lock(m_requestMutex); if (success) { ++m_status.framesSubmitted; } m_status.cpuMsSubmit=ms;
++    vr::Compositor_FrameTiming timing {}; timing.m_nSize=sizeof(timing);
++    if (success && m_compositor->GetFrameTiming(&timing,0)) { m_poseTimings.push_back({timing.m_nFrameIndex,m_framePose,poseClock()}); }
++    { std::lock_guard lock(m_requestMutex); if (success) { ++m_status.framesSubmitted; } m_status.cpuMsSubmit=ms; }
++    }
++    resolvePoses();
+   }
+ 
+   void RtxVr::observeTarget(DxvkContext& ctx,const Rc<DxvkImage>& image) {
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index f1e66bea..492e5fd9 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -17,7 +17,7 @@
+ #include "../dxvk_gpu_query.h"
+ #include "../../util/sync/sync_signal.h"
+ 
+-namespace vr { class IVRCompositor; class IVROverlay; struct VRVulkanTextureData_t; }
++namespace vr { class IVRSystem; class IVRCompositor; class IVROverlay; struct VRVulkanTextureData_t; }
+ namespace dxvk {
+   class RtxContext;
+   class DxvkContext;
+@@ -65,6 +65,11 @@ namespace dxvk {
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
++    void pace();
++    void resolvePoses();
++    struct PoseTiming { uint32_t index; rtxvr_FramePose pose; double submit; };
++    std::deque<PoseTiming> m_poseTimings;
++    vr::IVRSystem* m_system=nullptr;
+     void mirror(RtxContext& ctx,const Rc<DxvkImage>& game);
+     void clearResources(bool synchronize = false);
+     void collectRecordings();
+diff --git a/src/dxvk/rtx_render/rtx_vr_api.h b/src/dxvk/rtx_render/rtx_vr_api.h
+index b3b70cf2..741e16f8 100644
+--- a/src/dxvk/rtx_render/rtx_vr_api.h
++++ b/src/dxvk/rtx_render/rtx_vr_api.h
+@@ -7,7 +7,7 @@
+ extern "C" {
+ #endif
+ 
+-#define RTXVR_API_VERSION 1u
++#define RTXVR_API_VERSION 2u
+ 
+ typedef struct rtxvr_Matrix34 { float m[3][4]; } rtxvr_Matrix34;      /* OpenVR's HmdMatrix34_t layout */
+ 
+@@ -31,6 +31,7 @@ typedef struct rtxvr_StartInfo {
+ } rtxvr_StartInfo;
+ 
+ #define RTXVR_START_NO_SUBMIT   0x1u   /* render and warp, hand nothing to the compositor (tests without SteamVR) */
++#define RTXVR_START_RENDER_PACING 0x4u /* render thread owns Submit/WaitGetPoses; module predicts without waiting */
+ #define RTXVR_START_NO_MIRROR   0x2u   /* leave the game's own target alone */
+ 
+ typedef struct rtxvr_FramePose {
+@@ -40,6 +41,9 @@ typedef struct rtxvr_FramePose {
+   rtxvr_Matrix34 hmdToTracking;                 /* the head pose this frame is rendered for */
+   float cameraOrigin[3];                        /* the game camera the add-on set for it: world units */
+   float cameraAngles[3];                        /* pitch, yaw, roll in degrees, Source's convention */
++  double sampleTimeSeconds;                    /* QPC seconds, when the module sampled tracking */
++  double predictedDisplayTimeSeconds;          /* same clock, prediction target */
++  double baseSecondsToPhotons;                 /* next vsync + vsync-to-photons, excluding measured pipeline */
+ } rtxvr_FramePose;
+ 
+ #define RTXVR_POSE_SCRIPTED     0x1u   /* a test pose: submit without a pose (the compositor uses its own) */
+@@ -59,6 +63,10 @@ typedef struct rtxvr_Status {
+   float    cpuMsSubmit;                         /* time inside the two Submit calls, last frame */
+   uint32_t overlaysBound;                       /* overlay sources that found their render target */
+   uint64_t overlayUpdates;
++  uint64_t timingSamples, renderWaitCalls;
++  double poseAgeMs, predictionErrorMs, pipelineIntervals;
++  float renderWaitMs, renderWaitMaxMs;
++  uint64_t lastPoseSequence;
+ } rtxvr_Status;
+ 
+ enum { RTXVR_STATE_OFF = 0, RTXVR_STATE_STARTING = 1, RTXVR_STATE_RUNNING = 2, RTXVR_STATE_FAILED = 3 };
+-- 
+2.56.0.windows.1
+

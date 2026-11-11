@@ -38,5 +38,6 @@ add_subdirectory(loader)
 add_subdirectory(glass/native)
 add_subdirectory(engine_guard)
 add_subdirectory(fs_accel)
+add_subdirectory(vr/native)
 # Standalone GPL package-policy tests: no GPL object is linked into the MIT loader.
 add_subdirectory(packages/fixes/licenses/oversized-skinning/tests)

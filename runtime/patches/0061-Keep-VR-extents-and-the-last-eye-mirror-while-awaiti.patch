@@ -1,0 +1,139 @@
+From 72f3cb8317d978b0bd6ffe4ba642368cff4ed84c Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 11:27:11 -0700
+Subject: [PATCH] Keep VR extents and the last eye mirror while awaiting a
+ fresh pose
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_context.cpp |  2 +-
+ src/dxvk/rtx_render/rtx_vr.cpp      | 44 +++++++++++++++++------------
+ src/dxvk/rtx_render/rtx_vr.h        |  2 ++
+ 3 files changed, 29 insertions(+), 19 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index ebb6ad06..72abdf2f 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -858,7 +858,7 @@ namespace dxvk {
+         fork_hooks::dispatchFsrFrameGeneration(*this, srcImage);
+ 
+         // VR owns the centre output; the original target remains the game's raster canvas.
+-        if (vr.frameActive()) {
++        if (vr.useOutput()) {
+           vr.output(*this, srcImage, rtOutput.m_primaryLinearViewZ.view, targetImage);
+         } else {
+         // Blit to the game target
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 89f86cf6..795e02fe 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -144,7 +144,7 @@ namespace dxvk {
+ 
+   bool RtxVr::projection(Matrix4& matrix,float& fov,float& aspect) {
+     std::lock_guard lock(m_requestMutex);
+-    if (!m_active || m_latestPose<=m_consumedPose) { return false; }
++    if (!m_active || !m_latestPose) { return false; }
+     m_frame=m_requested; m_frameProjection=m_projection;
+     m_cameraFrame=m_device->getCurrentFrameId(); m_cameraGeneration=m_generation;
+     matrix[0][0]=float(1/m_frameProjection.tanX); matrix[1][1]=float(1/m_frameProjection.tanY);
+@@ -293,7 +293,10 @@ namespace dxvk {
+       std::lock_guard lock(m_requestMutex);
+       // SDK readiness precedes the add-on's view hooks. Wait for their first camera, and never
+       // submit the same pose twice while Lua waits for a queued render or a scene is absent.
+-      if (!m_active || m_latestPose<=m_consumedPose) { return flat; }
++      if (!m_active) { return flat; }
++      if (m_latestPose<=m_consumedPose) {
++        return m_ready ? VkExtent3D{m_frameProjection.width,m_frameProjection.height,1} : flat;
++      }
+     }
+     try {
+       if (!m_ready && !initialise(ctx)) { return flat; }
+@@ -309,7 +312,7 @@ namespace dxvk {
+       overlayRequests.swap(m_overlayRequests);
+       m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
+       const bool poseMatched=m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose);
+-      if (m_framePose.sequence<=m_consumedPose) { return flat; }
++      if (m_framePose.sequence<=m_consumedPose) { return {m_frameProjection.width,m_frameProjection.height,1}; }
+       m_frameEligible=true;
+       if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+       m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+@@ -491,7 +494,8 @@ namespace dxvk {
+   }
+ 
+   void RtxVr::output(RtxContext& ctx,const Rc<DxvkImage>& colour,const Rc<DxvkImageView>& depth,const Rc<DxvkImage>& game) {
+-    if (!m_ready || !frameActive()) { return; }
++    if (!m_ready || !active()) { return; }
++    if (!m_frameEligible) { mirror(ctx,game); return; }
+     ScopedCpuProfileZone();
+     timestamp(ctx,vrtiming::Stage::WarpBegin);
+     {
+@@ -518,20 +522,7 @@ namespace dxvk {
+     }
+     }
+     timestamp(ctx,vrtiming::Stage::MirrorBegin);
+-    if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
+-      // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
+-      const auto src=m_eyes[0].image->info().extent; const auto dst=game->info().extent;
+-      uint32_t w=src.width,h=src.height;
+-      if (uint64_t(w)*dst.height>uint64_t(h)*dst.width) { w=uint32_t(uint64_t(h)*dst.width/dst.height); }
+-      else { h=uint32_t(uint64_t(w)*dst.height/dst.width); }
+-      VkImageBlit blit {};
+-      blit.srcSubresource={VK_IMAGE_ASPECT_COLOR_BIT,0,0,1}; blit.dstSubresource=blit.srcSubresource;
+-      blit.srcOffsets[0]={int32_t((src.width-w)/2),int32_t((src.height-h)/2),0};
+-      blit.srcOffsets[1]={blit.srcOffsets[0].x+int32_t(w),blit.srcOffsets[0].y+int32_t(h),1};
+-      blit.dstOffsets[1]={int32_t(dst.width),int32_t(dst.height),1};
+-      const VkComponentMapping identity {VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY};
+-      ctx.blitImage(game,identity,m_eyes[0].image,identity,blit,VK_FILTER_LINEAR);
+-    }
++    mirror(ctx,game);
+     timestamp(ctx,vrtiming::Stage::CaptureBegin);
+     if (m_frameCaptureWhat) {
+       std::error_code error; std::filesystem::create_directories(m_frameCaptureFolder,error);
+@@ -562,6 +553,23 @@ namespace dxvk {
+     if (m_timer) { m_timer->pending=true; }
+   }
+ 
++  void RtxVr::mirror(RtxContext& ctx,const Rc<DxvkImage>& game) {
++    if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
++      // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
++      const auto src=m_eyes[0].image->info().extent; const auto dst=game->info().extent;
++      uint32_t w=src.width,h=src.height;
++      if (uint64_t(w)*dst.height>uint64_t(h)*dst.width) { w=uint32_t(uint64_t(h)*dst.width/dst.height); }
++      else { h=uint32_t(uint64_t(w)*dst.height/dst.width); }
++      VkImageBlit blit {};
++      blit.srcSubresource={VK_IMAGE_ASPECT_COLOR_BIT,0,0,1}; blit.dstSubresource=blit.srcSubresource;
++      blit.srcOffsets[0]={int32_t((src.width-w)/2),int32_t((src.height-h)/2),0};
++      blit.srcOffsets[1]={blit.srcOffsets[0].x+int32_t(w),blit.srcOffsets[0].y+int32_t(h),1};
++      blit.dstOffsets[1]={int32_t(dst.width),int32_t(dst.height),1};
++      const VkComponentMapping identity {VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY};
++      ctx.blitImage(game,identity,m_eyes[0].image,identity,blit,VK_FILTER_LINEAR);
++    }
++  }
++
+   vr::VRVulkanTextureData_t RtxVr::textureData(const Image& image) const {
+     const auto& queue=m_device->queues().graphics;
+     const auto& info=image.image->info();
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index f51d3b1d..f1e66bea 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -32,6 +32,7 @@ namespace dxvk {
+     bool hasWork() const { return m_work.load(std::memory_order_acquire); }
+     bool active() const { return m_active.load(std::memory_order_acquire); }
+     bool frameActive() const { return m_frameEligible && active(); }
++    bool useOutput() const { return m_ready && active(); }
+     int start(const rtxvr_StartInfo* info);
+     void stop();
+     int updateEyes(const rtxvr_Eye eyes[2]);
+@@ -64,6 +65,7 @@ namespace dxvk {
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
++    void mirror(RtxContext& ctx,const Rc<DxvkImage>& game);
+     void clearResources(bool synchronize = false);
+     void collectRecordings();
+     bool resolveTimer(Timer& timer);
+-- 
+2.56.0.windows.1
+

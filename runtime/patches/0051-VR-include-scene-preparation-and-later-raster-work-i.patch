@@ -1,0 +1,143 @@
+From 7e7b303a9bedf7345bba333b2357ada4c5a5a55d Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:52:21 -0700
+Subject: [PATCH] VR: include scene preparation and later raster work in total
+ GPU timing
+
+Keep lighting, upscaling and warp intervals separate, and measure the complete runtime span from injection through final raster/overlay presentation. Report the remaining work as Other, with asynchronous query readback.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_context.cpp | 10 ++++++----
+ src/dxvk/rtx_render/rtx_vr.cpp      | 22 +++++++++++-----------
+ src/dxvk/rtx_render/rtx_vr.h        |  2 +-
+ 3 files changed, 18 insertions(+), 16 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index ec1384e2..7b7b5748 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -623,6 +623,9 @@ namespace dxvk {
+         targetImage = m_state.om.renderTargets.color[0].view->image();  
+       }
+ 
++      const VkExtent3D outputExtent = vr.hasWork() ? vr.beginFrame(*this, targetImage->info().extent) : targetImage->info().extent;
++      if (vr.active()) { vr.timestamp(*this, 0); }
++
+       const bool captureTestScreenshot = (m_screenshotFrameEnabled && m_device->getCurrentFrameId() == m_screenshotFrameNum);
+       const bool captureScreenImage = s_triggerScreenshot || (captureTestScreenshot && !s_capturePrePresentTestScreenshot);
+       const bool captureDebugImage = RtxOptions::captureDebugImage();
+@@ -696,9 +699,8 @@ namespace dxvk {
+       // If we really don't have any RT to do, just bail early (could be UI/menus rendering)
+       if (getSceneManager().getSurfaceBuffer() != nullptr) {
+ 
+-        const VkExtent3D outputExtent = vr.hasWork() ? vr.beginFrame(*this, targetImage->info().extent) : targetImage->info().extent;
+         VkExtent3D downscaledExtent = onInjectRtxFrameBegin(outputExtent);
+-        if (vr.active()) { vr.timestamp(*this, 0); }
++        if (vr.active()) { vr.timestamp(*this, 1); }
+ 
+         Resources::RaytracingOutput& rtOutput = getResourceManager().getRaytracingOutput();
+ 
+@@ -767,7 +769,7 @@ namespace dxvk {
+ 
+         getCommonObjects()->getTextureManager().copySamplerFeedbackToHost(this);
+         dispatchObjectPicking(rtOutput, downscaledExtent, outputExtent);
+-        if (vr.active()) { vr.timestamp(*this, 1); }
++        if (vr.active()) { vr.timestamp(*this, 2); }
+ 
+         // Upscaling if DLSS/NIS enabled, or the Composition Pass will do upscaling
+         if (m_currentUpscaler == InternalUpscaler::DLSS) {
+@@ -800,7 +802,7 @@ namespace dxvk {
+         }
+         fork_hooks::dispatchRcasSharpening(*this, rtOutput);
+         m_previousUpscaler = m_currentUpscaler;
+-        if (vr.active()) { vr.timestamp(*this, 2); }
++        if (vr.active()) { vr.timestamp(*this, 3); }
+ 
+         RtxDustParticles& dust = m_common->metaDustParticles();
+         dust.simulateAndDraw(this, m_state, rtOutput);
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index e14f3c07..4670a378 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -300,22 +300,22 @@ namespace dxvk {
+     if (!stage) {
+       auto& old=m_timers[m_timerIndex]; m_timer=nullptr;
+       if (old.pending) {
+-        std::array<DxvkQueryData,6> data {};
++        std::array<DxvkQueryData,7> data {};
+         bool ready=true;
+-        for (int i=0;i<6;++i) { ready &= old.queries[i]->getData(data[i])==DxvkGpuQueryStatus::Available; }
++        for (int i=0;i<7;++i) { ready &= old.queries[i]->getData(data[i])==DxvkGpuQueryStatus::Available; }
+         if (!ready) { return; }
+         const double factor=m_device->properties().core.properties.limits.timestampPeriod/1e6;
+         std::lock_guard lock(m_requestMutex);
+-        m_status.gpuMsTotal=float((data[5].timestamp.time-data[0].timestamp.time)*factor);
+-        m_status.gpuMsPathTrace=float((data[1].timestamp.time-data[0].timestamp.time)*factor);
+-        m_status.gpuMsUpscale=float((data[2].timestamp.time-data[1].timestamp.time)*factor);
+-        m_status.gpuMsWarp=float((data[4].timestamp.time-data[3].timestamp.time)*factor);
++        m_status.gpuMsTotal=float((data[6].timestamp.time-data[0].timestamp.time)*factor);
++        m_status.gpuMsPathTrace=float((data[2].timestamp.time-data[1].timestamp.time)*factor);
++        m_status.gpuMsUpscale=float((data[3].timestamp.time-data[2].timestamp.time)*factor);
++        m_status.gpuMsWarp=float((data[5].timestamp.time-data[4].timestamp.time)*factor);
+         m_status.gpuMsOther=std::max(0.f,m_status.gpuMsTotal-m_status.gpuMsPathTrace-m_status.gpuMsUpscale-m_status.gpuMsWarp);
+       }
+       old.pending=false; m_timer=&old;
+     }
+-    if (m_timer && stage<6) { ctx.writeTimestamp(m_timer->queries[stage]); }
+-    if (stage==5) {
++    if (m_timer && stage<7) { ctx.writeTimestamp(m_timer->queries[stage]); }
++    if (stage==6) {
+       if (m_timer) { m_timer->pending=true; }
+       m_timer=nullptr; m_timerIndex=(m_timerIndex+1)%m_timers.size();
+     }
+@@ -324,7 +324,7 @@ namespace dxvk {
+   void RtxVr::output(RtxContext& ctx,const Rc<DxvkImage>& colour,const Rc<DxvkImageView>& depth,const Rc<DxvkImage>& game) {
+     if (!m_ready || !active()) { return; }
+     ScopedCpuProfileZone();
+-    timestamp(ctx,3);
++    timestamp(ctx,4);
+     {
+     ScopedGpuProfileZone(&ctx, "VR eye warp");
+     DxvkImageViewCreateInfo desc {};
+@@ -348,7 +348,7 @@ namespace dxvk {
+       ctx.dispatch((size.width+15)/16,(size.height+15)/16,1);
+     }
+     }
+-    timestamp(ctx,4);
++    timestamp(ctx,5);
+     if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
+       // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
+       const auto src=m_eyes[0].image->info().extent; const auto dst=game->info().extent;
+@@ -373,7 +373,6 @@ namespace dxvk {
+         captureImage(ctx,m_eyes[0].image,m_frameCaptureFolder/L"left.png"); captureImage(ctx,m_eyes[1].image,m_frameCaptureFolder/L"right.png");
+       }
+     }
+-    timestamp(ctx,5);
+     submit(ctx);
+     {
+       std::lock_guard lock(m_requestMutex);
+@@ -463,6 +462,7 @@ namespace dxvk {
+     }
+     if ((m_frameCaptureWhat&RTXVR_CAPTURE_MIRROR) && game != nullptr) { captureImage(ctx,game,m_frameCaptureFolder/L"mirror.png"); }
+     m_frameCaptureWhat=0;
++    timestamp(ctx,6);
+     std::lock_guard lock(m_requestMutex); m_status.overlaysBound=bound;
+   }
+ 
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index ea1cdc50..34fd8481 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -42,7 +42,7 @@ namespace dxvk {
+   private:
+     struct Image { Rc<DxvkImage> image; Rc<DxvkImageView> view; };
+     struct Overlay { uint32_t width=0,height=0; Image texture; bool dirty=false; };
+-    struct Timer { std::array<Rc<DxvkGpuQuery>,6> queries; bool pending=false; };
++    struct Timer { std::array<Rc<DxvkGpuQuery>,7> queries; bool pending=false; };
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
+-- 
+2.56.0.windows.1
+

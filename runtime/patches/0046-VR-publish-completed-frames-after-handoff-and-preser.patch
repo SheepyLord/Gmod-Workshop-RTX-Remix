@@ -1,0 +1,48 @@
+From 8850a3d431da90b0f5ee8bb4acfc630dde59a0e0 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:24:44 -0700
+Subject: [PATCH] VR: publish completed frames after handoff and preserve a
+ concurrent Stop state
+
+The existing completion counter is a render-thread fence for module pacing, including failed Submit calls; a retired generation cannot overwrite the state of a new session.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 85947b64..827632c0 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -196,6 +196,7 @@ namespace dxvk {
+         fail(RTXVR_E_EXTENSION,"Vulkan extension not enabled: "+missing); return false;
+       }
+       m_compositor->SetExplicitTimingMode(vr::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
++      m_timingFrame=~uint64_t(0);
+     }
+     // The session layer precedes quality presets and never has a file path.
+     Config preset({{"rtx.dlfg.enable","False"},{"rtx.fsrfg.enable","False"},{"rtx.frameGenerationType","0"},
+@@ -345,13 +346,16 @@ namespace dxvk {
+       }
+     }
+     timestamp(ctx,5);
++    submit(ctx);
+     {
+       std::lock_guard lock(m_requestMutex);
+-      ++m_status.framesRendered; m_status.state=RTXVR_STATE_RUNNING;
+-      m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
++      if (m_generation==m_renderGeneration) {
++        ++m_status.framesRendered;
++        if (m_active) { m_status.state=RTXVR_STATE_RUNNING; }
++        m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
++      }
+     }
+     ++m_frames;
+-    submit(ctx);
+   }
+ 
+   vr::VRVulkanTextureData_t RtxVr::textureData(const Image& image) const {
+-- 
+2.56.0.windows.1
+

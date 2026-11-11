@@ -1,0 +1,80 @@
+From ead1fb6a6be8fbfb0a0bb5efa0b8c45f387047f1 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:04:09 -0700
+Subject: [PATCH] VR: retire the centre allocation at Stop and clear removed
+ overlay textures
+
+Restore the ordinary output extent even when exiting VR to a menu, and bound extension-list allocations.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 18 +++++++++++++++---
+ src/dxvk/rtx_render/rtx_vr.h   |  1 +
+ 2 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index d948c59c..1461904f 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -178,9 +178,14 @@ namespace dxvk {
+       m_compositor=static_cast<vr::IVRCompositor*>(m_frame.getGenericInterface(vr::IVRCompositor_Version,&error));
+       m_overlay=static_cast<vr::IVROverlay*>(m_frame.getGenericInterface(vr::IVROverlay_Version,&error));
+       if (!m_compositor || !m_overlay) { fail(RTXVR_E_INTERFACE,"Pinned OpenVR compositor or overlay interface is unavailable"); return false; }
+-      std::vector<char> instance(m_compositor->GetVulkanInstanceExtensionsRequired(nullptr,0)+1,0);
++      const uint32_t instanceBytes=m_compositor->GetVulkanInstanceExtensionsRequired(nullptr,0);
++      const uint32_t deviceBytes=m_compositor->GetVulkanDeviceExtensionsRequired(m_device->adapter()->handle(),nullptr,0);
++      if (!instanceBytes || !deviceBytes || instanceBytes>65536 || deviceBytes>65536) {
++        fail(RTXVR_E_INTERFACE,"SteamVR returned an invalid Vulkan extension list"); return false;
++      }
++      std::vector<char> instance(instanceBytes+1,0);
+       m_compositor->GetVulkanInstanceExtensionsRequired(instance.data(),uint32_t(instance.size()));
+-      std::vector<char> device(m_compositor->GetVulkanDeviceExtensionsRequired(m_device->adapter()->handle(),nullptr,0)+1,0);
++      std::vector<char> device(deviceBytes+1,0);
+       m_compositor->GetVulkanDeviceExtensionsRequired(m_device->adapter()->handle(),device.data(),uint32_t(device.size()));
+       Logger::info(str::format("RTX VR required instance extensions: ",instance.data()));
+       Logger::info(str::format("RTX VR required device extensions: ",device.data()));
+@@ -219,21 +224,28 @@ namespace dxvk {
+       m_frame=m_requested; m_frameProjection=m_projection;
+     }
+     if (generation!=m_renderGeneration || !requested) {
++      const bool hadResources=m_ready;
+       clearResources(); m_renderGeneration=generation;
+       if (!requested) {
+         RtxOptionManager::applyPendingValues(m_device,false);
++        if (hadResources && m_flatExtent.width) { ctx.resetScreenResolution(m_flatExtent); }
+         std::lock_guard lock(m_requestMutex);
+         if (m_generation==generation && !m_active) { m_work=false; }
+         return flat;
+       }
+     }
++    m_flatExtent=flat;
+     try {
+       if (!m_ready && !initialise(ctx)) { return flat; }
+     } catch (const std::exception& e) { fail(RTXVR_E_RESOURCES,e.what()); return flat; }
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active || generation!=m_generation) { return flat; }
+     for (const auto& item:m_overlayRequests) {
+-      if (!item.second.first) { m_overlays.erase(item.first); }
++      if (!item.second.first) {
++        std::lock_guard calls(m_openVrMutex);
++        if (m_overlay && m_submittedOverlays.erase(item.first)) { m_overlay->ClearOverlayTexture(item.first); }
++        m_overlays.erase(item.first);
++      }
+       else if (m_overlays[item.first].width!=item.second.first || m_overlays[item.first].height!=item.second.second) {
+         m_overlays[item.first]={item.second.first,item.second.second,{},false};
+       }
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 9250cc62..fdbc53dd 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -70,6 +70,7 @@ namespace dxvk {
+     vr::IVRCompositor* m_compositor=nullptr;
+     vr::IVROverlay* m_overlay=nullptr;
+     const RtxOptionLayer* m_layer=nullptr;
++    VkExtent3D m_flatExtent {};
+     bool m_ready=false;
+     std::set<uint64_t> m_submittedOverlays;
+     uint64_t m_timingFrame=~uint64_t(0);
+-- 
+2.56.0.windows.1
+

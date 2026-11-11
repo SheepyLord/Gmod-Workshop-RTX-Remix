@@ -1,0 +1,108 @@
+{
+  "action_manifest_version": 1,
+  "category": "steamvr_input",
+  "controller_type": "vive_controller",
+  "description": "Sandbox VR default controls; remap in SteamVR.",
+  "name": "Sandbox VR",
+  "bindings": {
+    "/actions/main": {
+      "sources": [
+        {
+          "path": "/user/hand/left/input/trigger",
+          "mode": "trigger",
+          "inputs": {
+            "pull": {
+              "output": "/actions/main/in/left_trigger_value"
+            },
+            "click": {
+              "output": "/actions/main/in/left_trigger"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/left/input/trackpad",
+          "mode": "trackpad",
+          "inputs": {
+            "position": {
+              "output": "/actions/main/in/left_stick"
+            },
+            "click": {
+              "output": "/actions/main/in/left_stick_click"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/left/input/grip",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/main/in/left_grip"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/left/input/application_menu",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/main/in/left_b"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/right/input/trigger",
+          "mode": "trigger",
+          "inputs": {
+            "pull": {
+              "output": "/actions/main/in/right_trigger_value"
+            },
+            "click": {
+              "output": "/actions/main/in/right_trigger"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/right/input/trackpad",
+          "mode": "trackpad",
+          "inputs": {
+            "position": {
+              "output": "/actions/main/in/right_stick"
+            },
+            "click": {
+              "output": "/actions/main/in/right_stick_click"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/right/input/grip",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/main/in/right_grip"
+            }
+          }
+        },
+        {
+          "path": "/user/hand/right/input/application_menu",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/main/in/right_b"
+            }
+          }
+        }
+      ],
+      "haptics": [
+        {
+          "path": "/user/hand/left/output/haptic",
+          "output": "/actions/main/out/left_haptic"
+        },
+        {
+          "path": "/user/hand/right/output/haptic",
+          "output": "/actions/main/out/right_haptic"
+        }
+      ],
+      "skeleton": []
+    }
+  }
+}

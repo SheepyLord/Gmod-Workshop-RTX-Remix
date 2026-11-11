@@ -1,5 +1,5 @@
 """R16 (ADR 0106): this repository's own native modules in the RTX package (tools/ci/pins.json
-"repository_builds": the RTX client module and the glass module), taken from the Release build the
+"repository_builds": the RTX client, glass, engine guard, load accelerator and VR modules), taken from the Release build the
 workflow just made (tools/build.ps1 -Config Release) and laid out as their parts' files, with where each
 came from.
 

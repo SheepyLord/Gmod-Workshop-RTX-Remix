@@ -98,7 +98,7 @@
       "packaged": {
         "sha256": "0c5b3dcb0eee20ca8740d1f36bfb27275e237b4469e5d87bbedf475597c1e7b0",
         "sources": {
-          "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "loader/CMakeLists.txt": "796b2df418aef0f9848d808ca4ec2627f84e41c972410e124020a4fb6fbdc233",
           "loader/client": "a1636184048b55a1aa4b77b411a24080b01a1bac631362ab7d02906302b4f13b",
@@ -106,7 +106,7 @@
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
           "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693"
         },
-        "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a (with uncommitted changes)",
+        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "kept: a build of these sources is the same image"
       }
@@ -130,14 +130,14 @@
       "packaged": {
         "sha256": "8c0c8c3a413da5e2fe85fcb8aeff90516b40dcbe818f88dcd12c0e4973395afe",
         "sources": {
-          "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "glass/native": "5b89e738afe570d7adcdba1873538dd3468e5ccadead33b671028a6040ff8867",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
           "third_party/jolt": "15e57329817888b6ded9b3b8d096550e5048e9eeef259c6c20689e9118ee861d",
           "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693"
         },
-        "commit": "0570b6d83103fd8fbfd11d0c127b7d3efa08ec9a (with uncommitted changes)",
+        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "kept: a build of these sources is the same image"
       }
@@ -159,14 +159,14 @@
       "packaged": {
         "sha256": "85e849e6aceccb6972f8e551f3d35e1d4d92eb68468d92cf51e7090389e6ec23",
         "sources": {
-          "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "engine_guard": "d5e59b376a197e7007a08a66164b332a01c1a76199dd15b1c6f1deb8435a533a",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "f352570ac17d3b6c8517ab0a87e86931318479fe (with uncommitted changes)",
+        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "imported: built from these sources"
+        "how": "kept: a build of these sources is the same image"
       }
     },
     {
@@ -186,14 +186,14 @@
       "packaged": {
         "sha256": "c9f15055c90352b12ad3e891a76de67faf1b6432f65f2c5fcaded63ba4d93993",
         "sources": {
-          "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "engine_guard": "d5e59b376a197e7007a08a66164b332a01c1a76199dd15b1c6f1deb8435a533a",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "f352570ac17d3b6c8517ab0a87e86931318479fe (with uncommitted changes)",
+        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "imported: built from these sources"
+        "how": "kept: a build of these sources is the same image"
       }
     },
     {
@@ -214,14 +214,14 @@
       "packaged": {
         "sha256": "e442802001f3edbade108203ca6fb1ee06ae1001ca6039fef99f83ece4fda2c3",
         "sources": {
-          "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "fs_accel": "0250d50f2eab8ae707635dd989961a84d708c2ae5188e7355701d13e417cb8f9",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248 (with uncommitted changes)",
+        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "imported: built from these sources"
+        "how": "kept: a build of these sources is the same image"
       }
     },
     {
@@ -242,18 +242,90 @@
       "packaged": {
         "sha256": "9889b4d53255ec956817c99eb469ae88e58fb306ab0ef20b6689c25d3879203f",
         "sources": {
-          "CMakeLists.txt": "afb0e4b7ffa89a3c665a5c3c347fea014d16569749fc1b136a9c7ffd3d5d73bd",
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "fs_accel": "0250d50f2eab8ae707635dd989961a84d708c2ae5188e7355701d13e417cb8f9",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248 (with uncommitted changes)",
+        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
+        "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
+        "how": "kept: a build of these sources is the same image"
+      }
+    },
+    {
+      "part": "vr",
+      "path": "bin/gmcl_nlvr_win64.dll",
+      "from": "out/build/win64-release/vr/native/gmcl_nlvr_win64.dll",
+      "target": "nl_vr_client",
+      "sources": [
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "vr/native/CMakeLists.txt",
+        "vr/native/module.cpp",
+        "vr/native/session.cpp",
+        "vr/native/session.h",
+        "vr/native/pose_math.cpp",
+        "vr/native/pose_math.h",
+        "vr/native/timeline.cpp",
+        "vr/native/timeline.h",
+        "vr/native/input_actions.h",
+        "vr/native/include/rtxvr_api.h",
+        "vr/native/probe/CMakeLists.txt",
+        "vr/native/probe/probe_data.cpp",
+        "vr/native/probe/probe_data.h",
+        "vr/native/probe/discovery.cpp",
+        "vr/native/probe/discovery.h",
+        "loader/core",
+        "third_party/gmod",
+        "third_party/lzma",
+        "third_party/openvr",
+        "vr/native/lua_policy.h"
+      ],
+      "packaged": {
+        "sha256": "fa1ce35e3656eb22fd5d408af047992fdb83e8ef4ee78fa447523d6a11f4e1d9",
+        "sources": {
+          "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
+          "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
+          "vr/native/CMakeLists.txt": "58dd084b48500dc9ad4bdd7a0567cfe8f5a1c1c9afdaceb3b983b8f2cb283ce1",
+          "vr/native/module.cpp": "8fad6de201837876b6b550f0a6c470a2c5d5d40440ec2459434b232cc042278b",
+          "vr/native/session.cpp": "850bb032079f5a7446fd4a07958b401c49f883bd5b61b2b7fef439e540b117a2",
+          "vr/native/session.h": "e98cf77761470c16a3ffdb6acba1604c724f556d60a54329071863aa61fd971e",
+          "vr/native/pose_math.cpp": "82f42248bad3e34bcdb8a0b70f831173a6d9707a4b82be5be3ac1a0631adc2ba",
+          "vr/native/pose_math.h": "02892c897b1dfe6dd51455509d2c98a06d67724c11f54d2777bee86975a001e4",
+          "vr/native/timeline.cpp": "6f430381cee841012064e22bf47200378dfd60f29748e8e1040c49a68fad539a",
+          "vr/native/timeline.h": "2dcf367e560adeefc2e7d43c3be00f813c3e4427024f9b29a9ee08aefbf82639",
+          "vr/native/input_actions.h": "5a0d077ebd17b57a010a0d8ffa7d00859ad368b523663c18c8eafc2f985047af",
+          "vr/native/include/rtxvr_api.h": "e983f1f9ee4e01062200b73d2a917c3454768c6cf0ee8431f53aada42e11bd38",
+          "vr/native/probe/CMakeLists.txt": "ae69d60b4a5914fee4a71e00ddc8a0a3f65b58f335e28ed273f9e84bb53e1265",
+          "vr/native/probe/probe_data.cpp": "65f4b0b536607d67f3b7d5d729458f13819a363489433e9050c06732f67320a9",
+          "vr/native/probe/probe_data.h": "8cb2e41273cf61624d9243c9426acaaba4847d0034c9384ee769241ac05175e3",
+          "vr/native/probe/discovery.cpp": "45061b092460fe2c31dfb525f05a9a82a6bbdb1a0b8ff441bc0239f05e6eb392",
+          "vr/native/probe/discovery.h": "cf909d16d7ccf106d3d7ee2f3e7463ee5cd0039fea4e9545e3906c808fcaa627",
+          "loader/core": "10e71ab9e75e9977cf98b9fdc16c55a43ec3e4804a6517e4479408cedbed0d62",
+          "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
+          "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693",
+          "third_party/openvr": "9e999de5f07aa53887aa936f997542ca565a24f1718d2b08a0e792453ef29636",
+          "vr/native/lua_policy.h": "688a8bcaec6c84bf18f4f0c3b100b363cf77673ee32895c3c1452c4f06a55a76"
+        },
+        "commit": "067cf18e4353d0b848764448625901aa405a4066",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }
     }
   ],
   "fetched": [
+    {
+      "name": "openvr",
+      "part": "vr",
+      "path": "bin/openvr_api.dll",
+      "version": "2.15.6",
+      "url": "https://raw.githubusercontent.com/ValveSoftware/openvr/0924064316de3effbcd1acf1e309182a2deb1c05/bin/win64/openvr_api.dll",
+      "size": 837272,
+      "sha256": "bab8ac6ef64e68a9ca53315b0014d131088584b2efdfa6db511d67ec03cfcb4a",
+      "repository": "https://github.com/ValveSoftware/openvr",
+      "commit": "0924064316de3effbcd1acf1e309182a2deb1c05",
+      "why": "Valve's BSD-3-Clause win64 OpenVR SDK v2.15.6 client, loaded only at Start VR; fetched and checked by the package workflow"
+    },
     {
       "name": "reshade-setup",
       "part": "reshade",

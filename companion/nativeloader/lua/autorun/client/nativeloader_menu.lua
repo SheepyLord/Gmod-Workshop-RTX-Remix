@@ -20,7 +20,7 @@ local MOVED = {
     ["Glass Rewrite Remixed"] = N("Water and glass"),
 }
 local CATEGORIES = { N("Start here"), N("Remix settings"), N("Sky and weather"), N("Rendering"), N("Lights"),
-    N("Water and glass"), N("Blood") }
+    N("Water and glass"), N("Blood"), N("VR") }
 
 local function remix_ready()
     return istable(RemixConfig) and isfunction(RemixConfig.SetConfigVariable)

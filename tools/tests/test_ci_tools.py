@@ -48,6 +48,21 @@ def fixes_clone() -> Path | None:
 
 
 class CiToolTests(unittest.TestCase):
+    def test_openvr_is_shipped_and_future_staged_pins_stay_opt_in(self):
+        entries = PINS['fetched']
+        normal = fetch_prebuilt.select_entries(entries, None)
+        self.assertIn('openvr', [e['name'] for e in normal])
+        selected = fetch_prebuilt.select_entries(entries, ['openvr'])
+        self.assertEqual(len(selected), 1)
+        self.assertNotIn('staged', selected[0])
+        self.assertEqual(selected[0]['size'], 837272)
+        self.assertEqual(selected[0]['commit'], '0924064316de3effbcd1acf1e309182a2deb1c05')
+        with self.assertRaisesRegex(ValueError, 'unknown pin'):
+            fetch_prebuilt.select_entries(entries, ['typo'])
+        future = dict(selected[0], name='future', staged=True)
+        self.assertEqual(fetch_prebuilt.select_entries([future], None), [])
+        self.assertEqual(fetch_prebuilt.select_entries([future], ['future']), [future])
+
     def setUp(self):
         SCRATCH.mkdir(parents=True, exist_ok=True)
         self.root = Path(tempfile.mkdtemp(prefix='test-ci-tools-', dir=SCRATCH))
@@ -77,6 +92,10 @@ class CiToolTests(unittest.TestCase):
         bad = dict(entry, sha256='0' * 64, path='Setup.exe')
         shutil.rmtree(out)
         record = fetch_prebuilt.fetch([bad], out, None, local)
+        self.assertEqual(len(record['problems']), 1)
+        self.assertFalse((out / 'reshade' / 'Setup.exe').exists())
+        # Correct hash but wrong length is also refused.
+        record = fetch_prebuilt.fetch([dict(entry, size=len(setup) + 1)], out, None, local)
         self.assertEqual(len(record['problems']), 1)
         self.assertFalse((out / 'reshade' / 'Setup.exe').exists())
 

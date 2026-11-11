@@ -1,0 +1,98 @@
+From 895f766492957b966af658c7cc9f719b628a30c2 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:38:45 -0700
+Subject: [PATCH] VR: register sources in order and label the optional warp and
+ Submit profiles
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/meson.build           | 12 ++++++------
+ src/dxvk/rtx_render/rtx_vr.cpp |  6 ++++++
+ tests/rtx/unit/meson.build     |  2 --
+ 3 files changed, 12 insertions(+), 8 deletions(-)
+
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index 113ca72e..ca6c4934 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -201,12 +201,6 @@ dxvk_src = files([
+   'rtx_render/rtx_bloom.cpp',
+   'rtx_render/rtx_bloom.h',
+   'rtx_render/rtx_bridge_message_channel.h',
+-  'rtx_render/rtx_vr.cpp',
+-  'rtx_render/rtx_vr.h',
+-  'rtx_render/rtx_vr_exports.h',
+-  'rtx_render/rtx_vr_png.h',
+-  'rtx_render/rtx_vr_api.h',
+-  'rtx_render/rtx_vr_math.h',
+   'rtx_render/rtx_camera.cpp',
+   'rtx_render/rtx_camera.h',
+   'rtx_render/rtx_camera_manager.cpp',
+@@ -398,6 +392,12 @@ dxvk_src = files([
+   'rtx_render/rtx_types.cpp',
+   'rtx_render/rtx_types.h',
+   'rtx_render/rtx_utils.h',
++  'rtx_render/rtx_vr.cpp',
++  'rtx_render/rtx_vr.h',
++  'rtx_render/rtx_vr_api.h',
++  'rtx_render/rtx_vr_exports.h',
++  'rtx_render/rtx_vr_math.h',
++  'rtx_render/rtx_vr_png.h',
+   'rtx_render/rtx_weather.cpp',
+   'rtx_render/rtx_weather.h',
+   'rtx_render/rtx_xess.cpp',
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index eb5724cf..2ab82920 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -13,6 +13,7 @@
+ #include "rtx_option_layer.h"
+ #include "rtx_shader_manager.h"
+ #include "../dxvk_device.h"
++#include "../dxvk_scoped_annotation.h"
+ #include "../dxvk_instance.h"
+ #include "../dxvk_adapter.h"
+ #include "rtx/pass/vr/vr_warp.h"
+@@ -299,7 +300,10 @@ namespace dxvk {
+ 
+   void RtxVr::output(RtxContext& ctx,const Rc<DxvkImage>& colour,const Rc<DxvkImageView>& depth,const Rc<DxvkImage>& game) {
+     if (!m_ready || !active()) { return; }
++    ScopedCpuProfileZone();
+     timestamp(ctx,3);
++    {
++    ScopedGpuProfileZone(&ctx, "VR eye warp");
+     DxvkImageViewCreateInfo desc {};
+     desc.type=VK_IMAGE_VIEW_TYPE_2D; desc.format=colour->info().format; desc.aspect=VK_IMAGE_ASPECT_COLOR_BIT;
+     desc.usage=VK_IMAGE_USAGE_SAMPLED_BIT; desc.numLevels=1; desc.numLayers=1;
+@@ -320,6 +324,7 @@ namespace dxvk {
+       auto size=m_eyes[i].image->info().extent;
+       ctx.dispatch((size.width+15)/16,(size.height+15)/16,1);
+     }
++    }
+     timestamp(ctx,4);
+     if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
+       // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
+@@ -367,6 +372,7 @@ namespace dxvk {
+ 
+   void RtxVr::submit(RtxContext& ctx) {
+     if (m_frame.flags&RTXVR_START_NO_SUBMIT) { return; }
++    ScopedCpuProfileZoneN("SteamVR Submit");
+     std::lock_guard calls(m_openVrMutex);
+     if (!active() || !m_compositor) { return; }
+     for (auto& eye:m_eyes) { ctx.changeImageLayout(eye.image,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); }
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index b19b7ec2..b9b8a07e 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -223,8 +223,6 @@ exe = executable('test_upscaling_options', files('test_upscaling_options.cpp'),
+ test('test_upscaling_options', exe, env: test_env)
+ tests += exe
+ 
+-
+-
+ exe = executable('test_vr_math', files('test_vr_math.cpp'), dependencies : test_unit_deps, win_subsystem : 'console', override_options: ['cpp_std='+dxvk_cpp_std])
+ test('test_vr_math', exe, env: test_env)
+ tests += exe
+-- 
+2.56.0.windows.1
+

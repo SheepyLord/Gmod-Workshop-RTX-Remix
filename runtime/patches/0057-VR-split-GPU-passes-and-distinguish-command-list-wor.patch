@@ -1,0 +1,559 @@
+From 063fd90a7d1c5e6a0f31f3f3314726ae9f6f544c Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 10:16:44 -0700
+Subject: [PATCH] VR: split GPU passes and distinguish command-list work from
+ producer gaps
+
+Record fine stages, all submitted context batches and render-side CPU running time. Keep the five public times as sums, log detail and write capture-frame timings.json. Charge SDK transfer intervals separately, and mark untracked coverage instead of claiming idle time.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/dxvk_context.cpp           |   6 +
+ src/dxvk/dxvk_device.cpp            |   2 +-
+ src/dxvk/meson.build                |   1 +
+ src/dxvk/rtx_render/rtx_context.cpp |  11 +-
+ src/dxvk/rtx_render/rtx_vr.cpp      | 197 ++++++++++++++++++++++++----
+ src/dxvk/rtx_render/rtx_vr.h        |  37 +++++-
+ src/dxvk/rtx_render/rtx_vr_timing.h |  34 +++++
+ tests/rtx/unit/test_vr_math.cpp     |   8 ++
+ 8 files changed, 267 insertions(+), 29 deletions(-)
+ create mode 100644 src/dxvk/rtx_render/rtx_vr_timing.h
+
+diff --git a/src/dxvk/dxvk_context.cpp b/src/dxvk/dxvk_context.cpp
+index 912b57af..9699c6f0 100644
+--- a/src/dxvk/dxvk_context.cpp
++++ b/src/dxvk/dxvk_context.cpp
+@@ -116,6 +116,9 @@ namespace dxvk {
+       DxvkContextFlag::RpDirtyPipelineState,
+       DxvkContextFlag::RpDirtyResources,
+       DxvkContextFlag::DirtyDrawBuffer);
++    // NV-DXVK start: Active VR records command-list GPU coverage
++    if (m_common->metaVr().active()) { m_common->metaVr().recordingBegin(*this); }
++    // NV-DXVK end
+   }
+ 
+ 
+@@ -129,6 +132,9 @@ namespace dxvk {
+     m_initBarriers.recordCommands(m_cmd);
+     m_execBarriers.recordCommands(m_cmd);
+ 
++    // NV-DXVK start: Active VR records command-list GPU coverage
++    if (m_common->metaVr().active()) { m_common->metaVr().recordingEnd(*this); }
++    // NV-DXVK end
+     m_cmd->endRecording();
+     return std::exchange(m_cmd, nullptr);
+   }
+diff --git a/src/dxvk/dxvk_device.cpp b/src/dxvk/dxvk_device.cpp
+index dac4e610..793a2915 100644
+--- a/src/dxvk/dxvk_device.cpp
++++ b/src/dxvk/dxvk_device.cpp
+@@ -444,7 +444,7 @@ namespace dxvk {
+           uint64_t                  cachedReflexFrameId /*= 0*/) {
+     ScopedCpuProfileZone();
+     // NV-DXVK start: SteamVR explicit timing uses the submission queue lock
+-    if (getCommon()->metaVr().active()) { getCommon()->metaVr().beforeSubmission(); }
++    if (getCommon()->metaVr().active()) { getCommon()->metaVr().noteSubmission(commandList.ptr()); getCommon()->metaVr().beforeSubmission(); }
+     // NV-DXVK end
+     DxvkSubmitInfo submitInfo;
+     submitInfo.cmdList  = commandList;
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index ca6c4934..22a49b41 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -398,6 +398,7 @@ dxvk_src = files([
+   'rtx_render/rtx_vr_exports.h',
+   'rtx_render/rtx_vr_math.h',
+   'rtx_render/rtx_vr_png.h',
++  'rtx_render/rtx_vr_timing.h',
+   'rtx_render/rtx_weather.cpp',
+   'rtx_render/rtx_weather.h',
+   'rtx_render/rtx_xess.cpp',
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index 7b7b5748..7f3217aa 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -624,7 +624,7 @@ namespace dxvk {
+       }
+ 
+       const VkExtent3D outputExtent = vr.hasWork() ? vr.beginFrame(*this, targetImage->info().extent) : targetImage->info().extent;
+-      if (vr.active()) { vr.timestamp(*this, 0); }
++      if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::FrameBegin); }
+ 
+       const bool captureTestScreenshot = (m_screenshotFrameEnabled && m_device->getCurrentFrameId() == m_screenshotFrameNum);
+       const bool captureScreenImage = s_triggerScreenshot || (captureTestScreenshot && !s_capturePrePresentTestScreenshot);
+@@ -700,7 +700,7 @@ namespace dxvk {
+       if (getSceneManager().getSurfaceBuffer() != nullptr) {
+ 
+         VkExtent3D downscaledExtent = onInjectRtxFrameBegin(outputExtent);
+-        if (vr.active()) { vr.timestamp(*this, 1); }
++        if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::PathBegin); }
+ 
+         Resources::RaytracingOutput& rtOutput = getResourceManager().getRaytracingOutput();
+ 
+@@ -739,8 +739,10 @@ namespace dxvk {
+           takeScreenshot("sharedSubsurfaceDiffusionProfileData", rtOutput.m_sharedSubsurfaceDiffusionProfileData.image);
+         }
+ 
++        if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::DemodulateBegin); }
+         // Demodulation
+         dispatchDemodulate(rtOutput);
++        if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::DenoiseBegin); }
+ 
+         // Note: Primary direct diffuse/specular radiance textures noisy and in a demodulated state after demodulation step.
+         if (captureScreenImage && captureDebugImage) {
+@@ -750,6 +752,7 @@ namespace dxvk {
+ 
+         // Denoising
+         dispatchDenoise(rtOutput);
++        if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::ComposeBegin); }
+ 
+         // Note: Primary direct diffuse/specular radiance textures denoised but in a still demodulated state after denoising step.
+         if (captureScreenImage && captureDebugImage) {
+@@ -769,7 +772,7 @@ namespace dxvk {
+ 
+         getCommonObjects()->getTextureManager().copySamplerFeedbackToHost(this);
+         dispatchObjectPicking(rtOutput, downscaledExtent, outputExtent);
+-        if (vr.active()) { vr.timestamp(*this, 2); }
++        if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::UpscaleBegin); }
+ 
+         // Upscaling if DLSS/NIS enabled, or the Composition Pass will do upscaling
+         if (m_currentUpscaler == InternalUpscaler::DLSS) {
+@@ -802,7 +805,7 @@ namespace dxvk {
+         }
+         fork_hooks::dispatchRcasSharpening(*this, rtOutput);
+         m_previousUpscaler = m_currentUpscaler;
+-        if (vr.active()) { vr.timestamp(*this, 3); }
++        if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::PostBegin); }
+ 
+         RtxDustParticles& dust = m_common->metaDustParticles();
+         dust.simulateAndDraw(this, m_state, rtOutput);
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index a9f860af..2bfaf3f3 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -2,6 +2,10 @@
+ #include <algorithm>
+ #include <chrono>
+ #include <cstring>
++#include <fstream>
++#include <iomanip>
++#include <locale>
++#include <windows.h>
+ #include <sstream>
+ #include <utility>
+ #include <vector>
+@@ -171,7 +175,17 @@ namespace dxvk {
+   void RtxVr::clearResources(bool synchronize) {
+     if (synchronize && (m_eyes[0].image!=nullptr || m_eyes[1].image!=nullptr || !m_overlays.empty())) {
+       m_device->waitForIdle();
++      collectRecordings();
++      for (auto& timer:m_timers) { resolveTimer(timer); }
+     }
++    m_recordingThread.store(0,std::memory_order_release);
++    {
++      std::lock_guard lock(m_recordingMutex);
++      m_recordings.clear(); m_closedRecordings.clear(); m_freeRecordings.clear(); m_gpuIntervals.clear();
++      m_markedSubmissions.clear();
++    }
++    m_lastCpuWall=0; m_lastCpuRun=0; m_armTiming=true;
++    m_lastOutputFrame=~uint64_t(0); m_hadTracedScene=false;
+     RtxOptionManager::releaseLayer(m_layer); m_layer=nullptr;
+     m_eyes={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
+     m_frameCaptureWhat=0;
+@@ -300,35 +314,162 @@ namespace dxvk {
+     return {m_frameProjection.width,m_frameProjection.height,1};
+   }
+ 
+-  void RtxVr::timestamp(RtxContext& ctx,uint32_t stage) {
++  double RtxVr::cpuWallMs() {
++    return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();
++  }
++
++  double RtxVr::threadRunMs() {
++    FILETIME creation {},exit {},kernel {},user {};
++    if (!GetThreadTimes(GetCurrentThread(),&creation,&exit,&kernel,&user)) { return 0; }
++    const uint64_t ticks=(uint64_t(kernel.dwHighDateTime)<<32)+kernel.dwLowDateTime+
++      (uint64_t(user.dwHighDateTime)<<32)+user.dwLowDateTime;
++    return ticks*0.0001;
++  }
++
++  void RtxVr::recordingBegin(DxvkContext& ctx) {
++    if (!m_recordingThread.load(std::memory_order_acquire) || !active()) { return; }
++    std::lock_guard lock(m_recordingMutex);
++    if (!m_recordingThread.load() || !active()) { return; }
++    Recording recording;
++    if (!m_freeRecordings.empty()) {
++      recording=std::move(m_freeRecordings.back()); m_freeRecordings.pop_back();
++    } else {
++      recording.begin=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0);
++      recording.end=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0);
++    }
++    ctx.writeTimestamp(recording.begin);
++    m_recordings[&ctx]=std::move(recording);
++  }
++
++  void RtxVr::recordingEnd(DxvkContext& ctx) {
++    if (!m_recordingThread.load(std::memory_order_acquire) || !active()) { return; }
++    std::lock_guard lock(m_recordingMutex);
++    if (!m_recordingThread.load() || !active()) { return; }
++    const auto found=m_recordings.find(&ctx);
++    if (found==m_recordings.end()) { return; }
++    ctx.writeTimestamp(found->second.end);
++    m_markedSubmissions.insert(ctx.getCommandList().ptr());
++    m_closedRecordings.push_back(std::move(found->second)); m_recordings.erase(found);
++  }
++
++  void RtxVr::noteSubmission(const DxvkCommandList* list) {
++    if (!m_recordingThread.load() || !active()) { return; }
++    std::lock_guard lock(m_recordingMutex);
++    if (!m_markedSubmissions.erase(list)) { ++m_untrackedSubmissions; }
++  }
++
++  void RtxVr::collectRecordings() {
++    std::lock_guard lock(m_recordingMutex);
++    for (auto at=m_closedRecordings.begin(); at!=m_closedRecordings.end();) {
++      DxvkQueryData first {},last {};
++      if (at->begin->getData(first)!=DxvkGpuQueryStatus::Available ||
++          at->end->getData(last)!=DxvkGpuQueryStatus::Available) { ++at; continue; }
++      const vrtiming::Interval interval {first.timestamp.time,last.timestamp.time};
++      if (interval.end>=interval.begin) {
++        const auto position=std::lower_bound(m_gpuIntervals.begin(),m_gpuIntervals.end(),interval.begin,
++          [](const auto& value,uint64_t begin) { return value.begin<begin; });
++        m_gpuIntervals.insert(position,interval);
++      }
++      m_freeRecordings.push_back(std::move(*at)); at=m_closedRecordings.erase(at);
++    }
++    if (m_gpuIntervals.size()>4096) { m_gpuIntervals.erase(m_gpuIntervals.begin(),m_gpuIntervals.end()-4096); }
++    if (m_closedRecordings.size()>1024) { ++m_untrackedSubmissions; m_closedRecordings.pop_front(); }
++  }
++
++  std::string RtxVr::profileJson(const Timer& timer,const std::array<DxvkQueryData,vrtiming::kStages>& data) {
++    const double factor=m_device->properties().core.properties.limits.timestampPeriod/1e6;
++    const bool coverage=timer.untrackedBegin==timer.untrackedEnd && !m_gpuIntervals.empty() &&
++      m_gpuIntervals.front().begin<=data.front().timestamp.time && m_gpuIntervals.back().end>=data.back().timestamp.time;
++    std::array<double,vrtiming::kPasses> elapsed {},work {};
++    double gaps=0;
++    for (size_t i=0; i<vrtiming::kPasses; ++i) {
++      const uint64_t begin=data[i].timestamp.time,end=data[i+1].timestamp.time;
++      elapsed[i]=(end-begin)*factor;
++      const double covered=vrtiming::covered(begin,end,m_gpuIntervals)*factor;
++      work[i]=vrtiming::external(i) ? elapsed[i] : std::min(elapsed[i],covered);
++      gaps+=elapsed[i]-work[i];
++    }
++    const float path=float(work[1]+work[2]+work[3]+work[4]);
++    const float upscale=float(work[5]),warp=float(work[7]);
++    const double rawTotal=(data.back().timestamp.time-data.front().timestamp.time)*factor;
++    const float other=float(std::max(0.0,rawTotal-path-upscale-warp));
++    const float total=path+upscale+warp+other;
++    {
++      std::lock_guard lock(m_requestMutex);
++      m_status.gpuMsPathTrace=path; m_status.gpuMsUpscale=upscale; m_status.gpuMsWarp=warp;
++      m_status.gpuMsOther=other; m_status.gpuMsTotal=total;
++    }
++    std::ostringstream json; json.imbue(std::locale::classic()); json<<std::fixed<<std::setprecision(6);
++    json<<"{\"frame\":"<<timer.frame<<",\"pose\":"<<timer.pose
++      <<",\"coverage_known\":"<<(coverage ? "true" : "false")
++      <<",\"untracked_submissions\":"<<(timer.untrackedEnd-timer.untrackedBegin)
++      <<",\"gpu_total_ms\":"<<rawTotal<<",\"gpu_queue_wait_cpu_ms\":"<<(coverage ? gaps : 0)
++      <<",\"unattributed_queue_ms\":"<<(coverage ? 0 : gaps)
++      <<",\"render_thread_cpu_ms\":"<<std::max(0.0,timer.cpuRunEnd-timer.cpuRunBegin)
++      <<",\"render_thread_cycle_ms\":"<<std::max(0.0,timer.cpuWallEnd-timer.cpuWallBegin)
++      <<",\"render_injection_wall_ms\":"<<std::max(0.0,timer.cpuWallEnd-timer.cpuScopeBegin)
++      <<",\"cpu_submit_ms\":"<<timer.cpuSubmit<<",\"denoising_fused_in_upscaler\":true,\"passes\":{";
++    for (size_t i=0; i<vrtiming::kPasses; ++i) {
++      if (i) { json<<','; }
++      json<<'\"'<<vrtiming::kNames[i]<<"\":{\"gpu_ms\":"<<work[i]<<",\"span_ms\":"<<elapsed[i]<<'}';
++    }
++    json<<"},\"status_sums\":{\"path\":"<<path<<",\"upscale\":"<<upscale<<",\"warp\":"<<warp
++      <<",\"other\":"<<other<<",\"total\":"<<total<<"}}";
++    return json.str();
++  }
++
++  bool RtxVr::resolveTimer(Timer& timer) {
++    if (!timer.pending) { return true; }
++    std::array<DxvkQueryData,vrtiming::kStages> data {};
++    for (size_t i=0; i<data.size(); ++i) {
++      if (timer.queries[i]->getData(data[i])!=DxvkGpuQueryStatus::Available) { return false; }
++    }
++    m_lastProfile=profileJson(timer,data);
++    if ((timer.frame%60)==0 || !timer.captureFolder.empty()) { Logger::info(str::format("RTX VR profile ",m_lastProfile)); }
++    if (!timer.captureFolder.empty()) {
++      std::error_code error; std::filesystem::create_directories(timer.captureFolder,error);
++      std::ofstream file(timer.captureFolder/L"timings.json",std::ios::binary);
++      file<<m_lastProfile<<'\n';
++    }
++    timer.pending=false; return true;
++  }
++
++  void RtxVr::timestamp(RtxContext& ctx,vrtiming::Stage stage) {
+     if (!m_ready || !active()) { return; }
+-    if (!stage) {
+-      auto& old=m_timers[m_timerIndex]; m_timer=nullptr;
+-      if (old.pending) {
+-        std::array<DxvkQueryData,7> data {};
+-        bool ready=true;
+-        for (int i=0;i<7;++i) { ready &= old.queries[i]->getData(data[i])==DxvkGpuQueryStatus::Available; }
+-        if (!ready) { return; }
+-        const double factor=m_device->properties().core.properties.limits.timestampPeriod/1e6;
+-        std::lock_guard lock(m_requestMutex);
+-        m_status.gpuMsTotal=float((data[6].timestamp.time-data[0].timestamp.time)*factor);
+-        m_status.gpuMsPathTrace=float((data[2].timestamp.time-data[1].timestamp.time)*factor);
+-        m_status.gpuMsUpscale=float((data[3].timestamp.time-data[2].timestamp.time)*factor);
+-        m_status.gpuMsWarp=float((data[5].timestamp.time-data[4].timestamp.time)*factor);
+-        m_status.gpuMsOther=std::max(0.f,m_status.gpuMsTotal-m_status.gpuMsPathTrace-m_status.gpuMsUpscale-m_status.gpuMsWarp);
++    const auto index=static_cast<size_t>(stage);
++    if (stage==vrtiming::Stage::FrameBegin) {
++      if (m_armTiming) {
++        m_recordingThread.store(GetCurrentThreadId(),std::memory_order_release);
++        m_armTiming=false; ctx.flushCommandList();
+       }
+-      old.pending=false; m_timer=&old;
++      collectRecordings();
++      auto& old=m_timers[m_timerIndex]; m_timer=nullptr;
++      if (!resolveTimer(old)) { return; }
++      old.frame=m_device->getCurrentFrameId(); old.pose=m_framePose.sequence;
++      old.untrackedBegin=m_untrackedSubmissions.load();
++      old.cpuScopeBegin=cpuWallMs();
++      old.cpuWallBegin=m_lastCpuWall ? m_lastCpuWall : old.cpuScopeBegin;
++      old.cpuRunBegin=m_lastCpuRun ? m_lastCpuRun : threadRunMs();
++      old.captureFolder=m_frameCaptureWhat ? m_frameCaptureFolder : std::filesystem::path();
++      m_timer=&old;
+     }
+-    if (m_timer && stage<7 && (stage!=6 || m_timer->pending)) { ctx.writeTimestamp(m_timer->queries[stage]); }
+-    if (stage==6) {
++    if (m_timer && (stage!=vrtiming::Stage::FrameEnd || m_timer->pending)) { ctx.writeTimestamp(m_timer->queries[index]); }
++    if (stage==vrtiming::Stage::FrameEnd) {
++      m_lastCpuWall=cpuWallMs(); m_lastCpuRun=threadRunMs();
++      if (m_timer) {
++        m_timer->cpuWallEnd=m_lastCpuWall; m_timer->cpuRunEnd=m_lastCpuRun;
++        m_timer->untrackedEnd=m_untrackedSubmissions.load();
++        std::lock_guard lock(m_requestMutex); m_timer->cpuSubmit=m_status.cpuMsSubmit;
++      }
+       m_timer=nullptr; m_timerIndex=(m_timerIndex+1)%m_timers.size();
++      collectRecordings();
+     }
+   }
+ 
+   void RtxVr::output(RtxContext& ctx,const Rc<DxvkImage>& colour,const Rc<DxvkImageView>& depth,const Rc<DxvkImage>& game) {
+     if (!m_ready || !active()) { return; }
+     ScopedCpuProfileZone();
+-    timestamp(ctx,4);
++    timestamp(ctx,vrtiming::Stage::WarpBegin);
+     {
+     ScopedGpuProfileZone(&ctx, "VR eye warp");
+     DxvkImageViewCreateInfo desc {};
+@@ -352,7 +493,7 @@ namespace dxvk {
+       ctx.dispatch((size.width+15)/16,(size.height+15)/16,1);
+     }
+     }
+-    timestamp(ctx,5);
++    timestamp(ctx,vrtiming::Stage::MirrorBegin);
+     if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
+       // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
+       const auto src=m_eyes[0].image->info().extent; const auto dst=game->info().extent;
+@@ -367,6 +508,7 @@ namespace dxvk {
+       const VkComponentMapping identity {VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY};
+       ctx.blitImage(game,identity,m_eyes[0].image,identity,blit,VK_FILTER_LINEAR);
+     }
++    timestamp(ctx,vrtiming::Stage::CaptureBegin);
+     if (m_frameCaptureWhat) {
+       std::error_code error; std::filesystem::create_directories(m_frameCaptureFolder,error);
+       if (m_frameCaptureWhat&RTXVR_CAPTURE_CENTRE) {
+@@ -377,7 +519,11 @@ namespace dxvk {
+         captureImage(ctx,m_eyes[0].image,m_frameCaptureFolder/L"left.png"); captureImage(ctx,m_eyes[1].image,m_frameCaptureFolder/L"right.png");
+       }
+     }
++    timestamp(ctx,vrtiming::Stage::SubmitBegin);
+     submit(ctx);
++    timestamp(ctx,vrtiming::Stage::RasterBegin);
++    // Close the SDK interval before later game-thread work can delay this recording.
++    ctx.flushCommandList();
+     {
+       std::lock_guard lock(m_requestMutex);
+       if (m_generation==m_renderGeneration) {
+@@ -386,7 +532,7 @@ namespace dxvk {
+         m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
+       }
+     }
+-    ++m_frames;
++    ++m_frames; m_lastOutputFrame=m_device->getCurrentFrameId();
+     // Menu and camera-only frames must not arm a query set with missing dispatch timestamps.
+     if (m_timer) { m_timer->pending=true; }
+   }
+@@ -441,6 +587,13 @@ namespace dxvk {
+ 
+   void RtxVr::present(RtxContext& ctx,const Rc<DxvkImage>& game) {
+     if (!m_ready || !active()) { return; }
++    const bool traced=m_lastOutputFrame==m_device->getCurrentFrameId();
++    if (traced!=m_hadTracedScene) {
++      Logger::info(traced ? "RTX VR scene resumed: producing new eyes" :
++        "RTX VR no traced scene: no new eyes; SteamVR retains the previous submission; raster overlays may update");
++      m_hadTracedScene=traced;
++    }
++    timestamp(ctx,vrtiming::Stage::OverlayBegin);
+     bool updates=false;
+     uint32_t bound=0;
+     for (auto& item:m_overlays) {
+@@ -470,7 +623,7 @@ namespace dxvk {
+     }
+     if ((m_frameCaptureWhat&RTXVR_CAPTURE_MIRROR) && game != nullptr) { captureImage(ctx,game,m_frameCaptureFolder/L"mirror.png"); }
+     m_frameCaptureWhat=0;
+-    timestamp(ctx,6);
++    timestamp(ctx,vrtiming::Stage::FrameEnd);
+     std::lock_guard lock(m_requestMutex); m_status.overlaysBound=bound;
+   }
+ 
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 34fd8481..4845fa66 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -3,6 +3,8 @@
+ #include <array>
+ #include <atomic>
+ #include <filesystem>
++#include <deque>
++#include <vector>
+ #include <map>
+ #include <mutex>
+ #include <set>
+@@ -10,6 +12,7 @@
+ #include "rtx_common_object.h"
+ #include "rtx_vr_exports.h"
+ #include "rtx_vr_math.h"
++#include "rtx_vr_timing.h"
+ #include "../dxvk_image.h"
+ #include "../dxvk_gpu_query.h"
+ 
+@@ -17,6 +20,7 @@ namespace vr { class IVRCompositor; class IVROverlay; struct VRVulkanTextureData
+ namespace dxvk {
+   class RtxContext;
+   class DxvkContext;
++  class DxvkCommandList;
+   class RtxOptionLayer;
+   class RtCamera;
+   class RtxVr : public CommonDeviceObject {
+@@ -34,7 +38,10 @@ namespace dxvk {
+     int status(rtxvr_Status* out);
+     bool projection(Matrix4& matrix, float& fov, float& aspect);
+     VkExtent3D beginFrame(RtxContext& ctx, VkExtent3D flat);
+-    void timestamp(RtxContext& ctx, uint32_t stage);
++    void timestamp(RtxContext& ctx, vrtiming::Stage stage);
++    void recordingBegin(DxvkContext& ctx);
++    void recordingEnd(DxvkContext& ctx);
++    void noteSubmission(const DxvkCommandList* list);
+     void output(RtxContext& ctx, const Rc<DxvkImage>& colour, const Rc<DxvkImageView>& depth, const Rc<DxvkImage>& game);
+     void observeTarget(DxvkContext& ctx, const Rc<DxvkImage>& image);
+     void beforeSubmission();
+@@ -42,11 +49,24 @@ namespace dxvk {
+   private:
+     struct Image { Rc<DxvkImage> image; Rc<DxvkImageView> view; };
+     struct Overlay { uint32_t width=0,height=0; Image texture; bool dirty=false; };
+-    struct Timer { std::array<Rc<DxvkGpuQuery>,7> queries; bool pending=false; };
++    struct Timer {
++      std::array<Rc<DxvkGpuQuery>,vrtiming::kStages> queries;
++      bool pending=false;
++      uint64_t frame=0,pose=0,untrackedBegin=0,untrackedEnd=0;
++      double cpuWallBegin=0,cpuScopeBegin=0,cpuRunBegin=0,cpuRunEnd=0,cpuWallEnd=0;
++      float cpuSubmit=0;
++      std::filesystem::path captureFolder;
++    };
++    struct Recording { Rc<DxvkGpuQuery> begin,end; };
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
+     void clearResources(bool synchronize = false);
++    void collectRecordings();
++    bool resolveTimer(Timer& timer);
++    std::string profileJson(const Timer& timer,const std::array<DxvkQueryData,vrtiming::kStages>& data);
++    static double cpuWallMs();
++    static double threadRunMs();
+     void retireOverlay(RtxContext& ctx, uint64_t handle);
+     bool initialise(RtxContext& ctx);
+     void fail(int error, const std::string& message);
+@@ -76,5 +96,18 @@ namespace dxvk {
+     bool m_ready=false;
+     std::set<uint64_t> m_submittedOverlays;
+     uint64_t m_timingFrame=~uint64_t(0);
++    std::atomic<uint32_t> m_recordingThread {0};
++    std::atomic<uint64_t> m_untrackedSubmissions {0};
++    std::mutex m_recordingMutex;
++    std::set<const DxvkCommandList*> m_markedSubmissions;
++    std::map<DxvkContext*,Recording> m_recordings;
++    std::deque<Recording> m_closedRecordings;
++    std::vector<Recording> m_freeRecordings;
++    std::vector<vrtiming::Interval> m_gpuIntervals;
++    double m_lastCpuWall=0,m_lastCpuRun=0;
++    bool m_armTiming=true;
++    uint64_t m_lastOutputFrame=~uint64_t(0);
++    bool m_hadTracedScene=false;
++    std::string m_lastProfile;
+   };
+ }
+diff --git a/src/dxvk/rtx_render/rtx_vr_timing.h b/src/dxvk/rtx_render/rtx_vr_timing.h
+new file mode 100644
+index 00000000..a894e01f
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_vr_timing.h
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++#include <algorithm>
++#include <array>
++#include <cstdint>
++#include <vector>
++
++namespace dxvk::vrtiming {
++  enum class Stage : uint32_t {
++    FrameBegin, PathBegin, DemodulateBegin, DenoiseBegin, ComposeBegin,
++    UpscaleBegin, PostBegin, WarpBegin, MirrorBegin, CaptureBegin,
++    SubmitBegin, RasterBegin, OverlayBegin, FrameEnd, Count
++  };
++  constexpr size_t kStages=static_cast<size_t>(Stage::Count);
++  constexpr size_t kPasses=kStages-1;
++  constexpr std::array<const char*,kPasses> kNames {
++    "scene_prepare_as", "path_volumetrics", "demodulation", "denoising", "composition",
++    "upscaling", "post_tonemap", "eye_warp", "mirror", "capture_transfers",
++    "steamvr_submit_span", "late_raster", "overlay_transfer_span"
++  };
++  struct Interval { uint64_t begin=0,end=0; };
++  inline uint64_t covered(uint64_t begin,uint64_t end,const std::vector<Interval>& ordered) {
++    if (end<=begin) { return 0; }
++    uint64_t total=0,cursor=begin;
++    for (const auto& range:ordered) {
++      if (range.end<=cursor) { continue; }
++      if (range.begin>=end) { break; }
++      const auto first=std::max(cursor,range.begin),last=std::min(end,range.end);
++      if (last>first) { total+=last-first; cursor=last; }
++    }
++    return total;
++  }
++  constexpr bool external(size_t pass) { return pass==10 || pass==12; }
++}
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 1a784453..7028679b 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: MIT
+ #include "../../../src/dxvk/rtx_render/rtx_vr_math.h"
++#include "../../../src/dxvk/rtx_render/rtx_vr_timing.h"
+ #include <cstdio>
+ #include <cstdlib>
+ #include <limits>
+@@ -95,6 +96,13 @@ int main() {
+     angles[2]+=2;
+     require(!ring.match(origin,angles,selected), "genuine roll error still rejected near pole");
+   }
++  const std::vector<dxvk::vrtiming::Interval> coverage {{0,2},{4,7},{6,9}};
++  require(dxvk::vrtiming::covered(0,10,coverage)==7, "GPU batches are unioned without double counting");
++  require(dxvk::vrtiming::covered(1,8,coverage)==5, "GPU coverage clips to pass boundaries");
++  require(dxvk::vrtiming::covered(2,4,coverage)==0, "CPU-fed queue gap has no batch coverage");
++  require(dxvk::vrtiming::covered(4,4,coverage)==0, "empty pass interval");
++  require(dxvk::vrtiming::external(10) && dxvk::vrtiming::external(12) && !dxvk::vrtiming::external(11),
++    "external compositor intervals are not labelled CPU idle");
+   std::printf("PASS: %d projection/warp/pose checks\n",checks);
+   return 0;
+ }
+-- 
+2.56.0.windows.1
+

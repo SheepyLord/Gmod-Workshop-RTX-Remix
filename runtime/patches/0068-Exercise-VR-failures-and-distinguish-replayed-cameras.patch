@@ -1,0 +1,232 @@
+From 5718fa25357feef7bf60dab3ce6d9ae74fde468a Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 16:22:26 -0700
+Subject: [PATCH] Exercise VR failures and distinguish replayed cameras from
+ unknown poses
+
+Add launch-only allocation/focus diagnostics, defer GPU initialization while focus is absent, read pacing flags under their mutex and keep overlay ownership typed to the render context. Skip a known consumed camera when its new pose has not arrived, retaining the documented fallback only for truly unknown cameras.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp    | 55 ++++++++++++++++++++++++++-----
+ src/dxvk/rtx_render/rtx_vr.h      |  6 ++++
+ src/dxvk/rtx_render/rtx_vr_math.h |  9 +++++
+ tests/rtx/unit/test_vr_math.cpp   |  8 +++++
+ 4 files changed, 70 insertions(+), 8 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 44a561a5..22eda4aa 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -160,7 +160,13 @@ namespace dxvk {
+       std::snprintf(m_status.lastErrorText,sizeof(m_status.lastErrorText),"%s",message.c_str());
+       m_active.store(false,std::memory_order_release);
+     }
+-    Logger::err(str::format("RTX VR: ",message));
++    Logger::err(str::format("RTX VR: error ",error,": ",message));
++  }
++
++  void RtxVr::testAllocation(AllocationTestSite site) {
++    if(m_testAllocationSite!=site) { return; }
++    m_testAllocationSite=AllocationTestSite::None;
++    throw DxvkError(str::format("Injected VR allocation failure at ",static_cast<uint32_t>(site)));
+   }
+ 
+   RtxVr::Image RtxVr::makeImage(DxvkContext& ctx,VkExtent3D size,VkFormat format) {
+@@ -200,6 +206,8 @@ namespace dxvk {
+     m_eyes={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
+     m_frameCaptureWhat=0;
+     m_waitPolicy={};m_hasFocus=true;
++    m_staleCameras=0;
++    m_diagnosticsRead=false;m_testFocusIntervals=0;m_testAllocationSite=AllocationTestSite::None;
+   }
+ 
+   void RtxVr::retireOverlay(RtxContext& ctx,uint64_t handle) {
+@@ -219,6 +227,18 @@ namespace dxvk {
+   }
+ 
+   bool RtxVr::initialise(RtxContext& ctx) {
++    if(!m_diagnosticsRead) {
++      auto diagnostic=[&](const char* name,uint32_t& value,uint32_t maximum) {
++        value=0;const auto setting=env::getEnvVar(name);if(setting.empty()) { return true; }
++        std::istringstream parse(setting);char tail=0;
++        if(!(parse>>value)||(parse>>tail)||value>maximum) { fail(RTXVR_E_ARGUMENT,std::string(name)+" has an invalid diagnostic value");return false; }
++        return true;
++      };
++      uint32_t site=0;
++      if(!diagnostic("RTX_VR_TEST_ALLOCATION_FAILURE",site,3)||
++          !diagnostic("RTX_VR_TEST_FOCUS_INTERVALS",m_testFocusIntervals,120)) { return false; }
++      m_testAllocationSite=static_cast<AllocationTestSite>(site);m_diagnosticsRead=true;
++    }
+     m_warpSearchTaps=64;
+     const auto searchSetting=env::getEnvVar("RTX_VR_WARP_TAPS");
+     if(!searchSetting.empty()) {
+@@ -255,7 +275,7 @@ namespace dxvk {
+       }
+       m_compositor->SetExplicitTimingMode(vr::VRCompositorTimingMode_Explicit_ApplicationPerformsPostPresentHandoff);
+       m_timingFrame=~uint64_t(0);
+-      if (m_frame.flags&RTXVR_START_RENDER_PACING) { m_hasFocus=pace();if(!active()) { return false; } }
++      if (m_frame.flags&RTXVR_START_RENDER_PACING) { m_hasFocus=pace();if(!m_hasFocus||!active()) { return false; } }
+     }
+     // The session layer precedes quality presets and never has a file path.
+     static_assert(int(vrpolicy::Upscaler::Dlss)==int(UpscalerType::DLSS)&&int(vrpolicy::Upscaler::Taau)==int(UpscalerType::TAAU));
+@@ -270,7 +290,7 @@ namespace dxvk {
+     RtxOptionManager::applyPendingValues(m_device,false);
+     const VkExtent3D size {std::max(1u,uint32_t(std::ceil(m_frame.eyeWidth*m_frame.renderScale))),
+       std::max(1u,uint32_t(std::ceil(m_frame.eyeHeight*m_frame.renderScale))),1};
+-    for (auto& eye:m_eyes) { eye=makeImage(ctx,size); }
++    for (auto& eye:m_eyes) { testAllocation(AllocationTestSite::Eye);eye=makeImage(ctx,size); }
+     for (auto& timer:m_timers) {
+       for (auto& q:timer.queries) { q=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0); }
+     }
+@@ -305,7 +325,7 @@ namespace dxvk {
+       }
+     }
+     m_flatExtent=flat;
+-    m_canvasOwner.set(&ctx);
++    m_canvasOwner.set(static_cast<DxvkContext*>(&ctx));
+     {
+       std::lock_guard lock(m_requestMutex);
+       // SDK readiness precedes the add-on's view hooks. Wait for their first camera, and never
+@@ -333,7 +353,20 @@ namespace dxvk {
+       std::lock_guard lock(m_requestMutex);
+       if (!m_active || generation!=m_generation) { return flat; }
+       overlayRequests.swap(m_overlayRequests);
+-      const bool poseMatched=m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose,m_consumedPose);
++      const auto selection=m_poses.select(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose,m_consumedPose);
++      if(selection==vrmath::PoseRing::Selection::Stale) {
++        ++m_staleCameras;
++        Logger::info(str::format("RTX VR stale camera: pose=",m_framePose.sequence,", consumed=",m_consumedPose,", skipped=",m_staleCameras));
++        return {m_frameProjection.width,m_frameProjection.height,1};
++      }
++      const bool poseMatched=selection==vrmath::PoseRing::Selection::Fresh;
++      if(!poseMatched) {
++        Logger::warn(str::format("RTX VR unmatched camera: position=",origin.x,",",origin.y,",",origin.z,
++          ", direction=",dir.x,",",dir.y,",",dir.z,", up=",up.x,",",up.y,",",up.z,
++          ", newest pose=",m_framePose.sequence,", consumed=",m_consumedPose,
++          ", pose position=",m_framePose.cameraOrigin[0],",",m_framePose.cameraOrigin[1],",",m_framePose.cameraOrigin[2],
++          ", pose angles=",m_framePose.cameraAngles[0],",",m_framePose.cameraAngles[1],",",m_framePose.cameraAngles[2]));
++      }
+       if (m_framePose.sequence<=m_consumedPose) { return {m_frameProjection.width,m_frameProjection.height,1}; }
+       m_frameEligible=true;
+       if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+@@ -452,6 +485,7 @@ namespace dxvk {
+     }
+     std::ostringstream json; json.imbue(std::locale::classic()); json<<std::fixed<<std::setprecision(6);
+     json<<"{\"frame\":"<<timer.frame<<",\"pose\":"<<timer.pose
++      <<",\"stale_camera_frames\":"<<m_staleCameras
+       <<",\"coverage_known\":"<<(coverage ? "true" : "false")
+       <<",\"untracked_submissions\":"<<(timer.untrackedEnd-timer.untrackedBegin)
+       <<",\"gpu_total_ms\":"<<rawTotal<<",\"gpu_queue_wait_cpu_ms\":"<<(coverage ? gaps : 0)
+@@ -646,7 +680,11 @@ namespace dxvk {
+   bool RtxVr::pace() {
+     std::array<vr::TrackedDevicePose_t,vr::k_unMaxTrackedDeviceCount> unused {};
+     const auto began=std::chrono::steady_clock::now();
+-    const auto error=m_compositor->WaitGetPoses(unused.data(),uint32_t(unused.size()),nullptr,0);
++    auto error=m_compositor->WaitGetPoses(unused.data(),uint32_t(unused.size()),nullptr,0);
++    if(error==vr::VRCompositorError_None&&m_testFocusIntervals) {
++      --m_testFocusIntervals;error=vr::VRCompositorError_DoNotHaveFocus;
++      Logger::info("RTX VR test: injected a focus-loss interval");
++    }
+     const auto ms=std::chrono::duration<float,std::milli>(std::chrono::steady_clock::now()-began).count();
+     { std::lock_guard lock(m_requestMutex); ++m_status.renderWaitCalls; m_status.renderWaitMs=ms;
+       m_status.renderWaitMaxMs=std::max(m_status.renderWaitMaxMs,ms); }
+@@ -700,7 +738,7 @@ namespace dxvk {
+       auto& overlay=item.second;
+       if (size.width!=overlay.width || size.height!=overlay.height) { continue; }
+       if(!vrpolicy::resources([&] {
+-        if (overlay.texture.image == nullptr) { overlay.texture=makeImage(ctx,size); }
++        if (overlay.texture.image == nullptr) { testAllocation(AllocationTestSite::Overlay);overlay.texture=makeImage(ctx,size); }
+         RtxContext::blitImageHelper(&ctx,image,overlay.texture.image,VK_FILTER_NEAREST);
+         overlay.dirty=true;
+       },[&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); })) { return; }
+@@ -755,7 +793,7 @@ namespace dxvk {
+     std::unique_lock calls(m_openVrMutex,std::try_to_lock);
+     if (!calls.owns_lock() || !active() || !m_compositor) { return; }
+     uint64_t epoch=m_device->getCurrentFrameId();
+-    if (m_frame.flags&RTXVR_START_RENDER_PACING) { std::lock_guard lock(m_requestMutex); epoch=m_status.renderWaitCalls; }
++    { std::lock_guard lock(m_requestMutex);if(m_requested.flags&RTXVR_START_RENDER_PACING) { epoch=m_status.renderWaitCalls; } }
+     if (m_timingFrame==epoch) { return; }
+     SubmissionLock queue(m_device);
+     const auto error=m_compositor->SubmitExplicitTimingData();
+@@ -765,6 +803,7 @@ namespace dxvk {
+ 
+   void RtxVr::captureImage(RtxContext& ctx,const Rc<DxvkImage>& image,const std::filesystem::path& path,bool depth) {
+     vrpolicy::resources([&] {
++    testAllocation(AllocationTestSite::Capture);
+     Rc<DxvkImage> source=image;
+     Image temp;
+     if (!depth && image->info().format!=VK_FORMAT_R8G8B8A8_UNORM) {
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 234511dd..9b3c7f4b 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -67,6 +67,8 @@ namespace dxvk {
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
+     bool pace();
++    enum class AllocationTestSite : uint32_t { None,Eye,Overlay,Capture };
++    void testAllocation(AllocationTestSite site);
+     void resolvePoses();
+     struct PoseTiming { uint32_t index; rtxvr_FramePose pose; double submit; };
+     std::deque<PoseTiming> m_poseTimings;
+@@ -86,6 +88,7 @@ namespace dxvk {
+     std::atomic<bool> m_active {false}, m_work {false};
+     uint64_t m_generation=0, m_renderGeneration=0;
+     uint64_t m_latestPose=0, m_consumedPose=0;
++    uint64_t m_staleCameras=0;
+     bool m_frameEligible=false;
+     uint64_t m_cameraFrame=~uint64_t(0), m_cameraGeneration=0;
+     rtxvr_StartInfo m_requested {}, m_frame {};
+@@ -110,6 +113,9 @@ namespace dxvk {
+     bool m_ready=false;
+     bool m_hasFocus=true;
+     uint32_t m_warpSearchTaps=64;
++    bool m_diagnosticsRead=false;
++    uint32_t m_testFocusIntervals=0;
++    AllocationTestSite m_testAllocationSite=AllocationTestSite::None;
+     vrpolicy::WaitPolicy m_waitPolicy;
+     vrpolicy::CanvasOwner m_canvasOwner;
+     std::set<uint64_t> m_submittedOverlays;
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index aa08206b..27257bc5 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -178,6 +178,15 @@ namespace dxvk::vrmath {
+ 
+   class PoseRing {
+   public:
++    enum class Selection { Fresh,Stale,Unknown };
++    Selection select(const float origin[3],Vec3 forward,Vec3 up,rtxvr_FramePose& result,uint64_t consumed) const {
++      if(match(origin,forward,up,result,consumed)) { return Selection::Fresh; }
++      rtxvr_FramePose previous{};
++      if(match(origin,forward,up,previous)&&previous.sequence<=consumed) {
++        result=previous;return Selection::Stale;
++      }
++      return Selection::Unknown;
++    }
+     bool push(const rtxvr_FramePose& pose) {
+       if (m_count && pose.sequence<=m_poses[(m_next+15)%16].pose.sequence) { return false; }
+       auto orientation=sourceOrientation(pose.cameraAngles);
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index eb7710d8..b5c3ff28 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -63,6 +63,14 @@ int main() {
+     require(ring.match(origin,angles,found)&&found.sequence==1,"nearest old camera without lower bound");
+     require(ring.match(origin,angles,found,1)&&found.sequence==2,"consumed camera cannot hide pending sequence");
+     require(!ring.match(origin,angles,found,2)&&found.sequence==0,"no eligible sequence");
++    b.sequence=3;b.cameraOrigin[0]=10;require(ring.push(b),"moving pending pose");
++    require(ring.select(origin,{1,0,0},{0,0,1},found,2)==dxvk::vrmath::PoseRing::Selection::Stale,
++      "a known consumed camera is skipped while a newer different pose is pending");
++    origin[0]=10;
++    require(ring.select(origin,{1,0,0},{0,0,1},found,2)==dxvk::vrmath::PoseRing::Selection::Fresh&&found.sequence==3,"pending camera resumes");
++    origin[0]=5;
++    require(ring.select(origin,{1,0,0},{0,0,1},found,2)==dxvk::vrmath::PoseRing::Selection::Unknown&&found.sequence==3,
++      "genuinely unknown camera retains the documented newest-pose fallback");
+   }
+ 
+   using namespace dxvk::vrmath;
+-- 
+2.56.0.windows.1
+

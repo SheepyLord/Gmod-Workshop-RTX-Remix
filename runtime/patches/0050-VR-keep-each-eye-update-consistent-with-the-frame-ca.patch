@@ -1,0 +1,58 @@
+From b4740221d49e20151360002b8069c8de0fdeca82 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:48:32 -0700
+Subject: [PATCH] VR: keep each eye update consistent with the frame camera
+ projection
+
+Freeze the eye data and projection at the main camera update, so an API request arriving between scene capture and injection takes effect on the next camera frame as a whole.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 10 +++++++---
+ src/dxvk/rtx_render/rtx_vr.h   |  1 +
+ 2 files changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 217b4069..e14f3c07 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -134,9 +134,11 @@ namespace dxvk {
+   bool RtxVr::projection(Matrix4& matrix,float& fov,float& aspect) {
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active) { return false; }
+-    matrix[0][0]=float(1/m_projection.tanX); matrix[1][1]=float(1/m_projection.tanY);
++    m_frame=m_requested; m_frameProjection=m_projection;
++    m_cameraFrame=m_device->getCurrentFrameId(); m_cameraGeneration=m_generation;
++    matrix[0][0]=float(1/m_frameProjection.tanX); matrix[1][1]=float(1/m_frameProjection.tanY);
+     matrix[2][0]=0; matrix[2][1]=0;
+-    fov=float(2*std::atan(m_projection.tanY)); aspect=float(m_projection.tanX/m_projection.tanY);
++    fov=float(2*std::atan(m_frameProjection.tanY)); aspect=float(m_frameProjection.tanX/m_frameProjection.tanY);
+     return true;
+   }
+ 
+@@ -245,7 +247,9 @@ namespace dxvk {
+     {
+       std::lock_guard lock(m_requestMutex);
+       generation=m_generation; requested=m_active;
+-      m_frame=m_requested; m_frameProjection=m_projection;
++      if (m_cameraFrame!=m_device->getCurrentFrameId() || m_cameraGeneration!=generation) {
++        m_frame=m_requested; m_frameProjection=m_projection;
++      }
+     }
+     if (generation!=m_renderGeneration || !requested) {
+       const bool hadResources=m_ready;
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 87709d2b..ea1cdc50 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -54,6 +54,7 @@ namespace dxvk {
+     std::mutex m_requestMutex, m_openVrMutex;
+     std::atomic<bool> m_active {false}, m_work {false};
+     uint64_t m_generation=0, m_renderGeneration=0;
++    uint64_t m_cameraFrame=~uint64_t(0), m_cameraGeneration=0;
+     rtxvr_StartInfo m_requested {}, m_frame {};
+     vrmath::Projection m_projection {}, m_frameProjection {};
+     vrmath::PoseRing m_poses;
+-- 
+2.56.0.windows.1
+

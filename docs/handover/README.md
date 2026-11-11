@@ -1,5 +1,23 @@
 # Handovers
 
+VR V1, "RTX in the headset", was approved by the user and merged into `main` on 2026-11-10. **Start with
+[VR-V1-report.md](VR-V1-report.md)**: what works and what does not, each spike's result, the measured costs, what in
+the plan turned out wrong, how to look with the headset on, and the proposal for V2. The design,
+made with the user on 2026-11-10, is [VR-plan.md](VR-plan.md). Its work plan with the
+interfaces between the pieces is [VR-V1-plan.md](VR-V1-plan.md), and its tasks' briefs are
+[VR-V1-A-sdk-and-probe.md](VR-V1-A-sdk-and-probe.md), [VR-V1-C-runtime.md](VR-V1-C-runtime.md),
+[VR-V1-D-module.md](VR-V1-D-module.md), [VR-V1-E-addon-and-page.md](VR-V1-E-addon-and-page.md) and, for putting them
+together, [VR-V1-Q-integration.md](VR-V1-Q-integration.md). The reports are
+[A: SDK and probe](VR-V1-A-report.md), [C: runtime](VR-V1-C-report.md),
+[D: module](VR-V1-D-report.md), [E: add-on and page](VR-V1-E-report.md),
+[Q: integration and acceptance](VR-V1-Q-report.md) and
+[Q: first review fixes and render-side pacing](VR-V1-Q-review-report.md). The last report supersedes the
+serial pacing decision and measurements in the earlier reports. The module/add-on review follow-up is accepted;
+the second independent runtime review is followed by
+[Q: runtime review corrections and renewed acceptance](VR-V1-Q-runtime-review-report.md), accepted and merged into `vr`.
+Claude directs and reviews, Codex writes the code
+(the user's choice for the VR work). VR reaches `main` only when the user approves a milestone.
+
 The latest round is R28, the user's request of 2026-11-10 (GitHub issue 2 resolved in the package: no Windows Error
 Reporting snapshot of a crashed game, no texture preload at the end of a load; add-ons like HyperReal FX kept from
 lagging the game: periodic screen read-backs stopped, repeated font definitions made once, slow hooks named and

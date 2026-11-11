@@ -1,5 +1,20 @@
 # poc_session.py
 
+`run --lua-manual --lua FILE --screenshots 0` is an opt-in completion wait for an interactive
+probe. It ignores NL_SHOT markers, imports no Pillow and has no duration deadline; it waits for
+NL_SHOT_DONE or the game's exit. It cannot be combined with --lua-shots, --menu-shot or --fps.
+Default screenshot behaviour is unchanged, including fatal capture failures and their bounded cleanup.
+
+The manual option retains real-fault checks: 120 seconds of confirmed window unresponsiveness
+(WM_NULL confirmation at most 2 seconds), or a new GPU-device-loss log marker. Failure keeps
+the 60-second exit grace before ending only the owned game/helpers. Menus, pause and lost focus
+are not checked as faults. --timeout is still a map/startup deadline; unacknowledged manual Lua
+stages fail after three attempts with 20-second acknowledgement waits. An exit-0 game closed
+before probe completion is recorded as manual_end=game_exited and quit="game exited"; a race
+with the next window operation follows the same path. Live settings cannot be sent after exit,
+and the receipt says so. Nonzero exits, device loss and real hangs remain failures. Shared callers
+without --lua-manual keep their previous exit and screenshot semantics.
+
 Drives Garry's Mod sessions on a test install (default: the PoC) for acceptance tests, with nobody
 at the keyboard: installs the bootstrap and a `config.json`, launches the game, waits for the map,
 optionally loads a save and pins the camera, takes screenshots of the game window, records the

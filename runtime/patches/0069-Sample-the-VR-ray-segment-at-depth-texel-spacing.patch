@@ -1,0 +1,234 @@
+From 8d348e148abbe7958286a68413ece034aa2662f6 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 16:42:51 -0700
+Subject: [PATCH] Sample the VR ray segment at depth-texel spacing
+
+Refine both observed surfaces bordering an interval so a rejected nearer candidate cannot hide a valid middle layer. Derive the normal step count from the actual depth texture, retain bounded diagnostic overrides and test single-depth-texel foreground on the measured Index geometry.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp                | 24 +++++++++++++++---
+ src/dxvk/rtx_render/rtx_vr.h                  |  2 +-
+ src/dxvk/rtx_render/rtx_vr_math.h             | 23 +++++++++++++----
+ .../shaders/rtx/pass/vr/vr_warp.comp.slang    | 24 ++++++++++++------
+ tests/rtx/unit/test_vr_math.cpp               | 25 +++++++++++++++++++
+ 5 files changed, 80 insertions(+), 18 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 22eda4aa..b04e6bc7 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -207,6 +207,7 @@ namespace dxvk {
+     m_frameCaptureWhat=0;
+     m_waitPolicy={};m_hasFocus=true;
+     m_staleCameras=0;
++    m_maxWarpSteps=0;
+     m_diagnosticsRead=false;m_testFocusIntervals=0;m_testAllocationSite=AllocationTestSite::None;
+   }
+ 
+@@ -239,12 +240,12 @@ namespace dxvk {
+           !diagnostic("RTX_VR_TEST_FOCUS_INTERVALS",m_testFocusIntervals,120)) { return false; }
+       m_testAllocationSite=static_cast<AllocationTestSite>(site);m_diagnosticsRead=true;
+     }
+-    m_warpSearchTaps=64;
++    m_warpSearchTaps=0;
+     const auto searchSetting=env::getEnvVar("RTX_VR_WARP_TAPS");
+     if(!searchSetting.empty()) {
+       std::istringstream parse(searchSetting);char tail=0;
+-      if(!(parse>>m_warpSearchTaps)||(parse>>tail)||m_warpSearchTaps<1||m_warpSearchTaps>128) {
+-        fail(RTXVR_E_ARGUMENT,"RTX_VR_WARP_TAPS must be an integer from 1 to 128");return false;
++      if(!(parse>>m_warpSearchTaps)||(parse>>tail)||m_warpSearchTaps>128) {
++        fail(RTXVR_E_ARGUMENT,"RTX_VR_WARP_TAPS must be 0 (pixel spacing) or an integer from 1 to 128");return false;
+       }
+     }
+     std::lock_guard calls(m_openVrMutex);
+@@ -296,7 +297,8 @@ namespace dxvk {
+     }
+     m_frames=0; m_timerIndex=0; m_ready=true;
+     Logger::info(str::format("RTX VR: centre ",m_frameProjection.width,"x",m_frameProjection.height,
+-      ", eyes ",size.width,"x",size.height,", window unchanged, refresh ",m_frame.refreshHz,", warp search taps ",m_warpSearchTaps));
++      ", eyes ",size.width,"x",size.height,", window unchanged, refresh ",m_frame.refreshHz,
++      ", warp search override ",m_warpSearchTaps," (0=pixel spacing)"));
+     return true;
+   }
+ 
+@@ -486,6 +488,7 @@ namespace dxvk {
+     std::ostringstream json; json.imbue(std::locale::classic()); json<<std::fixed<<std::setprecision(6);
+     json<<"{\"frame\":"<<timer.frame<<",\"pose\":"<<timer.pose
+       <<",\"stale_camera_frames\":"<<m_staleCameras
++      <<",\"warp_search_override\":"<<m_warpSearchTaps<<",\"warp_maximum_steps\":"<<m_maxWarpSteps
+       <<",\"coverage_known\":"<<(coverage ? "true" : "false")
+       <<",\"untracked_submissions\":"<<(timer.untrackedEnd-timer.untrackedBegin)
+       <<",\"gpu_total_ms\":"<<rawTotal<<",\"gpu_queue_wait_cpu_ms\":"<<(coverage ? gaps : 0)
+@@ -557,6 +560,19 @@ namespace dxvk {
+     if (!m_frameEligible) { mirror(ctx,game); return; }
+     ScopedCpuProfileZone();
+     timestamp(ctx,vrtiming::Stage::WarpBegin);
++    uint32_t maxSteps=0;
++    for(const auto& eye:m_frame.eyes) for(double u:{0.,1.}) for(double v:{0.,1.}) {
++      const auto start=vrmath::warpAtDepth(m_frameProjection,eye,u,v,
++        vrmath::kNearestEyeDepthMetres*m_frame.worldUnitsPerMetre,m_frame.worldUnitsPerMetre);
++      const auto infinity=vrmath::project(m_frameProjection,vrmath::eyeRay(eye,u,v));
++      maxSteps=std::max(maxSteps,vrmath::searchSteps(start,infinity,depth->imageInfo().extent.width,
++        depth->imageInfo().extent.height,m_warpSearchTaps));
++    }
++    if(maxSteps!=m_maxWarpSteps) {
++      m_maxWarpSteps=maxSteps;
++      Logger::info(str::format("RTX VR warp search: ",maxSteps," intervals, ",maxSteps+1,
++        " positions, depth ",depth->imageInfo().extent.width,"x",depth->imageInfo().extent.height));
++    }
+     {
+     ScopedGpuProfileZone(&ctx, "VR eye warp");
+     DxvkImageViewCreateInfo desc {};
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 9b3c7f4b..4ee36a73 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -112,7 +112,7 @@ namespace dxvk {
+     VkExtent3D m_flatExtent {};
+     bool m_ready=false;
+     bool m_hasFocus=true;
+-    uint32_t m_warpSearchTaps=64;
++    uint32_t m_warpSearchTaps=0,m_maxWarpSteps=0;
+     bool m_diagnosticsRead=false;
+     uint32_t m_testFocusIntervals=0;
+     AllocationTestSite m_testAllocationSite=AllocationTestSite::None;
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 27257bc5..110bbadc 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -101,9 +101,18 @@ namespace dxvk::vrmath {
+     return project(p, { o.x+d.x*t, o.y+d.y*t, -depth });
+   }
+ 
++  inline unsigned searchSteps(const std::array<double,2>& start,const std::array<double,2>& infinity,
++                              uint32_t width,uint32_t height,unsigned requested=0) {
++    if(requested) { return std::clamp(requested,1u,128u); }
++    if(!width||!height) { return 64; }
++    const double span=std::max(std::abs(start[0]-infinity[0])*width,std::abs(start[1]-infinity[1])*height);
++    return std::clamp(unsigned(std::ceil(span))+1,1u,128u);
++  }
++
+   template<typename Depth>
+   inline std::array<double, 2> warp(const Projection& p, const rtxvr_Eye& eye,
+-                                  double u, double v, double unitsPerMetre, Depth depthAt, unsigned taps=64) {
++                                  double u, double v, double unitsPerMetre, Depth depthAt, unsigned taps=0,
++                                  uint32_t depthWidth=0,uint32_t depthHeight=0) {
+     const auto infinity=project(p,eyeRay(eye,u,v));
+     const double nearest=kNearestEyeDepthMetres*unitsPerMetre;
+     const auto start=warpAtDepth(p,eye,u,v,nearest,unitsPerMetre);
+@@ -115,7 +124,7 @@ namespace dxvk::vrmath {
+       }
+       settled=false;return uv;
+     };
+-    taps=std::clamp(taps,1u,128u);
++    taps=searchSteps(start,infinity,depthWidth,depthHeight,taps);
+     double previousDepth=depthAt(start[0],start[1]);
+     for(unsigned i=0;i<=taps;++i) {
+       double s=1-double(i)/taps;
+@@ -124,12 +133,16 @@ namespace dxvk::vrmath {
+       auto uv=sample(s);
+       const double rayDepth=s>0 ? nearest/s : 1e20;
+       const double depth=depthAt(uv[0],uv[1]);
+-      const double candidate=std::min(depth,previousDepth);
+-      if(candidate<=rayDepth) {
++      double best=std::numeric_limits<double>::infinity();
++      std::array<double,2> closest{};
++      for(double candidate:{std::min(depth,previousDepth),std::max(depth,previousDepth)}) {
++        if(candidate>rayDepth) { continue; }
+         bool settled=false;
+         const auto hit=refine(warpAtDepth(p,eye,u,v,candidate,unitsPerMetre),settled);
+-        if(settled&&depthAt(hit[0],hit[1])<=rayDepth*(1+1e-6)) { return hit; }
++        const double resolved=depthAt(hit[0],hit[1]);
++        if(settled&&resolved<=rayDepth*(1+1e-6)&&resolved<best) { best=resolved;closest=hit; }
+       }
++      if(std::isfinite(best)) { return closest; }
+       previousDepth=depth;
+     }
+     auto uv = project(p, eyeRay(eye, u, v));
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+index fbbc3392..4428fb32 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+@@ -28,7 +28,9 @@ float2 atDepth(float3 origin,float3 ray,float depth) {
+ float2 nearestSample(float3 origin,float3 ray) {
+   const float2 infinity=project(ray);
+   const float2 start=atDepth(origin,ray,cb.centre.z);
+-  const uint taps=clamp(uint(cb.centre.w),1u,128u);
++  uint depthWidth,depthHeight;Depth.GetDimensions(depthWidth,depthHeight);
++  const float span=max(abs(start.x-infinity.x)*depthWidth,abs(start.y-infinity.y)*depthHeight);
++  const uint taps=cb.centre.w>0 ? clamp(uint(cb.centre.w),1u,128u) : clamp(uint(ceil(span))+1,1u,128u);
+   float previousDepth=readDepth(start);
+   for(uint i=0;i<=taps;++i) {
+     float s=1-float(i)/float(taps);
+@@ -36,18 +38,24 @@ float2 nearestSample(float3 origin,float3 ray) {
+     const float rayDepth=s>0 ? cb.centre.z/s : 1e20;
+     const float depth=readDepth(uv);
+     // Carry a surface across the interval containing its edge, rather than stepping past it.
+-    const float candidate=min(depth,previousDepth);
+-    if(candidate<=rayDepth) {
+-      uv=atDepth(origin,ray,candidate);
++    float best=1e30;
++    float2 closest=uv;
++    for(uint candidateIndex=0;candidateIndex<2;++candidateIndex) {
++      if(candidateIndex==1&&depth==previousDepth) { break; }
++      const float candidate=candidateIndex==0?min(depth,previousDepth):max(depth,previousDepth);
++      if(candidate>rayDepth) { continue; }
++      float2 hit=atDepth(origin,ray,candidate);
+       for(uint j=0;j<8;++j) {
+-        const float2 next=atDepth(origin,ray,readDepth(uv));
+-        if(length(next-uv)<1e-6) {
+-          if(readDepth(next)<=rayDepth*(1+1e-6)) { return next; }
++        const float2 next=atDepth(origin,ray,readDepth(hit));
++        if(length(next-hit)<1e-6) {
++          const float resolved=readDepth(next);
++          if(resolved<=rayDepth*(1+1e-6)&&resolved<best) { best=resolved;closest=next; }
+           break;
+         }
+-        uv=next;
++        hit=next;
+       }
+     }
++    if(best<1e30) { return closest; }
+     previousDepth=depth;
+   }
+   float2 uv=infinity;
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index b5c3ff28..806d3b29 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -111,6 +111,31 @@ int main() {
+   require(std::abs(gap[0]-near[0]) < 1e-9, "disocclusion keeps observed background coordinate");
+   require(gap[0] < .4995, "gap colour comes from the farther surface, not hidden foreground");
+   auto bad = eyes[0]; bad.tanRight = bad.tanLeft;
++  {
++    rtxvr_Eye index[]={eye(0,-.0342683),eye(0,.0342683)};
++    index[0].tanLeft=-1.5383247137f;index[0].tanRight=1.0495523214f;index[0].tanTop=-1.4038075209f;index[0].tanBottom=1.411382556f;
++    index[1].tanLeft=-1.049559474f;index[1].tanRight=1.541975141f;index[1].tanTop=-1.411364913f;index[1].tanBottom=1.406647086f;
++    Projection actual;require(centreProjection(index,2468,2740,1,actual),"actual Index projection");
++    const auto start=warpAtDepth(actual,index[0],.5,.5,.5,1);
++    const auto infinity=project(actual,eyeRay(index[0],.5,.5));
++    require(searchSteps(start,infinity,1536,1376)==34,"Index spacing is derived from its depth texels, not guessed");
++    unsigned fixedMisses=0;
++    for(int cell:{700,750,800}) for(const auto& side:index) {
++      auto depthAt=[&](double u,double) { return std::clamp(int(u*1536),0,1535)==cell?1.5:10.; };
++      unsigned wrong=0,known=0;
++      for(unsigned column=0;column<2468;++column) {
++        const double u=(column+.5)/2468;double expected=0;
++        for(double z:{1.5,10.}) { const auto at=warpAtDepth(actual,side,u,.5,z,1);if(depthAt(at[0],at[1])==z) {expected=z;break;} }
++        if(!expected) continue;
++        ++known;const auto hit=warp(actual,side,u,.5,1,depthAt,0,1536,1376);
++        wrong+=depthAt(hit[0],hit[1])!=expected;
++        const auto sparse=warp(actual,side,u,.5,1,depthAt,16,1536,1376);
++        fixedMisses+=depthAt(sparse[0],sparse[1])!=expected;
++      }
++      require(known&&!wrong,"one-depth-texel foreground survives in either eye");
++    }
++    require(fixedMisses>0,"sparse fixed steps are rejected by the thin-texel test");
++  }
+   for(int stripe=0;stripe<4;++stripe) for(const auto& boxEye:parallel) {
+     Projection layered;require(centreProjection(parallel,2468,2740,1,layered),"layered projection");
+     auto depthAt=[&](double u,double) {
+-- 
+2.56.0.windows.1
+

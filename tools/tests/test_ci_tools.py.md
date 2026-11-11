@@ -1,5 +1,8 @@
 # test_ci_tools.py
 
+VR-Q checks that OpenVR is included in default downloads now that the VR part ships, retaining
+the opt-in staged-pin test on a synthetic future entry. Collectors remain driven by pins.json.
+
 `python -m unittest discover -s tools/tests -p test_ci_tools.py -v` tests the package workflow's helpers
 in [`tools/ci`](../ci/README.md) (R16): a fetched file checked against its pins (written only when it
 matches; the `contains` hashes recorded; another hash refused), a file taken out of a pinned archive (the
@@ -21,3 +24,7 @@ Otherwise that test is a reported skip.
 
 No network: downloads are replaced or read from a local folder. Scratch under `out\tmp`, removed
 afterwards. Exit 0 when all pass, 1 otherwise.
+
+VR-V1-A also checks staged download selection (OpenVR skipped by default, explicitly selectable
+without a package part), rejection of unknown pin names, and rejection of a correct hash with a
+wrong pinned size.

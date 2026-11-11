@@ -1,0 +1,104 @@
+From 4a6472169b99c1a6164f33f7091250d3470f3d43 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:44:40 -0700
+Subject: [PATCH] VR: drain compositor copies before retiring images and retain
+ eye images on IPD edits
+
+Only Stop and overlay rebinding drain the queue. Eye-transform updates reuse the submitted images and update the next frame snapshot. Device destruction relies on the existing device idle boundary, while live retirement flushes pending context commands and waits for queued compositor copies.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 35 ++++++++++++++++++++++++++--------
+ src/dxvk/rtx_render/rtx_vr.h   |  3 ++-
+ 2 files changed, 29 insertions(+), 9 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 2ab82920..217b4069 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -100,7 +100,7 @@ namespace dxvk {
+     if (!m_active) { return RTXVR_E_NOT_RUNNING; }
+     vrmath::Projection p;
+     if (!vrmath::centreProjection(eyes,m_requested.eyeWidth,m_requested.eyeHeight,m_requested.renderScale,p)) { return RTXVR_E_ARGUMENT; }
+-    std::copy(eyes,eyes+2,m_requested.eyes); m_projection=p; ++m_generation;
++    std::copy(eyes,eyes+2,m_requested.eyes); m_projection=p;
+     return RTXVR_OK;
+   }
+ 
+@@ -164,12 +164,31 @@ namespace dxvk {
+     return result;
+   }
+ 
+-  void RtxVr::clearResources() {
++  void RtxVr::clearResources(bool synchronize) {
++    if (synchronize && (m_eyes[0].image!=nullptr || m_eyes[1].image!=nullptr || !m_overlays.empty())) {
++      m_device->waitForIdle();
++    }
+     RtxOptionManager::releaseLayer(m_layer); m_layer=nullptr;
+     m_eyes={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
+     m_frameCaptureWhat=0;
+   }
+ 
++  void RtxVr::retireOverlay(RtxContext& ctx,uint64_t handle) {
++    const auto found=m_overlays.find(handle);
++    if (found==m_overlays.end()) { return; }
++    const bool hasImage=found->second.texture.image!=nullptr;
++    {
++      std::lock_guard calls(m_openVrMutex);
++      if (m_overlay && m_submittedOverlays.erase(handle)) {
++        ctx.flushCommandList();
++        SubmissionLock queue(m_device);
++        m_overlay->ClearOverlayTexture(handle);
++      }
++    }
++    if (hasImage) { ctx.flushCommandList(); m_device->waitForIdle(); }
++    m_overlays.erase(found);
++  }
++
+   bool RtxVr::initialise(RtxContext& ctx) {
+     std::lock_guard calls(m_openVrMutex);
+     {
+@@ -230,7 +249,8 @@ namespace dxvk {
+     }
+     if (generation!=m_renderGeneration || !requested) {
+       const bool hadResources=m_ready;
+-      clearResources(); m_renderGeneration=generation;
++      ctx.flushCommandList();
++      clearResources(true); m_renderGeneration=generation;
+       if (!requested) {
+         RtxOptionManager::applyPendingValues(m_device,false);
+         if (hadResources && m_flatExtent.width) { ctx.resetScreenResolution(m_flatExtent); }
+@@ -246,12 +266,11 @@ namespace dxvk {
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active || generation!=m_generation) { return flat; }
+     for (const auto& item:m_overlayRequests) {
++      const auto found=m_overlays.find(item.first);
+       if (!item.second.first) {
+-        std::lock_guard calls(m_openVrMutex);
+-        if (m_overlay && m_submittedOverlays.erase(item.first)) { m_overlay->ClearOverlayTexture(item.first); }
+-        m_overlays.erase(item.first);
+-      }
+-      else if (m_overlays[item.first].width!=item.second.first || m_overlays[item.first].height!=item.second.second) {
++        retireOverlay(ctx,item.first);
++      } else if (found==m_overlays.end() || found->second.width!=item.second.first || found->second.height!=item.second.second) {
++        retireOverlay(ctx,item.first);
+         m_overlays[item.first]={item.second.first,item.second.second,{},false};
+       }
+     }
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index fdbc53dd..87709d2b 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -46,7 +46,8 @@ namespace dxvk {
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
+-    void clearResources();
++    void clearResources(bool synchronize = false);
++    void retireOverlay(RtxContext& ctx, uint64_t handle);
+     bool initialise(RtxContext& ctx);
+     void fail(int error, const std::string& message);
+     vr::VRVulkanTextureData_t textureData(const Image& image) const;
+-- 
+2.56.0.windows.1
+

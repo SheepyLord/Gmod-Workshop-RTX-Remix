@@ -1,0 +1,35 @@
+From a650b3548307bdbbda5c5d29dae0891c63e2d942 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 10:20:20 -0700
+Subject: [PATCH] VR: test the analytic margin on parallel eyes and retain
+ toe-in coverage
+
+A toe-in directional extremum can move inward at finite depth, so its infinite ray remains the bound. The half-IPD/depth equality applies to the parallel-eye case.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ tests/rtx/unit/test_vr_math.cpp | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 7028679b..1edc4678 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -43,8 +43,12 @@ int main() {
+       }
+     }
+   }
+-  require(std::abs(p.tanX-1.191753592-.032/kNearestEyeDepthMetres)<1e-7,
+-    "near margin is half-IPD divided by nearest axial depth");
++  rtxvr_Eye parallel[] {eye(0,-.032),eye(0,.032)};
++  Projection finite;
++  require(centreProjection(parallel,2016,2240,1,finite), "parallel-eye near projection accepted");
++  require(std::abs(finite.tanX-1-.032/kNearestEyeDepthMetres)<1e-7,
++    "parallel-eye margin is half-IPD divided by nearest axial depth");
++  require(p.tanX>=1.1917535, "infinite toe-in extremum remains covered when translation moves it inward");
+   auto e = eye(0,-0.032);
+   const auto near = warpAtDepth(p,e,.5,.5,10,1);
+   const auto far = warpAtDepth(p,e,.5,.5,100,1);
+-- 
+2.56.0.windows.1
+

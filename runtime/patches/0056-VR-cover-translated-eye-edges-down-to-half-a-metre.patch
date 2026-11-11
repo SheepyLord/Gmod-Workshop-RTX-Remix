@@ -1,0 +1,73 @@
+From 77b19bfcf5c20c04ed62ff04253d4855c6c49024 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 10:09:50 -0700
+Subject: [PATCH] VR: cover translated eye edges down to half a metre
+
+Expand the symmetric centre by the extreme finite-depth corner positions as well as the directional union. Keep eye pixel density, and test coverage at 0.5, 1 and 100 metres for both canted eyes.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr_math.h | 7 +++++++
+ tests/rtx/unit/test_vr_math.cpp   | 9 ++++++++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 687640bf..ba7e9b74 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -40,6 +40,8 @@ namespace dxvk::vrmath {
+     return determinant > 0.998;
+   }
+ 
++  constexpr double kNearestEyeDepthMetres=0.5;
++
+   inline bool centreProjection(const rtxvr_Eye eyes[2], uint32_t width, uint32_t height, float scale, Projection& out) {
+     out = {};
+     if (!width || !height || !std::isfinite(scale) || scale <= 0 || scale > 2) { return false; }
+@@ -53,6 +55,11 @@ namespace dxvk::vrmath {
+           if (ray.z >= -0.01) { return false; }
+           out.tanX = std::max(out.tanX, std::abs(ray.x/ray.z));
+           out.tanY = std::max(out.tanY, std::abs(ray.y/ray.z));
++          // Include translated eye rays down to the phase-1 nearest axial depth.
++          const double t=(kNearestEyeDepthMetres+e.eyeToHead.m[2][3])/(-ray.z);
++          if (t<=0) { return false; }
++          out.tanX=std::max(out.tanX,std::abs((e.eyeToHead.m[0][3]+t*ray.x)/kNearestEyeDepthMetres));
++          out.tanY=std::max(out.tanY,std::abs((e.eyeToHead.m[1][3]+t*ray.y)/kNearestEyeDepthMetres));
+         }
+       }
+       // Inverse Jacobian at the eye's optical centre: preserve density even with cant and roll.
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 4d7d62de..1a784453 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -24,7 +24,7 @@ int main() {
+   rtxvr_Eye eyes[] { eye(-0.0872664626, -0.032), eye(0.0872664626, 0.032) };
+   Projection p;
+   require(centreProjection(eyes, 2016, 2240, 1, p), "canted projection accepted");
+-  require(p.width >= 2384 && p.height >= 2440, "canted density kept");
++  require(p.width >= 2384 && p.height >= 2440, "canted density and near-edge margin kept");
+   std::printf("Index-like canted union: %u x %u, tan %.9f %.9f, HFOV %.6f VFOV %.6f\n",
+     p.width,p.height,p.tanX,p.tanY,2*std::atan(p.tanX)*180/3.141592653589793,2*std::atan(p.tanY)*180/3.141592653589793);
+   for (const auto& e : eyes) {
+@@ -32,11 +32,18 @@ int main() {
+       for (double v : {0.,0.5,1.}) {
+         const auto uv = project(p, eyeRay(e,u,v));
+         require(uv[0] >= -1e-7 && uv[0] <= 1.0000001 && uv[1] >= -1e-7 && uv[1] <= 1.0000001, "eye inside union");
++        for (double depth : {kNearestEyeDepthMetres,1.,100.}) {
++          const auto edge=warpAtDepth(p,e,u,v,depth,1);
++          require(edge[0]>=-1e-7 && edge[0]<=1.0000001 && edge[1]>=-1e-7 && edge[1]<=1.0000001,
++            "translated eye edge stays inside centre from nearest depth to infinity");
++        }
+         const auto warped = warp(p,e,u,v,39.3701,[](double,double) { return 100000000.; });
+         require(std::abs(warped[0]-uv[0]) < 1e-7 && std::abs(warped[1]-uv[1]) < 1e-7, "rotation exact at infinity");
+       }
+     }
+   }
++  require(std::abs(p.tanX-1.191753592-.032/kNearestEyeDepthMetres)<1e-7,
++    "near margin is half-IPD divided by nearest axial depth");
+   auto e = eye(0,-0.032);
+   const auto near = warpAtDepth(p,e,.5,.5,10,1);
+   const auto far = warpAtDepth(p,e,.5,.5,100,1);
+-- 
+2.56.0.windows.1
+

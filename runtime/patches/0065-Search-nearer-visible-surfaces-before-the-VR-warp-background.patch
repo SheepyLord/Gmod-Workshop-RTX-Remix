@@ -1,0 +1,200 @@
+From 823796d0daad326bc08f99e18915441ab6840d80 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 15:15:11 -0700
+Subject: [PATCH] Search nearer visible surfaces before the VR warp background
+
+Walk the eye ray in inverse depth, retain an edge crossing between adjacent taps, and refine the first visible intersection. Keep observed background fallback for disocclusions and test both silhouettes and thin objects.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp                |  3 +-
+ src/dxvk/rtx_render/rtx_vr.h                  |  3 ++
+ src/dxvk/rtx_render/rtx_vr_math.h             | 33 +++++++++++-
+ .../shaders/rtx/pass/vr/vr_warp.comp.slang    | 52 ++++++++++++++-----
+ tests/rtx/unit/test_vr_math.cpp               | 20 +++++++
+ 5 files changed, 96 insertions(+), 15 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index f00855c6..23cf5b3a 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -514,7 +514,8 @@ namespace dxvk {
+       args.eyeRow0={m[0][0],m[0][1],m[0][2],m[0][3]*m_frame.worldUnitsPerMetre};
+       args.eyeRow1={m[1][0],m[1][1],m[1][2],m[1][3]*m_frame.worldUnitsPerMetre};
+       args.eyeRow2={m[2][0],m[2][1],m[2][2],m[2][3]*m_frame.worldUnitsPerMetre};
+-      args.centre={float(m_frameProjection.tanX),float(m_frameProjection.tanY),0,0};
++      args.centre={float(m_frameProjection.tanX),float(m_frameProjection.tanY),
++        float(vrmath::kNearestEyeDepthMetres*m_frame.worldUnitsPerMetre),float(std::clamp(warpSearchTaps(),1u,128u))};
+       ctx.changeImageLayout(m_eyes[i].image,VK_IMAGE_LAYOUT_GENERAL);
+       ctx.bindResourceView(0,view,nullptr); ctx.bindResourceView(1,depth,nullptr); ctx.bindResourceView(2,m_eyes[i].view,nullptr);
+       ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrWarpShader::getShader());
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 492e5fd9..aee7719a 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -10,6 +10,7 @@
+ #include <set>
+ #include "../../util/util_matrix.h"
+ #include "rtx_common_object.h"
++#include "rtx_option.h"
+ #include "rtx_vr_exports.h"
+ #include "rtx_vr_math.h"
+ #include "rtx_vr_timing.h"
+@@ -26,6 +27,8 @@ namespace dxvk {
+   class RtCamera;
+   class RtxVr : public CommonDeviceObject {
+   public:
++    RTX_OPTION_ENV("rtx.vr", uint32_t, warpSearchTaps, 64, "RTX_VR_WARP_TAPS",
++      "Near-to-far centre-depth search taps per eye pixel (1 to 128). Restart VR after changing.");
+     explicit RtxVr(DxvkDevice* device) : CommonDeviceObject(device) { m_status.structSize=sizeof(m_status); }
+     ~RtxVr();
+     void onDestroy() override;
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 8332f51a..806cb37a 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -103,11 +103,40 @@ namespace dxvk::vrmath {
+ 
+   template<typename Depth>
+   inline std::array<double, 2> warp(const Projection& p, const rtxvr_Eye& eye,
+-                                  double u, double v, double unitsPerMetre, Depth depthAt) {
++                                  double u, double v, double unitsPerMetre, Depth depthAt, unsigned taps=64) {
++    const auto infinity=project(p,eyeRay(eye,u,v));
++    const double nearest=kNearestEyeDepthMetres*unitsPerMetre;
++    const auto start=warpAtDepth(p,eye,u,v,nearest,unitsPerMetre);
++    auto refine=[&](std::array<double,2> uv, bool& settled) {
++      for(unsigned i=0;i<8;++i) {
++        const auto next=warpAtDepth(p,eye,u,v,depthAt(uv[0],uv[1]),unitsPerMetre);
++        if(std::hypot(next[0]-uv[0],next[1]-uv[1])<1e-6) { settled=true;return next; }
++        uv=next;
++      }
++      settled=false;return uv;
++    };
++    taps=std::clamp(taps,1u,128u);
++    double previousDepth=depthAt(start[0],start[1]);
++    for(unsigned i=0;i<=taps;++i) {
++      double s=1-double(i)/taps;
++      auto sample=[&](double inverse) { return std::array<double,2>{
++        infinity[0]+(start[0]-infinity[0])*inverse,infinity[1]+(start[1]-infinity[1])*inverse}; };
++      auto uv=sample(s);
++      const double rayDepth=s>0 ? nearest/s : 1e20;
++      const double depth=depthAt(uv[0],uv[1]);
++      const double candidate=std::min(depth,previousDepth);
++      if(candidate<=rayDepth) {
++        bool settled=false;
++        const auto hit=refine(warpAtDepth(p,eye,u,v,candidate,unitsPerMetre),settled);
++        if(settled) { return hit; }
++        break;
++      }
++      previousDepth=depth;
++    }
+     auto uv = project(p, eyeRay(eye, u, v));
+     auto farUv = uv;
+     double farDepth = 0;
+-    // A backward gather cannot invent hidden surfaces. At a discontinuity prefer the farther observed surface.
++    // No visible intersection was resolved: retain an observed background sample at a disocclusion.
+     for (int i = 0; i < 8; ++i) {
+       const double z = depthAt(uv[0], uv[1]);
+       const auto next = warpAtDepth(p, eye, u, v, z, unitsPerMetre);
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+index 1d3e8e76..f93b700b 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+@@ -21,6 +21,45 @@ float4 colour(float2 uv) {
+   return lerp(lerp(Centre.Load(int3(clamp(base,int2(0),hi),0)), Centre.Load(int3(clamp(base+int2(1,0),int2(0),hi),0)), f.x),
+               lerp(Centre.Load(int3(clamp(base+int2(0,1),int2(0),hi),0)), Centre.Load(int3(clamp(base+int2(1,1),int2(0),hi),0)), f.x), f.y);
+ }
++float2 atDepth(float3 origin,float3 ray,float depth) {
++  const float t=(depth+origin.z)/(-ray.z);
++  return project(float3(origin.xy+ray.xy*t,-depth));
++}
++float2 nearestSample(float3 origin,float3 ray) {
++  const float2 infinity=project(ray);
++  const float2 start=atDepth(origin,ray,cb.centre.z);
++  const uint taps=clamp(uint(cb.centre.w),1u,128u);
++  float previousDepth=readDepth(start);
++  for(uint i=0;i<=taps;++i) {
++    float s=1-float(i)/float(taps);
++    float2 uv=lerp(infinity,start,s);
++    const float rayDepth=s>0 ? cb.centre.z/s : 1e20;
++    const float depth=readDepth(uv);
++    // Carry a surface across the interval containing its edge, rather than stepping past it.
++    const float candidate=min(depth,previousDepth);
++    if(candidate<=rayDepth) {
++      uv=atDepth(origin,ray,candidate);
++      for(uint j=0;j<8;++j) {
++        const float2 next=atDepth(origin,ray,readDepth(uv));
++        if(length(next-uv)<1e-6) { return next; }
++        uv=next;
++      }
++      break;
++    }
++    previousDepth=depth;
++  }
++  float2 uv=infinity;
++  float2 farUv=uv;
++  float farDepth=0;
++  for(uint step=0;step<8;++step) {
++    const float depth=readDepth(uv);
++    const float2 next=atDepth(origin,ray,depth);
++    if(depth>farDepth) { farDepth=depth;farUv=uv; }
++    if(length(next-uv)<1e-6) { return next; }
++    uv=next;
++  }
++  return farUv;
++}
+ [shader("compute")]
+ [numthreads(16,16,1)]
+ void main(uint2 id:SV_DispatchThreadID) {
+@@ -30,16 +69,5 @@ void main(uint2 id:SV_DispatchThreadID) {
+   const float3 eyeRay=float3(lerp(cb.tangents.x,cb.tangents.y,uvEye.x),-lerp(cb.tangents.z,cb.tangents.w,uvEye.y),-1);
+   const float3 ray=float3(dot(cb.eyeRow0.xyz,eyeRay),dot(cb.eyeRow1.xyz,eyeRay),dot(cb.eyeRow2.xyz,eyeRay));
+   const float3 origin=float3(cb.eyeRow0.w,cb.eyeRow1.w,cb.eyeRow2.w);
+-  float2 uv=project(ray);
+-  float2 farUv=uv;
+-  float farDepth=0;
+-  for (int step=0; step<8; ++step) {
+-    const float depth=readDepth(uv);
+-    const float t=(depth+origin.z)/(-ray.z);
+-    const float2 next=project(float3(origin.xy+ray.xy*t,-depth));
+-    if (depth>farDepth) { farDepth=depth; farUv=uv; }
+-    if (length(next-uv)<1e-6) { farUv=next; break; }
+-    uv=next;
+-  }
+-  Eye[id]=colour(saturate(farUv));
++  Eye[id]=colour(saturate(nearestSample(origin,ray)));
+ }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 4acbfa40..232d434e 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -68,6 +68,26 @@ int main() {
+   require(std::abs(gap[0]-near[0]) < 1e-9, "disocclusion keeps observed background coordinate");
+   require(gap[0] < .4995, "gap colour comes from the farther surface, not hidden foreground");
+   auto bad = eyes[0]; bad.tanRight = bad.tanLeft;
++  for(double depth : {0.6,1.5}) for(double halfWidth : {0.3,0.05,0.003}) {
++    Projection boxProjection;require(centreProjection(parallel,2468,2740,1,boxProjection),"box projection");
++    auto depthAt=[&](double x,double) { return std::abs((x-.5)*2*boxProjection.tanX*depth)<halfWidth ? depth : 10.; };
++    for(const auto& boxEye:parallel) {
++      unsigned missing=0,extra=0;
++      for(unsigned column=0;column<2468;++column) {
++        const double u=(column+.5)/2468;
++        const auto ray=eyeRay(boxEye,u,.5);
++        const bool expected=std::abs(boxEye.eyeToHead.m[0][3]+ray.x*depth/(-ray.z))<halfWidth;
++        const auto hit=warp(boxProjection,boxEye,u,.5,1,depthAt);
++        const bool nearHit=depthAt(hit[0],hit[1])==depth;
++        if(expected&&!nearHit) std::printf("miss %u ideal %.9f picked %.9f\n",column,
++          warpAtDepth(boxProjection,boxEye,u,.5,depth,1)[0],hit[0]);
++        missing+=expected&&!nearHit;extra+=!expected&&nearHit;
++      }
++      std::printf("box depth %.2f width %.3f eye %.3f missing %u extra %u\n",depth,2*halfWidth,boxEye.eyeToHead.m[0][3],missing,extra);
++      require(missing==0,"mirrored visible near edge and thin object are retained");
++      require(extra==0,"disocclusion does not extend the foreground silhouette");
++    }
++  }
+   rtxvr_Eye invalid[] {bad,eyes[1]};
+   require(!centreProjection(invalid,2016,2240,1,p), "empty eye rejected");
+   invalid[0] = eyes[0]; invalid[0].eyeToHead.m[0][0] = std::numeric_limits<float>::quiet_NaN();
+-- 
+2.56.0.windows.1
+

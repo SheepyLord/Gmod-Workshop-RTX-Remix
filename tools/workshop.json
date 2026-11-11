@@ -281,6 +281,42 @@
         "--lua-bin",
         "out/inputs/load-accelerator/bin/gmsv_nlfsaccel_win64.dll"
       ]
+    },
+    {
+      "name": "vr",
+      "build": "package_content",
+      "args": [
+        "--id",
+        "rtx-vr",
+        "--name",
+        "RTX VR",
+        "--requires-remix",
+        "--addon-as",
+        "nlvr",
+        "vr/addon",
+        "--add-to-addon",
+        "nlvr/input/nlvr_actions.json",
+        "vr/input/nlvr_actions.json",
+        "--add-to-addon",
+        "nlvr/input/nlvr_bindings_index.json",
+        "vr/input/nlvr_bindings_index.json",
+        "--add-to-addon",
+        "nlvr/input/nlvr_bindings_touch.json",
+        "vr/input/nlvr_bindings_touch.json",
+        "--add-to-addon",
+        "nlvr/input/nlvr_bindings_vive.json",
+        "vr/input/nlvr_bindings_vive.json",
+        "--add-to-addon",
+        "nlvr/LICENSE",
+        "LICENSE",
+        "--add-to-addon",
+        "nlvr/licenses/openvr/LICENSE",
+        "third_party/openvr/LICENSE",
+        "--lua-bin",
+        "out/inputs/vr/bin/gmcl_nlvr_win64.dll",
+        "--lua-bin",
+        "out/inputs/vr/bin/openvr_api.dll"
+      ]
     }
   ],
   "gmpublish": "H:\\SteamLibrary\\steamapps\\common\\GarrysMod_PoC\\bin\\win64\\gmpublish.exe"

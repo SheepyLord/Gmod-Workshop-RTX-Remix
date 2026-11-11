@@ -2643,3 +2643,257 @@ and remaining rendering limits are in [R20-D-report.md](handover/R20-D-report.md
   (`out/r28/poc_check.py`, under the PoC lock): its next start removed the ten packages (8,698 file changes, 84.7 s,
   once), and the start after that deployed nothing (0.4 s; the loader's start-up 0.5 s, the whole session to
   gm_construct and back out 23 s).
+
+## VR V1: offline checks and the real Index (2026-11-10)
+
+V1 is tested on `vr` before the user's approval to reach `main`. The main gate is still
+`tools\test.ps1 -Config Release`. It does not initialize OpenVR or require a connected headset.
+The test layers answer different questions:
+
+- The module's [native tests](../vr/native/README.md) use stand-in SDK/runtime DLLs to exercise Start/Stop,
+  held initialization, shutdown and restart, failures, input, pose/timeline maths, overlay ownership and
+  visibility, the C ABI and the Lua path policy. The final implementation has 16 native cases, including
+  5000 acquisitions against a stalled fake renderer with zero module waits, native quit acknowledgement,
+  invalid tracking and refusal of DLL/manifest keys, path escapes and links. These test behaviour, not just
+  the presence of a source string.
+  The event test collects both events up to a five-second deadline and checks their exact count, order and
+  drain. The shared-document gate exposed the old fixed 30 ms sleep twice during parallel CTest; an isolated
+  run passed. The stand-in queue is now locked across threads and the test waits for actual delivery.
+  This changes no packaged code; the original failure logs remain in `out/vr/docs/gate-release.log` and
+  `gate-release-r2.log` in the `vr-q` worktree.
+- The [page/add-on harness](../companion/tests/test_vr.py.md) and
+  [companion checks](../tools/tests/test_companion_vr.py.md) run under LuaJIT with a controlled GMod API.
+  They check camera conversion and engine-supplied origin, once-per-frame acquisition in either callback
+  order, camera authority and restoration, last-camera reuse on a nil result, changed-message logging,
+  failure thresholds, checked overlay setup, paused-capable polling, Stopping/off/restart and recenter.
+  The final page/add-on/catalog group has 55 cases; the six translation catalogs are checked too.
+- The [integration check](../tools/tests/test_vr_integration.py.md) reconstructs the wire header from the
+  runtime patch series and compares it with `vr/native/include/rtxvr_api.h`, without requiring the runtime
+  clone. The [driver tests](../tools/tests/test_vr_session.py.md) check complete console records and reject
+  stalled progress as well as error counts. Package/pin checks require the recorded module and SDK inputs.
+- The runtime's `test_vr_math` target (`tests/rtx/unit/test_vr_math.cpp` in the fork) separately tests centre
+  coverage, translated and rotated eyes, density, pose-ring matching and consumed-sequence exclusion,
+  warp discontinuities and timing epochs. It passed 167 assertions for the final source. Run that target
+  in the prepared runtime build after a runtime change; it is not a headset test or part of the root CTest
+  count. C also ran five standalone GPU warp dispatches with six assertions, including near/far disparity,
+  opposite 5 degree rotations and a gap that retains observed background colour. Keep those receipts when
+  changing the shader; the CPU model alone does not execute it.
+
+The [development probe](../vr/native/probe/README.md), `out/build/win64-release/vr/native/probe/vrprobe.exe`,
+does read-only discovery without OpenVR for `info`. Its explicit `extensions`, `submit` and `idle` commands
+use the pinned SDK and acquire the main checkout's `out/vr/vr.lock` before initialization. They measure the
+required/enabled extension lists, a reference Vulkan scene and long unworn behaviour. The executable never
+ships. A's 840.010121 s submitting run accepted 149526 eye calls with zero API errors, but had 292 drops and
+1700 reprojected frames; that clear-colour scene is not the runtime acceptance benchmark.
+
+### The PoC driver and what its evidence proves
+
+[`tools/vr_session.py`](../tools/vr_session.py.md) uses the production page, add-on, module and runtime in the
+PoC. Its [Lua probe](../tools/vr_session.lua.md) runs from PreRender, including during single-player pause.
+The driver holds both main-checkout locks, `out/r10/poc.lock` and `out/vr/vr.lock`, from preparation through
+verified restoration. It uses exclusive creation and releases only its own owner. A flat control takes
+only the PoC lock. A real-session probe and a PoC driver must not run concurrently against the headset.
+
+Before installation it snapshots the PoC, Source/Cloud settings and protected `user.conf` hashes, and keeps
+existing owned trees under the new evidence folder. It uses only the named local package and explicitly
+mounted test maps. At normal quit it restores shared settings, then original trees, verifies depot files
+and the rollback and records the result. Steam depot bytes, the field install, SteamVR settings and Steam
+launch options stay untouched. No test dismisses the Remix crash prompt by starting recovery: the common
+driver answers No/OK, and removes `RTX_AUTOMATION_DISABLE_BLOCKING_DIALOG_BOXES` from its environment.
+
+The launcher sets `NLVR_TEST_ROOT` to `evidence/native`. A supplied timeline path is copied there, and Lua
+receives only its name. Capture names write below that root and are collected into `captures/` afterwards.
+Before Start the probe tests the removed path options and output escapes. Long JSON is carried in ordered
+1600-character base64 packets, because Source truncates console lines at 4095 bytes; incomplete, duplicate
+or malformed records fail the run (`tools/vr_session.py:221`). A successful Submit count alone is not
+enough: no new eye pair for more than three seconds in an active scene is a progress failure.
+
+Judge compositor acceptance, presents, drops and reprojections from counters; pose/camera agreement from
+the matched-sequence counters and logs; pacing from actual thread CPU, BeginFrame/SDK wall times and the
+fine GPU profile; upright head following, stereo disparity and the left-eye mirror from saved PNGs. The
+captures include both eyes, centre, logarithmic depth, wrist, mirror and `timings.json`. Log-depth PNGs are
+quantized and are not a float-depth ground truth. The SDK reprojected/presents ratio is not the fraction
+computed from application frame rate. Pose age and prediction error are estimates of compositor scheduling,
+not an independently measured optical latency. No one wore the Index for these checks, so panel brightness,
+comfort and physical tracking error remain unjudged.
+
+### Repeating the V1 acceptance run
+
+Run from this worktree with a locally built package, the ordinary SteamVR/Index setup and a fresh evidence
+folder for every command. The accepted local package is
+`out/dist/gmod-rtx-remix-0.0.0-vrq.review-final2.gma`; `python tools/build_package.py` builds a new local one
+from the checked inputs if needed. It uploads nothing. The commands below use the accepted package name;
+substitute the newly built path when testing a change. Do not run compilation or the Release gate during
+the timed windows.
+
+```powershell
+$vrPackage = 'out/dist/gmod-rtx-remix-0.0.0-vrq.review-final2.gma'
+$vrEvidence = 'H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/vr/v1-repeat'
+python tools/vr_session.py --package $vrPackage --evidence "$vrEvidence/construct-render-01" --seconds 310 --render-scale 1 --pacing render
+python tools/vr_session.py --package $vrPackage --evidence "$vrEvidence/house-render-01" --seconds 310 --render-scale 1 --pacing render --map modern_house --mount-workshop 3495468649 --camera '80,928,545,0,0,0'
+python tools/vr_session.py --package $vrPackage --evidence "$vrEvidence/paused-quit-01" --seconds 30 --test-quit
+python tools/vr_session.py --package $vrPackage --evidence "$vrEvidence/live-shutdown-01" --seconds 30 --live-poses --quit-in-vr
+```
+
+The default timeline includes the early turns, lean and capture window, then continuous small unique head
+motion for unambiguous scheduling measurements. Use the same `--timeline` file for both builds of a
+comparison; the accepted corrected runs retain theirs as `timeline.json`. The preset is scale 1, DLSS
+Performance with Ray Reconstruction and one to four bounces, recommended Index eyes 2468 x 2740 pixels at
+90 Hz, centre 3072 x 2752 pixels, with the driver's fixed clear/noon map fixture. The heavier map is mounted
+read-only from the already installed Workshop item; no unrelated content packages are enabled. An optional
+`--inspect-dll` takes the retained read-only helper under `out` for actual game-thread CPU and SDK geometry
+receipts. The helper is not packaged and never initializes OpenVR; ordinary functional runs do not need it.
+
+Both 310 s runs must show continued eye-pair progress, equal rendered/accepted/matched counts, zero failed
+submissions and zero unmatched cameras. Retain whole and steady counters, timings and all original images,
+including startup drops. Compare the same camera/mirror world regions and head turns, not just similar
+screenshots. The first review's corrected reference was 89 accepted pairs/s on gm_construct, with zero whole-run drops
+and 1.907% steady reprojected/presents; modern_house was 33 pairs/s with zero whole-run drops and
+82.022% steady reprojected/presents, bounded by 14.448 ms GPU/SDK work and 12.795 ms game CPU per pair. These
+are RTX 5090 measurements at 90 Hz, not requirements that another machine match an exact frame rate. A frame
+longer than a refresh must reproject without a Submit error or frozen counter. Record pose scheduling error
+and measured pipeline lead; do not substitute a guessed fixed queue depth.
+
+The shipping module refuses `pacing=serial`. Repeating the serial comparison requires the retained comparison
+package and its matching source/probe version, with `--pacing serial`; do not interpret a refusal from the
+shipping module as a failed serial benchmark. The four original 310 s runs and `comparison.json` are in
+`out/vr/q/review/{construct,house}-{serial,render}-r2`. Their full results and the earlier controls are in
+[RESEARCH](RESEARCH.md). All actual runs stayed at 90 Hz; the 80 Hz native/half-rate budgets of 12.5/25 ms
+are derived, not measured 80 Hz throughput.
+
+The safe quit test pauses single-player through the escape menu and injects a native timeline quit event
+12 s after native start. Require stopped CurTime, advancing wall time, native acknowledgement, cleanup and
+the reason on the page; SteamVR itself remains running. Also repeat Start/Exit twice, Exit while no traced
+scene is present (`--scene-pause --exit-paused`), a capped listen host (`--players 2 --fps-cap 60`), and the
+missing-runtime refusal (`--expect-failure runtime` with the baseline package). Exit must restore all Source
+variables and the live upscaler/frame-generation state, unload the SDK, remove session hooks/timers and
+acknowledge off before restart. Source's cached wrist target is expected to remain until process exit.
+
+For a person to inspect the view, use `--look --seconds 900` with a fresh folder, Start VR on the page or
+`nl_vr_start`, then `nl_vr_recenter` or Recentre VR after positioning the headset. Exit returns to flat;
+`nl_vr_demo_done` finishes the session through settings restoration, normal quit and rollback. If a driver
+was interrupted, wait for the PoC to exit and run `python tools/vr_session.py --evidence <that-folder> --rollback`.
+Do not remove another lock or discard an unverified original tree.
+
+### The second runtime review
+
+The runtime CPU target now has 249 assertions. It tests mirrored foreground edges, 6 mm objects at 0.6 m
+and 1.5 m, layered surfaces, and single-depth-texel foreground with the Index's actual projections. A sparse
+fixed search misses some of the latter; depth-pixel spacing must retain them in either eye. The same target
+tests camera frame/generation eligibility, known stale versus unknown cameras, context ownership under
+100000 concurrent changes, non-standard allocation exceptions, focus recovery and record bounds without an
+eligible frame. The real shader is then judged from Index captures; the CPU reference alone is insufficient.
+
+The native suite retains its 16 cases and adds assertions that the event worker does not read eyes on IPD
+change before the next BeginFrame, and that a version error names the compiled API. The page/add-on/catalog
+group has 58 cases: one busy camera answer holds the last accepted view, repeated queries in the same frame
+do not consume the failure allowance, an unchanged wrist repaints until copied, and an acknowledged wrist
+does not query Info every frame. A failed Info result is logged and bounded. The driver tests reject a flat
+first-camera FOV and incomplete capture sets.
+
+Use the final local package named in [the runtime review report](handover/VR-V1-Q-runtime-review-report.md)
+for the renewed acceptance. Repeat the 310 s gm_construct run and a shorter modern_house run with the same
+timeline, preset and usual captures. The runtime log records actual search intervals and depth dimensions;
+normal runs use depth-pixel spacing. Compare lantern and barrel widths in centre and both eyes, using the
+measured asymmetric projections to align rows. Preserve crops at their original pixel scale, the numeric
+edge measurements, full PNGs and the fine warp bracket. Record known stale camera skips separately from
+unmatched submissions. All normal runs require zero failed Submit calls and zero unmatched poses.
+
+The launch-only probes exercise actual renderer control flow without exhausting memory or transferring
+focus to another scene. For allocation sites 1 (eye), 2 (overlay) and 3 (capture), launch with
+`RTX_VR_TEST_ALLOCATION_FAILURE` set to that number and pass
+`--expect-failure native --expect-detail "Injected VR allocation failure at N"` to the driver. Require
+runtime error 8, the exact page reason, normal game quit, SDK release and clean restoration. A capture
+cancelled by that expected failure is not image evidence. Unset the variable afterwards. Set
+`RTX_VR_TEST_FOCUS_INTERVALS=3` for the focus/paused-quit test, require three counted skips followed by
+accepted frames, then unset it. These are process-local diagnostics, never Lua options or saved settings.
+
+Repeat with `--queue-mode default` and `--queue-mode 0`, as well as 2. On this build the declared default is
+-1 (automatic); both requested and declared values are in the before record. The first overlay must have a
+texture while health, armour and ammunition stay unchanged. The package normally forces gmod_mcore_test 1;
+a threading fixture omits that one managed variable and passes --mcore 0 on the command line. The before
+record must show mode 0 for the unqueued check. On this machine automatic/default resolved to mode 2. With `--scene-pause`, a capture requested during
+the absent scene must produce all its files after resumption. Finally run a temporary package without
+amd_fidelityfx_vk.dll, prove the library is absent from loaded modules, and require the live extension check
+and submissions to succeed. The normal package retains the optional library.
+
+The published/final flat comparison uses three alternating pairs with 30 s timed windows, the same fixed
+sky/map/camera/settings, screenshots and module inventories. Keep all startup and frame-time measurements;
+do not select only the favourable pair. Build and Release checks run outside those timing windows. Every
+session still owns both locks when it initializes OpenVR and restores shared settings before normal quit.
+
+For those flat controls the probe temporarily owns CalcView's table and records its call count and
+90 degree FOV. A second hook can otherwise win undefined dispatch order. Compare flat-before PNGs while
+the fixture is active; flat-after commands are dispatched beside cleanup and may show the restored camera.
+That distinction explained the first image-comparison discrepancy. Automated sessions pin CreateMove angles, clear input and check neutral yaw, while
+--look keeps the user's input. Do not accept a different view merely because counters match.
+
+The final local GMA is `out/dist/gmod-rtx-remix-0.0.0-vrq.runtime-review-final2.gma` in the vr-q worktree.
+The second-review report identifies both DLLs, its SHA-256 and the exact tested manual-look command.
+The selected Index receipts are the main checkout's `out/vr/q/review2/construct-final7` (310 s) and
+`house-final7` (120 s), using runtime d29445c5 before import. They accepted 26199/3782 matched pairs
+with zero failed Submit calls or unmatched poses, at 85/30 pairs/s and warp means of 0.56/0.64 ms.
+GPU utilization before launch was 0%/1%. Earlier 2cbf7f0d runs, named construct-final-r2 and
+house-final-r2, reached 28/17 pairs/s with the GPU already at 82%/75%; their warp means were
+1.98/2.65 ms. Keep these separate from the first review's 89/33 pairs/s and from each other.
+
+The 16 driver cases include exact UTF-8 reassembly, bounded console bursts, manual-look counter checks and rejection of a valid but
+blank wrist PNG even when every file exists. The full probe travels in
+acknowledged stages of at most 512 source bytes and less than 4096 bytes of serialized console commands;
+a retry assigns the same numbered fragment. This avoids
+overflowing Source's whole command buffer even when every individual argument is short. A successful retry
+after a Lua error still fails acceptance; it must be repeated in fresh evidence.
+
+To repeat the final Index runs from the vr-q worktree, use fresh evidence paths under the main checkout:
+
+```powershell
+$vrPackage = 'out/dist/gmod-rtx-remix-0.0.0-vrq.runtime-review-final2.gma'
+$vrEvidence = 'H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/vr/q/review2/user-repeat-01'
+python tools/vr_session.py --package $vrPackage --evidence "$vrEvidence/construct" --seconds 310 --render-scale 1 --pacing render
+python tools/vr_session.py --package $vrPackage --evidence "$vrEvidence/house" --seconds 120 --render-scale 1 --pacing render --map modern_house --mount-workshop 3495468649 --camera '80,928,545,0,0,0'
+```
+
+The optional read-only inspector adds actual game-thread CPU and SDK geometry receipts; the ordinary
+functional repeat above does not require it. Preserve raw counters, settings/protected-file restoration,
+loaded modules, startup log, GPU/process context and all usual capture files. The final report gives the
+manual --look command with the same GMA, including how to end it through normal rollback.
+
+Use --first-camera-mismatch on a short diagnostic run to shift only published camera metadata for
+five seconds. Require logged initial-camera skips, then matched pairs with zero unmatched submissions.
+This catches startup output whose projection is VR but whose camera is still flat. The normal neutral
+timeline had coincident flat/VR positions and could hide that sequence. The renderer requires its first
+actual camera match before allowing the later counted fallback (ADR 0158); BeginFrame still never waits.
+The Index diagnostic withheld 505 initial cameras and then accepted 2014 matched pairs. A physical
+look on the earlier code had one unmatched first camera despite a correct FOV, and the manual
+validator now rejects that counter too. The final canonical package's look observed 354 matched
+pairs with zero failures/unmatched poses, complete captures and clean restoration. No person wore it.
+
+### The hand-over package and Claude's check (2026-11-10)
+
+After `main` was merged into `vr`, the package to test is built in the `vr` worktree, not in vr-q:
+`python tools/build_package.py --version 0.0.0-vr.v1 --require-nlctl --json` writes
+`out/dist/gmod-rtx-remix-0.0.0-vr.v1.gma` (1,775 files; a local file, nothing is uploaded). The unattended
+session and the manual look with it are the commands of [VR-V1-report.md](handover/VR-V1-report.md); their
+receipts are the main checkout's `out/vr/v1/smoke-01` and `out/vr/look/claude-look-01`.
+
+What the check taught about judging a run on a machine that is in use:
+
+- **Frame rates are for the load that was there.** With another game on the GPU the same build ran at half rate
+  (45 pairs a second) where the idle GPU held 85. Record the GPU's use before the launch (`gpu.csv`) and say
+  which of the two a number belongs to.
+- **A flat comparison needs many alternating launches.** Single flat runs ranged from 5 to 19 ms over one evening
+  with other programs' load, and one run in ten was far off its neighbours. Compare the medians of at least ten
+  launches of each runtime, alternating, and report the spread beside the difference.
+- **Compare first screenshots only,** and look at an outlier before trusting it: one control's first shot showed
+  the Steam overlay over the test window.
+- **Classify every failed launch from its minidump** before blaming a build: the exception stream names the
+  module and offset. `nvoglv64.dll+0xe622f8` at start-up is the old driver crash (RESEARCH), which the published
+  runtime has as well. A run's own dumps are under its `generated` folder and `poc/game/crash-reports`; its
+  `originals` folder holds the PoC's earlier session records, which are not this run's.
+- **A normal quit nobody asked for is not a crash.** Test windows take the keyboard; when the user is at the
+  machine, input meant for another program can reach the game.
+- **Test a hand-over command with the interpreter the user's terminal has.** The look passed in the agent's
+  shell (Python 3.12 with Pillow) and failed twice for the user (Miniconda without it; RESEARCH, "The user's
+  looks"). A look now needs no Pillow; unattended `vr_session.py` runs refuse up front, with exit code 2, when
+  their Python cannot take screenshots. To repeat the user's side: `python -m venv out/vr/venv-nopil`, then run
+  the look with `out/vr/venv-nopil/Scripts/python.exe`.

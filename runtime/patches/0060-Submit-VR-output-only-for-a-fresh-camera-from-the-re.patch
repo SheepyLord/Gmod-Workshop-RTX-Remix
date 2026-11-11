@@ -1,0 +1,142 @@
+From fa0b19ecc943f0b7f4a89cdb5058d972689a3772 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 11:20:59 -0700
+Subject: [PATCH] Submit VR output only for a fresh camera from the ready
+ module
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_context.cpp |  2 +-
+ src/dxvk/rtx_render/rtx_vr.cpp      | 25 +++++++++++++++++++------
+ src/dxvk/rtx_render/rtx_vr.h        |  3 +++
+ 3 files changed, 23 insertions(+), 7 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index 7f3217aa..ebb6ad06 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -858,7 +858,7 @@ namespace dxvk {
+         fork_hooks::dispatchFsrFrameGeneration(*this, srcImage);
+ 
+         // VR owns the centre output; the original target remains the game's raster canvas.
+-        if (vr.active()) {
++        if (vr.frameActive()) {
+           vr.output(*this, srcImage, rtOutput.m_primaryLinearViewZ.view, targetImage);
+         } else {
+         // Blit to the game target
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index a4815039..89f86cf6 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -78,7 +78,7 @@ namespace dxvk {
+     std::lock_guard lock(m_requestMutex);
+     if (m_active) { return RTXVR_E_ALREADY; }
+     m_requested=*info; m_projection=p; ++m_generation;
+-    m_poses.clear(); m_overlayRequests.clear(); m_captureWhat=0;
++    m_poses.clear(); m_latestPose=0; m_consumedPose=0; m_overlayRequests.clear(); m_captureWhat=0;
+     m_status={}; m_status.structSize=sizeof(m_status); m_status.state=RTXVR_STATE_STARTING;
+     m_active.store(true,std::memory_order_release); m_work.store(true,std::memory_order_release);
+     return RTXVR_OK;
+@@ -117,7 +117,9 @@ namespace dxvk {
+     if (!pose || pose->structSize!=sizeof(*pose) || (pose->flags&~RTXVR_POSE_SCRIPTED) || !finitePose(*pose)) { return RTXVR_E_ARGUMENT; }
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active) { return RTXVR_E_NOT_RUNNING; }
+-    return m_poses.push(*pose) ? RTXVR_OK : RTXVR_E_ARGUMENT;
++    if (!m_poses.push(*pose)) { return RTXVR_E_ARGUMENT; }
++    m_latestPose=pose->sequence;
++    return RTXVR_OK;
+   }
+ 
+   int RtxVr::overlaySource(uint64_t handle,uint32_t w,uint32_t h) {
+@@ -142,7 +144,7 @@ namespace dxvk {
+ 
+   bool RtxVr::projection(Matrix4& matrix,float& fov,float& aspect) {
+     std::lock_guard lock(m_requestMutex);
+-    if (!m_active) { return false; }
++    if (!m_active || m_latestPose<=m_consumedPose) { return false; }
+     m_frame=m_requested; m_frameProjection=m_projection;
+     m_cameraFrame=m_device->getCurrentFrameId(); m_cameraGeneration=m_generation;
+     matrix[0][0]=float(1/m_frameProjection.tanX); matrix[1][1]=float(1/m_frameProjection.tanY);
+@@ -264,6 +266,7 @@ namespace dxvk {
+   }
+ 
+   VkExtent3D RtxVr::beginFrame(RtxContext& ctx,VkExtent3D flat) {
++    m_frameEligible=false;
+     uint64_t generation;
+     bool requested;
+     {
+@@ -286,6 +289,12 @@ namespace dxvk {
+       }
+     }
+     m_flatExtent=flat;
++    {
++      std::lock_guard lock(m_requestMutex);
++      // SDK readiness precedes the add-on's view hooks. Wait for their first camera, and never
++      // submit the same pose twice while Lua waits for a queued render or a scene is absent.
++      if (!m_active || m_latestPose<=m_consumedPose) { return flat; }
++    }
+     try {
+       if (!m_ready && !initialise(ctx)) { return flat; }
+     } catch (const std::exception& e) { fail(RTXVR_E_RESOURCES,e.what()); return flat; }
+@@ -299,7 +308,10 @@ namespace dxvk {
+       if (!m_active || generation!=m_generation) { return flat; }
+       overlayRequests.swap(m_overlayRequests);
+       m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
+-      if (m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
++      const bool poseMatched=m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose);
++      if (m_framePose.sequence<=m_consumedPose) { return flat; }
++      m_frameEligible=true;
++      if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+       m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+       m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
+       matched=m_status.posesMatched; unmatched=m_status.posesUnmatched;
+@@ -447,7 +459,7 @@ namespace dxvk {
+   }
+ 
+   void RtxVr::timestamp(RtxContext& ctx,vrtiming::Stage stage) {
+-    if (!m_ready || !active()) { return; }
++    if (!m_ready || !frameActive()) { return; }
+     const auto index=static_cast<size_t>(stage);
+     if (stage==vrtiming::Stage::FrameBegin) {
+       if (m_armTiming) {
+@@ -479,7 +491,7 @@ namespace dxvk {
+   }
+ 
+   void RtxVr::output(RtxContext& ctx,const Rc<DxvkImage>& colour,const Rc<DxvkImageView>& depth,const Rc<DxvkImage>& game) {
+-    if (!m_ready || !active()) { return; }
++    if (!m_ready || !frameActive()) { return; }
+     ScopedCpuProfileZone();
+     timestamp(ctx,vrtiming::Stage::WarpBegin);
+     {
+@@ -539,6 +551,7 @@ namespace dxvk {
+     {
+       std::lock_guard lock(m_requestMutex);
+       if (m_generation==m_renderGeneration) {
++        m_consumedPose=m_framePose.sequence;
+         ++m_status.framesRendered;
+         if (m_active) { m_status.state=RTXVR_STATE_RUNNING; }
+         m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index ee076a3c..f51d3b1d 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -31,6 +31,7 @@ namespace dxvk {
+     void onDestroy() override;
+     bool hasWork() const { return m_work.load(std::memory_order_acquire); }
+     bool active() const { return m_active.load(std::memory_order_acquire); }
++    bool frameActive() const { return m_frameEligible && active(); }
+     int start(const rtxvr_StartInfo* info);
+     void stop();
+     int updateEyes(const rtxvr_Eye eyes[2]);
+@@ -76,6 +77,8 @@ namespace dxvk {
+     std::mutex m_requestMutex, m_openVrMutex;
+     std::atomic<bool> m_active {false}, m_work {false};
+     uint64_t m_generation=0, m_renderGeneration=0;
++    uint64_t m_latestPose=0, m_consumedPose=0;
++    bool m_frameEligible=false;
+     uint64_t m_cameraFrame=~uint64_t(0), m_cameraGeneration=0;
+     rtxvr_StartInfo m_requested {}, m_frame {};
+     vrmath::Projection m_projection {}, m_frameProjection {};
+-- 
+2.56.0.windows.1
+

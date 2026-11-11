@@ -588,6 +588,10 @@ msgstr "시작하기"
 msgid "Remix settings"
 msgstr "Remix 설정"
 
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+msgid "VR"
+msgstr "가상 현실"
+
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:73
 #: nativeloader/lua/nativeloader/guide_pages.lua:70
 msgid "Graphics preset"
@@ -1033,6 +1037,199 @@ msgstr ""
 "프레임 생성이 꺼져 있습니다.\n"
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 프레임 생성: FSR 3."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+msgid "Health"
+msgstr "체력"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+msgid "Armour"
+msgstr "방어구"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+msgid "Ammo"
+msgstr "탄약"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:21
+msgid "The VR module is missing or could not load. Reinstall the RTX package, then restart Garry's Mod."
+msgstr "VR 모듈이 없거나 불러올 수 없습니다. RTX 패키지를 다시 설치한 후 Garry's Mod를 재시작하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:22
+msgid "The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."
+msgstr "VR 모듈의 API가 호환되지 않습니다. RTX 패키지를 업데이트하고 Garry's Mod를 재시작하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:23
+msgid "This Remix runtime has no VR output. Update the RTX package and restart Garry's Mod."
+msgstr "이 Remix 런타임은 VR 출력을 지원하지 않습니다. RTX 패키지를 업데이트하고 Garry's Mod를 재시작하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:24
+msgid "The VR add-on could not start. Reinstall the RTX package and try again."
+msgstr "VR 애드온을 시작할 수 없습니다. RTX 패키지를 다시 설치하고 재시도하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:25
+msgid "V1 supports single-player and the listen-server host. Start a local game to use VR."
+msgstr "V1은 싱글 플레이와 리슨 서버 호스트를 지원합니다. VR을 사용하려면 로컬 게임을 시작하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:26
+msgid "Exit VRMod before starting RTX VR. Only one add-on can control the view."
+msgstr "RTX VR을 시작하기 전에 VRMod를 종료하세요. 시점을 제어하는 애드온은 하나만 사용할 수 있습니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:27
+msgid "Exit gVRMod before starting RTX VR. Only one add-on can control the view."
+msgstr "RTX VR을 시작하기 전에 gVRMod를 종료하세요. 시점을 제어하는 애드온은 하나만 사용할 수 있습니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:28
+msgid "SteamVR could not start VR. Check the headset connection and SteamVR, then try again."
+msgstr "SteamVR에서 VR을 시작하지 못했습니다. 헤드셋 연결과 SteamVR을 확인한 후 재시도하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:29
+msgid "SteamVR is not installed. Install SteamVR in Steam, connect the headset, then try again."
+msgstr "SteamVR가 설치되어 있지 않습니다. Steam에서 SteamVR를 설치하고 헤드셋을 연결한 후 다시 시도하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:30
+msgid "SteamVR ended the VR session. The flat game's settings have been restored."
+msgstr "SteamVR이 VR 세션을 종료했습니다. 일반 화면 게임 설정이 복원되었습니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:31
+msgid "Waiting for headset tracking. Check that the base stations can see the headset."
+msgstr "헤드셋 추적을 기다리는 중입니다. 베이스 스테이션이 헤드셋을 볼 수 있는지 확인하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:33
+msgid "VR is off"
+msgstr "VR 꺼짐"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:33
+msgid "Starting SteamVR..."
+msgstr "SteamVR 시작 중..."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:33
+msgid "VR is running"
+msgstr "VR 실행 중"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:34
+msgid "Stopping VR..."
+msgstr "VR 종료 중..."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:34
+msgid "VR could not start"
+msgstr "VR 시작 실패"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:213
+msgid "Not checked"
+msgstr "확인 안 됨"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:214
+msgid "Yes"
+msgstr "예"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:214
+msgid "No"
+msgstr "아니요"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:222
+#, c-format
+msgid "SteamVR installed: %s; running: %s"
+msgstr "SteamVR 설치: %s; 실행: %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
+#, c-format
+msgid "Headset: %s; %s Hz; recommended per eye: %s"
+msgstr "헤드셋: %s; %s Hz; 눈당 권장 크기: %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:230
+#, c-format
+msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
+msgstr "fps_max가 %s로 헤드셋의 %s Hz보다 낮습니다. 게임 콘솔에 fps_max %s를 입력하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:235
+#, c-format
+msgid "Controllers tracked: left %s; right %s"
+msgstr "컨트롤러 추적: 왼쪽 %s; 오른쪽 %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:236
+#, c-format
+msgid "Compositor: GPU %s ms; CPU %s ms"
+msgstr "컴포지터: GPU %s ms; CPU %s ms"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:241
+#, c-format
+msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
+msgstr "재투영: %s%%; 누락: %s%% (누적)"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:242
+#, c-format
+msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
+msgstr "런타임 GPU(ms): 전체 %s; 추적 %s; 업스케일 %s; 워프 %s; 기타 %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:244
+#, c-format
+msgid "Centre: %s; traced: %s; submitted per eye: %s"
+msgstr "중앙: %s; 추적: %s; 눈당 제출 크기: %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:246
+#, c-format
+msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
+msgstr "제출 프레임: %s; 제출 오류: %s; 포즈 일치 / 불일치: %s / %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:254
+msgid "Start VR"
+msgstr "VR 시작"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:256
+msgid "Exit VR"
+msgstr "VR 종료"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:258
+msgid "Recentre VR"
+msgstr "VR 중심 재설정"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:260
+msgid "Check status"
+msgstr "상태 확인"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:262
+msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
+msgstr "상태 확인은 VR 모듈만 불러옵니다. VR 시작을 누르면 SteamVR이 시작되며 몇 초 걸릴 수 있습니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+msgid "V1 uses a fixed preset. Auto quality, movement and hand controls arrive in later VR milestones. For RTX, 80 or 90 Hz is recommended."
+msgstr "V1은 고정 프리셋을 사용합니다. 자동 화질, 이동, 손 조작은 이후 VR 단계에서 추가됩니다. RTX에는 80 또는 90 Hz를 권장합니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+msgid "World scale"
+msgstr "월드 배율"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
+msgstr "미터당 게임 단위 수입니다. 기본값 40은 72단위 모델을 키 1.8 m인 사람에 맞춥니다. 변경 후 VR을 재시작하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+msgid "Render scale"
+msgstr "렌더 배율"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
+msgid "Scale of SteamVR's recommended eye size. V1 starts at 1.00, or at most 0.50 on a low tier or below 12 GB. Restart VR after changing."
+msgstr "SteamVR 권장 한쪽 눈 해상도의 배율입니다. V1 기본값은 1.00이며 저성능 등급 또는 VRAM 12 GB 미만에서는 최대 0.50입니다. 변경 후 VR을 다시 시작하세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:274
+msgid "Culling FOV"
+msgstr "컬링 시야각"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:276
+msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
+msgstr "엔진 가시 범위는 기본 145도이며 Index에서 16:9로 검증했습니다. 렌더링 투영은 헤드셋이 제공합니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:277
+msgid "Use nl_vr_start and nl_vr_exit in the console. V1 supports single-player and the listen-server host."
+msgstr "콘솔에서 nl_vr_start와 nl_vr_exit를 사용하세요. V1은 싱글 플레이와 리슨 서버 호스트를 지원합니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:291
+msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; V1 uses a lower render scale."
+msgstr "이 GPU에서는 VR이 느릴 수 있습니다. VRAM이 12 GB 미만이거나 성능 등급이 낮습니다. VR 시작은 가능하며 V1은 낮은 렌더 배율을 사용합니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:298
+msgid "VR settings"
+msgstr "VR 설정"
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
 msgid "Garry's Mod is not finishing its start"

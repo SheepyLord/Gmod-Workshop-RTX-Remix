@@ -1,5 +1,8 @@
 # test_render_guard_addons.py
 
+VR-V1-E: the VR page is explicitly an ordinary companion path in the inventory assertion. It gains no render
+guard exemption; the wrist canvas is checked independently against the production guard by the VR harness.
+
 R20-C preserves the exact legacy exemption inventory but explicitly keeps the new screen/blood
 parts and eight new companion modules out of it. They use ordinary particle/decal/material paths for
 R20-D's general compatibility work. The inventory test rejects either stale legacy exemptions or

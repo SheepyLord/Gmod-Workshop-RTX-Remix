@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "action_sets": [
+    {
+      "name": "/actions/main",
+      "usage": "leftright"
+    }
+  ],
+  "actions": [
+    {
+      "name": "/actions/main/in/left_grip",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_trigger",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_stick_click",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_a",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_b",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_stick",
+      "type": "vector2",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_grip_force",
+      "type": "vector1",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_trigger_value",
+      "type": "vector1",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/left_skeleton",
+      "type": "skeleton",
+      "requirement": "optional",
+      "skeleton": "/skeleton/hand/left"
+    },
+    {
+      "name": "/actions/main/out/left_haptic",
+      "type": "vibration",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_grip",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_trigger",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_stick_click",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_a",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_b",
+      "type": "boolean",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_stick",
+      "type": "vector2",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_grip_force",
+      "type": "vector1",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_trigger_value",
+      "type": "vector1",
+      "requirement": "optional"
+    },
+    {
+      "name": "/actions/main/in/right_skeleton",
+      "type": "skeleton",
+      "requirement": "optional",
+      "skeleton": "/skeleton/hand/right"
+    },
+    {
+      "name": "/actions/main/out/right_haptic",
+      "type": "vibration",
+      "requirement": "optional"
+    }
+  ],
+  "default_bindings": [
+    {
+      "controller_type": "knuckles",
+      "binding_url": "nlvr_bindings_index.json"
+    },
+    {
+      "controller_type": "oculus_touch",
+      "binding_url": "nlvr_bindings_touch.json"
+    },
+    {
+      "controller_type": "vive_controller",
+      "binding_url": "nlvr_bindings_vive.json"
+    }
+  ],
+  "localization": [
+    {
+      "language_tag": "en_us",
+      "/actions/main": "Sandbox VR",
+      "/actions/main/in/left_grip": "Left Grip",
+      "/actions/main/in/left_trigger": "Left Trigger",
+      "/actions/main/in/left_stick_click": "Left Stick Click",
+      "/actions/main/in/left_a": "Left A",
+      "/actions/main/in/left_b": "Left B",
+      "/actions/main/in/left_stick": "Left Stick",
+      "/actions/main/in/left_grip_force": "Left Grip Force",
+      "/actions/main/in/left_trigger_value": "Left Trigger Value",
+      "/actions/main/in/left_skeleton": "Left Skeleton",
+      "/actions/main/out/left_haptic": "Left Haptic",
+      "/actions/main/in/right_grip": "Right Grip",
+      "/actions/main/in/right_trigger": "Right Trigger",
+      "/actions/main/in/right_stick_click": "Right Stick Click",
+      "/actions/main/in/right_a": "Right A",
+      "/actions/main/in/right_b": "Right B",
+      "/actions/main/in/right_stick": "Right Stick",
+      "/actions/main/in/right_grip_force": "Right Grip Force",
+      "/actions/main/in/right_trigger_value": "Right Trigger Value",
+      "/actions/main/in/right_skeleton": "Right Skeleton",
+      "/actions/main/out/right_haptic": "Right Haptic"
+    }
+  ]
+}

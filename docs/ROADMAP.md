@@ -1,5 +1,41 @@
 # Roadmap
 
+VR V1, "RTX in the headset", is done: the user looked with the headset on and approved it on 2026-11-10, and it
+was merged into `main` that day. V2 (hands, movement, menus) starts when the user asks
+(**[the report](handover/VR-V1-report.md)**: what works and what does not, the spikes, the costs, how to look with
+the headset on, the proposal for V2; [design](handover/VR-plan.md), [work plan](handover/VR-V1-plan.md),
+[integration](handover/VR-V1-Q-report.md), [review follow-up](handover/VR-V1-Q-review-report.md)). Start VR in the
+RTX tab starts the OpenVR session, follows the head with one path-traced centre view warped to both eyes,
+mirrors the left eye on the desktop and shows health, armour and ammunition on the left wrist. Exit restores
+the flat settings; Recentre VR resets standing position and yaw. The first review's render-side pacing reached 89 frames a
+second on gm_construct at 90 Hz on the RTX 5090, with recommended 2468 x 2740 pixel eyes and zero failed
+submissions in a 310 s run; modern_house reached 33 frames a second and reprojected. V1 supports
+single-player and the listen-server host, uses mouse/keyboard movement and turning, and cannot recover hidden
+surfaces or separate eye-dependent lighting from one centre view. No one wore the headset for acceptance.
+The module/add-on review follow-up is accepted. The second runtime review's corrections are accepted and on `vr`
+([report](handover/VR-V1-Q-runtime-review-report.md)), and `main` was merged into `vr` (its decision records 0152 to
+0155 moved the branch's last three to 0156 to 0158). Claude's own check of the final build, with another game on
+the GPU, ran gm_construct at a steady 45 frames a second (half rate, nothing refused or dropped), found no
+measurable cost with VR off in 13 launches of each runtime (10.19 against 10.12 ms), and traced the start-up crash
+seen in the tests to the old driver crash at `nvoglv64.dll+0xe622f8`, which the published runtime has too. The
+second review's final runtime fixes
+foreground erosion, startup camera eligibility and recovery. Renewed 310 s/120 s runs reached 85/30 frames
+a second at 90 Hz on the same maps, with zero Submit errors or unmatched poses and warp means of 0.56/0.64 ms.
+The report keeps earlier heavily loaded 28/17 frames/s runs separately. Phase 1 depth boundaries still leave
+small outlines, and the final flat comparison measured a 0.345 ms mean-of-medians increase whose cause is not isolated.
+
+The later milestones remain those agreed with the user. Each ends with its report, independent review and
+the user's approval before reaching `main`.
+
+| Milestone | What remains |
+|---|---|
+| V2: Hands, movement, menus | Finger-tracked and ghost hands; smooth movement, snap turn, blink and shift teleport, comfort options, noclip flight, physical crouch and height calibration; spawn/context menus and the flat-screen panel with a laser; dominant hand. |
+| V3: Physical interaction | Physical hands against props, ragdolls and NPCs; one- and two-hand grab, throw, gravity gloves, ragdoll handling, use by hand, climbing and melee. |
+| V4: Weapons and tools | Hand-aimed weapons, foregrip, physical and button reload for the HL2 weapons, ammunition on the gun, weapon wheel, physgun and toolgun controls. |
+| V5: Body and multiplayer | An IK body in shadows and reflections; head and hands seen by other package users; limited mode on other servers. |
+| V6: Performance | The Auto preset and its ladder tuned on the Index at 80, 90 and 120 Hz; the page's warnings and readouts. |
+| V7: True stereo | A quality mode with each eye path traced with its own history, after a spike comparing two passes per frame with one double-wide picture. |
+
 R28 (the user's request of 2026-11-10: resolve GitHub issue 2, keep add-ons like HyperReal FX from lagging the game, find and safeguard what else lags it) is **done** on `r28` ([report](handover/R28-report.md)): the engine guard switches Windows Error Reporting's snapshot of a crashed game off (the copy that filled the memory and kept gmod.exe alive), and RTX sessions no longer preload every texture at the end of a load ([ADR 0142](decisions/0142-no-crash-snapshot-of-the-game.md)); the render guard stops periodic screen read-backs (each waits one to two frames for the path tracer: HyperReal FX's 67 ms a frame), makes a repeated font definition once and names slow render hooks, and `nativeloader_lag_report` lists the most expensive hooks with their add-ons ([ADR 0143](decisions/0143-read-backs-font-definitions-and-slow-render-hooks.md)); the light updater draws steady point lights out of view in turns ([ADR 0144](decisions/0144-the-light-updater-draws-what-the-runtime-needs.md)). No loader or runtime change. Open: the RAM the add-ons' textures hold during play (a runtime change), spot lights in the light updater (they need a helper every frame unless the runtime learns to keep them), the first faults behind the issue's crashes.
 
 The user's report of 2026-11-10 on the Model Hotloader's imports is **done** on `hlfix` ([report](handover/hotloader-import-report.md), [ADR 0152](decisions/0152-hotloader-imports-fast-by-default-and-props-drawn-without-render-meshes.md)): static props draw their own meshes (their `GetRenderMesh` proxies crashed queued rendering at `studiorender.dll+0x6603b`, one of the first faults R28 left open; reproduced in the PoC with the published package), detailed collision serves one import instead of being a remembered default (26-54 s for the user's 1,584-triangle flower, 0.08 s with the single hull), and every slow import stage shows a percentage (CoACD's passes from its log, a character's Source materials and their package). Natives rebuilt from the source copy; no loader or runtime change. The fixes part's Seamless Portals, the last package code on that path, draw their frame themselves too ([report](handover/portals-render-mesh-report.md), [ADR 0153](decisions/0153-no-entity-hands-gmod-a-lua-mesh-to-draw.md); reproduced and verified in the PoC), and a test keeps any `GetRenderMesh` that returns a mesh out of the package.

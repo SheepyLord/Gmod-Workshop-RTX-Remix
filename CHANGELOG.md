@@ -6,6 +6,75 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### VR V1: RTX in the headset (approved by the user and merged on 2026-11-10)
+
+- **Approved and merged.** The user looked with the headset on and approved V1 on 2026-11-10; the branch `vr`
+  was merged into `main` as one commit. The RTX package now carries the VR runtime, the module
+  `gmcl_nlvr_win64.dll`, OpenVR and the VR page; nothing of it runs until Start VR.
+- **A manual look no longer depends on screenshots.** Both of the user's looks were ended by the session tool
+  a minute after it failed to take its one desktop screenshot: their terminal's Python (Miniconda) has no
+  Pillow, and the tool treated the failed screenshot as a failed run. `tools/vr_session.py --look` now takes no
+  screenshot and has no time limit of its own (`poc_session.py run --lua-manual`), closing the game window ends
+  a look cleanly with the PoC restored, and unattended runs check for Pillow before they take a lock or touch
+  the PoC (exit code 2 with the remedy). Proven with a Python that has no Pillow: 171 s in VR, 3,526 eye pairs,
+  none refused or unmatched.
+- **The V1 report** ([VR-V1-report.md](docs/handover/VR-V1-report.md)) with Claude's own check of the final build:
+  with another game on the GPU, gm_construct ran at a steady half rate (45 frames a second at 90 Hz, 13,925 eye
+  pairs, none refused, unmatched or dropped) where the idle GPU held 85, so the fixed preset has no reserve; 13
+  flat launches of each runtime showed no measurable cost with VR off (10.19 against 10.12 ms, first screenshots
+  equal within a path-traced picture's own noise); and the start-up crash seen in the tests is the old driver
+  crash at `nvoglv64.dll+0xe622f8`, which the published runtime had in the same series and before any VR patch
+  existed. `main` was merged into `vr`; the branch's decision records 0152 to 0154 are now 0156 to 0158.
+- The second runtime review corrects foreground edges in the depth warp: a near-to-far search now finds the
+  nearest surface seen by the centre view, with steps derived from depth texels
+  ([ADR 0156](docs/decisions/0156-the-vr-warp-finds-the-nearest-visible-surface.md)). The module defers IPD
+  updates to pose acquisition, and one busy camera push holds the last camera. The wrist repaints until its
+  first runtime copy is acknowledged, including with rendering unqueued.
+- Temporary SteamVR focus loss keeps the session and resumes output when focus returns. A first eye frame
+  requires its own latched VR projection and an actual camera match, so a queued flat camera cannot become
+  the first headset view ([ADR 0158](docs/decisions/0158-the-first-headset-frame-must-match-its-camera.md)).
+  Allocation failures report a VR resource error; overlay observation
+  stays on its render context; captures survive an untraced frame; storage images get an explicit initial
+  layout transition; the preset follows DLSS support, and timing records stay bounded. SteamVR's required
+  memory extension is enabled independently of the FSR DLL
+  ([ADR 0157](docs/decisions/0157-steamvr-requirements-do-not-depend-on-fsr.md)).
+- The final local package has renewed Index acceptance, original-scale foreground crops, renderer
+  allocation/focus probes and queued/unqueued wrist checks. The report keeps the loaded-host frame rates
+  separate from the earlier pacing comparison, with repeatable commands for inspecting the final package
+  ([runtime review report](docs/handover/VR-V1-Q-runtime-review-report.md)). It stayed local until the approval.
+- Start VR and Exit VR in the RTX tab's VR page start a local single-player or listen-host session in SteamVR
+  and return to the flat game with its settings. The module and add-on stay inactive before Start; missing
+  dependencies, another VR add-on and unsupported servers have an explanation on the page. This milestone
+  stayed on `vr`, unpublished, until the user approved it
+  ([ADR 0145](docs/decisions/0145-vr-in-the-rtx-package.md)).
+- The path-traced view follows the head and becomes two eye images through a depth warp; the desktop mirrors
+  the left eye and keeps its normal flat HUD. The wrist overlay shows health, armour and ammunition on the left
+  controller. `nl_vr_recenter` and the page's Recentre VR button reset the standing position and play-space yaw.
+  V1 uses the mouse and keyboard for movement and turning; hands, controller movement and menus are V2. One
+  centre view cannot reconstruct hidden surfaces or separate eye-dependent lighting; true stereo is V7
+  ([ADR 0146](docs/decisions/0146-one-centre-view-warped-to-the-eyes.md),
+  [ADR 0148](docs/decisions/0148-vr-ui-through-exact-sized-overlay-targets.md)).
+- Frames are paced on the render side, with predicted poses on the game thread. On gm_construct, RTX 5090,
+  Index at 90 Hz and the recommended 2468 x 2740 pixels per eye, the corrected 310 s comparison improved from
+  45 to 89 frames a second. Both modes had zero failed submissions; the render-paced run had zero
+  dropped frames. The heavier modern_house scene reached 33 frames a second and reprojected, because both
+  its CPU and GPU work exceed the native refresh budget
+  ([ADR 0147](docs/decisions/0147-frame-poses-and-render-side-pacing.md)).
+- VR uses scale 1, DLSS Performance with Ray Reconstruction and one to four bounces. A temporary runtime layer
+  turns off frame generation, motion blur, chromatic aberration, vignette and camera shake, then restores the
+  flat settings on Exit. No Remix `user.conf` is changed. Automatic quality selection remains V6
+  ([ADR 0151](docs/decisions/0151-the-fixed-v1-vr-preset.md)).
+- Any client script can call the module, so Lua cannot choose a DLL, manifest or arbitrary output path.
+  Captures and timelines take names inside the game's VR data folder. The module answers SteamVR quit itself,
+  including while single-player is paused; Start stays disabled until shutdown acknowledges completion
+  ([ADR 0150](docs/decisions/0150-vr-client-lua-boundary-and-native-quit.md)).
+- Developers get the pinned OpenVR SDK, a standalone probe, offline module/add-on/runtime-maths tests and
+  [`tools/vr_session.py`](tools/vr_session.py.md), which records compositor counters, thread and GPU timings,
+  pose scheduling and eye/mirror images in the PoC under both shared test locks. The small flat-mode Vulkan
+  change and its alternating controls are recorded in
+  [ADR 0149](docs/decisions/0149-steamvr-vulkan-extensions-at-device-creation.md) and
+  [RESEARCH](docs/RESEARCH.md). No loader change.
+
 ### The fixes' maps leave the RTX package
 
 - **No more gm_construct_rtx in the RTX package**

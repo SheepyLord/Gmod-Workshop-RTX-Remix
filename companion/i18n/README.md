@@ -98,3 +98,8 @@ R28 added three messages to the guide's Performance and memory page ("When add-o
 `nativeloader_lag_report` command and why post-processing add-ons' repeated screen reads are stopped). Their
 translations in all six catalogs are agent-written by Claude and not yet human-reviewed; the console command, the
 file names and `nativeloader_guard_readbacks 1` are kept as they are.
+
+VR-V1-E adds the VR category/page, start/exit/status messages, GPU warning, frame measurements and wrist HUD
+labels. All 44 new messages in each of the six non-English catalogs are machine translations written by Codex
+and await human review. The English source is authoritative. UTF-8 round trips and printf conversions were
+checked; preserve `nl_vr_*`, the product names, dimensions and units when reviewing.

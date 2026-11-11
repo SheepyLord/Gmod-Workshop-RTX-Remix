@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "35ce500857c852e7babf0bd5a6fdc9495eef39703cfb2d4c33547c0bcec33054",
-  "built_from": "HEAD -> claude/r26-sky 17dcc86c (with what the rest of this record names)",
+  "d3d9.dll": "e43aef99a74d333fa75cbb27f8848ae7ba25ce4e8e200f5c7d0f936a69382046",
+  "built_from": "HEAD -> vr d29445c5 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -91,6 +91,36 @@
    "patches/0035-Translate-premultiplied-transmission-filters-without.patch": "b0cabb9483c2c3919f9f40a6d281a86cd59700a85330d60d8d885d6da2c70c6a",
    "patches/0040-Publish-live-upscaling-state-for-startup-advice.patch": "1b44ea9bce85fd4da91597ae6aa0d5191d015833e39deb762a5a35f390ade2a5",
    "patches/0041-Atmosphere-the-sky-without-a-horizon.patch": "97b1f704b3123570df0972252a89983c444b1e761a14822b0d9c8952026bd84f",
+   "patches/0042-VR-pin-the-OpenVR-ABI-and-test-the-centre-projection.patch": "4ad27a27659a387e6edade4f90c331ee10fb7e5b99229fe29856483f52f38300",
+   "patches/0043-VR-render-a-headset-sized-centre-view-warp-and-submi.patch": "1f624878c8b96559715486d32f37c44da697899ddcde10c4fc52cba733c0ef8f",
+   "patches/0044-VR-retire-the-centre-allocation-at-Stop-and-clear-re.patch": "87689740feeb55220cc0200ffcf6dc6d1afb11d6d92a9b40f7294c32cf84b8a2",
+   "patches/0045-VR-exclude-debug-cameras-serialize-Stop-cleanup-and-.patch": "76da93a7a21b99ded565094efc02bb820a0432e5146e05ae0904a61f4f3816a0",
+   "patches/0046-VR-publish-completed-frames-after-handoff-and-preser.patch": "c3b826ae8923bafe7f5ee49320c236588f924a0c8750566510387f89bd882003",
+   "patches/0047-VR-select-DLSS-Performance-for-the-measured-Index-wo.patch": "e7b08588c65a5734109b0f291bf0d7cb168cbfb7dd520102ef90f4efa7ad81ce",
+   "patches/0048-VR-register-sources-in-order-and-label-the-optional-.patch": "4e1a02fabed0d08a2b133f7c7d68cb007bee405d737d96a2288c4e3df3f67e45",
+   "patches/0049-VR-drain-compositor-copies-before-retiring-images-an.patch": "557e2b5e939ff14a52dd90e27e6ce7f9d3c49086b4dbcc2b729a7919ad28e62b",
+   "patches/0050-VR-keep-each-eye-update-consistent-with-the-frame-ca.patch": "8e929b9aeda2d9088759a77913b708618e947c604cbd660b8a860b07f31aff01",
+   "patches/0051-VR-include-scene-preparation-and-later-raster-work-i.patch": "3acefdfab48d3fc628436457c28db53bff73fda0fe3ee42bcdadb36da6705a98",
+   "patches/0052-VR-skip-incomplete-GPU-query-sets-when-a-frame-has-n.patch": "69738498cea2d047543a848ee76067d59ff6ac61db42517028435762c5af8ac2",
+   "patches/0053-VR-keep-GPU-retirement-and-diagnostics-outside-the-A.patch": "fdb73a2e1444f4881f913a6ffb0ccb462ce5df8113621965d04fd72231612327",
+   "patches/0054-VR-fill-disocclusions-from-an-observed-farther-surfa.patch": "bae91dae571775d1ed04195c6238e02e355eb00cbf3173e0172fb1ba53379c95",
+   "patches/0055-VR-match-camera-orientations-without-Euler-singulari.patch": "31342b006b68854dfb371c89fad4f11491f866e609971cd088aed3ac947109d4",
+   "patches/0056-VR-cover-translated-eye-edges-down-to-half-a-metre.patch": "e9e06ac1c3ccdc8485f10c9f93327bffce8de8d579184cefbecce7026ccf2162",
+   "patches/0057-VR-split-GPU-passes-and-distinguish-command-list-wor.patch": "4bffbe4bf5c4ed519a41ab42dbc24cdd2144142fbb2639ea1f6daead2c5f528d",
+   "patches/0058-VR-test-the-analytic-margin-on-parallel-eyes-and-ret.patch": "960f5f25810e6e27a0989fc0744cdece775f766923ad211693f7d2bf879a733a",
+   "patches/0059-VR-resolve-batch-timestamps-after-completion-and-ret.patch": "1180bb18f89ed694243abe1262806e17405c49c20bcea373d31f57fd41ca212d",
+   "patches/0060-Submit-VR-output-only-for-a-fresh-camera-from-the-re.patch": "2aa3fdd62e5f47bba394c5c19a987991317f22c7d6772ceb306b19a91b2819ac",
+   "patches/0061-Keep-VR-extents-and-the-last-eye-mirror-while-awaiti.patch": "6668d0b3fdd071423cff42a82020e300a244c4eba58f45fb7bc8341ef16f25b2",
+   "patches/0062-Pace-VR-submissions-on-the-render-thread-and-measure.patch": "1431e1dbb1428a20050cb6502ed397a11fb7bf653dc1a202361d6c6a493e1a92",
+   "patches/0063-Attribute-explicit-timing-to-the-compositor-pacing-e.patch": "6f668efd35776c666d651a44d122d1af8b60126c35337c570941883a2a7d3789",
+   "patches/0064-Exclude-consumed-cameras-when-matching-the-next-VR-p.patch": "c6b0c7290e1921a59057f06786e97d793974383c2b2a9348f6051bc8f01ff3d4",
+   "patches/0065-Search-nearer-visible-surfaces-before-the-VR-warp-background.patch": "f3b2b3d5f90ad340510c6e918af62bfd08cf0044eebe9ae6cae6606d5b80df82",
+   "patches/0066-Keep-VR-output-bounded-and-recoverable-across-queued-frames.patch": "83f3983475e7ff6271a5bfba78f80f33156c39a5bc9039cdb14f9c027f236c18",
+   "patches/0067-Keep-warp-refinement-inside-the-searched-depth-interval.patch": "1160d2d8c9a2b042aa03b1ae53a70122237ed84b95630afb0082e026283e2552",
+   "patches/0068-Exercise-VR-failures-and-distinguish-replayed-cameras.patch": "2960734627cf5af2d884636832b0478d8862aa49cdc50878fe8a2715b2fe5656",
+   "patches/0069-Sample-the-VR-ray-segment-at-depth-texel-spacing.patch": "641530e4d29242d650bc660f2d0269413f31ce0d03a7b9fc2b3e2b27c167d51b",
+   "patches/0070-Retain-overlay-requests-when-a-queued-camera-is-skipped.patch": "ae778754a7ff6d8cf95cfc8ab702efecbe851499957c8c2de638ee68824ac37c",
+   "patches/0071-VR-wait-for-the-first-actual-camera-match.patch": "2d18d7e40cacf7634bfca644378384ddd14af4a8d796c3bd6016bf0effc34ca8",
    "submodules/rtxdi.patch": "006d534a48637125dcb1e4a5fcca9eabb8bd96f7a8935b5eb1ec49a64b0e1be5"
   }
  }

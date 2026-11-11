@@ -1,5 +1,102 @@
 # runtime/
 
+The second VR review adds patches 0065 to 0071, on the runtime branch `vr` at `d29445c5`
+([report](../docs/handover/VR-V1-Q-runtime-review-report.md)). The warp searches near to far in inverse
+depth, refines both surfaces bordering an interval and falls back to observed background at a disocclusion.
+Its spacing follows the depth texture: 34 intervals at the Index's 1536 x 1376 pixel input. The normal
+path has no saved tap setting; the launcher can override intervals for a controlled comparison.
+
+Only a camera whose VR projection was latched in that frame and generation can produce eyes. The first
+output also requires an actual camera-ring match: a queued flat view can already have the VR projection.
+After that first match, the later counted fallback remains. A known
+consumed camera is skipped while a different fresh pose is pending, with a separate diagnostic count;
+a genuinely unknown camera retains the plan's counted newest-pose fallback. The module predicts without
+waiting. Wire ABI 3 adds focus-loss and wait-error counters. Loss of focus skips an interval and can resume;
+persistent RequestFailed errors stop after five seconds, and incompatible errors stop immediately.
+
+VR allocations catch both DxvkError and standard exceptions and report RTXVR_E_RESOURCES. Eye images start
+UNDEFINED and transition to GENERAL before storage writes. Only the render context observes overlay canvases,
+timing records are bounded even without eligible frames, and capture requests remain pending until output.
+The preset selects DLSS when supported and TAAU otherwise. Launcher-only allocation/focus probes exercise
+the real render-thread failure/recovery paths; zero or unset leaves them disabled.
+
+Startup independently requests two instance and four device names, six in total
+([ADR 0157](../docs/decisions/0157-steamvr-requirements-do-not-depend-on-fsr.md)). The fourth device name is
+VK_KHR_get_memory_requirements2; earlier builds got it only when the optional FSR DLL loaded. The old
+five-name delta below belongs to the tested installation with that DLL present. No OpenVR load/init, VR
+worker, VR GPU image/query allocation, preset or warp prewarm is added before Start. The device owns dormant
+CPU state and enabled-name copies, and existing pipeline hooks do their inactive checks and FOV bookkeeping.
+Tap and fault diagnostics are read only when VR initializes. Final selected binary/package identities and
+the renewed flat/Index receipts are kept in the second-review report; experiments use -NoImport.
+
+The startup correction is [ADR 0158](../docs/decisions/0158-the-first-headset-frame-must-match-its-camera.md).
+The selected d3d9.dll is 418358272 bytes, SHA-256
+`e43aef99a74d333fa75cbb27f8848ae7ba25ce4e8e200f5c7d0f936a69382046`. Final 310 s gm_construct and
+120 s modern_house runs on the RTX 5090/Index at 90 Hz reached 85/30 frames/s with zero failed Submit
+calls or unmatched poses. Mean warp brackets were 0.56/0.64 ms at the recommended 2468 x 2740 pixel
+eye size; GPU utilization before launch was 0%/1%. Their original-scale crops and complete fine
+profiles are in the report. The canonical package is the local runtime-review-final2 GMA named there.
+Its -NoImport build has 249 CPU assertions. The physical look accepted 351 matched pairs with zero
+unmatched poses; a controlled five-second metadata mismatch withheld 505 initial cameras, then accepted
+2014 matched pairs. The superseded `2cbf7f0d` build had a physical first-frame fallback despite its correct FOV.
+That build's Index acceptance used 310 s on gm_construct and 120 s on modern_house, with zero failed Submit
+calls or unmatched poses. Under substantial background GPU load the new warp brackets averaged
+1.98 ms and 2.65 ms respectively; these are not isolated shader costs. The report retains the
+original-scale edge crops, fine pass timings, corrected flat controls and final local package identity.
+
+Q's review follow-up adds patches 0062-0064: wire ABI 2, render-side Submit/WaitGetPoses,
+compositor-epoch explicit timing, display scheduling feedback and consumed-pose exclusion.
+The matching module predicts poses without waiting; V1 has no module serial wait. See the
+[follow-up report](../docs/handover/VR-V1-Q-review-report.md) for five-minute A/B results and
+the security/paused-lifecycle corrections. This follow-up's selected DLL is 418337280 bytes,
+SHA-256 2a6aca62d0102b061fa27f433b4ccaa0bedbbee57f159150b71cc609b32fa249,
+runtime clone vr at 9d22eef6, imported once after experimental NoImport builds.
+
+VR-Q adds patch 0060: the renderer waits for the ready module's first camera, and only
+produces one output for each fresh pose. The page installs the producer at SDK readiness;
+BeginFrame can bootstrap while the renderer is STARTING. The shared version 1 header is unchanged
+and the ordinary Python gate compares its bytes against the runtime patch series.
+Patch 0061 keeps the VR projection/extent and last left-eye mirror through a completion timeout;
+no duplicate Submit is made and no resize oscillation occurs while the producer waits.
+
+VR-V1-C adds patches 0042 to 0059 ([task report](../docs/handover/VR-V1-C-report.md)). VR-Q imported
+the combined build once: `vr` at `72f3cb83`, d3d9.dll 418332672 bytes, SHA-256
+`66cbcc7c64f84b31e0e18de0e9644affbdfea31d3810d80d0ae6a7021786c52a`.
+`base.json` records every packaged patch/dependency; no pending patch remains. Experimental
+builds used `-NoImport`. All of this stays on the VR milestone branches pending review/approval.
+
+The `rtxvr` C API is dormant until Start. A device-owned session uses the existing
+runtime final-output image as a centre view at headset density, replaces only the main camera's
+projection, gathers that picture through depth and each eye's full transform, submits on DXVK's
+locked Vulkan queue, and crops the left eye into the original game target. Raster draws after
+injection remain on the desktop. Unique-sized raster canvases feed independent OpenVR overlay
+images. Captures save PNGs through asynchronous GPU readback; fine timestamp brackets report
+lighting, upscaling, warp and preparation/raster/output work. The module owns OpenVR and supplies the pinned
+v2.15.6 interfaces; the runtime neither loads its DLL nor starts a session.
+
+The VR preset is DLSS Performance with Ray Reconstruction when supported, otherwise TAAU, with
+one to four bounces, in one
+fileless option layer above quality presets. Stop revokes OpenVR access
+synchronously and removes the layer and VR allocations on the render thread, restoring the
+ordinary output size even in a menu. The desktop present interval is zero during VR, without
+changing the game's `mat_vsync`. No new saved option or menu control is introduced.
+
+The initial late-activation build added five supported extension names at ordinary device creation:
+`VK_KHR_external_fence_capabilities`, `VK_NV_external_memory_capabilities` (instance), and
+`VK_KHR_timeline_semaphore`, `VK_KHR_dedicated_allocation`, `VK_KHR_win32_keyed_mutex` (device).
+The final second-review build independently adds VK_KHR_get_memory_requirements2 as a fourth device
+name; FSR supplied it in the original tested setup. The runtime already enables timeline-semaphore
+functionality through Vulkan 1.2. No additional feature boolean, VR GPU resource, worker, OpenVR call
+or warp prewarm is added to flat startup; dormant CPU state and hooks are described above. Start
+checks SteamVR's complete lists against the actual enabled names, including provider additions.
+See the report for measured flat startup and frame times and the spike evidence.
+
+Review follow-up starts at 0055: pole-safe camera-basis matching, half-metre axial near-edge
+coverage and fine GPU stages with command-list coverage. Periodic JSON and capture timings.json
+separate application work, queue gaps and opaque SDK transfer spans. Those original profiling patches
+kept wire version 1; the current second-review wire version is 3, as described above.
+See the report for reset/loss behavior and measured follow-up results.
+
 R26 adds `0041-Atmosphere-the-sky-without-a-horizon.patch`
 ([ADR 0139](../docs/decisions/0139-the-sky-without-a-horizon.md)): `rtx.atmosphere.noHorizon` (bool,
 default False), for maps that float in the sky or in space. A view direction below the horizon gets

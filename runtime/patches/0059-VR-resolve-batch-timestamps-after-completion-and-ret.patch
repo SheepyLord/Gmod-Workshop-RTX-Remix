@@ -1,0 +1,134 @@
+From 62736bda894de4bd6d9c5ceddd808986e14f4e03 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 10:30:56 -0700
+Subject: [PATCH] VR: resolve batch timestamps after completion and retire
+ handles before pools
+
+Query resets execute on the GPU in this fork, so availability alone can be stale. A per-recording completion signal protects readback and reuse. Clear VR during common-object onDestroy while dependent allocators and the submission queue are still alive, and average coarse thread CPU ticks across frames.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/dxvk_device.cpp       |  3 +++
+ src/dxvk/rtx_render/rtx_vr.cpp | 12 ++++++++++++
+ src/dxvk/rtx_render/rtx_vr.h   |  6 +++++-
+ 3 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/src/dxvk/dxvk_device.cpp b/src/dxvk/dxvk_device.cpp
+index 793a2915..3acff68b 100644
+--- a/src/dxvk/dxvk_device.cpp
++++ b/src/dxvk/dxvk_device.cpp
+@@ -606,6 +606,9 @@ namespace dxvk {
+   }
+ 
+   void DxvkObjects::onDestroy() {
++    // NV-DXVK start: Retire VR before common query/image allocators are destroyed
++    metaVr().onDestroy();
++    // NV-DXVK end
+     getRtxInitializer().onDestroy();
+ 
+     metaGeometryUtils().onDestroy();
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 2bfaf3f3..a4815039 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -59,6 +59,11 @@ namespace dxvk {
+ 
+   RtxVr::~RtxVr() { stop(); clearResources(); }
+ 
++  void RtxVr::onDestroy() {
++    // Common-object pools/allocators must still exist when VR releases their handles.
++    stop(); clearResources(true);
++  }
++
+   int RtxVr::start(const rtxvr_StartInfo* info) {
+     if (!info || info->structSize!=sizeof(*info)) { return RTXVR_E_ARGUMENT; }
+     if (info->apiVersion!=RTXVR_API_VERSION) { return RTXVR_E_VERSION; }
+@@ -185,6 +190,7 @@ namespace dxvk {
+       m_markedSubmissions.clear();
+     }
+     m_lastCpuWall=0; m_lastCpuRun=0; m_armTiming=true;
++    m_cpuProfileRunTotal=0; m_cpuProfileFrames=0;
+     m_lastOutputFrame=~uint64_t(0); m_hadTracedScene=false;
+     RtxOptionManager::releaseLayer(m_layer); m_layer=nullptr;
+     m_eyes={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
+@@ -337,6 +343,7 @@ namespace dxvk {
+       recording.begin=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0);
+       recording.end=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0);
+     }
++    recording.completed=new sync::Fence(0);
+     ctx.writeTimestamp(recording.begin);
+     m_recordings[&ctx]=std::move(recording);
+   }
+@@ -348,6 +355,7 @@ namespace dxvk {
+     const auto found=m_recordings.find(&ctx);
+     if (found==m_recordings.end()) { return; }
+     ctx.writeTimestamp(found->second.end);
++    ctx.signal(found->second.completed,1);
+     m_markedSubmissions.insert(ctx.getCommandList().ptr());
+     m_closedRecordings.push_back(std::move(found->second)); m_recordings.erase(found);
+   }
+@@ -361,6 +369,8 @@ namespace dxvk {
+   void RtxVr::collectRecordings() {
+     std::lock_guard lock(m_recordingMutex);
+     for (auto at=m_closedRecordings.begin(); at!=m_closedRecordings.end();) {
++      // This fork resets queries on the GPU; old availability can survive until that reset.
++      if (!at->completed->value()) { ++at; continue; }
+       DxvkQueryData first {},last {};
+       if (at->begin->getData(first)!=DxvkGpuQueryStatus::Available ||
+           at->end->getData(last)!=DxvkGpuQueryStatus::Available) { ++at; continue; }
+@@ -389,6 +399,7 @@ namespace dxvk {
+       work[i]=vrtiming::external(i) ? elapsed[i] : std::min(elapsed[i],covered);
+       gaps+=elapsed[i]-work[i];
+     }
++    m_cpuProfileRunTotal+=std::max(0.0,timer.cpuRunEnd-timer.cpuRunBegin); ++m_cpuProfileFrames;
+     const float path=float(work[1]+work[2]+work[3]+work[4]);
+     const float upscale=float(work[5]),warp=float(work[7]);
+     const double rawTotal=(data.back().timestamp.time-data.front().timestamp.time)*factor;
+@@ -406,6 +417,7 @@ namespace dxvk {
+       <<",\"gpu_total_ms\":"<<rawTotal<<",\"gpu_queue_wait_cpu_ms\":"<<(coverage ? gaps : 0)
+       <<",\"unattributed_queue_ms\":"<<(coverage ? 0 : gaps)
+       <<",\"render_thread_cpu_ms\":"<<std::max(0.0,timer.cpuRunEnd-timer.cpuRunBegin)
++      <<",\"render_thread_cpu_average_ms\":"<<(m_cpuProfileRunTotal/m_cpuProfileFrames)
+       <<",\"render_thread_cycle_ms\":"<<std::max(0.0,timer.cpuWallEnd-timer.cpuWallBegin)
+       <<",\"render_injection_wall_ms\":"<<std::max(0.0,timer.cpuWallEnd-timer.cpuScopeBegin)
+       <<",\"cpu_submit_ms\":"<<timer.cpuSubmit<<",\"denoising_fused_in_upscaler\":true,\"passes\":{";
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 4845fa66..ee076a3c 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -15,6 +15,7 @@
+ #include "rtx_vr_timing.h"
+ #include "../dxvk_image.h"
+ #include "../dxvk_gpu_query.h"
++#include "../../util/sync/sync_signal.h"
+ 
+ namespace vr { class IVRCompositor; class IVROverlay; struct VRVulkanTextureData_t; }
+ namespace dxvk {
+@@ -27,6 +28,7 @@ namespace dxvk {
+   public:
+     explicit RtxVr(DxvkDevice* device) : CommonDeviceObject(device) { m_status.structSize=sizeof(m_status); }
+     ~RtxVr();
++    void onDestroy() override;
+     bool hasWork() const { return m_work.load(std::memory_order_acquire); }
+     bool active() const { return m_active.load(std::memory_order_acquire); }
+     int start(const rtxvr_StartInfo* info);
+@@ -57,7 +59,7 @@ namespace dxvk {
+       float cpuSubmit=0;
+       std::filesystem::path captureFolder;
+     };
+-    struct Recording { Rc<DxvkGpuQuery> begin,end; };
++    struct Recording { Rc<DxvkGpuQuery> begin,end; Rc<sync::Fence> completed; };
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
+@@ -109,5 +111,7 @@ namespace dxvk {
+     uint64_t m_lastOutputFrame=~uint64_t(0);
+     bool m_hadTracedScene=false;
+     std::string m_lastProfile;
++    double m_cpuProfileRunTotal=0;
++    uint64_t m_cpuProfileFrames=0;
+   };
+ }
+-- 
+2.56.0.windows.1
+

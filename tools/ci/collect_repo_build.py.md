@@ -5,6 +5,8 @@ Takes this repository's own native modules in the RTX package from the Release b
 [ADR 0106](../../docs/decisions/0106-the-rtx-package-built-on-github.md)): `pins.json`'s
 `repository_builds` maps `gmsv_nlrtxclient_win64.dll` (CMake target `nl_rtx_client`) to
 `fixes/modules/` and `gmcl_nlglass_win64.dll` (`nl_glass_client`) to `glass/bin/`.
+VR-Q adds `gmcl_nlvr_win64.dll` (`nl_vr_client`) to `vr/bin/`. The generic collector needs no
+special VR branch: a normal Release build includes the target, and pins.json declares the output.
 
 ```powershell
 python tools\ci\collect_repo_build.py [--out out\ci\built] [--run-url URL]

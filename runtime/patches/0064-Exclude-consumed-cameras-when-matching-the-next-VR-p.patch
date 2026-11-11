@@ -1,0 +1,77 @@
+From 9d22eef64aaa1e5bc1793e98253d462e9fa30e37 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 13:15:36 -0700
+Subject: [PATCH] Exclude consumed cameras when matching the next VR pose
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp    | 2 +-
+ src/dxvk/rtx_render/rtx_vr_math.h | 8 +++++---
+ tests/rtx/unit/test_vr_math.cpp   | 9 +++++++++
+ 3 files changed, 15 insertions(+), 4 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 4a765673..f00855c6 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -313,7 +313,7 @@ namespace dxvk {
+       if (!m_active || generation!=m_generation) { return flat; }
+       overlayRequests.swap(m_overlayRequests);
+       m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
+-      const bool poseMatched=m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose);
++      const bool poseMatched=m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose,m_consumedPose);
+       if (m_framePose.sequence<=m_consumedPose) { return {m_frameProjection.width,m_frameProjection.height,1}; }
+       m_frameEligible=true;
+       if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index ba7e9b74..8332f51a 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -158,19 +158,21 @@ namespace dxvk::vrmath {
+       return true;
+     }
+     void clear() { m_count=0; m_next=0; }
+-    bool match(const float origin[3], const float angles[3], rtxvr_FramePose& result) const {
++    bool match(const float origin[3], const float angles[3], rtxvr_FramePose& result,uint64_t afterSequence=0) const {
+       const auto o=sourceOrientation(angles);
+-      return match(origin,o.forward,o.up,result);
++      return match(origin,o.forward,o.up,result,afterSequence);
+     }
+-    bool match(const float origin[3], Vec3 forward, Vec3 up, rtxvr_FramePose& result) const {
++    bool match(const float origin[3], Vec3 forward, Vec3 up, rtxvr_FramePose& result,uint64_t afterSequence=0) const {
+       if (!m_count) { result={}; return false; }
+       result=m_poses[(m_next+15)%16].pose;
++      if(result.sequence<=afterSequence) { result={};return false; }
+       Orientation orientation {forward,up};
+       if (!normalise(orientation)) { return false; }
+       double best=std::numeric_limits<double>::infinity();
+       bool matched=false;
+       for (size_t n=0; n<m_count; ++n) {
+         const auto& entry=m_poses[(m_next+15-n)%16];
++        if(entry.pose.sequence<=afterSequence) { continue; }
+         double position=0;
+         for (int j=0; j<3; ++j) { position+=std::pow(double(origin[j])-entry.pose.cameraOrigin[j],2); }
+         if (position>0.25) { continue; }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 1edc4678..4acbfa40 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -21,6 +21,15 @@ namespace {
+   }
+ }
+ int main() {
++  {
++    dxvk::vrmath::PoseRing ring;rtxvr_FramePose a{};a.sequence=1;a.structSize=sizeof a;
++    require(ring.push(a),"first sequence");auto b=a;b.sequence=2;b.cameraOrigin[0]=0.00001f;require(ring.push(b),"near-identical sequence");
++    float origin[3]{},angles[3]{};rtxvr_FramePose found{};
++    require(ring.match(origin,angles,found)&&found.sequence==1,"nearest old camera without lower bound");
++    require(ring.match(origin,angles,found,1)&&found.sequence==2,"consumed camera cannot hide pending sequence");
++    require(!ring.match(origin,angles,found,2)&&found.sequence==0,"no eligible sequence");
++  }
++
+   using namespace dxvk::vrmath;
+   rtxvr_Eye eyes[] { eye(-0.0872664626, -0.032), eye(0.0872664626, 0.032) };
+   Projection p;
+-- 
+2.56.0.windows.1
+

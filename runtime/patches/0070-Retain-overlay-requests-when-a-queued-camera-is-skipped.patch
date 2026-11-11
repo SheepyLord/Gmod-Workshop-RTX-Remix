@@ -1,0 +1,35 @@
+From 2cbf7f0d46ef2b6625546783c1fc2ef81c236e00 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 16:57:22 -0700
+Subject: [PATCH] Retain overlay requests when a queued camera is skipped
+
+Consume the pending source changes only after the frame is eligible; a stale-camera return must not discard an overlay registration or removal.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index b04e6bc7..ecc4d2e1 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -354,7 +354,6 @@ namespace dxvk {
+     {
+       std::lock_guard lock(m_requestMutex);
+       if (!m_active || generation!=m_generation) { return flat; }
+-      overlayRequests.swap(m_overlayRequests);
+       const auto selection=m_poses.select(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose,m_consumedPose);
+       if(selection==vrmath::PoseRing::Selection::Stale) {
+         ++m_staleCameras;
+@@ -370,6 +369,7 @@ namespace dxvk {
+           ", pose angles=",m_framePose.cameraAngles[0],",",m_framePose.cameraAngles[1],",",m_framePose.cameraAngles[2]));
+       }
+       if (m_framePose.sequence<=m_consumedPose) { return {m_frameProjection.width,m_frameProjection.height,1}; }
++      overlayRequests.swap(m_overlayRequests);
+       m_frameEligible=true;
+       if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+       m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+-- 
+2.56.0.windows.1
+

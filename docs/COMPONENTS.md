@@ -484,3 +484,33 @@ screen read-backs, makes a repeated font definition once and times the render ca
 command that lists the most expensive hooks with their add-ons, with its harness
 [`companion/tests/test_lag_report.py`](../companion/tests/test_lag_report.py.md). The fixes' light updater keeps a draw
 list ([ADR 0144](decisions/0144-the-light-updater-draws-what-the-runtime-needs.md), [packages/fixes](../packages/fixes/README.md)).
+
+## VR in the RTX package
+
+VR V1 was approved by the user and merged on 2026-11-10 ([report](handover/VR-V1-report.md)). The loader deploys the
+fifteenth package part through its existing native rules; it does not start VR. The companion page starts the
+module, the module owns OpenVR, the add-on owns the game camera, and the runtime owns eye output
+([ADR 0145](decisions/0145-vr-in-the-rtx-package.md)).
+
+| Path | What it owns |
+|---|---|
+| [`vr/native`](../vr/native/README.md) | The C++20 client module, `gmcl_nlvr_win64.dll`: worker lifecycle, module-relative SDK discovery, input, predicted tracking, haptics, owned overlays, native quit acknowledgement and the Lua boundary. `lua_policy.h:9` refuses Lua DLL/manifest keys and limits capture/timeline names to the fixed data root. `include/rtxvr_api.h` is the version 3 wire interface, checked against the runtime's copy; it adds focus-loss and wait-error counts. IPD events are applied during pose acquisition. |
+| [`vr/native/tests`](../vr/native/README.md) | Stand-in OpenVR and runtime DLLs, lifecycle/failure/security tests, pose and timeline maths, overlay placement/visibility, C ABI layout and a native real-session host. No real SDK is initialized by the offline tests. |
+| [`vr/native/probe`](../vr/native/probe/README.md) | `vrprobe.exe`, a development executable for SDK discovery, extension inventories, a reference Vulkan submission and long unworn-headset runs; parsers and CLI tests. It never ships. |
+| [`vr/native/spike_s4`](../vr/native/spike_s4/README.md) | The guarded material-queue experiment and its PoC driver. Its observations support the camera-ring decision; its private-ABI probe is absent from production. |
+| [`vr/addon`](../vr/addon/README.md) | A late-loaded client file, with no autorun: one pose/camera per engine frame, last-camera reuse, recenter, reversible view-model/body suppression and the exact-sized wrist canvas. |
+| [`vr/input`](../vr/input/README.md) | The action manifest and Index, Touch and Vive bindings. These four JSON files are deployed as real files for SteamVR. |
+| [`nativeloader_vr.lua`](../companion/nativeloader/lua/autorun/client/nativeloader_vr.lua.md) | The companion's VR page and console commands, local-host/conflict checks, state and error text, scale/warnings, Start/Exit/Recentre and a paused-capable PreRender poll. The six companion catalogs contain its translations. |
+| [`tools/vr_session.py`](../tools/vr_session.py.md) and [`vr_session.lua`](../tools/vr_session.lua.md) | The production PoC session driver and its client probe: both shared locks, snapshot and verified rollback, deterministic timelines, counters, CPU/GPU timings, native captures, frame-progress checks and complete console records. The driver alone selects `NLVR_TEST_ROOT` under `out`. |
+| `tools/tests` ([wire check](../tools/tests/test_vr_integration.py.md)) and `companion/tests` ([Lua tests](../companion/tests/test_vr.py.md)) | The wire-header identity/package/driver checks and LuaJIT page/add-on harnesses. The add-on tests exercise camera authority, duplicate queries, failed native calls and cleanup without a headset. |
+| [`third_party/openvr`](../third_party/openvr/README.md) | Valve's unchanged v2.15.6 header and BSD-3-Clause licence. The pinned SDK DLL is fetched and indexed separately, not linked into the module. |
+| [`packages/vr`](../packages/vr/README.md) | The indexed, xz-compressed module and SDK DLL inputs, with their build/provenance records. The packager reads the Lua and input files from their source folders. |
+| [`runtime`](../runtime/README.md) | Patches 0042 to 0071 add the C API and CPU maths, device-owned VR output, centre projection, nearest-visible-surface warp, overlay copies, captures, fine profiling and render-side pacing. In the recorded fork, `rtx_vr.cpp`/`.h` own output, resources and SDK-call exclusion; `rtx_vr_math.h` owns coverage and the camera ring; `rtx_vr_api.h` is the wire copy; `rtx/pass/vr/vr_warp.comp.slang` and `vr_warp.h` implement the depth warp. Camera, injection, target and device hooks connect these to the existing pipeline, and `tests/rtx/unit/test_vr_math.cpp` tests the maths and runtime policies. |
+
+The runtime source paths above are under `src/dxvk/rtx_render` for C++ and `src/dxvk/shaders` for shaders in
+the fork. The second-review source is `d29445c5`, patches through 0071. Its `rtx_vr_exports.h` declares the exported entry points, `rtx_vr_png.h` writes
+capture PNGs, and `rtx_vr_timing.h` names the fine stages and accounts for covered GPU command intervals.
+`rtx_vr_policy.h` holds the tested camera, context-ownership, allocation, focus and bounded-record policies.
+This repository stores their patches, not a second source checkout. The active Start
+flag moves WaitGetPoses after submission on the render side. The module predicts poses without waiting for a
+frame completion ([ADR 0147](decisions/0147-frame-poses-and-render-side-pacing.md)).

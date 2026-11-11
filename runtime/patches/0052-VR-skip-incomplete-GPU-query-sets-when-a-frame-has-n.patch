@@ -1,0 +1,38 @@
+From 14a424f370d3026e5214f45c8f67d78b1c622bf5 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:54:18 -0700
+Subject: [PATCH] VR: skip incomplete GPU query sets when a frame has no traced
+ scene
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 4670a378..d418a022 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -314,9 +314,8 @@ namespace dxvk {
+       }
+       old.pending=false; m_timer=&old;
+     }
+-    if (m_timer && stage<7) { ctx.writeTimestamp(m_timer->queries[stage]); }
++    if (m_timer && stage<7 && (stage!=6 || m_timer->pending)) { ctx.writeTimestamp(m_timer->queries[stage]); }
+     if (stage==6) {
+-      if (m_timer) { m_timer->pending=true; }
+       m_timer=nullptr; m_timerIndex=(m_timerIndex+1)%m_timers.size();
+     }
+   }
+@@ -383,6 +382,8 @@ namespace dxvk {
+       }
+     }
+     ++m_frames;
++    // Menu and camera-only frames must not arm a query set with missing dispatch timestamps.
++    if (m_timer) { m_timer->pending=true; }
+   }
+ 
+   vr::VRVulkanTextureData_t RtxVr::textureData(const Image& image) const {
+-- 
+2.56.0.windows.1
+

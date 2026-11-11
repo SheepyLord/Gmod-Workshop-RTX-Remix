@@ -6756,3 +6756,671 @@ and every new import crashed the game once the importer showed it. Handover:
   `r14` 0, `r15` 0x388, a garbage `rbx`. Drawn with `ENT:DrawModelMesh` instead, the same session ran 70 s with two
   pairs. Only portals the runtime does not render itself reach that code (unlinked, past its portal slots, or with
   `seamless_portals_remix 0`).
+
+## VR V1: the Index, centre-view output and frame pacing (2026-11-10)
+
+These measurements used the vanilla 64-bit PoC, `GarrysMod_PoC`, on the RTX 5090 (32607 MiB reported,
+driver 617.42), an unworn Valve Index at 90 Hz, and a 1280 x 720 pixel desktop window unless stated otherwise.
+The task reports retain the individual methods and receipts: [A](handover/VR-V1-A-report.md),
+[C](handover/VR-V1-C-report.md), [D](handover/VR-V1-D-report.md), [E](handover/VR-V1-E-report.md),
+[Q integration](handover/VR-V1-Q-report.md) and [Q review/pacing](handover/VR-V1-Q-review-report.md).
+Evidence paths in this section are under the main checkout's ignored `out/`, rather than this document's
+directory. Runtime file:line references describe the fork at `9d22eef6`, exported in this repository's
+patch series through 0064. Earlier reports describe earlier binaries; their controls are identified below.
+No acceptance run changed SteamVR's refresh or power settings, and nobody wore the headset.
+In the tables, p95 and p99 mean the 95th and 99th percentiles respectively.
+
+### S1: which Vulkan requirements must already be enabled when VR starts?
+
+A queried SteamVR's lists and compared them with the published runtime's enabled-name log and the physical
+device's offered names. SteamVR requested six instance names:
+
+```text
+VK_KHR_external_memory_capabilities
+VK_KHR_get_physical_device_properties2
+VK_KHR_external_fence_capabilities
+VK_KHR_surface
+VK_KHR_win32_surface
+VK_NV_external_memory_capabilities
+```
+
+It requested seven device names:
+
+```text
+VK_KHR_external_memory
+VK_KHR_external_semaphore
+VK_KHR_timeline_semaphore
+VK_KHR_dedicated_allocation
+VK_KHR_get_memory_requirements2
+VK_KHR_external_memory_win32
+VK_KHR_win32_keyed_mutex
+```
+
+The RTX 5090 offered all of them, but the published enabled list lacked the two instance names
+`VK_KHR_external_fence_capabilities` and `VK_NV_external_memory_capabilities` and the three device names
+`VK_KHR_timeline_semaphore`, `VK_KHR_dedicated_allocation` and `VK_KHR_win32_keyed_mutex`. The AMD integrated
+GPU also offered all seven device names. That first runtime enabled the five supported missing names at creation
+(`src/dxvk/dxvk_instance.cpp:762`, `src/dxvk/dxvk_adapter.cpp:496`); its Vulkan 1.2 timeline feature was already
+enabled (`dxvk_adapter.cpp:542`). Start checks the live requirement lists against actually enabled names
+(`rtx_vr.cpp:230`), rather than assuming offered means enabled.
+The second review found that `VK_KHR_get_memory_requirements2` still depended on the optional FSR DLL.
+The current creation list ensures that name too: two instance and four device names independently of FSR
+([ADR 0157](decisions/0157-steamvr-requirements-do-not-depend-on-fsr.md)). The five-name delta above remains
+the measured difference on the installation with FSR present.
+
+A's independent clear-colour Vulkan scene accepted 1418 eye calls over 8.002167 s, with 709 waits and zero
+wait/submission errors, 88.601 waits a second including startup. This settles the reference contract, not
+submission inside DXVK. Evidence: `out/vr/s1/extensions-final.json` and `submit-pose-final.json`.
+
+### S2: can the runtime enlarge its output while the game window keeps its size?
+
+C made the existing final output a centre image and substituted only the main camera projection. Its first
+synthetic-eye run used 2016 x 2240 pixel eyes with 5 degree cant in each direction, a 2392 x 2456 pixel centre
+and a provisional Balanced input of 1387 x 1424 pixels; 5831 cameras matched in 55 s with none unmatched.
+Those were synthetic geometry tests, not the Index's actual transforms. An equal-extent control used a
+2392 x 2160 pixel centre: the published flat runtime at that window size reached 128.15 frames a second,
+and the enlarged-output runtime with a 1280 x 720 window and no submission reached 128.20 frames a second.
+
+The real Index requests 2468 x 2740 pixels per eye at 90 Hz and reports an interpupillary distance (IPD) of
+68.5366 mm. Its eye rotations
+are identity, so the eyes are parallel, with asymmetric projections. The measured tangents are:
+
+| Eye | Left tangent | Right tangent | Top tangent | Bottom tangent |
+|---|---:|---:|---:|---:|
+| Left | -1.5383247137 | 1.0495523214 | -1.4038075209 | 1.4113825560 |
+| Right | -1.0495594740 | 1.5419751410 | -1.4113649130 | 1.4066470860 |
+
+The direction-only union covers 114.072 degrees horizontally and 109.363 degrees vertically. Covering both
+translated eyes' corner rays at 0.5 m axial depth adds 0.0685366 to the horizontal tangent; at scale 1 this
+changes the centre from 2944 x 2752 to 3072 x 2752 pixels, 4.35% more pixels. The accepted Performance preset
+traces 1536 x 1376 pixels and still presents into the original 1280 x 720 window. The general coverage and
+density calculation uses the full eye transforms (`rtx_vr_math.h:45`), even though this Index has no cant.
+Q's captures contain the actual centre and both recommended-sized eyes; the plan's cant assumption is not a
+measurement of this headset. Evidence: C's output controls and `out/vr/q/scale-100/captures/`.
+
+### S3: can DXVK submit both eyes without an epoch race or a stalled pipeline?
+
+The first C test let the game thread's WaitGetPoses start a new compositor epoch while queued render work
+still submitted the old frame. It logged 139 failed eye calls in 6436 frames, all error 108,
+AlreadySubmitted. Vulkan queue exclusion alone did not order these calls. A completion wait before the next
+game-thread WaitGetPoses fixed the race: C's 185 s timeline run accepted and matched 8122 pairs, with zero
+errors or unmatched cameras, 16606 compositor presents, zero drops and 8608 reprojected frames. Q's initial
+scale-1 long run accepted 8557 pairs with zero errors, unmatched cameras or drops, 17131 presents and 8561
+reprojected frames. Those are the serial control, not the final pacing decision.
+
+The final runtime submits both eyes, performs PostPresentHandoff, then calls WaitGetPoses on the same
+render-side command-stream thread (`rtx_vr.cpp:615`, `:625` and the call at `:555`). It primes the first epoch
+there. The wait holds neither the request mutex nor Vulkan queue exclusion. An SDK-call mutex spans it so
+`rtxvr_Stop` outwaits the call before revoking interfaces (`rtx_vr.cpp:87`). OpenVR has no cancellation for
+that blocking API. In the final 310 s render-paced runs, the largest observed waits were 19.518 ms on
+gm_construct and 36.912 ms on modern_house; a nonresponding SDK could take longer without an independent bound.
+
+The module now calls GetDeviceToAbsoluteTrackingPose without waiting for render completion
+(`vr/native/session.cpp:394`). Its prediction is time to next vsync plus vsync-to-photons plus measured
+pipeline lead in refresh intervals (`:404-409`). Submitted pose timestamps are resolved against compositor
+frame timing (`rtx_vr.cpp:590`); the first sample starts without a guessed lead. The game is paced by Source's
+queue and DXVK frame latency. The final comparison below measured 89 frames a second on gm_construct at
+90 Hz, without a module wait or a busy loop. V1 removed the serial completion mechanism and its timeout
+tickets; the old packages and source remain only to reproduce the comparison.
+
+### S4: can a pose travel through the material system's public call queue?
+
+D's guarded experiment ran 120 frames in `mat_queue_mode 2`: 360 enqueue attempts, none accepted and no
+callbacks executed. On this build, `VMaterialSystem080` GetRenderContext is Windows vtable slot 102,
+RVA 0x1dd40; the live queued context's vtable is at RVA 0xb70a0. GetCallQueue is slot 145, RVA 0x1d6b0,
+and returns context + 688 bytes (0x2b0). The returned object's first word was initially zero, then a pointer
+to queue + 56 bytes, not a vtable. The hardware context returned null. The observed layout is a private
+arena and cannot safely be called as the public SDK interface. The stock `materialsystem.dll` SHA-256 was
+`6c9075c5384a1f9b99921928151a1d17b69faa81f1534e8f7c633a30fdb3e1ad`.
+
+Production keeps threaded mode and a ring of 16 camera poses. It matches position and camera basis, with
+0.5 game unit and 0.5 degree tolerances, preferring the newest equally good eligible pose
+(`rtx_vr_math.h:151`). A later regression showed that an already consumed exact match could beat a fresh
+camera moved by only 0.00001 game unit. Excluding consumed sequences fixes that frozen-counter path; its
+CPU test requires the fresh camera to win. Evidence: `out/vr/d/s4/`, D's report, and runtime patch 0064.
+
+### S5: what does an unworn Index do during a long active scene?
+
+A ran a 600.006759 s no-submit scene and an 840.010121 s submitting scene, longer than the earlier suspected
+shutdown interval. Controllers stayed asleep and the headset stayed unworn. The test used a standalone
+clear-colour scene; builds and other desktop work overlapped it, so its jitter is not an isolated RTX cost.
+
+| Measurement on the unworn Index at 90 Hz | Without Submit | With Submit |
+|---|---:|---:|
+| Active duration, s | 600.006759 | 840.010121 |
+| WaitGetPoses returns | 53846 | 74763 |
+| Returns per second over the whole run | 89.742322 | 89.002499 |
+| Mean / maximum return interval, ms | 11.143214 / 958.356800 | 11.235776 / 285.658000 |
+| Mean / maximum inside WaitGetPoses, ms | 11.068531 / 280.964100 | 10.566328 / 99.480200 |
+| Invalid pose frames / wait errors | 0 / 0 | 0 / 0 |
+| Accepted eye calls / submission errors | 0 / 0 | 149526 / 0 |
+| Standby activity samples / total | 593 / 597 | 831 / 835 |
+| Compositor presents after the run | 53994 | 75625 |
+| Dropped / reprojected frames after the run | 0 / 0 | 292 / 1700 |
+
+Tracking stayed Running_OK (200), usually with activity Standby (3). No quit event arrived in either run.
+The submitting run had a display disconnect/reconnect at 0.936 and 2.446 s, then 15 application-not-responding
+events between 351.439 and 365.447 s, each followed by recovery. Zero API errors do not make this stall-free
+rendering. SDK application GPU readings included a startup value of -18.606 ms; they are retained but cannot
+measure path-tracing passes. The counters above are final cumulative values, because the initial query can
+still name the preceding scene process. The compositor's own submits counter also advances without eye
+Submit calls; the probe separately counts accepted eye calls. Evidence: `out/vr/s5/idle-no-submit.json`,
+`idle-submit-14m.json`, their stderr and `summary.json`.
+
+The proximity sensor was reported present, but its legacy button read supplied no state; the optional
+display-suppressed property was unknown. Neither establishes whether the panel was lit. SteamVR's automatic
+benchmark/window-geometry bookkeeping changed; the test did not overwrite it or alter power/refresh settings.
+
+The earlier 04:02 shutdown was orderly. The preserved `out/vr/s5/vrmonitor.txt` records standby at
+03:49:48.785 and ShutdownRequested at 04:02:37.168, 768.383 s later. `vrserver.txt:1387` records vrmonitor
+PID 13080 initiating quit-all at 04:02:37.179; Steam records exit code 0. Steam's logs show GMod launches at
+04:02:24 and 04:02:31 waiting on ShowInterstitials, followed by a successful launch at 04:02:40 to 04:02:42.
+This supports a desktop launch/UI context but does not identify the initiating button or caller. No log
+establishes an automatic 13 minute standby shutdown, and no compositor crash is shown. The exact action
+cannot be recovered from these logs; `historical-shutdown.json` keeps the line-numbered excerpts.
+
+### S6: does the wide view stay a main camera, with correct head motion?
+
+The runtime uses the SDK-derived projection while the game uses a generous culling FOV. Simple 16:9 frustum
+geometry needs 136.541 degrees of horizontal coverage for the union's 109.363 degree vertical extent; the
+tested engine FOV setting is 145 degrees. C's 8122-camera timeline had zero unmatched cameras. Q's scale-1,
+0.85, 0.7, heavier-map and
+real-pose logs contained 73, 77, 81, 51 and 19 camera diagnostics respectively, all with cut=0. There was no
+per-frame camera-cut/history reset in those runs. Those diagnostic counts sample the runs; they are not
+their submitted-pair counts.
+
+Image measurements on Q's gm_construct fixture found +20.236 and -20.303 degrees for scripted +/-20 degree
+turns. A 0.2 m lean shifted a near feature 77.5 pixels against 76.294 pixels predicted. Matching painted
+texture patches between eyes gave normalized cross-correlation 0.932 to 0.997 and near disparity about
+0.0315 in tangent space, implying a depth of about 87 game units; far-building matches implied 1660 to
+1754 game units. Log-depth PNG code 103 covers about 87.2 to 91.1 game units, consistent within quantization.
+A silhouette midpoint is not a corresponding surface point between eyes; earlier exploratory estimates
+using it are labelled invalid in `out/vr/q/feature-matches.json`. The PNG depth is not a float-depth truth.
+
+E also found that real GMod calls CalcView before PreRender. Sampling only in PreRender had left the camera
+one engine frame old. Acquiring once at the first callback fixed it: the final single-player/listen-host
+stand-in traces had 775/846 camera pushes, zero duplicate pushes, zero engine-frame pose age and zero
+render.GetViewSetup position error. The independently calculated camera error maxima were 0.000031457 and
+0.000007629 game units. The camera anchor uses the engine-supplied predicted/interpolated origin minus the
+current view offset, not a second GetPos sample (`vr/addon/lua/nlvr/client.lua:194`). A foreign caller that
+explicitly invokes CalcView earlier can still choose that frame's first supplied origin.
+
+### S7: what costs the frame, and which pacing holds the headset rate?
+
+C's first real-eye profile, before the half-metre margin and fine command-list coverage, used a
+2944 x 2752 pixel centre and 1472 x 1376 traced pixels. It reached 43.80 frames a second and reported
+15.212 ms elapsed: 6.838 ms in the grouped path field, 1.915 ms in upscaling, 0.084 ms in the warp and
+6.375 ms in Other; SteamVR's app GPU field was 17.375 ms. These are that early run's overlapping scheduling
+and grouped metrics, not a later measurement of pure busy GPU work.
+
+After the margin and fine profiling, C compared the same 3072 x 2752 pixel centre and 1536 x 1376 traced
+pixels with serial pacing and without submission/pacing. The serial run lasted three minutes and used
+83 logged profiles; the unpaced control lasted 100 s and used 92 profiles. It measured 44.91 against
+101.62 frames a second. Covered application/SDK work was about 9.66 against 9.69 ms, the queue gap was
+9.395 against 0.012 ms, and elapsed spans were 19.055 against 9.703 ms. Game work took 4.541 ms wall,
+completion wait 9.071 ms and game-thread WaitGetPoses 8.615 ms. Actual CPU means were 4.602 ms on the game
+thread and 3.392 ms on the command-stream thread. This identified the serial handover as the reference
+scene's limit, rather than a GPU busy for the whole elapsed span.
+
+Q's initial integrated scale tests used the serial mode and approximately 190 s active windows. All used
+DLSS Performance, Ray Reconstruction and one to four bounces on the RTX 5090 and Index at 90 Hz:
+
+| Scene / render scale | Eye size, pixels | Centre / traced size, pixels | Steady frames/s | Covered work + SDK, ms | Queue gap, ms | SDK reprojected/presents | Steady / whole drops |
+|---|---|---|---:|---:|---:|---:|---:|
+| gm_construct / 1 | 2468 x 2740 | 3072 x 2752 / 1536 x 1376 | 45 | 9.404 | 10.485 | 50.00% | 0 / 0 |
+| gm_construct / 0.85 | 2098 x 2329 | 2616 x 2336 / 1308 x 1168 | 48 | 7.345 | 11.467 | 52.47% | 2 / 2 |
+| gm_construct / 0.7 | 1728 x 1918 | 2152 x 1928 / 1076 x 964 | 49 | 6.016 | 8.982 | 48.09% | 0 / 0 |
+| modern_house / 1 | 2468 x 2740 | 3072 x 2752 / 1536 x 1376 | 33 | 14.219 | 6.566 | 82.83% | 2 / 119 |
+
+The 0.7 row is `scale-070-r2`; an earlier console-truncated run is excluded. The house's 119 whole-session
+drops include startup, captures and transitions. These rows explain the scale decision, but their pacing
+has been replaced. Lower scale reduced work while leaving the serial handover, so its throughput gain was
+only about 7% or 9%. Scale 1 preserves the requested density. C's fine profile and Q's initial 9.404 ms
+profile differ because they are separate runs, not interchangeable estimates of one frame.
+
+Q's corrected comparison then ran each mode for 310 s active, using the same timeline, fixed clear/noon
+fixture and preset on each map, scale 1, 2468 x 2740 pixel eyes and a 3072 x 2752 pixel centre. The accepted
+folders are `out/vr/q/review/construct-serial-r2`, `construct-render-r2`, `house-serial-r2` and
+`house-render-r2`. The uncorrected attempts and the mixed 75 s pilot are not acceptance rates. Captures and
+startup are excluded from each steady interval; `comparison.json` records its exact endpoints. No build or
+Release gate overlapped these timing windows. Ordinary desktop and SteamVR processes still shared the GPU.
+
+| Measurement at 90 Hz, scale 1 | Construct serial | Construct render | House serial | House render |
+|---|---:|---:|---:|---:|
+| Steady accepted pairs/s | 45 | 89 | 33 | 33 |
+| Whole-run accepted pairs | 13958 | 27358 | 10241 | 10253 |
+| Whole-run compositor presents | 27933 | 27924 | 27974 | 27974 |
+| Whole-run dropped frames | 2 | 0 | 0 | 0 |
+| Whole-run reprojected frames | 13993 | 729 | 23091 | 22987 |
+| Steady reprojected/presents | 50.123% | 1.907% | 82.470% | 82.022% |
+| Failed eye submissions / unmatched cameras | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| Covered GPU commands + SDK intervals, ms | 9.694 | 9.238 | 14.384 | 14.448 |
+| GPU-clock queue gap, ms | 6.847 | 1.948 | 7.070 | 7.684 |
+| GPU elapsed span, ms | 16.541 | 11.186 | 21.454 | 22.132 |
+| Actual game-thread CPU, ms/pair | 4.708 | 4.082 | 12.567 | 12.795 |
+| Actual command-stream thread CPU, ms/pair | 3.385 | 3.018 | 8.072 | 7.722 |
+| BeginFrame wall time, ms | 17.639 | 0.073 | 9.342 | 0.089 |
+| Render-side WaitGetPoses wall time, ms | 0 | 8.093 | 0 | 10.421 |
+| Game work between driver calls, wall ms | 4.590 | 11.270 | 20.961 | 30.189 |
+
+Render-mode game-work wall time includes blocking in the engine/DXVK queue. Its 4.082 ms actual CPU work
+within an approximately 11.270 ms frame and 0.073 ms BeginFrame demonstrate queue pacing without a module
+sleep or spin. The command-stream thread uses 3.018 ms of CPU and mostly parks during its 8.093 ms SDK wait.
+CPU running time is averaged across frames because Windows GetThreadTimes accounting is quantized at
+15.625 ms. Compositor reprojected/presents is the SDK counter ratio; it is not `1 - pairs/s / refresh`.
+
+The same comparison's mean fine times, in ms per profiled frame on the RTX 5090 at the dimensions above:
+
+| Pass or interval, ms | Construct serial | Construct render | House serial | House render |
+|---|---:|---:|---:|---:|
+| Preparation and acceleration structures | 0.353 | 0.351 | 0.548 | 0.554 |
+| Path tracing, volumetrics and lighting | 6.467 | 6.082 | 10.832 | 10.878 |
+| Demodulation | 0.040 | 0.039 | 0.052 | 0.057 |
+| Separate NRD denoising | <0.001 | <0.001 | <0.001 | <0.001 |
+| Composition | 0.322 | 0.317 | 0.367 | 0.365 |
+| Upscaling with fused Ray Reconstruction | 2.068 | 2.030 | 2.148 | 2.160 |
+| Post-processing and tone mapping | 0.274 | 0.267 | 0.265 | 0.270 |
+| Both eye warps | 0.103 | 0.086 | 0.101 | 0.101 |
+| Mirror | 0.007 | 0.008 | 0.008 | 0.007 |
+| SDK Submit/handoff interval | 0.047 | 0.045 | 0.048 | 0.044 |
+| Late raster | 0.013 | 0.013 | 0.014 | 0.013 |
+| Capture and final overlay transfer, each | <0.001 | <0.001 | <0.001 | <0.001 |
+
+The timestamp coverage distinguishes application command work, intervals inside opaque SDK calls and gaps
+with no new application batch. SDK intervals can include host or IPC wait; they are not all shader execution.
+The public GPU Total and Other include queue gaps. Ray Reconstruction denoising is inside NGX upscaling, so
+the empty separate NRD bracket does not mean denoising is free. Per-capture `timings.json` and periodic
+profiles retain the original coverage and sums.
+
+The runtime also estimates first-display scheduling from the matched pose and compositor timing. These are
+not optical or sensor measurements, and synthetic timeline motion has no physical angular ground truth:
+
+| Scheduling estimate at 90 Hz | Construct serial | Construct render | House serial | House render |
+|---|---:|---:|---:|---:|
+| Measured extra pipeline lead, refresh intervals, mean | 2.014 | 1.066 | 4.090 | 5.027 |
+| Pose age at first display, mean / p95 ms | 45.751 / 48.868 | 36.076 / 36.305 | 67.210 / 80.566 | 77.390 / 82.326 |
+| Prediction timing error, mean / p95 ms | 45.751 / 48.868 | +0.321 / +0.738 | 67.210 / 80.566 | -0.989 / +8.101 |
+
+Serial scripted input samples at acquisition with no future offset, so its prediction timing error equals
+its estimated display age. Render mode evaluates the timeline at the predicted target. Render-mode error
+ranges were -10.071 to +24.589 ms on construct and -14.895 to +11.066 ms on house. SteamVR throttle samples
+on construct were all 246 at one extra frame in serial, against 240 at zero and six at one in render mode.
+House used one or two extra frames in both modes. The measured pipeline lead is workload-dependent; the
+prediction code rounds and bounds the latest filtered lead instead of hard-coding one interval.
+
+Render-side pacing is V1's only module mode. It removes the repeated half-rate handover on gm_construct,
+with zero frozen-counter failures or submission errors. House's 14.448 ms covered work and 12.795 ms game
+CPU each exceed the 11.111 ms native budget at 90 Hz; the compositor reprojects at about 33 pairs/s without
+an error or stall. At unchanged size, 80 Hz gives derived budgets of 12.5 ms native and 25 ms half rate
+(40 pairs/s). Construct's 9.238 ms work leaves about 3.26 ms of GPU budget at 80 Hz, while house still exceeds
+it. No 80 Hz frame rate was measured. Native 90 Hz on the heavier map needs less CPU/GPU scene work; Auto
+tuning remains V6.
+
+### S8: can the wrist come from a game render target without taking the flat HUD into VR?
+
+C first proved the Vulkan copy with a 1027 x 259 pixel source, then a 1029 x 259 pixel resize, and observed
+242 texture uploads in its real-eye run. Q and E use the final exact 769 x 257 pixel canvas, 0.23 m wide,
+attached to the left controller with a local 0.065 m offset. It costs 790532 colour bytes in Source, with
+one allocation reused across starts and no render-guard refusal. A missing/asleep controller keeps the
+overlay hidden until a transform exists, and disconnect hides it again.
+
+E's real stand-in run painted health 87, armour 31 and pistol ammunition 18/256. Q changed those to health
+63, armour 47 and ammunition 9/54 and captured the changed overlay, with zero texture or transform errors.
+Five Q captures each had a 4231-pixel magenta witness in the desktop HUD and zero such pixels in either eye.
+The world mirror matched the cropped left eye within 0.58 to 0.77 mean colour levels out of 255, against
+34.6 to 56.8 levels for the right eye. In the final four pacing runs the largest world-crop mean error was
+0.777 levels on construct and 1.889 on house. Images stayed upright, followed the scripted head and retained
+the stereo disparity. Evidence: `out/vr/q/scale-100/captures/`, `image-analysis.json` and
+`out/vr/q/review/image-checks.json` with the original captures in each run.
+
+The runtime recognizes the exact target size and copies it to an owned overlay (`rtx_vr.cpp:660`);
+the add-on checks the allocation and setup (`vr/addon/lua/nlvr/client.lua:169`). Ordinary 2D is drawn after
+centre/eye output, and therefore stays on the desktop. The Source canvas and fonts stay cached until
+process exit; SDK overlays, runtime images and session hooks end with VR. V2 must add interactive panels.
+
+### Facts found while integrating and reviewing the game path
+
+- The Lua API is available to every client script once loaded, including a server's client scripts. The
+  removed Start keys are refused at `vr/native/module.cpp:81` by `lua_policy.h:9`. DLL and manifest discovery
+  is module-relative. Capture/timeline names resolve under `garrysmod/data/nlvr`, unless the launcher sets
+  `NLVR_TEST_ROOT` (`lua_policy.h:31`); Lua cannot choose that root. The PoC driver sets it under evidence
+  (`tools/vr_session.py:433`) and collects images there. This is not authorization supplied by the page.
+- Single-player pause stops CurTime and Lua timers, while the game continues PreRender. The page's poll uses
+  RealTime (`companion/nativeloader/lua/autorun/client/nativeloader_vr.lua:11`). The native worker independently
+  polls every 20 ms and acknowledges quit (`vr/native/session.cpp:249`, `:265`). In the safe PoC quit test,
+  wall time advanced 9.713 s and CurTime only 0.00835 s before native cleanup completed. The event is supplied
+  by the test timeline; SteamVR is not quit. The final shipping smoke also verifies native stopping/off
+  cleanup when Lua has not requested Stop first.
+- `fps_max` is on GMod's Lua console-command blocked list. E attempted a client console command changing
+  60 to 90; the value stayed 60. `ConVar:SetString` rejects engine-made variables and works only for Lua-made
+  ones: the test attempts on `fps_max`, `cl_drawhud` and `r_drawviewmodel` were refused. Direct console commands
+  could change the latter two from 1 to 0 and back; production leaves them untouched. The driver sets a cap
+  only in its process launch arguments, and the page explains a cap below the headset rate.
+- Source console lines stop at 4095 bytes. An early scale-0.7 JSON record was silently truncated, so that
+  run is excluded. `tools/vr_session.lua:38` emits ordered base64 chunks of 1600 characters; the reader at
+  `tools/vr_session.py:221` requires every chunk, refusing incomplete, duplicate or malformed records. A
+  three-second active-scene counter check also rejects a frozen eye pair even if its error count stays zero.
+- The first known head camera is held through missing tracking/BeginFrame results; after 30 consecutive
+  frame errors the add-on stops with the changed error logged. The page stops after 10 failed lifecycle
+  polls. Start is disabled during Stopping VR until native off; the SDK must be released before restart.
+  A recentre command relatches standing XY and yaw on the next fresh pose. Controller movement and turning
+  remain V2. These fixes and the consumed-camera regression have native/Lua tests in the ordinary gate.
+- The fixed preset is a fileless highest-priority layer (`rtx_vr.cpp:250`): DLSS Performance/Ray Reconstruction,
+  one to four bounces, no frame generation, motion blur, chromatic aberration, vignette, free camera, camera
+  shake or runtime present throttle. Live readback proved frame generation enabled before Start, disabled
+  in VR and enabled after Exit, with the same upscaler/support flags. Fourteen real Source variables also
+  matched. File configuration alone could not prove the live layered state. No `user.conf` was written.
+
+Q's final flat-parity controls alternated three published and three VR-runtime sessions, 30 s timed each,
+gm_construct at clear noon, 1280 x 720 pixels on the RTX 5090. Mean median frame time was 7.7627 ms published
+and 7.7272 ms new (-0.0355 ms, -0.457%); mean p99 was 10.5634 and 10.5605 ms. Mean map-ready time was
+24.100 and 24.567 s, with paired changes +1.3, -0.2 and +0.3 s. Full-image mean error was 0.77 to 0.97 colour
+levels out of 255, world-region error 0.87 to 1.04. No VR module or OpenVR DLL loaded. These compare the
+combined dormant changes, not one extension's cost, and do not prove zero startup overhead. C's earlier
+two-pair control measured 7.507 against 7.573 ms (+0.87%); its earlier single pair measured 7.94 against
+8.26 ms. Different control windows and mixed directions are retained rather than choosing one as universal.
+
+With SteamVR already running, Q measured Start readiness at 2.67 s, median/p99 game-frame times
+7.893/19.090 ms and a 281.503 ms maximum at the first resource transition. A held native fake initialization
+tests responsiveness for 1000 ms; it is not a measured cold-SteamVR in-game startup. No-scene periods produce
+no new eyes: SteamVR may retain, reproject, fade or show its dashboard. Fatal device loss/recreation was not
+induced. True stereo, worn comfort, other hardware and independent panel/sensor latency remain unmeasured.
+
+### The second runtime review: visible edges, queued cameras and recoverable failures
+
+The second independent review read the runtime at `9d22eef6` and module/Lua at `dddbfe3`; its record is the
+main checkout's `out/vr/review/independent-2.md`. The corrections and renewed evidence are in
+[Q's runtime review report](handover/VR-V1-Q-runtime-review-report.md). Source references below describe
+runtime `2cbf7f0d`, exported through patch 0070. Tests still use the RTX 5090 and unworn Index at 90 Hz;
+the desktop fixture is 1280 x 720 pixels, recommended eyes 2468 x 2740 pixels, centre 3072 x 2752 pixels
+and primary depth 1536 x 1376 pixels.
+
+The old warp began at infinite depth and accepted the first self-consistent surface. At a foreground edge
+that could be the wall, even where the eye's nearer hit was visible in the centre. The review measured the
+modern_house lantern at about 285 pixels in the centre and 277 in each eye. Our check of the earlier
+gm_construct capture measured the barrel at about 283 pixels in the centre, 270 in the left eye and 269
+in the right. The strip grows with half-IPD times the difference of inverse depths: about 24 eye pixels for
+an object at 1.5 m before a wall at 10 m, and 63 pixels at 0.6 m before a wall at 5 m on this Index.
+
+The new search walks from the covered 0.5 m axial depth to infinity, linearly in inverse depth
+(`rtx_vr_math.h:104`, `:113`). It tries both surfaces bordering an interval, refines their intersections and
+keeps the nearest valid one within the depth already searched. This prevents a failed nearer candidate from
+hiding a middle layer. An unresolved disocclusion retains observed background. Normal intervals follow the
+depth texture's pixel spacing: the Index segment spans about 33 primary-depth texels, so it uses 34
+intervals and 35 positions, with local refinement. A launcher can override intervals for a comparison;
+normal rendering has no saved tap option. The CPU and shader use the same formula. Single-texel foreground,
+mirrored edges, thin objects and three alternating depth layers are among 246 CPU assertions.
+
+The first fixed-interval prototypes compared 16, 32 and 64 intervals. In post-capture windows on
+gm_construct their warp brackets averaged 0.23, 0.36 and 0.73 ms; on modern_house, 0.24, 0.46 and 0.74 ms.
+Those were separate 75 s pilots before the final two-surface refinement and depth-pixel spacing. Their short
+windows and capture history do not establish the final frame rate. Two heavy-map pilots failed acceptance
+with one and three unmatched cameras respectively, despite zero failed Submit calls. The raw failures are
+retained. The final producer also latches its first overlay acknowledgement; the prototype had queried
+native Info on every unchanged HUD frame. Final timings belong to the renewed runs in the report.
+
+A queued camera can repeat one already consumed while a newer, different pose is pending. The ring now
+distinguishes that known stale camera from a genuinely unknown one (`rtx_vr_math.h:195`); it repeats the last
+image and counts the skip separately, while the plan's unknown-camera fallback remains counted. Eligibility
+also requires a VR projection latched in that frame and generation (`rtx_vr.cpp:337`). The corrected
+prototypes' first logged VR camera has FOV 1.90874 radians, about 109 degrees, instead of the flat 1.287
+radians, about 74 degrees. The driver checks the first FOV against later fixed-projection camera records.
+
+IPD events only publish a dirty flag on the native worker (`vr/native/session.cpp:281`); BeginFrame applies
+the eye update under its own lock (`:402`). The worker can no longer make SetFrameCamera busy during that
+update. The add-on holds the last accepted camera on a failed push, counts at most one attempt per engine
+frame and stops only after 30 consecutive failures. It repaints the wrist until the runtime acknowledges
+a texture, then stops polling Info for an unchanged HUD (`vr/addon/lua/nlvr/client.lua:118`). The error
+result of that startup query is read too. Queue-mode and deferred-capture tests use process launch arguments.
+
+DxvkError does not derive from std::exception. A shared resource boundary catches both and reports
+RTXVR_E_RESOURCES (`rtx_vr_policy.h:11`), including eye initialization, overlay copies, capture staging,
+colour views and timestamp allocation. Launcher-only fault probes throw the actual non-standard type at
+the eye, overlay and capture sites (`rtx_vr.cpp:166`). A focus probe replaces successful wait results with
+DoNotHaveFocus, exercising recovery on the real render thread. It does not imitate another application's
+10 Hz SDK throttle. Focus loss skips output; transient RequestFailed is tolerated for five seconds;
+incompatible errors fail immediately. Stop still outwaits the SDK-call mutex and has no independent bound
+if SteamVR stops answering.
+
+Only the published render context may observe overlay targets (`rtx_vr.cpp:750`); the swap chain's context
+returns before reading the overlay map. Pacing flags are read under the request mutex too. Captures are
+consumed at output, not at BeginFrame (`:607`). Closed timing records are bounded at 1024 even when no
+frame is eligible (`:435`). New images begin UNDEFINED and explicitly transition to GENERAL (`:179`);
+the strongest preset chooses TAAU when DLSS is unavailable. Wire API 3 adds two wait/focus counters:
+StartInfo remains 168 bytes, FramePose 112 bytes and Status becomes 456 bytes. Both header copies are tested.
+
+The console has two different limits. Printed lines truncate at 4095 bytes; Source's command argument
+buffer is smaller, 512 bytes. A warning in the second allocation probe exposed the long server HUD setup
+command, so it now travels as hex packets of 200 digits like the client probe. That run printed its Lua
+boundary checks but no frame records and never exercised the renderer fault. It is a failed harness run,
+not a passing allocation test; installation-stage and probe-ready markers make that distinction explicit.
+
+The initial nearest-surface captures used runtime `2cbf7f0d`. Matching rows through the asymmetric eye
+projections gives these widths, in pixels, on the Index at 90 Hz. The gm_construct barrel changed from
+283.3 centre / 270.3 left / 268.8 right to 283.8 / 284.8 / 281.0. The Modern House target called lantern
+in the review changed from 285.3 / 277.4 / 277.3 to 285.2 / 285.9 / 283.1. Both maps use the probe's
+oildrum model. The new search restores foreground that was visible in the centre; a few pixels of depth
+and reconstructed-colour boundary disagreement remain. Original-scale crops and per-row coordinates are
+in this worktree's `out/vr/review2/analysis/final-r2`, with full captures in the main checkout's
+`out/vr/q/review2/{construct,house}-final-r2`.
+
+Renewed acceptance used 310 s on gm_construct and 120 s on modern_house. Both used the same fixed
+clear/noon fixture and timeline, scale 1, DLSS Performance with Ray Reconstruction and one to four bounces.
+Whole rendered/submitted/matched counts were 8401/8401/8401 and 1911/1911/1911, with zero failed Submit
+calls or unmatched poses. Whole presents/dropped/reprojected were 21629/1269/18588 and 7928/481/7880.
+The steady windows, after 60 s, reached 28 and 17 accepted pairs/s, with 83.8% and 100.0% compositor
+reprojected/presents. The GPU already had 82% and 75% utilization respectively before the games started;
+other programs continued sharing it. These loaded-host measurements do not replace the first review's
+89/33 pairs/s with an isolated regression estimate. All runs keep their GPU/process context.
+
+| Final mean bracket, ms per accepted pair on the RTX 5090 | gm_construct | modern_house |
+|---|---:|---:|
+| Scene preparation and acceleration structures | 0.454 | 0.556 |
+| Path tracing and volumetrics | 14.918 | 26.579 |
+| Demodulation / separate denoising | 0.044 / 0.0002 | 0.068 / 0.0002 |
+| Composition | 0.564 | 1.012 |
+| DLSS with fused Ray Reconstruction | 5.288 | 7.787 |
+| Post-processing and tone mapping | 0.951 | 0.255 |
+| Eye warp | 1.977 | 2.651 |
+| Mirror / SteamVR Submit span | 0.026 / 0.119 | 0.032 / 0.044 |
+| Late raster | 0.016 | 0.017 |
+| Covered commands plus opaque SDK span | 24.357 | 39.000 |
+| Queue gap / total elapsed span | 10.899 / 35.257 | 10.543 / 49.543 |
+| Game-thread / render-thread CPU | 8.78 / 8.99 | 24.76 / 16.98 |
+| Render injection wall time | 25.54 | 8.99 |
+
+The final warp means use 114 and 16 profiles. Preemption can extend a timestamp bracket, and the SDK
+span is opaque, so these are not exclusive shader times. The old 0.11 ms warp and fixed-interval pilots
+were different runs and algorithms; an isolated final-warp cost remains unmeasured. Capture/overlay
+transfer means were below 0.00001 ms in these post-capture windows. The separate denoising bracket is
+small because Ray Reconstruction runs within the upscaler. The report retains the full profiles.
+
+Mean estimated pose age at display was 112.3/141.3 ms; mean prediction error was +15.0/+35.8 ms, with
+95th percentiles +46.8/+58.8 ms. Measured pipeline lead averaged 8.54/11.34 refresh intervals. The module
+caps prediction at eight intervals (`vr/native/session.cpp`), so this backlog can exceed its lead.
+These are compositor scheduling estimates, not optical latency measurements. Render-side WaitGetPoses
+reached 50.41/3.41 ms at worst; Stop outwaits its SDK mutex and has no independent bound if SteamVR
+stops responding. No module wait was added on the game thread. At 80 Hz the derived native/half-rate
+budgets are 12.5/25 ms; actual throughput at 80 Hz was not measured.
+Holding the measured work/contention constant gives work-only ceilings of about 41/26 pairs/s
+at 80 Hz (1000 divided by 24.357/39.000 ms). Queue gaps lower those bounds; these are ceilings,
+not predictions of an actual 80 Hz run.
+
+BeginFrame's whole-run means were 0.158/0.184 ms with zero completion-wait time. The legacy probe
+field named wait_get_poses now measures the predicted-pose SDK query in render-side mode; its means
+were 0.038/0.047 ms. It is not a second pacing wait on the game thread.
+
+The final real-renderer fault probes threw DxvkError at eye, overlay and capture allocations. All
+reported resource error 8 on the page and quit normally with clean restoration. Three injected focus
+intervals were counted before 404 accepted matched pairs; a safe native quit then completed while paused.
+Wall time advanced 9.436 s while CurTime advanced 0.0134 s. This does not simulate another application's
+10 Hz SDK throttle. A final-runtime package without the optional FSR DLL accepted 810 matched pairs with
+zero Submit errors and proved the library absent from loaded modules.
+
+The normal package forces gmod_mcore_test 1. A temporary fixture omitted only that managed variable,
+then launched --mcore 0. Automatic/default still resolved to mat_queue_mode 2; explicit zero was observed
+as mode 0. Both initialized an unchanged wrist and completed all seven files of a capture requested
+during a five-second interval without traced output. Mode 0 accepted 1846 matched pairs with zero
+Submit errors. The files are acceptance evidence; its intentional gap is not a frame-rate control.
+
+An initial flat-image comparison used flat-after screenshots, dispatched beside fixture cleanup;
+these can show the restored camera with a different FOV. The active flat-before images agree. The repeat
+also makes the flat-only view exclusive: GMod dispatches CalcView in undefined order and stops at a returned
+view. The probe temporarily owns its table and restores it (`tools/vr_session.lua`), with call counts in
+samples. The selected controls use -r3. Automated CreateMove pins angles and clears input; manual look keeps input.
+The first construct acceptance attempt is likewise retained but excluded because its neutral yaw had
+moved to about -54 degrees instead of the requested 180 degrees. A neutral-capture assertion now checks it.
+
+Short arguments alone do not bound Source's whole command buffer. The first flat-b2-r3 attempt queued the
+20 KB probe as hex commands, printed Cbuf_AddText overflow and a syntax error, then ran successfully on
+retry. Its recorded Lua error correctly failed the run. The driver now uses acknowledged --lua stages of
+at most 512 source bytes, with idempotent numbered fragments and exact UTF-8 reassembly. No game file is
+loaded as probe code. The next run passed without the overflow; the failed attempt and rollback remain.
+
+### Final second-review runtime: the first camera and lower-load acceptance
+
+The final source is d29445c5, exported as patch 0071 after the earlier corrections. A physical look
+exposed an initial flat camera despite the already correct 1.90874 radian projection. At consumed pose 0,
+the rendered camera was at 823, -657, -40 GMod units while its newest published VR camera was at 764.846,
+-659.314, -142.642 GMod units. The old manual validator did not check counters without a final-vr record.
+The renderer now requires its first actual camera match (`rtx_vr.cpp:364`, `rtx_vr_policy.h:21`), and the
+manual validator checks sampled counters. Later counted fallback remains ([ADR 0158](decisions/0158-the-first-headset-frame-must-match-its-camera.md)).
+The neutral timeline's coincident flat/VR positions had masked this distinction. The reference has 249
+assertions, including an offset first pose, and the driver has 16 cases. A real five-second metadata
+mismatch withheld 505 initial cameras, then accepted 2014 matched pairs with zero Submit errors or unmatched
+poses. The final canonical-package look observed 354 matched pairs, zero failures/unmatched poses and clean
+restoration. A tiny client-Lua acknowledgement now precedes 512-byte source stages, each below 4096 bytes of
+serialized console commands; the lost first-stage cause was not isolated from the busy client startup.
+
+The final Index runs use the same RTX 5090, driver 617.42, 90 Hz, eye/centre/depth sizes and fixed preset
+as above. The GPU was at 0% before gm_construct and 1% before modern_house, after the other work subsided.
+They are the main checkout's `out/vr/q/review2/construct-final7` (310 s) and `house-final7` (120 s), using
+the exact selected DLL before import. Rendered/submitted/matched counts were 26199/26199/26199 and
+3782/3782/3782, with zero Submit errors or unmatched poses. Whole presents/dropped/reprojected were
+27895/33/2582 and 10625/0/8680. Steady rates after 60 s were 85/30 pairs/s, with 8.59%/78.97% compositor
+reprojected/presents and 31/0 steady drops. These are different runs from the earlier loaded 28/17 pairs/s
+and from the first review's 89/33 pairs/s; their sources and host load are not interchangeable.
+
+| Final mean bracket, ms per accepted pair on the RTX 5090 | gm_construct | modern_house |
+|---|---:|---:|
+| Scene preparation and acceleration structures | 0.350 | 0.561 |
+| Path tracing and volumetrics | 6.128 | 10.705 |
+| Demodulation / separate denoising | 0.040 / 0.0002 | 0.069 / 0.0002 |
+| Composition | 0.314 | 0.316 |
+| DLSS with fused Ray Reconstruction | 2.029 | 2.175 |
+| Post-processing and tone mapping | 0.267 | 0.286 |
+| Eye warp | 0.558 | 0.645 |
+| Mirror / Submit span | 0.007 / 0.043 | 0.008 / 0.043 |
+| Late raster | 0.013 | 0.013 |
+| Covered commands plus opaque SDK span | 9.749 | 14.820 |
+| Queue gap / total elapsed span | 1.954 / 11.703 | 9.416 / 24.236 |
+| Game-thread / render-thread CPU | 4.269 / 2.937 | 14.214 / 8.513 |
+| Render injection wall time | 10.675 | 20.052 |
+
+Warp means use 349/28 profiles. Transfer work is zero or below 0.00001 ms in these steady windows;
+Ray Reconstruction is within DLSS. Queue gaps and opaque SDK spans are not exclusive shader execution.
+BeginFrame averaged 0.160/0.205 ms with zero completion wait. Render-side WaitGetPoses averaged
+9.29/16.99 ms, with whole-run maxima 42.16/40.03 ms. No module wait or spin was added. The light map's
+11.70 ms elapsed span exceeds the 11.11 ms refresh budget, so it reaches 85 rather than a full 90 pairs/s;
+the house is bounded by its work, queue and CPU/SDK pacing. Stop outwaits the SDK mutex and has no
+independent upper bound if SteamVR itself stops answering.
+
+Mean estimated pose age at display is 38.31/82.20 ms, prediction error +0.13/-1.68 ms, and measured
+pipeline lead 2.26/5.94 refresh intervals. Prediction-error 95th percentiles are +0.87/+11.25 ms. These
+are scheduling estimates, not optical latency. At 80 Hz the native/half-rate budgets are 12.5/25 ms;
+retaining the measured pairs-per-refresh cadence gives about 75/27 pairs/s (unrounded rates x 80/90).
+That is a derived model, not an 80 Hz measurement or a promise that cadence will stay unchanged.
+
+Final original-scale crops are in this worktree's `out/vr/review2/analysis/final7`. Matching rows through
+the measured projections gives barrel widths of 283.8 centre / 284.2 left / 280.7 right pixels and Modern
+House target widths of 285.2 / 285.7 / 282.9 pixels. The original losses were 8 to 14 pixels per eye;
+small depth/colour-edge and disocclusion outlines remain. The final mirror world-region mean RGB error
+is at most 0.71/255 and 1.89/255; every desktop witness has 4255 magenta pixels and both eyes have zero.
+Queued and unqueued neutral wrist PNGs are byte-identical with 8223 bright glyph pixels; changed HUDs have
+6962. The image checker rejects a blank canvas independently of file/counter presence.
+
+The final flat control substitutes the published d3d9.dll into current package inputs. SHA-256 checks
+prove all other 1784 archive entries equal; only the DLL and its manifest differ. Six 30 s runs alternate
+published/final, under `out/vr/q/review2/flat-{b1,n1,b2,n2,b3,n3}-r7`, with Source FOV 90 degrees and the
+same fixed camera/map/sky/settings. Neither openvr_api.dll nor gmcl_nlvr_win64.dll loaded in any game.
+
+| Published/final pair on gm_construct | Map ready, s | Median frame, ms | 99th percentile, ms | Frames/s |
+|---|---|---|---|---|
+| 1 | 23.8 / 25.6 | 8.245 / 9.127 | 12.363 / 14.881 | 119 / 107 |
+| 2 | 25.9 / 24.4 | 10.012 / 10.007 | 14.030 / 13.980 | 99 / 99 |
+| 3 | 24.7 / 26.0 | 10.165 / 10.323 | 14.479 / 14.420 | 98 / 96 |
+
+The mean of medians increases from 9.474 to 9.819 ms, 0.345 ms or 3.6%; mean startup from 24.80 to
+25.33 s. The first pair dominates the frame-time difference, whose cause is not isolated. Before launch
+GPU utilization ranged from 0% to 22%; process/clock records remain. World-image errors are 0.68/0.65/0.64
+RGB levels out of 255. These controls measure the whole final runtime change and do not establish zero
+flat cost. Its exact startup work remains the six supported prerequisite names, copied enabled-name
+sets, dormant CPU/container state, exports and inactive predicates/FOV bookkeeping. No OpenVR load/init,
+VR worker, GPU image/query, preset or warp prewarm occurs before Start.
+
+### Claude's check of the final build: a shared GPU, flat controls and the driver crash (2026-11-10)
+
+Runtime `d29445c5` (`d3d9.dll` SHA-256 `e43aef99...`), package `0.0.0-vrq.runtime-review-final2`, against the same
+package with the published `d3d9.dll` (`35ce5008...`). Evidence: the main checkout's `out\vr\q\claude`. Another
+game (not Garry's Mod) used 11 to 25 % of the RTX 5090 during all of it, so these are numbers for a shared GPU.
+
+- **VR at 90 Hz on a shared GPU runs at half rate, steadily.** gm_construct, scale 1, 310 s: 13,925 eye pairs
+  rendered, submitted and matched; 0 Submit errors, 0 unmatched poses, 0 dropped frames; 27,938 presents of which
+  14,022 reprojected (50.2 %); 45.0 pairs a second, the game's frame interval at two refreshes (median 22.2 ms,
+  95th percentile 24.8 ms). The passes cost about a third more than on the idle GPU (path tracing 8.064 ms against
+  6.128, DLSS with Ray Reconstruction 3.003 against 2.029, the warp 0.778 against 0.558, all passes 13.117 against
+  9.749), which is over the 11.1 ms a 90 Hz frame has, and SteamVR then holds the application at every second
+  refresh. Its own figure for the application's GPU time was 16.2 ms a frame.
+- **SteamVR does not return to the full rate at the margin.** Scale 0.85 (eyes 2098 x 2329, centre 2616 x 2336,
+  traced 1308 x 1168), 190 s on the same shared GPU: all passes 9.695 ms (path tracing 6.200, DLSS 1.937, warp
+  0.527), SteamVR's application GPU figure 10.85 ms, and still 46.1 pairs a second with 49.7 % reprojected; 8,693
+  pairs, none refused, unmatched or dropped.
+- **Start VR took 2.98 s** from the request to the running state with SteamVR up; the longest frame of the session
+  was 392 ms, at the start. Exit to "off" took 7 ms in the first cycle and 149 ms in the second. The flat frame
+  time was 10.3 ms before the session and 10.0 ms after it (median).
+- **Flat controls, 13 launches of each runtime** (`flat-*` with 30 s windows, `launch-*` with 15 s; gm_construct,
+  1280 x 720, `fps_max 0`, `mat_queue_mode 2`, camera `823,-657,-40,0,180,0`). Valid runs: 12 published, 11 new.
+  Medians of the frame interval: published 9.955 to 10.517 ms (median 10.189, mean 10.212, standard deviation
+  0.213); new 10.008 to 10.738 ms with one run at 6.385 (median 10.124; mean 10.280 and standard deviation 0.243
+  without that run). Start to map loaded: 25.45 s against 25.37 s. The difference of the means without the fast
+  run is +0.07 ms with a standard error of 0.10 ms.
+- **A single run can be far off without anything in the game differing:** the 6.385 ms run (157 frames a second)
+  had the same camera and settings as its neighbours at 10.1 ms, and the worker's series had one at 5.080 ms beside
+  8.1 ms. Over the evening single flat runs ranged from 5.1 to 18.6 ms with the load of other programs. Compare
+  medians of several alternating runs, never one pair.
+- **First screenshots of 22 valid controls:** mean absolute difference between two runs of the same runtime 0.622
+  of 255 levels (0.477 to 0.801, 111 pairs), between a published and a new run 0.629 (0.288 to 0.769, 120 pairs).
+- **The second screenshot of a flat control is not comparable:** the probe prints `NL_SHOT flat-after` and removes
+  its `CalcView` hook in the same frame (`tools/vr_session.lua`, the `flat-control` branch), so the external
+  screenshot shows the probe's 90 degree camera or the game's own view (75 degrees), whichever the capture meets.
+  Three published controls gave both variants.
+- **The driver crash at start-up is not the new runtime's.** `0xC0000005` at `nvoglv64.dll+0xe622f8`: one of 13
+  launches with the published runtime (`launch-b02`, just after the map loaded), one of 13 with the new one
+  (`flat-n3`, before the map; reading `0x300060059`). The PoC's own session records hold the same crash from
+  2026-11-10T06:19Z, before any VR patch existed, with the same address and the same bad pointer
+  (`native-loader\logs\sessions\2026-11-10T061918.168Z-34436-crash`). Earlier records of this address: R5 (2 of
+  about 16 field starts), R13-A (2 of 8 PoC launches, each within a minute of another game's exit), R13-D, G1. In
+  all of them another program was using the GPU or had just stopped.
+- **Test windows take the keyboard from whatever the user is doing.** One control (`flat-n2`) ended with a normal
+  quit (exit code 0, configuration saved) 15 s after its map loaded, not asked for by the driver; in `launch-n09`
+  the Steam overlay ("Back to Game", "Exit Game") was open over the test window in its first screenshot. The user
+  was playing another game during these runs. A run that ends like this is not a crash and not the runtime's.
+- **`main` moved while the branch was open** (decision records 0152 to 0155): the branch's 0152 to 0154 became
+  0156 to 0158, and four shared documents conflicted in the merge, all additively.
+
+### The user's looks and the session tool's screenshot (2026-11-10)
+
+- **The user's two looks were ended by the tool.** `out/vr/look/look-01` and `look-02` (main checkout): launched
+  22:17:21 and 22:22:19 local, map loaded after 21.0 and 20.9 s, the game connected to SteamVR as a scene
+  application at 22:18:48 and 22:22:49 (vrserver's log tail in each folder), and each run's `game.log` ends with
+  `"failed": "screenshot failed: No module named 'PIL'"`, `"quit": "skipped after failure"`, exit code 1, finished
+  22:19:23 and 22:24:18. The interpreter was `C:\ProgramData\miniconda3\python.exe` (`processes-before.json`), which
+  has no Pillow; the agents' shells use Python 3.12 with Pillow 12.3.0. The look's probe printed `NL_SHOT look-ready`,
+  `poc_session.py` imported PIL in `capture_window`, and a failed capture is a failed run there: the normal quit is
+  skipped and the game is ended after `FAILURE_EXIT_TIMEOUT` (60 s). Both restorations verified clean.
+- **A tool the user will run has to be tested with the user's interpreter.** `where python` in the agents' shell
+  finds Python 3.12 first; the desktop app's terminal finds Miniconda. A virtual environment without packages
+  (`python -m venv`) reproduces the user's side: the same look failed there before the fix and ran 171 s in VR
+  after it (3,526 pairs, none refused or unmatched; `out/vr/look/codex-followup4-nopil-look-01`).
+- **`Path.is_junction` needs Python 3.12.** The driver used it in its link checks; it now reads the reparse-point
+  attribute from `lstat()` instead, so Python 3.10 and 3.11 can run a look.

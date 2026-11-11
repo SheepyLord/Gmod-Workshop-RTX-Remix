@@ -1,0 +1,167 @@
+From 634fd3042d65ed769a11f46085d41c71abbc455e Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 10:09:12 -0700
+Subject: [PATCH] VR: match camera orientations without Euler singularities
+
+Compare the relative rotation of normalized forward/up bases, retaining the position tolerance. Feed the camera basis directly and cover equivalent yaw/roll splits at pitch plus/minus 89 and 90 degrees.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp    |  6 +--
+ src/dxvk/rtx_render/rtx_vr_math.h | 76 +++++++++++++++++++++++--------
+ tests/rtx/unit/test_vr_math.cpp   | 19 ++++++++
+ 3 files changed, 77 insertions(+), 24 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index b3ed0bbe..a9f860af 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -271,9 +271,7 @@ namespace dxvk {
+     } catch (const std::exception& e) { fail(RTXVR_E_RESOURCES,e.what()); return flat; }
+     std::map<uint64_t,std::pair<uint32_t,uint32_t>> overlayRequests;
+     const auto& camera=ctx.getSceneManager().getCamera();
+-    const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto right=camera.getRight(false);
+-    const float angles[3] {float(std::atan2(-dir.z,std::hypot(dir.x,dir.y))*180/M_PI),
+-      float(std::atan2(dir.y,dir.x)*180/M_PI),float(std::atan2(-right.z,camera.getUp(false).z)*180/M_PI)};
++    const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto up=camera.getUp(false);
+     const float pos[3] {origin.x,origin.y,origin.z};
+     uint64_t matched=0,unmatched=0;
+     {
+@@ -281,7 +279,7 @@ namespace dxvk {
+       if (!m_active || generation!=m_generation) { return flat; }
+       overlayRequests.swap(m_overlayRequests);
+       m_frameCaptureFolder=m_captureFolder; m_frameCaptureWhat=std::exchange(m_captureWhat,0u);
+-      if (m_poses.match(pos,angles,m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
++      if (m_poses.match(pos,{dir.x,dir.y,dir.z},{up.x,up.y,up.z},m_framePose)) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+       m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+       m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
+       matched=m_status.posesMatched; unmatched=m_status.posesUnmatched;
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index daa530eb..687640bf 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -111,35 +111,71 @@ namespace dxvk::vrmath {
+     return farUv;
+   }
+ 
++  struct Orientation { Vec3 forward, up; };
++
++  inline double dot(Vec3 a, Vec3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
++  inline Vec3 cross(Vec3 a, Vec3 b) { return {a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x}; }
++  inline bool normalise(Vec3& v) {
++    const double length=std::sqrt(dot(v,v));
++    if (!std::isfinite(length) || length<1e-12) { return false; }
++    v={v.x/length,v.y/length,v.z/length};
++    return true;
++  }
++  inline bool normalise(Orientation& o) {
++    if (!normalise(o.forward)) { return false; }
++    const double along=dot(o.forward,o.up);
++    o.up={o.up.x-along*o.forward.x,o.up.y-along*o.forward.y,o.up.z-along*o.forward.z};
++    return normalise(o.up);
++  }
++  inline Orientation sourceOrientation(const float angles[3]) {
++    constexpr double radians=3.14159265358979323846/180;
++    const double p=std::remainder(double(angles[0]),360.0)*radians;
++    const double y=std::remainder(double(angles[1]),360.0)*radians;
++    const double r=std::remainder(double(angles[2]),360.0)*radians;
++    const double sp=std::sin(p),cp=std::cos(p),sy=std::sin(y),cy=std::cos(y),sr=std::sin(r),cr=std::cos(r);
++    return {{cp*cy,cp*sy,-sp},{cr*sp*cy+sr*sy,cr*sp*sy-sr*cy,cr*cp}};
++  }
++  inline double orientationDegrees(Orientation a, Orientation b) {
++    constexpr double degrees=180/3.14159265358979323846;
++    const double trace=dot(a.forward,b.forward)+dot(a.up,b.up)+dot(cross(a.forward,a.up),cross(b.forward,b.up));
++    return std::acos(std::clamp((trace-1)*0.5,-1.0,1.0))*degrees;
++  }
++
+   class PoseRing {
+   public:
+     bool push(const rtxvr_FramePose& pose) {
+-      if (m_count && pose.sequence <= m_poses[(m_next+15)%16].sequence) { return false; }
+-      m_poses[m_next] = pose; m_next = (m_next+1)%16; m_count = std::min(m_count+1, size_t(16));
++      if (m_count && pose.sequence<=m_poses[(m_next+15)%16].pose.sequence) { return false; }
++      auto orientation=sourceOrientation(pose.cameraAngles);
++      if (!normalise(orientation)) { return false; }
++      m_poses[m_next]={pose,orientation}; m_next=(m_next+1)%16; m_count=std::min(m_count+1,size_t(16));
+       return true;
+     }
+-    void clear() { m_count = 0; m_next = 0; }
++    void clear() { m_count=0; m_next=0; }
+     bool match(const float origin[3], const float angles[3], rtxvr_FramePose& result) const {
+-      if (!m_count) { result = {}; return false; }
+-      result = m_poses[(m_next+15)%16];
+-      double best = std::numeric_limits<double>::infinity();
+-      bool matched = false;
+-      for (size_t n = 0; n < m_count; ++n) {
+-        const auto& pose = m_poses[(m_next+15-n)%16];
+-        double pos = 0, ang = 0;
+-        for (int j = 0; j < 3; ++j) {
+-          pos += std::pow(double(origin[j])-pose.cameraOrigin[j], 2);
+-          ang += std::pow(std::remainder(double(angles[j])-pose.cameraAngles[j], 360.0), 2);
+-        }
+-        const double score = pos + ang*4;
+-        if (pos <= 0.25 && ang <= 0.25 && score < best) {
+-          best = score; result = pose; matched = true;
+-        }
++      const auto o=sourceOrientation(angles);
++      return match(origin,o.forward,o.up,result);
++    }
++    bool match(const float origin[3], Vec3 forward, Vec3 up, rtxvr_FramePose& result) const {
++      if (!m_count) { result={}; return false; }
++      result=m_poses[(m_next+15)%16].pose;
++      Orientation orientation {forward,up};
++      if (!normalise(orientation)) { return false; }
++      double best=std::numeric_limits<double>::infinity();
++      bool matched=false;
++      for (size_t n=0; n<m_count; ++n) {
++        const auto& entry=m_poses[(m_next+15-n)%16];
++        double position=0;
++        for (int j=0; j<3; ++j) { position+=std::pow(double(origin[j])-entry.pose.cameraOrigin[j],2); }
++        if (position>0.25) { continue; }
++        const double angle=orientationDegrees(orientation,entry.orientation);
++        const double score=position+angle*angle*4;
++        if (angle<=0.500001 && score<best) { best=score; result=entry.pose; matched=true; }
+       }
+       return matched;
+     }
+   private:
+-    std::array<rtxvr_FramePose, 16> m_poses {};
+-    size_t m_next = 0, m_count = 0;
++    struct Entry { rtxvr_FramePose pose; Orientation orientation; };
++    std::array<Entry,16> m_poses {};
++    size_t m_next=0,m_count=0;
+   };
+ }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 3fc4f93c..4d7d62de 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -69,6 +69,25 @@ int main() {
+   origin[0]=20; angles[1]=90;
+   require(!ring.match(origin,angles,selected), "angle tolerance enforced");
+   ring.clear(); require(!ring.match(origin,angles,selected), "restart clears ring");
++  for (float pitch : {89.f,-89.f,90.f,-90.f}) {
++    ring.clear(); pose={}; pose.structSize=sizeof(pose); pose.sequence=1;
++    pose.cameraAngles[0]=pitch; pose.cameraAngles[1]=30; pose.cameraAngles[2]=10;
++    require(ring.push(pose), "pole pose pushed");
++    origin[0]=0; angles[0]=std::abs(pitch)==90 ? pitch : (pitch>0 ? 180-pitch : -180-pitch);
++    angles[1]=std::abs(pitch)==90 ? 90.f : 210.f;
++    angles[2]=std::abs(pitch)==90 ? (pitch>0 ? 70.f : -50.f) : 190.f;
++    require(ring.match(origin,angles,selected), "equivalent Euler split matches near/at either pole");
++    const auto basis=sourceOrientation(angles);
++    require(ring.match(origin,basis.forward,basis.up,selected), "camera basis matches without Euler reconstruction");
++    require(!ring.match(origin,basis.forward,{-basis.up.x,-basis.up.y,-basis.up.z},selected), "up direction rejects wrong roll at pole");
++    origin[0]=1;
++    require(!ring.match(origin,basis.forward,basis.up,selected), "pole orientation does not bypass position tolerance");
++    origin[0]=0;
++    angles[0]=pitch; angles[1]=40; angles[2]=pitch>0 ? 20.f : 0.f;
++    require(ring.match(origin,angles,selected), "near-pole yaw/roll cancellation stays within rotation tolerance");
++    angles[2]+=2;
++    require(!ring.match(origin,angles,selected), "genuine roll error still rejected near pole");
++  }
+   std::printf("PASS: %d projection/warp/pose checks\n",checks);
+   return 0;
+ }
+-- 
+2.56.0.windows.1
+

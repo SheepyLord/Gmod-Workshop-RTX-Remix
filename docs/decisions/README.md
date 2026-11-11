@@ -239,6 +239,31 @@ Each with the reason it lost.
   lights or more the fixes' updater works out from the map's world lights which helpers set steady point lights
   alone and draws those only while such a light is in view, near the eye or a dynamic light, and in turns, instead
   of one helper per map light every frame.
+- [0145: VR belongs to the RTX package and starts only when the player asks](0145-vr-in-the-rtx-package.md)
+  (VR V1): the runtime owns VR output, the module owns OpenVR, the add-on owns the camera and wrist HUD, and the
+  companion owns the page; the fifteenth part carries the native module and pinned OpenVR v2.15.6, with no SDK
+  startup before Start VR. A staged pinned download supports a spike before its package part exists.
+- [0146: V1 path traces one centre view and warps it to both eyes](0146-one-centre-view-warped-to-the-eyes.md)
+  (VR V1): the centre covers both eyes at infinity and at 0.5 m axial depth; a backward depth warp retains an
+  observed sample at a disocclusion, and the left eye becomes the mirror. The Index has parallel eyes with
+  asymmetric projections. Hidden surfaces and separate eye histories remain V7.
+- [0147: A camera ring identifies each frame's pose and the render side paces submission](0147-frame-poses-and-render-side-pacing.md)
+  (VR V1): S4 found no public material-queue enqueue path; S3 found a compositor epoch race. Render-side
+  WaitGetPoses after the two submissions replaces the serial completion wait, taking gm_construct from
+  45 to 89 frames a second at 90 Hz on the RTX 5090. The module predicts without waiting.
+- [0148: VR panels use SteamVR overlays fed by exact-sized game render targets](0148-vr-ui-through-exact-sized-overlay-targets.md)
+  (VR V1): the 769 x 257 pixel wrist target is copied to its owned overlay, shown only after placement;
+  ordinary flat 2D is drawn after the eye output and stays on the desktop.
+- [0149: Enable SteamVR's five missing Vulkan extension names at device creation](0149-steamvr-vulkan-extensions-at-device-creation.md)
+  (VR V1): two instance and three device names, when supported, allow late activation; Start checks the complete
+  live requirement lists against enabled names. Flat controls measure the combined dormant runtime cost.
+- [0150: Any client script can call the VR module, so Lua cannot choose code or filesystem paths](0150-vr-client-lua-boundary-and-native-quit.md)
+  (VR V1 review): module-relative DLL and manifest discovery; named captures and timelines under the game's data
+  folder, with a launcher-only test root; native quit acknowledgement and a page poll that works while paused.
+- [0151: V1 uses a fixed VR preset at SteamVR's recommended density](0151-the-fixed-v1-vr-preset.md)
+  (VR V1): scale 1, DLSS Performance with Ray Reconstruction and one to four bounces, with frame generation and
+  camera/post effects disabled in a temporary layer; the heavier map's work exceeds the native 90 Hz budget.
+  Automatic tuning remains V6, and 80 Hz budgets are derived rather than measured throughput.
 - [0152: Hotloader imports: detailed collision serves one import, every slow stage shows a percentage, static props draw their own meshes](0152-hotloader-imports-fast-by-default-and-props-drawn-without-render-meshes.md)
   (the user's report of 2026-11-10): a remembered detailed collision (CoACD, 26-54 s for a 1,584-triangle flower) made
   every static import slow; it now serves one import. CoACD's passes, read from its log, and an estimate of its merge
@@ -255,3 +280,13 @@ Each with the reason it lost.
 - [0155: The gm_construct_in_flatgrass_rtx map leaves the RTX package too](0155-gm-construct-in-flatgrass-rtx-leaves-the-rtx-package.md)
   (the user's request, 2026-11-10; amends 0154): the fixes' other map leaves `packages/fixes` as well, so the
   `remixbinary` add-on ships no map; `test_removed_content.py` keeps it out too.
+- [0156: The VR warp finds the nearest surface visible in the centre view](0156-the-vr-warp-finds-the-nearest-visible-surface.md)
+  (VR V1 second review, amends 0146): a near-to-far inverse-depth search and bounded refinement preserve visible
+  foreground edges; unresolved disocclusions retain observed background. The centre projection and V7 limits remain.
+- [0157: SteamVR's Vulkan requirements do not depend on the optional FSR library](0157-steamvr-requirements-do-not-depend-on-fsr.md)
+  (VR V1 second review, amends 0149): two instance and four device names are requested independently of FSR;
+  `VK_KHR_get_memory_requirements2` had been enabled only when that library loaded. The original five-name delta
+  belongs to the installation with FSR present.
+- [0158: The first headset frame must match its camera](0158-the-first-headset-frame-must-match-its-camera.md)
+  (VR V1 second review, amends 0147 at startup): a latched VR projection alone can still contain a queued flat
+  camera. Require the first actual camera match before allowing the later counted fallback.

@@ -1,7 +1,8 @@
 """R16 (ADR 0106): the RTX package's binaries that this workflow does not compile, fetched from where
 they are published and checked against pinned SHA-256 hashes (tools/ci/pins.json "fetched"): ReShade's
 signed setup from reshade.me, the RTX fixes' stdshader_dx6.dll from the public fixes repository (built by
-its author from source that was never published), and CoACD's lib_coacd.dll from its PyPI wheel. Each
+its author from source that was never published), CoACD's lib_coacd.dll from its PyPI wheel, and Valve's
+pinned OpenVR win64 client from its SDK. Each
 lands at <out>/<part>/<path> and is recorded with where it came from.
 
   python tools/ci/fetch_prebuilt.py [--out out/ci/built] [--run-url URL] [--only NAME ...] [--from DIR]
@@ -97,18 +98,30 @@ def fetch(entries: list[dict], out: Path, run_url: str | None, local: Path | Non
     return record
 
 
+def select_entries(entries: list[dict], names: list[str] | None) -> list[dict]:
+    """Staged pins are available explicitly, before a package part exists; CI skips them."""
+    if names is None:
+        return [e for e in entries if not e.get('staged', False)]
+    unknown = set(names) - {e['name'] for e in entries}
+    if unknown:
+        raise ValueError('unknown pin name(s): ' + ', '.join(sorted(unknown)))
+    return [e for e in entries if e['name'] in names]
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     parser.add_argument('--out', type=Path, default=REPO / 'out' / 'ci' / 'built')
     parser.add_argument('--run-url')
-    parser.add_argument('--only', nargs='*', help='fetch only these names (pins.json "fetched" names)')
+    parser.add_argument('--only', nargs='+', help='fetch only these names, including staged pins')
     parser.add_argument('--from', dest='local', type=Path, metavar='DIR',
                         help='a test without network: take <DIR>/<part>/<path> (such as out/inputs) instead of '
                              'downloading; the hashes are checked the same way')
     args = parser.parse_args(argv)
     entries = json.loads(PINS.read_text(encoding='utf-8'))['fetched']
-    if args.only:
-        entries = [e for e in entries if e['name'] in args.only]
+    try:
+        entries = select_entries(entries, args.only)
+    except ValueError as error:
+        parser.error(str(error))
     args.out.mkdir(parents=True, exist_ok=True)
     record = fetch(entries, args.out, args.run_url, args.local)
     for problem in record['problems']:

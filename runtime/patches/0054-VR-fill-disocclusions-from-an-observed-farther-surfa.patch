@@ -1,0 +1,63 @@
+From ef3389cfbf7d62d4aa46ddbf53bd674f41793d29 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 09:33:28 -0700
+Subject: [PATCH] VR: fill disocclusions from an observed farther surface
+
+A far-depth candidate can project behind foreground in the centre view. Retain the coordinate at which that far surface was actually observed, and assert that the synthetic gap returns background colour rather than only checking its assumed depth.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr_math.h               | 2 +-
+ src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang | 4 ++--
+ tests/rtx/unit/test_vr_math.cpp                 | 3 ++-
+ 3 files changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 5e0a4ba2..daa530eb 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -104,7 +104,7 @@ namespace dxvk::vrmath {
+     for (int i = 0; i < 8; ++i) {
+       const double z = depthAt(uv[0], uv[1]);
+       const auto next = warpAtDepth(p, eye, u, v, z, unitsPerMetre);
+-      if (z > farDepth) { farDepth = z; farUv = next; }
++      if (z > farDepth) { farDepth = z; farUv = uv; }
+       if (std::hypot(next[0]-uv[0], next[1]-uv[1]) < 1e-6) { return next; }
+       uv = next;
+     }
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+index 4926e14c..1d3e8e76 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+@@ -1,4 +1,4 @@
+-﻿// SPDX-License-Identifier: MIT
++// SPDX-License-Identifier: MIT
+ #include "rtx/pass/vr/vr_warp.h"
+ [[vk::binding(0)]] Texture2D<float4> Centre;
+ [[vk::binding(1)]] Texture2D<float> Depth;
+@@ -37,7 +37,7 @@ void main(uint2 id:SV_DispatchThreadID) {
+     const float depth=readDepth(uv);
+     const float t=(depth+origin.z)/(-ray.z);
+     const float2 next=project(float3(origin.xy+ray.xy*t,-depth));
+-    if (depth>farDepth) { farDepth=depth; farUv=next; }
++    if (depth>farDepth) { farDepth=depth; farUv=uv; }
+     if (length(next-uv)<1e-6) { farUv=next; break; }
+     uv=next;
+   }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 0529c699..3fc4f93c 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -44,7 +44,8 @@ int main() {
+   const auto gather = warp(p,e,.5,.5,1,[](double,double) { return 10.; });
+   require(std::abs(gather[0]-near[0]) < 1e-9, "plane gather exact");
+   const auto gap = warp(p,e,.5,.5,1,[](double u,double) { return u < .4995 ? 100. : 10.; });
+-  require(std::abs(gap[0]-far[0]) < 1e-9, "disocclusion prefers farther surface");
++  require(std::abs(gap[0]-near[0]) < 1e-9, "disocclusion keeps observed background coordinate");
++  require(gap[0] < .4995, "gap colour comes from the farther surface, not hidden foreground");
+   auto bad = eyes[0]; bad.tanRight = bad.tanLeft;
+   rtxvr_Eye invalid[] {bad,eyes[1]};
+   require(!centreProjection(invalid,2016,2240,1,p), "empty eye rejected");
+-- 
+2.56.0.windows.1
+

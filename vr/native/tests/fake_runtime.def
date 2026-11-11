@@ -1,0 +1,10 @@
+LIBRARY nlvr_test_runtime
+EXPORTS
+  rtxvr_GetApiVersion
+  rtxvr_Start
+  rtxvr_Stop
+  rtxvr_UpdateEyes
+  rtxvr_PushFramePose
+  rtxvr_SetOverlaySource
+  rtxvr_Capture
+  rtxvr_GetStatus

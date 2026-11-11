@@ -26,6 +26,16 @@ source copy in `packages/model-hotloader/source` ([ADR 0107](../../docs/decision
 | [`fetch_prebuilt.py`](fetch_prebuilt.py.md) | Downloads ReShade's setup, the fixes' `stdshader_dx6.dll` and CoACD's `lib_coacd.dll` and checks their pins, with `provenance-fetched.json` |
 | [`cache_key.py`](cache_key.py.md) | The cache keys of the runtime, module and Hotloader builds: a SHA-256 of exactly the sources each reads |
 
+VR-Q ships Valve's OpenVR SDK v2.15.6 in `fetched`: the default checked downloads include it for
+the `vr` part. Local VR tasks can obtain just the DLL with
+`python tools/ci/fetch_prebuilt.py --only openvr --out out/vr/verified`, which verifies size and
+SHA-256 and writes `vr/bin/openvr_api.dll` plus provenance. The headers and licence are in
+[`third_party/openvr`](../../third_party/openvr/README.md); the checked SDK input is xz-compressed in packages/vr.
+The repository collector also takes `nl_vr_client` from the normal Release build. Its declared
+sources include the module, pose/timeline math, shared probe discovery/JSON and pinned headers;
+the probe executable, hardware experiments and tests are not module sources. The part lays out
+the add-on, real on-disk input JSON and both DLLs without a loader or workflow change.
+
 ## How the workflow uses them
 
 1. Job `runtime` (cached by `cache_key.py runtime`): clones the fork, runs

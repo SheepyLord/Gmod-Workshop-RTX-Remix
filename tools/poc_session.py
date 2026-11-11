@@ -539,6 +539,27 @@ def wait_exit(process, seconds: float, check=None) -> bool:
     return True
 
 
+def wait_manual_lua(process, health, log_text, record) -> None:
+    """Interactive completion has no screenshot or Python duration deadline."""
+    record['lua_manual_done'] = False
+    while process.poll() is None:
+        health.check()
+        if SHOTS_DONE_MARKER.search(log_text()):
+            record['lua_manual_done'] = True
+            record['manual_end'] = 'lua_done'
+            return
+        health.sleep(0.25)
+    record['manual_end'] = 'game_exited'
+
+
+def record_manual_exit(process, record) -> None:
+    code = process.poll()
+    record.update(manual_end='game_exited', quit='game exited', normal_quit=code == 0)
+    record.setdefault('settings_back', 'not sent: game already exited')
+    if code != 0:
+        record.setdefault('failed', f'game exited with code {code}')
+
+
 def describe_exit(record: dict) -> None:
     code = record.get("exit")
     if isinstance(code, int):
@@ -1080,6 +1101,8 @@ def step_run(args) -> dict:
         record["map_loaded"] = loaded
         record["seconds_to_map"] = round(time.monotonic() - began, 1)
         health.check()
+        if getattr(args, 'lua_manual', False) and not loaded and process.poll() is None:
+            raise Failure(f'manual look map startup timed out after {args.timeout:g} s')
         modules = modules_of(process.pid) if process.poll() is None else []
         record["early_exit"] = process.poll() is not None
         hwnd = console_window(process.pid) if loaded else None
@@ -1148,6 +1171,8 @@ def step_run(args) -> dict:
                             started = True
                             break
                     record["lua"].append({"file": str(path), "started": started})
+                    if getattr(args, 'lua_manual', False) and not started and process.poll() is None:
+                        raise Failure(f'manual look Lua stage {index} was not acknowledged after three 20 s attempts')
             health.sleep(args.settle)
             if args.fps and hwnd and process.poll() is None:
                 # Timed in the game, frame by frame, before the screenshots (a capture can stall a frame).
@@ -1162,6 +1187,8 @@ def step_run(args) -> dict:
             window = game_window(process.pid)
             if args.lua_shots and process.poll() is None:
                 record["lua_shots"], record["lua_shots_done"] = lua_shots(window, args.lua_shots)
+            if getattr(args, 'lua_manual', False) and process.poll() is None:
+                wait_manual_lua(process, health, log_text, record)
             shots = []
             record["screenshots"] = shots
             for index in range(args.screenshots):
@@ -1186,17 +1213,23 @@ def step_run(args) -> dict:
                 wait_exit(process, 5)
                 record["normal_quit"] = False
         else:
-            record["normal_quit"] = False
+            if getattr(args, 'lua_manual', False):
+                record_manual_exit(process, record)
+            else:
+                record["normal_quit"] = False
     except Failure as error:
-        record["failed"], record["normal_quit"] = str(error), False
-        record["quit"] = "skipped after failure"
-        # Keep the watchdog alive while Aftermath/Sentry finish and Remix declines its own dialog.
-        # No more console text or screenshots, even if the window briefly starts answering again.
-        since = time.monotonic()
-        if not wait_exit(process, FAILURE_EXIT_TIMEOUT):
-            record["terminated_processes"] = stop()
-            wait_exit(process, 5)
-        record["failure_exit_wait_seconds"] = round(time.monotonic() - since, 1)
+        if getattr(args, 'lua_manual', False) and process.poll() == 0 and str(error) == 'game exited before the next window operation':
+            record_manual_exit(process, record)
+        else:
+            record["failed"], record["normal_quit"] = str(error), False
+            record["quit"] = "skipped after failure"
+            # Keep the watchdog alive while Aftermath/Sentry finish and Remix declines its own dialog.
+            # No more console text or screenshots, even if the window briefly starts answering again.
+            since = time.monotonic()
+            if not wait_exit(process, FAILURE_EXIT_TIMEOUT):
+                record["terminated_processes"] = stop()
+                wait_exit(process, 5)
+            record["failure_exit_wait_seconds"] = round(time.monotonic() - since, 1)
     finally:
         try:
             time.sleep(2)
@@ -1342,9 +1375,12 @@ def main(argv=None) -> int:
     run.add_argument("--console", action="append", default=[], help="console command after the map (repeatable)")
     run.add_argument("--lua", action="append", default=[], metavar="FILE",
                      help="client Lua file run after the map and the camera, through the console (repeatable)")
-    run.add_argument("--lua-shots", type=float, metavar="SECONDS",
+    completion = run.add_mutually_exclusive_group()
+    completion.add_argument("--lua-shots", type=float, metavar="SECONDS",
                      help="after --settle, a screenshot for each 'NL_SHOT <label>' the Lua prints, until NL_SHOT_DONE "
                           "(at most SECONDS)")
+    completion.add_argument('--lua-manual', action='store_true',
+                            help='wait for NL_SHOT_DONE or game exit, without screenshots or a duration deadline')
     run.add_argument("--reference", action="store_true",
                      help="a reference install: never move its console.log or read the loader's files")
     nl = sub.add_parser("nlctl", help="run nlctl; '{root}' in the arguments becomes the game root")
@@ -1353,6 +1389,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.action == "run" and args.menu_shot and not (args.workshop and args.map):
         parser.error("--menu-shot needs --workshop and --map: only then does the run wait at the menu")
+    if args.action == 'run' and args.lua_manual and (not args.lua or args.screenshots or args.menu_shot or args.fps):
+        parser.error('--lua-manual needs --lua and --screenshots 0, without --menu-shot or --fps')
     try:
         ctypes.windll.user32.SetProcessDPIAware()
     except Exception:

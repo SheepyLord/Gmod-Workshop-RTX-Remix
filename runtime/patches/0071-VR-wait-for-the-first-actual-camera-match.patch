@@ -1,0 +1,75 @@
+From d29445c516519c099cb55eb90c49a808b70a5564 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 19:29:55 -0700
+Subject: [PATCH] Wait for a real VR camera before the first eye output
+
+A queued flat camera can already have the VR projection after activation. Reject an unknown
+camera until the first actual pose match, then retain the counted fallback for later frames.
+Add the physical-look startup sequence to the CPU policy regression.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp      |  4 ++++
+ src/dxvk/rtx_render/rtx_vr_policy.h |  3 +++
+ tests/rtx/unit/test_vr_math.cpp     | 16 ++++++++++++++++
+ 3 files changed, 23 insertions(+)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index ecc4d2e1..ac6a6471 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -361,6 +361,10 @@ namespace dxvk {
+         return {m_frameProjection.width,m_frameProjection.height,1};
+       }
+       const bool poseMatched=selection==vrmath::PoseRing::Selection::Fresh;
++      if(!vrpolicy::firstPoseReady(poseMatched,m_consumedPose)) {
++        Logger::info("RTX VR skipped initial camera: waiting for the first VR pose match");
++        return {m_frameProjection.width,m_frameProjection.height,1};
++      }
+       if(!poseMatched) {
+         Logger::warn(str::format("RTX VR unmatched camera: position=",origin.x,",",origin.y,",",origin.z,
+           ", direction=",dir.x,",",dir.y,",",dir.z,", up=",up.x,",",up.y,",",up.z,
+diff --git a/src/dxvk/rtx_render/rtx_vr_policy.h b/src/dxvk/rtx_render/rtx_vr_policy.h
+index ca716fd3..e7d2692d 100644
+--- a/src/dxvk/rtx_render/rtx_vr_policy.h
++++ b/src/dxvk/rtx_render/rtx_vr_policy.h
+@@ -18,6 +18,9 @@ namespace dxvk::vrpolicy {
+   inline bool cameraReady(uint64_t frame,uint64_t generation,uint64_t cameraFrame,uint64_t cameraGeneration) {
+     return frame==cameraFrame&&generation==cameraGeneration;
+   }
++  inline bool firstPoseReady(bool matched,uint64_t consumed) {
++    return matched||consumed>0;
++  }
+   class CanvasOwner {
+     std::atomic<const void*> m_context {nullptr};
+   public:
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 806d3b29..09c7064a 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -73,6 +73,22 @@ int main() {
+       "genuinely unknown camera retains the documented newest-pose fallback");
+   }
+ 
++  {
++    dxvk::vrmath::PoseRing ring;rtxvr_FramePose pose{};pose.structSize=sizeof pose;
++    pose.sequence=1;pose.cameraOrigin[0]=10;ring.push(pose);
++    float origin[3]{};rtxvr_FramePose selected{};
++    auto match=ring.select(origin,{1,0,0},{0,0,1},selected,0);
++    require(match==dxvk::vrmath::PoseRing::Selection::Unknown&&!dxvk::vrpolicy::firstPoseReady(false,0),
++      "a latched VR projection with an initial flat camera is not an eye frame");
++    origin[0]=10;match=ring.select(origin,{1,0,0},{0,0,1},selected,0);
++    require(match==dxvk::vrmath::PoseRing::Selection::Fresh&&dxvk::vrpolicy::firstPoseReady(true,0),
++      "the first actual camera match admits output");
++    pose.sequence=2;ring.push(pose);origin[0]=5;
++    match=ring.select(origin,{1,0,0},{0,0,1},selected,1);
++    require(match==dxvk::vrmath::PoseRing::Selection::Unknown&&dxvk::vrpolicy::firstPoseReady(false,1),
++      "later unknown cameras retain the counted fallback after a real first match");
++  }
++
+   using namespace dxvk::vrmath;
+   rtxvr_Eye eyes[] { eye(-0.0872664626, -0.032), eye(0.0872664626, 0.032) };
+   Projection p;
+-- 
+2.56.0.windows.1
+

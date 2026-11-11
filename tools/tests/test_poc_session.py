@@ -102,6 +102,33 @@ class FakeGame:
 class ClientLuaTests(unittest.TestCase):
     """R1-015: client Lua travels through the console, hex-encoded; no file is written for it."""
 
+    def test_manual_wait_ignores_shots_and_outlasts_thirty_minute_look(self):
+        game=FakeGame();clock=Clock();record={}
+        def text():
+            return 'NL_SHOT look-ready\n'+('NL_SHOT_DONE\n' if clock.now>=3100 else '')
+        health=SimpleNamespace(check=mock.Mock(),sleep=lambda _:clock.sleep(500))
+        with mock.patch.object(ps,'screenshot',side_effect=ImportError('no PIL')) as capture:
+            ps.wait_manual_lua(game,health,text,record)
+        self.assertGreater(clock.now-1000,1900)
+        self.assertTrue(record['lua_manual_done'])
+        capture.assert_not_called()
+        self.assertIsNone(game.poll())
+
+    def test_manual_wait_preserves_real_health_failures(self):
+        health=SimpleNamespace(check=mock.Mock(side_effect=ps.Failure('game window hung for 120 s')))
+        with self.assertRaisesRegex(ps.Failure,'hung'):
+            ps.wait_manual_lua(FakeGame(),health,lambda:'',{})
+
+    def test_manual_process_exit_is_normal_only_for_exit_zero(self):
+        game=FakeGame(running=False);record={}
+        ps.record_manual_exit(game,record)
+        self.assertTrue(record['normal_quit'])
+        self.assertEqual(record['manual_end'],'game_exited')
+        self.assertNotIn('failed',record)
+        game.returncode=1;record={};ps.record_manual_exit(game,record)
+        self.assertFalse(record['normal_quit'])
+        self.assertIn('failed',record)
+
     def test_lines_carry_the_code_hex_encoded(self):
         lines = ps.client_lua_lines('camera', AWKWARD_LUA)
         self.assertEqual(lines[0], 'lua_run_cl NL_S=""')

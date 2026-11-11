@@ -1,5 +1,9 @@
 # test_poc_session.py
 
+The manual completion regressions ignore screenshot markers even when capture would raise an
+ImportError, outlast a 30-minute look's former Python deadline, retain real health failures,
+and distinguish an exit-0 user closure from a crash. Existing unattended capture tests remain.
+
 R7-B verifies that launches force `NATIVE_LOADER_EXIT_REPORT=quiet`, overriding an inherited
 `off`, so post-exit evidence stays enabled without an unattended dialog.
 

@@ -1,0 +1,28 @@
+From bd02ccb0b1d9e0e1bf0dd4d761c68bc63eca02aa Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 10 Nov 2026 08:26:04 -0700
+Subject: [PATCH] VR: select DLSS Performance for the measured Index workload
+
+Balanced reaches the 90 Hz half-rate deadline in the runtime passes but leaves too little headroom for the complete Source frame. Keep the recommended eye density, Ray Reconstruction and four-bounce limit, and lower the internal DLSS input for the fixed V1 preset.
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 827632c0..eb5724cf 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -200,7 +200,7 @@ namespace dxvk {
+     }
+     // The session layer precedes quality presets and never has a file path.
+     Config preset({{"rtx.dlfg.enable","False"},{"rtx.fsrfg.enable","False"},{"rtx.frameGenerationType","0"},
+-      {"rtx.upscalerType","1"},{"rtx.qualityDLSS","2"},{"rtx.enableRayReconstruction","True"},
++      {"rtx.upscalerType","1"},{"rtx.qualityDLSS","1"},{"rtx.enableRayReconstruction","True"},
+       {"rtx.pathMinBounces","1"},{"rtx.pathMaxBounces","4"},
+       {"rtx.postfx.enableMotionBlur","False"},{"rtx.postfx.enableChromaticAberration","False"},
+       {"rtx.postfx.enableVignette","False"},{"rtx.enablePresentThrottle","False"},
+-- 
+2.56.0.windows.1
+

@@ -523,3 +523,13 @@ with the laser; the dominant hand. From what V1 found I would put five things in
   tree that was tested: the gate on it passed (34 CTest cases and 934 Python tests), and the package built from the same inputs is the one
   the unattended session and the looks ran. One commit on `main`, pushed; the repository's hooks build the package
   from `packages/` and upload it to the Workshop item when its content differs. Nothing under `loader/` changed.
+- **Published 2026-11-11 UTC.** The merge is commit `7f335d5` on `main`, pushed to GitHub with its three new LFS
+  objects (62 MB). Its commit hook built the package from `packages/` and uploaded it to item 3829070317 as
+  **0.0.0-dev.20261111060557+bfb14d90** (2,085,334,416 bytes, SHA-256
+  `d1a900dc72a69c3b0006a8b8434d1a64fd75747e3c9262f2839525df0ef5eaef`). Its content digest,
+  `7bd587faa43ba2ff107d3e530a4523cfb15b832a82014772c9d4963332ebee0e`, is the digest of the package the PoC sessions
+  and the looks ran (`0.0.0-vr.v1`): what was published is what was tested. Steam's public record shows that size,
+  updated 06:06:40 UTC. The push's hook found the same inputs and uploaded nothing. No GitHub Action was started.
+- **A note for the next squash merge.** Staging a squash makes git run the merge hook before the commit exists. The
+  publish tool refused that run, because the packaging inputs were still uncommitted, and published from the
+  commit's own hook a moment later: nothing went out early, but the first log of such a merge is a refusal.

@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -447,6 +447,61 @@ runtime, driven to its published state in LuaJIT with mocks, cost 0.6 ms of Lua 
 per frame (two `Think` hooks deep-copying its whole status); the Theater's 5 us. The new runtime has no
 per-frame hook.
 
+### A classic install's map mod
+
+A map the user finished for the old RTXLauncher install has its look as loose folders in that install's
+`rtx-remix\mods` (the backup `E:\RTX_c_backup\GarrysMod_RTX_c`; never write there or in `GarrysMod_RTX_c`):
+often a main mod plus fix mods, no Lua. Porting it is packing what exists, not remastering: the textures
+stay as they are, and the pack must show on each hash exactly what the classic install showed. Copies of
+such folders may also sit hand-placed in the field (`rtx-remix\mods\Poolday`); they are the user's files.
+
+1. **Find every folder of the map**, not only the one named after it: fix mods replace hashes of the
+   same map (`Poolday_mirror_fix`, `gmodrtx_poolday_fix`). Read their layers' comments, and compare the
+   field's copies with the backup's (`git diff --no-index --stat` or SHA-256: on 2026-11-12 they were
+   identical). Map item, BSP name and title: the map's `.gma` (`tools\gmapack\gmapack.py list -f`; an old
+   item is an LZMA `_legacy.bin`: 5 property bytes, an 8-byte size, a stream without an end marker;
+   `lzma.LZMADecompressor(format=lzma.FORMAT_ALONE).decompress` gives the `.gma`).
+2. **Port** with `scripts/port_classic_mods.py` into `<B>\<map>_rtx` (`--dry-run` first). It ranks the
+   folders as the runtime did (by name, byte order), copies each unchanged under its old name, and writes a
+   `mod.usda` with them as sub-layers, strongest first. It refuses when a merge would change a hash: the
+   runtime takes each hash whole from the first folder that replaces it, while one folder's sub-layers
+   compose attribute by attribute (`port_classic_mods.py.md`). `--blank-missing` sets references to files
+   the mod never had to `@@` (no texture, as before, minus Remix's `err:` lines); `--drop-unreferenced`
+   leaves out files no layer reaches. One folder is a plain copy under the new name.
+3. **Name it after the map** (`pool_day_rtx`, `safehouse_rtx`; package `pool-day-rtx`, `Pool Day RTX`):
+   the map's own name, no game in it (the Safehouse map's title is `Safehouse (CSGO)`). Before choosing,
+   collect every `mat_`/`mesh_`/`light_` hash of the pack and of each folder in the field's
+   `rtx-remix\mods`: where another mod replaces the same hash, the earlier name wins it on that machine.
+   Safehouse shares 8 stock prop textures (tree bark, a door, dish soap, wood furniture, a patio chair, a
+   bed, a kitchen sink, a riverbed rock) with `gm_br_rtx`, `gm_brmovie_complete_rtx` and
+   `modern_house_rtx`. The classic `SafeHouse` (upper case) would have taken them from those remasters,
+   on their maps too; `safehouse_rtx` sorts after all three and only adds. Say in the report which hashes the pack loses on
+   the user's machine.
+4. **Global hashes.** A port has no Lua to scope its replacements to its map: a texture shared with other
+   maps changes there too. Name them in the description. A classic fix may also target what the RTX
+   package now draws another way: Pool Day's water layer replaces the RTX fixes' old water stand-in, which
+   is not drawn while RTX Water handles the water (the live hash probe never saw it); keep it, and say so.
+5. **Build and check** as for any remastered map: `package_content.py --mod <B>\<map>_rtx` (no `--addon`,
+   no `--requires-remix`), `check_pack.py <B>`, which reads nested and binary (`.usd` crate) layers.
+6. **Check it in the field** (the user's request for these ports) with the hand-placed copies moved out of
+   `rtx-remix\mods` (else they win every hash and the test proves nothing), the archive in `allow.local` of
+   the field's `native-loader\config.json` (backed up first), `-noworkshop` and the map mounted from the
+   user's subscription (`poc_session.py --root <field> --allow-steam-managed run --addons --no-window
+   --mount-workshop <map item> --change-map <map>`), each view with the pack and with Remix's replacements
+   switched off, and the map's live hashes against the pack's (`RemixMaterial.GetCachedMaterials`,
+   `GetAllTextureHashes`). Mesh and light hashes have no Lua view: look at the replaced props and lamps.
+   **Hold `out\r10\poc.lock` while the field game runs:** the VR labs quit any field game before their
+   PoC runs and take that lock first (2026-11-12, a first Pool Day run ended this way, exit 1, no dump).
+   Put the config and the hand-placed folders back afterwards.
+
+Ported on 2026-11-12 (builds in the worktree `gmod-pbr-maps-packaging-b6de9c`'s `out\packages`; nothing
+uploaded):
+
+| Package | Map | From | Archive |
+|---|---|---|---|
+| `pool-day-rtx` | New Pool Day 2 (`gm_new_pool_day2`, 3096281917) | `Poolday` (20 materials, 4 lights), `Poolday_mirror_fix`, `gmodrtx_poolday_fix`; 39 dangling references blanked, 5 dead files left out | 347,191,685 bytes, SHA-256 `91ca1d25...` |
+| `safehouse-rtx` | Safehouse (`gm_csgosafehouse`, 944959992) | `SafeHouse`: 60 materials, 23 mesh and 31 light overrides, 13 Poly Haven models (binary `.usd`), ambientCG textures (both CC0) | 2,818,224,776 bytes, SHA-256 `0de8223b...` |
+
 ## Scripts
 
 | Script | Route | Does |
@@ -461,6 +516,9 @@ per-frame hook.
 | `scripts/astra_companion.py` | an Astra companion | its Remix mod (SHA-checked, optional BC7 to BC4 for one-channel maps) and a new add-on from `astra_companion/runtime.lua` and the map's profile `astra_companion/<map>.json` |
 | `scripts/astra_companion_harness.lua` | tests | the converted add-on against mocked GMod and Remix APIs (LuaJIT): lifecycle, restores, sky and haze ownership, the shell, no other per-frame hook |
 | `scripts/test_astra_companion.py` | tests | `python -I -m unittest discover -p "test_astra_companion.py"` in `scripts\`: a synthetic companion with real BC7 blocks, the conversion, the BC4 encoder, refusals, the harness |
+| `scripts/port_classic_mods.py` | a classic install's map mod | one mod folder from the mod folders a map was played with, ranked as the runtime ranked them; refuses a merge that would change a hash; blanks references to files the mod never had |
+| `scripts/usd_refs.py` | module | every layer and file a mod references, text and binary crate layers alike (no `pxr`); used by `check_pack.py` and `port_classic_mods.py` |
+| `scripts/test_port_classic_mods.py` | tests | `python -I -m unittest discover -p "test_port_classic_mods.py"` in `scripts\`: the reference reader, the LZ4 and crate decoder, the port's order, overlaps, blanks and refusals |
 | `scripts/model_names.py` | both | the naming rule, imported by the scripts above |
 | `scripts/test_names.py` | tests | `python -I -m unittest -v` in `scripts\`: the naming rule and every refusal |
 | mmd-remix-pbr `scripts/hotloader_export.py` | preferred | Model Hotloader's own export through the running game |

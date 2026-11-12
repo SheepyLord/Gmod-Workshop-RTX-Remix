@@ -51,12 +51,12 @@ import sys
 # model_names.py sits beside this script; python -I leaves the script's folder off sys.path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import model_names  # noqa: E402
+import usd_refs  # noqa: E402
 
 RTX_PACKAGE_ITEM = "3829070317"
 R18 = re.compile(r"(^|[^a-z0-9])r-?18([^a-z0-9]|$)", re.I)
 HEX32, HEX64 = re.compile(r"^[0-9a-f]{32}$"), re.compile(r"^[0-9a-f]{64}$")
 MATERIAL = re.compile(r'over "mat_([0-9A-Fa-f]{16})"')
-REFERENCE = re.compile(r"@([^@]+)@")
 REMIX_DATA = {".usd", ".usda", ".usdc", ".usdz", ".dds", ".png", ".jpg", ".jpeg", ".tga", ".bmp", ".exr", ".hdr",
               ".mdl", ".json", ".txt"}
 ADDON_TYPES = ("gamemode", "map", "weapon", "vehicle", "npc", "entity", "tool", "effects", "model", "servercontent")
@@ -139,6 +139,10 @@ def check_names(r: Report, addon, mod, package_id, hotloader: bool):
         problem = tag_problem("package id", package_id, "slug")
         if problem:
             r.error("%s: %s" % (problem, NAME_ADVICE))
+        elif not hotloader:
+            folders = [os.path.basename(os.path.normpath(f)) for f in (addon, mod) if f]
+            r.ok("package id %s and folders %s: no game, version, author or rating tag"
+                 % (package_id, ", ".join(folders) or "-"))
         if suffixes:
             expected = next(iter(suffixes.values())).replace("_", "-") + "-rtx"
             if package_id == expected:
@@ -385,51 +389,52 @@ def check_mod(r: Report, mod: str, hashes_files):
         return
     with open(mod_usda, encoding="utf-8") as fh:
         text = fh.read()
-    sub = re.search(r"subLayers\s*=\s*\[(.*?)\]", text, re.S)
-    layers = [ref for ref in REFERENCE.findall(sub.group(1))] if sub else []
-    if not layers:
-        if MATERIAL.search(text):
-            # A converted Astra companion (astra_companion.py) keeps its overrides in mod.usda itself.
-            layers = ["./mod.usda"]
-        else:
-            r.error("mod.usda lists no subLayers and replaces no material itself")
-    used = {"mod.usda"}
+    if not re.search(r"subLayers\s*=\s*\[", text) and not MATERIAL.search(text):
+        r.error("mod.usda lists no subLayers and replaces no material itself")
+    # Every layer reached from mod.usda: nested sub-layers (a port of several mods, port_classic_mods.py),
+    # references to model layers, binary crate layers (Poly Haven models), as usd_refs.py reads them.
+    # A converted Astra companion (astra_companion.py) keeps its overrides in mod.usda itself.
+    walk = usd_refs.walk(mod)
+    for layer, error in walk.errors:
+        r.error("%s cannot be read: %s" % (layer, error))
+    bad = {}
+    for layer, target in walk.bare:
+        r.error("%s references %r, neither a relative ./ or ../ path nor a Remix shader" % (layer, target))
+        bad[layer] = True
+    for layer, target in walk.outside:
+        r.error("%s references %s outside the mod" % (layer, target))
+        bad[layer] = True
+    for layer, target in walk.missing:
+        inner = os.path.normpath(os.path.join(os.path.dirname(layer), target)).replace("\\", "/")
+        r.error("%s references %s, which is missing" % (layer, inner))
+        bad[layer] = True
+    used = walk.used()
     found = {}
-    for ref in layers:
-        rel = os.path.normpath(ref).replace("\\", "/")
-        path = os.path.join(mod, rel)
-        if rel.startswith("..") or not os.path.isfile(path):
-            r.error("mod.usda lists %s, which is not in the mod" % ref)
+    per_layer = {}
+    for inner, layers in walk.files.items():
+        for layer in set(layers):
+            count, size = per_layer.get(layer, (0, 0))
+            per_layer[layer] = (count + 1, size + os.path.getsize(os.path.join(mod, inner)))
+    crate_ok = 0
+    for layer in walk.layers:
+        if layer in walk.crate:
+            crate_ok += 0 if layer in bad else 1
             continue
-        used.add(rel.lower())
-        with open(path, encoding="utf-8") as fh:
-            layer = fh.read()
-        key = os.path.splitext(os.path.basename(rel))[0]
-        size, count, bad = 0, 0, 0
-        for target in sorted(set(REFERENCE.findall(layer))):
-            # A character layer in models/ points at ../textures; a map mod's root layer at ./textures.
-            if not target.startswith(("../", "./")):
-                if not target.lower().endswith(".mdl"):
-                    r.error("%s references %r, neither a relative ./ or ../ path nor a Remix shader" % (key, target))
-                    bad += 1
-                continue
-            inner = os.path.normpath(os.path.join(os.path.dirname(rel), target)).replace("\\", "/")
-            if inner.startswith(".."):
-                r.error("%s references %s outside the mod" % (key, target))
-                bad += 1
-                continue
-            if not os.path.isfile(os.path.join(mod, inner)):
-                r.error("%s references %s, which is missing" % (key, inner))
-                bad += 1
-                continue
-            used.add(inner.lower())
-            size += os.path.getsize(os.path.join(mod, inner))
-            count += 1
-        for digest in MATERIAL.findall(layer):
+        with open(os.path.join(mod, layer), encoding="utf-8", errors="replace") as fh:
+            body = fh.read()
+        key = os.path.splitext(layer)[0]
+        materials = MATERIAL.findall(body)
+        for digest in materials:
             found.setdefault(digest.upper(), []).append(key)
-        if not bad:
+        count, size = per_layer.get(layer, (0, 0))
+        if layer not in bad and (materials or count):
             r.ok("layer %s: %d materials, %d textures, %.0f MB, every reference present"
-                 % (key, len(MATERIAL.findall(layer)), count, size / 1e6))
+                 % (key, len(materials), count, size / 1e6))
+    if walk.crate:
+        count = sum(per_layer.get(layer, (0, 0))[0] for layer in walk.crate)
+        size = sum(per_layer.get(layer, (0, 0))[1] for layer in walk.crate)
+        r.ok("%d binary (crate) layers, %d of them with every reference present: %d files, %.0f MB"
+             % (len(walk.crate), crate_ok, count, size / 1e6))
     unused, unused_bytes = 0, 0
     for folder, _, names in os.walk(mod):
         for name in names:

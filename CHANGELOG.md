@@ -6,6 +6,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Pool Day and Safehouse ported as content packs (the user's request of 2026-11-12; skills only, no loader or package change)
+
+- **Two map packs built from the classic install's finished Remix mods**, not uploaded: `pool-day-rtx` (Pool Day RTX,
+  347 MB: the `Poolday` mod with its mirror and water fixes, for `gm_new_pool_day2`) and `safehouse-rtx` (Safehouse RTX,
+  2.82 GB: photoscanned textures and 13 Poly Haven models, for `gm_csgosafehouse`). Each is a Remix mod only, named after
+  its map; the three Poolday folders became one mod whose sub-layers keep the classic order, after a check that no
+  hash changes winner; 39 references to maps Poolday never had are blanked
+  ([ADR 0191](docs/decisions/0191-classic-map-mods-ported-as-content-packs.md)).
+- **workshop-content-pack skill:** the procedure "A classic install's map mod"; `port_classic_mods.py` (merge mod
+  folders as the runtime ranked them, refuse a merge that changes a hash, blank dangling references); `usd_refs.py`
+  (every layer and file a mod references, binary crate `.usd` layers included, without `pxr`); tests.
+- **Fixed in `check_pack.py`:** the Remix Toolkit's `asset default = @@` made its reference check report nonsense, and it
+  read only `mod.usda`'s direct sub-layers; it now follows every layer, nested and binary.
+- **remix-map-pbr skill:** a finished map mod is ported, not remade; how the runtime picks a hash across mod folders
+  (whole, first folder) and inside one (attribute by attribute), and that an empty mesh override registers nothing.
+
 ### Material colours above 1 under RTX (the user's report of 2026-11-11; package only, no loader or runtime change)
 
 - **Fixed: a tint above 1 darkened or discoloured a surface under RTX** (`$color2` on a model, `$color` elsewhere, a

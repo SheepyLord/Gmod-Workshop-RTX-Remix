@@ -7554,3 +7554,58 @@ game (not Garry's Mod) used 11 to 25 % of the RTX 5090 during all of it, so thes
   after it (3,526 pairs, none refused or unmatched; `out/vr/look/codex-followup4-nopil-look-01`).
 - **`Path.is_junction` needs Python 3.12.** The driver used it in its link checks; it now reads the reparse-point
   attribute from `lstat()` instead, so Python 3.10 and 3.11 can run a look.
+
+## Classic map mods as content packs (2026-11-12, Claude)
+
+The user's request: package the classic install's finished Poolday and SafeHouse mods as `.gma` content packs and
+check their look in the field ([ADR 0191](decisions/0191-classic-map-mods-ported-as-content-packs.md)).
+
+- **Where they were.** `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: `Poolday` (69 files, 353 MB: 20 material
+  overrides, 4 light and 1 empty mesh override, its own copies of four Aperture MDLs), `Poolday_mirror_fix` (the
+  mirror on `mat_9F7C9DBBFC6DCB39`, made opaque, metallic 1, roughness 0, decal category cleared; category fixes on
+  two meshes), `gmodrtx_poolday_fix` (translucent water on `mat_645A5581E6491CF0`, the RTX fixes' water stand-in),
+  `SafeHouse` (223 files, 2.82 GB: 60 material, 23 mesh and 31 light overrides, 13 Poly Haven models as binary
+  crate `.usd` layers, 20 ambientCG texture sets, 22 upscaled textures). The field's hand-placed copies of the three
+  Poolday folders were byte-identical to the backup's.
+- **The maps.** 3096281917 "New-Pool-Day-2 from CS 1.6": `temp.gma` with `maps/gm_new_pool_day2.bsp` (12.5 MB;
+  14 `info_player_start`, 19 `light`, 138 `info_node`). 944959992 "Safehouse (CSGO)": a legacy LZMA
+  `843710577598652974_legacy.bin` (51.4 MB; 5 property bytes, an 8-byte size, a stream without an end marker, so
+  `lzma.decompress(format=FORMAT_ALONE)` fails and `LZMADecompressor(FORMAT_ALONE).decompress` works) holding
+  `maps/gm_csgosafehouse.bsp` (162 MB, content packed in; 140 `prop_dynamic`, 316 static props, CT and T spawns
+  only).
+- **How the runtime picks a hash's replacement** (the runtime fork, `src/dxvk/rtx_render`):
+  `AssetReplacer::getReplacementMaterial` (`rtx_asset_replacer.cpp:110`), `getReplacementsForMesh` (`:36`) and
+  `getReplacementsForLight` (`:97`) return the first mod, in the mod set's order, that has the hash, whole.
+  `UsdMod::Impl::processReplacement` (`rtx_mod_usd.cpp:1395`) registers nothing for a mesh prim without content,
+  categories or particle system. `ModManager::enumerateModsInDir` (`rtx_mod_manager.cpp:178`) looks for `mod.*`
+  only in each folder directly under `rtx-remix\mods`, so a `mod.usda` one level deeper is a plain layer. A
+  merged mod's sub-layer folders each become an asset search path (`Adding asset search path: ...\pool_day_rtx\poolday\`).
+- **What the merge changed: nothing.** Of the Poolday folders' hashes, two are in two folders:
+  `mat_3C0A7FF562C52317` (Poolday sets `metallic_constant` 0 and `reflection_roughness_constant` 1, the mirror fix 0
+  and 0.5: Poolday's win either way) and `mesh_345F539D9A62C372` (empty in Poolday, so the mirror fix's
+  `decal_Static = 0` was live and stays live).
+- **Shared hashes on the user's machine.** Safehouse shares 8 stock prop textures with three remasters:
+  `447019A4055FFB5F` (riverbed rock) with `gm_br_rtx` and `gm_br_rtx_pitfalls`; `2ADC3D568E4FC770`,
+  `705B56FA97CD4184`, `8822F4EAC3A55112`, `A64554C46626C038`, `B31128A9FC78C3A4`, `D9284127635ADFCB` (bark, door,
+  dish soap, wood furniture, patio chair, bed) with `gm_brmovie_complete_rtx`; `45B2961184E5A854` (kitchen sink) and
+  `8822F4EAC3A55112` with `modern_house_rtx`. Pool Day shares none.
+- **Poolday's dangling references.** 39: 20 metallic maps in a `metallness/` folder the mod never had, 7 height,
+  6 normal and 6 roughness maps; Remix logged each as an `err:` (R19's count of 39). Remix also warns that several
+  Poolday DDS files have no mips ("suboptimal replacement texture").
+- **A binary crate layer's references** are its `TOKENS` section's path-like tokens: header `PXR-USDC`, version
+  0.8.0, a table of contents at the offset in bytes 16-23, the section holding the token count, the raw and the
+  compressed size, then `TfFastCompression` (a chunk-count byte, then LZ4 blocks). Read in Python, no `pxr`
+  (`skills/workshop-content-pack/scripts/usd_refs.py`): all 16 Safehouse layers in 0.4 s.
+- **The field check collided with the VR labs.** The first field run quit 75 s into the start (exit 1, no dump)
+  when the VR V4 Codex drivers quit the field game before their PoC run; they take `out\r10\poc.lock` first, so the
+  next run held that lock.
+- **Pool Day in the field** (2026-11-12, loader 0.16.0, RTX package `0.0.0-dev.20261112034453+d568f6e1`, the pack
+  as a local archive, the hand-placed copies moved out): 10 views spread over the map's AI nodes, each with the
+  pack and with `rtx.enableReplacementMaterials`/`Meshes`/`Lights` off. The pack changed every view (mean
+  absolute difference 10.0-30.2 of 255 at 960 px). 19 of its 22 texture hashes were drawn: 18 `fnpd2/*` and
+  `halflife/*` materials packed in the map, and the glass `9F7C9DBBFC6DCB39` as the map's cubemap copy
+  `maps/gm_new_pool_day2/halflife/glassblue1_-187_79_266`, now a mirror. Not drawn: the water stand-in
+  `645A5581E6491CF0` (RTX Water printed "6 water faces ... native core": it owns the water) and two plain 512 px
+  textures (`74B977689DD879A4`, white; `BBB7C7E9375B91F9`, black). The loungers (`fnpd2/chair`) are solid
+  plaid slabs: the mod's 4096 plaid albedo has alpha 255 everywhere, so the stock texture's see-through slats
+  fill in. The game quit normally.

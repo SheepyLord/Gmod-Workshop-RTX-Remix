@@ -304,3 +304,5 @@ Each with the reason it lost.
   of 2026-11-11, package only): `shaderapidx9.dll` turns a material's tint into the 8-bit texture factor with
   `cvttss2si` and its low byte, so 1.5 reached Remix as 0.49; the engine guard wraps the four float colour functions'
   vtable slots, found by their code, and clamps each component to [0, 1] first, in Remix starts only.
+- [0191: Classic map mods ported as content packs](0191-classic-map-mods-ported-as-content-packs.md) (the user's
+  request of 2026-11-12: Pool Day RTX and Safehouse RTX, one mod per map that keeps each hash's classic winner and only adds)

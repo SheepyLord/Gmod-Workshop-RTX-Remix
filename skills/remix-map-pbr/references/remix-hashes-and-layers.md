@@ -213,6 +213,23 @@ The runtime's `publishSearchPaths` comment says "the last mod wins": that is abo
 paths, not about which material replaces a hash. Inside one mod, an earlier sublayer of `mod.usda` is
 stronger (USD).
 
+The two rules differ in a way that matters when mod folders are merged (read in the runtime source,
+2026-11-12, `rtx_asset_replacer.cpp` and `rtx_mod_usd.cpp`):
+
+- **Between folders, a hash is taken whole.** `getReplacementMaterial`, `getReplacementsForMesh` and
+  `getReplacementsForLight` return the first folder's replacement; nothing of a later folder's override of
+  that hash applies, even attributes the first folder left unset.
+- **Inside one folder, sub-layers compose attribute by attribute**: a weaker sub-layer's attribute applies
+  wherever the stronger one leaves it unset.
+- **An empty override registers nothing.** A `mesh_` prim with no children, categories or particle system
+  (`over "mesh_X" {}`) makes `processReplacement` return false, so the next folder's override of that hash
+  is the live one.
+
+So two folders become one only when no later folder sets something on a hash an earlier one owns. The
+workshop-content-pack skill's `port_classic_mods.py` checks exactly that (the classic Poolday mods: the
+mirror fix's `mat_3C0A7FF562C52317` override was dead, Poolday setting both its values; its
+`mesh_345F539D9A62C372` category fix was live, Poolday's prim being empty).
+
 ## Hash replacements are global
 
 A replacement applies wherever its texture is drawn: every map, every prop. Backrooms remastered 209

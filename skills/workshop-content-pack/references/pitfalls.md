@@ -282,6 +282,32 @@ name, presets, arms and fit replace the player's, kept once under
 (`references/model-hotloader-package.md`). Expected; tell the user before they subscribe to their own
 pack, and do not "fix" the library entry.
 
+### 26. A port of several mod folders shows something else (2026-11-12)
+
+Merging a classic install's map mods (`Poolday`, `Poolday_mirror_fix`, `gmodrtx_poolday_fix`) into one
+folder changes the rule that picks a hash's replacement: between folders the first takes the hash whole,
+inside one folder the sub-layers compose attribute by attribute (`remix-map-pbr`'s
+`references/remix-hashes-and-layers.md`). A later folder's override that never applied would apply
+merged. `port_classic_mods.py` refuses such a merge; when it does, take the dead override out of the
+later folder, or ship the folders apart under names that keep their order.
+
+### 27. A layer written by the Remix Toolkit fails the reference check (fixed 2026-11-12)
+
+The Toolkit writes `customData = { asset default = @@ }` on every texture input. `check_pack.py`'s old
+`@([^@]+)@` ran from the second `@` of `@@` across lines and reported nonsense references; it also read
+only `mod.usda`'s direct sub-layers as text, so a port's nested layers and binary `.usd` model layers
+went unchecked. It now reads every layer through `usd_refs.py`.
+
+### 28. The field check ends at once (2026-11-12)
+
+A field game started for a pack check quit with exit code 1 and no dump right after its first map: the
+VR labs (Codex, `vr_frames_poc.py`, `vr_reload_poc.py`, the V4 drivers) quit any field game before their
+PoC runs ("authorised normal field quit"). They take the main checkout's `out\r10\poc.lock` first and
+wait up to two hours for it, so hold that lock (exclusive create, your own owner record, removed only
+if it is still yours) while the field game runs, one map per hold. Hand-placed copies of the pack's mod
+in the field (the classic `Poolday`) win every hash under their upper-case name: move them out of
+`rtx-remix\mods` for the check and back after.
+
 ## Diagnosing
 
 | Question | Where to look |

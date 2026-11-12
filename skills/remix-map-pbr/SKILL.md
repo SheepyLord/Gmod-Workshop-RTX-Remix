@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3 and gm_brmovie_complete remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload follows workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3 and gm_brmovie_complete remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -26,6 +26,11 @@ main light, CC0 photoscans for grain, ground and plants, night lights driven by 
 fixture lights, for a big interior map with an outdoor lot: lights that follow the map's switches, PAS
 visibility, live hashes for gmRTX's per-material solid-colour textures, and the 3D skybox drawn at its true
 scale.
+
+A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
+`E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
+as it is with the workshop-content-pack skill ("A classic install's map mod", `port_classic_mods.py`),
+which keeps what each hash showed when several mod folders become one.
 
 Read the references when you reach their stage:
 

@@ -8,6 +8,9 @@ local cookies, convars, logs, panels, timers, hooks, commands = {}, { gmod_langu
 local status = { packages = { { id = "gmod-rtx-remix", source = "workshop", label = "3829070317" } } }
 local addons = {}
 local failBuild = false
+-- The RTX client module's add-on list and Steam switch functions (ADR 0189): their calls, and what they answer.
+local listCalls, listAnswer, noListApi = {}, nil, false
+local steamAnswer, noSteamApi = nil, false
 
 local function eq(a, b, what) if a ~= b then error((what or "value") .. ": expected " .. tostring(b) .. ", got " .. tostring(a), 2) end end
 
@@ -125,6 +128,20 @@ local function run(menu)
                 '["OK"] = "JA-OK" } }'
         end
     end }
+    if not noSteamApi then
+        __NATIVELOADER_MENU_API.rtx_steam_state = function()
+            if type(steamAnswer) == "function" then return steamAnswer() end
+            if steamAnswer == nil then return nil, "Steam's list of the signed-in account cannot be read" end
+            return steamAnswer
+        end
+    end
+    if not noListApi then
+        __NATIVELOADER_MENU_API.rtx_addon_list = function(off)
+            listCalls[#listCalls + 1] = off
+            if listAnswer then return listAnswer(off) end
+            return off and "added" or "removed"
+        end
+    end
     dofile(SCRIPT)
     __NATIVELOADER_MENU_API = nil
 end
@@ -147,7 +164,7 @@ if scenario == "subscribed" then
     addons = list("111", "3829070317", "222")
     run()
     assert(timers.NativeLoaderUnsubscribedNotice, "checks are scheduled")
-    eq(timers.NativeLoaderUnsubscribedNotice.reps, 24, "for two minutes")
+    eq(timers.NativeLoaderUnsubscribedNotice.reps, 0, "while the menu runs")
     tick()
     eq(NativeLoaderUnsubscribedNotice.Verdict(), "subscribed")
     assert(not card(), "no card for a subscribed account")
@@ -256,6 +273,100 @@ elseif scenario == "failure" then
     tick(2)
     eq(NativeLoaderUnsubscribedNotice.Verdict(), "not subscribed")
     assert(logs[#logs]:find("unsubscribed notice failed", 1, true), logs[#logs])
+elseif scenario == "switched-off" then
+    -- ADR 0189: switched off in Steam for this account. GMod hides the item (not in its list), which is no unsubscribe:
+    -- written into GMod's list the loader reads, said on a card.
+    addons = list("111", "222")
+    steamAnswer = "disabled"
+    run()
+    tick(3)
+    eq(NativeLoaderUnsubscribedNotice.Switch(), "disabled")
+    eq(NativeLoaderUnsubscribedNotice.Verdict(), nil, "not judged as unsubscribed")
+    eq(#listCalls, 1, "written once")
+    eq(listCalls[1], true)
+    eq(NativeLoaderUnsubscribedNotice.TurnedOff(), true)
+    local text = paintAll()
+    assert(text:find("RTX Remix is turned off", 1, true), text)
+    assert(text:find("(Workshop item 3829070317) is switched off in Steam for this Steam account", 1, true), text)
+    assert(text:find("switch it on again in Steam, enable it in GMod's Addons list", 1, true), text)
+    assert(not text:find("not subscribed", 1, true), "never the unsubscribed card: " .. text)
+    assert(not pcall(button, "Don't show this again"), "no dismissal: it happens once")
+    button("OK").DoClick()
+    tick(2)
+    assert(not card(), "shown once")
+    local said = table.concat(logs, " | ")
+    assert(said:find("3829070317: disabled in Steam for this account", 1, true), said)
+    assert(said:find("turned off: added in garrysmod/cfg/addonnomount.txt", 1, true), said)
+elseif scenario == "switched-on-again" then
+    addons = list("111")
+    steamAnswer = "disabled"
+    run()
+    tick()
+    eq(NativeLoaderUnsubscribedNotice.TurnedOff(), true)
+    assert(card())
+    steamAnswer = "enabled"  -- switched on again in Steam before the restart
+    addons = list("111", "3829070317")
+    tick()
+    eq(#listCalls, 2)
+    eq(listCalls[2], false, "its own entry taken out again")
+    eq(NativeLoaderUnsubscribedNotice.TurnedOff(), false)
+    assert(not card(), "the card goes")
+    tick(2)
+    eq(#listCalls, 2, "nothing more while it stays on")
+    eq(NativeLoaderUnsubscribedNotice.Verdict(), "subscribed")
+elseif scenario == "gmod-list-disable" then
+    -- Disabled in GMod's own Addons list: GMod writes cfg/addonnomount.txt itself (measured), nothing to do.
+    addons = list("3829070317")
+    steamAnswer = "enabled"
+    steamworks.ShouldMountAddon = function() return false end
+    run()
+    tick(3)
+    eq(#listCalls, 0)
+    assert(not card())
+    eq(NativeLoaderUnsubscribedNotice.Verdict(), "subscribed")
+elseif scenario == "turn-off-failed" then
+    addons = list("111")
+    steamAnswer = "disabled"
+    listAnswer = function() return nil, "garrysmod/cfg/addonnomount.txt is not GMod's list of disabled add-ons" end
+    run()
+    tick()
+    eq(NativeLoaderUnsubscribedNotice.TurnedOff(), false)
+    local text = paintAll()
+    assert(text:find("RTX Remix is switched off in Steam", 1, true), text)
+    assert(text:find("could not be turned off (garrysmod/cfg/addonnomount.txt is not GMod", 1, true), text)
+    button("OK").DoClick()
+    tick(2)
+    assert(not card(), "said once, not at every check")
+elseif scenario == "no-list-api" then
+    noListApi = true
+    addons = list("111")
+    steamAnswer = "disabled"
+    run()
+    tick()
+    local text = paintAll()
+    assert(text:find("cannot change GMod's add-on list", 1, true), text)
+elseif scenario == "no-steam-state" then
+    -- A module that cannot read Steam's list (or none): the unsubscribed notice as before.
+    noSteamApi = true
+    addons = list("111")
+    run()
+    tick(2)
+    eq(NativeLoaderUnsubscribedNotice.Switch(), nil)
+    eq(NativeLoaderUnsubscribedNotice.Verdict(), "not subscribed")
+    assert(card(), "the unsubscribed card")
+    eq(#listCalls, 0)
+elseif scenario == "addon-state" then
+    addons = list("111", "3829070317")
+    -- Takes the id only as a number, as GMod's menu passes it.
+    steamworks.ShouldMountAddon = function(id)
+        if type(id) ~= "number" then error("bad argument #1 (number expected)") end
+        return tostring(id) == "111"
+    end
+    run()
+    commands.nativeloader_addon_state(nil, nil, { "111" })
+    assert(logs[#logs]:find("addon state 111: listed true; mounted true; ShouldMountAddon true", 1, true), logs[#logs])
+    commands.nativeloader_addon_state(nil, nil, {})
+    assert(logs[#logs]:find("addon state 3829070317: listed true; mounted false; ShouldMountAddon false", 1, true), logs[#logs])
 elseif scenario == "not-menu" then
     run(false)
     eq(NativeLoaderUnsubscribedNotice, nil)

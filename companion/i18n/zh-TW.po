@@ -2424,7 +2424,7 @@ msgid "You use this add-on on servers at your own risk: its developers take no r
 msgstr "在伺服器上使用本附加元件的風險由你自行承擔，開發者不對任何後果負責。"
 
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:19
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
 msgid "Don't show this again"
 msgstr "不再顯示此提示"
 
@@ -2436,23 +2436,49 @@ msgstr "我已了解，繼續"
 msgid "Back"
 msgstr "返回"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:14
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:23
 msgid "RTX Remix is not subscribed on this Steam account"
 msgstr "此 Steam 帳戶未訂閱 RTX Remix"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:15
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:24
 #, c-format
 msgid "This Steam account does not subscribe to RTX Remix (Workshop item %s), but RTX Remix is still installed in this game."
 msgstr "此 Steam 帳戶未訂閱 RTX Remix（Workshop 項目 %s），但 RTX Remix 仍安裝在此遊戲中。"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:25
 msgid "Steam keeps a Workshop item on this computer while any other Steam account here still subscribes to it, so RTX Remix stays installed for every account. It is removed at the first game start after no Steam account on this computer subscribes to it."
 msgstr "只要這台電腦上還有其他 Steam 帳戶訂閱某個 Workshop 項目，Steam 就會在這台電腦上保留它，因此 RTX Remix 對所有帳戶都會保持安裝。當這台電腦上不再有任何 Steam 帳戶訂閱它之後，它會在下一次啟動遊戲時被移除。"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:17
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:26
 msgid "To remove RTX Remix, unsubscribe from it on every Steam account on this computer. If you have only just unsubscribed, restart the game."
 msgstr "若要移除 RTX Remix，請在這台電腦上的每個 Steam 帳戶中取消訂閱它。如果你剛剛才取消訂閱，請重新啟動遊戲。"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:18
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:27
+msgid "RTX Remix is turned off"
+msgstr "RTX Remix 已關閉"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:28
+#, c-format
+msgid "RTX Remix (Workshop item %s) is switched off in Steam for this Steam account, so it is removed at the next game start, for every Steam account on this computer."
+msgstr "RTX Remix（Workshop 項目 %s）已在 Steam 中為此 Steam 帳戶關閉，因此它會在下一次啟動遊戲時被移除，對這台電腦上的所有 Steam 帳戶都生效。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:29
+msgid "Steam keeps a switched-off item installed, and this loader version does not see the switch, so RTX Remix wrote the item into GMod's list of disabled add-ons (garrysmod/cfg/addonnomount.txt), which the loader reads."
+msgstr "Steam 會保留已關閉項目的安裝，而目前版本的載入器看不到這個開關，因此 RTX Remix 已將該項目寫入 GMod 的已停用附加元件清單（garrysmod/cfg/addonnomount.txt），載入器會讀取該清單。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:30
+msgid "To turn it back on later, switch it on again in Steam, enable it in GMod's Addons list, then restart the game."
+msgstr "之後若要重新開啟，請在 Steam 中重新開啟它，在 GMod 的附加元件清單中啟用它，然後重新啟動遊戲。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:31
+msgid "RTX Remix is switched off in Steam"
+msgstr "RTX Remix 已在 Steam 中關閉"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:32
+#, c-format
+msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
+msgstr "無法關閉 RTX Remix（%s）。若要移除它，請取消訂閱。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
 msgid "OK"
 msgstr "確定"

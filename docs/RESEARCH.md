@@ -1,5 +1,30 @@
 # Research notes
 
+## Disabling the RTX item: GMod's list and Steam's switch (2026-11-11, Claude)
+
+Measured on the PoC with the user's account and their permission (released loader 0.16.0, fixture Steam library as in
+the section below; evidence `out\unsub\poc2`; [ADR 0189](decisions/0189-steams-per-account-switch-turns-rtx-off.md)):
+
+- **GMod's Disable button writes `cfg/addonnomount.txt`.** A temporary menu-realm probe (never committed) called what the
+  menu's buttons call (`html/js/menu/Subscriptions.js`: `steamworks.SetShouldMountAddon(<id as a number>, false)`, then
+  `steamworks.ApplyAddons()`) for 3829070317. GMod wrote the PoC's `garrysmod\cfg\addonnomount.txt` (it had none) as
+  `"addonnomount"\n{\n\t"1"\t\t"3829070317"\n}\n`; the item stayed in `engine.GetAddons()` with `mounted` false and
+  `steamworks.ShouldMountAddon` false; `IsSubscribed` stayed true. Enable wrote `"addonnomount"\n{\n}\n` and brought
+  `mounted` and `ShouldMountAddon` back to true. Steam's per-account entry for the item did not change and Steam's
+  workshop log has no line for either call. The field's file (2026-01-14) was not touched: the file is per game folder.
+- **The loader honours it.** With that entry in the PoC's list the next start skipped the package ("disabled in GMod's
+  addon list (garrysmod/cfg/addonnomount.txt)", generation 268, runtime inactive); with GMod's empty list it deployed
+  it again (generation 269, active).
+- **Steam's per-account switch is something else.** On 2026-11-10 between 18:57:49 and 18:58:17 Steam's workshop log
+  (`workshop_log.previous.txt`) has twelve lines for app 4000, each "Set 1 item(s) to disabled locally" or "... to
+  enabled locally", toggled within seconds; the user had meant to unsubscribe from a few add-ons. Six items are left
+  with `"disabled_locally" "1"` in `userdata\322575385\ugc\4000_subscriptions.vdf`; each is still installed (folder,
+  both acf sections). GMod leaves them out of its list: `nativeloader_addon_state` printed `listed false; mounted nil;
+  ShouldMountAddon true; IsSubscribed false` for three of them, and the Workshop mount counts 772 of the account's 778
+  subscriptions. So in the menu such an item looks unsubscribed, and only the per-account list tells it apart.
+- **The module reads that list.** `api.rtx_steam_state()` in the menu printed "enabled in Steam for this account" for the
+  RTX item (Steam's folder from `HKCU\Software\Valve\Steam\SteamPath`, the account from `ActiveProcess\ActiveUser`).
+
 ## Unsubscribing on a computer with several Steam accounts (2026-11-11, Claude)
 
 The user unsubscribed from item 3829070317 and RTX still loaded at the next start (field, loader 0.16.0). Read-only
@@ -37,7 +62,8 @@ evidence from that computer ([ADR 0188](decisions/0188-unsubscribing-with-the-lo
   ids; the signed-in account's list has six items with `disabled_locally` `1`, none of them those two. GMod's menu
   still calls `steamworks.SetShouldMountAddon` (`html/js/menu/Subscriptions.js:57-60`, `lua/menu/errors.lua:21`), and
   `filesystem_stdio.dll` and `menusystem.dll` still contain the file name; the loader's `disabled_by_user` reads only
-  the file (`discovery.cpp:135-150`). Not followed further.
+  the file (`discovery.cpp:135-150`). Followed up the same day in "Disabling the RTX item: GMod's list and Steam's
+  switch" above: GMod's own Disable still writes the file; the six items were switched off in Steam itself.
 - **The uninstall put back an earlier RTX installation.** The field's journal started over on 2026-11-07 (its `lock`
   and `packages` folder date from 02:50), when the RTX package's files of 2026-11-06 were still in place: the first
   deployment kept each as an original (ADR 0035) and the removal put them back (`loader/core/src/deploy.cpp:325-370`).

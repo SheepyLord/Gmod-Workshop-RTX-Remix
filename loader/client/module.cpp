@@ -1,6 +1,8 @@
 #include "catalog.h"
 #include "bootstrap_data.h"
+#include "addon_list.h"
 #include "former_rtx.h"
+#include "steam_switch.h"
 #include "poll.h"
 #include "nl/fs.h"
 #include <GarrysMod/Lua/Interface.h>
@@ -23,6 +25,8 @@ ILuaBase* menu = nullptr;
 ILuaInterface* client = nullptr;
 std::string status = "not initialized";
 std::filesystem::path verified_root;  // the game folder of the verified RTX start (ADR 0188)
+std::string rtx_item;                 // the Workshop item the verified RTX package came from, or empty (ADR 0189)
+bool listed_by_us = false;            // this session wrote rtx_item into GMod's add-on list (ADR 0189)
 nl::client::PollGate gate;
 constexpr const char* kHook = "NativeLoader.VerifiedRTXClient";
 constexpr const char* kRegistry = "NativeLoader.VerifiedRTXClient.Identity";
@@ -128,6 +132,72 @@ LUA_FUNCTION_STATIC(MenuRead) {
   LUA->PushString(found->second.text.data(), static_cast<unsigned>(found->second.text.size()));
   return 1;
 }
+// ADR 0189: the companion's menu script turns RTX off when the player disables its item in GMod's add-on list, by
+// writing the item into garrysmod/cfg/addonnomount.txt, the list the installed loaders read, and takes its own entry
+// out again if the player enables the item before the game restarts (argument false). Only the verified RTX package's
+// Workshop item, never an id from Lua; menu realm only. Returns "added", "already listed", "removed", "not listed" or
+// "kept" (an entry this session did not write stays), or nil and why.
+LUA_FUNCTION_STATIC(MenuAddonList) {
+  if (!catalog || LUA != menu || !LUA->IsType(1, Type::Bool)) {
+    LUA->PushNil(); LUA->PushString("RTX add-on list change is unavailable in this realm"); return 2;
+  }
+  if (rtx_item.empty()) {
+    LUA->PushNil(); LUA->PushString("the RTX package does not come from a Workshop item"); return 2;
+  }
+  const bool off = LUA->GetBool(1);
+  const char* result = "kept";
+  std::string problem;
+  try {
+    if (off) {
+      const auto change = nl::client::add_to_addon_list(verified_root, rtx_item);
+      if (change == nl::client::ListChange::added) listed_by_us = true;
+      result = change == nl::client::ListChange::added ? "added" : "already listed";
+    } else if (listed_by_us) {
+      const auto change = nl::client::remove_from_addon_list(verified_root, rtx_item);
+      listed_by_us = false;
+      result = change == nl::client::ListChange::removed ? "removed" : "not listed";
+    }
+  } catch (const std::exception& error) {
+    problem = error.what();
+  }
+  if (!problem.empty()) {
+    LUA->PushNil(); LUA->PushString(problem.c_str()); return 2;
+  }
+  LUA->PushString(result);
+  return 1;
+}
+// ADR 0189: the signed-in Steam account's own switch for the verified RTX item, from Steam's per-account list
+// (steam_switch.h): "disabled", "enabled", "not listed", or nil and why. Menu realm only; reads, never writes.
+LUA_FUNCTION_STATIC(MenuSteamState) {
+  if (!catalog || LUA != menu) {
+    LUA->PushNil(); LUA->PushString("RTX Steam state is unavailable in this realm"); return 2;
+  }
+  if (rtx_item.empty()) {
+    LUA->PushNil(); LUA->PushString("the RTX package does not come from a Workshop item"); return 2;
+  }
+  std::optional<nl::client::SteamItem> state;
+  try {
+    state = nl::client::signed_in_steam_item(rtx_item);
+  } catch (...) {
+    state.reset();
+  }
+  if (!state) {
+    LUA->PushNil(); LUA->PushString("Steam's list of the signed-in account cannot be read"); return 2;
+  }
+  LUA->PushString(*state == nl::client::SteamItem::disabled ? "disabled"
+                  : *state == nl::client::SteamItem::enabled ? "enabled" : "not listed");
+  return 1;
+}
+// The Workshop item a generation's RTX package came from (its archive's folder), or empty for another source.
+std::string workshop_item(const nl::journal::Generation& generation) {
+  for (const auto& package : generation.packages) {
+    if (package.id != nl::client::kPackage || package.source != "workshop") continue;
+    const auto item = nl::fs::utf8(nl::fs::join({}, package.location).parent_path().filename());
+    if (!item.empty() && item.size() <= 20 &&
+        item.find_first_not_of("0123456789") == std::string::npos) return item;
+  }
+  return {};
+}
 // Runs the companion's menu scripts once, in catalog (name) order; each one's errors are printed by the game and end
 // only that script. Returns how many ran without an error.
 unsigned run_menu_scripts(ILuaBase* lua) {
@@ -136,6 +206,9 @@ unsigned run_menu_scripts(ILuaBase* lua) {
   lua->CreateTable();
   lua->PushCFunction(MenuRead); lua->SetField(-2, "read");
   lua->PushString(catalog->identity.c_str()); lua->SetField(-2, "identity");
+  lua->PushCFunction(MenuAddonList); lua->SetField(-2, "rtx_addon_list");
+  lua->PushCFunction(MenuSteamState); lua->SetField(-2, "rtx_steam_state");
+  lua->PushString(rtx_item.c_str()); lua->SetField(-2, "rtx_item");
   lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, kMenuApi);
   unsigned ran = 0;
   for (const auto& [name, script] : catalog->scripts) {
@@ -298,6 +371,8 @@ GMOD_MODULE_OPEN() {
     catalog = std::move(snapshot);
     menu = LUA;
     verified_root = root;
+    rtx_item = workshop_item(*journal->current);
+    listed_by_us = false;
     status = "verified; waiting for the client realm";
     status += archive_former_rtx(root, *journal);
     hook(LUA, true);
@@ -318,7 +393,7 @@ GMOD_MODULE_CLOSE() {
   if (menu == LUA) {
     try { hook(LUA, false); } catch (...) { }
     release_adopted_files();
-    menu = nullptr; client = nullptr; shared = nullptr; catalog.reset(); verified_root.clear();
+    menu = nullptr; client = nullptr; shared = nullptr; catalog.reset(); verified_root.clear(); rtx_item.clear();
   }
   return 0;
 }

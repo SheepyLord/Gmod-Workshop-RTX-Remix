@@ -296,3 +296,7 @@ Each with the reason it lost.
   client module moves the files the RTX package found below `garrysmod/addons/` and `garrysmod/lua/bin/` (originals at an
   RTX start, adopted ones at the session's end) into `native-loader/backup/former-rtx/`, so an uninstall no longer
   leaves an earlier RTX installation in the game.
+- [0189: Steam's per-account switch turns RTX off through GMod's add-on list](0189-steams-per-account-switch-turns-rtx-off.md)
+  (the user's choice of 2026-11-11, no loader change): GMod's own Addons list already reaches the loader through
+  `cfg/addonnomount.txt` (measured); Steam's "disabled locally" switch does not, so the RTX client module reads the
+  signed-in account's switch and writes the RTX item into GMod's list when it is off.

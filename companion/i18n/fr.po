@@ -2424,7 +2424,7 @@ msgid "You use this add-on on servers at your own risk: its developers take no r
 msgstr "Vous utilisez cet add-on sur les serveurs à vos propres risques : ses développeurs déclinent toute responsabilité quant aux conséquences."
 
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:19
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
 msgid "Don't show this again"
 msgstr "Ne plus afficher ce message"
 
@@ -2436,23 +2436,49 @@ msgstr "Je comprends, continuer"
 msgid "Back"
 msgstr "Retour"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:14
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:23
 msgid "RTX Remix is not subscribed on this Steam account"
 msgstr "Ce compte Steam n'est pas abonné à RTX Remix"
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:15
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:24
 #, c-format
 msgid "This Steam account does not subscribe to RTX Remix (Workshop item %s), but RTX Remix is still installed in this game."
 msgstr "Ce compte Steam n'est pas abonné à RTX Remix (objet Workshop %s), mais RTX Remix est toujours installé dans ce jeu."
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:25
 msgid "Steam keeps a Workshop item on this computer while any other Steam account here still subscribes to it, so RTX Remix stays installed for every account. It is removed at the first game start after no Steam account on this computer subscribes to it."
 msgstr "Steam garde un objet du Workshop sur cet ordinateur tant qu'un autre compte Steam de cet ordinateur y est encore abonné : RTX Remix reste donc installé pour tous les comptes. Il est supprimé au premier lancement du jeu après qu'aucun compte Steam de cet ordinateur n'y est plus abonné."
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:17
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:26
 msgid "To remove RTX Remix, unsubscribe from it on every Steam account on this computer. If you have only just unsubscribed, restart the game."
 msgstr "Pour supprimer RTX Remix, désabonnez-vous-en sur chaque compte Steam de cet ordinateur. Si vous venez de vous désabonner, redémarrez le jeu."
 
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:18
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:27
+msgid "RTX Remix is turned off"
+msgstr "RTX Remix est désactivé"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:28
+#, c-format
+msgid "RTX Remix (Workshop item %s) is switched off in Steam for this Steam account, so it is removed at the next game start, for every Steam account on this computer."
+msgstr "RTX Remix (objet Workshop %s) est désactivé dans Steam pour ce compte Steam : il est donc supprimé au prochain lancement du jeu, pour tous les comptes Steam de cet ordinateur."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:29
+msgid "Steam keeps a switched-off item installed, and this loader version does not see the switch, so RTX Remix wrote the item into GMod's list of disabled add-ons (garrysmod/cfg/addonnomount.txt), which the loader reads."
+msgstr "Steam garde installé un objet désactivé, et cette version du chargeur ne voit pas ce réglage : RTX Remix a donc écrit l'objet dans la liste des addons désactivés de GMod (garrysmod/cfg/addonnomount.txt), que lit le chargeur."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:30
+msgid "To turn it back on later, switch it on again in Steam, enable it in GMod's Addons list, then restart the game."
+msgstr "Pour le réactiver plus tard, réactivez-le dans Steam, activez-le dans la liste d'addons de GMod, puis redémarrez le jeu."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:31
+msgid "RTX Remix is switched off in Steam"
+msgstr "RTX Remix est désactivé dans Steam"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:32
+#, c-format
+msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
+msgstr "RTX Remix n'a pas pu être désactivé (%s). Pour le supprimer, désabonnez-vous-en."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
 msgid "OK"
 msgstr "D'accord"

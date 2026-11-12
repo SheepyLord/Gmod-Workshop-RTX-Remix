@@ -98,10 +98,31 @@ no account subscribes; a computer with one account already uninstalled at the ne
 could add: deciding from the signed-in account's own subscription list at start-up, so the next start after an
 unsubscribe is vanilla on any computer (designed, not implemented; the user declined a loader release on 2026-11-11).
 
+## Follow-up: switched off in Steam (ADR 0189)
+
+The user asked to check whether disabling the RTX item in GMod's add-on list still removes RTX, and chose to turn RTX
+off automatically when the loader does not see it.
+
+- **Measured with the user's permission** (temporary probe build, never committed; `out\unsub\poc2`): GMod's own
+  Disable writes `garrysmod/cfg/addonnomount.txt`, Enable writes it back without the item, and loader 0.16.0 honours
+  it (generation 268 skipped the package as "disabled in GMod's addon list", generation 269 deployed it again). That
+  path needed nothing. What the loader misses is Steam's own per-account switch ("Set 1 item(s) to disabled locally"):
+  GMod hides such an item, Steam keeps it installed, so RTX would stay, and the notice above would wrongly say "not
+  subscribed". The user chose to apply the automatic turn-off to that switch.
+- **What changed (package only):** the RTX client module reads the signed-in account's switch from Steam's per-account
+  list (`loader/client/steam_switch.cpp`) and, when RTX is switched off, writes it into GMod's list
+  (`loader/client/addon_list.cpp`, every other byte kept); the companion's menu script does it once, shows a card with
+  the way back (switch on in Steam, enable in GMod's Addons list, restart) and never shows the unsubscribed card for a
+  switched-off item. Switched on again before the restart, the entry it wrote is taken out.
+- **Verified:** `tools\test.ps1` passes, with `test_addon_list.cpp` (5 cases, one through the real deployer),
+  `test_steam_switch.cpp` (2), two more source-contract cases and seven more notice scenarios. On the PoC with the
+  released loader: the module read "enabled in Steam for this account" for the RTX item (run `e4`), and GMod's list
+  with and without the item removed and restored RTX (runs `e5`, `e6`). The switch-off itself was not triggered on the
+  user's account: it is Steam's own control, for the user to try.
+
 ## Not done, seen on the way
 
 - The PoC's first start with the published package crashed once (0xC0000005 during the first Workshop mount, after
   "Failed to create shader" errors); the dump is in `out\unsub\poc\01-before-kept`. Not investigated.
-- GMod keeps disabled add-ons in Steam's per-account `disabled_locally` now; the loader's `disabled_by_user` reads only
-  `garrysmod/cfg/addonnomount.txt`, last written on the field in January. Disabling the RTX item in GMod's add-on list
-  may no longer remove RTX. Not followed further.
+- Followed up above: GMod's own add-on list still writes `garrysmod/cfg/addonnomount.txt`; Steam's per-account switch
+  is the separate case ADR 0189 handles.

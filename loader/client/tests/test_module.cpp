@@ -137,3 +137,32 @@ TEST_CASE("client module: adopted former RTX files move only when the menu state
   CHECK(release.find("journal->pending") != std::string::npos);
   CHECK(release.find("catch (...)") != std::string::npos);
 }
+
+TEST_CASE("client module: the add-on list changes only the verified RTX item, from the menu realm (ADR 0189)") {
+  const auto text = module_source();
+  const auto list = body(text, "LUA_FUNCTION_STATIC(MenuAddonList)");
+  REQUIRE(!list.empty());
+  CHECK(list.find("LUA != menu") != std::string::npos);
+  CHECK(list.find("GetString(") == std::string::npos);  // no id or path from Lua
+  CHECK(list.find("add_to_addon_list(verified_root, rtx_item)") != std::string::npos);
+  CHECK(list.find("remove_from_addon_list(verified_root, rtx_item)") != std::string::npos);
+  CHECK(list.find("listed_by_us") != std::string::npos);  // only its own entry is taken out again
+  CHECK(list.find("catch (const std::exception& error)") != std::string::npos);
+  const auto item = body(text, "std::string workshop_item(const nl::journal::Generation& generation)");
+  REQUIRE(!item.empty());
+  CHECK(item.find("package.source != \"workshop\"") != std::string::npos);
+  const auto run = body(text, "unsigned run_menu_scripts(ILuaBase* lua)");
+  CHECK(run.find("lua->PushCFunction(MenuAddonList); lua->SetField(-2, \"rtx_addon_list\");") != std::string::npos);
+}
+
+TEST_CASE("client module: Steam's switch is read for the verified RTX item only, from the menu realm (ADR 0189)") {
+  const auto text = module_source();
+  const auto state = body(text, "LUA_FUNCTION_STATIC(MenuSteamState)");
+  REQUIRE(!state.empty());
+  CHECK(state.find("LUA != menu") != std::string::npos);
+  CHECK(state.find("GetString(") == std::string::npos);  // no id from Lua
+  CHECK(state.find("signed_in_steam_item(rtx_item)") != std::string::npos);
+  CHECK(state.find("catch (...)") != std::string::npos);
+  const auto run = body(text, "unsigned run_menu_scripts(ILuaBase* lua)");
+  CHECK(run.find("lua->PushCFunction(MenuSteamState); lua->SetField(-2, \"rtx_steam_state\");") != std::string::npos);
+}

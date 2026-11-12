@@ -1,4 +1,4 @@
-add_executable(nl_client_catalog_tests ../../tests/test_main.cpp test_catalog.cpp test_module.cpp test_former_rtx.cpp)
+add_executable(nl_client_catalog_tests ../../tests/test_main.cpp test_catalog.cpp test_module.cpp test_former_rtx.cpp test_addon_list.cpp test_steam_switch.cpp)
 target_include_directories(nl_client_catalog_tests PRIVATE ../../tests)
 target_link_libraries(nl_client_catalog_tests PRIVATE nl_client_catalog nl_build_options)
 target_compile_definitions(nl_client_catalog_tests PRIVATE NL_CLIENT_MODULE_SOURCE="${CMAKE_CURRENT_SOURCE_DIR}/../module.cpp")

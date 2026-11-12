@@ -532,10 +532,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/unsub",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "8704ae8e73af53b70cd45ac75c15b14acd30756f",
+    "commit": "513aa41e0b6b726e7623029cf4b82f37693c5508",
     "dirty": false
    },
-   "imported": "2026-11-12T01:35:51+00:00"
+   "imported": "2026-11-12T02:22:34+00:00"
   },
   "modules/gmcl_rtxdebug_win64.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\debug-multiplayer\\x86_64\\Release\\gmcl_rtxdebug_win64.dll",
@@ -3884,12 +3884,12 @@
    "stored_sha256": "41b4d1b5c92baa5c4bc68d8411daa69c20b5096117e506818f5d2ef7591226b4"
   },
   "modules/gmsv_nlrtxclient_win64.dll": {
-   "size": 497664,
-   "sha256": "c78cecf2b1a5661fa3cc9aa5c3941382f51749fec37dc3f72a469b5552de3008",
-   "mtime_ns": 1794447334570727000,
+   "size": 528384,
+   "sha256": "bb82a9b8caf537cd05f206936f416523f8dc0a225c0fef69db22216502548ca7",
+   "mtime_ns": 1794450034335908400,
    "stored": "xz",
-   "stored_size": 195412,
-   "stored_sha256": "f805113089308d40154b84a484e58739cf81e852bf24c4e0f9cfa33614058a20"
+   "stored_size": 206332,
+   "stored_sha256": "f31cfd18cf00d0687cafe143a545b2998f8af598fd843baa994b8b0644daadf8"
   },
   "source/debug/addon/lua/autorun/client/rtx_debug.lua": {
    "size": 5345,

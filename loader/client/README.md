@@ -8,6 +8,8 @@ sv_allowcslua, widen the native source allowlist, or create a general source-exe
 | `catalog.h`, `catalog.cpp` | Validate the enabled RTX owner/source, bind the bootstrap module to its journaled SHA-256, and snapshot only owned add-on Lua whose exact bytes match the committed generation |
 | `module.cpp` | Menu-realm module entry, active-owned-runtime and committed-journal checks, the companion's menu scripts (R24), client-realm lifecycle polling, private catalog callbacks, completion/status and cleanup. From loader 0.10.1 every client-realm access is raw and runs inside one protected call on that realm, the temporary API is raw-set, and the module pins itself while its callbacks stay reachable ([ADR 0056](../../docs/decisions/0056-guard-and-startup-fallbacks.md)) |
 | `former_rtx.h`, `former_rtx.cpp` | [ADR 0188](../../docs/decisions/0188-unsubscribing-with-the-loader-already-installed.md): the RTX package's former files below `garrysmod/addons/` and `garrysmod/lua/bin/` (an earlier RTX installation) into `native-loader/backup/former-rtx/<UTC stamp>/` with an `index.json`, under the deployer's lock: in a verified RTX start the originals from `native-loader/backup/originals` (`archive_former_rtx`), at the end of the session the adopted files from the game (`release_adopted`); `another_game_running` (`-multirun`) |
+| `addon_list.h`, `addon_list.cpp` | [ADR 0189](../../docs/decisions/0189-steams-per-account-switch-turns-rtx-off.md): adds a Workshop item to GMod's list of disabled add-ons, `garrysmod/cfg/addonnomount.txt` (what the installed loaders read), or removes it, keeping every other byte; GMod's layout for a missing file; refuses a file that is not GMod's list, a link, an id that is not digits |
+| `steam_switch.h`, `steam_switch.cpp` | ADR 0189: an item's state in the signed-in account's own Steam list, `<Steam>\userdata\<account>\ugc\4000_subscriptions.vdf` (enabled, `disabled_locally`, not listed), Steam's folder and the account from the registry with advapi32 loaded at run time |
 | `poll.h` | The polling policy: a client-realm check at most every 250 ms, and at most 480 initializer runs (two minutes) for a realm whose local player never becomes valid |
 | `bootstrap.lua` | Private client initializer: scoped include/require/file helpers, shared/client autoruns, client entity registration and owned initialization-hook replay |
 | `bootstrap.lua.md` | Initializer behavior and side effects |
@@ -37,6 +39,12 @@ moves the adopted ones into `.../<UTC stamp>-adopted/`; the next start installs 
 own. Both hold `native-loader/lock` (nothing moves while a deployer holds it), never copy or delete, and never write
 the journal: at the uninstall the loader notes that an original is gone, drops the records of adopted files that are
 gone, and leaves the paths empty. Files of other packages, and Remix mods or data, stay as the loader keeps them.
+
+ADR 0189: two more functions of the menu API, for the companion's `unsubscribed_notice.lua`, act only on the RTX
+package's own Workshop item from the verified journal (never an id or path from Lua) and only in the engine's menu
+state: `rtx_steam_state()` reads the signed-in account's switch in Steam ("disabled", "enabled", "not listed"), and
+`rtx_addon_list(off)` writes the item into GMod's `garrysmod/cfg/addonnomount.txt` (true) or takes out the entry
+this session wrote (false), so a switched-off RTX is removed at the next start by the installed loaders.
 
 The module consumes the existing protected native-loader journal and config through nl_core.
 Catalog preparation expects a validated committed generation; normal use refuses absent/pending

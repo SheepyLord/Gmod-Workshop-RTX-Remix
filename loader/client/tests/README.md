@@ -19,6 +19,13 @@ adopted, partly an original is gone after archive, release, a second deployment 
 adopted) and the uninstall. `test_module.cpp` adds that the originals move only after the catalog is verified and
 before the callbacks, and the adopted files only from `GMOD_MODULE_CLOSE`, without a client realm or another game.
 
+`test_addon_list.cpp` (ADR 0189) checks the add-on list writer against GMod's own file byte for byte (and the
+loader's reader of it), a missing list and one written on one line, refusals of other files, bad ids and links, and,
+through the real deployer with a Workshop fixture, that the RTX item in the list removes the package at the next start
+and that it comes back once the entry is out. `test_steam_switch.cpp` reads Steam's per-account list layout (enabled,
+switched off, not listed, not Steam's list) and finds it per account below a Steam folder. `test_module.cpp` adds that
+both menu functions act on the verified RTX item only, in the menu realm.
+
 `test_catalog.cpp` exercises the actual `catalog::prepare` policy in synthetic game folders under
 the test build's scratch directory. `CMakeLists.txt` builds `nl_client_catalog_tests` with the
 existing `loader/tests/test_main.cpp` / `nl_test.h` harness. No game, network, real install, or user

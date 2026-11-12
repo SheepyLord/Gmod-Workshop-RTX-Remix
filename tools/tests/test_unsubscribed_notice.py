@@ -58,6 +58,27 @@ class UnsubscribedNoticeTests(unittest.TestCase):
     def test_nothing_outside_the_menu_realm(self):
         self.run_case('not-menu')
 
+    def test_switched_off_in_steam_turns_rtx_off_once_and_says_so(self):
+        self.run_case('switched-off')
+
+    def test_switched_on_again_before_the_restart_takes_the_entry_out(self):
+        self.run_case('switched-on-again')
+
+    def test_disabled_in_gmods_own_list_needs_nothing(self):
+        self.run_case('gmod-list-disable')
+
+    def test_a_turn_off_that_fails_is_said_once(self):
+        self.run_case('turn-off-failed')
+
+    def test_a_module_without_the_list_function(self):
+        self.run_case('no-list-api')
+
+    def test_without_steams_list_the_unsubscribed_notice_as_before(self):
+        self.run_case('no-steam-state')
+
+    def test_the_addon_state_command(self):
+        self.run_case('addon-state')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -25,6 +25,12 @@ Versions follow the loader's CMake project version once it ships; until then eve
   client realm left, no other game of the folder running), so the next start installs the package's own copies and an
   uninstall removes them. Nothing is deleted. Verified on the PoC with the released loader 0.16.0.
 - **The field.** The 1,164 files the uninstall had put back were moved to `out\unsub\field-backup\2026-11-11\`.
+- **Switched off in Steam ([ADR 0189](docs/decisions/0189-steams-per-account-switch-turns-rtx-off.md)).** Disabling
+  RTX in GMod's own Addons list already removed it (GMod writes `garrysmod/cfg/addonnomount.txt`, which the loader
+  reads; measured on the PoC). Steam's own per-account switch ("disabled locally") did not: GMod hides such an item but
+  Steam keeps it installed. The RTX client module now reads the signed-in account's switch, writes the RTX item into
+  GMod's list when it is off (the next start removes RTX), and the menu says how to turn it back on; the unsubscribed
+  notice no longer appears for a switched-off item.
 
 ### VR V1: RTX in the headset (approved by the user and merged on 2026-11-10)
 

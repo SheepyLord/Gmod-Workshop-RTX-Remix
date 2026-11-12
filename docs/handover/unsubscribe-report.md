@@ -77,6 +77,19 @@ the former RTX files; clean the field at once. Done by Claude on the branch `uns
   journal's 9,151 own files of the user's eleven other packages checked intact, the user's `vrmod` modules and their
   `rtx-remix/mods/~gmod_topbr/materials.usda` left as they were.
 
+## Published
+
+- **2026-11-12 01:46 UTC.** `main` fast-forwarded to `26ae9747` and pushed to GitHub with one new Git LFS object (the
+  module, 195 KB). The merge's hook built the package from `packages/` and uploaded it to item 3829070317 as
+  **0.0.0-dev.20261112014628+0c72c174** (2,085,389,645 bytes, SHA-256
+  `f4d03742396af7bf1b0119f9c4caa23fd60b02cd5c6dff225a224f2638dc2288`, content digest `942c5cba...`), through the
+  publisher's reviewed fallback for the stale Steam process record (`Couldn't initialize Steam!`, then "Success!").
+  The push's hook found the same inputs and uploaded nothing. No GitHub Action was started.
+- **What was published is what the PoC ran,** but for one file's line ends: the package of runs `06` and `07` (digest
+  `66a69bc5...`) was built in the branch's worktree, where `unsubscribed_notice.lua` still had the LF ends it was
+  written with (13,032 bytes); the main checkout has it with CRLF, as every companion file there (13,309 bytes, its
+  277 lines). The manifest differs only in that file's hash; every other file of the 1,777 is the same.
+
 ## Loader or package?
 
 Package only: every change ships with Workshop item 3829070317 and works with the installed loaders (0.14.0-0.16.0

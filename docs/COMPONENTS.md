@@ -485,6 +485,11 @@ command that lists the most expensive hooks with their add-ons, with its harness
 [`companion/tests/test_lag_report.py`](../companion/tests/test_lag_report.py.md). The fixes' light updater keeps a draw
 list ([ADR 0144](decisions/0144-the-light-updater-draws-what-the-runtime-needs.md), [packages/fixes](../packages/fixes/README.md)).
 
+Material colours above 1 (2026-11-11): the engine guard gains [`colour_cap.cpp`](../engine_guard/README.md), which wraps
+`shaderapidx9.dll`'s four float colour functions in Remix starts so a tint above 1 reaches the runtime's texture factor
+as 1 instead of a wrapped byte ([ADR 0190](decisions/0190-material-colours-above-1-capped-for-remix.md)), with the
+end-to-end `nl_engine_guard_colour_tests` and its stand-in `shaderapidx9.dll` and Remix `d3d9.dll`.
+
 ## VR in the RTX package
 
 VR V1 was approved by the user and merged on 2026-11-10 ([report](handover/VR-V1-report.md)). The loader deploys the

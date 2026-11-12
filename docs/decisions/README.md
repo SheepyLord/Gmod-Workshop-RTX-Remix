@@ -300,3 +300,7 @@ Each with the reason it lost.
   (the user's choice of 2026-11-11, no loader change): GMod's own Addons list already reaches the loader through
   `cfg/addonnomount.txt` (measured); Steam's "disabled locally" switch does not, so the RTX client module reads the
   signed-in account's switch and writes the RTX item into GMod's list when it is off.
+- [0190: Material colours above 1 capped for Remix](0190-material-colours-above-1-capped-for-remix.md) (the user's rule
+  of 2026-11-11, package only): `shaderapidx9.dll` turns a material's tint into the 8-bit texture factor with
+  `cvttss2si` and its low byte, so 1.5 reached Remix as 0.49; the engine guard wraps the four float colour functions'
+  vtable slots, found by their code, and clamps each component to [0, 1] first, in Remix starts only.

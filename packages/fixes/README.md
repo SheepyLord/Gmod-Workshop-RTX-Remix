@@ -6,6 +6,16 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## Material colours above 1 capped for Remix (2026-11-11)
+
+The user's rule ([ADR 0190](../../docs/decisions/0190-material-colours-above-1-capped-for-remix.md)): "in Remix,
+`$color` should be capped at 1 wherever it exists". `modules/gmcl_nlengineguard_win64.dll` and
+`modules/gmsv_nlengineguard_win64.dll` were rebuilt from this repository's `engine_guard/` (MIT, not part of the
+GPL-2.0 fixes) and imported with `repo_builds.py refresh`; every other indexed input is unchanged. The engine guard now
+wraps `shaderapidx9.dll`'s four float colour functions in Remix starts and clamps each component to [0, 1] before the
+engine turns it into the 8-bit texture factor (which wrapped: 1.5 became 0.49). See
+[engine_guard/README.md](../../engine_guard/README.md).
+
 ## gm_construct_in_flatgrass_rtx removed (2026-11-10)
 
 The user's answer "Remove it too" ([ADR 0155](../../docs/decisions/0155-gm-construct-in-flatgrass-rtx-leaves-the-rtx-package.md)):

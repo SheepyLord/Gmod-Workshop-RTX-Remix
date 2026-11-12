@@ -12,6 +12,10 @@
 // gmsv_ copy (the one the menu loads) has the overlay functions at all (NL_ENGINE_GUARD_MENU).
 // R28 (ADR 0142): every realm's load also switches off Windows Error Reporting's snapshot of this process
 // (crash_report.h); nlengineguard.crash_snapshots_off and .crash_snapshots say how that went.
+// ADR 0190: every realm's load also caps material colours above 1 for Remix (colour_cap.h, Remix starts only);
+// nlengineguard.colour_cap says how that went, nlengineguard.ColourCap([enabled]) -> enabled, capped switches it
+// for a comparison and counts the calls it capped.
+#include "colour_cap.h"
 #include "crash_report.h"
 #include "guard.h"
 #include "load_overlay.h"
@@ -62,6 +66,16 @@ LUA_FUNCTION_STATIC(StartupDone) {
   }
   LUA->PushBool(nl::engine_guard::watchdog::done());
   return 1;
+}
+
+// nlengineguard.ColourCap([enabled]) -> enabled, capped: material colours above 1 capped at 1 for Remix (ADR 0190).
+// A boolean switches it for the process (both copies share it); capped counts the colour calls it changed.
+LUA_FUNCTION_STATIC(ColourCap) {
+  namespace cap = nl::engine_guard::colour_cap;
+  const auto status = LUA->IsType(1, GarrysMod::Lua::Type::Bool) ? cap::set_enabled(LUA->GetBool(1)) : cap::status();
+  LUA->PushBool(status.enabled);
+  LUA->PushNumber(static_cast<double>(status.capped));
+  return 2;
 }
 
 // nlengineguard.SetMessage(title, body): the player's message in their language; body has %s for the file.
@@ -149,6 +163,7 @@ bool menu_realm(GarrysMod::Lua::ILuaBase*) { return false; }  // gmcl_: never th
 GMOD_MODULE_OPEN() {
   const auto status = nl::engine_guard::install();
   const auto snapshots = nl::engine_guard::crash_report::disable_snapshots();
+  const auto colours = nl::engine_guard::colour_cap::install();
   const bool menu = menu_realm(LUA);
   if (!menu) nl::engine_guard::watchdog::start(NL_ENGINE_GUARD_REALM);
   LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
@@ -163,6 +178,10 @@ GMOD_MODULE_OPEN() {
   LUA->SetField(-2, "crash_snapshots_off");
   LUA->PushString(snapshots.reason.c_str());
   LUA->SetField(-2, "crash_snapshots");
+  LUA->PushString(colours.reason.c_str());
+  LUA->SetField(-2, "colour_cap");
+  LUA->PushCFunction(ColourCap);
+  LUA->SetField(-2, "ColourCap");
   if (menu) {
 #if NL_ENGINE_GUARD_MENU
     LUA->PushCFunction(LoadStart);

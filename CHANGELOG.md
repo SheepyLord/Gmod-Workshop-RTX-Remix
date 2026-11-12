@@ -6,6 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Material colours above 1 under RTX (the user's report of 2026-11-11; package only, no loader or runtime change)
+
+- **Fixed: a tint above 1 darkened or discoloured a surface under RTX** (`$color2` on a model, `$color` elsewhere, a
+  render colour): the citizen of the report, gm_construct's tree cards (`$color2 [1.3 1.4 1.5]`, dark blue-grey
+  instead of green). `shaderapidx9.dll` turns the tint into the 8-bit texture factor Remix reads with `cvttss2si` and
+  its low byte, so 1.5 arrived as 0.49 and 1.3 as 0.29. The engine guard now clamps each component to at most 1
+  (and at least 0) before that conversion, in Remix starts only, as the user asked ("capped at 1 wherever it exists");
+  tints within [0, 1] are unchanged, flat starts are unchanged
+  ([ADR 0190](docs/decisions/0190-material-colours-above-1-capped-for-remix.md)). `nlengineguard.ColourCap(false)`
+  turns it off for a comparison. Tested offline with a stand-in `shaderapidx9.dll` and on the PoC.
+
 ### Unsubscribing from the RTX package (the user's report of 2026-11-11; package only, no loader change)
 
 - **Why RTX stayed.** Steam keeps a Workshop item on a computer while any other Steam account there still subscribes

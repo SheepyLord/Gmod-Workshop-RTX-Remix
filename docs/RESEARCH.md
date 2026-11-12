@@ -1,5 +1,42 @@
 # Research notes
 
+## Material colours above 1 under RTX (2026-11-11, Claude)
+
+PoC, gm_construct, noon, 1600x900; evidence `out\worktrees\color\out\color\poc` (runs `01-rtx-before` with the
+published package 0.0.0-dev.20261112014628+0c72c174, `02-flat-before` with Remix off, `03-rtx-after` with the
+branch's package). [ADR 0190](decisions/0190-material-colours-above-1-capped-for-remix.md).
+
+- **A model's `$color` is the render colour.** Seven `npc_citizen` (`male_07`) with `citizen_sheet` replaced by test
+  VMTs: `$color` 0.8, 1, 1.2, 1.5, 2, `[1.5 0.5 0.5]`, and `$color2` 1.5. After a draw, `Material(name):GetVector("$color")`
+  reads `[1 1 1]` for every one in both modes (`VertexLitGeneric_DX7` under RTX, `VertexLitGeneric` at dxlevel 95):
+  studiorender overwrites a model material's `$color` with the entity's colour modulation at each draw. `$color2`
+  keeps its value (1.5; stock `wrecked_boxcar_gate` 1.8, `tree_springers_cards_01` `[1.3 1.4 1.5]`). A model's tint
+  is therefore `$color2` (or a render colour, `Entity:SetColor`, `render.SetColorModulation`, which takes floats).
+- **Stock materials above 1** (`hl2_misc`, `content_hl2`, `garrysmod` VPKs): `models/props_trainstation/wrecked_boxcar_gate`
+  `$color2` 1.8, `models/props_foliage/tree_springers_cards_01` `[1.3 1.4 1.5]` (gm_construct's tree cards),
+  `gm_construct/flatgrass_2` `[1.5 1.6 1.5]`, `gm_construct/construct_concrete_ground_bright` `[1.6 1.6 1.7]`,
+  `nature/clifftrees_cardboard05a`, `maxofs2d/grass_02`, `effects/citadel_destroyed_card_02b/c` (`$color` 1.2),
+  `particle/particle_smokegrenade1`, `dev/dev_combinemonitor_3`. No stock citizen material has one.
+- **The conversion wraps.** `shaderapidx9.dll` (build 26229091, SHA-256 `7534cd56...8ca9`, the PoC's and the field's
+  file are the same): `Color3f` rva `0x11b50`, `Color3fv` `0x11bf0`, `Color4f` `0x11da0`, `Color4fv` `0x11e50`, the
+  only references to them four consecutive vtable slots at rva `0x7b568`-`0x7b580` (no `call`/`jmp` to them in the
+  image). Each: `movss xmmN,[rip+255.0]`, `mulss`, `cvttss2si eax,xmm`, `movzx ...,al` per component, packs
+  A R G B (3-component: `or ebx,0FF000000h`), compares with the cached `[rdi+0C88h]`, then
+  `mov edx,3Ch` (`D3DRS_TEXTUREFACTOR`), `mov rax,[rcx]`, `call [rax+1C8h]` (`IDirect3DDevice9::SetRenderState`).
+  No clamp: 1.2 -> 50, 1.3 -> 75, 1.4 -> 101, 1.5 -> 126, 1.8 -> 203, 2.0 -> 254, -0.1 -> 231.
+- **The runtime applies it to the albedo.** Stage 0's texture-factor blending is kept only for effect textures
+  (`allowsEffectColor`, `src/d3d9/d3d9_rtx.cpp:1161-1170`), but a later stage that multiplies the result by the
+  factor sets multi-stage blending before that check, for a stage without a texture (`:1104-1113`,
+  `rtx.enableMultiStageTextureFactorBlending`), and the shader multiplies the albedo by the factor, weighted by the
+  texture's opacity (`opaque_surface_material_interaction.slangh:770-778`). `materialData.tFactor` is the render
+  state's `D3DCOLOR` (`d3d9_rtx_utils.cpp:175`), so the runtime cannot recover a value above 1.
+- **What it looked like** (`01-rtx-before`): the tree cards dark blue-grey (green and yellow in `02-flat-before`); the
+  `$color2` 1.5 citizen's torso 40/64/85 against 42/79/107 for the stock one in the lit image, about a third of the
+  others in the albedo debug view (`rtx.debugView.debugViewIdx 23`, set through `RemixConfig`); the `$color` variants
+  the same as stock.
+- **After** (`03-rtx-after`): the engine guard's menu copy capped 153,012 colour calls on gm_construct before the
+  probe started; the client copy reported "installed by the other copy of this module".
+
 ## Disabling the RTX item: GMod's list and Steam's switch (2026-11-11, Claude)
 
 Measured on the PoC with the user's account and their permission (released loader 0.16.0, fixture Steam library as in

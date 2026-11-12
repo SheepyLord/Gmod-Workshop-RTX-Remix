@@ -492,7 +492,8 @@ such folders may also sit hand-placed in the field (`rtx-remix\mods\Poolday`); t
    `GetAllTextureHashes`). Mesh and light hashes have no Lua view: look at the replaced props and lamps.
    **Hold `out\r10\poc.lock` while the field game runs:** the VR labs quit any field game before their
    PoC runs and take that lock first (2026-11-12, a first Pool Day run ended this way, exit 1, no dump).
-   Put the config and the hand-placed folders back afterwards.
+   Put the config and the hand-placed folders back afterwards, then `nlctl apply <field>` (after
+   `--dry-run`: only the packs' files are removed) takes the packs out without a game start.
 
 Ported on 2026-11-12 (builds in the worktree `gmod-pbr-maps-packaging-b6de9c`'s `out\packages`; nothing
 uploaded):
@@ -501,6 +502,13 @@ uploaded):
 |---|---|---|---|
 | `pool-day-rtx` | New Pool Day 2 (`gm_new_pool_day2`, 3096281917) | `Poolday` (20 materials, 4 lights), `Poolday_mirror_fix`, `gmodrtx_poolday_fix`; 39 dangling references blanked, 5 dead files left out | 347,191,685 bytes, SHA-256 `91ca1d25...` |
 | `safehouse-rtx` | Safehouse (`gm_csgosafehouse`, 944959992) | `SafeHouse`: 60 materials, 23 mesh and 31 light overrides, 13 Poly Haven models (binary `.usd`), ambientCG textures (both CC0) | 2,818,224,776 bytes, SHA-256 `0de8223b...` |
+
+In the field (2026-11-12, loader 0.16.0, the RTX package of that day): Pool Day drew 19 of its 22 texture
+hashes (the water stand-in and two plain textures not), Safehouse 59 of 60, and its Poly Haven models and lamp
+lights appeared, so a classic mod's texture and mesh hashes still match the current runtime. Every view changed
+against Remix's replacements off; no surface went black or missing. The mods' own looks stay as authored:
+Pool Day's loungers are solid plaid slabs (its plaid albedo is opaque where the stock texture is see-through),
+Safehouse's table lamps are a marble bust. Evidence: the worktree's `out\pbr-maps\field`.
 
 ## Scripts
 

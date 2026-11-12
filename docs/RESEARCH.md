@@ -7609,3 +7609,14 @@ check their look in the field ([ADR 0191](decisions/0191-classic-map-mods-ported
   textures (`74B977689DD879A4`, white; `BBB7C7E9375B91F9`, black). The loungers (`fnpd2/chair`) are solid
   plaid slabs: the mod's 4096 plaid albedo has alpha 255 everywhere, so the stock texture's see-through slats
   fill in. The game quit normally.
+- **Safehouse in the field** (same setup, `-noworkshop`, the legacy item mounted through `steamworks.DownloadUGC`):
+  21 views at the pack's furniture, lamps and yard. The first run's machine stopped with a kernel bugcheck after
+  its fifth view (the last five of its shots were left damaged on disk); the remaining 16 views and the hash probe
+  ran in a second session. The pack changed every view (11.6-52.6 of 255). 59 of its 60 texture hashes were
+  drawn (not seen: `E036831AC1F90094`); the 13 Poly Haven models replace the stock props (sofa, armchair,
+  cabinets, stove, tea set, bust), so its mesh hashes match the current runtime too, and its light overrides
+  light the yard at night. Two looks are the mod's own choices: the table lamps (`lamp_table02`) are replaced by
+  the marble bust, which leaves that bedroom darker, and the shared riverbed rock shows `gm_br_rtx`'s version,
+  which sorts first on the user's machine.
+- **Putting the field back**: the original `config.json`, the hand-placed Poolday folders, then `nlctl apply`
+  removed the two packs' 296 files (generation 17, 358 file-system changes).

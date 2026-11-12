@@ -13,7 +13,8 @@ Versions follow the loader's CMake project version once it ships; until then eve
   2.82 GB: photoscanned textures and 13 Poly Haven models, for `gm_csgosafehouse`). Each is a Remix mod only, named after
   its map; the three Poolday folders became one mod whose sub-layers keep the classic order, after a check that no
   hash changes winner; 39 references to maps Poolday never had are blanked
-  ([ADR 0191](docs/decisions/0191-classic-map-mods-ported-as-content-packs.md)).
+  ([ADR 0191](docs/decisions/0191-classic-map-mods-ported-as-content-packs.md)). Checked in the field: Pool Day
+  drew 19 of its 22 texture hashes, Safehouse 59 of 60 with its replacement models and lights.
 - **workshop-content-pack skill:** the procedure "A classic install's map mod"; `port_classic_mods.py` (merge mod
   folders as the runtime ranked them, refuse a merge that changes a hash, blank dangling references); `usd_refs.py`
   (every layer and file a mod references, binary crate `.usd` layers included, without `pxr`); tests.

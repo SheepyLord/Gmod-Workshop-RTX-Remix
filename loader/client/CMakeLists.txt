@@ -1,4 +1,4 @@
-add_library(nl_client_catalog STATIC catalog.cpp)
+add_library(nl_client_catalog STATIC catalog.cpp former_rtx.cpp)
 target_include_directories(nl_client_catalog PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(nl_client_catalog PUBLIC nl_core PRIVATE nl_build_options)
 

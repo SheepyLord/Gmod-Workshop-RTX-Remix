@@ -9,6 +9,16 @@ children of `nativeloader/menu/` run, the API is removed after them, and they ru
 and the module takes the menu's part only in the engine's own menu state (`GetLuaInterface(State::MENU)`), checked
 before `menu` is set (the R24 review: `MENU_DLL` alone can be set by any realm's Lua).
 
+`test_former_rtx.cpp` (ADR 0188) checks which files count as the RTX package's former files; that originals' kept
+copies move into `native-loader/backup/former-rtx/<stamp>/` with an `index.json` while the rest stays; that adopted
+files move from the game only when unchanged, never mid-transaction and once; that nothing moves while
+`native-loader/lock` is held; that no other game runs from a scratch folder; and, through the real deployer
+(`nl::deploy::apply`, `nl::deploy::uninstall`), that after the archive the uninstall leaves the add-on and `lua/bin`
+paths empty, puts a Remix mod's original back and keeps the archived files, and that an earlier copy which was partly
+adopted, partly an original is gone after archive, release, a second deployment (the package's own copy, no longer
+adopted) and the uninstall. `test_module.cpp` adds that the originals move only after the catalog is verified and
+before the callbacks, and the adopted files only from `GMOD_MODULE_CLOSE`, without a client realm or another game.
+
 `test_catalog.cpp` exercises the actual `catalog::prepare` policy in synthetic game folders under
 the test build's scratch directory. `CMakeLists.txt` builds `nl_client_catalog_tests` with the
 existing `loader/tests/test_main.cpp` / `nl_test.h` harness. No game, network, real install, or user

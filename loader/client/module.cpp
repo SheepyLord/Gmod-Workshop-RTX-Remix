@@ -1,11 +1,13 @@
 #include "catalog.h"
 #include "bootstrap_data.h"
+#include "former_rtx.h"
 #include "poll.h"
 #include "nl/fs.h"
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/Lua/LuaInterface.h>
 #include <GarrysMod/Lua/LuaShared.h>
 #include <windows.h>
+#include <cstdio>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -20,6 +22,7 @@ ILuaShared* shared = nullptr;
 ILuaBase* menu = nullptr;
 ILuaInterface* client = nullptr;
 std::string status = "not initialized";
+std::filesystem::path verified_root;  // the game folder of the verified RTX start (ADR 0188)
 nl::client::PollGate gate;
 constexpr const char* kHook = "NativeLoader.VerifiedRTXClient";
 constexpr const char* kRegistry = "NativeLoader.VerifiedRTXClient.Identity";
@@ -217,6 +220,45 @@ bool is_menu_state(ILuaBase* lua) {
   auto* state = found ? found->GetLuaInterface(GarrysMod::Lua::State::MENU) : nullptr;
   return state && static_cast<ILuaBase*>(state) == lua;
 }
+std::string utc_stamp() {
+  SYSTEMTIME now{};
+  GetSystemTime(&now);
+  char stamp[32];
+  std::snprintf(stamp, sizeof stamp, "%04u%02u%02uT%02u%02u%02uZ", now.wYear, now.wMonth, now.wDay, now.wHour,
+                now.wMinute, now.wSecond);
+  return stamp;
+}
+// ADR 0188: in a verified RTX start, the files the RTX package displaced at its add-on and lua/bin paths go to
+// native-loader/backup/former-rtx, so that uninstalling the package does not put an earlier RTX installation back.
+// Never stops the module: what it did or left is added to the status line.
+std::string archive_former_rtx(const std::filesystem::path& root, const nl::journal::Journal& journal) {
+  try {
+    const auto result = nl::client::archive_former_rtx(root, journal, utc_stamp());
+    std::string text;
+    if (result.moved) text += "; former RTX files kept at " + result.folder + ": " + std::to_string(result.moved);
+    if (!result.notes.empty()) {
+      text += "; former RTX files left: " + std::to_string(result.notes.size()) + " (" + result.notes.front() + ")";
+    }
+    return text;
+  } catch (const std::exception& error) {
+    return std::string("; former RTX files not archived: ") + error.what();
+  }
+}
+// ADR 0188: when the menu state closes with the game and no client realm is left, the RTX package's adopted former
+// files (an earlier copy of its own add-on and lua/bin files, which the loader never deletes) go to
+// native-loader/backup/former-rtx as well; the next start places the package's own copies, which an uninstall
+// removes. Only for the game folder verified at the start; never throws.
+void release_adopted_files() noexcept {
+  try {
+    if (!catalog || verified_root.empty()) return;
+    if (shared && shared->GetLuaInterface(GarrysMod::Lua::State::CLIENT)) return;  // a game may still read them
+    if (nl::client::another_game_running(verified_root)) return;                   // -multirun: so may another
+    const auto journal = nl::journal::load(verified_root);
+    if (!journal || !journal->current || journal->pending) return;
+    nl::client::release_adopted(verified_root, *journal, utc_stamp() + "-adopted");
+  } catch (...) {
+  }
+}
 void hook(ILuaBase* lua, bool add) {
   const int top = lua->Top();
   lua->GetField(GarrysMod::Lua::INDEX_GLOBAL, "hook");
@@ -255,7 +297,9 @@ GMOD_MODULE_OPEN() {
                             reinterpret_cast<LPCWSTR>(&catalog), &pinned)) throw std::runtime_error("Cannot keep the RTX client bootstrap loaded");
     catalog = std::move(snapshot);
     menu = LUA;
+    verified_root = root;
     status = "verified; waiting for the client realm";
+    status += archive_former_rtx(root, *journal);
     hook(LUA, true);
     status += "; menu scripts " + std::to_string(run_menu_scripts(LUA));
   } catch (const std::exception& error) {
@@ -273,7 +317,8 @@ GMOD_MODULE_OPEN() {
 GMOD_MODULE_CLOSE() {
   if (menu == LUA) {
     try { hook(LUA, false); } catch (...) { }
-    menu = nullptr; client = nullptr; shared = nullptr; catalog.reset();
+    release_adopted_files();
+    menu = nullptr; client = nullptr; shared = nullptr; catalog.reset(); verified_root.clear();
   }
   return 0;
 }

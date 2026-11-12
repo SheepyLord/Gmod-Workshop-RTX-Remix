@@ -290,3 +290,9 @@ Each with the reason it lost.
 - [0158: The first headset frame must match its camera](0158-the-first-headset-frame-must-match-its-camera.md)
   (VR V1 second review, amends 0147 at startup): a latched VR projection alone can still contain a queued flat
   camera. Require the first actual camera match before allowing the later counted fallback.
+- [0188: Unsubscribing with the loader already installed](0188-unsubscribing-with-the-loader-already-installed.md)
+  (the user's report of 2026-11-11, no loader change; amends 0035 for one kind of original): Steam keeps an item while
+  another account of the computer subscribes, so the companion tells the unsubscribed account why RTX stays; the RTX
+  client module moves the files the RTX package found below `garrysmod/addons/` and `garrysmod/lua/bin/` (originals at an
+  RTX start, adopted ones at the session's end) into `native-loader/backup/former-rtx/`, so an uninstall no longer
+  leaves an earlier RTX installation in the game.

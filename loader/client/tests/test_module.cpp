@@ -107,3 +107,33 @@ TEST_CASE("client module: only the engine's own menu state takes the menu's part
   REQUIRE(check != std::string::npos);
   CHECK(check < open.find("menu = LUA;"));
 }
+
+TEST_CASE("client module: former RTX files are archived only in a verified RTX start, before its callbacks (ADR 0188)") {
+  const auto text = module_source();
+  const auto verified = text.find("catalog = std::move(snapshot);");
+  const auto archive = text.find("status += archive_former_rtx(root, *journal);");
+  const auto hook = text.find("hook(LUA, true);");
+  REQUIRE(verified != std::string::npos);
+  REQUIRE(archive != std::string::npos);
+  REQUIRE(hook != std::string::npos);
+  CHECK(verified < archive);
+  CHECK(archive < hook);
+  // Whatever the archive meets, the module goes on: it only adds to the status line.
+  const auto helper = body(text, "std::string archive_former_rtx(");
+  REQUIRE(!helper.empty());
+  CHECK(helper.find("catch (const std::exception& error)") != std::string::npos);
+}
+
+TEST_CASE("client module: adopted former RTX files move only when the menu state closes without a client realm (ADR 0188)") {
+  const auto text = module_source();
+  const auto close = body(text, "GMOD_MODULE_CLOSE()");
+  REQUIRE(!close.empty());
+  CHECK(close.find("release_adopted_files();") != std::string::npos);
+  const auto release = body(text, "void release_adopted_files() noexcept");
+  REQUIRE(!release.empty());
+  CHECK(release.find("GetLuaInterface(GarrysMod::Lua::State::CLIENT)") != std::string::npos);
+  CHECK(release.find("verified_root.empty()") != std::string::npos);
+  CHECK(release.find("another_game_running(verified_root)") != std::string::npos);
+  CHECK(release.find("journal->pending") != std::string::npos);
+  CHECK(release.find("catch (...)") != std::string::npos);
+}

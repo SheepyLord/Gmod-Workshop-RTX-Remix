@@ -1114,120 +1114,120 @@ msgstr "正在退出 VR..."
 msgid "VR could not start"
 msgstr "無法啟動 VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:213
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:224
 msgid "Not checked"
 msgstr "尚未檢查"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
 msgid "Yes"
 msgstr "是"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
 msgid "No"
 msgstr "否"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:222
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:233
 #, c-format
 msgid "SteamVR installed: %s; running: %s"
 msgstr "SteamVR 已安裝：%s；執行中：%s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:236
 #, c-format
 msgid "Headset: %s; %s Hz; recommended per eye: %s"
 msgstr "頭戴裝置：%s；%s Hz；每眼建議尺寸：%s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:230
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:241
 #, c-format
 msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
 msgstr "fps_max 為 %s，低於頭戴裝置的 %s Hz。請在遊戲主控台輸入 fps_max %s。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:235
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:246
 #, c-format
 msgid "Controllers tracked: left %s; right %s"
 msgstr "控制器追蹤：左 %s；右 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:236
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:247
 #, c-format
 msgid "Compositor: GPU %s ms; CPU %s ms"
 msgstr "合成器：GPU %s ms；CPU %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:241
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:252
 #, c-format
 msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
 msgstr "重投影：%s%%；掉幀：%s%%（累計）"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:242
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:253
 #, c-format
 msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
 msgstr "執行階段 GPU（ms）：總計 %s；追蹤 %s；升頻 %s；變形 %s；其他 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:244
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:255
 #, c-format
 msgid "Centre: %s; traced: %s; submitted per eye: %s"
 msgstr "中央畫面：%s；追蹤尺寸：%s；每眼提交尺寸：%s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:246
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:257
 #, c-format
 msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
 msgstr "已提交影格：%s；提交錯誤：%s；姿態相符／不符：%s／%s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:254
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
 msgid "Start VR"
 msgstr "啟動 VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:256
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
 msgid "Exit VR"
 msgstr "退出 VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:258
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Recentre VR"
 msgstr "重新置中 VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:260
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Check status"
 msgstr "檢查狀態"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:262
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
 msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
 msgstr "檢查狀態只會載入 VR 模組。按下「啟動 VR」後才會啟動 SteamVR，可能需要幾秒。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:276
 msgid "V1 uses a fixed preset. Auto quality, movement and hand controls arrive in later VR milestones. For RTX, 80 or 90 Hz is recommended."
 msgstr "V1 使用固定預設。自動畫質、移動與手部控制將於後續 VR 階段加入。RTX 建議使用 80 或 90 Hz。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:279
 msgid "World scale"
 msgstr "世界比例"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:281
 msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
 msgstr "每公尺的遊戲單位數。預設 40 可讓 72 單位高的模型對應 1.8 公尺的人。變更後請重新啟動 VR。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:282
 msgid "Render scale"
 msgstr "算繪比例"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:284
 msgid "Scale of SteamVR's recommended eye size. V1 starts at 1.00, or at most 0.50 on a low tier or below 12 GB. Restart VR after changing."
 msgstr "SteamVR 建議單眼尺寸的縮放比例。V1 預設 1.00，低效能等級或顯示記憶體不足 12 GB 時最高為 0.50。變更後請重新啟動 VR。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:274
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:285
 msgid "Culling FOV"
 msgstr "剔除視野"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:276
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:287
 msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
 msgstr "引擎可見範圍預設 145 度，已在 Index 上以 16:9 測試。算繪投影由頭戴裝置提供。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:277
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:288
 msgid "Use nl_vr_start and nl_vr_exit in the console. V1 supports single-player and the listen-server host."
 msgstr "可在主控台使用 nl_vr_start 和 nl_vr_exit。V1 支援單人遊戲與本機伺服器主機。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:291
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:302
 msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; V1 uses a lower render scale."
 msgstr "此 GPU 的 VR 可能較慢：顯示記憶體低於 12 GB 或效能等級為低。仍可啟動 VR，V1 將使用較低算繪比例。"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:298
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
 msgid "VR settings"
 msgstr "VR 設定"
 
@@ -2424,6 +2424,7 @@ msgid "You use this add-on on servers at your own risk: its developers take no r
 msgstr "在伺服器上使用本附加元件的風險由你自行承擔，開發者不對任何後果負責。"
 
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:19
 msgid "Don't show this again"
 msgstr "不再顯示此提示"
 
@@ -2434,3 +2435,24 @@ msgstr "我已了解，繼續"
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:18
 msgid "Back"
 msgstr "返回"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:14
+msgid "RTX Remix is not subscribed on this Steam account"
+msgstr "此 Steam 帳戶未訂閱 RTX Remix"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:15
+#, c-format
+msgid "This Steam account does not subscribe to RTX Remix (Workshop item %s), but RTX Remix is still installed in this game."
+msgstr "此 Steam 帳戶未訂閱 RTX Remix（Workshop 項目 %s），但 RTX Remix 仍安裝在此遊戲中。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:16
+msgid "Steam keeps a Workshop item on this computer while any other Steam account here still subscribes to it, so RTX Remix stays installed for every account. It is removed at the first game start after no Steam account on this computer subscribes to it."
+msgstr "只要這台電腦上還有其他 Steam 帳戶訂閱某個 Workshop 項目，Steam 就會在這台電腦上保留它，因此 RTX Remix 對所有帳戶都會保持安裝。當這台電腦上不再有任何 Steam 帳戶訂閱它之後，它會在下一次啟動遊戲時被移除。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:17
+msgid "To remove RTX Remix, unsubscribe from it on every Steam account on this computer. If you have only just unsubscribed, restart the game."
+msgstr "若要移除 RTX Remix，請在這台電腦上的每個 Steam 帳戶中取消訂閱它。如果你剛剛才取消訂閱，請重新啟動遊戲。"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:18
+msgid "OK"
+msgstr "確定"

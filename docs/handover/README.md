@@ -24,6 +24,10 @@ lagging the game: periodic screen read-backs stopped, repeated font definitions 
 `nativeloader_lag_report`; the light updater's bounded draw list): [R28-report.md](R28-report.md), done by Claude with a
 Claude subagent for the review (no Codex).
 
+After it, the user's report of 2026-11-11 (unsubscribing did not uninstall RTX on a computer where other Steam
+accounts subscribe; an uninstall that left an earlier RTX installation): [unsubscribe-report.md](unsubscribe-report.md),
+by Claude, package only ([ADR 0188](../decisions/0188-unsubscribing-with-the-loader-already-installed.md)).
+
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),
 by Claude (no Codex). Its follow-up, the fixes part's Seamless Portals off the same crash path:

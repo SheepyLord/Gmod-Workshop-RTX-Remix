@@ -7,6 +7,7 @@ sv_allowcslua, widen the native source allowlist, or create a general source-exe
 |---|---|
 | `catalog.h`, `catalog.cpp` | Validate the enabled RTX owner/source, bind the bootstrap module to its journaled SHA-256, and snapshot only owned add-on Lua whose exact bytes match the committed generation |
 | `module.cpp` | Menu-realm module entry, active-owned-runtime and committed-journal checks, the companion's menu scripts (R24), client-realm lifecycle polling, private catalog callbacks, completion/status and cleanup. From loader 0.10.1 every client-realm access is raw and runs inside one protected call on that realm, the temporary API is raw-set, and the module pins itself while its callbacks stay reachable ([ADR 0056](../../docs/decisions/0056-guard-and-startup-fallbacks.md)) |
+| `former_rtx.h`, `former_rtx.cpp` | [ADR 0188](../../docs/decisions/0188-unsubscribing-with-the-loader-already-installed.md): the RTX package's former files below `garrysmod/addons/` and `garrysmod/lua/bin/` (an earlier RTX installation) into `native-loader/backup/former-rtx/<UTC stamp>/` with an `index.json`, under the deployer's lock: in a verified RTX start the originals from `native-loader/backup/originals` (`archive_former_rtx`), at the end of the session the adopted files from the game (`release_adopted`); `another_game_running` (`-multirun`) |
 | `poll.h` | The polling policy: a client-realm check at most every 250 ms, and at most 480 initializer runs (two minutes) for a realm whose local player never becomes valid |
 | `bootstrap.lua` | Private client initializer: scoped include/require/file helpers, shared/client autoruns, client entity registration and owned initialization-hook replay |
 | `bootstrap.lua.md` | Initializer behavior and side effects |
@@ -24,6 +25,18 @@ line ends with `menu scripts <n>` (how many ran without an error). The module ta
 engine's own menu Lua state (`lua_shared`'s `GetLuaInterface(MENU)`): any realm's Lua can set `MENU_DLL`, and a
 listen server's realm that passed for the menu would have taken over the catalog and ended it when it closed (the R24
 review).
+
+ADR 0188: the module also takes the RTX package's former files out of the game. When the package was first deployed
+over files already at its add-on and `garrysmod/lua/bin` paths (an earlier RTX deployment whose journal was lost, a
+classic install), the loader kept the ones that differed as originals to put back when the package goes (ADR 0035) and
+adopted the identical ones, which it never deletes; without the runtime their Lua fails (`remixbinary` requiring
+`RTXFixesBinary`, the field on 2026-11-11). Once verified, before its menu scripts, the module moves the originals'
+kept copies into `native-loader/backup/former-rtx/<UTC stamp>/`; the status line says how many and where. When the
+menu state closes with the game, and only if no client realm is left and no other gmod.exe of the folder runs, it
+moves the adopted ones into `.../<UTC stamp>-adopted/`; the next start installs the package's copies as the loader's
+own. Both hold `native-loader/lock` (nothing moves while a deployer holds it), never copy or delete, and never write
+the journal: at the uninstall the loader notes that an original is gone, drops the records of adopted files that are
+gone, and leaves the paths empty. Files of other packages, and Remix mods or data, stay as the loader keeps them.
 
 The module consumes the existing protected native-loader journal and config through nl_core.
 Catalog preparation expects a validated committed generation; normal use refuses absent/pending

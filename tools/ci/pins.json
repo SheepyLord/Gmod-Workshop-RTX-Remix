@@ -96,19 +96,19 @@
         "loader/client/tests"
       ],
       "packaged": {
-        "sha256": "0c5b3dcb0eee20ca8740d1f36bfb27275e237b4469e5d87bbedf475597c1e7b0",
+        "sha256": "c78cecf2b1a5661fa3cc9aa5c3941382f51749fec37dc3f72a469b5552de3008",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "loader/CMakeLists.txt": "796b2df418aef0f9848d808ca4ec2627f84e41c972410e124020a4fb6fbdc233",
-          "loader/client": "a1636184048b55a1aa4b77b411a24080b01a1bac631362ab7d02906302b4f13b",
+          "loader/client": "b41dd644d6b416f6ed7f44b532c1dbc6a11ae265a37a5ddf8c5b108a0e8817d7",
           "loader/core": "10e71ab9e75e9977cf98b9fdc16c55a43ec3e4804a6517e4479408cedbed0d62",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
           "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693"
         },
-        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
+        "commit": "8704ae8e73af53b70cd45ac75c15b14acd30756f (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "kept: a build of these sources is the same image"
+        "how": "imported: built from these sources"
       }
     },
     {

@@ -1,5 +1,72 @@
 # Research notes
 
+## Unsubscribing on a computer with several Steam accounts (2026-11-11, Claude)
+
+The user unsubscribed from item 3829070317 and RTX still loaded at the next start (field, loader 0.16.0). Read-only
+evidence from that computer ([ADR 0188](decisions/0188-unsubscribing-with-the-loader-already-installed.md)):
+
+- **Steam's record lists every local subscriber.** `appworkshop_4000.acf` `WorkshopItemDetails` `subscribedby` held
+  three account ids for the RTX item (`923668359,1289192384,322575385`) and for 736 of 831 items; 22 had the
+  signed-in account alone, 41 no `subscribedby` (downloads). Nine items were subscribed by the other accounts only, and
+  all nine were installed with their folders: Steam keeps an item for any account of the computer.
+- **What Steam logged** (`<Steam>\logs\workshop_log.txt`, the lines naming the item):
+  `[2026-11-11 17:20:15] [AppID 4000] Unsubscribed from item 3829070317`, then
+  `Detected workshop change : keeping unsubscribed item 3829070317`; the same pair at 17:33:39; at 17:36:27, the third
+  account, `... removing unsubscribed item 3829070317`. After the third, the folder and both acf entries were gone
+  (acf rewritten 17:36:39), and the start at 17:36:52 removed the package (deployment generation 13, 1,373 changes:
+  "its Workshop item was unsubscribed, so its files are deleted"). Section 22's "removed at the next launch from Steam"
+  holds only when no other account of the computer is listed.
+- **The shared record lags; each account's own list does not.** The acf still read `subscribedby`
+  `923668359,1289192384,322575385` after the 17:20:15 unsubscribe; it was next written at 17:33:49 (then
+  `923668359` alone), three seconds after an account switch. Each account's
+  `<Steam>\userdata\<account>\ugc\4000_subscriptions.vdf` (`"subscribedfiles" { "appid" "4000" "time_last_updated" ...
+  "<n>" { "publishedfileid" "time_subscribed" "disabled_locally" } }`) was rewritten at the moment of its own
+  unsubscribe: 17:20:15.07, 17:33:39.44 and 17:36:27, and none of the three lists the item afterwards. The record also
+  kept `923668359` after the user had unsubscribed that account elsewhere, until it signed in here.
+- **The signed-in account.** `HKCU\Software\Valve\Steam\ActiveProcess\ActiveUser` (REG_DWORD) was `322575385`, and the
+  key's last-write time was each login (06:38:46Z on 2026-11-10, the login stamp in `config\loginusers.vdf`; 17:33:46
+  local at a switch), although its `pid` value was stale (31980; Steam ran as 35400 and writes `HKLM\SOFTWARE\
+  WOW6432Node\Valve\Steam\SteamPID`). `loginusers.vdf` in this client has `AutoLogin` and `timestamp` per account and no
+  `MostRecent`.
+- **What the loader reads.** For an allowlisted item, discovery never reads `subscribedby`: the folder with its archive
+  makes it a source (`loader/core/src/discovery.cpp:276-288`); it is "unsubscribed" only when the record lists it nowhere
+  and the folder is gone (`:276`). For content packages any non-zero account counts (`:105-124`, `:228-237`). A folder
+  that is gone while the record still lists the item is "not installed", which keep-last-good holds
+  (`loader/core/src/startup.cpp:22-44`).
+- **GMod's disabled add-ons.** The field's `garrysmod\cfg\addonnomount.txt` was last written on 2026-01-14 and holds two
+  ids; the signed-in account's list has six items with `disabled_locally` `1`, none of them those two. GMod's menu
+  still calls `steamworks.SetShouldMountAddon` (`html/js/menu/Subscriptions.js:57-60`, `lua/menu/errors.lua:21`), and
+  `filesystem_stdio.dll` and `menusystem.dll` still contain the file name; the loader's `disabled_by_user` reads only
+  the file (`discovery.cpp:135-150`). Not followed further.
+- **The uninstall put back an earlier RTX installation.** The field's journal started over on 2026-11-07 (its `lock`
+  and `packages` folder date from 02:50), when the RTX package's files of 2026-11-06 were still in place: the first
+  deployment kept each as an original (ADR 0035) and the removal put them back (`loader/core/src/deploy.cpp:325-370`).
+  Afterwards 1,164 of the published package's 1,568 root files were present and owned by no generation: every RTX
+  add-on folder (`nlblood` 375 files, `remixbinary` 249, `mmd_hotloader` 132, the companion `nativeloader` 67, ...),
+  twelve `garrysmod/lua/bin` modules (four older than the package's: `gmcl_RTXFixesBinary_win64.dll` 5,515,264 bytes
+  against 5,519,360), dated 2026-10-29 to 2026-11-06. The user's console showed
+  `[gmRTX - Binary Module] - remix::loadRemixDllAndInitialize() failed` from
+  `addons/remixbinary/lua/autorun/cl_rtx.lua:14`. Modules that had no earlier copy (`nlengineguard`, `nlfsaccel`,
+  `nlvr`, `openvr_api.dll`) were gone, as they should be. The loader moves such originals to a permanent archive only
+  in a legacy migration (`deploy.cpp:1041-1050`).
+- **Most of them were adopted, not originals.** The PoC run with the field's own 1,164 files in place (loader 0.16.0,
+  the published package, evidence `out\unsub\poc`): generation 257 adopted 1,108 (byte for byte the package's,
+  `deploy.cpp:878-880`) and kept 49 as originals. The deployer never deletes an adopted file (`deploy.cpp:925`,
+  `Act::drop`), so after the uninstall (generation 258) all were there again and the console printed the user's line
+  `[remixbinary] [gmRTX - Binary Module] - remix::loadRemixDllAndInitialize() failed` from
+  `addons/remixbinary/lua/autorun/cl_rtx.lua:14`, with the old `gmcl_RTXFixesBinary_win64.dll` loaded and the system
+  `d3d9.dll`. Changing an adopted file's time does not make the loader take it over: `unchanged(file, record, false)`
+  hashes a file whose time differs (`deploy.cpp:212-217`). A missing one is installed as the loader's own
+  (`deploy.cpp:862-863`).
+- **The module's close runs at a normal quit.** `GMOD_MODULE_CLOSE` of `gmsv_nlrtxclient` in the menu state ran at
+  `quit` with no client realm left: the fixed package released the 1,108 adopted files then (PoC runs `03`, `06`), and
+  the next start installed them as the loader's own (generation 260, 1,108 changes, no adopted file left). Renaming the
+  game's loaded modules in `garrysmod/lua/bin` at that point succeeded.
+- **The published package's start crashed once on the PoC** (run `01`, 0xC0000005 22 s after the launch, during the
+  first Workshop mount, after "Failed to create shader" and `DepthWrite` material errors; the runtime was active). The
+  next starts of the same PoC, with the fixed package, ran to a normal quit. Not investigated; the dump is in the
+  evidence.
+
 ## R20-Q follow-up: packaged client bootstrap (2026-11-06)
 
 The live menu rejected `remix.performance_tier` in `nl::config::load` from

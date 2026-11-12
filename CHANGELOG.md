@@ -6,6 +6,26 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Unsubscribing from the RTX package (the user's report of 2026-11-11; package only, no loader change)
+
+- **Why RTX stayed.** Steam keeps a Workshop item on a computer while any other Steam account there still subscribes
+  to it ("keeping unsubscribed item" in its workshop log), and the loader installs per computer: on the user's
+  computer three accounts subscribed, and RTX went only after the third unsubscribed. On a computer with one account
+  the next start already removes RTX (ADR 0025). Loader 0.16.0 is unchanged: the user declined a loader release
+  ([ADR 0188](docs/decisions/0188-unsubscribing-with-the-loader-already-installed.md)).
+- **A notice for the unsubscribed account.** In an RTX start, the companion's menu script `unsubscribed_notice.lua`
+  compares the item the package came from with the account's subscriptions and, when it is not among them, says why
+  RTX stays and that it goes once no account on the computer subscribes. "Don't show this again"; translated into the
+  six languages.
+- **A clean uninstall.** The uninstall had left an earlier RTX installation the loader found when it first deployed
+  (all of the field's 2026-11-06 RTX add-ons and binaries): files that differed were put back as originals, identical
+  ones had been adopted and are never deleted, and `remixbinary`'s Lua then failed without the runtime. The RTX client
+  module (`gmsv_nlrtxclient`, rebuilt) now moves such originals below `garrysmod/addons/` and `garrysmod/lua/bin/` into
+  `native-loader/backup/former-rtx/<time>/` in every RTX start, and the adopted ones at the end of the session (no
+  client realm left, no other game of the folder running), so the next start installs the package's own copies and an
+  uninstall removes them. Nothing is deleted. Verified on the PoC with the released loader 0.16.0.
+- **The field.** The 1,164 files the uninstall had put back were moved to `out\unsub\field-backup\2026-11-11\`.
+
 ### VR V1: RTX in the headset (approved by the user and merged on 2026-11-10)
 
 - **Approved and merged.** The user looked with the headset on and approved V1 on 2026-11-10; the branch `vr`

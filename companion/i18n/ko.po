@@ -1114,120 +1114,120 @@ msgstr "VR 종료 중..."
 msgid "VR could not start"
 msgstr "VR 시작 실패"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:213
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:224
 msgid "Not checked"
 msgstr "확인 안 됨"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
 msgid "Yes"
 msgstr "예"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
 msgid "No"
 msgstr "아니요"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:222
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:233
 #, c-format
 msgid "SteamVR installed: %s; running: %s"
 msgstr "SteamVR 설치: %s; 실행: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:236
 #, c-format
 msgid "Headset: %s; %s Hz; recommended per eye: %s"
 msgstr "헤드셋: %s; %s Hz; 눈당 권장 크기: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:230
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:241
 #, c-format
 msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
 msgstr "fps_max가 %s로 헤드셋의 %s Hz보다 낮습니다. 게임 콘솔에 fps_max %s를 입력하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:235
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:246
 #, c-format
 msgid "Controllers tracked: left %s; right %s"
 msgstr "컨트롤러 추적: 왼쪽 %s; 오른쪽 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:236
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:247
 #, c-format
 msgid "Compositor: GPU %s ms; CPU %s ms"
 msgstr "컴포지터: GPU %s ms; CPU %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:241
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:252
 #, c-format
 msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
 msgstr "재투영: %s%%; 누락: %s%% (누적)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:242
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:253
 #, c-format
 msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
 msgstr "런타임 GPU(ms): 전체 %s; 추적 %s; 업스케일 %s; 워프 %s; 기타 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:244
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:255
 #, c-format
 msgid "Centre: %s; traced: %s; submitted per eye: %s"
 msgstr "중앙: %s; 추적: %s; 눈당 제출 크기: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:246
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:257
 #, c-format
 msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
 msgstr "제출 프레임: %s; 제출 오류: %s; 포즈 일치 / 불일치: %s / %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:254
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
 msgid "Start VR"
 msgstr "VR 시작"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:256
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
 msgid "Exit VR"
 msgstr "VR 종료"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:258
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Recentre VR"
 msgstr "VR 중심 재설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:260
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Check status"
 msgstr "상태 확인"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:262
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
 msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
 msgstr "상태 확인은 VR 모듈만 불러옵니다. VR 시작을 누르면 SteamVR이 시작되며 몇 초 걸릴 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:276
 msgid "V1 uses a fixed preset. Auto quality, movement and hand controls arrive in later VR milestones. For RTX, 80 or 90 Hz is recommended."
 msgstr "V1은 고정 프리셋을 사용합니다. 자동 화질, 이동, 손 조작은 이후 VR 단계에서 추가됩니다. RTX에는 80 또는 90 Hz를 권장합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:279
 msgid "World scale"
 msgstr "월드 배율"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:281
 msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
 msgstr "미터당 게임 단위 수입니다. 기본값 40은 72단위 모델을 키 1.8 m인 사람에 맞춥니다. 변경 후 VR을 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:282
 msgid "Render scale"
 msgstr "렌더 배율"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:284
 msgid "Scale of SteamVR's recommended eye size. V1 starts at 1.00, or at most 0.50 on a low tier or below 12 GB. Restart VR after changing."
 msgstr "SteamVR 권장 한쪽 눈 해상도의 배율입니다. V1 기본값은 1.00이며 저성능 등급 또는 VRAM 12 GB 미만에서는 최대 0.50입니다. 변경 후 VR을 다시 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:274
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:285
 msgid "Culling FOV"
 msgstr "컬링 시야각"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:276
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:287
 msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
 msgstr "엔진 가시 범위는 기본 145도이며 Index에서 16:9로 검증했습니다. 렌더링 투영은 헤드셋이 제공합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:277
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:288
 msgid "Use nl_vr_start and nl_vr_exit in the console. V1 supports single-player and the listen-server host."
 msgstr "콘솔에서 nl_vr_start와 nl_vr_exit를 사용하세요. V1은 싱글 플레이와 리슨 서버 호스트를 지원합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:291
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:302
 msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; V1 uses a lower render scale."
 msgstr "이 GPU에서는 VR이 느릴 수 있습니다. VRAM이 12 GB 미만이거나 성능 등급이 낮습니다. VR 시작은 가능하며 V1은 낮은 렌더 배율을 사용합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:298
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
 msgid "VR settings"
 msgstr "VR 설정"
 
@@ -2424,6 +2424,7 @@ msgid "You use this add-on on servers at your own risk: its developers take no r
 msgstr "서버에서 이 애드온을 사용하는 데 따른 위험은 사용자 본인이 부담하며, 개발자는 그로 인한 어떠한 결과에도 책임을 지지 않습니다."
 
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:19
 msgid "Don't show this again"
 msgstr "다시 표시하지 않기"
 
@@ -2434,3 +2435,24 @@ msgstr "이해했으며 계속하기"
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:18
 msgid "Back"
 msgstr "뒤로"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:14
+msgid "RTX Remix is not subscribed on this Steam account"
+msgstr "이 Steam 계정은 RTX Remix를 구독하고 있지 않습니다"
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:15
+#, c-format
+msgid "This Steam account does not subscribe to RTX Remix (Workshop item %s), but RTX Remix is still installed in this game."
+msgstr "이 Steam 계정은 RTX Remix(Workshop 항목 %s)를 구독하고 있지 않지만, RTX Remix가 아직 이 게임에 설치되어 있습니다."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:16
+msgid "Steam keeps a Workshop item on this computer while any other Steam account here still subscribes to it, so RTX Remix stays installed for every account. It is removed at the first game start after no Steam account on this computer subscribes to it."
+msgstr "이 컴퓨터의 다른 Steam 계정이 아직 구독하고 있는 Workshop 항목은 Steam이 이 컴퓨터에 남겨 두므로, RTX Remix는 모든 계정에서 설치된 상태로 유지됩니다. 이 컴퓨터의 어떤 Steam 계정도 구독하지 않게 된 뒤 처음 게임을 시작할 때 제거됩니다."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:17
+msgid "To remove RTX Remix, unsubscribe from it on every Steam account on this computer. If you have only just unsubscribed, restart the game."
+msgstr "RTX Remix를 제거하려면 이 컴퓨터의 모든 Steam 계정에서 구독을 해제하세요. 방금 구독을 해제했다면 게임을 다시 시작하세요."
+
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:18
+msgid "OK"
+msgstr "확인"

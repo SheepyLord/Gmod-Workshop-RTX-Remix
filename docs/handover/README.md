@@ -34,7 +34,7 @@ Claude, package only ([ADR 0190](../decisions/0190-material-colours-above-1-capp
 
 Then the RTX fixes' crash on the queued render thread, which the VR work's crash triage traced to the fixes (a prop
 lighting hook calling into an entity the main thread had already deleted): [queued-draws-report.md](queued-draws-report.md),
-by Claude, package only, awaiting the user's approval to merge
+by Claude, package only, merged and published 2026-11-12
 ([ADR 0192](../decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md)).
 
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no

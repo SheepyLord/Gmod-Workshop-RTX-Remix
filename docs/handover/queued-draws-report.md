@@ -3,8 +3,8 @@
 The VR work (milestone V4, branch `vr2/v2q`) had its combined acceptance runs end at instruction pointer 0, and its
 Claude session traced that crash, and the earlier ones, to the RTX fixes module, not to VR code. This task fixed the
 module. Done by Claude on the branch `claude/admiring-mayer-33a48a`; package only (the fixes part's
-`gmcl_RTXFixesBinary_win64.dll` and its GPL source), no loader (`winmm.dll`) change, no runtime change. Not merged:
-a commit on `main` publishes Workshop item 3829070317, so the merge waits for the user.
+`gmcl_RTXFixesBinary_win64.dll` and its GPL source), no loader (`winmm.dll`) change, no runtime change. Merged into
+`main` on the user's approval and published to Workshop item 3829070317 (see the end).
 [ADR 0192](../decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md).
 
 ## Root cause (the triage, checked again here)
@@ -119,8 +119,21 @@ the companion's guard pins `r_forcehwlight` at 0 (`_nativeloader_guard.lua`, R3-
 give Remix no bones and draw in bind pose). Recommendation: drop the line from `autoexec.cfg` so the file says what the
 game does. It is not part of the crash fix, which holds with either value.
 
+## Published
+
+- **2026-11-12 21:00 UTC.** `main` fast-forwarded to `9edb9ffa` on the user's approval, after `tools\test.ps1 -Config
+  Release` passed at that commit in a short-path worktree (CTest 35 of 35, 903 Python tests, `NL_FIXES_CLONE` set so the
+  ten patches' tree replay ran), and was pushed with one Git LFS object (the module, 1.1 MB). The merge's hook uploaded
+  item 3829070317 as **0.0.0-dev.20261112210004+ee023f12** (2,085,715,198 bytes, SHA-256
+  `d2b8947322c74d7ec5cd50a83a479d06d9f1f1424083b44f1145e683e81e3631`), content digest `b2d32d09be40afa3...`; Steam
+  took it as a 10.7 MB update. It differs from the package the PoC runs `run1` and `run3` ran only in two documents
+  (the patch folder's `README.md`, `Source.md`) and `native/manifest.json`: the module and every other file are the
+  ones tested. The push's hook found the same inputs and uploaded nothing. A player's game gets it at a start after
+  Steam has downloaded the item.
+
 ## Open
 
-- **The merge to `main`** (which publishes item 3829070317) and **the fork's push** to GitHub
-  (`claude/queued-render-fix`): the user's approval.
-- The VR acceptance can drop its retry rule for this signature once its package carries this module.
+- **The fork's push** to GitHub (`claude/queued-render-fix`): the user's approval.
+- The VR acceptance can drop its retry rule for this signature once its package carries this module (`main` has it).
+- `run4` (the published package before this change with exactly run3's scripts) was still running at the merge; its
+  frame rate (about 60 fps in its first minutes against the fixed module's 101-105) confirms the comparison once done.

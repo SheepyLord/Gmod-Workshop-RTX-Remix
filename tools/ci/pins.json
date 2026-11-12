@@ -28,7 +28,8 @@
       "packages/fixes/licenses/oversized-skinning/upscaling-state/upscaling-state.patch",
       "packages/fixes/licenses/oversized-skinning/wuwa-maps/wuwa-maps.patch",
       "packages/fixes/licenses/oversized-skinning/endfield-maps/endfield-maps.patch",
-      "packages/fixes/licenses/oversized-skinning/game-emission/game-emission.patch"
+      "packages/fixes/licenses/oversized-skinning/game-emission/game-emission.patch",
+      "packages/fixes/licenses/oversized-skinning/queued-draws/queued-draws.patch"
     ],
     "patch_paths": [
       "source/*",
@@ -36,7 +37,7 @@
       "public/*"
     ],
     "patched_tree": {
-      "source": "474d79227b3974f1ebcc0e0d3de678d02f72e3a3",
+      "source": "4843764b963ccc93e50dfc9257aa5bc655057c62",
       "public": "7165af4dc4ab4d841a19b7405211b27190bddea6",
       "premake5.lua": "b308ed2f6b0b31aa7b69f0ee576c0bcf5f666cd1"
     },

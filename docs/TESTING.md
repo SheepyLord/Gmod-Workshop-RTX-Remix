@@ -2897,3 +2897,33 @@ What the check taught about judging a run on a machine that is in use:
   looks"). A look now needs no Pillow; unattended `vr_session.py` runs refuse up front, with exit code 2, when
   their Python cannot take screenshots. To repeat the user's side: `python -m venv out/vr/venv-nopil`, then run
   the look with `out/vr/venv-nopil/Scripts/python.exe`.
+
+## Queued draws: the fixes' crash on the render thread (2026-11-12)
+
+The RTX fixes' tenth native patch ([ADR 0192](decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md),
+[report](handover/queued-draws-report.md)):
+
+- **Release gate:** [`test_queued_draws.py`](../tools/tests/test_queued_draws.py.md) checks that the patch folder's files
+  are the patch applied, that the shipped `R_StudioSetupSkinAndLighting` hook passes the renderable only to the
+  trampoline, a debug print and `StudioDrawPolicy::BoneCount` (which compares it with null), and that
+  `ResolveModelToWorld` checks the transform-chain mode before its read; it compiles and runs
+  `studio_draw_policy_test.cpp` with `/W4 /WX`. That regression puts a deleted entity whose slot 9 points at code (never
+  called) and a renderable in a guard page (never read) through `BoneCount`; a copy of the header that calls slot 9,
+  as the old lookup did, fails it. `test_ci_tools.py`'s replay (with `NL_FIXES_CLONE` naming the fork clone) checks the
+  ten patches give the recorded tree.
+- **The built module:** disassembled with its PDB, the hook calls nothing through the renderable.
+- **PoC:** [`tools/qa/queued_draws_session.py`](../tools/qa/queued_draws_session.py.md) runs the published package and a
+  package built from the branch on gm_construct, under the PoC lock, and restores the PoC. Lighting: a still scene of
+  one-bone props, a door and a ragdoll, three captures each, compared with
+  [`compare_frames.py`](../tools/compare_frames.py.md). Crash: breakable props broken in view, solid props and doors
+  removed after a fraction of a second, console churn and a render load of CPU-skinned ragdolls.
+  What the runs taught:
+  - **Client models are no stress tool.** Eight `ClientsideModel`s created and removed a frame ended both packages'
+    sessions after 204-237 s, about 120,000 models in, in an engine `Error()` (`CUtlMultiList overflow! (exhausted index
+    range)`, exit `0xC0000409`): an engine limit, not the fixes' crash. The driver leaves them out by default.
+  - **A WER dump can land after the next run has started.** The driver takes each dump once and waits 20 s after an
+    abnormal exit.
+- **Results** ([report](handover/queued-draws-report.md)): prop lighting unchanged (`block_diff` 0.157-0.171 between
+  the packages, the same as between two shots of one session); the published package ran 24 minutes of stress without
+  its crash (the old crash needs heap contents the flat sessions do not produce, RESEARCH), and the branch's package
+  ran two 10-minute runs clean, at 101-105 fps under the render load where the published one ran at 64.

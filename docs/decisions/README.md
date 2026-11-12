@@ -306,3 +306,8 @@ Each with the reason it lost.
   vtable slots, found by their code, and clamps each component to [0, 1] first, in Remix starts only.
 - [0191: Classic map mods ported as content packs](0191-classic-map-mods-ported-as-content-packs.md) (the user's
   request of 2026-11-12: Pool Day RTX and Safehouse RTX, one mod per map that keeps each hash's classic winner and only adds)
+- [0192: The fixes never read a queued draw's renderable](0192-the-fixes-never-read-a-queued-draws-renderable.md)
+  (the VR work's crash triage of 2026-11-12, package only): on the queued render thread the RTX fixes' prop lighting
+  hook called `GetModel()` through an entity the main thread had already deleted and the game ended at instruction
+  pointer 0; the hook takes the drawn model's bone count from studiorender's own state, the lighting rule unchanged,
+  and the skinning hooks read an entity's model-to-world matrix only in the diagnostic transform-chain modes.

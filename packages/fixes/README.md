@@ -6,6 +6,20 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## The fixes never read a queued draw's renderable (2026-11-12)
+
+The VR work's crash triage found a crash in the fixes, not in VR
+([ADR 0192](../../docs/decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md)): on the queued render thread
+the prop lighting hook called `GetModel()` through an entity the main thread had already deleted, and the game ended
+at instruction pointer 0. Imported 2026-11-12 with `inputs.py --file`; every other indexed input is unchanged.
+
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,518,848 bytes, SHA-256 `a2f091ab...743ab`): the public base with the ten
+  patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The tenth,
+  [queued-draws.patch](licenses/oversized-skinning/queued-draws/queued-draws.patch): the lighting hook takes the
+  model's bone count from studiorender's own state and never reads the renderable; the lighting rule is unchanged;
+  the skinning hooks read an entity's model-to-world matrix only in the two diagnostic transform-chain modes that use
+  it ([source, tests](licenses/oversized-skinning/queued-draws/README.md)).
+
 ## Material colours above 1 capped for Remix (2026-11-11)
 
 The user's rule ([ADR 0190](../../docs/decisions/0190-material-colours-above-1-capped-for-remix.md)): "in Remix,

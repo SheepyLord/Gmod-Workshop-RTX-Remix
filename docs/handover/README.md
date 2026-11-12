@@ -32,6 +32,11 @@ Then the user's report of 2026-11-11 on material colours above 1 under RTX (`[50
 rule: "in Remix, `$color` should be capped at 1 wherever it exists"): [colour-cap-report.md](colour-cap-report.md), by
 Claude, package only ([ADR 0190](../decisions/0190-material-colours-above-1-capped-for-remix.md)).
 
+Then the RTX fixes' crash on the queued render thread, which the VR work's crash triage traced to the fixes (a prop
+lighting hook calling into an entity the main thread had already deleted): [queued-draws-report.md](queued-draws-report.md),
+by Claude, package only, awaiting the user's approval to merge
+([ADR 0192](../decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md)).
+
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),
 by Claude (no Codex). Its follow-up, the fixes part's Seamless Portals off the same crash path:

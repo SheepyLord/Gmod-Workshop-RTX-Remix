@@ -1,5 +1,10 @@
 # Oversized mesh hardware-skinning source
 
+The tenth native patch, [queued draws](queued-draws/README.md) (2026-11-12), keeps the studio render hooks from reading
+a queued draw's renderable, a deleted entity by the time the render thread draws it: the prop lighting hook takes the
+bone count from studiorender's own state, and the skinning hooks' model-to-world read runs only in the transform-chain
+modes that use it. Its folder holds the complete changed files; `tools/ci/pins.json` records the patched native tree.
+
 R23 adds the seventh native patch, [Wuthering Waves maps](wuwa-maps/README.md); after R25 the eighth gives
 [Endfield's NPC, weapon and item families](endfield-maps/README.md) imported game PBR and the ninth makes
 [imported game emission maps glow](game-emission/README.md). Each folder holds its complete changed files, and

@@ -1,0 +1,646 @@
+diff --git a/source/HardwareSkinningHooks.cpp b/source/HardwareSkinningHooks.cpp
+index 0752d65e6a5de368a7b2b64ebcec0d8d813770ba..5848e118189cd5ddd3907ba56be65cbf98ae108f 100644
+--- a/source/HardwareSkinningHooks.cpp
++++ b/source/HardwareSkinningHooks.cpp
+@@ -7,6 +7,7 @@
+ 
+ #include "HardwareSkinningHooks.h"
+ #include "oversized_skinning_policy.h"
++#include "studio_draw_policy.h"
+ #include "e_utils.h"  
+ #include "cbase.h"
+ #include "optimize.h"
+@@ -182,6 +183,11 @@ static void* g_pPendingModelToWorldRenderable = nullptr;
+ // returns whether it has one. Most model renders never need it, and the read is a
+ // ReadProcessMemory call: one per model render was 11% of the render thread with the whole
+ // map drawn.
++//
++// Only r_hwskin_transform_chain 1 and 2 use the matrix; in the default 0 the renderable is
++// never read and there is no modelToWorld. On the queued render thread the renderable can be
++// an entity the main thread has already deleted (studio_draw_policy.h); ReadProcessMemory
++// cannot fault on it, but what it reads there is no longer the entity's.
+ static bool ResolveModelToWorld()
+ {
+     void* pClientEntity = g_pPendingModelToWorldRenderable;
+@@ -190,6 +196,13 @@ static bool ResolveModelToWorld()
+     }
+     g_pPendingModelToWorldRenderable = nullptr;
+ 
++    const int transformMode = GlobalConvars::r_hwskin_transform_chain
++        ? GlobalConvars::r_hwskin_transform_chain->GetInt()
++        : 0;
++    if (!StudioDrawPolicy::TransformChainNeedsModelToWorld(transformMode)) {
++        return g_bHaveModelToWorld;
++    }
++
+     // Capture modelToWorld from pClientEntity using direct memory offset
+     // NOTE: Vtable-based IClientRenderable::RenderableToWorldTransform() crashes in GMod 64-bit
+     // due to vtable layout differences. Instead, we use direct memory offset.
+@@ -3755,7 +3768,9 @@ Define_method_Hook(__int64, R_StudioRenderFinal, void*,
+     // Set flag to indicate we're in the render final path
+     g_bInRenderFinal = true;
+     g_bHaveModelToWorld = false;
+-    // Its modelToWorld is read only if one of its draws needs it (ResolveModelToWorld).
++    // Its modelToWorld is read only if one of its draws needs it, and only in the
++    // transform-chain modes that use it (ResolveModelToWorld). Nothing else here reads
++    // pClientEntity: on the queued render thread it can be a deleted entity.
+     g_pPendingModelToWorldRenderable = pClientEntity;
+     
+     __int64 result = 0;
+diff --git a/source/prop_fixes.cpp b/source/prop_fixes.cpp
+index eaf4a3b0533640ff282a2264b90715b69630552f..0935bad15cd79d5621ce567962e76c29b32789bd 100644
+--- a/source/prop_fixes.cpp
++++ b/source/prop_fixes.cpp
+@@ -15,6 +15,7 @@
+ #ifdef _WIN64
+ #include "HardwareSkinningHooks.h"
+ #endif
++#include "studio_draw_policy.h"
+ #include <cstdio>
+ #include <cstdarg>
+ 
+@@ -145,158 +146,13 @@ static void DumpRecentModels() {
+ // Set to 0 to just use the convar override without any model inspection
+ #define PROP_FIXES_ENABLE_BONE_FILTERING 1
+ 
+-// Re-entrancy guard - prevents crashes when GetModel() triggers more rendering
++// Re-entrancy guard - a call nested inside the trampoline passes through unchanged
+ static thread_local bool g_inSkinLightingHook = false;
+ 
+ // Thread-local to pass lighting decision from SetupSkinAndLighting to DrawDynamicMesh
+ // -1 = not set, 0 = LIGHTING_HARDWARE, 1+ = software lighting
+ static thread_local int g_desiredLightingForMesh = -1;
+ 
+-static bool IsLikelyCanonicalPtr(const void* p) {
+-    auto v = reinterpret_cast<uintptr_t>(p);
+-    if (v < 0x10000) return false;
+-#ifdef _WIN64
+-    // canonical user space (very conservative)
+-    if (v > 0x00007FFFFFFFFFFFULL) return false;
+-#endif
+-    return true;
+-}
+-
+-static bool IsLikelyExecutablePtr(const void* p) {
+-    if (!IsLikelyCanonicalPtr(p)) return false;
+-
+-    MEMORY_BASIC_INFORMATION mbi{};
+-    if (VirtualQuery(p, &mbi, sizeof(mbi)) != sizeof(mbi)) return false;
+-
+-    const DWORD exec =
+-        PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY;
+-
+-    if ((mbi.State != MEM_COMMIT) || (mbi.Protect & PAGE_GUARD) || (mbi.Protect & PAGE_NOACCESS))
+-        return false;
+-
+-    return (mbi.Protect & exec) != 0;
+-}
+-
+-static bool IsValidVTableObject(const void* obj, int minMethodsToValidate = 1) {
+-    __try {
+-        if (!IsLikelyCanonicalPtr(obj)) return false;
+-
+-        void* const* vtbl = *reinterpret_cast<void* const* const*>(obj);
+-        if (!IsLikelyCanonicalPtr(vtbl)) return false;
+-
+-        // Validate a few initial slots look like code pointers.
+-        // Keep the dereference inside SEH, because vtbl itself can be garbage/unmapped.
+-        for (int i = 0; i < minMethodsToValidate; i++) {
+-            void* fn = const_cast<void*>(vtbl[i]);
+-            if (!IsLikelyExecutablePtr(fn)) return false;
+-        }
+-        return true;
+-    }
+-    __except (EXCEPTION_EXECUTE_HANDLER) {
+-        return false;
+-    }
+-}
+-
+-// --- Failure telemetry (de-dupe) ---------------------------------------------
+-
+-static thread_local void* g_lastBoneFailKey = nullptr;
+-
+-static void ReportBoneQueryFailureOnce(void* key, IClientRenderable* rend, IVModelInfo* mi, const char* stage) {
+-    if (!key) key = (void*)rend;
+-    if (!key) return;
+-
+-    if (g_lastBoneFailKey == key) {
+-        return; // de-dupe (thread-local)
+-    }
+-    g_lastBoneFailKey = key;
+-
+-    // Big "red" text in Source console/logs (Warning is red). In VS Output it will still show.
+-    Warning("\n");
+-    Warning("====================================================================\n");
+-    Warning("[PropFixes] BONE QUERY FAILED (%s)\n", stage ? stage : "<unknown>");
+-    Warning("[PropFixes] pClientRenderable=%p  pModelInfo=%p  key=%p\n", rend, mi, key);
+-    Warning("====================================================================\n");
+-    Warning("\n");
+-}
+-
+-// Helper function to get bone count from a renderable (returns -1 on error)
+-// Also returns model name via outModelName if provided (for debugging)
+-static int GetBoneCountForRenderable(IClientRenderable* pClientRenderable, IVModelInfo* pModelInfo, const char** outModelName /*= nullptr*/) {
+-    if (outModelName) *outModelName = nullptr;
+-
+-    if (!pClientRenderable || !pModelInfo) {
+-        // Don't report - null args are common and expected
+-        return -1;
+-    }
+-
+-    // Don't use vtable validation - it only checks vtable[0] but GetModel() may be at a different index
+-    // Just rely on __try/__except around the actual call
+-
+-    const model_t* mdl = nullptr;
+-
+-    __try {
+-        // SAFETY: Check if the vtable pointer itself is valid before dereferencing
+-        void** vtbl = *reinterpret_cast<void***>(pClientRenderable);
+-        if (!vtbl || !IsLikelyCanonicalPtr(vtbl)) {
+-            // Invalid vtable pointer - object is destroyed or corrupted
+-            return -1;
+-        }
+-        
+-        #if PROP_FIXES_DEBUG_LOGGING
+-        static bool once = false;
+-        if (!once) {
+-            once = true;
+-            DBG_PRINT("[PropFixes] IClientRenderable vtable - calling GetModel() at index 9\n");
+-        }
+-        #endif
+-        
+-        // Call GetModel() via direct vtable access at index 9.
+-        // Index 8 is RenderHandle() (wrong!), Index 9 is GetModel() (correct!).
+-        // Some transient/non-standard renderables expose a readable vtable with
+-        // a null or otherwise invalid GetModel slot, so validate the exact
+-        // function we are about to call instead of relying on SEH.
+-        typedef const model_t* (__thiscall* GetModelFn)(void*);
+-        void* getModelTarget = vtbl[9];
+-        if (!IsLikelyExecutablePtr(getModelTarget)) {
+-            return -1;
+-        }
+-
+-        GetModelFn GetModel = reinterpret_cast<GetModelFn>(getModelTarget);
+-        mdl = GetModel(pClientRenderable);
+-        if (!mdl) {
+-            // No model is common; don't treat as failure spam.
+-            return 0;
+-        }
+-
+-        if (outModelName) {
+-            *outModelName = pModelInfo->GetModelName(mdl);
+-        }
+-
+-        const studiohdr_t* pStudioHdr = pModelInfo->GetStudiomodel(mdl);
+-        if (!pStudioHdr) {
+-            return 0;
+-        }
+-
+-        const int bones = pStudioHdr->numbones;
+-        if (bones < 0 || bones > 4096) {
+-            // Don't report - just return error
+-            return -1;
+-        }
+-
+-        return bones;
+-    }
+-    __except (EXCEPTION_EXECUTE_HANDLER) {
+-        // Exception caught - this is normal for invalid/destroyed objects
+-        #if PROP_FIXES_DEBUG_LOGGING
+-        static int exceptCount = 0;
+-        if (++exceptCount <= 5) {  // Only log first 5 to avoid spam
+-            DBG_PRINT("[PropFixes] GetBoneCount exception #%d caught (expected for invalid objects)\n", exceptCount);
+-        }
+-        #endif
+-        return -1;
+-    }
+-}
+-
+ // Debug counters for bone count distribution
+ #if PROP_FIXES_DEBUG_LOGGING
+ static int g_boneCountStats[5] = {0};  // [-1/error, 0, 1, 2+, reentrant]
+@@ -339,72 +195,52 @@ Define_method_Hook(IMaterial*, R_StudioSetupSkinAndLighting, void*, IMatRenderCo
+     
+     // Now we can override the lighting OUTPUT after the trampoline has run
+     // This is the pattern that worked in the old code
+-    
++
+ #ifdef _WIN64
+-    // Handle global convar override if it exists
+-    if (GlobalConvars::r_forcehwlight && GlobalConvars::r_forcehwlight->GetBool()) {
+-        // Force HW lighting on everything - user requested via convar
+-                        lighting = 0; // LIGHTING_HARDWARE 
+-        g_desiredLightingForMesh = 0;
+-        g_inSkinLightingHook = false;
+-        return pMaterial;
+-    }
++    // Global convar override: force HW lighting on everything - user requested via convar
++    const bool forceHwLighting = GlobalConvars::r_forcehwlight && GlobalConvars::r_forcehwlight->GetBool();
++#else
++    const bool forceHwLighting = false;
+ #endif
+ 
+ #if PROP_FIXES_ENABLE_BONE_FILTERING
+-    // Only force LIGHTING_HARDWARE on simple models (single bone or no bones)
+-    const char* modelName = nullptr;
+-    int boneCount = GetBoneCountForRenderable(pClientRenderable, pModelInfo, &modelName);
+-    
++    // Only force LIGHTING_HARDWARE on simple models (single bone or no bones), and on skinned ones with
++    // r_forcehwskin (the engine's HW skinning path); other skinned models keep the trampoline's decision.
++    // The bone count is the drawn model's, from studiorender's own state (_this is CStudioRender).
++    // pClientRenderable is never read: on the queued render thread it can point at an entity the main
++    // thread has already deleted, and calling GetModel() through it crashed the game (studio_draw_policy.h).
++    const int boneCount = forceHwLighting ? -1 : StudioDrawPolicy::BoneCount(_this, pClientRenderable);
++    const bool forceHwSkinning = GlobalConvars::r_forcehwskin && GlobalConvars::r_forcehwskin->GetBool();
++
+ #if PROP_FIXES_DEBUG_LOGGING
+     // Track bone count distribution
+     if (boneCount < 0) g_boneCountStats[0]++;
+     else if (boneCount == 0) g_boneCountStats[1]++;
+     else if (boneCount == 1) g_boneCountStats[2]++;
+     else g_boneCountStats[3]++;
+-    
++
+     // Dump stats every 1000 calls
+     if (g_debugCallCount - g_lastStatsDump >= 1000) {
+         g_lastStatsDump = g_debugCallCount;
+         DBG_PRINT("[PropFixes] Stats after %d calls: errors=%d, 0bones=%d, 1bone=%d, 2+bones=%d, reentrant=%d\n",
+             g_debugCallCount, g_boneCountStats[0], g_boneCountStats[1], g_boneCountStats[2], g_boneCountStats[3], g_boneCountStats[4]);
+     }
+-    
++
+     // Log individual calls occasionally
+-    if (g_debugCallCount % 200 == 0 && modelName) {
+-        DBG_PRINT("[PropFixes] Call #%d: model=%s, bones=%d, trampoline_lighting=%d\n", 
+-            g_debugCallCount, modelName, boneCount, lighting);
++    if (g_debugCallCount % 200 == 0) {
++        DBG_PRINT("[PropFixes] Call #%d: bones=%d, trampoline_lighting=%d\n",
++            g_debugCallCount, boneCount, lighting);
+     }
+ #endif
+-    
+-    if (boneCount >= 0 && boneCount <= 1) {
+-        // Simple model - override lighting AFTER trampoline (this is what makes it work!)
+-#if PROP_FIXES_DEBUG_LOGGING
+-        if (lighting != 0 && g_debugCallCount % 200 == 0) {
+-            DBG_PRINT("[PropFixes] Overriding lighting %d -> 0 for simple model (bones=%d)\n", lighting, boneCount);
+-        }
+-#endif
++
++    const StudioDrawPolicy::Lighting chosen =
++        StudioDrawPolicy::ChooseLighting(lighting, boneCount, forceHwLighting, forceHwSkinning);
++    lighting = chosen.lighting;
++    g_desiredLightingForMesh = chosen.meshLighting;
++#else
++    if (forceHwLighting) {
+         lighting = 0; // LIGHTING_HARDWARE
+-        g_desiredLightingForMesh = 0;
+-    } else {
+-        // Multi-bone model (skinned)
+-        // Check if r_forcehwskin is enabled - if so, force hardware lighting for skinned models
+-        // This ensures the engine uses the HW skinning code path
+-        bool forceHwSkinning = GlobalConvars::r_forcehwskin && GlobalConvars::r_forcehwskin->GetBool();
+-        if (forceHwSkinning) {
+-#if PROP_FIXES_DEBUG_LOGGING
+-            if (lighting != 0 && g_debugCallCount % 200 == 0) {
+-                DBG_PRINT("[PropFixes] Overriding lighting %d -> 0 for SKINNED model (bones=%d, r_forcehwskin=1)\n", lighting, boneCount);
+-            }
+-#endif
+-            lighting = 0; // LIGHTING_HARDWARE - forces HW skinning path
+-            g_desiredLightingForMesh = 0;
+-        } else {
+-            // Keep trampoline's lighting decision
+-            g_desiredLightingForMesh = lighting;
+-        }
+     }
+-#else
+     g_desiredLightingForMesh = lighting;
+ #endif // PROP_FIXES_ENABLE_BONE_FILTERING
+ 
+diff --git a/source/studio_draw_policy.h b/source/studio_draw_policy.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..f90daa95add0535d7cb778806e2399b8c05e317c
+--- /dev/null
++++ b/source/studio_draw_policy.h
+@@ -0,0 +1,89 @@
++// SPDX-License-Identifier: GPL-2.0-only
++#pragma once
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <excpt.h>
++
++// What the studio render hooks may read while a model is drawn.
++//
++// With queued rendering (mat_queue_mode 2, GMod's default), studiorender draws each model on the material
++// system's render thread from a copy of the main thread's DrawModelInfo_t. Its IClientRenderable* is only
++// that copy's pointer: when the main thread removes the entity (a prop breaks, a gib fades out, a script
++// removes it) while its draw is still queued, the pointer refers to freed memory. prop_fixes.cpp called
++// GetModel() through that pointer's vtable; the stale slot ran whatever it pointed at, which overwrote the
++// return address, and the game ended at instruction pointer 0 with no handler able to run (three crashes on
++// 2026-11-11 and 2026-11-12, return address gmcl_RTXFixesBinary_win64.dll+0x41605b). So the hooks take what
++// they need from studiorender's own state for the draw and never read the renderable.
++namespace StudioDrawPolicy {
++
++// CStudioRender, the hooks' `this`, in GMod's x64 studiorender.dll: m_pStudioHdr, the header of the model being
++// drawn, which DrawModel, DrawModelStaticProp and DrawModelArray set from the draw's own info before any mesh
++// is drawn. HardwareSkinningHooks.cpp reads the same field (with m_PoseToWorld at +0xE8).
++constexpr std::size_t StudioRenderStudioHdrOffset = 0x108;
++// studiohdr_t: id ("IDST") at 0, numbones at 0x9C.
++constexpr std::size_t StudioHdrIdOffset = 0;
++constexpr std::size_t StudioHdrNumBonesOffset = 0x9C;
++constexpr std::int32_t StudioHeaderId = ('T' << 24) + ('S' << 16) + ('D' << 8) + 'I';
++// The bone counts the renderable lookup accepted.
++constexpr int MaxBones = 4096;
++
++// LIGHTING_HARDWARE in StudioModelLighting_t.
++constexpr int LightingHardware = 0;
++
++struct Lighting {
++    int lighting;     // what R_StudioSetupSkinAndLighting hands back to its caller
++    int meshLighting; // what the R_StudioDrawDynamicMesh hook draws this material's meshes with
++};
++
++// prop_fixes' rule, unchanged: r_forcehwlight puts every model on hardware lighting, and so does a model with
++// at most one bone; a skinned model, or one whose bone count is unknown (-1), gets it when r_forcehwskin is
++// on and keeps the engine's choice otherwise.
++constexpr Lighting ChooseLighting(
++    int engineLighting, int bones, bool forceHardwareLighting, bool forceHardwareSkinning)
++{
++    if (forceHardwareLighting || (bones >= 0 && bones <= 1) || forceHardwareSkinning) {
++        return {LightingHardware, LightingHardware};
++    }
++    return {engineLighting, engineLighting};
++}
++
++// The bone count of the model studiorender is drawing, from its own state, or -1 when it is unknown: no
++// renderable (the renderable lookup found no model then either; the pointer is only compared with null), no
++// header, or one that is not a studio header. The header is the one studiorender itself draws from, valid
++// for as long as the draw runs. A read that faults gives -1 (a changed layout must not end the game).
++inline int BoneCount(const void* studioRender, const void* clientRenderable)
++{
++    if (!clientRenderable || reinterpret_cast<std::uintptr_t>(studioRender) < 0x10000) {
++        return -1;
++    }
++    __try {
++        const unsigned char* header = nullptr;
++        std::memcpy(&header, static_cast<const unsigned char*>(studioRender) + StudioRenderStudioHdrOffset,
++            sizeof(header));
++        if (reinterpret_cast<std::uintptr_t>(header) < 0x10000) {
++            return -1;
++        }
++        std::int32_t id = 0;
++        std::int32_t bones = 0;
++        std::memcpy(&id, header + StudioHdrIdOffset, sizeof(id));
++        std::memcpy(&bones, header + StudioHdrNumBonesOffset, sizeof(bones));
++        if (id != StudioHeaderId || bones < 0 || bones > MaxBones) {
++            return -1;
++        }
++        return bones;
++    }
++    __except (EXCEPTION_EXECUTE_HANDLER) {
++        return -1;
++    }
++}
++
++// r_hwskin_transform_chain: 0, the default, uploads studiorender's pose-to-world bones as they are; 1 and 2
++// make them model-relative with the drawn entity's model-to-world, the only use of that matrix. So only those
++// two modes read the entity's coordinate frame, through ReadProcessMemory, which cannot fault.
++constexpr bool TransformChainNeedsModelToWorld(int mode)
++{
++    return mode == 1 || mode == 2;
++}
++
++} // namespace StudioDrawPolicy
+diff --git a/tests/studio_draw_policy_test.cpp b/tests/studio_draw_policy_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..98db68a77fe1ec0cf4b3e9df88fd9a32eb5f27ed
+--- /dev/null
++++ b/tests/studio_draw_policy_test.cpp
+@@ -0,0 +1,226 @@
++// GPL-2.0. Regression for source/studio_draw_policy.h: the studio render hooks take the drawn model from
++// studiorender's own state and never read the renderable, which on the queued render thread can be an entity
++// the main thread has already deleted (the crashes of 2026-11-11 and 2026-11-12 at instruction pointer 0).
++// Compiles alone (no SDK, Windows): cl /EHsc /std:c++17 /W4 /WX /UNDEBUG tests/studio_draw_policy_test.cpp
++#include <cassert>
++#include <cstdint>
++#include <cstring>
++#include <iostream>
++#ifndef WIN32_LEAN_AND_MEAN
++#define WIN32_LEAN_AND_MEAN
++#endif
++#ifndef NOMINMAX
++#define NOMINMAX
++#endif
++#include <windows.h>
++#include "../source/studio_draw_policy.h"
++
++using namespace StudioDrawPolicy;
++
++namespace {
++
++// The first bytes of a studiohdr_t, as far as the policy reads them.
++struct Header {
++    alignas(8) unsigned char bytes[0xA0] = {};
++    explicit Header(int bones, std::int32_t id = StudioHeaderId) {
++        std::memcpy(bytes + StudioHdrIdOffset, &id, sizeof(id));
++        std::memcpy(bytes + StudioHdrNumBonesOffset, &bones, sizeof(bones));
++    }
++};
++
++// CStudioRender up to m_pStudioHdr.
++struct StudioRender {
++    alignas(8) unsigned char bytes[StudioRenderStudioHdrOffset + sizeof(void*)] = {};
++    explicit StudioRender(const void* header) { Point(header); }
++    void Point(const void* header) { std::memcpy(bytes + StudioRenderStudioHdrOffset, &header, sizeof(header)); }
++};
++
++// A deleted entity as the dumps show it: its first word still leads to a table whose slot 9
++// (IClientRenderable::GetModel) points at code. The renderable lookup this policy replaced called that slot.
++bool g_staleSlotCalled = false;
++void* StaleSlot(void*)
++{
++    g_staleSlotCalled = true;
++    return nullptr;
++}
++struct DeletedEntity {
++    void* vtable = nullptr;
++    void* table[16] = {};
++    DeletedEntity()
++    {
++        for (void*& slot : table) {
++            slot = reinterpret_cast<void*>(&StaleSlot);
++        }
++        vtable = table;
++    }
++};
++
++// A renderable in a guard page: any read of it raises the guard exception, and Windows clears the guard.
++struct GuardedPage {
++    void* page = nullptr;
++    GuardedPage()
++    {
++        page = VirtualAlloc(nullptr, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
++        assert(page != nullptr);
++        DWORD old = 0;
++        const BOOL guarded = VirtualProtect(page, 4096, PAGE_READWRITE | PAGE_GUARD, &old);
++        assert(guarded);
++    }
++    ~GuardedPage() { VirtualFree(page, 0, MEM_RELEASE); }
++    bool Untouched() const
++    {
++        MEMORY_BASIC_INFORMATION info{};
++        const SIZE_T size = VirtualQuery(page, &info, sizeof(info));
++        assert(size == sizeof(info));
++        return (info.Protect & PAGE_GUARD) != 0;
++    }
++};
++
++// Reads one byte and says whether that raised an exception (no objects to unwind here, for __try).
++bool ReadRaises(const void* address)
++{
++    __try {
++        volatile unsigned char probe = *static_cast<const volatile unsigned char*>(address);
++        (void)probe;
++        return false;
++    }
++    __except (EXCEPTION_EXECUTE_HANDLER) {
++        return true;
++    }
++}
++
++// A page nobody may read, for headers that are not there.
++struct NoAccessPage {
++    unsigned char* page = nullptr;
++    NoAccessPage()
++    {
++        page = static_cast<unsigned char*>(VirtualAlloc(nullptr, 8192, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
++        assert(page != nullptr);
++        DWORD old = 0;
++        const BOOL closed = VirtualProtect(page + 4096, 4096, PAGE_NOACCESS, &old);
++        assert(closed);
++    }
++    ~NoAccessPage() { VirtualFree(page, 0, MEM_RELEASE); }
++};
++
++void BoneCountFromTheDraw()
++{
++    Header prop(1), chunk(0), ragdoll(57), most(MaxBones);
++    StudioRender render(&prop);
++    int renderable = 0;
++    assert(BoneCount(&render, &renderable) == 1 && "the drawn model's bone count");
++    render.Point(&chunk);
++    assert(BoneCount(&render, &renderable) == 0);
++    render.Point(&ragdoll);
++    assert(BoneCount(&render, &renderable) == 57 && "the next draw's model, whatever the renderable says");
++    render.Point(&most);
++    assert(BoneCount(&render, &renderable) == MaxBones);
++}
++
++void UnknownCounts()
++{
++    int renderable = 0;
++    Header prop(1);
++    StudioRender render(&prop);
++    assert(BoneCount(&render, nullptr) == -1 && "a draw without a renderable keeps -1, as the lookup gave it");
++    assert(BoneCount(nullptr, &renderable) == -1);
++    assert(BoneCount(reinterpret_cast<const void*>(std::uintptr_t{0x1234}), &renderable) == -1);
++
++    Header tooMany(MaxBones + 1), negative(-5), notStudio(1, 0x12345678);
++    for (const Header* header : {&tooMany, &negative, &notStudio}) {
++        render.Point(header);
++        assert(BoneCount(&render, &renderable) == -1 && "only a studio header with a sane bone count");
++    }
++    render.Point(nullptr);
++    assert(BoneCount(&render, &renderable) == -1);
++    render.Point(reinterpret_cast<const void*>(std::uintptr_t{0x40}));
++    assert(BoneCount(&render, &renderable) == -1);
++
++    // A header that is not readable (a changed layout) gives -1 instead of ending the game.
++    NoAccessPage closed;
++    render.Point(closed.page + 4096);
++    assert(BoneCount(&render, &renderable) == -1);
++    // ... also when only numbones lies past the readable page.
++    unsigned char* edge = closed.page + 4096 - 8;
++    const std::int32_t id = StudioHeaderId;
++    std::memcpy(edge, &id, sizeof(id));
++    render.Point(edge);
++    assert(BoneCount(&render, &renderable) == -1);
++}
++
++void TheRenderableIsNeverRead()
++{
++    Header gib(1);
++    StudioRender render(&gib);
++
++    DeletedEntity deleted;
++    assert(BoneCount(&render, &deleted) == 1);
++    assert(!g_staleSlotCalled && "nothing is called through the renderable's vtable");
++
++    GuardedPage guarded;
++    assert(BoneCount(&render, guarded.page) == 1);
++    assert(guarded.Untouched() && "not one byte of the renderable is read");
++
++    // The guard works: a read trips it.
++    const bool tripped = ReadRaises(guarded.page);
++    assert(tripped && !guarded.Untouched() && "the guard page notices a read");
++}
++
++void LightingRuleUnchanged()
++{
++    constexpr int software = 1, mouth = 2;
++    struct Case { int engine, bones; bool forceLight, forceSkin; int lighting; };
++    const Case cases[] = {
++        {software, 1, false, false, LightingHardware},  // a one-bone prop gets hardware lighting
++        {software, 0, false, false, LightingHardware},  // so does a model without bones
++        {software, 2, false, false, software},          // a skinned model keeps the engine's choice
++        {LightingHardware, 57, false, false, LightingHardware},
++        {mouth, 57, false, false, mouth},
++        {software, 57, false, true, LightingHardware},  // r_forcehwskin: hardware for skinned models
++        {software, -1, false, false, software},         // an unknown count counts as skinned
++        {software, -1, false, true, LightingHardware},
++        {software, 57, true, false, LightingHardware},  // r_forcehwlight: hardware for everything
++        {mouth, -1, true, false, LightingHardware},
++    };
++    for (const Case& c : cases) {
++        const Lighting chosen = ChooseLighting(c.engine, c.bones, c.forceLight, c.forceSkin);
++        assert(chosen.lighting == c.lighting && chosen.meshLighting == c.lighting);
++    }
++    // The rule prop_fixes.cpp wrote out before this change, over a grid.
++    for (int engine : {0, 1, 2}) {
++        for (int bones : {-1, 0, 1, 2, 3, 57, 128, MaxBones}) {
++            for (bool forceLight : {false, true}) {
++                for (bool forceSkin : {false, true}) {
++                    int lighting = engine;
++                    if (forceLight || (bones >= 0 && bones <= 1) || forceSkin) {
++                        lighting = LightingHardware;
++                    }
++                    const Lighting chosen = ChooseLighting(engine, bones, forceLight, forceSkin);
++                    assert(chosen.lighting == lighting && chosen.meshLighting == lighting);
++                }
++            }
++        }
++    }
++}
++
++void TransformChainModes()
++{
++    assert(!TransformChainNeedsModelToWorld(0) && "the default never reads the renderable");
++    assert(TransformChainNeedsModelToWorld(1) && TransformChainNeedsModelToWorld(2));
++    assert(!TransformChainNeedsModelToWorld(-1) && !TransformChainNeedsModelToWorld(3));
++}
++
++} // namespace
++
++int main()
++{
++    BoneCountFromTheDraw();
++    UnknownCounts();
++    TheRenderableIsNeverRead();
++    LightingRuleUnchanged();
++    TransformChainModes();
++    std::cout << "PASS studio draw policy: bone counts from studiorender's header (0, 1, 57, 4096), unknown counts "
++                 "(no renderable, no or unreadable header, wrong id, out of range), a deleted entity's renderable "
++                 "never read or called, the lighting rule unchanged, model-to-world only for transform chains 1 and 2\n";
++    return 0;
++}

@@ -1,5 +1,71 @@
 # Research notes
 
+## The fixes' crash on the queued render thread (2026-11-12, Claude)
+
+Four `gmod.exe` crashes in VR test sessions on 2026-11-11 and 2026-11-12, triaged by the VR work's Claude session; the
+dumps and the tools that read them (`dump_ip0.py`, `dump_thread.py`, `sym.py`, `dump_rtti.py`, `dump_remnants.py`,
+run with `py -3 -I`, which has the `minidump` package) are in the main checkout's `out\vr\v2\crash`.
+[ADR 0192](decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md).
+
+- **Where dumps come from.** Windows Error Reporting's LocalDumps writes every crashed `gmod.exe`'s dump to
+  `H:\SteamLibrary\steamapps\common\GarrysMod_RTX_c\_debug_tools\hangdumps\wer` (about 360 MB each). That install is
+  read-only for agents: copy from it. A crash whose stack is gone (a `ret` to address 0) reaches no frame handler,
+  neither GMod's nor Remix's Sentry, so WER's dump is the only one.
+- **The chain.** All four: the faulting thread starts at `tier0.dll+0x12070`, a worker (the material system's queued
+  rendering), and its stack holds `gmcl_RTXFixesBinary_win64.dll+0x23a71e`/`+0x23a837` (`HardwareSkinningHooks.cpp:3764`
+  and `:3730`, the `R_StudioRenderFinal` hook calling its trampoline inside `__try`), `studiorender.dll+0x1239d`,
+  `+0x22f1b8` (`detouring/hook.hpp:126`), `+0x233bfd` (`convar.h:460`, `r_forcehwlight->GetBool()`), `+0x41605b`
+  (`prop_fixes.cpp:357`, the `R_StudioSetupSkinAndLighting` hook calling `GetBoneCountForRenderable`) and, in the
+  03:08 dump, `+0x415442` (`prop_fixes.cpp:265`, the call of the renderable's vtable slot 9, `GetModel`). Three end at
+  instruction pointer 0 (exception `0xc0000005` at `0x0`, parameters `8, 0`: an execute fault); the 03:08 one faults in
+  `client.dll+0x5744c` reading `-1`. Lines from the crashed build's PDB (timestamp `0x6af185ec`, SHA-256 `477c2266...`,
+  in `.claude\worktrees\eager-torvalds-992bf3\out\ci\work\fixes\x86_64\ReleaseWithSymbols`) through dbghelp.
+- **What studiorender was drawing.** `CStudioRender` is the global at `studiorender.dll+0xb2470` (the hooks' `this`,
+  `rdi` at the fault). In GMod's x64 build: `+0x08` `m_pRC`, `+0xE8` `m_PoseToWorld`, `+0x108` `m_pStudioHdr` (the
+  drawn model's header; `numbones` at its `+0x9C`, `id` `IDST` at `+0`), `+0x110` the sub-model being drawn, inside that
+  header (in the 08:03 dump `+0x3D4` past it, named `watermelon01_chunk02c_reference.smd`). The header pages themselves
+  are not in WER's dumps. Models at the four crashes: `cube025x025x025` (after the fixture deleted scene entities),
+  `watermelon01_chunk01c` and `watermelon01_chunk02c` (gibs), `wood_crate001a` (a crate swung as a bat).
+- **Why a freed entity is drawn.** In queued mode studiorender's `DrawModel` queues the whole draw for the render
+  thread with a copy of `DrawModelInfo_t`, whose `m_pClientEntity` (the `IClientRenderable*`, the entity plus 8) is
+  only a pointer. The main thread deletes a client entity at once (`C_BaseEntity::Release`, `delete this`) when a
+  prop breaks, a gib fades or a script removes it, possibly while its previous frame's draw is still queued.
+  `pClientRenderable` then points into freed memory: its first qword was a heap pointer (a free-list link), and
+  member vtables (`IInterpolatedVar`, `CCollisionProperty`, `CParticleProperty`) were still in place. Slot 9 of what
+  the heap pointer points at can be an address in code, which `IsLikelyExecutablePtr` accepts. The engine's own
+  draw passes the pointer on only as proxy data; the fixes were the only code on that thread to call into it.
+- **What the freed memory held.** The old hook spilled `pClientRenderable` into its caller's shadow space beside the
+  return address `+0x41605b`, so every dump still has it (`0x274397e3618` in the 08:03 dump). In all four the entity's
+  first two qwords (the entity's `+0` and `+8`, the renderable's "vtable") point to one block `S`, and `S` has the
+  layout of a dlmalloc tree chunk: `+0x08` `0x1be1`, `0x1dc1` or `0x29c1` (a chunk size with the in-use bit of the
+  chunk before it), `+0x10` and `+0x18` both the freed entity's chunk (entity minus 0x10; a two-chunk ring of equal
+  sizes), `+0x20`/`+0x28` children, `+0x30` parent, `+0x38` the tree-bin index (9, 9, 10, 9: exactly dlmalloc's index
+  for 7,136, 7,616 and 10,688 bytes). Slot 9 is `S+0x48`, stale data 0x38 bytes into the other freed chunk:
+  `tier0.dll+0x12a5a` (twice), `tier0.dll+0xad9d` and `client.dll+0x5744c`, return addresses inside functions. So the
+  crash needs a freed entity whose equal-size ring partner held a code address at that offset. The VR sessions'
+  allocations made that happen; the PoC's flat stress sessions did not in about 24 minutes of entity removals in view
+  ([report](handover/queued-draws-report.md)), which is why the triage's dumps, not a flat repro, show the old
+  module's crash.
+- **An engine limit found on the way.** Creating and removing eight `ClientsideModel`s a frame ends GMod after about
+  120,000 of them (204-237 s at 67 fps, either package): `CUtlMultiList overflow! (exhausted index range)` in the log,
+  then a fail-fast (`0xC0000409`, parameter 5) in `engine.dll+0x34b6bc` on a Lua call path. Only eight were alive at
+  a time, so removing a client model evidently does not give back what it took from that list (inferred, not traced);
+  a stress test must not churn them.
+- **The hooks that see a renderable.** In the fork's source only `prop_fixes.cpp` (`R_StudioSetupSkinAndLighting`) and
+  `HardwareSkinningHooks.cpp` (`R_StudioRenderFinal`, which kept it for `ResolveModelToWorld`: the entity's
+  `m_rgflCoordinateFrame` at the entity's `+0x3F8`, read with `ReadProcessMemory`). That matrix is used only with
+  `r_hwskin_transform_chain` 1 or 2 (`ComputeFinalBoneMatrix`; the default 0 uploads `m_PoseToWorld` unchanged).
+  The other studio hooks (eyeball, single mesh, flexed mesh, draw group, dynamic mesh) read `CStudioRender`'s fields;
+  `model_draw_hook.cpp`'s hooks run on the main thread and never dereference a renderable. Other entity references in
+  the fork are numeric ids.
+- **`r_forcehwlight` from the package's `autoexec.cfg` never applies.** The module creates that convar at map load
+  (`[RTX Fixes 2] r_forcehwlight convar ready`, line 174 of a PoC session's log), after `autoexec.cfg` has run, and no
+  game DLL defines it (only `gmcl_RTXFixesBinary_win64.dll` holds the name); its default is 0, and neither the PoC's
+  nor the field's `config.cfg` saves it. Every crash stack went past the hook's `r_forcehwlight` check into the bone
+  lookup, so it was 0 there. The companion's guard also pins it at 0 on purpose (`_nativeloader_guard.lua`: with 1,
+  GPU-skinned characters give Remix no bones and draw in bind pose, R3-016), so the cfg's `r_forcehwlight 1` contradicts
+  that decision as well. Whether to drop the line is the user's call; the crash fix does not depend on it.
+
 ## Material colours above 1 under RTX (2026-11-11, Claude)
 
 PoC, gm_construct, noon, 1600x900; evidence `out\worktrees\color\out\color\poc` (runs `01-rtx-before` with the

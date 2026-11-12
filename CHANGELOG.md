@@ -6,6 +6,25 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The RTX fixes' crash on the queued render thread (found in the VR work's crash triage, 2026-11-12; package only, no loader change)
+
+- **Fixed: removing props, gibs or other entities in view could crash the game** with no crash dialog and no dump of
+  its own (instruction pointer 0; Windows Error Reporting kept the only dump). With queued rendering studiorender draws
+  each model on the render thread from a copy of its draw data, and the RTX fixes' prop lighting hook called
+  `GetModel()` through the entity's renderable to count the model's bones. When the main thread had already deleted
+  the entity, the call ran whatever the freed memory pointed at. Four VR test crashes on 2026-11-11 and 2026-11-12 had
+  that chain (return address `gmcl_RTXFixesBinary_win64.dll+0x41605b`); the published package has it too. The hook
+  now takes the bone count from studiorender's own state for the draw and never reads the renderable; which models
+  get hardware lighting is unchanged. The skinning hooks read an entity's model-to-world matrix only in the two
+  diagnostic `r_hwskin_transform_chain` modes that use it
+  ([ADR 0192](docs/decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md)).
+- The fixes' tenth native patch, `packages/fixes/licenses/oversized-skinning/queued-draws`, with an SDK-free
+  regression (`studio_draw_policy_test.cpp`: a deleted entity's renderable is neither read nor called) that the
+  Release gate compiles and runs (`tools/tests/test_queued_draws.py`); `gmcl_RTXFixesBinary_win64.dll` rebuilt with
+  `tools/ci/build_modules.ps1 -Only fixes` (SHA-256 `a2f091ab...`) and imported.
+- `tools/qa/queued_draws_session.py` with its probe and server script: RTX sessions on the PoC that break props and
+  churn props and doors in view, and a still scene for before/after lighting captures.
+
 ### Pool Day and Safehouse ported as content packs (the user's request of 2026-11-12; skills only, no loader or package change)
 
 - **Two map packs built from the classic install's finished Remix mods**, not uploaded: `pool-day-rtx` (Pool Day RTX,

@@ -1,5 +1,11 @@
 # Components
 
+The queued-draws fix (2026-11-12, [ADR 0192](decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md))
+adds the fixes' tenth native patch under `packages/fixes/licenses/oversized-skinning/queued-draws` (its corresponding
+source and the SDK-free `studio_draw_policy_test.cpp`), the gate's [`test_queued_draws.py`](../tools/tests/test_queued_draws.py.md),
+and under `tools/qa` the [PoC session driver](../tools/qa/queued_draws_session.py.md) with its
+[client probe](../tools/qa/queued_draws_probe.lua.md) and [server script](../tools/qa/queued_draws_server.lua.md).
+
 R20-A adds `loader/proxy/loader_release.h` / `.cpp` (bounded published-release record and native
 runtime ownership checks), `loader/proxy/ui/menu_choices.lua` (bounded local menu preferences),
 and `loader/proxy/tests/test_loader_release.cpp`. The ordinary companion resource

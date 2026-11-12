@@ -119,6 +119,12 @@ off automatically when the loader does not see it.
   released loader: the module read "enabled in Steam for this account" for the RTX item (run `e4`), and GMod's list
   with and without the item removed and restored RTX (runs `e5`, `e6`). The switch-off itself was not triggered on the
   user's account: it is Steam's own control, for the user to try.
+- **Published 2026-11-12 02:35 UTC.** `main` `a9f4ffda` (rebased onto the user's `42a2bdf0`, which touched only
+  `skills/`), pushed with one Git LFS object (the module, 206 KB). The merge's hook uploaded item 3829070317 as
+  **0.0.0-dev.20261112023508+51376c12** (2,085,436,265 bytes, SHA-256
+  `2fda75e43d095bde08523d5611b14ae74c065503c532eba40af20c8211ca7803`), content digest `609955a3401824a8...`: the
+  package the PoC runs `e4` to `e7` ran, byte for byte (its menu script given the main checkout's CRLF ends before
+  that build). The push's hook found the same inputs and uploaded nothing.
 
 ## Not done, seen on the way
 

@@ -75,3 +75,12 @@ stock citizen material has one).
 
 In the RTX package on the Workshop (item 3829070317): the merge of `color-cap` into `main` publishes it through the
 hooks. No runtime rebuild, no loader release.
+
+- **Published 2026-11-12 03:46 UTC.** `main` fast-forwarded to `83860829` after `tools\test.ps1 -Config Release`
+  passed in `out\worktrees\color`, pushed with two Git LFS objects (the two engine guard modules, 214 KB). The
+  merge's hook uploaded item 3829070317 as **0.0.0-dev.20261112034453+d568f6e1** (2,085,454,185 bytes, SHA-256
+  `f95f0108eec2339921851a78038f2d813f662d5611e6e296154d4baf06e6ac8b`), content digest `b23c08e0e7963f8c...`: the
+  package the PoC runs `03` and `04` ran, the same digest and size. The push's hook found the same inputs and
+  uploaded nothing. The user's running field game gets it at a start after Steam has downloaded the item.
+- **The PoC as left:** its own `config.json` (the Workshop item, Remix on); the branch's package is still deployed
+  there, and the next start replaces it with the item's. The temporary add-on `nlct_color` is removed.

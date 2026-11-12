@@ -178,6 +178,10 @@ it a general rule on 2026-11-08 (pitfall 24).
   running client, and let them decide how it gets there (ADR 0058 keeps agents off Steam's registry).
   Here the user chose to have it set to the running client's PID (the value Steam keeps in HKLM);
   gmpublish then created both items. It goes stale again at the next Steam restart.
+- **Again on 2026-11-12** (Pool Day and Safehouse), after a machine restart: HKCU named 31980, Steam ran as
+  24352 (HKLM `SteamPID`), `SteamAPI_IsSteamRunning` was `False`. Asked, the user chose the same fix; with
+  the value set to 24352 the check read `True` and gmpublish created both items. Ask each time: the
+  choice is per occasion.
 
 ### 14. A pack that needs the allowlist
 

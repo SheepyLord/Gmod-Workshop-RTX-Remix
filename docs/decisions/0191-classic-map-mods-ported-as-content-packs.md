@@ -55,3 +55,5 @@
   remaster of these maps would scope them with tag textures (remix-map-pbr skill).
 - The workshop-content-pack skill gained the procedure, `port_classic_mods.py`, and `usd_refs.py`, which also lets
   `check_pack.py` read nested and binary `.usd` layers.
+- The user's call on point 6, the same day: both uploaded as hidden items, Pool Day RTX 3838671223 and Safehouse
+  RTX 3838671355. Their page descriptions, Required items and visibility remain the user's.

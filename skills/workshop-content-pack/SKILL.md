@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -22,7 +22,8 @@ Items made this way (all hidden; dates UTC):
 | 3830769477 | `evernight-march7th-rtx` | Evernight and March 7th: two models, two layers (about 1.22 GB) | `0.0.0-dev.202611010518+103fde9b`, 2026-11-01 (C-16) | display names `Evernight` and `March 7th` with both terms records since the R5 rebuild (uploaded 2026-10-31 22:13 UTC); Evernight's terms forbid redistribution: stays hidden |
 
 Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3836505482 and 3836505733 the
-Backrooms remaster ("A remaster larger than one item"), 3797839157 and 3803057911 the two converted
+Backrooms remaster ("A remaster larger than one item"), 3838671223 Pool Day RTX and 3838671355 Safehouse
+RTX (hidden; "A classic install's map mod"), 3797839157 and 3803057911 the two converted
 Astra companions (public; "An Astra companion"), 3829070317 the RTX package. The
 last builds are in the main checkout's `out\packages\guinaifen`, `out\packages\robin` and
 `out\packages\evernight-march7th` (each with a `pre-c16` copy of the earlier archive and layers).
@@ -495,8 +496,12 @@ such folders may also sit hand-placed in the field (`rtx-remix\mods\Poolday`); t
    Put the config and the hand-placed folders back afterwards, then `nlctl apply <field>` (after
    `--dry-run`: only the packs' files are removed) takes the packs out without a game start.
 
-Ported on 2026-11-12 (builds in the worktree `gmod-pbr-maps-packaging-b6de9c`'s `out\packages`; nothing
-uploaded):
+Ported on 2026-11-12 (builds, with each `gmpublish-create.log`, in the worktree
+`gmod-pbr-maps-packaging-b6de9c`'s `out\packages`) and uploaded the same day as hidden items at the user's
+request: Pool Day RTX **3838671223**, Safehouse RTX **3838671355** (`gmpublish create` from the PoC root,
+44 s for Safehouse's 2.8 GB; Steam's public lookup answers `result 9` for both). The page descriptions
+(each build's `description.txt`), the Required items (the map and 3829070317) and visibility are the
+user's to set.
 
 | Package | Map | From | Archive |
 |---|---|---|---|

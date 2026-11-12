@@ -27,7 +27,8 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ### Pool Day and Safehouse ported as content packs (the user's request of 2026-11-12; skills only, no loader or package change)
 
-- **Two map packs built from the classic install's finished Remix mods**, not uploaded: `pool-day-rtx` (Pool Day RTX,
+- **Two map packs built from the classic install's finished Remix mods**, uploaded as hidden Workshop items at the
+  user's request (Pool Day RTX 3838671223, Safehouse RTX 3838671355): `pool-day-rtx` (Pool Day RTX,
   347 MB: the `Poolday` mod with its mirror and water fixes, for `gm_new_pool_day2`) and `safehouse-rtx` (Safehouse RTX,
   2.82 GB: photoscanned textures and 13 Poly Haven models, for `gm_csgosafehouse`). Each is a Remix mod only, named after
   its map; the three Poolday folders became one mod whose sub-layers keep the classic order, after a check that no

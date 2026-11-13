@@ -3,7 +3,8 @@
 The user's report: "The field game takes a long time to load enhancements each start", with a screenshot of the main
 menu's box "Loading enhancements / Processing Materials (496 processed)". A task from the coordinating session (VR
 milestone V4). Done by Claude on the branch `mod-load-cache` (worktree `out\worktrees\mlr`); package only: runtime
-patch 0086 in the RTX package, no loader (`winmm.dll`) change.
+patch 0086 in the RTX package, no loader (`winmm.dll`) change. Merged into `main` as `8a654395` after the shipped
+DLL's PoC series and published to Workshop item 3829070317 (see the end).
 [ADR 0195](../decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md); facts in
 [RESEARCH.md](../RESEARCH.md) ("Loading enhancements": what the runtime's mod load spends its time on).
 
@@ -111,3 +112,11 @@ build wrote the cache to `bin\win64\rtx-remix\cache`; the cache now sits beside 
   `blood_overhaul_rtx` with `nl_blood_overhaul_rtx`) load the same files twice; and the one Lua error every run prints,
   `Couldn't include file 'nativeloader\engine_guard_words.lua'` (the published package too; the include is inside a
   `pcall` in the guard scripts, so nothing fails, but GMod prints it).
+
+## Published
+
+The merge's hook uploaded the package to item 3829070317 as `0.0.0-dev.20261113003337+9cd6be14` (2,085,755,646 bytes,
+content digest `0dca07e0`), whose `native/payload/runtime/d3d9.dll` is the confirmed build (`dfbc26d5...`, 418,398,720
+bytes); the push's hook found the inputs unchanged. The field gets it at its next start (Steam's update of the item);
+the first start after it reads every texture once more and writes the cache, the next ones use it. The field check is
+the user's call.

@@ -135,7 +135,8 @@ breakdown covers the left eye; its total, and `gpuMsWork`, cover both.
 
 Everything above was built on the branch `vr6`; the user approved it on 2026-11-13 and it was squash-merged to `main`.
 
-- **Package** `out/dist/gmod-rtx-remix-0.0.0-v7.2.gma`: 2,085,859,058 bytes, SHA-256
+- **Package** `out/dist/gmod-rtx-remix-0.0.0-v7.2.gma`: 2,086,420,546 bytes (1,832 files, 2,085,859,058 bytes of
+  content), SHA-256
   `1e81f06fae2609d989e5057bc1d1da002d999fe0236cdb4d21faa5c62785193e`, content digest `eb7c0556...`.
 - **Runtime**: patches 0001-0089 from the clone's `vr2` at `1097d701`, `d3d9.dll` 418,468,864 bytes, SHA-256
   `8d64393fdb4343f7e4db2f71c683a9becbd5fe167c84d23924712fb052fd437f` (0087 the quality step, 0088 the GPU work, 0089
@@ -146,6 +147,12 @@ Everything above was built on the branch `vr6`; the user approved it on 2026-11-
   top to the floor under load, back to the top in 51 s and settled; the runtime's step matched Auto's in 190 rows).
 - SteamVR was not running at the start of the Index runs; the first one started it through OpenVR, as Start VR does,
   and it was left running. Its settings were not changed.
+
+**Published:** squash-merged into `main` as `c8eba6d0` (tree `275b1570`, the tested `vr6`'s) and pushed. The commit's
+hook uploaded the package to item 3829070317 as `0.0.0-dev.20261113173439+d1cc7cda` (2,086,420,569 bytes, SHA-256
+`e41f442cd20572cd0c5375d46c7b0f932c44c220905b09d5ff7173a92f888973`, content digest `eb7c0556...`, the tested `v7.2`'s digest,
+so its content is the candidate's; Steam took 33.2 MB of changes); the push's hook found the inputs unchanged. The
+field gets it at its next start (Steam's update of the item).
 
 **Open:** the V4 neutral-yaw fixture regression (left as asked, it
 still trips the driver's `neutral` check now and then: `quality-sim-03`; `quality-sim-01` failed the driver on the

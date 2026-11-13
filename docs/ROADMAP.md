@@ -1,8 +1,9 @@
 # Roadmap
 
 VR V6 (Auto quality) and V7 (true stereo) were approved by the user on 2026-11-13 and merged to `main`; V5 (body and
-multiplayer) was skipped and VR is single-player only. Claude coded both. [The V6-V7 report](handover/VR-V6-V7-report.md)
-says what they deliver, what the Index runs showed and what is still untested.
+multiplayer) was skipped and VR is single-player only. Claude coded both; merged as `c8eba6d0` and published as
+0.0.0-dev.20261113173439+d1cc7cda. [The V6-V7 report](handover/VR-V6-V7-report.md) says what they deliver, what the
+Index runs showed and what is still untested.
 
 | Milestone | State |
 |---|---|

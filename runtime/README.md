@@ -1,5 +1,7 @@
 # runtime/
 
+Patch `0086-Keep-the-mod-loader-s-texture-reads-between-starts.patch` ([ADR 0195](../docs/decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md), [report](../docs/handover/mod-load-cache-report.md)) follows 0071 on `main`; the VR branches' 0072-0085 sort before it and touch none of its files. Built as `cfb2173b` on the 71 patches in `out/worktrees/mlc/rt` (a worktree of the fork clone made by `build_runtime.ps1`), exported alone (`format-patch -1 --start-number 86 --zero-commit`), then built and imported by `build_runtime.ps1`: `d3d9.dll` 418,398,720 bytes, SHA-256 `dfbc26d59a8a7da3d28bb04a282dd7973647316dab97e320abec5693e8ac8030`. `rtx_mod_texture_store.h` is self-contained; the Release gate compiles it with `tests/rtx/unit/test_mod_texture_store.cpp` from the patch (`test_mod_texture_cache.py`).
+
 The second VR review adds patches 0065 to 0071, on the runtime branch `vr` at `d29445c5`
 ([report](../docs/handover/VR-V1-Q-runtime-review-report.md)). The warp searches near to far in inverse
 depth, refines both surfaces bordering an interval and falls back to observed background at a disocclusion.
@@ -417,6 +419,7 @@ NVIDIA's SDKs, is about 3.6 GB and keeps its own history, so this repository hol
 | `0033-Bound-the-DDS-readers-...` | The pre-release review's runtime findings: both DDS readers check a file's headers against the file before reading it; string options copied under the update mutex beside the render thread; a shared texture takes its users' strongest preload; the middle deck's patch probes and moon-shadow taps; config saves through links and non-finite floats ([R19-R report](../docs/handover/R19-R-report.md)) |
 | `0040-Publish-live-upscaling-...` | Runtime-owned atomic effective upscaling/frame-generation state and capabilities, gated on presets and callback convergence, for the native startup hint readback; pending the combined R20 runtime import ([ADR 0123](../docs/decisions/0123-live-upscaling-readback.md)) |
 | `0041-Atmosphere-the-sky-without-...` | `rtx.atmosphere.noHorizon`: below the horizon the mirror's sky gradient, the antipode's clouds and high clouds, the true angle to the sun for every phase term, the stars and moons where they are ([ADR 0139](../docs/decisions/0139-the-sky-without-a-horizon.md)) |
+| `0086-Keep-the-mod-loader-s-texture-reads-...` | The USD mod loader keeps each texture file's DDS headers and five smallest mips per mod in `rtx-remix\cache\mod-textures` and uses them while a folder listing shows the file unchanged (size, write and change times, file id), so a later start opens no texture file; `rtx.initializer.modTextureCache`; `[RTX Mod Load]` timing lines ([ADR 0195](../docs/decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md)) |
 
 - [`build_runtime.ps1`](build_runtime.ps1.md): applies them in a worktree of a fork clone, builds, and
   stores the new `d3d9.dll` in [`packages/runtime`](../packages/README.md).

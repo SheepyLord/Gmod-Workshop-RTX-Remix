@@ -37,6 +37,11 @@ lighting hook calling into an entity the main thread had already deleted): [queu
 by Claude, package only, merged and published 2026-11-12
 ([ADR 0192](../decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md)).
 
+Then the user's report of 2026-11-12 ("The field game takes a long time to load enhancements each start"): the Remix
+runtime reread every replacement texture of every mod at each start; runtime patch 0086 keeps those reads between
+starts: [mod-load-cache-report.md](mod-load-cache-report.md), by Claude, package only
+([ADR 0195](../decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md)).
+
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),
 by Claude (no Codex). Its follow-up, the fixes part's Seamless Portals off the same crash path:

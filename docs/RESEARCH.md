@@ -7686,3 +7686,67 @@ check their look in the field ([ADR 0191](decisions/0191-classic-map-mods-ported
   which sorts first on the user's machine.
 - **Putting the field back**: the original `config.json`, the hand-placed Poolday folders, then `nlctl apply`
   removed the two packs' 296 files (generation 17, 358 file-system changes).
+
+## "Loading enhancements": what the runtime's mod load spends its time on (2026-11-12, Claude)
+
+The user's report: "The field game takes a long time to load enhancements each start" (the box at the menu's bottom
+left, "Loading enhancements" over "Processing Materials (496 processed)"). Fixed by runtime patch 0086
+([ADR 0195](decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md),
+[report](handover/mod-load-cache-report.md)). Line numbers are the runtime tree at `c6b48ed1` with patches 0001-0071.
+
+- **The box is the runtime's own.** `dxvk_imgui.cpp:1458` adds the HUD message "Loading enhancements" while any mod
+  is in `OpeningUSD` or `Processing*`; the second line is `Processing Materials (N processed)` (`:1427`), with N
+  updated every 16 materials (`rtx_mod_usd.cpp:2017`), one line per loading mod up to four. Patch 0001's
+  `rtx.gui.enhancementLoadingMessageDelayMilliseconds` (1500) keeps it off screen for a load shorter than 1.5 s.
+  No package Lua or add-on is involved.
+- **When the load runs.** `RtxInitializer` starts a thread `rtx-initialize-assets` (`rtx_initializer.cpp:176`) that
+  waits for `libcef.dll` to be mapped plus 2 s (`waitForEmbeddedChromium`, `:57`, GMod's menu browser), then
+  `AssetReplacer::initialize` (`rtx_asset_replacer.cpp:124`) loads the mods in `rtx-remix\mods` one after another.
+  The menu needs none of them; a map started before they finish draws without its replacements until they do.
+- **What a mod's load does per texture reference** (`processMaterial` → `getTexture`): USD resolves the asset path
+  (a file existence check); `AssetDataManager::findAsset` (`rtx_mod_usd.cpp:673`) makes a new `DdsTextureData`
+  whose `load()` (`rtx_asset_data_manager.cpp:231`) `fopen`s the file, reads its headers and calls
+  `last_write_time` (`:240`); `preloadTextureAsset` (`rtx_mod_usd.cpp:678`) then makes the texture with
+  `requestMips(1)` and `scheduleTextureLoad(texture, false)` (`rtx_texture_manager.cpp:2046-2047`), which stages the
+  `kMipLevelsToCache` = 5 smallest mips synchronously on the loading thread: `DdsTextureData::data()` opens and maps
+  the file a second time (`rtx_asset_data_manager.cpp:160`), `releaseSource()` closes it (`rtx_texture_manager.cpp:289`).
+  A file named by several materials is parsed for each (the texture itself is shared by its name's hash).
+  Nothing is kept between starts. The texture's hash is its file name's, not its content's.
+- **The field's mods** (2026-11-12, read from the folders only): 28 mod folders, about 7,300 material prims, 25,487
+  texture references to 16,700 distinct DDS files (about 70 GB). Two pairs load the same content twice:
+  `gm_brmovie_complete_rtx` and `gm_brmovie_complete_rtx_pack` (2,452 references each), `blood_overhaul_rtx` and
+  `nl_blood_overhaul_rtx`. The busiest: `gm_korolevskiy_theater_rtx` (5,340 references to 513 files),
+  `gm_cathedral_of_mercury_rtx` (4,086 to 680), `gm_br_rtx` (3,684). H: is a Samsung 980 PRO (NVMe).
+- **Measured in the PoC** (`tools/qa/mod_load_session.py`, the user's 12 subscribed content packages deployed:
+  19 mods, 17,970 references to 9,042 files; `-noaddons -noworkshop`, gm_construct, 1600x900). Before (patch 0086's
+  timing lines on the old loader): **27.3 s** at the first start after the content was unpacked (24.0 s of it in
+  `findAsset`), **1.83 s** at the next (warm), **11.5 s** after `purge_file_cache.py` emptied Windows' file cache of
+  the mods (8.2 s in `findAsset`, 1.5 s staging). The published package, timed from its log markers in an earlier
+  series: 5.9 s at its first start after the unpack and 1.7 s at the next; so the first opens of freshly unpacked
+  files vary widely (5.9 to 27.3 s), the warm load does not. With the cache: **10.8 s** at the first, cold start (the cache made,
+  35 ms to write 19 files, 7.2 MB), **1.09 s** warm and **1.36 s** cold with the cache: every one of the 9,042 files
+  a hit, none opened, `find` 76-81 ms (the folder listings 11-16 ms, the cache files' read 36-38 ms). What remains is
+  USD: the stages (0.22-0.24 s), the path resolution (0.23-0.39 s) and Safehouse's meshes (0.29 s). The material walk
+  itself fell from 10.9 s (cold) to 0.78 s.
+- **Fresh files are slowest.** The first open of a just-written DDS file cost about 4 ms (`gm_br_rtx_complex`: 1,752
+  files, 7.6 s of `find`), a file the file cache had lost about 0.9 ms, a warm one about 0.06 ms. Windows Defender scans a
+  file at its first open after a change, which fits the first figure; not measured separately (no administrator
+  rights to change it).
+- **Emptying the file cache without administrator rights**: opening a file with `FILE_FLAG_NO_BUFFERING` purges its
+  cached pages (NTFS flushes and purges the data section when nothing maps it). 3,000 files of 64 KB: a tail read of
+  each took 0.072 s warm and 0.39 s after the purge (`tools/qa/purge_file_cache.py --check`).
+- **`RtxFileSys::rootPath()` is the executable's folder** (`util_filesys.cpp` `lazyInit`: `bin\win64` for GMod),
+  while the default mods, captures and logs folders come from `absolute(".")` at the DLL's static initialisation,
+  the game's working folder (`util_filesys.h` `s_pathSpecs`). A path built on `rootPath()` lands in
+  `bin\win64\rtx-remix`; the cache is put beside the mods folder.
+- **A folder listing gives every stamp at once.** `GetFileInformationByHandleEx(FileIdBothDirectoryInfo)` on a folder
+  handle returns each entry's size, last write time, change time and 64-bit file id, about 1,800 files in 2-5 ms. NTFS
+  updates a folder entry's copy of these when the file is closed, and for a file with several hard links only in the
+  folder it was written through; `GetFileInformationByHandle` on a handle opened with `FILE_READ_ATTRIBUTES` alone
+  reads the file's own record (link count, index, size, times) without a data open.
+- **Seen in the PoC runs, not caused by the mods:** after creating its swap chain the game sometimes waits 8.6-12.7 s
+  before its first frame (`[D3D9WindowProc] Swapchain handle is invalid` to the first `SetRenderState`): at every
+  first start after a package change and in the instrumented series' later starts, never in the published package's
+  or the fix's later starts. It comes before the mod thread starts, so it is not part of the mod load; a driver
+  pipeline cache miss is the likely cause (not investigated). Every run printed one Lua error,
+  `Couldn't include file 'nativeloader\engine_guard_words.lua'`, the published package included.

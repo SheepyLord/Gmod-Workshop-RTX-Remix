@@ -2927,3 +2927,26 @@ The RTX fixes' tenth native patch ([ADR 0192](decisions/0192-the-fixes-never-rea
   the packages, the same as between two shots of one session); the published package ran 24 minutes of stress without
   its crash (the old crash needs heap contents the flat sessions do not produce, RESEARCH), and the branch's package
   ran two 10-minute runs clean, at 101-105 fps under the render load where the published one ran at 64.
+
+## "Loading enhancements": the mod texture cache (2026-11-12)
+
+Runtime patch 0086 ([ADR 0195](decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md),
+[report](handover/mod-load-cache-report.md)):
+
+- **Release gate:** [`test_mod_texture_cache.py`](../tools/tests/test_mod_texture_cache.py.md) takes
+  `rtx_mod_texture_store.h` and `tests/rtx/unit/test_mod_texture_store.cpp` whole from the committed patch, compiles
+  them with MSVC (`/std:c++17 /W4 /WX`) under `out\tmp` and runs the store's 71 checks with real files: a second load
+  reads no file and returns the same records and bytes; any change (a same-size edit with the old write time put
+  back, a replaced file, a hard-linked file) is read again; damaged or foreign cache files are ignored. It checks the
+  runtime's wiring in the patch, the cache checker and the lab's log parser.
+- **PoC:** [`tools/qa/mod_load_session.py`](../tools/qa/mod_load_session.py.md) runs packages in turn with the user's
+  subscribed content deployed (under the PoC lock, snapshot and rollback), `--cold RUN` emptying the file cache of the
+  mods first with [`purge_file_cache.py`](../tools/qa/purge_file_cache.py.md). The runtime's `[RTX Mod Load]` lines give
+  each mod's phases; `[RTX Mod Texture Cache]` its hits and misses. A lab package is the published `.gma` with only
+  `native/payload/runtime/d3d9.dll` and its manifest entry changed (`nlctl manifest` accepts it).
+- **The cache's content:** [`check_mod_texture_cache.py`](../tools/qa/check_mod_texture_cache.py.md) compares every
+  entry with its DDS file (headers, and the kept mips byte for byte); `--remap` reads the files where a PoC rollback
+  moved them.
+- **Results** ([report](handover/mod-load-cache-report.md)): 19 mods, 9,042 files: 11.5 s to 1.36 s at a start with an
+  empty file cache, 1.83 s to 1.09 s warm; every entry matched its file; the pinned view differs as little as two
+  starts of one build.

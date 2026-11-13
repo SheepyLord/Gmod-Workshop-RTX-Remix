@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "e43aef99a74d333fa75cbb27f8848ae7ba25ce4e8e200f5c7d0f936a69382046",
-  "built_from": "HEAD -> vr d29445c5 (with what the rest of this record names)",
+  "d3d9.dll": "dfbc26d59a8a7da3d28bb04a282dd7973647316dab97e320abec5693e8ac8030",
+  "built_from": "HEAD cfb2173b (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -121,6 +121,7 @@
    "patches/0069-Sample-the-VR-ray-segment-at-depth-texel-spacing.patch": "641530e4d29242d650bc660f2d0269413f31ce0d03a7b9fc2b3e2b27c167d51b",
    "patches/0070-Retain-overlay-requests-when-a-queued-camera-is-skipped.patch": "ae778754a7ff6d8cf95cfc8ab702efecbe851499957c8c2de638ee68824ac37c",
    "patches/0071-VR-wait-for-the-first-actual-camera-match.patch": "2d18d7e40cacf7634bfca644378384ddd14af4a8d796c3bd6016bf0effc34ca8",
+   "patches/0086-Keep-the-mod-loader-s-texture-reads-between-starts.patch": "38b624a01c2b893d2c1c61b8c9cb00106466965f66b07cf218d10a4972d9763b",
    "submodules/rtxdi.patch": "006d534a48637125dcb1e4a5fcca9eabb8bd96f7a8935b5eb1ec49a64b0e1be5"
   }
  }

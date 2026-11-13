@@ -311,3 +311,8 @@ Each with the reason it lost.
   hook called `GetModel()` through an entity the main thread had already deleted and the game ended at instruction
   pointer 0; the hook takes the drawn model's bone count from studiorender's own state, the lighting rule unchanged,
   and the skinning hooks read an entity's model-to-world matrix only in the diagnostic transform-chain modes.
+- [0195: The mod loader keeps its texture reads between starts](0195-the-mod-loader-keeps-its-texture-reads-between-starts.md)
+  (the user's report of 2026-11-12, package only): the Remix runtime opened every replacement DDS file of every mod
+  twice at each start ("Loading enhancements"); runtime patch 0086 keeps each file's headers and smallest mips per mod
+  in `rtx-remix\cache\mod-textures` and uses them while the folder listing shows the file unchanged (size, write
+  time, change time, file id).

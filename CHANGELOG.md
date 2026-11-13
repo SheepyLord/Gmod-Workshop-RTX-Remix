@@ -6,6 +6,32 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### "Loading enhancements" at every start (the user's report of 2026-11-12; package only, no loader change)
+
+- **Faster: later starts no longer reread every replacement texture.** The box "Loading enhancements / Processing
+  Materials (N processed)" is the Remix runtime loading the `rtx-remix\mods` USD mods. At every start it opened each
+  DDS file their materials name twice (the headers, then the five smallest mips), about 33,000 opens for the field's
+  16,700 files, and again for every further material naming the same file. Runtime patch 0086 keeps what those reads
+  give per mod in `rtx-remix\cache\mod-textures` and uses an entry only while its file has the same size, write time,
+  change time and file id (one folder listing per texture folder, no file opened); anything changed is read again. In
+  the PoC with the user's 12 subscribed content packages (19 mods, 9,042 files) the load fell from 11.5 s to 1.4 s at
+  a start with an empty file cache and from 1.8 s to 1.1 s warm, so the box (shown after 1.5 s) no longer appears there;
+  the first start with the patch takes as long as before and writes the cache (7.2 MB). The textures are the same
+  (every cache entry checked against its file, byte for byte).
+  `rtx.initializer.modTextureCache` (default on) turns it off; deleting the folder is always safe
+  ([ADR 0195](docs/decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md),
+  [report](docs/handover/mod-load-cache-report.md)).
+- `remix-dxvk.log` has an `[RTX Mod Load]` line per mod (stage, materials, textures with their USD, file and staging
+  times, meshes, lights) and one for the whole load, and an `[RTX Mod Texture Cache]` line per mod (hits, misses).
+- Tools: [`tools/qa/mod_load_session.py`](tools/qa/mod_load_session.py.md) times the mod load at PoC starts with the
+  subscribed content deployed, `--cold` after [`purge_file_cache.py`](tools/qa/purge_file_cache.py.md) empties the
+  file cache of the mods (no administrator rights); [`check_mod_texture_cache.py`](tools/qa/check_mod_texture_cache.py.md)
+  checks a cache against its DDS files; `test_mod_texture_cache.py` in the gate compiles and runs the store's unit test
+  from the patch.
+- Seen in the field's mods: two pairs load the same content twice (`gm_brmovie_complete_rtx` and
+  `gm_brmovie_complete_rtx_pack`, `blood_overhaul_rtx` and `nl_blood_overhaul_rtx`); removing one of each would
+  shorten every load further. Not changed (the user's folders).
+
 ### The RTX fixes' crash on the queued render thread (found in the VR work's crash triage, 2026-11-12; package only, no loader change)
 
 - **Fixed: removing props, gibs or other entities in view could crash the game** with no crash dialog and no dump of

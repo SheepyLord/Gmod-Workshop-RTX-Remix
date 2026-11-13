@@ -62,7 +62,7 @@ Character Motion Importer, Dynamic Toolgun Screen and Blood Overhaul RTX.
 
 | | |
 |---|---|
-| **System** | Windows 10 or 11, 64-bit |
+| **System** | Windows 11, 64-bit |
 | **Game** | Garry's Mod on Steam, on the **x86-64** beta branch |
 | **Graphics card** | A GPU with hardware ray tracing: NVIDIA GeForce RTX 30 series or newer (recommended), AMD Radeon RX 6000 series or newer, or Intel Arc |
 | **Video memory** | 8 GB at least; 16 GB or more recommended. Smaller cards run on the low performance tier. |

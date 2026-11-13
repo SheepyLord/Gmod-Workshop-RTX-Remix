@@ -1,7 +1,8 @@
 # Roadmap
 
 VR V2, V3 and V4 were approved by the user on 2026-11-12 as a deliverable at this stage and merged to `main`;
-Claude finished V4 itself at the user's request. [The V4 report](handover/VR-V4-report.md) says what they deliver,
+Claude finished V4 itself at the user's request; merged as `7a149d76` and published as 0.0.0-dev.20261113050849+df868432.
+[The V4 report](handover/VR-V4-report.md) says what they deliver,
 what the final package's runs showed and what is still untested.
 
 | Milestone | State |

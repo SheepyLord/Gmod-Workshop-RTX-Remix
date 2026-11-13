@@ -103,6 +103,12 @@ details are in [VR-V4-Q-resume.md](VR-V4-Q-resume.md).
 - Weapons-out performance and alternating flat controls were measured on earlier packages (PoC 261104), not on this one.
 - Pushing a held prop with the physgun while on a ladder also climbs (the distance command uses the same buttons).
 
+**Published:** squash-merged into `main` as `7a149d76` (tree `a96ac4ef`, the tested `vr2`'s) and pushed. The commit's hook
+uploaded the package to item 3829070317 as `0.0.0-dev.20261113050849+df868432` (2,086,362,930 bytes, SHA-256
+`fe86c234f6df76a28e9bab1c4e9ab2ea4bac39dcdc355e02f3f46f38636ddbfd`, content digest `b60de134...`, the tested `v4final.4`'s
+digest, so its content is the candidate's); the push's hook found the inputs unchanged. The field gets it at its next
+start (Steam's update of the item).
+
 ## Round 5 integration (history; Q stopped at the user's request)
 
 **E now passes:** `round5/medium-sim-04`,33/33 cases on frozen r5.2 (SHA below), PoC261112.

@@ -49,6 +49,8 @@ return function()
         if state.onCamera then state.onCamera(sequence, origin, angles) end
     end
     function api.Events() record("Events") local events = state.events state.events = {} return events end
+    function api.Actions() return {} end
+    function api.OverlayAlpha(handle, alpha) record("OverlayAlpha", {handle = handle, alpha = alpha}) end
     function api.OverlayCreate(key, name)
         record("OverlayCreate", {key = key, name = name}) state.overlays[1] = {} return 1
     end

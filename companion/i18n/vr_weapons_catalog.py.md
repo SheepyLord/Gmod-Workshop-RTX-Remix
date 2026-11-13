@@ -1,0 +1,3 @@
+# vr_weapons_catalog.py
+
+Reproduce the nine V4 weapon labels/help strings in French, Japanese, Korean, Russian, Simplified and Traditional Chinese. Run `python companion/i18n/vr_weapons_catalog.py` from this checkout. ASCII-escaped translation data is decoded by Python; the existing catalog writer writes explicit UTF-8, preserves other translations and refreshes extraction references/POT. Checks every new translation for question marks and replacement characters, strictly decodes catalogs, and requires complete catalogs. Writes only the companion's POT and six PO catalogs. Exit 0 on success; assertions/catalog errors exit nonzero. No network, package upload or game changes.

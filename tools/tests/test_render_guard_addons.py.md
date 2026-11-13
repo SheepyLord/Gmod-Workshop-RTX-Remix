@@ -25,3 +25,5 @@ both PBR readers/hotloader, untrusted shader draws/reuse, label collisions, mate
 assertion/process makes unittest exit nonzero; zero means success. The combined guard suite has
 47 unittest methods and 49 LuaJIT scenario invocations, including the existing containment regressions
 and one static test. [bench_render_guard.py](bench_render_guard.py.md) separately records timing.
+
+V2/F classifies the dormant server nativeloader_vr_server.lua alongside the VR page as ordinary policy. The server stub calls no rendering API and adds no production guard exemption. This is the one required test-inventory maintenance outside the task F path list.

@@ -5,13 +5,25 @@ local began, phase, changed, requested = SysTime(), "flat-before", false, false
 local phaseAt, activeAt, nextSample = began, nil, began
 local saved, intervals, prior = {}, {}, SysTime()
 local captures, errors, states = {}, {}, {}
-local native, originalBegin, originalCamera, originalCreate
+local native, originalBegin, originalCamera, originalCreate, originalCapture
+local overlayRoles = {}
+local captureQueue,overlayBorn
+local CaptureQueue=(function()
+__CAPTURE_QUEUE__
+end)()
 local overlay, lastFrame, lastCamera
 local beginTimes, completionTimes, poseTimes, workTimes = {}, {}, {}, {}
 local precedingBegin, previousBeginReturn
 local mismatchBegan, mismatchEnded
 local flatViewRegistry, priorFlatViews, ownedFlatViews
 local flatViewCalls = 0
+local flatFinishAt
+local flatSettledAt
+local function flat_settled(now)
+    if NativeLoaderVR.state~="off" or native and native.State()~="off" then flatSettledAt=nil return false end
+    flatSettledAt=flatSettledAt or now
+    return now-flatSettledAt>=1
+end
 local before, after, beforeUpscaling
 if CONFIG.inspect then require("nlvrqinspect") end
 if not CONFIG.flat then
@@ -48,6 +60,10 @@ local function emit(kind, value)
 end
 local names = {"fps_max", "mat_vsync", "mat_queue_mode", "gmod_mcore_test", "cl_drawhud", "r_drawviewmodel",
     "rtx_pseudoplayer", "rtx_pseudoweapon", "nl_vr_scale", "nl_vr_fov", "nl_vr_render_scale",
+    "nl_vr_dominant", "nl_vr_move_dir", "nl_vr_turn", "nl_vr_snap_angle", "nl_vr_turn_speed", "nl_vr_teleport",
+    "nl_vr_vignette", "nl_vr_seated", "nl_vr_seated_offset", "nl_vr_height", "nl_vr_ghost_hands",
+    "nl_vr_gloves", "nl_vr_climb", "nl_vr_melee", "nl_vr_wrist_hud",
+    "nl_vr_physical_reload", "nl_vr_foregrip", "nl_vr_ammo_counter", "nl_vr_gun_angle",
     "nativeloader_weather", "nativeloader_sky_time_passes", "nativeloader_sky_hour", "nativeloader_sky_follow_map"}
 local function variables()
     local out = {}
@@ -66,7 +82,7 @@ local function inventory()
     local out = {hooks = {}, timers = {}}
     for event, entries in pairs(hook.GetTable()) do
         for id in pairs(entries) do
-            if tostring(id):find("nativeloader_vr", 1, true) then
+            if tostring(id):find("nativeloader_vr", 1, true) or tostring(id):match("^nlvr%.") then
                 out.hooks[#out.hooks + 1] = event .. ":" .. tostring(id)
             end
         end
@@ -74,6 +90,7 @@ local function inventory()
     for _, id in ipairs({"nativeloader_vr_session"}) do
         if timer.Exists(id) then out.timers[#out.timers + 1] = id end
     end
+    out.nlvr_global, out.receiver = NLVR ~= nil, net.Receivers.nlvr ~= nil
     return out
 end
 local function stats(values)
@@ -110,19 +127,53 @@ local function capture(label)
     shot(label)
 end
 local function restore_probe()
+    if captureQueue then captureQueue.Stop() end
+    hook.Remove("PreRender",ID..".captures")
     hook.Remove("CreateMove",ID)
     hook.Remove("CalcView",ID)
     if flatViewRegistry and flatViewRegistry.CalcView == ownedFlatViews then
         flatViewRegistry.CalcView = priorFlatViews
     end
     if native then
-        native.BeginFrame, native.SetFrameCamera, native.OverlayCreate = originalBegin, originalCamera, originalCreate
+        native.BeginFrame, native.SetFrameCamera, native.OverlayCreate, native.Capture = originalBegin, originalCamera, originalCreate, originalCapture
     end
     for name, value in pairs(saved) do RunConsoleCommand(name, value) end
 end
 local function attach_probe()
     native = nlvr
     originalBegin, originalCamera, originalCreate = native.BeginFrame, native.SetFrameCamera, native.OverlayCreate
+    originalCapture = native.Capture
+    overlayBorn={}
+    local function inventory()
+        local roles = {}
+        local expectedRoles = {}
+        if NLVR and NLVR.Settings.wrist_hud~=0 then expectedRoles.wrist=true end
+        for key, object in pairs(NLVR and NLVR.Overlay.Objects or {}) do
+            if object.wanted then expectedRoles[key]=true end
+            if object.handle or object.wanted then
+                local handle=object.handle and tostring(object.handle) or "unbound:"..key
+                roles[handle]={role=key,handle=object.handle,required=object.wanted==true,
+                    expected={object.width,object.height},created_frame=overlayBorn[handle]}
+                if object.handle and native.OverlayInfo then roles[handle].info=native.OverlayInfo(object.handle) end
+            end
+        end
+        for handle,item in pairs(roles) do
+            local key=item.role
+            local item = roles[handle]
+            item.kind = key == "wrist" and "wrist" or key == "keyboard" and "keyboard" or key == "vignette" and "comfort" or "panel"
+            if item.info and item.info.window then item.kind, item.window = "window", {ScrW(), ScrH()}
+            elseif key == "laser" or key:find("ghost_",1,true) or key:find("gloves_",1,true) or
+                key:find("teleport_",1,true) or key:find("move_arc_",1,true) then item.kind = "marker" end
+        end
+        return roles,expectedRoles
+    end
+    captureQueue=CaptureQueue.New{Frame=FrameNumber,Now=SysTime,
+        Running=function() return NLVR~=nil and NativeLoaderVR.state=="running" end,
+        Inventory=inventory,Forward=originalCapture,
+        Describe=function(label,roles,expected) emit("overlay-roles",{label=label,overlays=roles,expected_roles=expected}) end,
+        Error=function(message) errors[#errors+1]=message end}
+    native.Capture=captureQueue.Request
+    hook.Add("PreRender",ID..".captures",captureQueue.Pump)
     native.BeginFrame = function(...)
         local t = SysTime()
         if previousBeginReturn then workTimes[#workTimes + 1] = (t - previousBeginReturn) * 1000 end
@@ -150,6 +201,7 @@ local function attach_probe()
     end
     native.OverlayCreate = function(...)
         local handle, detail = originalCreate(...) overlay = handle
+        if handle then overlayBorn[tostring(handle)]=FrameNumber() end
         return handle, detail
     end
 end
@@ -162,12 +214,15 @@ emit("install-stage", {stage="helpers-ready"})
 local function sample()
     local result = {phase = phase, page = NativeLoaderVR.state, detail = NativeLoaderVR.detail,
         intervals = stats(intervals), camera = lastCamera, status_text = NativeLoaderVR.StatusText(), upscaling = upscaling()}
+    if NLVR then result.framework = {debug = NLVR.Debug, dominant = NLVR.Input.mainHand} end
     if CONFIG.flat then result.flat_camera = {calls=flatViewCalls, fov=90, origin=CONFIG.camera} end
     if native then
         result.state, result.native_detail = native.State()
         result.info = native.Info()
-        if overlay and native.OverlayVisible then result.overlay_visible = native.OverlayVisible(overlay) end
-        if overlay and native.OverlayInfo then result.overlay = native.OverlayInfo(overlay) end
+        local wrist=NLVR and NLVR.Overlay.Objects.wrist
+        local liveHandle=wrist and wrist.handle
+        if liveHandle and native.OverlayVisible then result.overlay_visible = native.OverlayVisible(liveHandle) end
+        if liveHandle and native.OverlayInfo then result.overlay = native.OverlayInfo(liveHandle) end
     end
     if nlvrqinspect then result.inspection = nlvrqinspect.Info(result.info and result.info.sdk_ready == true) end
     local p = LocalPlayer()
@@ -180,6 +235,7 @@ local function sample()
     emit("sample", result)
 end
 local function finish(success)
+    if captureQueue then captureQueue.Stop() end
     phase_to("done")
     after = variables()
     local diff = {}
@@ -278,7 +334,7 @@ hook.Add("PreRender", ID, function()
             print("NLVR preview: RTX Remix > VR > Start VR (or nl_vr_start). Use nl_vr_demo_done when finished; the driver restores settings and quits.")
         end
         if now - began >= CONFIG.seconds and not lookEnding then NativeLoaderVR.Stop() lookEnding = true end
-        if lookEnding and NativeLoaderVR.state == "off" then finish(true) end
+        if lookEnding and flat_settled(now) then finish(true) end
         return
     end
     if phase == "flat-before" then
@@ -287,7 +343,13 @@ hook.Add("PreRender", ID, function()
             if CONFIG.flat then phase_to("flat-control") else start() end
         end
     elseif phase == "flat-control" then
-        if now - phaseAt >= CONFIG.seconds then shot("flat-after") finish(true) end
+        if now - phaseAt >= CONFIG.seconds then
+            if not flatFinishAt then
+                flatFinishAt = now
+                emit("flat-window", {intervals = stats(intervals), duration_seconds = now-phaseAt})
+                shot("flat-after")
+            elseif now-flatFinishAt >= 3 then finish(true) end
+        end
     elseif phase == "starting" then
         if NativeLoaderVR.state == "failed" then
             if CONFIG.expect_failure == NativeLoaderVR.reason and
@@ -310,8 +372,12 @@ hook.Add("PreRender", ID, function()
         if CONFIG.test_quit then
             if t>2 and not changed then changed=true gui.ActivateGameUI() emit("paused-quit-start",{curtime=CurTime()}) end
             if NativeLoaderVR.state=="off" then
-                gui.HideGameUI() emit("paused-quit-ended",{curtime=CurTime(),info=native.Info()}) finish(true)
-            elseif t>25 then errors[#errors+1]="native quit not handled while paused" gui.HideGameUI() finish(false) end
+                gui.HideGameUI()
+                if flat_settled(now) then emit("paused-quit-ended",{curtime=CurTime(),info=native.Info()}) finish(true) end
+            end
+            if t>25 and (NativeLoaderVR.state~="off" or native.State()~="off") then
+                errors[#errors+1]="native quit not handled while paused" gui.HideGameUI() finish(false)
+            end
             return
         end
         if t >= 3 then capture("neutral") end
@@ -362,7 +428,8 @@ hook.Add("PreRender", ID, function()
             emit("second-cycle", {info = native.Info()}) RunConsoleCommand("nl_vr_exit") phase_to("stopping-second")
         elseif NativeLoaderVR.state == "failed" or now - phaseAt > 35 then errors[#errors + 1] = "second start failed" finish(false) end
     elseif phase == "stopping-second" then
-        if native.State() == "off" and NativeLoaderVR.state == "off" then finish(true)
+        if native.State() == "off" and NativeLoaderVR.state == "off" then
+            if flat_settled(now) then finish(true) end
         elseif now - phaseAt > 30 then errors[#errors + 1] = "second stop failed" finish(false) end
     end
 end)

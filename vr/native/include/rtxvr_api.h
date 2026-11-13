@@ -80,6 +80,7 @@ void rtxvr_Stop(void);
 int  rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]);                       /* the IPD or the projection changed */
 int  rtxvr_PushFramePose(const rtxvr_FramePose* pose);
 int  rtxvr_SetOverlaySource(uint64_t overlayHandle, uint32_t width, uint32_t height);   /* 0 x 0 removes it */
+int  rtxvr_SetOverlayWindow(uint64_t overlayHandle, uint32_t flags); /* window after 2D, width <= 1920; 0 removes */
 int  rtxvr_Capture(const wchar_t* folder, uint32_t what);             /* RTXVR_CAPTURE_*: the next frame's images as PNG */
 int  rtxvr_GetStatus(rtxvr_Status* status);
 
@@ -87,6 +88,9 @@ int  rtxvr_GetStatus(rtxvr_Status* status);
 #define RTXVR_CAPTURE_CENTRE   0x2u   /* centre.png and centre_depth.png */
 #define RTXVR_CAPTURE_OVERLAYS 0x4u   /* overlay_<handle>.png */
 #define RTXVR_CAPTURE_MIRROR   0x8u   /* mirror.png: the game window's picture */
+
+#define RTXVR_WINDOW_SHOW      0x1u   /* copy the game window after its 2D into this overlay */
+#define RTXVR_WINDOW_NO_MIRROR 0x2u   /* while SHOW is set, draw the window's 2D over black */
 
 #ifdef __cplusplus
 }

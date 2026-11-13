@@ -1,0 +1,143 @@
+From 07fceaed35ea7ecd69f75047a9687051004d7645 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 04:07:37 -0700
+Subject: [PATCH] Complete compositor-free rendering and overlay copy
+ acknowledgement
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp      | 33 ++++++++++++++++++++++-------
+ src/dxvk/rtx_render/rtx_vr_policy.h |  2 ++
+ tests/rtx/unit/test_vr_math.cpp     |  4 ++++
+ 3 files changed, 31 insertions(+), 8 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index ac6a6471..3caac1fb 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -85,8 +85,10 @@ namespace dxvk {
+   }
+ 
+   void RtxVr::stop() {
++    bool sdkCalls;
+     {
+       std::lock_guard lock(m_requestMutex);
++      sdkCalls=vrpolicy::sdkCallsEnabled(m_requested.flags);
+       m_active.store(false,std::memory_order_release); ++m_generation;
+       m_status.state=RTXVR_STATE_OFF;
+       m_poses.clear(); m_overlayRequests.clear(); m_captureRequest.clear();
+@@ -94,12 +96,12 @@ namespace dxvk {
+     // The module may unload OpenVR as soon as Stop returns.
+     std::lock_guard calls(m_openVrMutex);
+     std::unique_ptr<SubmissionLock> queue;
+-    if (m_overlay || m_compositor) { queue=std::make_unique<SubmissionLock>(m_device); }
+-    if (m_overlay) {
++    if (sdkCalls&&(m_overlay || m_compositor)) { queue=std::make_unique<SubmissionLock>(m_device); }
++    if (sdkCalls&&m_overlay) {
+       for (uint64_t handle:m_submittedOverlays) { m_overlay->ClearOverlayTexture(handle); }
+-      m_submittedOverlays.clear();
+     }
+-    if (m_compositor) { m_compositor->ClearLastSubmittedFrame(); }
++    m_submittedOverlays.clear();
++    if (sdkCalls&&m_compositor) { m_compositor->ClearLastSubmittedFrame(); }
+     m_compositor=nullptr; m_overlay=nullptr; m_system=nullptr;
+   }
+ 
+@@ -253,7 +255,9 @@ namespace dxvk {
+       std::lock_guard lock(m_requestMutex);
+       if (!m_active || m_renderGeneration!=m_generation) { return false; }
+     }
+-    if (!(m_frame.flags&RTXVR_START_NO_SUBMIT)) {
++    // A compositor-free generation cannot inherit a previous generation's borrowed SDK pointers.
++    m_compositor=nullptr;m_system=nullptr;m_overlay=nullptr;m_submittedOverlays.clear();
++    if (vrpolicy::sdkCallsEnabled(m_frame.flags)) {
+       int error=0;
+       m_compositor=static_cast<vr::IVRCompositor*>(m_frame.getGenericInterface(vr::IVRCompositor_Version,&error));
+       m_system=static_cast<vr::IVRSystem*>(m_frame.getGenericInterface(vr::IVRSystem_Version,&error));
+@@ -672,6 +676,7 @@ namespace dxvk {
+     double poseClock() { LARGE_INTEGER t{},f{}; QueryPerformanceCounter(&t); QueryPerformanceFrequency(&f); return double(t.QuadPart)/double(f.QuadPart); }
+   }
+   void RtxVr::resolvePoses() {
++    if(!vrpolicy::sdkCallsEnabled(m_frame.flags)||!m_compositor) { return; }
+     vr::Compositor_FrameTiming frames[32] {};
+     for (auto& frame:frames) { frame.m_nSize=sizeof(frame); }
+     const auto count=m_compositor->GetFrameTimings(frames,32);
+@@ -698,6 +703,7 @@ namespace dxvk {
+     }
+   }
+   bool RtxVr::pace() {
++    if(!vrpolicy::sdkCallsEnabled(m_frame.flags)||!m_compositor) { return true; }
+     std::array<vr::TrackedDevicePose_t,vr::k_unMaxTrackedDeviceCount> unused {};
+     const auto began=std::chrono::steady_clock::now();
+     auto error=m_compositor->WaitGetPoses(unused.data(),uint32_t(unused.size()),nullptr,0);
+@@ -719,7 +725,7 @@ namespace dxvk {
+     return result==vrpolicy::WaitResult::Ready;
+   }
+   void RtxVr::submit(RtxContext& ctx) {
+-    if (m_frame.flags&RTXVR_START_NO_SUBMIT) { return; }
++    if (!vrpolicy::sdkCallsEnabled(m_frame.flags)) { return; }
+     ScopedCpuProfileZoneN("SteamVR Submit");
+     std::lock_guard calls(m_openVrMutex);
+     if (!active() || !m_compositor) { return; }
+@@ -787,7 +793,14 @@ namespace dxvk {
+         captureImage(ctx,overlay.texture.image,m_frameCaptureFolder/(L"overlay_"+std::to_wstring(item.first)+L".png"));
+       }
+     }
+-    if (updates && !(m_frame.flags&RTXVR_START_NO_SUBMIT)) {
++    if(updates&&!vrpolicy::sdkCallsEnabled(m_frame.flags)) {
++      uint64_t copied=0;
++      for(auto& item:m_overlays) {
++        if(item.second.dirty) { ++copied;item.second.dirty=false; }
++      }
++      std::lock_guard lock(m_requestMutex);
++      if(m_generation==m_renderGeneration) { m_status.overlayUpdates+=copied; }
++    } else if (updates) {
+       std::lock_guard calls(m_openVrMutex);
+       if (active() && m_overlay) {
+         ctx.flushCommandList(); SubmissionLock queue(m_device);
+@@ -813,7 +826,11 @@ namespace dxvk {
+     std::unique_lock calls(m_openVrMutex,std::try_to_lock);
+     if (!calls.owns_lock() || !active() || !m_compositor) { return; }
+     uint64_t epoch=m_device->getCurrentFrameId();
+-    { std::lock_guard lock(m_requestMutex);if(m_requested.flags&RTXVR_START_RENDER_PACING) { epoch=m_status.renderWaitCalls; } }
++    {
++      std::lock_guard lock(m_requestMutex);
++      if(!vrpolicy::sdkCallsEnabled(m_requested.flags)) { return; }
++      if(m_requested.flags&RTXVR_START_RENDER_PACING) { epoch=m_status.renderWaitCalls; }
++    }
+     if (m_timingFrame==epoch) { return; }
+     SubmissionLock queue(m_device);
+     const auto error=m_compositor->SubmitExplicitTimingData();
+diff --git a/src/dxvk/rtx_render/rtx_vr_policy.h b/src/dxvk/rtx_render/rtx_vr_policy.h
+index e7d2692d..08c7835f 100644
+--- a/src/dxvk/rtx_render/rtx_vr_policy.h
++++ b/src/dxvk/rtx_render/rtx_vr_policy.h
+@@ -6,8 +6,10 @@
+ #include <utility>
+ #include <cstdint>
+ #include "../../util/util_error.h"
++#include "rtx_vr_api.h"
+ 
+ namespace dxvk::vrpolicy {
++  inline bool sdkCallsEnabled(uint32_t flags) { return !(flags&RTXVR_START_NO_SUBMIT); }
+   template<typename Action,typename Error>
+   bool resources(Action action,Error error) {
+     try { action();return true; }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 09c7064a..ce12f1eb 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -24,6 +24,10 @@ namespace {
+   }
+ }
+ int main() {
++  require(!dxvk::vrpolicy::sdkCallsEnabled(RTXVR_START_NO_SUBMIT),"null-interface simulated session never uses OpenVR");
++  require(!dxvk::vrpolicy::sdkCallsEnabled(RTXVR_START_NO_SUBMIT|RTXVR_START_RENDER_PACING),"render pacing cannot re-enable SDK calls in simulation");
++  require(dxvk::vrpolicy::sdkCallsEnabled(RTXVR_START_RENDER_PACING),"real render pacing uses the compositor");
++  require(dxvk::vrpolicy::sdkCallsEnabled(0),"legacy real submission remains enabled");
+   {
+     using namespace dxvk::vrpolicy;
+     require(!cameraReady(2,1,1,1),"new pose cannot make the old flat camera eligible");
+-- 
+2.56.0.windows.1
+

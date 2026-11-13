@@ -1,5 +1,15 @@
 # Handovers
 
+VR V2-V4 were approved by the user on 2026-11-12 as a deliverable at this stage and merged to `main`; Claude finished
+V4 after Q's [hand-over](VR-V4-Q-resume.md). The [V4 report](VR-V4-report.md) starts with the final state, its test
+results and what is still untested.
+
+V2/V3 Q's implementation and evidence work is complete on v2q: [Q report](VR-V2V3-Q-report.md).
+It records the 15-check scripted confirmations, both flat batches (including the first startup
+failure), the passing full Release gate, preserved failures/recovery and the limits. Natural
+controller alignment (C), the old absolute ghost guard and V4 package acceptance remain open;
+the measured V2/V3 artifact predates the inbound W source.
+
 VR V1, "RTX in the headset", was approved by the user and merged into `main` on 2026-11-10. **Start with
 [VR-V1-report.md](VR-V1-report.md)**: what works and what does not, each spike's result, the measured costs, what in
 the plan turned out wrong, how to look with the headset on, and the proposal for V2. The design,
@@ -183,3 +193,14 @@ The QoL shader batch is on codex/hotloader-depth in out/worktrees/hotloader-dept
 [ADR 0041](../decisions/0041-hotloader-remix-depth-materials.md).
 
 | R20-D render compatibility | [R20-D brief](R20-D-render-compat.md) | [shared plan](R20-plan.md) | [R20-D report](R20-D-report.md) | Codex | `r20-render` |
+
+
+- [VR V2/V3/V4 report](VR-V4-report.md): the final state (merged 2026-11-12) first, then the
+  rounds' history (Q4's partial results, the door-Use crash and its repair, round 5).
+  [Q's hand-over to Claude](VR-V4-Q-resume.md).
+
+
+- [Q4 reviewed fixes-module crash rule](VR-V4-crash-review.md): exception-context stack
+  classification, read-only WER copy and one fresh retry. The authorized retry PID 50548
+  reproduced the same known fixes crash; Q stopped without a third run. Complete
+  acceptance, Index, measurements, parity and Release gate remain pending.

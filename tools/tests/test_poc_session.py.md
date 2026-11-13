@@ -90,3 +90,6 @@ Exit code: unittest's (0 when all pass).
 - R28: a test install's `config.json` has `allow.subscribed_content` false unless `--subscribed-content on`
   (`test_subscribed_content_packages_stay_out_of_a_test_install_unless_asked`): the user's other subscriptions hold
   content packages of several GB each that only slow a test down.
+
+Q regression verifies final-console commands are opt-in and retain the requested order through
+the real argument parser, without starting a game.

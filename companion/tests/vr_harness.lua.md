@@ -20,3 +20,19 @@ Lua-created variables keep working. Cases cover CalcView before PreRender, once-
 submission, competing/late camera hooks, predicted/current-duck offsets, and proxy children/Think fields. Desktop
 2D/global dispatch functions stay intact. The separate vr_poc driver proves the raster canvas in the real game;
 native compositor/eye images remain integration's job.
+
+V2/F extends includes to the fixed module tree, scoped convar callbacks, net receiver inventory, engine ticks and shared stand-ins. f_* cases dispatch to vr_framework_cases.lua. Clean requires no nlvr.* hook, callback, receiver or NLVR global. Existing V1 cases still run.
+
+The wrist regression also asserts V1 clear RGBA and depth/stencil flags, preventing a moved canvas from blending its background twice.
+
+
+Review regressions cover overlay lifetimes/budgets, walking world velocity and prediction, light-body stability and impulses, safe proxy spawning, teleport carry, delayed climbing, borrowed-menu errors, pause/stale-FOLLOW recovery, unchanged corpse settings, wrist Exit and cached refresh. The Python suite retains the corresponding Lua cases in the normal repository gate; tests use stand-ins without SteamVR or game settings writes.
+
+Q4 integration: uses the shared `companion/tests/vr_hook_fixture.lua` contract for hook-library compatibility; retained regression cases run without SteamVR.
+
+Adds water/ladder movement stand-ins; client and server SetupMove tests reconstruct intended world motion while preserving gun pitch +/-45.
+
+Independent review round: live hooks use the shared dispatcher and detached compatibility snapshots; geometry witnesses use raw posed-mesh/hand-bone data with rejecting placement/skew mutants. Full destructive acceptance stays gated pending Claude's fixes repair. See VR-V4-Q-resume.md for exact test/evidence scope.
+
+
+options_no_format_write reproduces Derma numeric echoes and requires exact original spelling plus real edit propagation in stock and ULib modes.

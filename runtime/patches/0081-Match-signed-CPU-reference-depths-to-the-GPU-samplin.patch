@@ -1,0 +1,40 @@
+From 4eb9228bf06b0853a8028377d731300a7ffa9b7c Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 07:27:31 -0700
+Subject: [PATCH] Match signed CPU reference depths to the GPU sampling rule
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr_math.h | 2 +-
+ tests/rtx/unit/test_vr_math.cpp   | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 235ac316..120d9bc0 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -180,7 +180,7 @@ namespace dxvk::vrmath {
+                                   const DepthTiles* tiles=nullptr) {
+     auto read=[&](double x,double y) {
+       if(x<0||x>1||y<0||y>1) { return 1e20; }
+-      return colourCoverage ? colourCoverageDepth(depthAt,x,y,depthWidth,depthHeight) : depthAt(x,y);
++      return colourCoverage ? colourCoverageDepth(depthAt,x,y,depthWidth,depthHeight) : validDepth(depthAt(x,y));
+     };
+     const auto infinity=project(p,eyeRay(eye,u,v));
+     const double nearest=tiles?raySearchDepth(p,eye,u,v,unitsPerMetre,frameMinimumWorld,*tiles,nearestDepth):
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index c1e2e473..e01af3ad 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -226,6 +226,8 @@ int main() {
+   require(std::abs((.5-near[0])/(.5-far[0])-10) < 1e-9, "disparity inverse distance");
+   const auto gather = warp(p,e,.5,.5,1,[](double,double) { return 10.; });
+   require(std::abs(gather[0]-near[0]) < 1e-9, "plane gather exact");
++  const auto signedGather=warp(p,e,.5,.5,1,[](double,double){return -10.;},0,0,0,false);
++  require(std::abs(signedGather[0]-near[0])<1e-9,"raw signed view depths use the shader's absolute-depth rule");
+   const auto gap = warp(p,e,.5,.5,1,[](double u,double) { return u < .4995 ? 100. : 10.; });
+   require(std::abs(gap[0]-near[0]) < 1e-9, "disocclusion keeps observed background coordinate");
+   require(gap[0] < .4995, "gap colour comes from the farther surface, not hidden foreground");
+-- 
+2.56.0.windows.1
+

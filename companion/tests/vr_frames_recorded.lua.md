@@ -1,0 +1,3 @@
+# vr_frames_recorded.lua
+
+Private fixture reader for C's production-session tests. Returns a Skeleton-compatible reader and counters. Uses recorded Model-space Open/GripLimit/Fist/WithController poses, each physical hand independently. WithController changes per read through the phase's curl sweep; named reference calls remain fixed. Reuses caller buffers and six-number bone arrays, records timestamps/source/pose blend and counts allocations/calls. No hooks, file/process/SteamVR access. Installed only by the diagnostic probe and restored at Exit; never packaged in production. Its changing input must pass wrist/palm stability, roll, finger-travel and holding-hand anchor checks.

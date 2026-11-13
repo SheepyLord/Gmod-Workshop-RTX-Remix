@@ -789,6 +789,17 @@ class StepRunTests(unittest.TestCase):
                 ps.main(['--root', str(self.root), '--evidence', str(self.evidence), 'run', '--name', 'long', *extra])
         self.assertEqual(graces, [ps.HANG_GRACE, 900.0])
 
+    def test_final_console_commands_are_opt_in_and_keep_order(self):
+        commands=[]
+        def run(args):
+            commands.append(args.before_quit_console)
+            return {'step':'run','name':args.name}
+        with mock.patch.object(ps,'step_run',side_effect=run),contextlib.redirect_stdout(io.StringIO()):
+            ps.main(['--root',str(self.root),'--evidence',str(self.evidence),'run','--name','normal'])
+            ps.main(['--root',str(self.root),'--evidence',str(self.evidence),'run','--name','dump',
+                     '--before-quit-console','echo begin','--before-quit-console','lua_dumptimers_cl'])
+        self.assertEqual(commands,[[],['echo begin','lua_dumptimers_cl']])
+
     def test_capture_timeout_uses_bounded_cleanup_and_still_collects_logs(self):
         clock, game = Clock(), FakeGame()
 

@@ -27,3 +27,34 @@ after cleanup. The engine convar stand-ins reject SetString, matching GMod rathe
 An additional pure-Python catalog byte check runs even without LuaJIT and catches UTF-8 decode failures,
 replacement characters and unexpected question marks in every VR message of all six languages. It caught a
 Cyrillic category abbreviation damaged by a PowerShell pipe during development; UTF-8 file edits corrected it.
+
+V2/F adds LuaJIT framework scenarios from vr_framework_cases.lua to the existing discovery suite; no extra driver or game dependency.
+
+The framework currently adds twenty scenarios; the full page/add-on/guard/catalog suite has 78 tests.
+
+Two teardown regressions bring the framework to 22 scenarios and the complete VR suite to 80 tests.
+
+
+Review regressions cover overlay lifetimes/budgets, walking world velocity and prediction, light-body stability and impulses, safe proxy spawning, teleport carry, delayed climbing, borrowed-menu errors, pause/stale-FOLLOW recovery, unchanged corpse settings, wrist Exit and cached refresh. The Python suite retains the corresponding Lua cases in the normal repository gate; tests use stand-ins without SteamVR or game settings writes.
+
+
+The normal gate includes f_review_overlay_repaint for late/recreated native images.
+
+
+Verification regressions exercise locomotion versus intentional gestures, held body wall/constraint safety, deferred window refusal, moving two-hand mesh-query rate, pending overlay cancellation, expected logical capture roles and ULib/unknown/reentrant view ownership. Tests retain failures from the prior source, use stand-ins without SDK, and remain in the normal gate.
+
+Includes faithful ULib lifecycle, private-dispatch removal and ULib-shaped dispatcher refusal regressions from vr_view_ownership_cases.lua.
+
+Q4 integration adds retained coverage and the shared one-second flat-render settlement after the second Stop. No field files or SteamVR settings are changed.
+
+Adds client/server ladder-water movement-basis tests; the focused core suite currently passes97 cases.
+
+Independent review round: live hooks use the shared dispatcher and detached compatibility snapshots; geometry witnesses use raw posed-mesh/hand-bone data with rejecting placement/skew mutants. Full destructive acceptance stays gated pending Claude's fixes repair. See VR-V4-Q-resume.md for exact test/evidence scope.
+
+
+The options_no_format_write case runs under both hook libraries.
+
+
+Registers the second-review medium-parity and late-yaw ladder cases in both stock and ULib core suites.
+
+Round5 registers ladder sector, underwater noclip basis and ladder/tool command-order cases in both stock and ULib dispatch.

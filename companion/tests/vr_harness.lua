@@ -1,4 +1,4 @@
-local root, scenario = ...
+local root, scenario, library = ...
 local function eq(actual, expected, why)
     assert(actual == expected, (why or "") .. ": " .. tostring(actual) .. " ~= " .. tostring(expected))
 end
@@ -7,12 +7,18 @@ SERVER, CLIENT = false, true
 math.Clamp = function(v, a, b) return math.min(math.max(v, a), b) end
 local clock, requires, includes, repaints, attached, overlayDestroyed, stopCalls = 0, 0, {}, 0, nil, 0, 0
 local painted, rtDepth, camDepth = {}, 0, 0
-local cv = {}
+local cv, callbacks = {}, {}
+cvars = {AddChangeCallback = function(name, fn, id) callbacks[name] = callbacks[name] or {} callbacks[name][id] = fn end,
+    RemoveChangeCallback = function(name, id) if callbacks[name] then callbacks[name][id] = nil end end}
 function CreateClientConVar(name, value)
     if not cv[name] then
         local value = tostring(value)
         cv[name] = {GetString = function() return value end, GetFloat = function() return tonumber(value) or 0 end,
-            SetString = function(self, v) assert(not self.engine, "ConVar:SetString cannot write an engine convar") value = tostring(v) end,
+            SetString = function(self, v)
+                assert(not self.engine, "ConVar:SetString cannot write an engine convar")
+                local old = value value = tostring(v)
+                for _, fn in pairs(callbacks[name] or {}) do fn(name, old, value) end
+            end,
             _engineValue = function(v) value = tostring(v) end}
     end
     return cv[name]
@@ -27,6 +33,11 @@ vec.__index = vec
 vec.__mul = function(a, n) return Vector(a.x * n, a.y * n, a.z * n) end
 vec.__add = function(a, b) return Vector(a.x + b.x, a.y + b.y, a.z + b.z) end
 vec.__sub = function(a, b) return Vector(a.x - b.x, a.y - b.y, a.z - b.z) end
+vec.__div = function(a, n) return Vector(a.x / n, a.y / n, a.z / n) end
+vec.__unm = function(a) return a * -1 end
+function vec:Dot(b) return self.x * b.x + self.y * b.y + self.z * b.z end
+function vec:Length() return math.sqrt(self:Dot(self)) end
+function vec:DistToSqr(b) return (self - b):Dot(self - b) end
 function Vector(x, y, z) return setmetatable({x = x or 0, y = y or 0, z = z or 0}, vec) end
 function Angle(p, y, r) return {p = p or 0, y = y or 0, r = r or 0} end
 function LocalToWorld(pos, ang, origin, rotation)
@@ -34,6 +45,18 @@ function LocalToWorld(pos, ang, origin, rotation)
     return origin + Vector(c * pos.x - s * pos.y, s * pos.x + c * pos.y, pos.z),
         Angle(ang.p, ang.y + rotation.y, ang.r)
 end
+function WorldToLocal(pos, ang, origin, rotation)
+    local p, a = LocalToWorld(pos - origin, ang, Vector(), Angle(0, -rotation.y, 0))
+    return p, a
+end
+table.RemoveByValue = function(t, value) for i = #t, 1, -1 do if t[i] == value then table.remove(t, i) end end end
+CurTime = function() return clock end
+engine = {TickCount = function() return math.floor(clock * 66) end}
+net = {Receivers = {}, Start = function() end, WriteUInt = function() end, WriteFloat = function() end,
+    WriteBool = function() end, SendToServer = function() end}
+net.Receive = function(name, fn) net.Receivers[name] = fn end
+local standins = assert(loadfile(root .. "/companion/tests/vr_stubs.lua"))()
+standins.Math()
 local weapon = {valid = true, clip = 12, ammo = 1}
 function weapon:Clip1() return self.clip end
 function weapon:GetPrimaryAmmoType() return self.ammo end
@@ -42,11 +65,16 @@ local player = {valid = true, health = 100, armour = 25, reserve = 45, yaw = 90,
 function player:IsListenServerHost() return self.host end
 function player:EyeAngles() return Angle(0, self.yaw, 0) end
 function player:GetPos() return self.feet end
+function player:GetVelocity() return self.velocity or Vector() end
+function player:GetMoveType() return 2 end
+function player:WaterLevel() return 0 end
 function player:GetCurrentViewOffset() return self.offset end
 function player:Health() return self.health end
 function player:Armor() return self.armour end
 function player:GetActiveWeapon() return self.weapon end
 function player:GetAmmoCount() return self.reserve end
+function player:IsPlayer() return true end
+function player:EyePos() return self.feet + self.offset end
 LocalPlayer = function() return player end
 IsValid = function(object) return type(object) == "table" and object.valid ~= false end
 local singlePlayer = true
@@ -61,15 +89,8 @@ local statusReads = 0
 file = {Read = function() statusReads = statusReads + 1 return "status" end, Exists = function(path) return exists[path] == true end}
 util = {JSONToTable = function() return status end}
 local hooks, timers, commands = {}, {}, {}
-hook = {}
-function hook.GetTable() return hooks end
-function hook.Add(event, id, fn) hooks[event] = hooks[event] or {} hooks[event][id] = fn end
-function hook.Remove(event, id) if hooks[event] then hooks[event][id] = nil end end
-function hook.Call(event, gm, ...)
-    for _, fn in pairs(hooks[event] or {}) do local value = fn(...) if value ~= nil then return value end end
-    if gm and gm[event] then return gm[event](gm, ...) end
-end
-function hook.Run(event, ...) return hook.Call(event, nil, ...) end
+hook = assert(loadfile(root.."/companion/tests/vr_hook_fixture.lua"))().New(library or "stock",hooks)
+if library=="ulib" then assert(type(hook.GetULibTable)=="function","core suite did not install ULib mode") end
 local originalCall, originalRun = hook.Call, hook.Run
 timer = {Create = function(id, delay, count, fn) timers[id] = fn end, Remove = function(id) timers[id] = nil end}
 concommand = {Add = function(id, fn) commands[id] = fn end}
@@ -113,9 +134,9 @@ end
 function include(path)
     includes[path] = (includes[path] or 0) + 1
     if path == "nativeloader/i18n.lua" then return i18n end
-    eq(path, "nlvr/client.lua")
-    if scenario == "missing_addon" then error("Could not include nlvr/client.lua") end
-    return assert(loadfile(addon))()
+    assert(path:match("^nlvr/"), path)
+    if scenario == "missing_addon" and path == "nlvr/client.lua" then error("Could not include nlvr/client.lua") end
+    return assert(loadfile(root .. "/vr/addon/lua/" .. path))()
 end
 RT_SIZE_LITERAL, MATERIAL_RT_DEPTH_NONE, IMAGE_FORMAT_RGBA8888 = 8, 2, 0
 TEXT_ALIGN_CENTER, color_white = 1, {255, 255, 255}
@@ -125,7 +146,7 @@ GetRenderTargetEx = function(name, w, h, mode, depth, flags, rtFlags, format)
     if scenario == "guard_refused" then w, h = 1, 1 end
     return {Width = function() return w end, Height = function() return h end}
 end
-surface = {CreateFont = function() end}
+surface = {CreateFont = function() end, SetDrawColor = function() end, DrawRect = function() end}
 render = {PushRenderTarget = function() rtDepth = rtDepth + 1 end,
     PopRenderTarget = function() rtDepth = rtDepth - 1 end,
     Clear = function() repaints = repaints + 1 end}
@@ -147,8 +168,11 @@ local function clean()
     eq(hooks.PreRender and hooks.PreRender.nativeloader_vr_session, nil, "no off poll hook")
     eq(hook.Call, originalCall, "dispatch restored") eq(hook.Run, originalRun)
     for _, event in ipairs({"PreRender", "CalcView", "PostRender", "OnEntityCreated", "PreDrawViewModel", "PreDrawPlayerHands", "ShouldDrawLocalPlayer"}) do
-        eq(hooks[event] and hooks[event].nativeloader_vr_view, nil, "session hook " .. event)
+        eq(hooks[event] and hooks[event]["nlvr.core"], nil, "session hook " .. event)
     end
+    for event, entries in pairs(hooks) do for id in pairs(entries) do assert(not tostring(id):match("^nlvr%."), event .. ":" .. id) end end
+    for name, entries in pairs(callbacks) do eq(next(entries), nil, "callback removed " .. name) end
+    eq(net.Receivers.nlvr, nil) eq(NLVR, nil)
     eq(hooks.ShutDown and hooks.ShutDown.nativeloader_vr_session, nil)
     eq(cv.fps_max:GetString(), "60.000", "fps exact restore")
     eq(cv.cl_drawhud:GetString(), "1") eq(cv.r_drawviewmodel:GetString(), "1") eq(cv.rtx_pseudoplayer:GetString(), "1")
@@ -156,6 +180,22 @@ end
 assert(loadfile(page))()
 local VR = NativeLoaderVR
 local cases = {}
+function cases.options_no_format_write()
+    CreateClientConVar("nl_vr_vignette","0.6")
+    local sliders={}
+    local panel={Help=function() end,ControlHelp=function() end,CheckBox=function() end,
+        ComboBox=function() return {AddChoice=function() end} end,Button=function() return {} end}
+    function panel:NumSlider(_,name)
+        local function part() return {ConVarChanged=function(_,v) if cv[name] then cv[name]:SetString(v) end end} end
+        local slider={Scratch=part(),TextArea=part()};sliders[name]=slider return slider
+    end
+    NativeLoaderVR.BuildOptions(panel)
+    local slider=sliders.nl_vr_vignette
+    slider.Scratch:ConVarChanged("0.60") slider.TextArea:ConVarChanged("0.60")
+    eq(cv.nl_vr_vignette:GetString(),"0.6","opening settings must not rewrite numeric formatting")
+    slider.Scratch:ConVarChanged("0.75")
+    eq(cv.nl_vr_vignette:GetString(),"0.75","a real numeric edit still writes")
+end
 function cases.idle()
     eq(requires, 0) eq(includes["nlvr/client.lua"], nil) clean()
     for event in pairs(hooks) do eq(event, "PopulateToolMenu", "only menu hook before Start") end
@@ -386,6 +426,10 @@ function cases.proxies()
     eq(child.hidden, false) eq(gun.Think, think)
 end
 function cases.wrist()
+    render.Clear = function(r, g, b, a, depth, stencil)
+        eq(r, 12) eq(g, 18) eq(b, 26) eq(a, 235) eq(depth, false) eq(stencil, false)
+        repaints = repaints + 1
+    end
     running() hook.Run("PostRender") eq(repaints, 1)
     eq(table.concat(painted, "|"), "Health|100|Armour|25|Ammo|12 / 45")
     for _ = 1, 1000 do hook.Run("PostRender") end eq(repaints, 1)
@@ -555,5 +599,12 @@ function cases.review_recenter()
     close(view.origin.x,100) close(view.origin.y,200) close(view.origin.z,74) close(view.angles.y,90)
     VR.Stop() clean()
 end
-assert(cases[scenario], "Unknown scenario " .. tostring(scenario))()
+if scenario:match("^f_") then
+    assert(loadfile(root .. "/companion/tests/vr_framework_cases.lua"))()({root = root, scenario = scenario,
+        root = root, eq = eq, close = close, api = api, player = player, cv = cv, callbacks = callbacks, hooks = hooks,
+        timers = timers, standins = standins, running = running, clean = clean, logged = logged,
+        time = function(value) clock = value end,
+        step = function() poses.sequence = poses.sequence + 1 clock = clock + 0.02 end,
+        poses = poses, settings = function() return callbacks end})
+else assert(cases[scenario], "Unknown scenario " .. tostring(scenario))() end
 print("PASS " .. scenario)

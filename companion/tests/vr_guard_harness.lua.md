@@ -6,3 +6,5 @@ policy. Loads the **complete production guard**, creates the chosen exact wrist 
 caller, and paints an ordinary 2D raster canvas into it. Asserts 769x257, one native allocation, 790532 RGBA8
 bytes, zero refusals and balanced camera/target stacks. Fixture drift fails rather than silently skipping.
 Prints measurements and PASS; nonzero on assertion/runtime failure. No GPU, game, OpenVR, network or writes.
+
+V2/F attributes allocation to core/cl_overlay.lua and painting to modules/cl_hud.lua, matching the moved production call sites. The render guard is unchanged.

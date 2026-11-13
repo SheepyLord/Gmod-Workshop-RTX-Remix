@@ -1,0 +1,188 @@
+From 891200bdb0d4d2b36e26f144c4b860bd90670487 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 04:49:52 -0700
+Subject: [PATCH] Cover both eyes to twenty centimetres for near-hand
+ measurements
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp    | 20 +++++++++++++-------
+ src/dxvk/rtx_render/rtx_vr.h      |  1 +
+ src/dxvk/rtx_render/rtx_vr_math.h | 19 +++++++++++--------
+ tests/rtx/unit/test_vr_math.cpp   | 16 ++++++++++++++--
+ 4 files changed, 39 insertions(+), 17 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index d9a76280..e579cd0c 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -75,17 +75,23 @@ namespace dxvk {
+   int RtxVr::start(const rtxvr_StartInfo* info) {
+     if (!info || info->structSize!=sizeof(*info)) { return RTXVR_E_ARGUMENT; }
+     if (info->apiVersion!=RTXVR_API_VERSION) { return RTXVR_E_VERSION; }
++    double nearest=vrmath::kNearestEyeDepthMetres;
++    const auto overrideNear=env::getEnvVar("RTX_VR_TEST_NEAR_METRES");
++    if(!overrideNear.empty()) {
++      std::istringstream parse(overrideNear);char tail=0;
++      if(!(parse>>nearest)||(parse>>tail)||!std::isfinite(nearest)||nearest<.2||nearest>.5) { return RTXVR_E_ARGUMENT; }
++    }
+     vrmath::Projection p;
+     if ((info->flags & ~(RTXVR_START_NO_SUBMIT|RTXVR_START_NO_MIRROR|RTXVR_START_RENDER_PACING)) ||
+         (!(info->flags&RTXVR_START_NO_SUBMIT) && !info->getGenericInterface) ||
+         !std::isfinite(info->worldUnitsPerMetre) || info->worldUnitsPerMetre<=0 || info->worldUnitsPerMetre>10000 ||
+         !std::isfinite(info->refreshHz) || info->refreshHz<=0 || info->refreshHz>1000 ||
+-        !vrmath::centreProjection(info->eyes,info->eyeWidth,info->eyeHeight,info->renderScale,p)) {
++        !vrmath::centreProjection(info->eyes,info->eyeWidth,info->eyeHeight,info->renderScale,p,nearest)) {
+       return RTXVR_E_ARGUMENT;
+     }
+     std::lock_guard lock(m_requestMutex);
+     if (m_active) { return RTXVR_E_ALREADY; }
+-    m_requested=*info; m_projection=p; ++m_generation;
++    m_requested=*info; m_projection=p;m_nearestDepth=nearest; ++m_generation;
+     m_poseTimings.clear(); m_poses.clear(); m_latestPose=0; m_consumedPose=0; m_overlayRequests.clear(); m_captureRequest.clear();
+     m_windowSources.clear();m_windowNoMirror=false;
+     m_status={}; m_status.structSize=sizeof(m_status); m_status.state=RTXVR_STATE_STARTING;
+@@ -120,7 +126,7 @@ namespace dxvk {
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active) { return RTXVR_E_NOT_RUNNING; }
+     vrmath::Projection p;
+-    if (!vrmath::centreProjection(eyes,m_requested.eyeWidth,m_requested.eyeHeight,m_requested.renderScale,p)) { return RTXVR_E_ARGUMENT; }
++    if (!vrmath::centreProjection(eyes,m_requested.eyeWidth,m_requested.eyeHeight,m_requested.renderScale,p,m_nearestDepth)) { return RTXVR_E_ARGUMENT; }
+     std::copy(eyes,eyes+2,m_requested.eyes); m_projection=p;
+     return RTXVR_OK;
+   }
+@@ -170,7 +176,7 @@ namespace dxvk {
+   bool RtxVr::projection(Matrix4& matrix,float& fov,float& aspect) {
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active || !m_latestPose) { return false; }
+-    m_frame=m_requested; m_frameProjection=m_projection;
++    m_frame=m_requested; m_frameProjection=m_projection;m_frameNearestDepth=m_nearestDepth;
+     m_cameraFrame=m_device->getCurrentFrameId(); m_cameraGeneration=m_generation;
+     matrix[0][0]=float(1/m_frameProjection.tanX); matrix[1][1]=float(1/m_frameProjection.tanY);
+     matrix[2][0]=0; matrix[2][1]=0;
+@@ -371,7 +377,7 @@ namespace dxvk {
+       std::lock_guard lock(m_requestMutex);
+       generation=m_generation; requested=m_active;
+       if (m_cameraFrame!=m_device->getCurrentFrameId() || m_cameraGeneration!=generation) {
+-        m_frame=m_requested; m_frameProjection=m_projection;
++        m_frame=m_requested; m_frameProjection=m_projection;m_frameNearestDepth=m_nearestDepth;
+       }
+     }
+     if (generation!=m_renderGeneration || !requested) {
+@@ -628,7 +634,7 @@ namespace dxvk {
+     uint32_t maxSteps=0;
+     for(const auto& eye:m_frame.eyes) for(double u:{0.,1.}) for(double v:{0.,1.}) {
+       const auto start=vrmath::warpAtDepth(m_frameProjection,eye,u,v,
+-        vrmath::kNearestEyeDepthMetres*m_frame.worldUnitsPerMetre,m_frame.worldUnitsPerMetre);
++        m_frameNearestDepth*m_frame.worldUnitsPerMetre,m_frame.worldUnitsPerMetre);
+       const auto infinity=vrmath::project(m_frameProjection,vrmath::eyeRay(eye,u,v));
+       maxSteps=std::max(maxSteps,vrmath::searchSteps(start,infinity,depth->imageInfo().extent.width,
+         depth->imageInfo().extent.height,m_warpSearchTaps));
+@@ -655,7 +661,7 @@ namespace dxvk {
+       args.eyeRow1={m[1][0],m[1][1],m[1][2],m[1][3]*m_frame.worldUnitsPerMetre};
+       args.eyeRow2={m[2][0],m[2][1],m[2][2],m[2][3]*m_frame.worldUnitsPerMetre};
+       args.centre={float(m_frameProjection.tanX),float(m_frameProjection.tanY),
+-        float(vrmath::kNearestEyeDepthMetres*m_frame.worldUnitsPerMetre),float(m_warpSearchTaps)};
++        float(m_frameNearestDepth*m_frame.worldUnitsPerMetre),float(m_warpSearchTaps)};
+       ctx.changeImageLayout(m_eyes[i].image,VK_IMAGE_LAYOUT_GENERAL);
+       ctx.bindResourceView(0,view,nullptr); ctx.bindResourceView(1,m_depthCoverage.view,nullptr); ctx.bindResourceView(2,m_eyes[i].view,nullptr);
+       ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrWarpShader::getShader());
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index d487b9c4..f8f28729 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -100,6 +100,7 @@ namespace dxvk {
+     uint64_t m_cameraFrame=~uint64_t(0), m_cameraGeneration=0;
+     rtxvr_StartInfo m_requested {}, m_frame {};
+     vrmath::Projection m_projection {}, m_frameProjection {};
++    double m_nearestDepth=vrmath::kNearestEyeDepthMetres,m_frameNearestDepth=vrmath::kNearestEyeDepthMetres;
+     vrmath::PoseRing m_poses;
+     rtxvr_FramePose m_framePose {};
+     rtxvr_Status m_status {};
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 080337f9..97f238f0 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -40,11 +40,13 @@ namespace dxvk::vrmath {
+     return determinant > 0.998;
+   }
+ 
+-  constexpr double kNearestEyeDepthMetres=0.5;
++  constexpr double kNearestEyeDepthMetres=0.2;
+ 
+-  inline bool centreProjection(const rtxvr_Eye eyes[2], uint32_t width, uint32_t height, float scale, Projection& out) {
++  inline bool centreProjection(const rtxvr_Eye eyes[2], uint32_t width, uint32_t height, float scale, Projection& out,
++                               double nearestDepth=kNearestEyeDepthMetres) {
+     out = {};
+-    if (!width || !height || !std::isfinite(scale) || scale <= 0 || scale > 2) { return false; }
++    if (!width || !height || !std::isfinite(scale) || scale <= 0 || scale > 2 ||
++        !std::isfinite(nearestDepth)||nearestDepth<=0) { return false; }
+     double densityX = 0, densityY = 0;
+     for (int i = 0; i < 2; ++i) {
+       const auto& e = eyes[i];
+@@ -56,10 +58,10 @@ namespace dxvk::vrmath {
+           out.tanX = std::max(out.tanX, std::abs(ray.x/ray.z));
+           out.tanY = std::max(out.tanY, std::abs(ray.y/ray.z));
+           // Include translated eye rays down to the phase-1 nearest axial depth.
+-          const double t=(kNearestEyeDepthMetres+e.eyeToHead.m[2][3])/(-ray.z);
++          const double t=(nearestDepth+e.eyeToHead.m[2][3])/(-ray.z);
+           if (t<=0) { return false; }
+-          out.tanX=std::max(out.tanX,std::abs((e.eyeToHead.m[0][3]+t*ray.x)/kNearestEyeDepthMetres));
+-          out.tanY=std::max(out.tanY,std::abs((e.eyeToHead.m[1][3]+t*ray.y)/kNearestEyeDepthMetres));
++          out.tanX=std::max(out.tanX,std::abs((e.eyeToHead.m[0][3]+t*ray.x)/nearestDepth));
++          out.tanY=std::max(out.tanY,std::abs((e.eyeToHead.m[1][3]+t*ray.y)/nearestDepth));
+         }
+       }
+       // Inverse Jacobian at the eye's optical centre: preserve density even with cant and roll.
+@@ -124,10 +126,11 @@ namespace dxvk::vrmath {
+   template<typename Depth>
+   inline std::array<double, 2> warp(const Projection& p, const rtxvr_Eye& eye,
+                                   double u, double v, double unitsPerMetre, Depth depthAt, unsigned taps=0,
+-                                  uint32_t depthWidth=0,uint32_t depthHeight=0,bool colourCoverage=true) {
++                                  uint32_t depthWidth=0,uint32_t depthHeight=0,bool colourCoverage=true,
++                                  double nearestDepth=kNearestEyeDepthMetres) {
+     auto read=[&](double x,double y) { return colourCoverage ? colourCoverageDepth(depthAt,x,y,depthWidth,depthHeight) : depthAt(x,y); };
+     const auto infinity=project(p,eyeRay(eye,u,v));
+-    const double nearest=kNearestEyeDepthMetres*unitsPerMetre;
++    const double nearest=nearestDepth*unitsPerMetre;
+     const auto start=warpAtDepth(p,eye,u,v,nearest,unitsPerMetre);
+     auto refine=[&](std::array<double,2> uv, bool& settled) {
+       for(unsigned i=0;i<8;++i) {
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index e4750017..853196a9 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -127,6 +127,18 @@ int main() {
+   rtxvr_Eye parallel[] {eye(0,-.032),eye(0,.032)};
+   Projection finite;
+   require(centreProjection(parallel,2016,2240,1,finite), "parallel-eye near projection accepted");
++  for(double distance:{.2,.3,.5}) for(const auto& side:parallel) {
++    unsigned missing=0;
++    const double halfWidth=.04,halfHeight=.05;
++    for(double x:{-halfWidth,halfWidth}) for(double y:{-halfHeight,halfHeight}) {
++      const auto uv=project(finite,{x,y,-distance});
++      missing+=uv[0]<0||uv[0]>1||uv[1]<0||uv[1]>1;
++      const auto ray=eyeRay(side,(x-side.eyeToHead.m[0][3])/distance*.5+.5,.5-y/distance*.5);
++      const auto centre=warpAtDepth(finite,side,(x-side.eyeToHead.m[0][3])/distance*.5+.5,.5-y/distance*.5,distance,1);
++      missing+=centre[0]<0||centre[0]>1||centre[1]<0||centre[1]>1||!std::isfinite(ray.z);
++    }
++    require(!missing,"held prop at 0.2, 0.3 or 0.5 metres is covered in either eye");
++  }
+   require(std::abs(finite.tanX-1-.032/kNearestEyeDepthMetres)<1e-7,
+     "parallel-eye margin is half-IPD divided by nearest axial depth");
+   require(p.tanX>=1.1917535, "infinite toe-in extremum remains covered when translation moves it inward");
+@@ -145,9 +157,9 @@ int main() {
+     index[0].tanLeft=-1.5383247137f;index[0].tanRight=1.0495523214f;index[0].tanTop=-1.4038075209f;index[0].tanBottom=1.411382556f;
+     index[1].tanLeft=-1.049559474f;index[1].tanRight=1.541975141f;index[1].tanTop=-1.411364913f;index[1].tanBottom=1.406647086f;
+     Projection actual;require(centreProjection(index,2468,2740,1,actual),"actual Index projection");
+-    const auto start=warpAtDepth(actual,index[0],.5,.5,.5,1);
++    const auto start=warpAtDepth(actual,index[0],.5,.5,kNearestEyeDepthMetres,1);
+     const auto infinity=project(actual,eyeRay(index[0],.5,.5));
+-    require(searchSteps(start,infinity,1536,1376)==34,"Index spacing is derived from its depth texels, not guessed");
++    require(searchSteps(start,infinity,actual.width/2,actual.height/2)==83,"Index near-hand spacing follows its depth texels");
+     unsigned fixedMisses=0;
+     for(int cell:{700,750,800}) for(const auto& side:index) {
+       auto depthAt=[&](double u,double) { return std::clamp(int(u*1536),0,1535)==cell?1.5:10.; };
+-- 
+2.56.0.windows.1
+

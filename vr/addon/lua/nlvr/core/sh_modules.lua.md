@@ -1,0 +1,5 @@
+# sh_modules.lua: Module resource registry
+
+Registry.New(core, fatal) returns Add(descriptor), Start(), Stop(), Call(entry, fn, ...), Own(cleanup, entry). A descriptor has name, numeric order, Start(ctx), Stop(). ctx.core and inherited core services are available alongside ctx.native, hook(event,fn), timer(name,delay,count,fn), cleanup(fn), On(name,fn), mover(priority,fn), resolver(priority,fn) where supported. Hooks use nlvr.<name>; Start sorts by order and Stop reverses it. Callback errors log once, Stop that module and release all its resources; core errors invoke the session error handler. A failed Start raises to the composition root after cleaning the failed module. Start/Stop themselves must not create unowned resources. No global dispatch replacement or file writes.
+
+Inputs are the session/context arguments described above. Outputs are returned Lua tables and active-session state only. Errors propagate to the owning session or harness; there is no process exit code for production Lua.

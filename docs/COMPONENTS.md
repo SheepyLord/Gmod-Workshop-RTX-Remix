@@ -1,5 +1,23 @@
 # Components
 
+Q3b private fixtures add [acknowledged controller typing](../companion/tests/vr_fixture_typing.lua.md) and actual RenderScene temporal observers. They neither set tested values nor mutate camera ownership. Their offline cases cover omitted key acknowledgement, opaque CalcView dispatch, frame de-duplication and observer restoration; none ships in the package.
+
+Q3b adds the private [combined functional clock](../companion/tests/vr_combined_clock.lua.md): Source-time pose/action replay for the complete functional sequence, raw native timestamps retained, deliberate menu pauses handled separately, and exact API restoration. Full-rate temporal probes never use it. Its injected-stall regression is in `tools/tests/vr_combined_clock_cases.lua`. No helper code ships.
+
+Q3's private `companion/tests/vr_cachecpu_session.py` / `vr_cachecpu_probe.lua` reuse the production
+session driver for stationary balanced cached/uncached blocks. Whole game-thread CPU/cycle intervals
+exclude block edges; resolver counts and beginning/end server health are retained. No code ships.
+
+Q3's [capture queue](../tools/vr_capture_queue.lua.md) is embedded in private generated probes by
+`tools/vr_session.py`; it waits for new visible sources to paint and prevents same-frame request
+overwrite. Its injected-clock Lua regression lives under `tools/tests/`. No queue code ships in the
+package; the production manager's repaint-on-bind correction does.
+
+Q's independent VR review adds private combined-review client/server probes and a fail-closed reducer
+under `companion/tests/vr_combined_review*`; the production driver still owns preparation, locks,
+captures and rollback. Logical overlay roles retain canvases while native handles retire after hiding;
+21 roles use at most 32 native handles and 16 pending source requests per render drain. These probes
+and the read-only clock helper never enter the package.
 The queued-draws fix (2026-11-12, [ADR 0192](decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md))
 adds the fixes' tenth native patch under `packages/fixes/licenses/oversized-skinning/queued-draws` (its corresponding
 source and the SDK-free `studio_draw_policy_test.cpp`), the gate's [`test_queued_draws.py`](../tools/tests/test_queued_draws.py.md),
@@ -525,3 +543,88 @@ capture PNGs, and `rtx_vr_timing.h` names the fine stages and accounts for cover
 This repository stores their patches, not a second source checkout. The active Start
 flag moves WaitGetPoses after submission on the render side. The module predicts poses without waiting for a
 frame completion ([ADR 0147](decisions/0147-frame-poses-and-render-side-pacing.md)).
+
+## VR V2/V3 integration (branch-only, 2026-11-11)
+
+The fixed client/server composition roots load only at Start. `vr/addon/lua/nlvr/core/`
+owns frames/play space, claimed mirrored input, overlay lifecycle, validated tick networking
+and reverse cleanup. The dormant companion server stub owns the sole off-state receiver and
+activates only for the single-player player/listen host.
+
+| Component | Responsibility |
+|---|---|
+| `modules/cl_hands.lua`, `cl_hands_pose.lua` | c_arms world models, five curls/four splay values, brush/finger envelope and lazy ghost overlays; unsafe solid starts suppress the model. |
+| `modules/cl_move*.lua`, `sv_move.lua` | Authoritative hull room walking, same-frame room view prediction, buffered motor interpolation, turns, server teleport/mantle checks, crouch/flight/calibration and overlay comfort. |
+| `modules/cl_ui*.lua` | Borrowed sandbox panels, laser capture, hand-ray properties, window source and focus-scoped text; the companion owns options and the single native event reader. |
+| `modules/cl_interact.lua`, `sv_interact*.lua` | Server proxies, protected nearest surface/bone holding, two-hand springs, history throws, gloves, use/kit triggers, climbing, contact damage and haptics. |
+| `vr/native/sim_device.*` | Launcher-only recorded Index backend and timed input without loading OpenVR; native keyboard/splay/overlay ownership remain in Session. |
+| [Combined runner](../companion/tests/vr_combined_session.py.md) | One all-module feature sequence plus unchanged full-rate rendered-view latency/smoothness probes, with separate fatal subsystem receipts. |
+| [Measurements](../tools/vr_measure.py.md), [clock build](../tools/vr_measure_build.ps1.md) | Covered GPU brackets, true game-thread CPU/cycles, engine network-send accounting; development helper never ships. |
+| [Flat parity](../tools/vr_flat_parity.py.md), [no-Pillow look](../tools/vr_look_check.py.md) | Alternating complete-package controls and an actual fresh-venv manual-path run. |
+
+Every capture carries a semantic handle/role manifest; the session driver does not infer the
+wrist/panel/window/keyboard/marker from its dimensions or order. All production modules remain
+absent off. The native path never grants arbitrary Lua DLL, HWND, manifest or capture roots.
+
+Q's bounded native overlay allowance is 32 for all hands/movement/UI roles together. The
+window-source function uses `vr/native/include/rtxvr_api.h`; native window input is scoped to
+the owned game window. The development clock helper is staged in both realms only for tests;
+client FrameNumber and server-tick denominators, callbacks, cycles and CPU time stay distinct.
+
+
+## V2--V4 integration components (Q4 review draft, 2026-11-12)
+
+These are branch components awaiting milestone approval; the [Q4 report](handover/VR-V4-report.md)
+records incomplete acceptance and the native-crash stop.
+
+| Folder/component | Responsibility |
+|---|---|
+| `vr/addon/lua/nlvr/core/` | Session/module ownership, input claims, network, space, overlays and camera ownership. `cl_frames.lua` composes raw/aim/hand/wrist controller frames; `cl_hand_model.lua` builds anatomical hand geometry; `cl_view_hooks.lua` owns CalcView under stock/ULib libraries; `cl_core.lua` preserves 3D noclip direction under weapon aim. |
+| `vr/addon/lua/nlvr/modules/` hands/move/UI/interact | V2/V3 physical hands, locomotion/comfort, panels and physical interaction. `sv_interact.lua`, `sv_interact_actions.lua`, `sv_interact_physics.lua` expose server hand ownership, honor passive Use claims and register transient released projectiles. |
+| `vr/addon/lua/nlvr/modules/` weapons | `cl_weapons.lua`, `cl_weapons_model.lua`, `sv_weapons.lua`, `sh_weapons.lua`: world-model grip/aim, shots/projectiles/melee, foregrip and camera override lifecycle. Model-owned grip regions and the physgun emitter remain independent of K/T's local points. |
+| `vr/addon/lua/nlvr/modules/` reload | `cl_reload.lua`, `sv_reload.lua`, `sh_reload.lua`: physical magazine/shell/bolt/rocket handling, engine reload guards, button reload and ammunition overlay. |
+| `vr/addon/lua/nlvr/modules/` tools | `cl_tools.lua`, `cl_tools_controls.lua`, `cl_tools_presentation.lua`, `cl_tools_wheel.lua`, `cl_tools_beam.lua`, `sv_tools.lua`, `sv_tools_rotation.lua`, `sh_tools_math.lua`: wheel, tool information, native physgun controls/rotation and beam ownership. |
+| `vr/native/` | OpenVR session/input/overlay ownership, recorded simulation and controller frames (`controller_frames.cpp/.h`); native bound 32 overlays, runtime bound 16 pending source requests between drains. |
+| `vr/input/` | Action manifest and per-controller bindings, logical dominant/off-hand mapping. |
+| `companion/tests/fixtures/` | Recorded Index references and independently selected posed-mesh grip landmarks (`vr_weapon_grips.json`, `vr_v4_weapon_grips.json`). |
+| `companion/tests/vr_hook_fixture.lua` | One original stock/ULib-compatible hook library shared by all module harnesses and the private in-game test add-on. |
+| `companion/tests/vr_fixture_frames.*` | Natural-palm/raw-pose test conversion and tip-origin laser aiming; preserves raw live-component status and labels recorded fallbacks. |
+| `companion/tests/vr_v4_geometry.py`, `vr_v4_meshes.lua` | All-class both-hand capture matrix and independent posed-mesh export; no production binary or game asset is committed. |
+| `companion/tests/vr_q4_flight.*`, `vr_q4_integration.*` | Actual armed noclip witnesses and one all-module, two-cycle ULib session with mandatory semantic reducers and private fixture staging. |
+| `companion/tests/vr_combined_session.py` and helpers | Full V2/V3 functional, temporal, review and overlay scenarios; fresh post-C full run is currently failed after a native crash. |
+| `tools/vr_measure.py`, `vr_flat_parity.py` | CPU/GPU accounting and alternating complete-package flat controls. New Q4 weapons-out/flat acceptance remains pending; simulated frame counts do not substitute for it. |
+
+
+`tools/vr_crash.py` supplies the shared driver's bounded read-only minidump/exception-stack
+classifier and verified WER evidence copy. `tools/tests/test_vr_crash.py` generates portable
+AMD64 dump fixtures and tests the one-retry boundary without launching a target. See the
+[reviewed rule](handover/VR-V4-crash-review.md); no production crash workaround is applied.
+
+
+`companion/tests/vr_v4_fixture.py` and `tools/tests/test_vr_v4_fixture.py` are Q4 WIP
+adapter groundwork for physical-control/dominant-hand layout and calibration. Three pure
+layout tests pass; W/K/T entry points are not yet wired, and no runtime acceptance is
+claimed for this draft. Work stopped at the second reviewed fixes-module crash.
+
+
+`vr/addon/lua/nlvr/core/sh_move_basis.lua` is the shared active-VR client/server
+SetupMove adapter for Source's pitch-sensitive ladder/swim movement; weapon commands
+retain their aim. Review mutations independently exercise collision invalidation,
+per-control/hand ownership and deferred projectile feedback.
+
+
+`cl_weapons_mesh.lua` measures stock shaft/barrel geometry at authored pose for actual
+hand-specific melee reach. `companion/tests/vr_mesh_witness.lua`, `vr_mesh_measure.py`
+and `fixtures/vr_mesh_witnesses.json` provide independent raw-mesh/hand-bone metrology;
+no product grip coordinates are used as witness. `vr_hook_addon.lua` keeps real competing
+callbacks through restart. `vr_review_safe.*` is the permitted retained-target limited
+check; `vr_full_sequence.py` is the gated future fixed-package sequence, not executed now.
+
+
+Q second-review measurement tools: companion/tests/vr_mesh_fixture.py regenerates independent authored-bone/mesh fixtures from declared raw exports only; vr_medium_poc.py/.lua and vr_medium_server.lua run the limited permanent-world ladder/water simulation with both locks. tools/tests/test_vr_mesh_fixture.py, test_vr_medium_poc.py and test_vr_review_docs.py enforce regeneration/observer/docs contracts.
+
+Q second-review stock verification: `tools/tests/test_vr_manifest_pins.py` covers the
+explicit-manifest snapshot/rollback contract when field and PoC depot revisions differ.
+The driver forwards matching cached official manifests without writing Steam files.
+
+`companion/tests/vr_finger_witness.lua` is private combined-session metrology: actual engine bone-parent rotation snapshots, independent of motor command Euler components. It is not packaged.

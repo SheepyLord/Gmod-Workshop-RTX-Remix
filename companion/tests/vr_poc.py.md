@@ -37,3 +37,5 @@ overwriting the recorded source hashes.
 Exit 0 means the requested modes and rollback passed; subprocess/validation failures are nonzero and still
 attempt rollback/release. Requirements: Windows, installed PoC/package, Python/Pillow, local Release nlctl for
 the existing snapshot rollback. Use the report for measured results and expected blocked-command diagnostics.
+
+The V2/F source bundle also embeds every nlvr child file under its logical include path, so the unchanged real-game stand-in workflow exercises the moved framework rather than an older deployed client. Source hashes cover the entire bundle.

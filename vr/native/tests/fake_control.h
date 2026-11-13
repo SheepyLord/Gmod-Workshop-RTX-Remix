@@ -3,7 +3,11 @@
 #include "include/rtxvr_api.h"
 #include <cstdint>
 struct FakeCounters {
+  uint32_t keyboard_shows=0,keyboard_hides=0,keyboard_reads=0,binding_ui=0,colors=0,sorts=0,windows=0,window_flags=0;
+  uint32_t keyboard_maxchars=0,keyboard_multiline=0,keyboard_flags=0,sort_value=0,binding_own_context=0;
+  float red=0,green=0,blue=0;
   uint32_t eye_reads=0;
+  uint32_t component_reads=0,skeleton_reads=0,controller_properties=0;
   uint32_t acknowledged=0,predicted=0;
   uint32_t init=0,shutdown=0,waits=0,manifests=0,actions=0,haptics=0,created=0,destroyed=0,eyes=0;
   uint32_t runtime_starts=0,runtime_stops=0,pushed=0,sources=0,absolute=0,relative=0,after_stop=0;
@@ -21,3 +25,5 @@ using FakeRenderDelay=void (*)(int);
 using FakeComplete=void (*)();
 using FakeTrace=const char* (*)();
 using FakeSubmitTime=int64_t (*)();
+using FakeStartInfo=rtxvr_StartInfo (*)();
+using FakeKeyboardText=void (*)(const char*);

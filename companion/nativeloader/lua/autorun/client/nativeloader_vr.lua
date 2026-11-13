@@ -17,6 +17,30 @@ local TIMER, SHUTDOWN = "nativeloader_vr_session", "nativeloader_vr_session"
 local scale = CreateClientConVar("nl_vr_scale", "40", true, false, "Game units per metre (restart VR after changing)", 10, 100)
 CreateClientConVar("nl_vr_fov", "145", true, false, "Engine culling FOV; tested on the Index at 16:9", 100, 170)
 local renderScale = CreateClientConVar("nl_vr_render_scale", "1", true, false, "V1 fixed render scale (restart VR after changing)", 0.25, 1.5)
+-- Settings live here while the add-on is dormant; active modules only read them.
+for _, spec in ipairs({
+    {"dominant", "0", "Dominant hand: 0 right, 1 left", 0, 1},
+    {"move_dir", "0", "Smooth movement direction: 0 off hand, 1 head", 0, 1},
+    {"turn", "0", "Turning: 0 snap, 1 smooth", 0, 1},
+    {"snap_angle", "30", "Snap turn angle in degrees", 15, 90},
+    {"turn_speed", "120", "Smooth turn speed in degrees per second", 30, 360},
+    {"teleport", "1", "Teleport: 0 off, 1 blink, 2 shift", 0, 2},
+    {"vignette", "0.6", "Movement and turning vignette strength; 0 disables it", 0, 1},
+    {"seated", "0", "Enable seated mode", 0, 1},
+    {"seated_offset", "0.45", "Seated height offset in metres", 0, 1},
+    {"height", "0", "Calibrated eye height in metres (1.2 to 2.2); 0 uses nl_vr_scale", 0, 2.2},
+    {"ghost_hands", "1", "Show the controller outline when a hand is blocked", 0, 1},
+    {"gloves", "1", "Enable gravity gloves", 0, 1},
+    {"climb", "1", "Enable climbing", 0, 1},
+    {"melee", "1", "Enable physical melee", 0, 1},
+    {"wrist_hud", "1", "Show the wrist HUD", 0, 1},
+    {"physical_reload", "1", "Enable physical reload for HL2 weapons", 0, 1},
+    {"foregrip", "1", "Enable two-handed weapon grip", 0, 1},
+    {"ammo_counter", "1", "Show ammo beside the weapon hand", 0, 1},
+    {"gun_angle", "0", "Gun pitch in the hand in degrees", -45, 45},
+}) do
+    CreateClientConVar("nl_vr_" .. spec[1], spec[2], true, false, spec[3], spec[4], spec[5])
+end
 local ERRORS = {
     module = N("The VR module is missing or could not load. Reinstall the RTX package, then restart Garry's Mod."),
     version = N("The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."),
@@ -178,6 +202,8 @@ poll = function()
     pollErrors, pollError = 0, nil
     for _, event in ipairs(type(events) == "table" and events or {}) do
         if event.type == "quit" then VR.Stop("quit") return end
+        -- One reader owns native.Events. Fan out keyboard/dashboard events through F's registry.
+        if NLVR then NLVR.Emit("native_event", event) end
     end
 end
 function VR.Start(options)
@@ -217,6 +243,88 @@ function VR.Recenter() if addon and addon.Recenter then addon.Recenter() end end
 concommand.Add("nl_vr_recenter", function() VR.Recenter() end)
 concommand.Add("nl_vr_exit", function() VR.Stop() log("Exited VR; flat settings restored") end)
 
+-- Also used by the active add-on; marking these here keeps one translated companion namespace.
+VR.UILabels = {}
+for _, source in ipairs({N("Wrist menu"), N("Spawn menu"), N("Context menu"), N("Flat screen"), N("VR settings"),
+    N("Calibrate height"), N("Recentre VR"), N("Exit VR"), N("Enter text"),
+    N("Keyboard"), N("Shift"), N("Space"), N("Backspace"), N("Enter"), N("Close"), N("Tab"),
+    N("Left"), N("Right"), N("Home"), N("End"), N("Delete"),
+    N("This menu is unavailable in this gamemode."),
+    N("The flat screen needs a newer VR module and Remix runtime. Update the RTX package.")}) do
+    VR.UILabels[source] = source
+end
+function VR.Calibrate()
+    if NLVR then NLVR.Emit("height_calibrate") return true end
+    return false
+end
+function VR.OpenBindings()
+    if not native or not native.OpenBindingUI or VR.state ~= "running" then return false end
+    local ok, result, detail = pcall(native.OpenBindingUI)
+    if not ok or result == false or (result == nil and detail) then log(tostring(detail or result)) return false end
+    return true
+end
+function VR.BuildOptions(panel)
+    -- Minimal diagnostic panel stand-ins may implement only the V1 controls.
+    if not panel.ComboBox or not panel.CheckBox then return end
+    local function choice(title, cvar, choices)
+        panel:Help(L(title))
+        local box = panel:ComboBox("", cvar)
+        for i, label in ipairs(choices) do box:AddChoice(L(label), i - 1) end
+    end
+    local function slider(title, cvar, low, high, decimals)
+        panel:Help(L(title))
+        local control=panel:NumSlider("", cvar, low, high, decimals)
+        if not control then return end
+        -- Derma's scratch/text synchronization can echo 0.60 for an unchanged 0.6.
+        -- Leave the player's exact value alone until its numeric value changes.
+        for _,part in ipairs({control.Scratch,control.TextArea}) do
+            local changed=part.ConVarChanged
+            if changed then
+                part.ConVarChanged=function(self,value)
+                    local current=GetConVar(cvar)
+                    if current and tonumber(current:GetString())==tonumber(value) then return end
+                    return changed(self,value)
+                end
+            end
+        end
+    end
+    panel:Help(L("Controls and comfort"))
+    choice(N("Dominant hand"), "nl_vr_dominant", {N("Right hand"), N("Left hand")})
+    choice(N("Movement direction"), "nl_vr_move_dir", {N("Off hand"), N("Head")})
+    choice(N("Turning"), "nl_vr_turn", {N("Snap turn"), N("Smooth turn")})
+    slider(N("Snap angle (degrees)"), "nl_vr_snap_angle", 15, 90, 0)
+    slider(N("Turn speed (degrees per second)"), "nl_vr_turn_speed", 30, 360, 0)
+    choice(N("Teleport"), "nl_vr_teleport", {N("Off"), N("Blink"), N("Shift")})
+    slider(N("Movement vignette"), "nl_vr_vignette", 0, 1, 2)
+    panel:ControlHelp(L("The vignette shades the edge of your view while moving or turning. Zero turns it off."))
+    panel:CheckBox(L("Seated mode"), "nl_vr_seated")
+    slider(N("Seated height offset (metres)"), "nl_vr_seated_offset", 0, 1, 2)
+    local calibrate = panel:Button(L("Calibrate height")) calibrate.DoClick = VR.Calibrate
+    panel:ControlHelp(L("Start VR, stand straight, then calibrate. Your tracked eye height sets world scale. To reset, set nl_vr_height to 0."))
+    panel:ControlHelp(L("A changed height calibration takes effect after Exit VR and Start VR."))
+    panel:Help(L("Hands and HUD"))
+    panel:CheckBox(L("Ghost hands"), "nl_vr_ghost_hands")
+    panel:ControlHelp(L("Show an outline at the real controller when the visible hand stops against something."))
+    panel:CheckBox(L("Wrist HUD"), "nl_vr_wrist_hud")
+    panel:Help(L("Physical interaction"))
+    panel:CheckBox(L("Gravity gloves"), "nl_vr_gloves")
+    panel:CheckBox(L("Climbing"), "nl_vr_climb")
+    panel:CheckBox(L("Physical melee"), "nl_vr_melee")
+    panel:ControlHelp(L("Grip grabs. Point, grip and flick to pull a loose object. Grip a ledge to climb. Fast hands and held objects can strike."))
+    panel:ControlHelp(L("Turn on Keep corpses in the game's options to make NPC bodies grabbable in VR."))
+    panel:Help(L("Weapons"))
+    panel:CheckBox(L("Physical reload"), "nl_vr_physical_reload")
+    panel:ControlHelp(L("Eject with A, take ammo over your shoulder, then insert it into HL2 weapons. Other weapons reload on a B tap."))
+    panel:CheckBox(L("Foregrip"), "nl_vr_foregrip")
+    panel:ControlHelp(L("Grip near a rifle's foregrip with the off hand to aim with both hands."))
+    panel:CheckBox(L("Ammo on the gun"), "nl_vr_ammo_counter")
+    panel:ControlHelp(L("Show the clip and reserve ammo beside the weapon hand."))
+    slider(N("Gun angle (degrees)"), "nl_vr_gun_angle", -45, 45, 0)
+    panel:ControlHelp(L("Adjust the gun's pitch in your hand."))
+    local bindings = panel:Button(L("SteamVR controller bindings")) bindings.DoClick = VR.OpenBindings
+    panel:ControlHelp(L("Start VR before opening SteamVR's binding editor. The off hand's B opens the wrist menu; point with the main hand and click with its trigger. Its stick scrolls."))
+end
+
 local function number(value, format)
     return finite(value) and string.format(format or "%.1f", value) or "?"
 end
@@ -230,6 +338,12 @@ local function status_lines()
     local text = {L(STATES[VR.state] or STATES.failed)}
     if VR.reason then text[#text + 1] = L(ERRORS[VR.reason] or ERRORS.native) end
     if VR.detail ~= "" then text[#text + 1] = VR.detail end -- native error name/extension: keep exact
+    local ui = NLVR and NLVR.Debug and NLVR.Debug.ui
+    local calibration = NLVR and NLVR.Move and NLVR.Move.calibration
+    if calibration and calibration.restart then
+        text[#text + 1] = L("Height calibrated. Exit VR, then Start VR to use the new world scale.")
+    end
+    if ui and ui.keyboard == "unavailable" then text[#text + 1] = L("Enter text") .. ": " .. tostring(ui.keyboard_detail or "?") end
     text[#text + 1] = string.format(L("SteamVR installed: %s; running: %s"),
         yesno(VR.state == "running" or probe.steamvr_installed), yesno(VR.state == "running" or probe.steamvr_running))
     if VR.state == "running" then
@@ -273,7 +387,7 @@ local function build(panel)
     panel:Help(L("Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."))
     local status = panel:Help(status_lines())
     local warning = panel:Help("")
-    panel:Help(L("V1 uses a fixed preset. Auto quality, movement and hand controls arrive in later VR milestones. For RTX, 80 or 90 Hz is recommended."))
+    panel:Help(L("VR uses a fixed render preset. Auto quality arrives in a later milestone. For RTX, 80 or 90 Hz is recommended."))
     -- GUI Scaler enlarges fonts after this builder; Source's slider label stays 114 pixels wide.
     -- Always use a full-width title, including short English labels that only overflow at 4K.
     panel:Help(L("World scale"))
@@ -286,6 +400,7 @@ local function build(panel)
     panel:NumSlider("", "nl_vr_fov", 100, 170, 0)
     panel:ControlHelp(L("Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."))
     panel:Help(L("Use nl_vr_start and nl_vr_exit in the console. V1 supports single-player and the listen-server host."))
+    VR.BuildOptions(panel)
     local nextUpdate = 0
     -- This belongs to the visible page, not a global frame hook or an idle timer.
     status.Think = function(self)

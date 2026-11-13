@@ -1,0 +1,45 @@
+From 36df1ef0de9ee48f76972f54def6528a4fd490c5 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 05:18:13 -0700
+Subject: [PATCH] Fit the near limit to the moving thin-feature Index scene
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr_math.h | 4 ++--
+ tests/rtx/unit/test_vr_math.cpp   | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index f8f64d9a..83556755 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -40,8 +40,8 @@ namespace dxvk::vrmath {
+     return determinant > 0.998;
+   }
+ 
+-  // The Index experiments select 0.35 m: 0.2 m exceeded the 1 ms combined warp budget.
+-  constexpr double kNearestEyeDepthMetres=0.35;
++  // Use 5 cm experiment steps: the moving Index thin-feature scene exceeds 1 ms at 0.35 m.
++  constexpr double kNearestEyeDepthMetres=0.4;
+ 
+   inline bool centreProjection(const rtxvr_Eye eyes[2], uint32_t width, uint32_t height, float scale, Projection& out,
+                                double nearestDepth=kNearestEyeDepthMetres) {
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 166b6902..e5df5af0 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -176,9 +176,9 @@ int main() {
+     Projection actual;require(centreProjection(index,2468,2740,1,actual),"actual Index projection");
+     const auto start=warpAtDepth(actual,index[0],.5,.5,kNearestEyeDepthMetres,1);
+     const auto infinity=project(actual,eyeRay(index[0],.5,.5));
+-    require(searchSteps(start,infinity,actual.width/2,actual.height/2)==48,"selected Index near-hand spacing follows its depth texels");
++    require(searchSteps(start,infinity,actual.width/2,actual.height/2)==42,"selected Index near-hand spacing follows its depth texels");
+     Projection candidate;require(centreProjection(index,2468,2740,1,candidate,.2),"twenty-centimetre candidate remains reproducible");
+-    require(candidate.width==3272&&actual.width==3128,"measured near-limit candidate and selected centre extents");
++    require(candidate.width==3272&&actual.width==3112,"measured near-limit candidate and selected centre extents");
+     unsigned fixedMisses=0;
+     for(int cell:{700,750,800}) for(const auto& side:index) {
+       auto depthAt=[&](double u,double) { return std::clamp(int(u*1536),0,1535)==cell?1.5:10.; };
+-- 
+2.56.0.windows.1
+

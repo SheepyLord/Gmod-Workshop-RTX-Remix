@@ -42,8 +42,10 @@ def build_probe(path):
         "addon": ROOT / "vr/addon/lua/nlvr/client.lua",
         "standin": Path(__file__).with_name("vr_standin.lua"),
     }
+    sources.update({p.relative_to(ROOT / "vr/addon/lua").as_posix(): p
+                    for p in sorted((ROOT / "vr/addon/lua/nlvr").rglob("*.lua"))})
     text = "local TEST_SOURCES = {\n" + "\n".join(
-        f"{name} = {lua_string(source.read_text(encoding='utf-8'))}," for name, source in sources.items()) + "\n}\n"
+        f"[{lua_string(name)}] = {lua_string(source.read_text(encoding='utf-8'))}," for name, source in sources.items()) + "\n}\n"
     text += Path(__file__).with_suffix(".lua").read_text(encoding="utf-8")
     path.write_text(text, encoding="utf-8")
     return {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources.values()}

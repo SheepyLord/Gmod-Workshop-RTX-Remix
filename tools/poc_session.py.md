@@ -254,3 +254,8 @@ a persistent hang, capture failure, or either named crash exit). Other non-norma
 reading `normal_quit` in the record; [`qa/release_qa.py`](qa/release_qa.py.md) rejects them.
 
 Tests: [tests/test_poc_session.py](tests/test_poc_session.py.md) (no game is started).
+
+Q adds repeatable run --before-quit-console COMMAND: delivered through the same owned-game
+console after measurements/modules and before live settings restoration/normal quit. Each
+delivery is recorded and failures remain fatal. Used for read-only engine timer dumps where
+this build exposes no timer.GetTable Lua API; no command is run by default.

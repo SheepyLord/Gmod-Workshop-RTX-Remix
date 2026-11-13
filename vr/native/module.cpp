@@ -26,9 +26,9 @@ double number(ILuaBase* l,int i,double low,double high) {
 uint64_t integer(ILuaBase* l,int i,double low,double high) {
   const double v=number(l,i,low,high);need(std::floor(v)==v,"expected integer");return static_cast<uint64_t>(v);
 }
-std::string string(ILuaBase* l,int i) {
+std::string string(ILuaBase* l,int i,bool empty=false) {
   need(l->IsType(i,Type::String),"expected string");unsigned size=0;const char* data=l->GetString(i,&size);
-  need(data&&size>0&&size<=32767&&std::char_traits<char>::length(data)==size,"invalid string");return {data,size};
+  need(data&&(empty||size>0)&&size<=32767&&std::char_traits<char>::length(data)==size,"invalid string");return {data,size};
 }
 Vec3 vector(ILuaBase* l,int i,bool angle=false) {
   need(l->IsType(i,angle?Type::Angle:Type::Vector),angle?"expected Angle":"expected Vector");
@@ -52,6 +52,13 @@ void push_vec(ILuaBase* l,Vec3 v,bool angle=false) {
 void push_pose(ILuaBase* l,const Pose& p) {
   l->CreateTable();boolean(l,"valid",p.valid);push_vec(l,p.pos);set(l,"pos");push_vec(l,p.ang,true);set(l,"ang");
   push_vec(l,p.vel);set(l,"vel");push_vec(l,p.angvel);set(l,"angvel");
+}
+void push_controller(ILuaBase* l,const ControllerFrames& f) {
+  l->CreateTable();boolean(l,"valid",f.valid);boolean(l,"skeleton",f.skeleton);
+  text(l,"model",f.model);text(l,"source",f.source);text(l,"detail",f.detail);
+  num(l,"device",f.device);num(l,"revision",f.revision);
+  push_pose(l,f.aim);set(l,"aim");push_pose(l,f.hand);set(l,"hand");push_pose(l,f.wrist);set(l,"wrist");
+  push_vec(l,f.skeleton_finger);set(l,"skeleton_finger");push_vec(l,f.skeleton_normal);set(l,"skeleton_normal");
 }
 // Lua numbers cannot represent all uint64 overlay handles. Always return decimal strings.
 // Accept exact small numbers as well, for callers with a legacy/synthetic handle.
@@ -85,6 +92,9 @@ LUA_FUNCTION_STATIC(Start) { return guard(LUA,[&] {
     LUA->GetField(1,"no_submit");
     if(!LUA->IsType(-1,Type::Nil)) { need(LUA->IsType(-1,Type::Bool),"no_submit must be boolean");options.no_submit=LUA->GetBool(-1); }
     LUA->Pop();
+    LUA->GetField(1,"simulate");
+    if(!LUA->IsType(-1,Type::Nil)) { need(LUA->IsType(-1,Type::Bool),"simulate must be boolean");options.simulate=LUA->GetBool(-1); }
+    LUA->Pop();
   }
   std::string error;const bool result=session->start(options,error);LUA->PushBool(result);
   if(!result) { LUA->PushString(error.c_str());return 2; }return 1;
@@ -100,6 +110,7 @@ LUA_FUNCTION_STATIC(BeginFrame) { return guard(LUA,[&] {
   num(LUA,"wait_ms",f->wait_ms);
   num(LUA,"completion_wait_ms",f->completion_wait_ms);
   push_pose(LUA,f->poses[0]);set(LUA,"hmd");push_pose(LUA,f->poses[1]);set(LUA,"left");push_pose(LUA,f->poses[2]);set(LUA,"right");
+  LUA->CreateTable();push_controller(LUA,f->controllers[0]);set(LUA,"left");push_controller(LUA,f->controllers[1]);set(LUA,"right");set(LUA,"controllers");
   LUA->CreateTable();
   for(unsigned i=0;i<f->devices.size();++i) if(f->devices[i].valid) { push_pose(LUA,f->devices[i]);index(LUA,i+1); }
   set(LUA,"devices");return 1;
@@ -120,6 +131,24 @@ void push_status(ILuaBase* l,const rtxvr_Status& s) {
 }
 LUA_FUNCTION_STATIC(LuaInfo) { return guard(LUA,[&] {
   const auto i=session->info();LUA->CreateTable();boolean(LUA,"sdk_ready",i.sdk_ready);text(LUA,"model",i.model);text(LUA,"tracking",i.tracking);
+  boolean(LUA,"simulated",i.simulated);boolean(LUA,"simulation_high_resolution",i.simulation_high_resolution);
+  boolean(LUA,"openvr_loaded",i.openvr_loaded);
+  boolean(LUA,"keyboard_visible",i.keyboard_visible);text(LUA,"keyboard_text",i.keyboard_text);
+  boolean(LUA,"overlay_window_supported",i.overlay_window_supported);
+  LUA->CreateTable();boolean(LUA,"owned",i.window_input.owned);boolean(LUA,"foreground",i.window_input.foreground);
+  num(LUA,"width",i.window_input.width);num(LUA,"height",i.window_input.height);
+  num(LUA,"x",i.window_input.x);num(LUA,"y",i.window_input.y);num(LUA,"held",i.window_input.held);
+  num(LUA,"frame_messages",i.window_input.frame_messages);num(LUA,"posted",static_cast<double>(i.window_input.posted));
+  num(LUA,"failures",static_cast<double>(i.window_input.failures));set(LUA,"window_input");
+  num(LUA,"haptic_requests",static_cast<double>(i.haptic_requests));num(LUA,"binding_ui_requests",static_cast<double>(i.binding_ui_requests));
+  LUA->CreateTable();unsigned eye_index=0;
+  for(const auto& eye:i.eyes) {
+    LUA->CreateTable();num(LUA,"tanLeft",eye.tanLeft);num(LUA,"tanRight",eye.tanRight);num(LUA,"tanTop",eye.tanTop);num(LUA,"tanBottom",eye.tanBottom);
+    LUA->CreateTable();unsigned row_index=0;
+    for(const auto& row:eye.eyeToHead.m) { LUA->CreateTable();unsigned column=0;for(float value:row) { LUA->PushNumber(value);index(LUA,++column); }index(LUA,++row_index); }
+    set(LUA,"eyeToHead");index(LUA,++eye_index);
+  }
+  set(LUA,"eyes");
   text(LUA,"input_detail",i.input_detail);text(LUA,"frame_error",i.frame_error);num(LUA,"refresh",i.refresh);num(LUA,"ipd",i.ipd);
   num(LUA,"eye_width",i.eye_width);num(LUA,"eye_height",i.eye_height);num(LUA,"activity",i.activity);push_status(LUA,i.runtime);
   num(LUA,"prediction_seconds",i.prediction_seconds);
@@ -161,13 +190,50 @@ LUA_FUNCTION_STATIC(LuaActions) { return guard(LUA,[&] {
     LUA->CreateTable();boolean(LUA,"active",a.active);boolean(LUA,"state",a.state);boolean(LUA,"changed",a.changed);
     num(LUA,"x",a.value.x);num(LUA,"y",a.value.y);num(LUA,"z",a.value.z);num(LUA,"error",a.error);
     LUA->CreateTable();for(unsigned i=0;i<a.curls.size();++i) { LUA->PushNumber(a.curls[i]);index(LUA,i+1); }
-    set(LUA,"curls");set(LUA,name.c_str());
+    set(LUA,"curls");
+    LUA->CreateTable();for(unsigned i=0;i<a.splay.size();++i) { LUA->PushNumber(a.splay[i]);index(LUA,i+1); }
+    set(LUA,"splay");set(LUA,name.c_str());
   }return 1;
 }); }
 LUA_FUNCTION_STATIC(Haptic) { return guard(LUA,[&] {
   const auto hand=string(LUA,1);const auto duration=static_cast<float>(number(LUA,2,0,5));
   const auto frequency=static_cast<float>(number(LUA,3,0,1000)),amplitude=static_cast<float>(number(LUA,4,0,1));
   const auto error=session->haptic(hand,duration,frequency,amplitude);LUA->PushBool(error==0);LUA->PushNumber(error);return 2;
+}); }
+LUA_FUNCTION_STATIC(ShowKeyboard) { return guard(LUA,[&] {
+  const auto value=string(LUA,1,true),description=string(LUA,2,true);
+  need(LUA->IsType(3,Type::Bool),"multiline must be boolean");const bool multiline=LUA->GetBool(3);
+  const auto maximum=static_cast<uint32_t>(integer(LUA,4,1,4096));
+  session->show_keyboard(value,description,multiline,maximum);return ok(LUA);
+}); }
+LUA_FUNCTION_STATIC(HideKeyboard) { return guard(LUA,[&] { session->hide_keyboard();return ok(LUA); }); }
+LUA_FUNCTION_STATIC(LuaWindowInput) { return guard(LUA,[&] {
+  try {
+    WindowInputEvent e;e.kind=string(LUA,1);int arguments=1;
+    if(e.kind=="cursor") { arguments=3;e.x=static_cast<int>(integer(LUA,2,0,32766));e.y=static_cast<int>(integer(LUA,3,0,32766)); }
+    else if(e.kind=="button"||e.kind=="key") {
+      arguments=3;e.name=string(LUA,2);need(LUA->IsType(3,Type::Bool),"WindowInput: down must be boolean");e.down=LUA->GetBool(3);
+    } else if(e.kind=="wheel") {
+      arguments=2;const auto steps=number(LUA,2,-8,8);need(std::floor(steps)==steps,"WindowInput: expected integer wheel steps");e.y=static_cast<int>(steps);
+    } else if(e.kind=="char") { arguments=2;e.character=static_cast<uint32_t>(integer(LUA,2,0,0x10ffff)); }
+    need(LUA->Top()==arguments,"WindowInput: unexpected arguments");session->window_input(e);return ok(LUA);
+  } catch(...) { session->cancel_window_input();throw; }
+}); }
+LUA_FUNCTION_STATIC(OpenBindingUI) { return guard(LUA,[&] {
+  const auto code=session->open_binding_ui();LUA->PushBool(code==0);
+  if(code) { LUA->PushString(("OpenBindingUI: VRInputError "+std::to_string(code)).c_str());return 2; }return 1;
+}); }
+LUA_FUNCTION_STATIC(OverlaySortOrder) { return guard(LUA,[&] {
+  const auto h=handle(LUA);session->overlay_sort_order(h,static_cast<uint32_t>(integer(LUA,2,0,4294967295.0)));return ok(LUA);
+}); }
+LUA_FUNCTION_STATIC(OverlayColor) { return guard(LUA,[&] {
+  const auto h=handle(LUA);Vec3 c{static_cast<float>(number(LUA,2,0,1)),static_cast<float>(number(LUA,3,0,1)),static_cast<float>(number(LUA,4,0,1))};
+  session->overlay_color(h,c);return ok(LUA);
+}); }
+LUA_FUNCTION_STATIC(OverlayWindow) { return guard(LUA,[&] {
+  const auto h=handle(LUA);need(LUA->IsType(2,Type::Bool),"enable must be boolean");std::string error;
+  const bool result=session->overlay_window(h,LUA->GetBool(2),error);LUA->PushBool(result);
+  if(!result) { LUA->PushString(error.c_str());return 2; }return 1;
 }); }
 LUA_FUNCTION_STATIC(OverlayCreate) { return guard(LUA,[&] {
   const auto key=string(LUA,1),name=string(LUA,2);const auto h=session->overlay_create(key,name);
@@ -190,6 +256,8 @@ LUA_FUNCTION_STATIC(OverlayVisible) { return guard(LUA,[&] { LUA->PushBool(sessi
 LUA_FUNCTION_STATIC(LuaOverlayInfo) { return guard(LUA,[&] {
   const auto info=session->overlay_info(handle(LUA));LUA->CreateTable();boolean(LUA,"visible",info.visible);
   num(LUA,"width_m",info.width);num(LUA,"texture_width",info.texture_width);num(LUA,"texture_height",info.texture_height);
+  num(LUA,"alpha",info.alpha);num(LUA,"sort_order",info.sort_order);boolean(LUA,"window",info.window);boolean(LUA,"simulated",info.simulated);
+  LUA->CreateTable();LUA->PushNumber(info.color.x);index(LUA,1);LUA->PushNumber(info.color.y);index(LUA,2);LUA->PushNumber(info.color.z);index(LUA,3);set(LUA,"color");
   num(LUA,"texture_error",info.texture_error);num(LUA,"transform_error",info.transform_error);num(LUA,"tracking_origin",info.origin);
   LUA->CreateTable();unsigned i=0;
   for(const auto& row:info.transform.m) for(float value:row) { LUA->PushNumber(value);index(LUA,++i); }
@@ -197,7 +265,8 @@ LUA_FUNCTION_STATIC(LuaOverlayInfo) { return guard(LUA,[&] {
 }); }
 LUA_FUNCTION_STATIC(Events) { return guard(LUA,[&] {
   const auto events=session->events();LUA->CreateTable();unsigned i=0;
-  for(const auto& e:events) { LUA->CreateTable();text(LUA,"type",e.type);num(LUA,"code",e.code);num(LUA,"device",e.device);index(LUA,++i); }
+  for(const auto& e:events) { LUA->CreateTable();text(LUA,"type",e.type);num(LUA,"code",e.code);num(LUA,"device",e.device);
+    if(e.type=="keyboard_done") text(LUA,"text",e.text);index(LUA,++i); }
   return 1;
 }); }
 LUA_FUNCTION_STATIC(Capture) { return guard(LUA,[&] {
@@ -206,6 +275,34 @@ LUA_FUNCTION_STATIC(Capture) { return guard(LUA,[&] {
 LUA_FUNCTION_STATIC(TestState) { return guard(LUA,[&] {
   const auto s=session->test_state();if(!s) { LUA->PushNil();return 1; }
   LUA->CreateTable();num(LUA,"time",s->time);num(LUA,"step",static_cast<double>(s->step));boolean(LUA,"ended",s->ended);return 1;
+}); }
+LUA_FUNCTION_STATIC(Skeleton) { return guard(LUA,[&] {
+  const auto s=session->skeleton(string(LUA,1),string(LUA,2));
+  if(LUA->Top()>=3) {
+    need(LUA->IsType(3,Type::Table),"expected reusable skeleton table");LUA->Push(3);
+    const int root=LUA->Top();boolean(LUA,"valid",s.valid);num(LUA,"error",s.error);text(LUA,"source",s.source);
+    boolean(LUA,"compact",true);
+    if(s.valid) {
+      LUA->GetField(root,"bones");
+      if(!LUA->IsType(-1,Type::Table)) { LUA->Pop();LUA->CreateTable();LUA->Push(-1);LUA->SetField(root,"bones"); }
+      const int bones=LUA->Top();
+      for(unsigned i=0;i<s.bones.size();++i) {
+        LUA->PushNumber(i+1);LUA->RawGet(bones);
+        if(!LUA->IsType(-1,Type::Table)) {
+          LUA->Pop();LUA->CreateTable();LUA->PushNumber(i+1);LUA->Push(-2);LUA->RawSet(bones);
+        }
+        const int bone=LUA->Top();const auto& p=s.bones[i];
+        const double values[]{p.pos.x,p.pos.y,p.pos.z,p.ang.x,p.ang.y,p.ang.z};
+        for(unsigned j=0;j<6;++j) { LUA->PushNumber(j+1);LUA->PushNumber(values[j]);LUA->RawSet(bone); }
+        LUA->Pop();
+      }
+      LUA->Pop();
+    }
+    return 1;
+  }
+  LUA->CreateTable();boolean(LUA,"valid",s.valid);num(LUA,"error",s.error);text(LUA,"source",s.source);
+  LUA->CreateTable();if(s.valid) for(unsigned i=0;i<s.bones.size();++i) { push_pose(LUA,s.bones[i]);index(LUA,i+1); }
+  set(LUA,"bones");return 1;
 }); }
 }
 GMOD_MODULE_OPEN() {
@@ -219,7 +316,9 @@ GMOD_MODULE_OPEN() {
   }
   LUA->CreateTable();
   const struct { const char* name; GarrysMod::Lua::CFunc fn; } functions[]={
-    {"Version",Version},{"Probe",LuaProbe},{"Start",Start},{"State",State},{"Stop",Stop},{"BeginFrame",BeginFrame},
+    {"ShowKeyboard",ShowKeyboard},{"HideKeyboard",HideKeyboard},{"WindowInput",LuaWindowInput},{"OpenBindingUI",OpenBindingUI},
+    {"OverlayWindow",OverlayWindow},{"OverlaySortOrder",OverlaySortOrder},{"OverlayColor",OverlayColor},
+    {"Version",Version},{"Probe",LuaProbe},{"Start",Start},{"State",State},{"Stop",Stop},{"BeginFrame",BeginFrame},{"Skeleton",Skeleton},
     {"SetFrameCamera",SetFrameCamera},{"Info",LuaInfo},{"Actions",LuaActions},{"Haptic",Haptic},{"OverlayCreate",OverlayCreate},
     {"OverlaySource",OverlaySource},{"OverlayAttach",OverlayAttach},{"OverlayShow",OverlayShow},{"OverlayAlpha",OverlayAlpha},
     {"OverlayDestroy",OverlayDestroy},{"OverlayVisible",OverlayVisible},{"OverlayInfo",LuaOverlayInfo},{"Events",Events},{"Capture",Capture},{"TestState",TestState}};

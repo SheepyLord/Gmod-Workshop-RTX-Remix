@@ -1,5 +1,107 @@
 # Testing
 
+Current VR round5 uses rebuilt PoC261112 and installed field manifests: do not pass
+old261104 --depot-manifest pins. The preceding round's frozen package/commands and
+measurements below are historical261104 instructions, superseded by the current
+[V4 report](handover/VR-V4-report.md). The33-case limited medium helper exercises
+5degree ladder input and noclip idle/throttle on land/in water before full acceptance.
+Only the driver may call the guarded field-quit helper; exit5 is fatal.
+
+Q second-review limited medium proof uses permanent gm_construct ladder803/water330,
+with both shared locks even in simulation. It creates/removes no world target, leaves
+normal weapon/Exit cleanup intact, and observes unfrozen Source physics. Ordinary V2
+physical crouch clears the short ladder's lip. Head pitch/yaw steers ladder and water;
+the rendered gun's +/-45 pose is measured separately from converged eye-command pitch.
+`out/vr/v4q/review2/medium-sim-16` passes all15 cases. Keep failed attempts01..15.
+
+Run only this limited check while the full sequence remains blocked (choose a fresh
+evidence directory; package is not rebuilt implicitly):
+
+```powershell
+python -B companion/tests/vr_medium_poc.py --package out/dist/gmod-rtx-remix-0.0.0-v4q.review4.gma --evidence out/vr/v4q/review2/medium-sim-FRESH --depot-manifest "C:/Program Files (x86)/Steam/depotcache/4001_8532700529041238050.manifest" --depot-manifest "C:/Program Files (x86)/Steam/depotcache/4002_4618021864461761722.manifest"
+```
+
+Explicit manifests must match the actual stock PoC revision. Snapshot records them and
+rollback performs full depot hashing against them; this is not a verification bypass.
+Do not overlap a pending transaction or foreign lock. The medium helper always passes
+`--both-locks`; the full combined helper still refuses without reviewed-fix authorization.
+The fixture generator's complete raw-export regeneration command is in
+`../companion/tests/vr_mesh_fixture.py.md`; it reads no product grip/module data.
+The final20-run matrix evidence is `out/vr/v4q/review2/repeats-accepted/summary.json`.
+
+Q4 independent review supersedes the historical acceptance summaries below. Full V2/V3/V4
+sequences are blocked until Claude confirms the separate fixes-module repair. Do not use
+entity-removal or lighting/cvar avoidance in those full fixtures. The exact-PID WER source
+is read/copy-only; retain every failed run and follow the one-known-crash retry rule in
+[the crash review](handover/VR-V4-crash-review.md).
+
+Permitted limited review commands (fresh evidence directories, frozen candidate GMA):
+
+```powershell
+python companion/tests/vr_review_safe.py --simulate --package <candidate.gma> --evidence out/vr/v4q/safe-sim-fresh
+python companion/tests/vr_review_safe.py --package <candidate.gma> --evidence out/vr/v4q/safe-index-fresh
+python tools/vr_measure.py --weapon weapon_pistol --package <candidate.gma> --evidence out/vr/v4q/armed-index-fresh
+python tools/vr_flat_parity.py --package <candidate.gma> --evidence out/vr/v4q/flat-fresh
+```
+
+The limited check exercises real competing hooks, movement, both hand draws, a controller
+menu action and 21 diagnostic overlay roles across two Starts/Exits, with no destructible
+world targets. It is not the complete feature sequence. Index sessions hold both locks,
+leave SteamVR settings unchanged, use scripted poses/recorded components with controllers
+off and nobody wearing the headset. The measurement accepts pistol, SMG1 or physgun,
+requires actual sampled weapon model/draw activity, and records the package SHA. Covered
+GPU work, GPU elapsed span and CPU time are separate fields. Flat parity runs five plus
+five alternating launches against the hash-verified published artifact; no VR is started.
+
+After Claude's repair review only, the complete entry points are:
+
+```powershell
+python companion/tests/vr_combined_session.py --case full --fixes-reviewed --simulate --package <FIXED.gma> --evidence out/vr/v4q/full-sim-fresh
+python companion/tests/vr_combined_session.py --case full --fixes-reviewed --package <FIXED.gma> --evidence out/vr/v4q/full-index-fresh
+```
+
+`vr_full_sequence.py` runs every semantic reducer, both handed settings, independent
+geometry, W/K/T chapters and V2/V3 integration; generated-source compile tests are not
+runtime acceptance. A full call without --fixes-reviewed fails before preparation. The
+normal Release gate imports stock/ULib core, shared-dispatch module and mutation suites.
+
+The full command also requires the read-only clock helper built by
+`tools/vr_measure_build.ps1` (default out/vr/v2q/inspect/gmcl_nlvrqinspect_win64.dll,
+overridable with --inspect-dll). Missing observer refuses before evidence/preparation;
+the combined chapter always includes CPU/network acceptance. A retained bridge regression
+requires the entire ULib core suite in tools discovery, including movement/settings and
+two-cycle add-on callbacks, not just view-ownership cases.
+
+The gated full plan also runs the separate allmotion, temporal wall-time movement and
+armed +/-45-degree noclip chapters and requires their reducers. These additions have
+offline coverage; no full sequence was executed during the current crash-related hold.
+
+The current frozen payload's six static armed Index controls cover pistol/SMG/physgun
+and both desktop sizes in construct/Modern House. House720 mean eye warp1.00924ms misses
+the unchanged1.0ms reference budget; do not turn a measurement receipt into a performance
+acceptance. Full near-depth/feature verification remains pending the repaired package.
+
+Q4 flat review `out/vr/v4q/review/flat-01` passes ten alternating launches, unchanged numeric
+and screenshot bounds, all client/server inventory controls and normal restoration.
+Median frame intervals published/candidate7.8606/7.8469ms; launch-to-map24.2/24.3s.
+Detailed current payload and benchmark identities are in [Q's report](handover/VR-V4-report.md).
+
+Q3's resumed simulation passes are `out/vr/v2q-review/combined-sim-07` (16 aggregate, 21 review
+checks), `temporal-sim-01` (5 checks), and `cachecpu-sim-02` (5 scoped control checks). All use
+`v2q.review7`, with zero SDK submissions and clean restoration. The stationary control runs two
+six-second blocks per mode in balanced order and excludes 250 ms edges; it requires >=200 whole
+frame intervals per mode. The combined run, unlike stationary control, requires changed server
+state traffic. Natural controller frames and Index acceptance remain pending C.
+
+Q's independent V2/V3 review uses the retained `review_*` LuaJIT cases plus the production combined
+session's 42-second appended review sequence (171 active seconds total). It requires
+`review-acceptance.json`, including 21 overlays together, actual native mass/impulse responses,
+world-velocity walking release, safe proxies and both held teleport modes, paused room recovery,
+stale FOLLOW and wrist/menu teardown. A controlled 2,000-triangle input isolates the server Lua
+mesh cost. Paired final quiet frames measure cached versus forced-uncached resolution with whole
+game-thread CPU/cycles. C's natural controller frames and the Index remain a separate required gate.
+See [ADR 0183](decisions/0183-vr-review-resource-and-physics-corrections.md).
+
 ## R22: the loading window and the hint's top-right notice
 
 `nl_proxy_tests` covers the loading window's decisions and text (`test_loading.cpp`) and runs the real
@@ -2898,6 +3000,179 @@ What the check taught about judging a run on a machine that is in use:
   their Python cannot take screenshots. To repeat the user's side: `python -m venv out/vr/venv-nopil`, then run
   the look with `out/vr/venv-nopil/Scripts/python.exe`.
 
+## VR V2/V3 integration (2026-11-11)
+
+[Q's combined runner](../companion/tests/vr_combined_session.py.md) keeps the production
+vr_session snapshot/locks/counter/image/restoration checks. Run simulation before Index; only
+Index runs take both locks. All modules stay loaded during the single combined sequence. Its
+129 active seconds shorten initial physical idle and explicitly scale stick/menu test clocks;
+throw/flick/spin derivatives are unchanged. Missing/failed physics, movement or UI makes the
+combined receipt fail even when rendering succeeded. Three near distances retain centre,
+depth, both eyes, mirror and overlays for visual silhouette review.
+
+Repeat `--case allmotion` on the same complete candidate for L's unchanged 127-second
+movement/head/locomotion timeline. Require rendered CalcView rows at 0.5 and 1.5 m/s and 2 Hz
+sway, same-frame errors under 0.05 units, zero command roll with tracked camera roll, and
+time-normalized p95-minus-p05 step spread/mean at most 10% for stick, sprint and flight.
+The time-normalized metric distinguishes tick judder from unequal real render intervals;
+raw increments and intervals stay in CSV/JSON too.
+
+Q's 47-second `--case temporal` is the focused head/motor repeat, including a two-second
+sprint sample. It retains the same minimum sample counts and 10% spread limit; a clean native
+renderer with an undersampled interval remains a failed complete temporal run. The accepted
+Index repeat records 72 samples in each motor interval, 0.251/0.334/6.592% normalized spread,
+zero holds and 70.46/70.45/72.29 ms of motor buffering. Physical head tracking stays immediate;
+same-frame coordinate agreement does not measure optical tracking-to-display latency.
+
+[vr_measure.py](../tools/vr_measure.py.md) measures 90-Hz-current Index throughput/reprojection
+and covered GPU pass times on both maps/windows, plus a 0.2-m near object. Never change the
+refresh setting. CPU and elapsed time are distinct, and helper accounting quantization/overhead
+is retained. Network counts are engine sends and engine-reported bytes by type over named wall
+intervals. [vr_flat_parity.py](../tools/vr_flat_parity.py.md) runs five plus five alternating
+complete packages against main's exact publication hash; retains medians, launch-to-map, full
+off inventories and screenshot differences. [vr_look_check.py](../tools/vr_look_check.py.md)
+actually starts/exits the real --look path in a new no-pip/no-Pillow venv and captures native images.
+
+Unattended screenshots still require Pillow. Native capture decoding/semantic role validation
+and the manual look do not. Unknown roles, missing image copies, unexpected Lua errors,
+selector/variable differences and dirty rollback remain failures. Keep failed runs unchanged.
+
+Q's canonical matrix and no-Pillow look now pass; [the report](handover/VR-V2V3-Q-report.md)
+retains all five raw quiet windows, 14 covered pass brackets, fixed geometry, verified near/far
+depths and the actual package-free Python proof. CPU profiling uses distinct game FrameNumber
+values at PostRender plus raw callback counts, and server ticks separately. Earlier counters
+retain their PostRender-only labels. Neither denominator is native submitted eye pairs.
+The final flat checker retains exact timer IDs, baseline variation and unexplained callback
+failures; a name without an nlvr prefix does not bypass the inventory check.
+
+Final Q confirmations are combined-sim-12 and combined-index-07 (15 checks each). The latter
+retains native/frame/tick denominators separately and final-qa.png with the scripted-pose
+limitation labelled. Natural holds must be repeated after C. The first full flat comparison
+fails only its cold-start bound; keep that failure even if the fresh batch later passes.
+After the late full-disk failure, recovery verifies all 2877 stock files and protected hashes.
+Space refusal and the fsynced unfinished marker precede mutation; a no-launch installation
+retry cannot replace a launched failed game or loosen any numeric threshold.
+
+The final gate passes all 34 CTests and Python groups 29/26/1143 with 1/1/7 skips. The first
+post-W gate's melee mismatch is retained: restoring Q's optional damage-argument compatibility
+fixes it without editing W's files; actual P bare/held callers remain explicit and unchanged.
+The final flat replication passes all original bounds; keep the first full batch's startup
+failure and the actual per-launch ranges beside it. Build-only post-W output is not headset
+acceptance and receives none of the frozen V2/V3 artifact's measurements.
+
+
+### Q3b functional replay and background Derma regression
+
+The combined simulated fixture replays its entire functional pose/action sequence on Source game
+time. A synchronous GPU capture can stop physics without consuming short grip, crouch or toggle
+windows. Receipts retain native wall time; deliberate GameUI pauses still advance tracking on wall
+time. The separate temporal fixture always uses the original native timeline and wall clock.
+`tools/tests/vr_combined_clock_cases.lua` covers a 2.54-second stall, analogue/skeleton descriptors,
+throw derivatives and exact API restoration. No helper enters the package.
+
+The background-control regressions in `companion/tests/vr_ui_test.py` cover native cursor resets
+and omitted move callbacks. The production router uses the original captured control callback,
+canvas coordinates and changed pixels, preserving native callback de-duplication and method
+restoration. The native fixture observes stock slider Think/cursor/value state; a numeric cvar
+change remains mandatory. Current acceptance and retained failures are recorded in
+[Q's Q3b report](handover/VR-V2V3-Q-report.md#q3b-verification-follow-up-2026-11-12).
+
+
+Q3b resumed verification additionally distinguishes predictive client CurTime from simulation
+ticks for functional replay. Physical gestures and room-step baselines use the latter; the
+separate temporal test retains the original native clock. Its probes now observe RenderScene
+rather than changing a private CalcView table, so ULib/exclusive camera ownership remains intact.
+The actual-scene observer and controller typing tests live in tools/tests. Typing requires a real
+hover-armed press/release and actual field prefix for every key, without retries or direct edits.
+The final package/run/gate identities are in Q's resumed verification report; failed receipts stay
+failed and measurements never transfer between packages.
+
+Current Q3b artifact is v2q.verify5. Fresh evidence under out/vr/v2q-verify: combined-sim-09
+(16/16 aggregate, physical31/31, movement36/36, UI12/12, review24/24), temporal-sim-02 (5/5)
+and cachecpu-sim-01 (5/5 balanced control). Focused offline suite241 passes. Native-wall temporal
+and frame-acknowledged controller typing remain separate from the simulation-tick functional
+clock. See the resumed report for the final Release gate and the preserved nonreproducing crash.
+
+
+Q3c adds faithful ULib restart/dispatch tests, relative held/bare contact tests, scratch-source
+mutation checks and idle native-hide counts. Heavy phase4 acceptance requires both peak >3 and
+>=1.0 continuous actual second above3 while held, allowing no sample gap >.30 seconds. Spike,
+sparse-gap and separated-burst tests must fail. Focused273 pass; verify6 combined10 passes16/16.
+Temporal03 is failed/incomplete after an early startup crash, with no probe rows. Its failure and
+negative event1000 lookup are preserved; no temporal or current final Release pass is claimed.
+
+
+Temporal03's retained Remix minidump was subsequently classified and verified with py -3
+minidump as startup nvoglv64.dll+0xe622f8,0xC0000005 reading0x300060059. Only this exact known
+startup signature permits one fresh-folder retry; other crashes still stop. Temporal04 passes5/5
+on unchanged verify6,3916 rendered/matched. Fresh cachecpu02 passes5/5,832/839 uncached/cached
+frames,6.253756/5.438021 whole game-thread CPU ms/frame. No older-package figures transfer.
+
+
+## Q4 V2--V4 suites and sessions (review draft, 2026-11-12)
+
+**Current stop:** read [the partial Q4 report](handover/VR-V4-report.md) and crash classification
+before any further preparation. The full combined simulation crashed during door Use and
+Q stopped under the user's crash rule. The commands below document the suites for a reviewed
+resumption; no further run or Release gate is claimed here.
+
+Focused offline suites (LuaJIT, no game/OpenVR):
+
+```powershell
+python -B -m unittest discover -s companion/tests -p '*vr*test*.py'
+python -B -m unittest discover -s tools/tests -p test_vr_combined.py
+```
+
+The shared hook fixture is original test support, not vendored ULib. Its contract includes
+-2..2 priorities, ignored monitor returns, Add calling Remove first and unguarded backward
+registry indexing. Every module's harness uses it; production sessions install it in place
+as a private test add-on. Its generated client/server sources and hashes stay with evidence.
+
+Session recipes use a frozen package, fresh evidence directories and the shared production
+driver. `vr_v4_geometry.py` with `--seconds 115 --simulate --skeleton-reference
+companion/tests/fixtures/vr_index_skeletons.json` captures all 16 classes; add `--left-hand`
+for the other holding hand. For an unworn Index variant, remove `--simulate` and add
+`--recorded-controllers`. Live controller status remains separate; no live fingers are claimed.
+See [geometry usage](../companion/tests/vr_v4_geometry.py.md).
+
+[Armed flight](../companion/tests/vr_q4_flight.py.md) runs +/-45-degree gun aim with actual
+horizontal Source travel, both dominant hands, then checks both Start/Exit hook lifecycles.
+[All-module integration](../companion/tests/vr_q4_integration.py.md) scopes P, W, K and T's
+existing observers into one 114-second activation, followed by Exit, second Start and Exit.
+It requires their semantic reducers, native/managed health and restoration; record presence
+cannot pass. It preserves the physical grip/barrel bounds while distinguishing authored
+markers from the measured geometry. Tip-origin test pointing is calibrated through C frames.
+
+[Full combined acceptance](../companion/tests/vr_combined_session.py.md) retains physical,
+movement, menu, temporal/review and resource checks, now with natural poses. Its forced
+worst case is 21 roles (including ammo/tool/wheel), with <=32 native objects and <=16 pending
+source requests between drains. The fresh full run did not reach that chapter. CPU/GPU
+measurements use [vr_measure.py](../tools/vr_measure.py.md); flat controls use
+[vr_flat_parity.py](../tools/vr_flat_parity.py.md). Neither completed for Q4.
+
+All sessions keep failed evidence. Simulated runs take the main PoC lock; Index takes both
+main locks. Never remove a foreign lock or prepare over `vr-poc-pending.json`; use its matching
+rollback and verify restoration. SteamVR stays running/unchanged. Only a startup dump with
+nvoglv64.dll+0xe622f8 permits one fresh-folder retry; any other crash stops for review with its
+Windows event1000 evidence. Never substitute older package measurements for the frozen one.
+
+The last complete focused run was 626 cases, with later targeted regressions and 19 combined
+fixture cases passing. `tools/test.ps1 -Config Release` remains required and **pending** after
+crash review; these focused checks do not replace the gate.
+
+
+Q4's later [reviewed crash rule](handover/VR-V4-crash-review.md) supersedes the stop policy
+above. Run `python -B -m unittest discover -s tools/tests -p test_vr_crash.py` for generated
+AMD64 dump and one-retry tests. The shared driver copies the exact PID's WER dump read-only,
+classifies from exception RSP and timestamped fault-thread stack return, and retries the
+complete caller only once after clean rollback. Both failed and fresh evidence remain.
+Never change fixture entity removal, r_forcehwlight or other cvars to avoid the known crash.
+
+The one permitted retry now also matches the fixes crash (PID 50548). The durable parent
+retry claim is consumed and the child receipt denies retry. Do not queue a third run from
+these failed receipts.82 shared-driver cases and3 draft layout tests passed before the
+stop; the final Release gate remains unrun. Follow Claude's production-fixes review before
+any new acceptance preparation; no entity-removal/lighting/cvar workaround was used.
 ## Queued draws: the fixes' crash on the render thread (2026-11-12)
 
 The RTX fixes' tenth native patch ([ADR 0192](decisions/0192-the-fixes-never-read-a-queued-draws-renderable.md),

@@ -24,3 +24,5 @@ Test-only hooks/timers/command callbacks live until this test game quits; all na
 (nl_shot_taken is the driver's protocol). The assertions concern production addon/page session callbacks and
 unchanged preexisting handlers. Errors print NLVR_E_FAILURE and export failure JSON. Both SP and listen-host
 runs are required; command blocks are expected console diagnostics, not unhandled Lua errors.
+
+V2/F intercepts nested includes in its private environment and inventories every nlvr.* module hook. The owned CalcView entry is now nlvr.core; no global include/require is changed.

@@ -1,5 +1,44 @@
 # runtime/
 
+The merge of VR V2-V4 with `main` (2026-11-12) imports one build of every patch, 0001-0086: the VR clone's `vr2`
+at `308ca2f7` (`39e2ab77` with 0086 applied by `git am`), built by `build_runtime.ps1` in
+`out/worktrees/r17/out/runtime-src`: `d3d9.dll` 418,444,288 bytes, SHA-256
+`7572e10453a386093eac75e0fa8424d53bfbbdeced163b8c15534a03390cb9d6`.
+
+R's 2026-11-11 follow-up is imported once for V2, from the clone's vr2 at 39e2ab77, through
+patch 0085. The centre projection stays at 0.4 m; GPU depth/tile minima select search starts down
+to 0.15 m, with one-primary-texel spacing. GPU indirect commands select either the retained fixed
+kernel or the adaptive kernel, without CPU readback or a new wait. Rejected wider-footprint and
+colour-guidance trials remain in the patch history; the accepted 3 x 3 coverage is retained.
+The selected d3d9.dll is 418403840 bytes, SHA-256
+027aae44befc301774508b09401808fa16615592e05a02bcf64bd9d761123278. base.json has no pending patches.
+The module provenance refresh keeps N's unchanged executable image. Q needs no further runtime
+import unless code changes. The Release gate passes (34 native and 964 Python tests); the
+runtime reference passes 326 assertions. [vr_v2_scene.py](vr_v2_scene.py.md) uses the current
+production driver. [R's report](../docs/handover/VR-V2-R-report.md) records close-hand/prop images,
+costs and the unmatched old absolute left-eye ghost threshold, alongside the better matched-control
+result. No literal pass of that single-image threshold is claimed.
+
+VR V2 task R is on v2r, with exported patches from the clone's vr2 branch. Patch 0072 declares
+rtxvr_SetOverlayWindow and RTXVR_WINDOW_SHOW/NO_MIRROR in both API headers without changing version 3
+or any structure. Patch 0073 completes compositor-free overlay-copy acknowledgement and SDK guards;
+0074 implements the window source after 2D, capped to 1920 pixels wide, and mirror suppression over
+black. Patches 0075 to 0078 add discontinuity-only depth coverage for reconstructed thin colour and
+select a 0.4 m nearest guaranteed eye depth after 0.2 m, 0.3 m and the moving 0.35 m scene exceeded
+the 1.0 ms warp budget. The recorded Index centre grows from 3072 x 2752 to 3112 x 2752 pixels,
+1.3% more; API 3 remains. The physical Index currently has a different IPD; its extents are reported
+separately from that recorded simulation descriptor.
+The CPU reference has 274 assertions, including a reconstructed-colour ghost regression in both eyes.
+The Index barrel widths are 284/284/282 pixels, preserving the accepted V1 silhouettes.
+The final moving-ring Index captures reduce extra dark pixels from 709/836 to 153/183 at a mean
+0.94 ms combined coverage/warp on the RTX 5090, with recommended 2468 x 2740 pixel eyes at 90 Hz.
+See [the task report](../docs/handover/VR-V2-R-report.md) for current proof and integration
+dependencies. Those initial experiments used -NoImport; the dated follow-up above records R's
+single selected import and supersedes that initial package-provenance dependency.
+
+[vr_v2_scene.lua](vr_v2_scene.lua.md) is the unshipped client probe fragment for R's controlled
+thin features, held prop and window panel. The task report keeps the corresponding sources,
+timings, image-analysis scripts and captures; the fragment is never loaded by an ordinary game.
 Patch `0086-Keep-the-mod-loader-s-texture-reads-between-starts.patch` ([ADR 0195](../docs/decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md), [report](../docs/handover/mod-load-cache-report.md)) follows 0071 on `main`; the VR branches' 0072-0085 sort before it and touch none of its files. Built as `cfb2173b` on the 71 patches in `out/worktrees/mlc/rt` (a worktree of the fork clone made by `build_runtime.ps1`), exported alone (`format-patch -1 --start-number 86 --zero-commit`), then built and imported by `build_runtime.ps1`: `d3d9.dll` 418,398,720 bytes, SHA-256 `dfbc26d59a8a7da3d28bb04a282dd7973647316dab97e320abec5693e8ac8030`. `rtx_mod_texture_store.h` is self-contained; the Release gate compiles it with `tests/rtx/unit/test_mod_texture_store.cpp` from the patch (`test_mod_texture_cache.py`).
 
 The second VR review adds patches 0065 to 0071, on the runtime branch `vr` at `d29445c5`

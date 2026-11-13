@@ -6,6 +6,79 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- VR movement: the camera no longer stops for a frame or jumps ahead when the movement buffer changes, and walking
+  after a blink, respawn or pause no longer stutters for its first half second; the buffer learned from the shared
+  connection is kept across those resets ([ADR 0196](docs/decisions/0196-vr-motion-keeps-the-wires-cadence.md)).
+- **VR V2, V3 and V4 in the RTX package** (approved by the user on 2026-11-12 as a deliverable at this stage):
+  after Start VR the headset gets hands with fingers, movement that follows the head, teleport and comfort
+  settings, wrist menus and laser panels (V2); physical hands, grabbing and throwing, gravity gloves, climbing,
+  Use by hand and melee (V3); weapons held in the hand and aimed along the gun, foregrips, physical reload with
+  the ammunition shown on the gun, the weapon wheel, the physgun and the toolgun (V4). All of it stays off until
+  Start VR. The [V4 report](docs/handover/VR-V4-report.md) lists what is still untested. The VR lines below
+  record the work while it was on the branch.
+- VR review restores measured weapon handles, checks their orientation, keeps small
+  ladder stick deviations straight, preserves physgun push/pull while climbing, and
+  keeps hand-directed noclip flight working underwater (branch-only, awaiting approval).
+
+
+- VR test transactions can pin the PoC's official depot manifests when the field game's
+  Steam revision differs, preserving complete stock verification through restoration.
+
+
+- VR review: ladders preserve intended direction through head-sync jitter, and swimming follows the head equally with or without a gun. Camera cleanup removes only its owned token after other edits; trigger-only menu claims leave healthkit grabs available. Stock weapon holds use the model's authored hand bone (branch-only, awaiting approval).
+
+- VR review: opening numeric settings preserves the player's exact saved value; edits still apply normally (branch-only, awaiting approval).
+
+- VR review: stock melee uses the posed mesh's real hand-specific strike offset; independent mesh/hand-bone and barrel/emitter witnesses reject wrong placement instead of certifying product tables. Shared hook dispatch and live competing callbacks now cover ULib snapshots and restart.
+
+
+- VR review: ending a control claim no longer activates a stale button/door touch; off-hand damage survives an off grip claim, explicit whole-hand ownership remains authoritative, and released grenades retain grab/release feedback without a fake grab.
+- VR review: camera cleanup restores only its still-owned value and always cleans the screen; pitch-sensitive movement has a shared movement basis, and emitter fallback is world-model data.
+
+
+- VR acceptance WIP: dominant-hand layout/calibration adapter groundwork is retained with pure tests; the one permitted combined-session retry hit the same pre-existing fixes-module crash, so complete acceptance and the Release gate remain pending.
+
+- VR acceptance driver: retain exact-PID WER dumps without writing to the legacy install, classify the reviewed fixes-module render crash from the exception-context stack and allow one complete fresh-folder retry after verified restoration; unknown/repeated crashes still stop.
+
+- VR V2 draft, awaiting the user's approval: controller-frame hands, movement and comfort settings, room-scale following, wrist menus and laser-operated panels; Q4's full acceptance stopped at a native crash and is not complete.
+- VR V3 draft, awaiting the user's approval: physical contacts, grabbing/throwing, gravity gloves, ragdolls, touch Use, climbing and melee; armed-hand ownership and released-projectile grace now live in the interaction module, with the player's Keep corpses choice retained.
+- VR V4 draft, awaiting the user's approval: hand-held weapons and muzzle aim, foregrips, physical reload and ammunition display, the weapon wheel, physgun and toolgun; fresh simulation integrates all modules, while complete both-hand/Index acceptance and flat parity remain pending.
+
+
+- VR acceptance (branch only): check the selected physical grip separately from different rigs' wrist markers, retain their distances, and test actual armed noclip flight with both dominant hands.
+
+- VR weapons (branch only, awaiting review): ten additional stock world models use measured grip regions, and physgun aim uses its rendered beam emitter.
+
+- VR integration (branch only, awaiting review): noclip keeps its direction under weapon aim; armed hands respect interaction ownership, released grenades have shared hand grace, and overlapping camera overrides restore after their last user exits.
+
+- VR Q3c verification: preserve ULib's empty hook tables across Exit/restart, detect lost camera dispatch, exclude walking velocity from held melee, suppress repeated idle overlay hides, and require sustained heavy-prop lag in acceptance.
+
+- VR Q3b follow-up: sustain heavy-prop lag with stable mass-scaled gains, route background painted-control drags through their original callbacks, and verify functional inputs on simulation ticks with rendered-scene temporal measurements. Full simulated verification remains branch-only; controller-frame integration and Index acceptance follow C.
+
+- VR Q3b acceptance retains >3-unit heavy-prop lag with slower stable heavy gains, requires logical overlay roles even without handles and four painted arc roles, and protects simulated functional input windows from capture I/O while retaining separate native-clock temporal checks.
+
+- VR verification follow-up: preserve relative hand velocity for punches/gestures while physics follows world velocity; release obstructed or constrained teleport holds; report refused flat windows with a visible fallback; bound moving-hand glove queries; cancel pending overlays; isolate CalcView under ULib and refuse unknown detached hook libraries safely.
+
+- VR branch Q3: repaint static overlay canvases when a native handle is bound or recreated; stage capture requests after paint and retain strict visible-image checks. The review fixtures verify thin-wall lifecycle protection and fresh hand tracking through paused room motion.
+
+- VR branch review: retire hidden overlays and bound image requests; correct moving hands/throws, light-body holds, melee impulses and teleport carry; recover paused room following and stale movement; preserve borrowed menus and the player's corpse setting; cache unchanged pose resolution.
+
+- The shared VR damage helper keeps its legacy two-argument weapon curve; bare hands explicitly select the 25-damage cap, preserving the newly merged weapon callers.
+
+- VR test sessions reserve capture space and keep a shared unfinished-transaction marker until verified rollback; a failed preparation cannot silently become a new baseline. The integration retains full failed evidence with byte-verified NTFS compression.
+
+- Simultaneous VR hands share the existing Use cooldown for the same player and object, preventing a toggle from immediately switching back off.
+
+- VR movement buffers the actual coalesced server receipt cadence while keeping physical head motion immediate; climbing cancels delayed common body translation instead of multiplying a pull.
+
+- VR client prediction also ignores its own held body through the authoritative collision bridge; UI debug rows are reused after the keyboard follow-up. Combined tests now include holding while moving and guarded native Resume/fallback key input.
+
+- VR combined-session fixes: explicit movement/teleport traces ignore the player's own non-colliding hand bodies; the bounded overlay budget holds movement, hands, menus and keyboard together.
+
+- VR V2/V3, branch-only integration: a dormant local-host client/server framework with validated tick poses and owned module cleanup; finger-tracked player-model hands and ghost overlays; hull-checked room walking, stick movement, turns, teleport and comfort; controller-operated sandbox/window panels; authoritative physical hands, surface/bone grabs, throws, gloves, use, climbing, melee and haptics. Native simulation and typed input support unattended tests without OpenVR. Review and whole-package acceptance remain separate from the implemented feature tasks.
+- VR integration tools run all modules together, retain failed subsystem evidence, measure full-rate head/locomotion response, distinguish GPU/CPU/network quantities, compare five alternating published flat controls and exercise the real manual look in a fresh Python venv without Pillow.
+
+- VR V2/V3 integration review: hide hands with unresolved solid starts, cap bare punches at 25 damage, reuse debug tables, identify captured overlays by role, and explain calibration restarts and session NPC ragdolls (branch-only, awaiting acceptance).
 ### "Loading enhancements" at every start (the user's report of 2026-11-12; package only, no loader change)
 
 - **Faster: later starts no longer reread every replacement texture.** The box "Loading enhancements / Processing

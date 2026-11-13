@@ -1199,6 +1199,14 @@ def step_run(args) -> dict:
         health.check()
         if process.poll() is None:
             hwnd = console_window(process.pid)
+            final_commands=getattr(args,'before_quit_console',[])
+            if final_commands and hwnd:
+                record['before_quit_console']=[]
+                for command in final_commands:
+                    delivered=send(hwnd,command)
+                    record['before_quit_console'].append({'command':command,'delivered':bool(delivered)})
+                    if not delivered:raise Failure('before-quit console command was not delivered')
+                    health.sleep(.1)
             if hwnd and args.hide_hud:
                 send(hwnd, "cl_drawhud 1")
                 send(hwnd, "r_drawviewmodel 1")
@@ -1373,6 +1381,8 @@ def main(argv=None) -> int:
     run.add_argument("--fps", type=float, metavar="SECONDS",
                      help="after --settle, time every frame for SECONDS in client Lua (record: fps)")
     run.add_argument("--console", action="append", default=[], help="console command after the map (repeatable)")
+    run.add_argument("--before-quit-console", action="append", default=[],
+                     help="console command after measurements and before settings restoration/normal quit (repeatable)")
     run.add_argument("--lua", action="append", default=[], metavar="FILE",
                      help="client Lua file run after the map and the camera, through the console (repeatable)")
     completion = run.add_mutually_exclusive_group()

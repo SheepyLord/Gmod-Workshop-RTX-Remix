@@ -233,6 +233,11 @@ TEST_CASE("VR review: every Lua-facing entry returns promptly while VR_Init is h
     timed("OverlayShow",[&] { s.overlay_show(123,true); });timed("OverlayAlpha",[&] { s.overlay_alpha(123,.5f); });
     timed("OverlayDestroy",[&] { s.overlay_destroy(123); });timed("OverlayVisible",[&] { s.overlay_visible(123); });
     timed("Capture",[&] { s.capture(folder(),1); });
+    timed("ShowKeyboard",[&] { s.show_keyboard("","",false,128); });
+    timed("HideKeyboard",[&] { s.hide_keyboard(); });timed("OpenBindingUI",[&] { s.open_binding_ui(); });
+    timed("OverlayColor",[&] { s.overlay_color(123,{1,1,1}); });
+    timed("OverlaySortOrder",[&] { s.overlay_sort_order(123,1); });
+    timed("OverlayWindow",[&] { std::string detail;s.overlay_window(123,true,detail); });
   };
   calls();timed("Stop",[&] { s.stop(); });
   CHECK(s.state().first=="stopping");calls();timed("StopAgain",[&] { s.stop(); });

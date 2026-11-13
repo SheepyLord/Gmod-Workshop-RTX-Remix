@@ -1,0 +1,379 @@
+From d8df7e5468d0442ec2c0e6dda04bc0d9a99e59ff Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 04:16:03 -0700
+Subject: [PATCH] Copy post-2D window overlays and suppress the mirror over
+ black
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/d3d9/d3d9.def                     |  1 +
+ src/d3d9/d3d9_device.cpp              | 10 +++
+ src/d3d9/d3d9_rtx_shim.cpp            |  3 +
+ src/dxvk/rtx_render/rtx_remix_api.cpp |  4 ++
+ src/dxvk/rtx_render/rtx_vr.cpp        | 88 ++++++++++++++++++++++-----
+ src/dxvk/rtx_render/rtx_vr.h          | 15 ++++-
+ src/dxvk/rtx_render/rtx_vr_exports.h  |  1 +
+ src/dxvk/rtx_render/rtx_vr_policy.h   | 10 +++
+ tests/rtx/unit/test_vr_math.cpp       |  6 ++
+ 9 files changed, 119 insertions(+), 19 deletions(-)
+
+diff --git a/src/d3d9/d3d9.def b/src/d3d9/d3d9.def
+index b87de345..fef3f70c 100644
+--- a/src/d3d9/d3d9.def
++++ b/src/d3d9/d3d9.def
+@@ -27,5 +27,6 @@ EXPORTS
+   rtxvr_UpdateEyes
+   rtxvr_PushFramePose
+   rtxvr_SetOverlaySource
++  rtxvr_SetOverlayWindow
+   rtxvr_Capture
+   rtxvr_GetStatus
+diff --git a/src/d3d9/d3d9_device.cpp b/src/d3d9/d3d9_device.cpp
+index d778e666..92df48a3 100644
+--- a/src/d3d9/d3d9_device.cpp
++++ b/src/d3d9/d3d9_device.cpp
+@@ -1570,6 +1570,16 @@ namespace dxvk {
+ 
+     m_flags.set(D3D9DeviceFlag::InScene);
+ 
++    auto& vr=m_dxvkDevice->getCommon()->metaVr();
++    if(vr.windowWithoutMirror()&&m_implicitSwapchain!=nullptr) {
++      auto* back=m_implicitSwapchain->GetBackBuffer(0);
++      if(back) {
++        EmitCs([cVr=&vr,cImage=back->GetCommonTexture()->GetImage()](DxvkContext* ctx) {
++          cVr->prepareWindowFrame(*ctx,cImage);
++        });
++      }
++    }
++
+     return D3D_OK;
+   }
+ 
+diff --git a/src/d3d9/d3d9_rtx_shim.cpp b/src/d3d9/d3d9_rtx_shim.cpp
+index da6b3128..102fffd1 100644
+--- a/src/d3d9/d3d9_rtx_shim.cpp
++++ b/src/d3d9/d3d9_rtx_shim.cpp
+@@ -79,6 +79,7 @@ namespace {
+     decltype(&::rtxvr_UpdateEyes) rtxvr_UpdateEyes = nullptr;
+     decltype(&::rtxvr_PushFramePose) rtxvr_PushFramePose = nullptr;
+     decltype(&::rtxvr_SetOverlaySource) rtxvr_SetOverlaySource = nullptr;
++    decltype(&::rtxvr_SetOverlayWindow) rtxvr_SetOverlayWindow = nullptr;
+     decltype(&::rtxvr_Capture) rtxvr_Capture = nullptr;
+     decltype(&::rtxvr_GetStatus) rtxvr_GetStatus = nullptr;
+ 
+@@ -197,6 +198,7 @@ namespace {
+     LOAD_SHIM_EXPORT(rtxvr_UpdateEyes);
+     LOAD_SHIM_EXPORT(rtxvr_PushFramePose);
+     LOAD_SHIM_EXPORT(rtxvr_SetOverlaySource);
++    LOAD_SHIM_EXPORT(rtxvr_SetOverlayWindow);
+     LOAD_SHIM_EXPORT(rtxvr_Capture);
+     LOAD_SHIM_EXPORT(rtxvr_GetStatus);
+ #undef LOAD_SHIM_EXPORT
+@@ -297,6 +299,7 @@ extern "C" {
+   REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]) { return shim().rtxvr_UpdateEyes ? shim().rtxvr_UpdateEyes(eyes) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose* pose) { return shim().rtxvr_PushFramePose ? shim().rtxvr_PushFramePose(pose) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t handle, uint32_t w, uint32_t h) { return shim().rtxvr_SetOverlaySource ? shim().rtxvr_SetOverlaySource(handle,w,h) : RTXVR_E_INTERFACE; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlayWindow(uint64_t handle,uint32_t flags) { return shim().rtxvr_SetOverlayWindow ? shim().rtxvr_SetOverlayWindow(handle,flags) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_Capture(const wchar_t* folder, uint32_t what) { return shim().rtxvr_Capture ? shim().rtxvr_Capture(folder,what) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status* status) { return shim().rtxvr_GetStatus ? shim().rtxvr_GetStatus(status) : RTXVR_E_INTERFACE; }
+ 
+diff --git a/src/dxvk/rtx_render/rtx_remix_api.cpp b/src/dxvk/rtx_render/rtx_remix_api.cpp
+index 57eb5172..15ec92c3 100644
+--- a/src/dxvk/rtx_render/rtx_remix_api.cpp
++++ b/src/dxvk/rtx_render/rtx_remix_api.cpp
+@@ -2878,6 +2878,10 @@ extern "C"
+     std::lock_guard lock(s_mutex);
+     return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().capture(folder,what) : RTXVR_E_NO_DEVICE;
+   }
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlayWindow(uint64_t handle,uint32_t flags) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().overlayWindow(handle,flags) : RTXVR_E_NO_DEVICE;
++  }
+   REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status* status) {
+     std::lock_guard lock(s_mutex);
+     if (!status || status->structSize != sizeof(*status)) { return RTXVR_E_ARGUMENT; }
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 3caac1fb..64dd9162 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -79,6 +79,7 @@ namespace dxvk {
+     if (m_active) { return RTXVR_E_ALREADY; }
+     m_requested=*info; m_projection=p; ++m_generation;
+     m_poseTimings.clear(); m_poses.clear(); m_latestPose=0; m_consumedPose=0; m_overlayRequests.clear(); m_captureRequest.clear();
++    m_windowSources.clear();m_windowNoMirror=false;
+     m_status={}; m_status.structSize=sizeof(m_status); m_status.state=RTXVR_STATE_STARTING;
+     m_active.store(true,std::memory_order_release); m_work.store(true,std::memory_order_release);
+     return RTXVR_OK;
+@@ -92,6 +93,7 @@ namespace dxvk {
+       m_active.store(false,std::memory_order_release); ++m_generation;
+       m_status.state=RTXVR_STATE_OFF;
+       m_poses.clear(); m_overlayRequests.clear(); m_captureRequest.clear();
++      m_windowSources.clear();m_windowNoMirror=false;
+     }
+     // The module may unload OpenVR as soon as Stop returns.
+     std::lock_guard calls(m_openVrMutex);
+@@ -129,7 +131,20 @@ namespace dxvk {
+     std::lock_guard lock(m_requestMutex);
+     if (!m_active) { return RTXVR_E_NOT_RUNNING; }
+     if (m_overlayRequests.size()>=16 && !m_overlayRequests.count(handle)) { return RTXVR_E_RESOURCES; }
+-    m_overlayRequests[handle]={w,h}; return RTXVR_OK;
++    m_overlayRequests[handle]={w,h,0};m_windowSources.erase(handle);
++    m_windowNoMirror=std::any_of(m_windowSources.begin(),m_windowSources.end(),[](const auto& v) { return v.second&RTXVR_WINDOW_NO_MIRROR; });
++    return RTXVR_OK;
++  }
++
++  int RtxVr::overlayWindow(uint64_t handle,uint32_t flags) {
++    if(!handle||!vrpolicy::validWindowFlags(flags)) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex);
++    if(!m_active) { return RTXVR_E_NOT_RUNNING; }
++    if(m_overlayRequests.size()>=16&&!m_overlayRequests.count(handle)) { return RTXVR_E_RESOURCES; }
++    m_overlayRequests[handle]={0,0,flags};
++    if(flags) { m_windowSources[handle]=flags; } else { m_windowSources.erase(handle); }
++    m_windowNoMirror=std::any_of(m_windowSources.begin(),m_windowSources.end(),[](const auto& v) { return v.second&RTXVR_WINDOW_NO_MIRROR; });
++    return RTXVR_OK;
+   }
+ 
+   int RtxVr::capture(const wchar_t* folder,uint32_t what) {
+@@ -213,10 +228,8 @@ namespace dxvk {
+     m_diagnosticsRead=false;m_testFocusIntervals=0;m_testAllocationSite=AllocationTestSite::None;
+   }
+ 
+-  void RtxVr::retireOverlay(RtxContext& ctx,uint64_t handle) {
+-    const auto found=m_overlays.find(handle);
+-    if (found==m_overlays.end()) { return; }
+-    const bool hasImage=found->second.texture.image!=nullptr;
++  void RtxVr::releaseOverlayImage(DxvkContext& ctx,uint64_t handle,Overlay& overlay) {
++    const bool hasImage=overlay.texture.image!=nullptr;
+     {
+       std::lock_guard calls(m_openVrMutex);
+       if (m_overlay && m_submittedOverlays.erase(handle)) {
+@@ -226,9 +239,44 @@ namespace dxvk {
+       }
+     }
+     if (hasImage) { ctx.flushCommandList(); m_device->waitForIdle(); }
++    overlay.texture={};overlay.dirty=false;
++  }
++
++  void RtxVr::retireOverlay(DxvkContext& ctx,uint64_t handle) {
++    const auto found=m_overlays.find(handle);
++    if(found==m_overlays.end()) { return; }
++    releaseOverlayImage(ctx,handle,found->second);
+     m_overlays.erase(found);
+   }
+ 
++  void RtxVr::applyOverlayRequests(DxvkContext& ctx) {
++    if(!m_ready||!active()) { return; }
++    std::map<uint64_t,OverlayRequest> requests;
++    { std::lock_guard lock(m_requestMutex);requests.swap(m_overlayRequests); }
++    for(const auto& item:requests) {
++      const auto& r=item.second;
++      const auto found=m_overlays.find(item.first);
++      if(!r.width&&!r.windowFlags) { retireOverlay(ctx,item.first); }
++      else if(found==m_overlays.end()||found->second.width!=r.width||found->second.height!=r.height||found->second.windowFlags!=r.windowFlags) {
++        retireOverlay(ctx,item.first);
++        m_overlays[item.first]={r.width,r.height,{},false,r.windowFlags};
++      }
++    }
++  }
++
++  void RtxVr::clearWindow(DxvkContext& ctx,const Rc<DxvkImage>& game) {
++    if(game==nullptr) { return; }
++    const VkClearColorValue black {{0.f,0.f,0.f,1.f}};
++    const VkImageSubresourceRange range {VK_IMAGE_ASPECT_COLOR_BIT,0,1,0,1};
++    ctx.clearColorImage(game,black,range);
++  }
++
++  void RtxVr::prepareWindowFrame(DxvkContext& ctx,const Rc<DxvkImage>& game) {
++    if(!windowWithoutMirror()) { return; }
++    applyOverlayRequests(ctx);
++    clearWindow(ctx,game);
++  }
++
+   bool RtxVr::initialise(RtxContext& ctx) {
+     if(!m_diagnosticsRead) {
+       auto diagnostic=[&](const char* name,uint32_t& value,uint32_t maximum) {
+@@ -350,7 +398,6 @@ namespace dxvk {
+       if(active()&&m_compositor) { m_hasFocus=pace(); }
+       if(!m_hasFocus) { return {m_frameProjection.width,m_frameProjection.height,1}; }
+     }
+-    std::map<uint64_t,std::pair<uint32_t,uint32_t>> overlayRequests;
+     const auto& camera=ctx.getSceneManager().getCamera();
+     const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto up=camera.getUp(false);
+     const float pos[3] {origin.x,origin.y,origin.z};
+@@ -377,22 +424,13 @@ namespace dxvk {
+           ", pose angles=",m_framePose.cameraAngles[0],",",m_framePose.cameraAngles[1],",",m_framePose.cameraAngles[2]));
+       }
+       if (m_framePose.sequence<=m_consumedPose) { return {m_frameProjection.width,m_frameProjection.height,1}; }
+-      overlayRequests.swap(m_overlayRequests);
+       m_frameEligible=true;
+       if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+       m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+       m_status.eyeWidth=m_eyes[0].image->info().extent.width; m_status.eyeHeight=m_eyes[0].image->info().extent.height;
+       matched=m_status.posesMatched; unmatched=m_status.posesUnmatched;
+     }
+-    for (const auto& item:overlayRequests) {
+-      const auto found=m_overlays.find(item.first);
+-      if (!item.second.first) {
+-        retireOverlay(ctx,item.first);
+-      } else if (found==m_overlays.end() || found->second.width!=item.second.first || found->second.height!=item.second.second) {
+-        retireOverlay(ctx,item.first);
+-        m_overlays[item.first]={item.second.first,item.second.second,{},false};
+-      }
+-    }
++    applyOverlayRequests(ctx);
+     if ((m_frames%120)==0 || camera.isCameraCut()) {
+       Logger::info(str::format("RTX VR camera: main, cut=",camera.isCameraCut(),", FOV=",camera.getFov(),
+         ", pose=",m_framePose.sequence,", matched=",matched,", unmatched=",unmatched));
+@@ -649,6 +687,7 @@ namespace dxvk {
+   }
+ 
+   void RtxVr::mirror(RtxContext& ctx,const Rc<DxvkImage>& game) {
++    if(windowWithoutMirror()) { clearWindow(ctx,game);return; }
+     if (!(m_frame.flags&RTXVR_START_NO_MIRROR)) {
+       // Crop the eye to the desktop aspect, keeping the centre and leaving subsequent game UI on top.
+       const auto src=m_eyes[0].image->info().extent; const auto dst=game->info().extent;
+@@ -762,6 +801,7 @@ namespace dxvk {
+     const auto size=image->info().extent;
+     for (auto& item:m_overlays) {
+       auto& overlay=item.second;
++      if(overlay.windowFlags) { continue; }
+       if (size.width!=overlay.width || size.height!=overlay.height) { continue; }
+       if(!vrpolicy::resources([&] {
+         if (overlay.texture.image == nullptr) { testAllocation(AllocationTestSite::Overlay);overlay.texture=makeImage(ctx,size); }
+@@ -774,6 +814,7 @@ namespace dxvk {
+   void RtxVr::present(RtxContext& ctx,const Rc<DxvkImage>& game) {
+     if(m_recordingThread.load(std::memory_order_acquire)) { collectRecordings(); }
+     if (!m_ready || !active()) { return; }
++    applyOverlayRequests(ctx);
+     const bool traced=m_lastOutputFrame==m_device->getCurrentFrameId();
+     if (traced!=m_hadTracedScene) {
+       Logger::info(traced ? "RTX VR scene resumed: producing new eyes" :
+@@ -781,6 +822,21 @@ namespace dxvk {
+       m_hadTracedScene=traced;
+     }
+     timestamp(ctx,vrtiming::Stage::OverlayBegin);
++    if(game!=nullptr) {
++      for(auto& item:m_overlays) {
++        auto& overlay=item.second;
++        if(!(overlay.windowFlags&RTXVR_WINDOW_SHOW)) { continue; }
++        if(!vrpolicy::resources([&] {
++          const auto extent=game->info().extent;
++          const auto size=vrpolicy::windowSize(extent.width,extent.height);
++          if(overlay.texture.image!=nullptr&&(overlay.texture.image->info().extent.width!=size.first||overlay.texture.image->info().extent.height!=size.second)) {
++            releaseOverlayImage(ctx,item.first,overlay);
++          }
++          if(overlay.texture.image==nullptr) { testAllocation(AllocationTestSite::Overlay);overlay.texture=makeImage(ctx,{size.first,size.second,1}); }
++          RtxContext::blitImageHelper(&ctx,game,overlay.texture.image,VK_FILTER_LINEAR);overlay.dirty=true;
++        },[&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); })) { return; }
++      }
++    }
+     if(m_frameCaptureWhat) { std::error_code error;std::filesystem::create_directories(m_frameCaptureFolder,error); }
+     bool updates=false;
+     uint32_t bound=0;
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 4ee36a73..6b696911 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -39,6 +39,9 @@ namespace dxvk {
+     int updateEyes(const rtxvr_Eye eyes[2]);
+     int pushPose(const rtxvr_FramePose* pose);
+     int overlaySource(uint64_t handle, uint32_t w, uint32_t h);
++    int overlayWindow(uint64_t handle, uint32_t flags);
++    bool windowWithoutMirror() const { return active()&&m_windowNoMirror.load(std::memory_order_acquire); }
++    void prepareWindowFrame(DxvkContext& ctx,const Rc<DxvkImage>& game);
+     int capture(const wchar_t* folder, uint32_t what);
+     int status(rtxvr_Status* out);
+     bool projection(Matrix4& matrix, float& fov, float& aspect);
+@@ -53,7 +56,8 @@ namespace dxvk {
+     void present(RtxContext& ctx, const Rc<DxvkImage>& game);
+   private:
+     struct Image { Rc<DxvkImage> image; Rc<DxvkImageView> view; };
+-    struct Overlay { uint32_t width=0,height=0; Image texture; bool dirty=false; };
++    struct Overlay { uint32_t width=0,height=0; Image texture; bool dirty=false; uint32_t windowFlags=0; };
++    struct OverlayRequest { uint32_t width=0,height=0,windowFlags=0; };
+     struct Timer {
+       std::array<Rc<DxvkGpuQuery>,vrtiming::kStages> queries;
+       bool pending=false;
+@@ -80,7 +84,10 @@ namespace dxvk {
+     std::string profileJson(const Timer& timer,const std::array<DxvkQueryData,vrtiming::kStages>& data);
+     static double cpuWallMs();
+     static double threadRunMs();
+-    void retireOverlay(RtxContext& ctx, uint64_t handle);
++    void releaseOverlayImage(DxvkContext& ctx,uint64_t handle,Overlay& overlay);
++    void retireOverlay(DxvkContext& ctx, uint64_t handle);
++    void applyOverlayRequests(DxvkContext& ctx);
++    void clearWindow(DxvkContext& ctx,const Rc<DxvkImage>& game);
+     bool initialise(RtxContext& ctx);
+     void fail(int error, const std::string& message);
+     vr::VRVulkanTextureData_t textureData(const Image& image) const;
+@@ -97,7 +104,9 @@ namespace dxvk {
+     rtxvr_FramePose m_framePose {};
+     rtxvr_Status m_status {};
+     std::map<uint64_t,Overlay> m_overlays;
+-    std::map<uint64_t,std::pair<uint32_t,uint32_t>> m_overlayRequests;
++    std::map<uint64_t,OverlayRequest> m_overlayRequests;
++    std::map<uint64_t,uint32_t> m_windowSources;
++    std::atomic<bool> m_windowNoMirror {false};
+     vrpolicy::CaptureRequest m_captureRequest;
+     std::filesystem::path m_frameCaptureFolder;
+     uint32_t m_frameCaptureWhat=0;
+diff --git a/src/dxvk/rtx_render/rtx_vr_exports.h b/src/dxvk/rtx_render/rtx_vr_exports.h
+index 714a5985..a9bf940d 100644
+--- a/src/dxvk/rtx_render/rtx_vr_exports.h
++++ b/src/dxvk/rtx_render/rtx_vr_exports.h
+@@ -15,6 +15,7 @@ extern "C" {
+   REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye*);
+   REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose*);
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t,uint32_t,uint32_t);
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlayWindow(uint64_t,uint32_t);
+   REMIXAPI int REMIXAPI_CALL rtxvr_Capture(const wchar_t*,uint32_t);
+   REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status*);
+ }
+diff --git a/src/dxvk/rtx_render/rtx_vr_policy.h b/src/dxvk/rtx_render/rtx_vr_policy.h
+index 08c7835f..28022761 100644
+--- a/src/dxvk/rtx_render/rtx_vr_policy.h
++++ b/src/dxvk/rtx_render/rtx_vr_policy.h
+@@ -1,6 +1,7 @@
+ // SPDX-License-Identifier: MIT
+ #pragma once
+ #include <atomic>
++#include <algorithm>
+ #include <filesystem>
+ #include <exception>
+ #include <utility>
+@@ -10,6 +11,15 @@
+ 
+ namespace dxvk::vrpolicy {
+   inline bool sdkCallsEnabled(uint32_t flags) { return !(flags&RTXVR_START_NO_SUBMIT); }
++  inline bool validWindowFlags(uint32_t flags) {
++    return !(flags&~(RTXVR_WINDOW_SHOW|RTXVR_WINDOW_NO_MIRROR))&&
++      (!(flags&RTXVR_WINDOW_NO_MIRROR)||(flags&RTXVR_WINDOW_SHOW));
++  }
++  inline std::pair<uint32_t,uint32_t> windowSize(uint32_t width,uint32_t height) {
++    if(!width||!height) { return {}; }
++    const auto w=std::min(width,1920u);
++    return {w,std::max(1u,uint32_t(uint64_t(height)*w/width))};
++  }
+   template<typename Action,typename Error>
+   bool resources(Action action,Error error) {
+     try { action();return true; }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index ce12f1eb..8547eda9 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -24,6 +24,12 @@ namespace {
+   }
+ }
+ int main() {
++  require(dxvk::vrpolicy::validWindowFlags(0)&&dxvk::vrpolicy::validWindowFlags(RTXVR_WINDOW_SHOW),"window source can be disabled or shown");
++  require(dxvk::vrpolicy::validWindowFlags(RTXVR_WINDOW_SHOW|RTXVR_WINDOW_NO_MIRROR),"window panel can suppress the mirror");
++  require(!dxvk::vrpolicy::validWindowFlags(RTXVR_WINDOW_NO_MIRROR)&&!dxvk::vrpolicy::validWindowFlags(4),"window flags reject orphan suppression and unknown bits");
++  require(dxvk::vrpolicy::windowSize(3840,2160)==std::pair<uint32_t,uint32_t>{1920,1080},"4K window overlay is capped at 1920 wide");
++  require(dxvk::vrpolicy::windowSize(1280,720)==std::pair<uint32_t,uint32_t>{1280,720},"small window overlay retains its size");
++  require(dxvk::vrpolicy::windowSize(0,720)==std::pair<uint32_t,uint32_t>{0,0},"empty window has no copy extent");
+   require(!dxvk::vrpolicy::sdkCallsEnabled(RTXVR_START_NO_SUBMIT),"null-interface simulated session never uses OpenVR");
+   require(!dxvk::vrpolicy::sdkCallsEnabled(RTXVR_START_NO_SUBMIT|RTXVR_START_RENDER_PACING),"render pacing cannot re-enable SDK calls in simulation");
+   require(dxvk::vrpolicy::sdkCallsEnabled(RTXVR_START_RENDER_PACING),"real render pacing uses the compositor");
+-- 
+2.56.0.windows.1
+

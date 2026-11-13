@@ -1,5 +1,108 @@
 # Roadmap
 
+VR V2, V3 and V4 were approved by the user on 2026-11-12 as a deliverable at this stage and merged to `main`;
+Claude finished V4 itself at the user's request. [The V4 report](handover/VR-V4-report.md) says what they deliver,
+what the final package's runs showed and what is still untested.
+
+| Milestone | State |
+|---|---|
+| V2: Hands, movement, menus | Done (2026-11-12) |
+| V3: Physical interaction | Done (2026-11-12) |
+| V4: Weapons and tools | Done (2026-11-12), with the limits in the report |
+
+The VR entries below are the milestones' history while they were on the branch.
+
+V2/V3/V4 round5: the reviewed queued-draw repair is integrated. Hold/movement/safety
+corrections have offline regressions; expanded limited medium proof precedes the now
+authorized full simulated and Index acceptance. Milestones still await the user's
+approval; [Q's V4 report](handover/VR-V4-report.md) records current evidence.
+
+Q's second independent review adds a passing15-case simulated permanent-world
+ladder/water proof on review4, with head-directed movement and no sideways ladder drift.
+The full fixed-package simulated/Index acceptance is still awaiting Claude's direction;
+V2, V3 and V4 remain branch-only and await the user's approval. See
+[the current V4 report](handover/VR-V4-report.md). Earlier performance measurements keep
+their own package identities and the Modern House1.00924ms eye-warp limit remains open.
+
+Q4 independent-review update (2026-11-12, supersedes the earlier stop status below):
+Claude directed ten retained test/fix items and limited checks while the separate production
+fixes-module repair waits for the user's go-ahead. All ten have offline regressions and
+mutation coverage. Limited two-cycle hook/menu/movement and 21-role resource compositions
+pass in simulation and on the Index, with scripted poses, controllers off and nobody wearing
+the headset. This does not accept the complete milestone sequence. Armed timing, flat controls
+and the Release gate are recorded in [Q's report](handover/VR-V4-report.md).
+
+V2, V3 and V4 are each **awaiting the user's approval**. The complete simulated and Index
+reruns remain blocked until Claude confirms the separate fixes repair; each has one gated
+command ready. Earlier self-referential geometry certificates are withdrawn and replaced
+by independent mesh/hand-bone tests; no old measurement is transferred to the corrected package.
+
+The permitted review now has six static armed Index measurements across weapons/scenes/
+desktop sizes and ten passing alternating published flat controls. House720 mean eye
+warp1.00924ms exceeds the unchanged1.0ms reference budget; that and full fixed-package
+near-depth/feature acceptance remain open. Controllers-off scripted evidence cannot
+approve live finger tracking or human comfort. See the current report for the Release gate.
+
+Latest Q4 resumption: Claude diagnosed the earlier native fault as a pre-existing fixes
+queued-render freed-entity crash and authorized one retry. That retry PID50548 reproduced
+the exact build/exception-stack signature, so Q stopped without a third run. All A evidence
+remains; full B/Index,21-role worst case, timing, flat parity and Release gate are still
+pending. V2/V3/V4 remain **awaiting the user's approval**. See the [updated report](handover/VR-V4-report.md).
+
+
+
+Q4 integration update (2026-11-12): accepted W/K/T/C and V2/V3 fixes are integrated on
+`v2q` after fast-forwarding `vr2` 84b0b8c9. Natural-hold geometry in both hands, armed
+noclip flight and one all-module ULib simulation pass on package v4q.3. The full V2/V3
+combined sequence then crashed during its door-Use phase; Q stopped under the user's
+crash rule. This supersedes earlier Q3 source-integration status, not its historical measurements.
+
+| Milestone | Branch state then (historical) |
+|---|---|
+| V2: Hands, movement, menus | Awaiting the user's approval; full Q4 simulated/Index acceptance is incomplete. |
+| V3: Physical interaction | Awaiting the user's approval; native crash in the combined door-Use phase awaits review. |
+| V4: Weapons and tools | Awaiting the user's approval; subset integration passes, complete both-hand/Index, timing and flat controls remain. |
+
+See the [partial Q4 report](handover/VR-V4-report.md) for every Done point, exact artifacts,
+retained failures and the stop. Nothing was merged outward, published or approved; the
+final Release gate is pending. The following earlier entries remain historical evidence.
+
+
+Q3c's six second-review corrections pass273 focused offline tests and verify6 combined16/16. The temporal03 startup dump was classified as known NVIDIA nvoglv64.dll+0xe622f8; its one authorized same-package retry04 passes5/5, and fresh CPU02 passes5/5. Source c20df18d is unchanged; Release passes (CTest34/34, Python29+26+1201); operational results are in [the resumption report](handover/VR-V2V3-Q-report.md#q3c-classified-driver-crash-resumption-2026-11-12). C/Index remain open.
+
+Q3b verification on v2q passes combined16/16, temporal5/5 and balanced CPU5/5 on verify5. Heavy lag is14.70221 units against >3; all physical/movement/UI/review cases pass. The prior client.dll+0x5744c crash did not reproduce in the identical-package rerun; its cause remains unknown. Release gate passes (CTest34/34, Python29+26+1191); latest operational results are in [Q's resumed report](handover/VR-V2V3-Q-report.md#q3b-resumed-verification-2026-11-12). C integration and Index/SDK acceptance remain pending.
+
+Q3's independent-review simulated work is complete on `v2q` for review (2026-11-12): combined,
+full-rate temporal and stationary CPU controls pass on `v2q.review7`. This is not milestone approval.
+C's natural controller frames and the subsequent Index/SDK acceptance remain pending; no merge
+of `vr2`'s non-VR main changes was needed in this round.
+
+Q's second V2/V3 integration review is in progress on `v2q`: retained regressions for the independent review,
+then fresh combined simulation and measurements. Index acceptance waits for C's reviewed controller frames
+on `vr2`; the previous package's scripted results remain a separate historical baseline.
+
+V2/V3 integration started on `v2q` on 2026-11-11 after F/N/H/L/M/P, while R/M follow-ups
+and V4's scaffold are reviewed on `vr2`. The user requested V2 and V3 together, then V4.
+Q's [integration brief](handover/VR-V2V3-Q-integration.md) requires combined simulated/Index
+acceptance, explicit timing/network measurements, five alternating flat pairs against the
+published package and a real package-free Python look. Implemented features are branch-only;
+this entry does not claim final acceptance, milestone approval or publication.
+
+Q's V2/V3 scripted virtual-pose feature and accounting confirmations now pass on simulation
+and the Index (15 checks each); the quiet five-case matrix and two actual no-Pillow looks
+also pass. The first ten-game flat batch fails the cold-start bound despite passing steady
+frames/images/inventories; the unchanged-limit repetition is retained separately. The old
+absolute left-eye ghost guard and natural controller alignment (C) remain open. W and its
+report are inbound; the measured V2/V3 artifact predates W, and V4 package acceptance awaits
+its remaining work. See [Q's report](handover/VR-V2V3-Q-report.md); no milestone approval is implied.
+
+Q's assigned implementation/evidence round is complete locally: the fresh ten-game replication
+passes all unchanged bounds (8.287/8.229 ms frame medians, 25.2/24.4 s cold-start medians), while
+the earlier startup failure stays recorded. The final Release gate passes 34 CTests and 1198
+Python tests (9 skips). The post-W source snapshot is built/validated separately; it has no
+transferred V2/V3 metrics or V4 headset acceptance. Natural alignment, the absolute ghost guard
+and cold-start variation remain review limits, not a claimed full milestone approval.
+
 VR V1, "RTX in the headset", is done: the user looked with the headset on and approved it on 2026-11-10, and it
 was merged into `main` that day. V2 (hands, movement, menus) starts when the user asks
 (**[the report](handover/VR-V1-report.md)**: what works and what does not, the spikes, the costs, how to look with

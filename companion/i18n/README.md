@@ -103,3 +103,7 @@ VR-V1-E adds the VR category/page, start/exit/status messages, GPU warning, fram
 labels. All 44 new messages in each of the six non-English catalogs are machine translations written by Codex
 and await human review. The English source is authoritative. UTF-8 round trips and printf conversions were
 checked; preserve `nl_vr_*`, the product names, dimensions and units when reviewing.
+
+VR-V2-M adds 40 page/panel messages per language, agent-written by Codex and awaiting human review.
+`vr_ui_catalog.py` reproduces them from ASCII-escaped data using the UTF-8 catalog writer, checks for lost
+characters and validates complete catalogs. Existing translations are retained.

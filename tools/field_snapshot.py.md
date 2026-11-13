@@ -130,3 +130,11 @@ is safe and finds nothing left to do.
 - `reg import` cannot give back a `REG_SZ` value that holds a line break (`reg export` writes it over
   several lines, and the import leaves the value as it is); rollback then reports it under
   `registry.differences`.
+
+
+--manifest may be repeated on snapshot/rollback to identify the official stock revision of a pinned copy. Explicit snapshot paths are retained for rollback; an explicit recovery list takes precedence. Full depot hashing remains mandatory: this is not --no-depot-check. Steam files are never restored or modified. This handles a separately updated field manifest without comparing an old vanilla clone to the new build.
+
+
+Explicit stock-copy manifests prevent a field Steam update from changing the expected PoC baseline. All immutable depot hashes remain verified; matching recovery never writes or skips Steam files.
+
+Explicit --manifest is exceptional: before snapshot creation/registry access or any rollback mutation, every immutable depot file must verify against those manifests; empty, missing, mismatched, reparse or unverifiable inventories fail with nothing changed. Normal current-build PoC drivers use the installed field manifests, without this option.

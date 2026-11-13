@@ -1,0 +1,235 @@
+From 39e2ab77ca33855bb6904ef6535edd543b78a2d7 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 09:45:43 -0700
+Subject: [PATCH] Reject foreground-eroding guidance and retain the accepted
+ depth footprint
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp                | 14 +++---
+ src/dxvk/rtx_render/rtx_vr_math.h             | 46 -------------------
+ .../rtx/pass/vr/vr_depth_coverage.comp.slang  | 14 ++----
+ .../shaders/rtx/pass/vr/vr_depth_guidance.h   | 42 -----------------
+ tests/rtx/unit/test_vr_math.cpp               | 15 ------
+ 5 files changed, 10 insertions(+), 121 deletions(-)
+ delete mode 100644 src/dxvk/shaders/rtx/pass/vr/vr_depth_guidance.h
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 3ec1da86..67ae0571 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -56,7 +56,6 @@ namespace dxvk {
+         TEXTURE2D(0)
+         RW_TEXTURE2D(1)
+         RW_TEXTURE2D(2)
+-        TEXTURE2D(3)
+       END_PARAMETER()
+     };
+     class VrDepthRangeShader : public ManagedShader {
+@@ -645,12 +644,6 @@ namespace dxvk {
+     if (!m_ready || !active()) { return; }
+     if (!m_frameEligible) { mirror(ctx,game); return; }
+     ScopedCpuProfileZone();
+-    DxvkImageViewCreateInfo desc {};
+-    desc.type=VK_IMAGE_VIEW_TYPE_2D; desc.format=colour->info().format; desc.aspect=VK_IMAGE_ASPECT_COLOR_BIT;
+-    desc.usage=VK_IMAGE_USAGE_SAMPLED_BIT; desc.numLevels=1; desc.numLayers=1;
+-    Rc<DxvkImageView> view;
+-    if(!vrpolicy::resources([&] { view=m_device->createImageView(colour,desc); },
+-        [&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); })) { return; }
+     timestamp(ctx,vrtiming::Stage::WarpBegin);
+     const auto depthSize=depth->imageInfo().extent;
+     if(!vrpolicy::resources([&] {
+@@ -671,7 +664,6 @@ namespace dxvk {
+       ctx.changeImageLayout(m_depthTileMinimum.image,VK_IMAGE_LAYOUT_GENERAL);
+       ctx.bindResourceView(0,depth,nullptr);ctx.bindResourceView(1,m_depthCoverage.view,nullptr);
+       ctx.bindResourceView(2,m_depthTileMinimum.view,nullptr);
+-      ctx.bindResourceView(3,view,nullptr);
+       ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrDepthCoverageShader::getShader());
+       ctx.dispatch((depthSize.width+7)/8,(depthSize.height+7)/8,1);
+       ctx.changeImageLayout(m_depthFrameMinimum.image,VK_IMAGE_LAYOUT_GENERAL);
+@@ -701,6 +693,12 @@ namespace dxvk {
+     }
+     {
+     ScopedGpuProfileZone(&ctx, "VR eye warp");
++    DxvkImageViewCreateInfo desc {};
++    desc.type=VK_IMAGE_VIEW_TYPE_2D; desc.format=colour->info().format; desc.aspect=VK_IMAGE_ASPECT_COLOR_BIT;
++    desc.usage=VK_IMAGE_USAGE_SAMPLED_BIT; desc.numLevels=1; desc.numLayers=1;
++    Rc<DxvkImageView> view;
++    if(!vrpolicy::resources([&] { view=m_device->createImageView(colour,desc); },
++        [&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); })) { return; }
+     ctx.setPushConstantBank(DxvkPushConstantBank::RTX);
+     ctx.bindDrawBuffers(DxvkBufferSlice(m_warpDispatchArguments,0,2*sizeof(VkDispatchIndirectCommand)),DxvkBufferSlice());
+     for (int i=0;i<2;++i) {
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 471588ed..390ea7ad 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -143,52 +143,6 @@ namespace dxvk::vrmath {
+     return nearest<centre*.9 ? nearest : centre;
+   }
+ 
+-  using Colour3=std::array<double,3>;
+-  inline double colourDistance(const Colour3& a,const Colour3& b) {
+-    double sum=0;for(unsigned i=0;i<3;++i) { const double d=a[i]-b[i];sum+=d*d; }return sum;
+-  }
+-  // CPU counterpart of vr_depth_guidance.h. The returned grid can be supplied to warp()
+-  // with colourCoverage=false, because this is already the complete coverage prefilter.
+-  template<typename Depth,typename Colour>
+-  inline double colourGuidedCoverageDepth(Depth depthAt,Colour colourAt,int px,int py,
+-                                          uint32_t width,uint32_t height,uint32_t colourWidth,uint32_t colourHeight) {
+-    auto raw=[&](int x,int y) {return validDepth(depthAt((std::clamp(x,0,int(width)-1)+.5)/width,
+-      (std::clamp(y,0,int(height)-1)+.5)/height));};
+-    const double centre=raw(px,py);double nearest=centre;int nx=px,ny=py;
+-    for(int y=-1;y<=1;++y) for(int x=-1;x<=1;++x) {
+-      const int ox=std::clamp(px+x,0,int(width)-1),oy=std::clamp(py+y,0,int(height)-1);
+-      const double z=raw(ox,oy);if(z<nearest) {nearest=z;nx=ox;ny=oy;}
+-    }
+-    if(!(nearest<centre*.9)) { return centre; }
+-    auto quad=[&](int x,int y) {
+-      const int bx=int(std::floor((x+.5)/width*colourWidth-.5)),by=int(std::floor((y+.5)/height*colourHeight-.5));
+-      std::array<Colour3,4> q{};unsigned i=0;
+-      for(int dy=0;dy<2;++dy) for(int dx=0;dx<2;++dx) {
+-        q[i++]=colourAt(std::clamp(bx+dx,0,int(colourWidth)-1),std::clamp(by+dy,0,int(colourHeight)-1));
+-      }
+-      return q;
+-    };
+-    const auto candidate=quad(px,py),near=quad(nx,ny);
+-    std::array<double,4> candidateFar{1e20,1e20,1e20,1e20},nearFar=candidateFar;
+-    bool hasFar=false;
+-    for(int y=-1;y<=1;++y) for(int x=-1;x<=1;++x) {
+-      if(!x&&!y) {continue;}
+-      const int ox=std::clamp(px+x,0,int(width)-1),oy=std::clamp(py+y,0,int(height)-1);
+-      if(raw(ox,oy)<centre*.9) {continue;}
+-      hasFar=true;const auto far=quad(ox,oy);
+-      for(const auto& f:far) for(unsigned i=0;i<4;++i) {
+-        candidateFar[i]=std::min(candidateFar[i],colourDistance(candidate[i],f));
+-        nearFar[i]=std::min(nearFar[i],colourDistance(near[i],f));
+-      }
+-    }
+-    if(!hasFar) {return nearest;}
+-    unsigned reference=0;for(unsigned i=1;i<4;++i) {if(nearFar[i]>nearFar[reference]) {reference=i;}}
+-    for(unsigned i=0;i<4;++i) {
+-      if(colourDistance(candidate[i],near[reference])<=candidateFar[i]*2+1e-5) {return nearest;}
+-    }
+-    return centre;
+-  }
+-
+   struct DepthTiles {
+     uint32_t depthWidth,depthHeight,width,height;
+     std::vector<double> minima;
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang
+index 0cb3b8fd..261e199d 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang
+@@ -2,30 +2,24 @@
+ [[vk::binding(0)]] Texture2D<float> Depth;
+ [[vk::binding(1)]] RWTexture2D<float> Coverage;
+ [[vk::binding(2)]] RWTexture2D<float> TileMinimum;
+-[[vk::binding(3)]] Texture2D<float4> CentreColour;
+ groupshared uint groupMinimum;
+-float rawDepth(int2 p,uint2 size) {
++float at(int2 p,uint2 size) {
+   const float z=abs(Depth.Load(int3(clamp(p,int2(0),int2(size)-1),0)));
+   return isfinite(z)&&z>0 ? z : 1e20;
+ }
+-#include "rtx/pass/vr/vr_depth_guidance.h"
+ [shader("compute")]
+ [numthreads(8,8,1)]
+ void main(uint2 id:SV_DispatchThreadID,uint2 tile:SV_GroupID,uint lane:SV_GroupIndex) {
+   uint w,h;Coverage.GetDimensions(w,h);
+   const bool inside=all(id<uint2(w,h));
+-  const float centre=rawDepth(int2(id),uint2(w,h));
++  const float centre=at(int2(id),uint2(w,h));
+   float nearest=centre;
+-  int2 nearestPixel=int2(id);
+   for(int y=-1;y<=1;++y) for(int x=-1;x<=1;++x) {
+-    const int2 p=clamp(int2(id)+int2(x,y),int2(0),int2(w-1,h-1));
+-    const float z=rawDepth(p,uint2(w,h));
+-    if(z<nearest) { nearest=z;nearestPixel=p; }
++    nearest=min(nearest,at(int2(id)+int2(x,y),uint2(w,h)));
+   }
+   // Reconstructed colour can cover a texel whose primary ray missed a thin foreground edge.
+   // Leave smooth depth gradients alone; extend only discontinuity coverage by one primary texel.
+-  const bool expand=nearest<centre*.9;
+-  const float coverage=expand&&inside&&hasForegroundColour(int2(id),nearestPixel,uint2(w,h),centre) ? nearest : centre;
++  const float coverage=nearest<centre*.9 ? nearest : centre;
+   if(lane==0) { groupMinimum=asuint(1e20); }
+   GroupMemoryBarrierWithGroupSync();
+   const float waveMinimum=WaveActiveMin(inside ? coverage : 1e20);
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_depth_guidance.h b/src/dxvk/shaders/rtx/pass/vr/vr_depth_guidance.h
+deleted file mode 100644
+index 47ea836d..00000000
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_depth_guidance.h
++++ /dev/null
+@@ -1,42 +0,0 @@
+-// SPDX-License-Identifier: MIT
+-// CentreColour and rawDepth() are supplied by the coverage pass.
+-struct VrColourQuad { float3 a,b,c,d; };
+-VrColourQuad colourQuad(int2 p,uint2 depthSize) {
+-  uint w,h;CentreColour.GetDimensions(w,h);
+-  const int2 base=int2(floor((float2(p)+.5)/float2(depthSize)*float2(w,h)-.5));
+-  const int2 hi=int2(w-1,h-1);
+-  VrColourQuad q;
+-  q.a=CentreColour.Load(int3(clamp(base,int2(0),hi),0)).rgb;
+-  q.b=CentreColour.Load(int3(clamp(base+int2(1,0),int2(0),hi),0)).rgb;
+-  q.c=CentreColour.Load(int3(clamp(base+int2(0,1),int2(0),hi),0)).rgb;
+-  q.d=CentreColour.Load(int3(clamp(base+int2(1,1),int2(0),hi),0)).rgb;
+-  return q;
+-}
+-float4 colourDistances(VrColourQuad q,float3 colour) {
+-  return float4(dot(q.a-colour,q.a-colour),dot(q.b-colour,q.b-colour),
+-    dot(q.c-colour,q.c-colour),dot(q.d-colour,q.d-colour));
+-}
+-bool hasForegroundColour(int2 p,int2 nearestPixel,uint2 size,float centre) {
+-  const VrColourQuad candidate=colourQuad(p,size),near=colourQuad(nearestPixel,size);
+-  float4 candidateFar=1e20,nearFar=1e20;
+-  bool hasFar=false;
+-  for(int y=-1;y<=1;++y) for(int x=-1;x<=1;++x) {
+-    if(!x&&!y) { continue; }
+-    const int2 other=clamp(p+int2(x,y),int2(0),int2(size)-1);
+-    if(rawDepth(other,size)<centre*.9) { continue; }
+-    hasFar=true;
+-    const VrColourQuad far=colourQuad(other,size);
+-    candidateFar=min(candidateFar,min(min(colourDistances(candidate,far.a),colourDistances(candidate,far.b)),
+-      min(colourDistances(candidate,far.c),colourDistances(candidate,far.d))));
+-    nearFar=min(nearFar,min(min(colourDistances(near,far.a),colourDistances(near,far.b)),
+-      min(colourDistances(near,far.c),colourDistances(near,far.d))));
+-  }
+-  if(!hasFar) { return true; }
+-  // Select the near sample most distinct from known background. Keep ambiguous colour:
+-  // reject expansion only when every reconstructed pixel is clearly background-like.
+-  float3 reference=near.a;float best=nearFar.x;
+-  if(nearFar.y>best) { reference=near.b;best=nearFar.y; }
+-  if(nearFar.z>best) { reference=near.c;best=nearFar.z; }
+-  if(nearFar.w>best) { reference=near.d; }
+-  return any(colourDistances(candidate,reference)<=candidateFar*2+1e-5);
+-}
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 46fc7b6e..559113bf 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -24,21 +24,6 @@ namespace {
+   }
+ }
+ int main() {
+-  {
+-    using namespace dxvk::vrmath;
+-    auto depth=[](double u,double v) {return int(u*3)==0&&int(v*3)==1?2.:10.;};
+-    auto colours=[](bool thin,bool invert) {return [=](int x,int y) {
+-      const bool foreground=(x<2&&y>=2&&y<4)||(thin&&x==2&&y==2);
+-      const double c=foreground!=invert?0.:1.;return Colour3{c,c,c};
+-    };};
+-    require(colourGuidedCoverageDepth(depth,colours(false,false),1,1,3,3,6,6)==10.,"background-like colour is not moved at foreground disparity");
+-    require(colourGuidedCoverageDepth(depth,colours(true,false),1,1,3,3,6,6)==2.,"one reconstructed dark foreground pixel retains near coverage");
+-    require(colourGuidedCoverageDepth(depth,colours(true,true),1,1,3,3,6,6)==2.,"bright foreground over dark background also retains coverage");
+-    unsigned colourReads=0;
+-    auto countColour=[&](int,int) {++colourReads;return Colour3{};};
+-    require(colourGuidedCoverageDepth([](double,double){return 10.;},countColour,1,1,3,3,6,6)==10.&&colourReads==0,
+-      "smooth depth does not execute colour guidance");
+-  }
+   require(dxvk::vrmath::colourCoverageDepth([](double u,double) {return u<.5?1.5:10.;},.5,.5,100,100)==1.5,"thin colour coverage receives its neighbouring near depth");
+   require(dxvk::vrmath::colourCoverageDepth([](double u,double) {return 10.+u;},.5,.5,100,100)==10.5,"smooth depth gradients are not dilated");
+   require(dxvk::vrmath::colourCoverageDepth([](double,double) {return 0.;},.5,.5,100,100)==1e20,"invalid depth remains far");
+-- 
+2.56.0.windows.1
+

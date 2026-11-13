@@ -1,0 +1,68 @@
+From 6dfc8e5e131ed75ba5dbaf54bed263e6428602bd Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 05:02:14 -0700
+Subject: [PATCH] Select a measured near limit and regress thin reconstructed
+ colour
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr_math.h |  3 ++-
+ tests/rtx/unit/test_vr_math.cpp   | 21 ++++++++++++++++++++-
+ 2 files changed, 22 insertions(+), 2 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 97f238f0..f8f64d9a 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -40,7 +40,8 @@ namespace dxvk::vrmath {
+     return determinant > 0.998;
+   }
+ 
+-  constexpr double kNearestEyeDepthMetres=0.2;
++  // The Index experiments select 0.35 m: 0.2 m exceeded the 1 ms combined warp budget.
++  constexpr double kNearestEyeDepthMetres=0.35;
+ 
+   inline bool centreProjection(const rtxvr_Eye eyes[2], uint32_t width, uint32_t height, float scale, Projection& out,
+                                double nearestDepth=kNearestEyeDepthMetres) {
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 853196a9..166b6902 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -127,6 +127,23 @@ int main() {
+   rtxvr_Eye parallel[] {eye(0,-.032),eye(0,.032)};
+   Projection finite;
+   require(centreProjection(parallel,2016,2240,1,finite), "parallel-eye near projection accepted");
++  for(const auto& side:parallel) {
++    auto depth=[](double u,double) {return int(std::floor(u*100))==50?1.5:10.;};
++    auto coloured=[](double u) {return std::abs(int(std::floor(u*100))-50)<=1;};
++    unsigned before=0,after=0;
++    for(unsigned x=600;x<1500;++x) {
++      const double u=(x+.5)/2016;
++      const auto foreground=warpAtDepth(finite,side,u,.5,1.5,1);
++      for(bool covered:{false,true}) {
++        const auto hit=warp(finite,side,u,.5,1,depth,0,100,100,covered);
++        const bool ghost=coloured(hit[0])&&std::abs(hit[0]-foreground[0])>1e-5;
++        (covered?after:before)+=ghost;
++      }
++    }
++    std::printf("thin-colour eye %.3f displaced pixels: raw %u, coverage %u\n",side.eyeToHead.m[0][3],before,after);
++    require(before>0,"reconstructed thin colour with raw coarse depth reproduces a displaced ghost");
++    require(after==0,"matching depth coverage removes the displaced thin-colour ghost in either eye");
++  }
+   for(double distance:{.2,.3,.5}) for(const auto& side:parallel) {
+     unsigned missing=0;
+     const double halfWidth=.04,halfHeight=.05;
+@@ -159,7 +176,9 @@ int main() {
+     Projection actual;require(centreProjection(index,2468,2740,1,actual),"actual Index projection");
+     const auto start=warpAtDepth(actual,index[0],.5,.5,kNearestEyeDepthMetres,1);
+     const auto infinity=project(actual,eyeRay(index[0],.5,.5));
+-    require(searchSteps(start,infinity,actual.width/2,actual.height/2)==83,"Index near-hand spacing follows its depth texels");
++    require(searchSteps(start,infinity,actual.width/2,actual.height/2)==48,"selected Index near-hand spacing follows its depth texels");
++    Projection candidate;require(centreProjection(index,2468,2740,1,candidate,.2),"twenty-centimetre candidate remains reproducible");
++    require(candidate.width==3272&&actual.width==3128,"measured near-limit candidate and selected centre extents");
+     unsigned fixedMisses=0;
+     for(int cell:{700,750,800}) for(const auto& side:index) {
+       auto depthAt=[&](double u,double) { return std::clamp(int(u*1536),0,1535)==cell?1.5:10.; };
+-- 
+2.56.0.windows.1
+

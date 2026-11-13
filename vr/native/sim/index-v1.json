@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "model": "Index",
+  "tracking": "lighthouse",
+  "refresh": 90,
+  "ipd": 0.06853660196065903,
+  "eye_width": 2468,
+  "eye_height": 2740,
+  "eyes": [
+    {
+      "tanLeft": -1.5383247137069702,
+      "tanRight": 1.049552321434021,
+      "tanTop": -1.403807520866394,
+      "tanBottom": 1.4113825559616089,
+      "eyeToHead": [
+        [
+          1,
+          0,
+          0,
+          -0.034268300980329514
+        ],
+        [
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "tanLeft": -1.049559473991394,
+      "tanRight": 1.5419751405715942,
+      "tanTop": -1.4113649129867554,
+      "tanBottom": 1.4066470861434937,
+      "eyeToHead": [
+        [
+          1,
+          0,
+          0,
+          0.034268300980329514
+        ],
+        [
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          1,
+          0
+        ]
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "V1 VR-C vr-r4/poc/submit/console.log:631, VRC_START",
+    "source_sha256": "1569c80c473570642de8a38951c1ff6a97fd4a832bd5f84a035bdd681b0f5196",
+    "date": "2026-11-10",
+    "note": "Projection tangents and eye offsets are the recorded OpenVR values. The recorded zero cant uses the neutral eye rotation; the live N receipt checks the full matrices.",
+    "matrix_verification": "V2 N poc-index-02/native-features.json: full neutral rotations and Y/Z offsets match; live IPD is 0.0700000003 m, so the recorded V1 X offsets remain intentionally fixed."
+  },
+  "controllers": {
+    "left": {
+      "model": "valve_controller_knu_1_0_left",
+      "tip": [
+        [
+          0.996194698,
+          0.056022632,
+          -0.066765172,
+          0.006
+        ],
+        [
+          0.0,
+          0.766044443,
+          0.64278761,
+          -0.015
+        ],
+        [
+          0.087155743,
+          -0.640341609,
+          0.763129413,
+          0.02
+        ]
+      ],
+      "wrist": [
+        [
+          0.996194698,
+          0.056022632,
+          -0.066765172,
+          -0.015
+        ],
+        [
+          0.0,
+          0.766044443,
+          0.64278761,
+          -0.015
+        ],
+        [
+          0.087155743,
+          -0.640341609,
+          0.763129413,
+          0.13
+        ]
+      ]
+    },
+    "right": {
+      "model": "valve_controller_knu_1_0_right",
+      "tip": [
+        [
+          0.996194698,
+          -0.056022632,
+          0.066765172,
+          -0.006
+        ],
+        [
+          0.0,
+          0.766044443,
+          0.64278761,
+          -0.015
+        ],
+        [
+          -0.087155743,
+          -0.640341609,
+          0.763129413,
+          0.02
+        ]
+      ],
+      "wrist": [
+        [
+          0.996194698,
+          -0.056022632,
+          0.066765172,
+          0.015
+        ],
+        [
+          0.0,
+          0.766044443,
+          0.64278761,
+          -0.015
+        ],
+        [
+          -0.087155743,
+          -0.640341609,
+          0.763129413,
+          0.13
+        ]
+      ]
+    }
+  }
+}

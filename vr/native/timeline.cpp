@@ -2,6 +2,7 @@
 #include "timeline.h"
 #include "input_actions.h"
 #include "nl/json.h"
+#include "nl/utf8.h"
 #include <algorithm>
 #include <fstream>
 #include <stdexcept>
@@ -21,6 +22,12 @@ Vec3 vector(const Value& v,double bound) {
   const auto& a=v.as_array();if(a.size()!=3) throw std::runtime_error("timeline vector needs three numbers");
   return {static_cast<float>(number(a[0],bound)),static_cast<float>(number(a[1],bound)),static_cast<float>(number(a[2],bound))};
 }
+template<std::size_t N> void fingers(const Value& v,std::array<float,N>& out) {
+  const auto& a=v.as_array();if(a.size()!=N) throw std::runtime_error("timeline finger array has the wrong length");
+  for(std::size_t i=0;i<N;++i) {
+    const double f=number(a[i],1);if(f<0) throw std::runtime_error("timeline fingers must be in 0..1");out[i]=static_cast<float>(f);
+  }
+}
 }
 Timeline Timeline::parse(std::string_view text) {
   const auto root=nl::json::parse(text);
@@ -29,6 +36,17 @@ Timeline Timeline::parse(std::string_view text) {
   if(steps.empty()||steps.size()>10000) throw std::runtime_error("timeline needs 1-10000 steps");
   Timeline result;
   if(const auto* quit=root.find("quit_at")) result.quit_at=number(*quit,86400);
+  if(const auto* events=root.find("events")) for(const auto& e:events->as_array()) {
+    if(result.events.size()>=10000) throw std::runtime_error("timeline event count limit");
+    ScriptEvent event;event.time=number(field(e,"time"),86400);event.type=field(e,"type").as_string();
+    if(event.time<0||(!result.events.empty()&&event.time<result.events.back().time))
+      throw std::runtime_error("timeline events must have increasing nonnegative times");
+    if(event.type!="keyboard_done"&&event.type!="keyboard_closed") throw std::runtime_error("unsupported timeline event type");
+    if(const auto* value=e.find("text")) event.text=value->as_string();
+    if(event.text.size()>16384||event.text.find('\0')!=event.text.npos||!nl::utf8::valid(event.text))
+      throw std::runtime_error("invalid timeline keyboard text");
+    result.events.push_back(std::move(event));
+  }
   for(const auto& v:steps) {
     ScriptStep s;s.time=number(field(v,"time"),86400);
     if(s.time<0||(result.steps_.empty()?s.time!=0:s.time<=result.steps_.back().time))
@@ -44,10 +62,17 @@ Timeline Timeline::parse(std::string_view text) {
     if(const auto* actions=v.find("actions")) for(const auto& [name,a]:actions->as_object()) {
       if(name.empty()||name.size()>64||s.actions.size()>=64) throw std::runtime_error("timeline action name/count limit");
       const auto spec=std::find_if(std::begin(specs),std::end(specs),[&](const auto& item) { return name==item.name; });
-      if(spec==std::end(specs)||(spec->type!='b'&&spec->type!='v'))
-        throw std::runtime_error("timeline action must name a declared button or axis: "+name);
+      if(spec==std::end(specs)||spec->type=='h')
+        throw std::runtime_error("timeline action must name a declared input: "+name);
       Action action;action.active=true;
       if(spec->type=='b') action.state=a.as_bool();
+      else if(spec->type=='s') {
+        if(a.is_array()) fingers(a,action.curls); // Compact curls-only form, splay neutral.
+        else {
+          fingers(field(a,"curls"),action.curls);
+          if(const auto* splay=a.find("splay")) fingers(*splay,action.splay);
+        }
+      }
       else if(spec->components==1) action.value.x=static_cast<float>(number(a,1));
       else {
         const auto& values=a.as_array();
@@ -93,8 +118,11 @@ ScriptSample Timeline::sample(double seconds) const {
     }
   }
   out.actions=a.actions;
-  for(auto& [name,value]:out.actions) if(const auto found=b.actions.find(name);found!=b.actions.end())
+  for(auto& [name,value]:out.actions) if(const auto found=b.actions.find(name);found!=b.actions.end()) {
     value.value=value.value+(found->second.value-value.value)*t;
+    for(std::size_t j=0;j<value.curls.size();++j) value.curls[j]+=static_cast<float>((found->second.curls[j]-value.curls[j])*t);
+    for(std::size_t j=0;j<value.splay.size();++j) value.splay[j]+=static_cast<float>((found->second.splay[j]-value.splay[j])*t);
+  }
   return out;
 }
 }

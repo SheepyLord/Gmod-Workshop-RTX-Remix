@@ -11,11 +11,13 @@ struct Action {
   bool active=false, state=false, changed=false;
   Vec3 value{};
   std::array<float,5> curls{};
+  std::array<float,4> splay{};
   int error=0;
 };
 using Actions=std::map<std::string,Action,std::less<>>;
 struct ScriptPose { Vec3 pos{}; Quat rot{}; };
 struct ScriptStep { double time=0; std::array<ScriptPose,3> poses{}; Actions actions; };
+struct ScriptEvent { double time=0; std::string type,text; };
 struct ScriptSample {
   double time=0;
   std::size_t step=0;
@@ -26,6 +28,7 @@ struct ScriptSample {
 class Timeline {
  public:
   double quit_at=-1;
+  std::vector<ScriptEvent> events;
   static Timeline parse(std::string_view text);
   static Timeline load(const std::filesystem::path& path);
   ScriptSample sample(double seconds) const;

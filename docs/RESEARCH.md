@@ -1,5 +1,113 @@
 # Research notes
 
+VR round5 correction: Source LadderMove treats direction buttons as full-speed
+inputs. Nonzero side components are not proportional strafing;8-way22.5degree sectors
+are necessary for thumbsticks. Noclip must bypass water movement adaptation at every
+layer. The round4 bone-mount precision certificate was circular: anatomical and
+bonemerge rigs differ by up to16.43cm. Measured handles are restored; full raw mesh,
+finger-circle, bone-envelope and rendered orientation witnesses replace that claim.
+Historical medium-sim-16 used x=0,5degree yaw amplitude but only1.04..1.26degree sampled
+spans, and water physical velocity lag2.85..2.93degrees under the3degree bound; this is
+Source acceleration/friction response to continuing head rotation, not command steering
+error. Old native/flat/performance receipts used PoC261104; current PoC is261112.
+
+Q second-review native correction (2026-11-12; supersedes the earlier yaw-only
+ladder interpretation below): Source's real gm_construct ladder803 follows the head's
+pitch as well as its yaw. Flattening pitch made Forward and Back both ascend. The
+shared movement basis now preserves normal head-directed ladder movement, keeps the
+original command direction buttons, and never derives them from the late accepted
+head sync. Water also follows head pitch/yaw with or without a weapon; gun aim stays
+independent (`sh_move_basis.lua`, `cl_core.lua`, `cl_move.lua`).
+
+Limited simulation `out/vr/v4q/review2/medium-sim-16` on frozen review4/dadf9feb passes
+15 permanent-world ladder/water cases, Hands and gun+/-45. Head yaw moves through5deg;
+accepted-head lag reaches.3866deg. Ladder up/down/idle is18/-27/0 Source units in all
+three modes, with zero lateral displacement/side buttons. World-wish error is at most
+2.081e-5deg. Fixed1.5s water settling precedes ten unfrozen observations. Desired-speed
+parity stays within.25unit/s and physical mean-velocity parity within2units/s. No world
+target is spawned/removed; no ladder type, water level or observed motion is forced.
+
+The physical gun and converged eye command are different witnesses. W draws its gun
+along the controller aim; command aim points from the eye toward the gun ray target.
+The limited probe measures the rendered pistol's -Forward axis at +/-45 within the
+unchanged1deg bound, separately from command pitch. A retained mutation rejects the
+old conflation (`test_vr_medium_poc.py`, barrel-vs-command-before.log).
+
+The Steam field update reached261112 while PoC remains261104. Comparing PoC with the
+field's latest manifests gave false stock mismatches. Full pinned verification against
+cached official4001_8532700529041238050 /4002_4618021864461761722 proves all2877 files,
+zero missing/resized/changed. `field_snapshot.py --manifest` and
+`vr_session.py --depot-manifest` retain explicit revisions in the transaction; missing
+pins fail closed. No Steam depot bytes were written and verification was never skipped.
+
+Q4 frozen review2 measurements (2026-11-12; exact identities in
+[the current report](handover/VR-V4-report.md)): idle pistol/SMG/physgun on construct
+submit about45 pairs/s at90Hz, GPU covered-work means12.188/12.295/12.147ms and whole
+game-thread CPU7.713/7.555/7.398ms per submitted pair. Those are different quantities;
+elapsed GPU spans19.748/19.680/19.986ms include gaps. Short render-thread CPU samples
+are quantized (physgun steady samples all zero); its4.080ms all-lifetime cumulative
+average includes warmup/captures and is not substituted for steady CPU.
+
+At3840x2160 construct still uses centre3112x2752/traced1556x1376, GPU work12.544ms and
+44.992 pairs/s. Modern House at720p/4K also keeps those sizes, GPU work17.561/17.604ms,
+29.795/31.476 pairs/s, and67.275/75.581% compositor reprojection. No dropped presents or
+new crashes. House720's measured mean eye warp1.00924ms exceeds the1.0ms reference
+budget; keep this open and retain the criterion. These complete measurements do not
+constitute near-depth/full feature or human comfort acceptance.
+
+The five-plus-five alternating flat controls pass unchanged frame/startup/image and
+client/server inventory bounds: median frame7.8606/7.8469ms published/candidate,
+startup24.2/24.3s. Paired image differences .5011.. .6920DN are below the within-control
+bound1.6241DN. No active session globals/hooks/timers are present. The expected off stub
+is distinct from active V2-V4 code. Evidence `out/vr/v4q/review/flat-01/parity.json`.
+
+## Q4 independent VR review (2026-11-12; supersedes the earlier circular checks)
+
+The old grip-point comparison was self-referential; do not reuse its submillimetre
+figures as placement evidence. `companion/tests/fixtures/vr_mesh_witnesses.json` keeps
+563 selected raw posed vertices across 16 models plus recorded hand-bone frames and
+source hashes. `vr_mesh_witness.lua` derives the grasp from mesh regions and hand bones,
+without importing W's grip table. A 3 cm product translation must fail the retained
+20 mm check; shaft models additionally retain the 12 cm hand-bone envelope.
+
+`cl_weapons_mesh.lua` fits the stock shafts and barrel rings at authored pose. The SMG's
+independent front-cap plane normal is about 1.875 degrees from authored X, not exactly
+X; a real 2.9-degree product-axis mutation fails the 2-degree agreement bound. New melee
+forward reach from recorded holding frames: crowbar .55556 m left/.55542 m right,
+stunstick .38906/.38892 m. `q4_real_melee` independently compares the posed mesh end
+to the transmitted server sweep and requires hook-only damage. Those are serialized
+geometric consistency figures; no new live controller-fit or comfort result is implied.
+
+The physgun asset exposes a semantic `core` attachment independently of its numeric
+index. The probe now requires that named asset emitter and an observed rendered beam;
+even two agreeing wrong W/T offsets must fail. The product's numeric fallback belongs
+to the world model `models/weapons/w_physics.mdl`, not every class called weapon_physgun.
+
+Source's ladder code also considers movement angles and directional buttons when
+choosing ascent. Encoding world velocity against a pitched weapon command is insufficient
+by itself: `core/sh_move_basis.lua` supplies a yaw-only CMoveData basis in predicted and
+server SetupMove, retains the reconstructed world velocity, and adjusts only ladder
+direction bits. Gun aim remains in the command. +/-45-degree ladder/water regression
+cases execute both sides. See [Valve's HL2 movement implementation](https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/game/shared/hl2/hl_gamemovement.cpp)
+and [CMoveData:SetMoveAngles](https://wiki.facepunch.com/gmod/CMoveData:SetMoveAngles).
+
+Opening VR Settings exposed a numeric echo: Derma's slider scratch/text synchronization
+can send formatted `0.60` for a saved `0.6`. Guards on these controls' ConVarChanged
+preserve the exact original string when numeric values agree; actual edits still apply.
+The retained test fails on the previous page and passes on the fix, corroborated by
+safe-sim-02/03 exact restoration. Primary behavior references:
+[DNumSlider](https://github.com/Facepunch/garrysmod/blob/master/garrysmod/lua/vgui/dnumslider.lua),
+[DNumberScratch](https://github.com/Facepunch/garrysmod/blob/master/garrysmod/lua/vgui/dnumberscratch.lua).
+
+The limited resource composition requires a real painted vignette, not just a visible
+handle: a recreated idle comfort canvas has no runtime texture to capture. Actual
+movement during capture makes its real paint path observable. `safe-sim-03` and
+`safe-index-01` capture all 21 roles including ammo/tool/wheel; native peak 21 of 32,
+distinct source requests per Source frame peak 16. This witness does not expose the
+internal pending-request high-water counter; the runtime's 16 bound is between drains,
+not total live overlays. Diagnostic mutually exclusive roles are forced together for
+resource pressure. Index: 1622 submitted pairs, no unmatched poses or submit errors;
+scripted poses/recorded components, controllers off, nobody wearing the headset.
 ## The fixes' crash on the queued render thread (2026-11-12, Claude)
 
 Four `gmod.exe` crashes in VR test sessions on 2026-11-11 and 2026-11-12, triaged by the VR work's Claude session; the
@@ -195,6 +303,54 @@ evidence from that computer ([ADR 0188](decisions/0188-unsubscribing-with-the-lo
   first Workshop mount, after "Failed to create shader" and `DepthWrite` material errors; the runtime was active). The
   next starts of the same PoC, with the fixed package, ran to a normal quit. Not investigated; the dump is in the
   evidence.
+
+## Q3 resumed simulation (2026-11-12)
+
+Static lazy overlay handles need fresh paint. In the selected fork source `rtx_vr.cpp:883-890`,
+the canvas callback finds matching live overlays, allocates their image and blits the painted
+target; creating a later handle alone does not revisit a static canvas. The retained
+`f_review_overlay_repaint` first fails at 1 vs 2 paint callbacks, then passes when binding invalidates
+immediately and in the following render frame. Combined-sim-07 captures all 21 visible roles with
+native peak 21, per-frame source-request peak 16 and no missing image/module/Lua error.
+
+The same artifact's full-rate temporal control has head error <=0.0003663 units, no frozen steps,
+walk/sprint/flight normalized step spreads 3.97439/6.56066/4.11348% and zero sprint-stop overshoot.
+These are simulated virtual-pose timings, not natural controller-frame or compositor acceptance.
+
+Stationary balanced CPU control `cachecpu-sim-02` has 699 uncached / 708 cached adjacent-frame
+intervals, excluding 250 ms block edges. Whole game-thread CPU is 7.66720/7.43732 ms per frame;
+cycles are 32.8440/29.7999 million per frame. Resolver passes are 4973/699 versus 710/708.
+The former two-second alternating-frame estimate mixes work around PreRender boundaries; retain
+its raw values but use the stable-block measurement for comparison. Windows CPU accounting is
+quantized and these are scene-specific, package-local observations.
+
+Two-hand targeting with a controlled 2,000-triangle native-body mesh/hit measures full A.Target
+at 4.168744 ms/tick with the cache bypassed and 0.031149 ms/tick enabled (100 iterations), in the
+combined run. Exact grabs still revalidate geometry. This does not claim a shipped model has that
+triangle count or measure total server time. Zero changed-state sends are legitimate in the
+stationary control; an empty Lua table decodes as [] and must fail a dynamic-message witness
+without raising AttributeError. Combined-sim-07 separately observes 5,323 physical-state sends.
+
+## Q independent VR review (2026-11-11)
+
+The runtime's limit differs from the native module's: `rtx_vr.cpp:166-184` in the fork's selected
+source checks `m_overlayRequests.size() >= 16`; `applyOverlayRequests:294` swaps that pending map
+into a local map before processing source/window/removal requests. Live images remain in
+`m_overlays` until retirement. `vr/native/session.cpp:628` bounds owned OpenVR handles to 32.
+All 21 central logical roles (three arc dots and target, V4 placeholders, every panel/keyboard/close
+button included) fit both limits through request batching; no runtime rebuild/cap increase is needed.
+
+At baseline source `7e6700e1`, the retained review harnesses reproduce 15 failures across the reviewed
+defects. The delayed-climb case already passes with zero through three ticks of common body delay:
+the hand-minus-head correction in `56e1df1b` keeps a 12-unit pull at 12. Offline exact 2,000-triangle
+stationary glove queries take about 1.75-2.02 ms before caching and 0.03 ms after on this machine;
+these are LuaJIT stand-in timings, distinct from the later native-body game-thread measurement.
+
+The NPC fixture uses the per-entity
+[SetShouldServerRagdoll API](https://wiki.facepunch.com/gmod/Entity%3ASetShouldServerRagdoll), leaving
+the player's archived `ai_serverragdolls` untouched. W retains the equipped weapon at Start, so
+V2/V3's fixture must explicitly select `nlvr_hands`; testing a claimed armed main hand as bare hands
+caused the first follow-up combined run's physical failures despite clean renderer/menu/accounting.
 
 ## R20-Q follow-up: packaged client bootstrap (2026-11-06)
 
@@ -7621,6 +7777,247 @@ game (not Garry's Mod) used 11 to 25 % of the RTX 5090 during all of it, so thes
 - **`Path.is_junction` needs Python 3.12.** The driver used it in its link checks; it now reads the reparse-point
   attribute from `lstat()` instead, so Python 3.10 and 3.11 can run a look.
 
+## VR V2/V3 integration facts (2026-11-11)
+
+- F's sync is 1467 bits including type; controller rays are Source +X after native conversion.
+  Only the local single-player/listen host activates the dormant server stub. Current histories
+  retain one second; client sync is once per tick, distinct from rendered eye-pair counters
+  (`vr/addon/lua/nlvr/sh_protocol.lua`, `core/cl_net.lua`, `core/sv_core.lua`).
+- H must call SetupBones before c_arms name discovery. Citizen hands have 43 total bones,
+  19 retained / 15 finger joints per copy; unprecached client models can fail IsValidModel.
+  RTX receives these opaque models in PreDrawTranslucentRenderables. Its 18-cm finger envelope
+  prevents the palm-only test's measured 11-cm finger penetration. Q suppresses unresolved
+  solid-start hands instead of putting a world model at the eye (`modules/cl_hands_pose.lua`).
+- L's full-rate follow-ups distinguish same-frame room translation from deliberately buffered
+  motor presentation. Server cumulative consumed/actual room receipts keep room input outside
+  the non-room interpolation path. Raw frame increments must be compared with actual render
+  intervals; a 66-Hz body path cannot be judged by a resting milestone (`cl_move_predict.lua`).
+  Calibration leaves active Lua/native scales equal and flags the next-Start requirement.
+- P applies force as impulse times dt, preserves natural ragdoll transforms, and uses native
+  kit touch grants rather than duplicating inventory rewards. Supporting contact offsets plus
+  0.2-s own-hand release grace avoid a proxy accelerating its own throw. Q's bare-punch cap is
+  25 damage at/above the old 65-damage speed; held objects retain 65 (`sv_interact_math.lua`,
+  `sv_interact_actions.lua`). Offline actual damage/cooldown and debug-identity regressions pass.
+- A Source console line is bounded; full probe records use numbered base64 chunks. Runtime
+  overlay PNGs cannot identify their purpose by order or extent: the capture request now
+  records handles/roles. A black comfort image is meaningful while white glyphs are required
+  for the wrist (`tools/vr_session.lua`, `tools/vr_session.py`).
+
+Task reports retain exact earlier task-local measurements and their limits; Q's final report
+will identify the combined candidate and repeat acceptance rather than mixing those packages.
+
+Q property timing: the stock garrysmod/lua/autorun/properties/remove.lua:43 schedules entity
+deletion with timer.Simple(1); the earlier statements disable solid/drawing for the effect.
+A compressed fixture checking after 0.73 wall seconds falsely rejected a correctly dispatched
+properties packet. Q now waits at least 1.27 seconds and retains both ray/hover and end state.
+
+Q's integrated packet cadence: P's state and L's follow share the server's one-message-per-tick
+slot (`core/sv_core.lua:71`). A one-tick presentation buffer produced held camera frames in the
+combined run. `cl_move_predict.lua:32` learns a bounded 120-ms maximum from recent stamp gaps
+and delivery age; `:46` samples the view trajectory without extrapolation. Accepted Index
+motor intervals have 0.251/0.334/6.592% time-normalized spread and 70.46/70.45/72.29 ms mean
+lag (walk/sprint/flight). The same-frame head ramps/sway remain within 0.000306 game units.
+`sv_interact_math.lua:80` uses hand-minus-head displacement to cancel delayed common body
+translation; integrated ledge and ladder pulls each rise exactly 12 units / 0.30 m.
+
+The current engine exposes lua_dumptimers_cl/sv but no timer.GetTable. Q's flat-control timer
+inventory therefore records the actual engine dumps after the timed window, preserving names,
+source lines and raw remaining/repetition/paused fields (`tools/vr_flat_parity.py:18`). The
+patcher's suffix is the patch ID's hex encoding, not a numeric instance (the packaged fixes'
+`remixbinary/lua/patcher/sh_core.lua:80,163`); preserve it exactly. Published controls both
+contain and omit the mwbase one-shot retry, so comparisons retain that measured control variation.
+
+Q's canonical v2q.7 quiet Index matrix (RTX 5090, driver 617.42, existing 90 Hz) records
+44.999/45.007 submitted pairs/s on Construct at 720p/4K and 29.903/29.933 on Modern House,
+with 50.00/50.00/66.67/66.91% reprojected presents. Every steady row retains 2468x2740 eyes,
+3112x2752 centre and 1556x1376 traced resolution. Covered command/SDK sums are
+12.844/12.594/19.415/19.262 ms, not elapsed GPU spans (19.978/19.979/27.341/28.078 ms).
+Near/far coverage+warp means are 1.171473/0.980818 ms. The cube's visible front is 0.2 m,
+centre 0.214766 m; GPU minimum depth is 0.199991 m versus far 0.841826 m. Each sample has
+25 one-second records and 12..19 covered profiles (`tools/vr_measure.py:21`, Q's report).
+
+The real --look path passes in Q's fresh no-pip/no-Pillow venv: its five-active-second proof
+snapshot has 205 matched submitted pairs, no Submit errors/unmatched/drops, followed by native
+capture, ordinary demo_done/normal quit, SDK unload and clean restoration. This is a snapshot
+counter, not whole-session throughput (`tools/vr_look_check.py:19`).
+
+Q's final scripted-pose confirmations, combined-sim-12 and combined-index-07, each pass all
+15 combined/accounting checks. Index counters are 5486 rendered/submitted/matched pairs,
+zero Submit errors/unmatched/drops, 11715 presents and 6412 reprojections. CPU attribution
+uses 5551 distinct game FrameNumber values (5551 PostRender calls) over 129.013118 s; server
+uses 8430 ticks over 129.016428 s. Client hands/core/move cost 0.740295/0.759998/0.287110
+ms per game frame; server interact/move/core cost 0.224273/0.033363/0.001853 ms per tick,
+with quantized clock/wrapper overhead. Actual pose/control Lua sends average 65.342192/
+65.016644 per second; these single-player engine sends are not NIC/UDP packets.
+
+The initial full flat batch fails its predeclared cold-start bound (23.9 vs 27.3 s medians,
+limit +2.39 s); steady intervals, screenshots and inventories pass. Median deployment is
+16.4878/17.8530 s and elapsed after synchronous bootstrap 7.4521/7.9980 s, separate medians
+which do not add to the median total. A fresh unchanged-limit replication follows space recovery.
+Natural controller hand/aim alignment remains separate: the later C brief records that raw
+identity poses hide the Index/Touch tip's roughly 40-degree rotation and wrist offset.
+
+The fresh flat-parity-03 replication passes all unchanged bounds: frame medians 8.287/8.229 ms,
+cold-start medians 25.2/24.4 s, paired RGB means 0.483..0.714/255 below 1.78709/255; exact
+inventories allow only the dormant stub and measured published retry-timer variation. Actual
+starts range 23.3..45.9 s. This does not erase the earlier +3.4 s startup-bound failure or prove
+uniform cold/warm startup behavior. Both raw ten-launch sets remain in Q's evidence.
+
+
+### Q3b: Source-time fixtures and background painted Derma controls (2026-11-12)
+
+On the PoC's stock `garrysmod/lua/vgui/dslider.lua`, `OnCursorMoved` (81-109) updates SlideX/Y;
+Think (168-172) only checks convars. An accepted VGUI press/capture alone does not prove slider
+motion. verify2 combined-04 observes dragging and mouse-down true with desktop/gui cursor (0,0),
+control cursor (-530,-324) and an unchanged value despite a moving VR ray. verify3 combined-05
+corrects the local cursor to (229,19) but still gets no value change: the missing callback matters
+too. The router now keeps canvas-local cursor reads and supplies an original captured-control
+move only when native delivery is absent, with duplicate suppression. No stock code is copied.
+
+Native timeline wall time can also advance across synchronous screenshot I/O while Source physics
+stops. In combined-02 the crouch-hold, stand-up and toggle marks all read 76.7530463 seconds after
+a 2.544-second gap, leaving crouch toggled and walking at 60 u/s. The same drift can miss a physical
+death-ragdoll grip (combined-05: no buttons, surface 27.60 units away). Functional replay therefore
+shares the physics clock; native timestamps remain in evidence and the temporal control keeps its
+native wall clock. These failed receipts remain failed. See Q's report for the new artifact's final
+measurements, which are never inherited from an older package.
+
+The later verify4 combined-06 is incomplete after game PID 22984 exits 0xC0000005 at the
+L-crouch capture (functional 74.2031 s). The source-clock ragdoll grab is observed, but heavy
+lag is **2.31079 units**, still below >3; the offline ramp alone is insufficient to establish
+native perceptible lag. Cause of the native crash is unestablished. Further sessions stopped
+under the user's crash rule; no timing/CPU result is borrowed from earlier packages.
+
+
+Q3b post-crash resumption: the one identical verify4 rerun passes L-crouch and quits normally;
+Windows event1000 record39159 identifies the earlier PID22984 fault as client.dll+0x5744c.
+No call/cause is established and no crash fix is claimed. On verify5, heavy250kg omega2.5/s,
+a real grounded walking setup and unchanged >3 criterion yield 14.70221 units peak lag,
+>=1.26 s above3, and static settling2.295 s. All36 measured walking-heavy samples are grounded.
+The old arena's 24-unit no-clip clearance was unsuitable for a walking hold. Functional replay
+now uses engine.TickCount times TickInterval, avoiding predictive client CurTime jumps.
+
+The temporal probes' former rawget/rawset of CalcView["nlvr.core"] records nothing once the
+core owns dispatch. Observing RenderScene records the actual returned scene without changing
+ownership. Fresh temporal02 on verify5 has max head error .0006104 units, head/camera roll25,
+command/player roll0, motor normalized spreads7.60700/8.68956/7.29902%, zero camera stop overshoot.
+The keyboard's former timed targeting produced brel; keeping one cell through a single press/
+release and waiting for actual field prefix produces barrel without retries or test-side SetText.
+
+Balanced whole-frame CPU control on the same verify5 artifact: uncached/cached847/839 frames,
+6.106110/5.884982 game-thread CPU ms/frame, resolver passes/frame6.74262/1.00238. Both realms
+remain healthy; cache control changes only resolver invalidation. These current-package figures
+replace no earlier raw measurement and do not use the combined alternating-frame estimator.
+
+
+Q3c second verification: ULib Remove relies on Hooks[event] and indexes BackwardsHooks[event]
+without guarding the latter; restoring an empty held compatibility table is required for Exit,
+post-Exit Add/Remove and a second Start. Monitor-priority returns are ignored. Capability probes
+must validate ULib's authoritative registry and short-circuiting, not only its table shape; Check
+must also validate the live private dispatch entry. Faithful lifecycle/refusal/removal tests pass.
+Held prop contacts need the same player-motion subtraction as bare proxies. Independent scratch
+mutations now make both contact conversions and world-velocity Follow fail their regressions.
+
+Native verify6 combined10 passes16/16 (physical32, movement36, UI12, review24). Heavy lag14.701903
+persists continuously1.21499997 actual seconds above3; the new analyser requires >=1.0 continuous
+second, rejects unobserved gaps >.30s and cannot pass a spike or disjoint bursts. Earlier2.94 is
+not directly comparable: cadence .25->.03s and re-grounding changed the witness. Current omega
+is2.5/s at250kg. Temporal03 instead crashes before map/console/probe Lua, PID11460,0xC0000005,
+2026-11-12T11:59:50Z. Requested event1000 queries twice find no matching gmod event, so module/
+offset remain unknown. Clean rollback is verified; no retry or new Release gate follows.
+
+
+Temporal03 startup crash classification was subsequently established from its retained Remix
+minidump reports-e946500f-f8a3-4b01-4cd9-5129d81218ab.dmp. Q's py -3 minidump parse confirms
+0xC0000005 at nvoglv64.dll+0xe622f8 reading0x300060059. Claude classifies this exact signature
+as the known intermittent NVIDIA startup-driver fault, also seen with published runtime (~1/13
+launches during other GPU use); that frequency is his prior evidence, not a Q measurement.
+Remix's own handler/dump explains no Windows event1000 despite WER snapshots disabled. The new
+rule permits one fresh-folder retry of only this startup module/offset; other crashes stop.
+Temporal04, the authorized identical verify6 retry, passes5/5 with3916 matched/rendered frames,
+max head error .0006103516 units, motor spreads4.42891/6.57953/8.82669%, zero stop overshoot.
+
+
+## Q4 VR integration observations (2026-11-12, branch-only)
+
+- Noclip movers write a full head-space vector, so replacing command aim needs all three
+  basis projections, not yaw alone (`vr/addon/lua/nlvr/core/cl_core.lua:281`). Four fresh
+  Source flights with pistol aim +/-45 degrees and both dominant hands pass; sideways
+  and vertical travel zero over 467.02--468.68 units. Evidence:
+  `out/vr/v4q/flight-sim-02/flight-checks.json`.
+- Passive Use previously bypassed P's control mask. Server `ClaimHand` / `RegisterReleased`
+  are in `vr/addon/lua/nlvr/modules/sv_interact.lua:150`; Use honors both masks at
+  `sv_interact_actions.lua:198`, and explicit external release grace is bounded to 250 ms
+  at `sv_interact_physics.lua:204`. Ordinary thrown-prop re-grabs retain their prior behavior.
+- The known w_physics emitter is its first attachment, without the name muzzle; W now
+  selects that authored emitter (`sh_weapons.lua:17`). Both-hand model captures verify
+  exported muzzle position to <=0.00354 mm at serialized precision. This is numeric
+  registration, not physical measurement accuracy.
+- Ten additional grip-region landmarks came from actual posed mesh vertices, independently
+  of VR targets: `companion/tests/fixtures/vr_v4_weapon_grips.json` records selection and
+  source hash. A model's bonemerge hand marker is a different rig landmark from the avatar
+  wrist: crowbar 18.6119 cm and bugbait 16.4316 cm in `geometry-right-02`, while the chosen
+  physical grips register within 0.00408 mm numerically. `vr_frames_analyse.py:37` keeps
+  mount distance visible and checks the independent grip instead. Region uncertainty remains.
+- The SMG muzzle marker is 2.91586 degrees from its mesh barrel in the combined witness.
+  `companion/tests/vr_weapons_analyse.py:11` checks the independent mesh axis transformed by
+  the actual model angle, retaining the 2-degree bound and reporting the marker separately.
+- SDK tip and palm origins differ. Naive palm-angle test targeting hit panel V~.089 instead
+  of .177. The private helper `vr_fixture_frames.lua:25` solves the actual tip ray while
+  preserving palm position; both-hand tests and the fresh all-module session validate it.
+- `integration-sim-02`: all 13 integration checks and five semantic reducers pass; 8940
+  rendered/matched, zero unmatched/submit/Lua/module errors, normal quit/clean rollback.
+  Physical pistol empty wait 5.24698 s; 79 counter matrices, max error 5.615 mm. Physgun
+  yaw/pitch/roll errors 0.00257/0.06000/0.00272 degrees; push +4.97169 m / pull -5.00963 m.
+  These are simulation witnesses, not Index throughput or CPU/GPU benchmarks.
+- **Hard stop:** `combined-sim-01` PID49376 exited 0xC0000005 during active physics phase 11
+  (`prop_door_rotating` fixture at `companion/tests/vr_interact_poc.lua:195`). Last active
+  probe 49.3693 s, 3482 rendered/matched, no unmatched/submit errors. Windows Application
+  event1000 record39236 at 2026-11-12T15:03:18.2813828Z names gmod.exe / module unknown /
+  offset0. No matching dump was found in the run, PoC, Windows CrashDumps or Steam dumps;
+  four older PoC dumps remain untouched. Cause undetermined; phase location is not causation.
+  This is not the permitted NVIDIA startup signature. No retry was made; restoration is clean.
+
+Accepted geometry, flight and all-module witnesses above use package v4q.3, GMA SHA-256
+`6cd66136a9fdff0560a70b80d68cc6d1f605ba1c81ebd469ca17bd59fb8a148b`, product source
+66ac316b; later observers/analyzers have separate identities. The independent stock-mesh
+export uses diagnostic package .2 and has its own recorded source hash; its coordinates
+are reference inputs, not transferred behavior/timing results. Earlier package measurements
+were not transferred. The [partial report](handover/VR-V4-report.md) records every open gate.
+
+
+Q4 crash review resumption (Claude/user, 2026-11-12) supersedes the unknown-cause stop
+classification above. WER LocalDumps is configured to the legacy install's
+`_debug_tools/hangdumps/wer/gmod.exe.<pid>.dmp`, newest ten retained by Windows.
+Q only reads/copies this directory. Claude's retained dumps for49376,22984,50472 all
+match gmcl_RTXFixesBinary_win64.dll timestamp0x6af185ec, return+0x41605b on the faulting
+thread's stack, when RSP comes from the exception context. The reviewed chain is the
+fixes R_StudioRenderFinal -> R_StudioSetupSkinAndLighting -> GetBoneCountForRenderable
+on a freed queued-render client entity (prop_fixes.cpp357/265), not a VR defect.
+Q's bounded parser confirms all three signatures; the22984 exception RIP itself is
+client.dll+0x5744c. Eight initial classifier tests and the extended82-case shared-driver
+suite pass. Receipts are in out/vr/v4q/resume/crash-*-reviewed.json; the original49376
+run now also retains its WER copy and crash.json, preserving the earlier unknown receipt.
+[Crash review](handover/VR-V4-crash-review.md) records the exact one-retry policy.
+
+The authorized fresh retry combined-sim-02 (PID 50548) reproduces the same reviewed fixes
+crash: exception RIP0, thread 53620, exception RSP 386895181112, return +0x41605b atRSP + 128,
+module timestamp 0x6af185ec. WER copy362335573 bytes, SHA-256
+157ced6b372117e8a643dad2f74ea2197bf073610f3a7242b0dd7f0fd8f27549;
+Application 1000 record 39243 at2026-11-12T15:54:04.3876210Z. Last probe59.383779s,
+4324 rendered/matched,0 unmatched/submit errors; last physicsphase 13. The known cause
+remains the pre-existing fixes queued-render entity lifetime fault, not VR. The driver
+correctly denies a further retry, preserves evidence and restores the PoC. No Index,
+weapons-out CPU/GPU, flat matrix or Release gate followed this stop.
+
+
+Independent review: Source HL2 ladder ascent uses movement forward/right vectors and
+button intent, so vector rebasing of CUserCmd alone cannot isolate weapon pitch.
+The shared SetupMove correction uses CMoveData:SetMoveAngles with level head yaw and
+reprojected speeds/buttons, preserving command aim. References:
+[Valve HL2 movement](https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/game/shared/hl2/hl_gamemovement.cpp),
+[Facepunch SetMoveAngles](https://wiki.facepunch.com/gmod/CMoveData:SetMoveAngles).
+Both realms' +/-45 tests check the native move basis separately from weapon command.
 ## Classic map mods as content packs (2026-11-12, Claude)
 
 The user's request: package the classic install's finished Poolday and SafeHouse mods as `.gma` content packs and
@@ -7687,6 +8084,12 @@ check their look in the field ([ADR 0191](decisions/0191-classic-map-mods-ported
 - **Putting the field back**: the original `config.json`, the hand-placed Poolday folders, then `nlctl apply`
   removed the two packs' 296 files (generation 17, 358 file-system changes).
 
+The water-lag interpretation is supported by Valve's public
+[Source SDK WaterMove](https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/game/shared/gamemovement.cpp#L1272):
+it retains velocity, applies friction, then accelerates toward the desired direction.
+Interpreting the measured phase lag as this response in GMod261112 is an inference,
+not a claim that its binary is byte-identical to that SDK. The3degree physical and
+.2degree command-direction limits remain separate and unchanged.
 ## "Loading enhancements": what the runtime's mod load spends its time on (2026-11-12, Claude)
 
 The user's report: "The field game takes a long time to load enhancements each start" (the box at the menu's bottom
@@ -7750,3 +8153,27 @@ left, "Loading enhancements" over "Processing Materials (496 processed)"). Fixed
   or the fix's later starts. It comes before the mod thread starts, so it is not part of the mod load; a driver
   pipeline cache miss is the likely cause (not investigated). Every run printed one Lua error,
   `Couldn't include file 'nativeloader\engine_guard_words.lua'`, the published package included.
+
+## VR motion on V4's coalesced wire (2026-11-12, Claude)
+
+- **What the motion check measures.** `vr_move_motion_probe.lua` records the origin `RenderScene` receives each frame
+  (the VR camera) beside `LocalPlayer():GetPos()` and the core's feet; `vr_move_motion_check.py` divides each camera
+  step by its frame interval and requires the 5-95 % spread of those normalized steps to stay at or below 10 % for walk,
+  sprint and flight. The V2/V3 package passed it at 0.6, 0.5 and 1.5 % (`allmotion-sim-04`, 2026-11-11).
+- **V4's numbers.** The final package (`v4final.1`, PoC 261112, simulated, 90 Hz renders with a mean frame of 11.1 ms)
+  gave 13.1/25.4/21.8 % and, rerun, 17.5/46.3/21.7 %; the engine's own position moved smoothly throughout. Every render
+  had a fresh VR frame sequence, so the native pose path is not the cause.
+- **The cause.** `cl_move_predict.lua` follows FOLLOW stamps a learned buffer behind them. On V4's shared wire FOLLOW
+  rides with the hands' packets, every three to five ticks, and the buffer moved between 15, 45, 60, 75 and 90 ms
+  (75 ms in 1,278 of 1,923 frames). The six camera stalls of the first run all fell on a 60 -> 75 ms change: the target
+  moved back a tick and the cursor, which never retreats, held for a frame (then a half step). Every reset of the
+  trajectory (generation, mode, 0.3 s without FOLLOW) also put the buffer back to one tick: the first frames of each
+  segment then alternated between zero and catch-up steps while the cadence was relearned.
+- **The fix** ([ADR 0196](decisions/0196-vr-motion-keeps-the-wires-cadence.md)) keeps the cadence across resets and
+  eases changes of up to 1.5 ticks at 5 % of the motor clock. With that alone the next run had no stall but 11-13 %
+  spread: the buffer still changed 3-6 times per 1.4 s window, and easing at 5 % is itself a 10 % band. A two-second
+  hold gave walk 11.1, sprint 4.1 and flight 8.5 % with no stall; the walk's one remaining change and paired frame-time
+  outliers (a 13-18 ms frame then a 7-10 ms one with equal camera steps: the probe's `RenderScene` time jitters against
+  the view call's motor time) made up the rest. The final rule eases at 2.5 % and holds for ten seconds; the PoC result
+  is in the V4 report.
+

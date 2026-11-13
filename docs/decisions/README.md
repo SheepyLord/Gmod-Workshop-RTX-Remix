@@ -88,6 +88,38 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0078](0078-glass-background-work-and-staged-piles.md) | Background map preparation and stepping; active pose queues, nonfatal contact saturation, lazy scratch and incremental pile replacement | Accepted 2026-11-01 (G1-B fix pass) |
 | [0079](0079-glass-pile-consolidation.md) | Larger material-based settled areas, shared vertex scratch, timed rebuilding and deferred GPU resource retirement | Accepted 2026-11-01 (G1-B second pass) |
 | [0080](0080-glass-visibility-and-frame-costs.md) | Material-group individual rendering, cached matrices, current-view/distance/subpixel culling and measured per-frame manager costs | Accepted 2026-11-01 (G1-B second pass) |
+| [0159](0159-the-vr-addons-framework.md) | The VR add-on's framework | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0160](0160-the-servers-vr-switch-and-local-host.md) | The server's VR switch and local host | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0161](0161-simulated-vr-sessions-for-tests.md) | Simulated VR sessions use a launcher-owned description and timeline | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0162](0162-vr-thin-colour-coverage-and-near-limit.md) | Thin reconstructed colour needs matching depth coverage in VR | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0163](0163-vr-window-panels-and-compositor-free-output.md) | VR can copy the window's 2D and render without a compositor | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0164](0164-vr-hands-fingers-and-ghosts.md) | VR hands, fingers and ghosts | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0165](0165-the-player-follows-the-vr-head.md) | The player follows the VR head | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0166](0166-vr-teleport-and-comfort.md) | VR teleport and comfort | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0167](0167-vr-panels-painted-vgui-and-the-laser.md) | VR panels use painted VGUI and a laser | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0168](0168-the-vr-flat-screen-panel.md) | The VR flat-screen panel uses the window source | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0169](0169-physical-vr-hands-and-grabbing.md) | Physical VR hands and grabbing | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0170](0170-gravity-gloves-and-climbing.md) | Gravity gloves and climbing | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0171](0171-vr-use-by-hand-and-melee.md) | VR use by hand and melee | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0172](0172-vr-combined-acceptance-and-evidence.md) | VR combined acceptance and its evidence | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0173](0173-vr-integration-review-fixes.md) | VR integration review fixes | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0174](0174-vr-measurements-and-flat-controls.md) | VR measurements and flat controls | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0175](0175-the-v4-scaffold-and-command-aim.md) | The V4 scaffold and command aim | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0176](0176-vr-weapons-in-the-hand.md) | VR weapons in the hand | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0177](0177-vr-muzzle-shots-and-converged-aim.md) | VR muzzle shots and converged aim | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0178](0178-vr-hands-foregrip-and-physical-weapons.md) | VR hands, foregrip and physical weapons | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0179](0179-holding-the-engines-vr-reload.md) | Holding the engine's reload for physical VR reloads | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0180](0180-physical-vr-reload-gestures-and-checks.md) | Physical VR reload gestures and checks | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0181](0181-the-physgun-in-vr.md) | The physgun in VR | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0182](0182-the-vr-tool-info-and-weapon-wheel.md) | The VR tool info and weapon wheel | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0183](0183-vr-review-resource-and-physics-corrections.md) | VR review resource and physics corrections | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0184](0184-vr-capture-lifetimes-and-review-witnesses.md) | VR capture lifetimes and review witnesses | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0185](0185-vr-motion-contract-and-safe-view-ownership.md) | VR motion contract, safe carry and camera ownership | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0186](0186-vr-controller-aim-palm-and-wrist.md) | SteamVR defines the controller's aim, palm and wrist | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0187](0187-vr-anatomical-hands-and-weapon-grips.md) | Calibrate the hands and gun grips from their bones | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0193](0193-vr-weapons-after-independent-review.md) | VR weapons after independent review | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0194](0194-vr-hold-witnesses-and-ladder-sectors.md) | VR hold witnesses and ladder sectors | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
+| [0196](0196-vr-motion-keeps-the-wires-cadence.md) | VR motion keeps the wire's cadence and eases buffer changes | Accepted 2026-11-12 (VR V4 final) |
 
 ## Template
 

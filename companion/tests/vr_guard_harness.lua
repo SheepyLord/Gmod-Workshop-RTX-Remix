@@ -11,7 +11,7 @@ elseif scenario=="vr_wrist" then
     local make=assert(loadstring([=[
         return GetRenderTargetEx("nlvr_wrist_v1_769x257",769,257,RT_SIZE_LITERAL,
             MATERIAL_RT_DEPTH_NONE,0,0,IMAGE_FORMAT_RGBA8888)
-    ]=],"@lua/nlvr/client.lua"))
+    ]=],"@lua/nlvr/core/cl_overlay.lua"))
     local wrist=make()
     eq(wrist:Width(),769) eq(wrist:Height(),257)
     eq(#rtCalls,count+1,"one native allocation")
@@ -25,7 +25,7 @@ elseif scenario=="vr_wrist" then
             cam.End2D()
             render.PopRenderTarget()
         end
-    ]=],"@lua/nlvr/client.lua"))()
+    ]=],"@lua/nlvr/modules/cl_hud.lua"))()
     draw(wrist)
     eq(#guard.blocked,blocked,"no guard refusal for ordinary 2D wrist painting")
     eq(cameraDepth,0) eq(#rtStack,0)

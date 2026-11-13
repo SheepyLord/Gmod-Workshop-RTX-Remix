@@ -69,3 +69,34 @@ The test registers a session-local server command from the physical console for 
 client Lua does not attempt the blocked lua_run command. A client-only barrel supplies known
 near geometry, and a magenta desktop-only HUD witness makes the 2D/eye boundary visible.
 Use only through the driver; success/failure are in emitted JSON, not a process exit code.
+
+V2/F inventories nlvr.* hooks, the client NLVR global and receiver as well as the existing page hooks. All fifteen new settings join the restoration inventory. Samples include plain NLVR.Debug and dominant-hand values. Server lifecycle logs supply actual active state, owned hook count, permanent receiver and accepted/dropped sync counters in the same console evidence. GMod blocks lua_run requested from client Lua, so the probe never attempts that call or adds a cross-realm test receiver.
+
+Integration: wraps Capture to emit a bounded overlay-roles record mapping handles to NLVR overlay keys and native metadata for each request; restores the wrapper at Exit. This also labels feature fixtures that request their own captures.
+
+Flat controls emit a flat-window interval summary at the requested duration, request the final
+screenshot, then hold the fixed camera another three seconds before cleanup. The timed window
+therefore excludes screenshot/cleanup work and the image precedes camera-hook removal.
+
+After S, setting baselines also include all four archived V4 scaffold options.
+
+Each manifest also records semantic kind (wrist/panel/window/keyboard/marker/comfort), declared source extent and actual window aspect. Handles remain decimal strings to avoid uint64 precision loss.
+
+
+Review correction: capture manifests rebuild from currently live logical handles each capture, rather than retaining destroyed handles or querying nil handles. Retired roles can safely reappear with new native IDs.
+
+
+Samples read the live wrist role, rather than the most recently created possibly retired handle. Capture manifests rebuild from live handles at every request.
+
+
+Q3 dispatch uses a private tested capture queue. Semantic inventories are recorded at actual dispatch; visible targets wait through two frames after creation. Stop rejects undelivered captures. No game/native product or SDK settings are changed.
+
+
+Inventory includes wanted logical overlays without native handles. expected_roles derives from wanted roles and the configured wrist HUD even if its module never allocated a handle; capture dispatch retains these requirements.
+
+Q4 integration adds retained coverage and the shared one-second flat-render settlement after the second Stop. No field files or SteamVR settings are changed.
+
+The one-second flat-selector settlement is shared by look, native test_quit and the second Stop. Native quit resumes the game UI before waiting so flat rendering can refresh the cache.
+
+
+The paused test_quit branch enforces its25-second native deadline even after the page reports off.

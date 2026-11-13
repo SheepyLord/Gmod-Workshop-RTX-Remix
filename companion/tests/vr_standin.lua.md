@@ -17,3 +17,5 @@ real-game probe inspect cleanup at native Stop, including the genuine game ShutD
 Info values explicitly say SCRIPTED TEST and are mock metadata, never hardware measurements. No files, console
 commands, hooks, timers or native state are created by this factory. [vr_poc.lua](vr_poc.lua.md) drives it and
 exports evidence through the console; [vr_poc.py](vr_poc.py.md) runs that probe under the PoC lock.
+
+V2/F supplies empty Actions and records OverlayAlpha for the framework. These remain test-only API stand-ins.

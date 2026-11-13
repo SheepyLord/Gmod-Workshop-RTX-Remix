@@ -668,6 +668,7 @@ msgstr "Génération d'images"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:281
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:283
 msgid "Off"
 msgstr "Désactivé"
 
@@ -1050,186 +1051,440 @@ msgstr "Armure"
 msgid "Ammo"
 msgstr "Munitions"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:21
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:45
 msgid "The VR module is missing or could not load. Reinstall the RTX package, then restart Garry's Mod."
 msgstr "Le module VR est absent ou ne peut pas être chargé. Réinstallez le paquet RTX, puis redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:22
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:46
 msgid "The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."
 msgstr "L'API du module VR est incompatible. Mettez à jour le paquet RTX et redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:47
 msgid "This Remix runtime has no VR output. Update the RTX package and restart Garry's Mod."
 msgstr "Ce moteur Remix n'a pas de sortie VR. Mettez à jour le paquet RTX et redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:24
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:48
 msgid "The VR add-on could not start. Reinstall the RTX package and try again."
 msgstr "L'extension VR n'a pas pu démarrer. Réinstallez le paquet RTX et réessayez."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:49
 msgid "V1 supports single-player and the listen-server host. Start a local game to use VR."
 msgstr "V1 prend en charge le jeu solo et l'hôte d'un serveur local. Lancez une partie locale pour utiliser la VR."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:26
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:50
 msgid "Exit VRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "Quittez VRMod avant de lancer RTX VR. Une seule extension peut contrôler la vue."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:27
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
 msgid "Exit gVRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "Quittez gVRMod avant de lancer RTX VR. Une seule extension peut contrôler la vue."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:28
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
 msgid "SteamVR could not start VR. Check the headset connection and SteamVR, then try again."
 msgstr "SteamVR n'a pas pu démarrer la VR. Vérifiez la connexion du casque et SteamVR, puis réessayez."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:29
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
 msgid "SteamVR is not installed. Install SteamVR in Steam, connect the headset, then try again."
 msgstr "SteamVR n’est pas installé. Installez SteamVR dans Steam, connectez le casque, puis réessayez."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:30
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
 msgid "SteamVR ended the VR session. The flat game's settings have been restored."
 msgstr "SteamVR a terminé la session VR. Les réglages du jeu sur écran ont été restaurés."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:31
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
 msgid "Waiting for headset tracking. Check that the base stations can see the headset."
 msgstr "En attente du suivi du casque. Vérifiez que les stations de base voient le casque."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:33
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
 msgid "VR is off"
 msgstr "VR désactivée"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:33
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
 msgid "Starting SteamVR..."
 msgstr "Démarrage de SteamVR..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:33
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
 msgid "VR is running"
 msgstr "VR en cours"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:34
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
 msgid "Stopping VR..."
 msgstr "Arrêt de la VR..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:34
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
 msgid "VR could not start"
 msgstr "Échec du démarrage VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:224
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:248
+msgid "Wrist menu"
+msgstr "Menu au poignet"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:248
+msgid "Spawn menu"
+msgstr "Menu de création"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:248
+msgid "Context menu"
+msgstr "Menu contextuel"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:248
+msgid "Flat screen"
+msgstr "Écran plat"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:248
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:410
+msgid "VR settings"
+msgstr "Réglages VR"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:249
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:288
+msgid "Calibrate height"
+msgstr "Calibrer la taille"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:249
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:369
+msgid "Recentre VR"
+msgstr "Recentrer la VR"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:249
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
+msgid "Exit VR"
+msgstr "Quitter la VR"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:249
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
+msgid "Enter text"
+msgstr "Saisir du texte"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+msgid "Keyboard"
+msgstr "Clavier"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:283
+msgid "Shift"
+msgstr "Maj"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+msgid "Space"
+msgstr "Espace"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+msgid "Backspace"
+msgstr "Retour"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+msgid "Enter"
+msgstr "Entrer"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+msgid "Close"
+msgstr "Fermer"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:250
+msgid "Tab"
+msgstr "Tabul."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:251
+msgid "Left"
+msgstr "Gauche"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:251
+msgid "Right"
+msgstr "Droite"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:251
+msgid "Home"
+msgstr "Début"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:251
+msgid "End"
+msgstr "Fin"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:251
+msgid "Delete"
+msgstr "Suppr"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:252
+msgid "This menu is unavailable in this gamemode."
+msgstr "Ce menu est indisponible dans ce mode de jeu."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:253
+msgid "The flat screen needs a newer VR module and Remix runtime. Update the RTX package."
+msgstr "L'écran plat nécessite un module VR et un moteur Remix plus récents. Mettez le paquet RTX à jour."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:277
+msgid "Controls and comfort"
+msgstr "Commandes et confort"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:278
+msgid "Dominant hand"
+msgstr "Main dominante"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:278
+msgid "Right hand"
+msgstr "Main droite"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:278
+msgid "Left hand"
+msgstr "Main gauche"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:279
+msgid "Movement direction"
+msgstr "Direction du mouvement"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:279
+msgid "Off hand"
+msgstr "Main secondaire"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:279
+msgid "Head"
+msgstr "Tête"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:280
+msgid "Turning"
+msgstr "Rotation"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:280
+msgid "Snap turn"
+msgstr "Rotation par crans"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:280
+msgid "Smooth turn"
+msgstr "Rotation continue"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:281
+msgid "Snap angle (degrees)"
+msgstr "Angle des crans (degrés)"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:282
+msgid "Turn speed (degrees per second)"
+msgstr "Vitesse de rotation (degrés par seconde)"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:283
+msgid "Teleport"
+msgstr "Téléportation"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:283
+msgid "Blink"
+msgstr "Fondu"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:284
+msgid "Movement vignette"
+msgstr "Vignette en mouvement"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:285
+msgid "The vignette shades the edge of your view while moving or turning. Zero turns it off."
+msgstr "La vignette assombrit le bord de la vue pendant les mouvements et les rotations. Zéro la désactive."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:286
+msgid "Seated mode"
+msgstr "Mode assis"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:287
+msgid "Seated height offset (metres)"
+msgstr "Décalage en position assise (mètres)"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:289
+msgid "Start VR, stand straight, then calibrate. Your tracked eye height sets world scale. To reset, set nl_vr_height to 0."
+msgstr "Démarrez la VR, tenez-vous droit, puis calibrez. La hauteur suivie des yeux définit l'échelle du monde. Pour réinitialiser, réglez nl_vr_height sur 0."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:290
+msgid "A changed height calibration takes effect after Exit VR and Start VR."
+msgstr "La nouvelle calibration prend effet après avoir quitté puis relancé la VR."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:291
+msgid "Hands and HUD"
+msgstr "Mains et HUD"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:292
+msgid "Ghost hands"
+msgstr "Mains fantômes"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:293
+msgid "Show an outline at the real controller when the visible hand stops against something."
+msgstr "Affiche un contour à la position réelle de la manette quand la main visible est bloquée."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:294
+msgid "Wrist HUD"
+msgstr "HUD au poignet"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:295
+msgid "Physical interaction"
+msgstr "Interactions physiques"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:296
+msgid "Gravity gloves"
+msgstr "Gants de gravité"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:297
+msgid "Climbing"
+msgstr "Escalade"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:298
+msgid "Physical melee"
+msgstr "Mêlée physique"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:299
+msgid "Grip grabs. Point, grip and flick to pull a loose object. Grip a ledge to climb. Fast hands and held objects can strike."
+msgstr "Serrez pour saisir. Pointez un objet libre, serrez puis donnez un coup de poignet pour l'attirer. Saisissez un rebord pour grimper. Les mains et les objets tenus peuvent frapper à grande vitesse."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:300
+msgid "Turn on Keep corpses in the game's options to make NPC bodies grabbable in VR."
+msgstr "Activez « Conserver les cadavres » dans les options du jeu pour pouvoir saisir les corps des PNJ en VR."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:301
+msgid "Weapons"
+msgstr "Armes"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:302
+msgid "Physical reload"
+msgstr "Rechargement physique"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:303
+msgid "Eject with A, take ammo over your shoulder, then insert it into HL2 weapons. Other weapons reload on a B tap."
+msgstr "Éjectez avec A, prenez des munitions derrière l'épaule, puis insérez-les dans l'arme HL2. Pour les autres armes, appuyez brièvement sur B."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:304
+msgid "Foregrip"
+msgstr "Poignée avant"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:305
+msgid "Grip near a rifle's foregrip with the off hand to aim with both hands."
+msgstr "Serrez la poignée avant du fusil avec l'autre main pour viser à deux mains."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:306
+msgid "Ammo on the gun"
+msgstr "Munitions sur l'arme"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:307
+msgid "Show the clip and reserve ammo beside the weapon hand."
+msgstr "Affichez le chargeur et les munitions en réserve près de la main armée."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:308
+msgid "Gun angle (degrees)"
+msgstr "Angle de l'arme (degrés)"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
+msgid "Adjust the gun's pitch in your hand."
+msgstr "Réglez l'inclinaison de l'arme dans votre main."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
+msgid "SteamVR controller bindings"
+msgstr "Affectations des manettes SteamVR"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+msgid "Start VR before opening SteamVR's binding editor. The off hand's B opens the wrist menu; point with the main hand and click with its trigger. Its stick scrolls."
+msgstr "Démarrez la VR avant d'ouvrir l'éditeur SteamVR. B sur la main secondaire ouvre le menu au poignet. Pointez avec la main dominante et cliquez avec sa gâchette. Son stick fait défiler."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
 msgid "Not checked"
 msgstr "Non vérifié"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "Yes"
 msgstr "Oui"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:225
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "No"
 msgstr "Non"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:233
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
+msgid "Height calibrated. Exit VR, then Start VR to use the new world scale."
+msgstr "Taille calibrée. Quittez puis relancez la VR pour appliquer la nouvelle échelle du monde."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
 #, c-format
 msgid "SteamVR installed: %s; running: %s"
 msgstr "SteamVR installé : %s ; en cours : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:236
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
 #, c-format
 msgid "Headset: %s; %s Hz; recommended per eye: %s"
 msgstr "Casque : %s ; %s Hz ; taille conseillée par œil : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:241
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
 #, c-format
 msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
 msgstr "fps_max vaut %s, en dessous des %s Hz du casque. Saisissez fps_max %s dans la console du jeu."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:246
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
 #, c-format
 msgid "Controllers tracked: left %s; right %s"
 msgstr "Suivi des contrôleurs : gauche %s ; droite %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:247
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
 #, c-format
 msgid "Compositor: GPU %s ms; CPU %s ms"
 msgstr "Compositeur : GPU %s ms ; CPU %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:252
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:352
 #, c-format
 msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
 msgstr "Reprojection : %s%% ; images perdues : %s%% (cumul)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:253
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:353
 #, c-format
 msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
 msgstr "GPU du moteur (ms) : total %s ; tracé %s ; agrandissement %s ; déformation %s ; autre %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:255
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:355
 #, c-format
 msgid "Centre: %s; traced: %s; submitted per eye: %s"
 msgstr "Centre : %s ; tracé : %s ; envoi par œil : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:257
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:357
 #, c-format
 msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
 msgstr "Images envoyées : %s ; erreurs : %s ; poses concordantes / sans correspondance : %s / %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
 msgid "Start VR"
 msgstr "Démarrer la VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-msgid "Exit VR"
-msgstr "Quitter la VR"
-
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
-msgid "Recentre VR"
-msgstr "Recentrer la VR"
-
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:371
 msgid "Check status"
 msgstr "Vérifier l'état"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:373
 msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
 msgstr "La vérification charge seulement le module VR. SteamVR démarre avec Démarrer la VR ; cela peut prendre quelques secondes."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:276
-msgid "V1 uses a fixed preset. Auto quality, movement and hand controls arrive in later VR milestones. For RTX, 80 or 90 Hz is recommended."
-msgstr "V1 utilise un préréglage fixe. La qualité automatique, les déplacements et les mains arriveront plus tard. Pour RTX, 80 ou 90 Hz sont conseillés."
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:376
+msgid "VR uses a fixed render preset. Auto quality arrives in a later milestone. For RTX, 80 or 90 Hz is recommended."
+msgstr "La VR utilise un préréglage fixe. La qualité automatique arrivera à une étape ultérieure. Pour RTX, 80 ou 90 Hz sont recommandés."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:279
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:379
 msgid "World scale"
 msgstr "Échelle du monde"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:281
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:381
 msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
 msgstr "Unités de jeu par mètre. La valeur 40 fait correspondre un modèle de 72 unités à une personne de 1,8 m. Redémarrez la VR après modification."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:282
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:382
 msgid "Render scale"
 msgstr "Échelle de rendu"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:284
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:384
 msgid "Scale of SteamVR's recommended eye size. V1 starts at 1.00, or at most 0.50 on a low tier or below 12 GB. Restart VR after changing."
 msgstr "Échelle de la taille recommandée par œil de SteamVR. V1 démarre à 1,00, ou au maximum à 0,50 avec un GPU de gamme basse ou moins de 12 Go. Redémarrez la VR après modification."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:285
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:385
 msgid "Culling FOV"
 msgstr "Champ de visibilité"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:287
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:387
 msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
 msgstr "Champ de visibilité du moteur : 145 degrés par défaut, testé sur Index en 16:9. Le casque fournit la projection du rendu."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:288
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:388
 msgid "Use nl_vr_start and nl_vr_exit in the console. V1 supports single-player and the listen-server host."
 msgstr "Utilisez nl_vr_start et nl_vr_exit dans la console. V1 prend en charge le jeu solo et l'hôte d'un serveur local."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:302
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:403
 msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; V1 uses a lower render scale."
 msgstr "La VR peut être lente sur ce GPU : moins de 12 Go de VRAM ou niveau de performance bas. Vous pouvez démarrer ; V1 réduit l'échelle de rendu."
-
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
-msgid "VR settings"
-msgstr "Réglages VR"
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
 msgid "Garry's Mod is not finishing its start"

@@ -7,7 +7,7 @@ local function compiled(source, name, environment)
     return fn()
 end
 local api, mock = compiled(TEST_SOURCES.standin, "lua/nlvr/tests/standin.lua")()
-local ID, OWNER = "vr_e_review_probe", "nativeloader_vr_view"
+local ID, OWNER = "vr_e_review_probe", "nlvr.core"
 local mode = game.SinglePlayer() and "single-player" or "listen-host"
 local result = {mode = mode, mock = true, snapshots = {}, camera_samples = {}, engine_probes = {}, order = {},
     max_camera_error = 0, max_render_error = 0, max_getpos_delta = 0, max_pose_age = 0,
@@ -56,7 +56,7 @@ local function snapshot(label)
     item.functions_unchanged = {Call = hook.Call == functions.Call, Run = hook.Run == functions.Run,
         Add = hook.Add == functions.Add, Remove = hook.Remove == functions.Remove, GetTable = hook.GetTable == functions.GetTable,
         Create = vgui.Create == functions.Create, require = require == functions.require}
-    for _, entry in ipairs(item.hooks) do if entry.id == OWNER then item.addon_hooks[#item.addon_hooks+1] = entry end end
+    for _, entry in ipairs(item.hooks) do if entry.id:match("^nlvr%.") then item.addon_hooks[#item.addon_hooks+1] = entry end end
     item.timer_inventory = type(timer.GetTable) == "function" and "GetTable" or "owned-name Exists"
     if type(timer.GetTable) == "function" then
         for name in pairs(timer.GetTable()) do
@@ -127,6 +127,7 @@ rawset(environment, "include", function(path)
         end
         return session
     end
+    if TEST_SOURCES[path] then return compiled(TEST_SOURCES[path], "lua/" .. path, environment) end
     return originalInclude(path)
 end)
 compiled(TEST_SOURCES.page, "lua/autorun/client/nativeloader_vr.lua", environment)

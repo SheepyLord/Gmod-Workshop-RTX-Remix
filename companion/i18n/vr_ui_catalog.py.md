@@ -1,0 +1,3 @@
+# vr_ui_catalog.py
+
+Run `python companion/i18n/vr_ui_catalog.py`. Reproduces M's 52 VR page/panel messages, including the fallback keyboard's action labels, in six languages. Embedded JSON is ASCII with Unicode escapes; the existing Python writer writes explicit UTF-8, preserves other translations and checks complete catalogs. Rejects question-mark runs/replacement characters. Inputs: marked companion text and catalogs. Outputs: POT and six PO files in this folder, a checked count. No network, game or settings changes. Exit 0 on success; catalog/assertion failures are nonzero. Agent-written translations await human review.

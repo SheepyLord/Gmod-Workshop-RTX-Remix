@@ -22,8 +22,39 @@ struct Lock {
   }
   ~Lock() { if(file!=INVALID_HANDLE_VALUE) { CloseHandle(file);DeleteFileW(path.c_str()); } }
 };
+int skeleton_host(wchar_t** argv) {
+  Lock lock(argv[5]);std::ofstream out(argv[6]);if(!out) return 2;
+  nl::vr::Options o;o.openvr_dll=argv[2];o.runtime_dll=argv[3];o.manifest=argv[4];o.no_submit=true;
+  nl::vr::Session s(std::filesystem::path(argv[2]).parent_path());std::string error;
+  if(!s.start(o,error)) throw std::runtime_error(error);
+  const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(90);
+  while(s.state().first=="starting"&&std::chrono::steady_clock::now()<until) std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  if(s.state().first!="running") throw std::runtime_error(s.state().second);
+  for(unsigned n=0;n<12;++n) { s.begin_frame();std::this_thread::sleep_for(std::chrono::milliseconds(100)); }
+  const auto f=s.begin_frame();if(!f) throw std::runtime_error("no skeletal probe frame");
+  out<<"{\"controllers\":{";
+  for(unsigned i=0;i<2;++i) {
+    if(i) out<<',';const auto& c=f->controllers[i];out<<nl::json::quote(i==0?"left":"right")<<":{\"valid\":"<<(c.valid?"true":"false")<<",\"device\":"<<c.device<<",\"model\":"<<nl::json::quote(c.model)<<"}";
+  }
+  out<<"},\"samples\":{";
+  for(unsigned i=0;i<2;++i) {
+    const std::string hand=i==0?"left":"right";if(i) out<<',';out<<nl::json::quote(hand)<<":{";bool first=true;
+    for(const std::string kind:{"with_controller","fist","grip_limit","open"}) {
+      if(!first) out<<',';first=false;const auto sample=s.skeleton(hand,kind);
+      out<<nl::json::quote(kind)<<":{\"valid\":"<<(sample.valid?"true":"false")<<",\"error\":"<<sample.error<<",\"source\":"<<nl::json::quote(kind)<<",\"bones\":[";
+      if(sample.valid) for(unsigned j=0;j<31;++j) { if(j) out<<',';const auto& b=sample.bones[j];out<<'['<<b.pos.x<<','<<b.pos.y<<','<<b.pos.z<<','<<b.ang.x<<','<<b.ang.y<<','<<b.ang.z<<']'; }
+      out<<"]}";
+    }
+    out<<'}';
+  }
+  out<<"}}\n";out.close();s.stop();
+  while(s.state().first=="stopping") std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  return 0;
+}
 }
 int wmain(int argc,wchar_t** argv) {
+  if(argc==7&&std::wstring(argv[1])==L"--skeleton") try { return skeleton_host(argv); }
+    catch(const std::exception& e) { std::fprintf(stderr,"%s\n",e.what());return 1; }
   if(argc!=8) {
     std::fprintf(stderr,"usage: nl_vr_session_host <openvr.dll> <runtime.dll> <manifest.json> <timeline.json|-> <seconds> <vr.lock> <log.jsonl>\n");return 2;
   }

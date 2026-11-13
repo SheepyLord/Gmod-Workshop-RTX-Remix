@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "dfbc26d59a8a7da3d28bb04a282dd7973647316dab97e320abec5693e8ac8030",
-  "built_from": "HEAD cfb2173b (with what the rest of this record names)",
+  "d3d9.dll": "7572e10453a386093eac75e0fa8424d53bfbbdeced163b8c15534a03390cb9d6",
+  "built_from": "HEAD -> vr2 308ca2f7 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -121,6 +121,20 @@
    "patches/0069-Sample-the-VR-ray-segment-at-depth-texel-spacing.patch": "641530e4d29242d650bc660f2d0269413f31ce0d03a7b9fc2b3e2b27c167d51b",
    "patches/0070-Retain-overlay-requests-when-a-queued-camera-is-skipped.patch": "ae778754a7ff6d8cf95cfc8ab702efecbe851499957c8c2de638ee68824ac37c",
    "patches/0071-VR-wait-for-the-first-actual-camera-match.patch": "2d18d7e40cacf7634bfca644378384ddd14af4a8d796c3bd6016bf0effc34ca8",
+   "patches/0072-Declare-the-V2-window-overlay-source-without-changin.patch": "f477c3a61c7a2381fd70ebb0f520d6fe569bbc39dba11b15d7c7fce674a5be93",
+   "patches/0073-Complete-compositor-free-rendering-and-overlay-copy-.patch": "3f9f1248cae02af144672216b2bef0e2f03fe276cdf31f41bc4a85090de2c64a",
+   "patches/0074-Copy-post-2D-window-overlays-and-suppress-the-mirror.patch": "798a2af36098cac2b5abe0a8b8fbac8bf0211543745ac50a969a8bfef66eb195",
+   "patches/0075-Align-reconstructed-thin-feature-colour-with-conserv.patch": "63e3ae355f9f0df6e5093bffe102908117b3a6d1c93b4009d417ac2cb53da595",
+   "patches/0076-Cover-both-eyes-to-twenty-centimetres-for-near-hand-.patch": "fa25dd7ea42f65e3db23044b38e61f89dda37172a2d158718e9b7dd04acf5bb5",
+   "patches/0077-Select-a-measured-near-limit-and-regress-thin-recons.patch": "2c9c42292686ff80d149ef67c2bb6a82bba1117b0d305d2d88648b6724382bad",
+   "patches/0078-Fit-the-near-limit-to-the-moving-thin-feature-Index-.patch": "dc951ea4cf48f3d38bef7eb3f7a97b8d6e549a0d3b48f41a9464f599f568f2c3",
+   "patches/0079-Select-each-VR-frame-search-range-from-a-GPU-depth-r.patch": "6cd2adedbc45c8ee1e15ea2552972d0b5c96e7494b0971082ad517cd305e3879",
+   "patches/0080-Bound-each-adaptive-eye-ray-with-conservative-depth-.patch": "889ed734a3a3a8273724fec4e440fab074fcb3b2825108f2caf5e62efe07bef6",
+   "patches/0081-Match-signed-CPU-reference-depths-to-the-GPU-samplin.patch": "ad7bd7de5d1309c857e2bf901c0745a06cfd6827c33dc1c6236ebe75073314fe",
+   "patches/0082-Select-a-lightweight-far-warp-on-the-GPU-and-share-c.patch": "1b776b66906ba2d6be862ddc7948ed498c031e4dd254896b9b951cce908e28b0",
+   "patches/0083-Retain-the-accepted-fixed-warp-and-three-by-three-co.patch": "71f375578b40a51a1aca297586148b510a4118f604f54b6aa48f331e441ecb7c",
+   "patches/0084-Keep-reconstructed-foreground-coverage-without-movin.patch": "783ef0824593a230961bf8d04c10963e728d7c73b138ffbcc5a9052697be415b",
+   "patches/0085-Reject-foreground-eroding-guidance-and-retain-the-ac.patch": "fd277d6bd8a556fa238ce3b1fa30f2892cd57f7b4ce82436a21bad7fcdfcecde",
    "patches/0086-Keep-the-mod-loader-s-texture-reads-between-starts.patch": "38b624a01c2b893d2c1c61b8c9cb00106466965f66b07cf218d10a4972d9763b",
    "submodules/rtxdi.patch": "006d534a48637125dcb1e4a5fcca9eabb8bd96f7a8935b5eb1ec49a64b0e1be5"
   }

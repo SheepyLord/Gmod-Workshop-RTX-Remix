@@ -108,7 +108,7 @@ class BundledMaterialPathTests(unittest.TestCase):
                 expected.add(virtual)
                 if source.name in {"!nativeloader_blood.lua", "nativeloader_blood_menu.lua", "blood_core.lua",
                                    "blood_budget.lua", "blood_impacts.lua", "dts_package.lua", "dts_bootstrap.lua",
-                                   "nativeloader_bundled_panels.lua", "nativeloader_vr.lua"}:
+                                   "nativeloader_bundled_panels.lua", "nativeloader_vr.lua", "nativeloader_vr_server.lua"}:
                     ordinary.add(virtual)
         text = render_guard.GUARD.read_text(encoding="utf-8")
         block = re.search(r"for path in \(\[\[(.*?)\]\]\)", text, re.S)

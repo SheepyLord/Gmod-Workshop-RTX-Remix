@@ -7,7 +7,7 @@ source = Path(sys.argv[1]).read_text(encoding="utf-8")
 source = re.sub(r"/\*.*?\*/|//[^\n]*", "", source, flags=re.S)
 out = ["// Generated for offline tests only; declarations from Valve's BSD-3-Clause SDK.",
        "#pragma once", "#include <openvr.h>", "namespace vr {"]
-for name in ("IVRSystem", "IVRCompositor", "IVRInput", "IVROverlay"):
+for name in ("IVRSystem", "IVRCompositor", "IVRInput", "IVROverlay", "IVRRenderModels"):
     start = re.search(r"\bclass\s+" + name + r"\s*\{", source).end()
     depth, end = 1, start
     while depth:

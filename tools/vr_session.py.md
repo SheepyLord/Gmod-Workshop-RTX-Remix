@@ -1,5 +1,39 @@
 # vr_session.py
 
+## Simulated sessions and window size (V2-N)
+
+`--simulate` runs the module's launcher-authorised simulation: no OpenVR load/initialisation and
+**no VR lock**. The exclusive PoC lock, snapshot, protected-file checks, captures, normal quit,
+restoration and cleanup are unchanged. The launcher sets `NLVR_TEST_ROOT` to the run's native/
+folder, copies `vr/native/sim/index-v1.json` to native/simulated-index.json with its hash receipt,
+and supplies the named timeline. It changes only the generated probe: both starts receive
+simulate=true and use framesRendered for progress. Source `vr_session.lua` is unchanged.
+Validation requires positive rendered progress, zero eye submissions, Info.simulated=true and
+no loaded OpenVR in either active Info records or the collected module list. Simulated performance
+uses frame_fps, with pair_fps=null; it does not claim compositor presents or headset throughput.
+
+`--simulate` cannot combine with --flat, --look or --live-poses; it requires an unattended timeline.
+The current V1 companion still checks SteamVR installation. For the two generated simulated
+starts only, a test shim presents virtual-backend availability to that UI check, then immediately
+restores the real Probe function and actual cached installation facts, including on errors.
+It changes neither the host/version/conflict checks nor the module's launcher-root authorization.
+This makes the driver work with no SteamVR installation, without editing F's page. Live runs use
+no shim. A V1 runtime that rejects the null interface produces its exact native failure;
+`--expect-failure native --expect-detail TEXT` can record that clean refusal, without claiming
+rendered/captured acceptance. Task R supplies null-interface rendering at integration.
+
+`--window WIDTHxHEIGHT` sets the PoC process window, default **1280x720**, including for flat or
+manual runs. Bounds are 320..7680 by 240..4320 pixels; `--window 3840x2160` exercises the user's
+desktop size. This is a per-process argument, never a Steam launch option or saved setting.
+The selected window and simulated flag are recorded in sources.json. All existing live/headset,
+manual-look, dependency preflight and recovery behavior remains in place. Simulation still needs
+Pillow for unattended desktop screenshots; native captures are independent of Pillow.
+
+```powershell
+python tools/vr_session.py --package out/dist/package.gma --evidence out/vr/n-sim --simulate --window 1280x720 --seconds 30
+python tools/vr_session.py --package out/dist/package.gma --evidence out/vr/n-4k --window 3840x2160 --seconds 30
+```
+
 ## Manual look and screenshot dependencies
 
 A manual look needs Windows and any Python 3.10 or newer, the built loader, local package and
@@ -178,3 +212,67 @@ SDK/runtime measurements. No field/legacy install is written. Exit 0 means the s
 and rollback verified; 1 means failed checks/operation (read logs and restoration receipt).
 Exit 2 means the unattended screenshot preflight refused before locks, evidence or PoC changes.
 Offline tests live in `tests/test_vr_session.py`.
+
+Integration: capture validation uses a probe manifest of overlay handles and semantic roles, never image dimensions. Wrist glyphs remain required; large panels, black comfort canvases, window sources, keyboards and markers get bounded RGBA validation. Unlabelled/unknown roles fail. The decoder needs only the standard library.
+
+Flat controls retain a flat-window frame summary at the requested duration and hold the fixed
+camera for three more seconds to collect the final screenshot before teardown.
+
+After verified rollback, cleanup checks every native/captures file against the retained captures
+copy by relative path, size and full SHA-256, writes capture-deduplication.json, and removes only
+the duplicate native tree. Any missing/different/link file refuses deletion. Every raw image,
+depth float and timing record remains once under captures, including for failed runs.
+
+An isolated production module/cleanup/Stop error is a fatal acceptance finding, recorded in
+module_failures, even if native rendering continues and a probe's done record is successful.
+Isolation is correct in gameplay; it cannot certify that every integrated feature worked.
+
+Q role validation explicitly recognises the seven move_arc_2..8 dot roles; arbitrary similarly named roles still fail.
+
+Role-selected validation checks source extents against the declared source; window sources use their own 1920-pixel/aspect contract, not the panel render target dimensions.
+
+Capture collection now atomically renames native/captures to captures after the owned game
+has exited, on the same evidence volume. Both resolved paths must stay inside the evidence
+root, reparse links and an existing destination are refused, and capture-collection.json
+records the move. Raw file bytes are unchanged; this avoids copying gigabytes while holding
+the shared locks. The hash-based duplicate cleanup remains for older completed runs.
+
+The optional read-only clock helper is staged for both client and server realms under the
+snapshotted lua/bin tree. It has no realm-specific implementation or SDK calls; rollback
+restores both paths. No development helper is included in the package.
+
+Disk-space recovery safeguards: --minimum-free-gib defaults to 8; the combined runner requests
+12. Check before taking locks and again afterward, before creating the evidence tree or moving
+PoC roots. Exit 2 also covers this preparation refusal. Rollback bypasses the space check.
+A fsynced shared out/r10/vr-poc-pending.json is created before preserving PoC and removed only
+after clean restoration/protected-hash checks. A later session refuses an unfinished transaction;
+--rollback validates the matching evidence/root before any restoration. Legacy interrupted
+receipts without this marker remain recoverable. Neither a failed capture nor a failed rollback
+is a pass. The marker guards PoC between sessions, separately from the two live locks.
+
+
+Review correction: semantic capture roles accept the centrally reserved teleport_arc_2 and teleport_arc_3 canvases. Historical move_arc_2..8 evidence remains readable.
+
+
+An explicitly empty overlay inventory permits no overlay PNGs when hidden resources retired. Every declared live handle must have its image; an unlabelled image still fails. No first-image/size heuristic or unconditional wrist allocation is used.
+
+
+Q3 capture readiness embeds vr_capture_queue.lua. Captures wait for new visible handles to have painted for two frames and dispatch at most once a frame. Every declared visible source still needs a PNG; hidden sources may retire before asynchronous copying. Errors/timeouts/cancelled captures remain failures.
+
+
+Expected roles are mandatory by role, handle or not. Legacy records default to requiring the wrist; explicit expected_roles=[] is needed for intentionally empty captures. Visible/required declared images, role dimensions and glyphs remain checked.
+
+After abnormal native exit, the shared crash step immediately copies exact-PID WER evidence read-only, uses vr_crash.py to classify exception-context stack evidence and retains Application event1000. A known fixes-module build/return address or known NVIDIA startup crash can re-execute the complete caller CLI once in a fresh sibling evidence folder, only after clean rollback. The complete child performs its own semantic reducers; the failed parent is not re-analysed as success. A persistent parent claim plus process token prevents further retry. Unknown or second crashes stop. NLVR_CRASH_RETRY_OF names the verified restored parent; it is not a crash-avoidance switch. Entity removals, queue mode, lighting and player cvars are not altered by classification.
+
+
+--both-locks explicitly takes the shared VR lock even for --simulate/--flat; normal defaults remain compatible. The limited medium fixture always requests both.
+
+
+--depot-manifest forwards explicit stock revision manifests through preparation and matching rollback. It does not skip or relax full depot verification. Use repeated official cached manifests when the PoC remains at an older stock build than the field install.
+
+
+A matching old-copy recovery can explicitly choose cached official manifests without skipping any depot file; actual immutable full verification still controls clean status.
+
+Round5: after the reviewed queued-draw repair, any fixes stack marker (including an unreviewed build) stops; only the NVIDIA startup signature permits one restored fresh-folder retry. Old receipt flags cannot override current policy. The normal field-quit helper is driver-only; exit5 after a quit crash is fatal and its evidence is retained.
+
+Current round5 lock rule: every PoC mode, including simulation, flat and rollback, takes both shared locks. --both-locks remains accepted for compatibility; callers need not remember it.

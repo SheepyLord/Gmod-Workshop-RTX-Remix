@@ -1,0 +1,337 @@
+From 37202ea993c58d5c4f479d9305d1a797e830b6bd Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Wed, 11 Nov 2026 07:03:01 -0700
+Subject: [PATCH] Select each VR frame search range from a GPU depth reduction
+
+Co-Authored-By: Codex <noreply@openai.com>
+---
+ src/dxvk/rtx_render/rtx_vr.cpp                | 29 +++++++++++++---
+ src/dxvk/rtx_render/rtx_vr.h                  |  2 +-
+ src/dxvk/rtx_render/rtx_vr_math.h             | 23 ++++++++++---
+ .../rtx/pass/vr/vr_depth_coverage.comp.slang  | 13 +++++--
+ .../rtx/pass/vr/vr_depth_range.comp.slang     | 19 +++++++++++
+ .../shaders/rtx/pass/vr/vr_warp.comp.slang    |  9 +++--
+ src/dxvk/shaders/rtx/pass/vr/vr_warp.h        |  1 +
+ tests/rtx/unit/test_vr_math.cpp               | 34 +++++++++++++++++++
+ 8 files changed, 116 insertions(+), 14 deletions(-)
+ create mode 100644 src/dxvk/shaders/rtx/pass/vr/vr_depth_range.comp.slang
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index e579cd0c..d4543bec 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -23,6 +23,7 @@
+ #include "rtx/pass/vr/vr_warp.h"
+ #include <rtx_shaders/vr_warp.h>
+ #include <rtx_shaders/vr_depth_coverage.h>
++#include <rtx_shaders/vr_depth_range.h>
+ 
+ namespace dxvk {
+   namespace {
+@@ -34,10 +35,19 @@ namespace dxvk {
+         TEXTURE2D(0)
+         TEXTURE2D(1)
+         RW_TEXTURE2D(2)
++        TEXTURE2D(3)
+       END_PARAMETER()
+     };
+     class VrDepthCoverageShader : public ManagedShader {
+       SHADER_SOURCE(VrDepthCoverageShader,VK_SHADER_STAGE_COMPUTE_BIT,vr_depth_coverage)
++      BEGIN_PARAMETER()
++        TEXTURE2D(0)
++        RW_TEXTURE2D(1)
++        RW_TEXTURE2D(2)
++      END_PARAMETER()
++    };
++    class VrDepthRangeShader : public ManagedShader {
++      SHADER_SOURCE(VrDepthRangeShader,VK_SHADER_STAGE_COMPUTE_BIT,vr_depth_range)
+       BEGIN_PARAMETER()
+         TEXTURE2D(0)
+         RW_TEXTURE2D(1)
+@@ -234,7 +244,7 @@ namespace dxvk {
+     m_cpuProfileRunTotal=0; m_cpuProfileFrames=0;
+     m_lastOutputFrame=~uint64_t(0); m_hadTracedScene=false;
+     RtxOptionManager::releaseLayer(m_layer); m_layer=nullptr;
+-    m_eyes={};m_depthCoverage={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
++    m_eyes={};m_depthCoverage={};m_depthTileMinimum={};m_depthFrameMinimum={}; m_overlays.clear(); m_timers={}; m_timer=nullptr; m_ready=false;
+     m_frameCaptureWhat=0;
+     m_waitPolicy={};m_hasFocus=true;
+     m_staleCameras=0;
+@@ -624,25 +634,33 @@ namespace dxvk {
+     if(!vrpolicy::resources([&] {
+       if(m_depthCoverage.image==nullptr||m_depthCoverage.image->info().extent.width!=depthSize.width||m_depthCoverage.image->info().extent.height!=depthSize.height) {
+         m_depthCoverage=makeImage(ctx,depthSize,VK_FORMAT_R32_SFLOAT);
++        m_depthTileMinimum=makeImage(ctx,{(depthSize.width+7)/8,(depthSize.height+7)/8,1},VK_FORMAT_R32_SFLOAT);
+       }
++      if(m_depthFrameMinimum.image==nullptr) { m_depthFrameMinimum=makeImage(ctx,{1,1,1},VK_FORMAT_R32_SFLOAT); }
+       ctx.changeImageLayout(m_depthCoverage.image,VK_IMAGE_LAYOUT_GENERAL);
++      ctx.changeImageLayout(m_depthTileMinimum.image,VK_IMAGE_LAYOUT_GENERAL);
+       ctx.bindResourceView(0,depth,nullptr);ctx.bindResourceView(1,m_depthCoverage.view,nullptr);
++      ctx.bindResourceView(2,m_depthTileMinimum.view,nullptr);
+       ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrDepthCoverageShader::getShader());
+       ctx.dispatch((depthSize.width+7)/8,(depthSize.height+7)/8,1);
++      ctx.changeImageLayout(m_depthFrameMinimum.image,VK_IMAGE_LAYOUT_GENERAL);
++      ctx.bindResourceView(0,m_depthTileMinimum.view,nullptr);ctx.bindResourceView(1,m_depthFrameMinimum.view,nullptr);
++      ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrDepthRangeShader::getShader());
++      ctx.dispatch(1,1,1);
+     },[&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); })) { return; }
+     timestamp(ctx,vrtiming::Stage::WarpDispatchBegin);
+     uint32_t maxSteps=0;
+     for(const auto& eye:m_frame.eyes) for(double u:{0.,1.}) for(double v:{0.,1.}) {
+       const auto start=vrmath::warpAtDepth(m_frameProjection,eye,u,v,
+-        m_frameNearestDepth*m_frame.worldUnitsPerMetre,m_frame.worldUnitsPerMetre);
++        vrmath::kMinimumSearchDepthMetres*m_frame.worldUnitsPerMetre,m_frame.worldUnitsPerMetre);
+       const auto infinity=vrmath::project(m_frameProjection,vrmath::eyeRay(eye,u,v));
+       maxSteps=std::max(maxSteps,vrmath::searchSteps(start,infinity,depth->imageInfo().extent.width,
+         depth->imageInfo().extent.height,m_warpSearchTaps));
+     }
+     if(maxSteps!=m_maxWarpSteps) {
+       m_maxWarpSteps=maxSteps;
+-      Logger::info(str::format("RTX VR warp search: ",maxSteps," intervals, ",maxSteps+1,
+-        " positions, depth ",depth->imageInfo().extent.width,"x",depth->imageInfo().extent.height));
++      Logger::info(str::format("RTX VR dynamic warp search: up to ",maxSteps," intervals, ",maxSteps+1,
++        " positions; GPU minimum chooses 0.15 m to ",m_frameNearestDepth," m, depth ",depth->imageInfo().extent.width,"x",depth->imageInfo().extent.height));
+     }
+     {
+     ScopedGpuProfileZone(&ctx, "VR eye warp");
+@@ -662,8 +680,10 @@ namespace dxvk {
+       args.eyeRow2={m[2][0],m[2][1],m[2][2],m[2][3]*m_frame.worldUnitsPerMetre};
+       args.centre={float(m_frameProjection.tanX),float(m_frameProjection.tanY),
+         float(m_frameNearestDepth*m_frame.worldUnitsPerMetre),float(m_warpSearchTaps)};
++      args.range={float(vrmath::kMinimumSearchDepthMetres*m_frame.worldUnitsPerMetre),0,0,0};
+       ctx.changeImageLayout(m_eyes[i].image,VK_IMAGE_LAYOUT_GENERAL);
+       ctx.bindResourceView(0,view,nullptr); ctx.bindResourceView(1,m_depthCoverage.view,nullptr); ctx.bindResourceView(2,m_eyes[i].view,nullptr);
++      ctx.bindResourceView(3,m_depthFrameMinimum.view,nullptr);
+       ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT,VrWarpShader::getShader());
+       ctx.pushConstants(0,sizeof(args),&args);
+       auto size=m_eyes[i].image->info().extent;
+@@ -683,6 +703,7 @@ namespace dxvk {
+       if (m_frameCaptureWhat&RTXVR_CAPTURE_CENTRE) {
+         captureImage(ctx,colour,m_frameCaptureFolder/L"centre.png");
+         captureImage(ctx,m_depthCoverage.image,m_frameCaptureFolder/L"centre_depth_coverage.png",true);
++        captureImage(ctx,m_depthFrameMinimum.image,m_frameCaptureFolder/L"frame_minimum_depth.png",true);
+         captureImage(ctx,depth->image(),m_frameCaptureFolder/L"centre_depth.png",true);
+       }
+       if (m_frameCaptureWhat&RTXVR_CAPTURE_EYES) {
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index f8f28729..f4ab749a 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -112,7 +112,7 @@ namespace dxvk {
+     std::filesystem::path m_frameCaptureFolder;
+     uint32_t m_frameCaptureWhat=0;
+     std::array<Image,2> m_eyes;
+-    Image m_depthCoverage;
++    Image m_depthCoverage,m_depthTileMinimum,m_depthFrameMinimum;
+     std::array<Timer,8> m_timers;
+     Timer* m_timer=nullptr;
+     uint32_t m_timerIndex=0;
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 83556755..b0555662 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -42,6 +42,18 @@ namespace dxvk::vrmath {
+ 
+   // Use 5 cm experiment steps: the moving Index thin-feature scene exceeds 1 ms at 0.35 m.
+   constexpr double kNearestEyeDepthMetres=0.4;
++  constexpr double kMinimumSearchDepthMetres=0.15;
++
++  inline double validDepth(double z) { return std::isfinite(z)&&std::abs(z)>0 ? std::abs(z) : 1e20; }
++  template<typename Iterator>
++  inline double frameMinimumDepth(Iterator first,Iterator last) {
++    double nearest=1e20;
++    for(;first!=last;++first) { nearest=std::min(nearest,validDepth(*first)); }
++    return nearest;
++  }
++  inline double searchDepth(double frameMinimumWorld,double unitsPerMetre,double fixedLimit=kNearestEyeDepthMetres) {
++    return std::clamp(validDepth(frameMinimumWorld),kMinimumSearchDepthMetres*unitsPerMetre,fixedLimit*unitsPerMetre);
++  }
+ 
+   inline bool centreProjection(const rtxvr_Eye eyes[2], uint32_t width, uint32_t height, float scale, Projection& out,
+                                double nearestDepth=kNearestEyeDepthMetres) {
+@@ -109,7 +121,7 @@ namespace dxvk::vrmath {
+     if(requested) { return std::clamp(requested,1u,128u); }
+     if(!width||!height) { return 64; }
+     const double span=std::max(std::abs(start[0]-infinity[0])*width,std::abs(start[1]-infinity[1])*height);
+-    return std::clamp(unsigned(std::ceil(span))+1,1u,128u);
++    return std::max(unsigned(std::ceil(span))+1,1u);
+   }
+ 
+   template<typename Depth>
+@@ -128,10 +140,13 @@ namespace dxvk::vrmath {
+   inline std::array<double, 2> warp(const Projection& p, const rtxvr_Eye& eye,
+                                   double u, double v, double unitsPerMetre, Depth depthAt, unsigned taps=0,
+                                   uint32_t depthWidth=0,uint32_t depthHeight=0,bool colourCoverage=true,
+-                                  double nearestDepth=kNearestEyeDepthMetres) {
+-    auto read=[&](double x,double y) { return colourCoverage ? colourCoverageDepth(depthAt,x,y,depthWidth,depthHeight) : depthAt(x,y); };
++                                  double nearestDepth=kNearestEyeDepthMetres,double frameMinimumWorld=1e20) {
++    auto read=[&](double x,double y) {
++      if(x<0||x>1||y<0||y>1) { return 1e20; }
++      return colourCoverage ? colourCoverageDepth(depthAt,x,y,depthWidth,depthHeight) : depthAt(x,y);
++    };
+     const auto infinity=project(p,eyeRay(eye,u,v));
+-    const double nearest=nearestDepth*unitsPerMetre;
++    const double nearest=searchDepth(frameMinimumWorld,unitsPerMetre,nearestDepth);
+     const auto start=warpAtDepth(p,eye,u,v,nearest,unitsPerMetre);
+     auto refine=[&](std::array<double,2> uv, bool& settled) {
+       for(unsigned i=0;i<8;++i) {
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang
+index 2ddc3c69..7fb426d5 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_depth_coverage.comp.slang
+@@ -1,15 +1,24 @@
+ // SPDX-License-Identifier: MIT
+ [[vk::binding(0)]] Texture2D<float> Depth;
+ [[vk::binding(1)]] RWTexture2D<float> Coverage;
++[[vk::binding(2)]] RWTexture2D<float> TileMinimum;
++groupshared uint groupMinimum;
+ float at(int2 p,uint2 size) {
+   const float z=abs(Depth.Load(int3(clamp(p,int2(0),int2(size)-1),0)));
+   return isfinite(z)&&z>0 ? z : 1e20;
+ }
+ [shader("compute")]
+ [numthreads(8,8,1)]
+-void main(uint2 id:SV_DispatchThreadID) {
++void main(uint2 id:SV_DispatchThreadID,uint2 tile:SV_GroupID,uint lane:SV_GroupIndex) {
+   uint w,h;Coverage.GetDimensions(w,h);
+-  if(any(id>=uint2(w,h))) { return; }
++  const bool inside=all(id<uint2(w,h));
++  if(lane==0) { groupMinimum=asuint(1e20); }
++  GroupMemoryBarrierWithGroupSync();
++  const float waveMinimum=WaveActiveMin(inside ? at(int2(id),uint2(w,h)) : 1e20);
++  if(WaveIsFirstLane()) { uint ignored;InterlockedMin(groupMinimum,asuint(waveMinimum),ignored); }
++  GroupMemoryBarrierWithGroupSync();
++  if(lane==0) { TileMinimum[tile]=asfloat(groupMinimum); }
++  if(!inside) { return; }
+   const float centre=at(int2(id),uint2(w,h));
+   float nearest=centre;
+   for(int y=-1;y<=1;++y) for(int x=-1;x<=1;++x) {
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_depth_range.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_depth_range.comp.slang
+new file mode 100644
+index 00000000..2fe2d830
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_depth_range.comp.slang
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: MIT
++[[vk::binding(0)]] Texture2D<float> TileMinimum;
++[[vk::binding(1)]] RWTexture2D<float> FrameMinimum;
++groupshared uint groupMinimum;
++[shader("compute")]
++[numthreads(256,1,1)]
++void main(uint lane:SV_GroupIndex) {
++  uint w,h;TileMinimum.GetDimensions(w,h);
++  float nearest=1e20;
++  for(uint i=lane;i<w*h;i+=256) {
++    nearest=min(nearest,TileMinimum.Load(int3(i%w,i/w,0)));
++  }
++  if(lane==0) { groupMinimum=asuint(1e20); }
++  GroupMemoryBarrierWithGroupSync();
++  const float waveMinimum=WaveActiveMin(nearest);
++  if(WaveIsFirstLane()) { uint ignored;InterlockedMin(groupMinimum,asuint(waveMinimum),ignored); }
++  GroupMemoryBarrierWithGroupSync();
++  if(lane==0) { FrameMinimum[uint2(0,0)]=asfloat(groupMinimum); }
++}
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+index 4428fb32..a1b3367d 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.comp.slang
+@@ -3,11 +3,13 @@
+ [[vk::binding(0)]] Texture2D<float4> Centre;
+ [[vk::binding(1)]] Texture2D<float> Depth;
+ [[vk::binding(2)]] RWTexture2D<float4> Eye;
++[[vk::binding(3)]] Texture2D<float> FrameMinimum;
+ layout(push_constant) ConstantBuffer<VrWarpArgs> cb;
+ float2 project(float3 p) {
+   return float2(0.5 + p.x/(-p.z)/(2*cb.centre.x), 0.5 - p.y/(-p.z)/(2*cb.centre.y));
+ }
+ float readDepth(float2 uv) {
++  if(any(uv<0)||any(uv>1)) { return 1e20; }
+   uint w,h; Depth.GetDimensions(w,h);
+   int2 p=clamp(int2(uv*float2(w,h)),int2(0),int2(w-1,h-1));
+   const float z=abs(Depth.Load(int3(p,0)));
+@@ -27,15 +29,16 @@ float2 atDepth(float3 origin,float3 ray,float depth) {
+ }
+ float2 nearestSample(float3 origin,float3 ray) {
+   const float2 infinity=project(ray);
+-  const float2 start=atDepth(origin,ray,cb.centre.z);
++  const float nearest=clamp(FrameMinimum.Load(int3(0,0,0)),cb.range.x,cb.centre.z);
++  const float2 start=atDepth(origin,ray,nearest);
+   uint depthWidth,depthHeight;Depth.GetDimensions(depthWidth,depthHeight);
+   const float span=max(abs(start.x-infinity.x)*depthWidth,abs(start.y-infinity.y)*depthHeight);
+-  const uint taps=cb.centre.w>0 ? clamp(uint(cb.centre.w),1u,128u) : clamp(uint(ceil(span))+1,1u,128u);
++  const uint taps=cb.centre.w>0 ? clamp(uint(cb.centre.w),1u,128u) : max(uint(ceil(span))+1,1u);
+   float previousDepth=readDepth(start);
+   for(uint i=0;i<=taps;++i) {
+     float s=1-float(i)/float(taps);
+     float2 uv=lerp(infinity,start,s);
+-    const float rayDepth=s>0 ? cb.centre.z/s : 1e20;
++    const float rayDepth=s>0 ? nearest/s : 1e20;
+     const float depth=readDepth(uv);
+     // Carry a surface across the interval containing its edge, rather than stepping past it.
+     float best=1e30;
+diff --git a/src/dxvk/shaders/rtx/pass/vr/vr_warp.h b/src/dxvk/shaders/rtx/pass/vr/vr_warp.h
+index ece68509..06a79cce 100644
+--- a/src/dxvk/shaders/rtx/pass/vr/vr_warp.h
++++ b/src/dxvk/shaders/rtx/pass/vr/vr_warp.h
+@@ -8,5 +8,6 @@ struct VrWarpArgs {
+   vec4 eyeRow1;
+   vec4 eyeRow2;
+   vec4 centre;
++  vec4 range; // minimum search depth in world units; projection extent remains fixed
+ };
+ #endif
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index e5df5af0..c54325af 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -103,6 +103,16 @@ int main() {
+   }
+ 
+   using namespace dxvk::vrmath;
++  {
++    const std::array<double,7> values {0.,std::numeric_limits<double>::quiet_NaN(),
++      std::numeric_limits<double>::infinity(),-8.,100.,0.,-12.};
++    require(frameMinimumDepth(values.begin(),values.end())==8.,"frame reduction ignores invalid depths and uses absolute view Z");
++    require(searchDepth(100,40)==16.,"far scene keeps the fixed 0.4 metre search and projection");
++    require(searchDepth(4,40)==6.,"too-close geometry clamps search to 0.15 metres");
++    require(searchDepth(8,40)==8.,"a twenty-centimetre frame expands only the search range");
++    require(searchDepth(0,40)==16.,"invalid frame reduction falls back to fixed search");
++    require(searchSteps({.7,.5},{.5,.5},1600,1400)==321,"long dynamic ranges retain one-depth-texel spacing beyond 128 intervals");
++  }
+   rtxvr_Eye eyes[] { eye(-0.0872664626, -0.032), eye(0.0872664626, 0.032) };
+   Projection p;
+   require(centreProjection(eyes, 2016, 2240, 1, p), "canted projection accepted");
+@@ -125,6 +135,30 @@ int main() {
+     }
+   }
+   rtxvr_Eye parallel[] {eye(0,-.032),eye(0,.032)};
++  {
++    Projection fixed;require(centreProjection(parallel,2468,2740,1,fixed),"fixed projection for GPU-selected near range");
++    const auto width=fixed.width,height=fixed.height;
++    unsigned fixedMisses=0;
++    for(double z:{.15,.2,.3,.4}) for(double halfWidth:{.04,.003}) for(const auto& side:parallel) {
++      auto depthAt=[&](double u,double) {return std::abs((u-.5)*2*fixed.tanX*z)<halfWidth?z:10.;};
++      unsigned missing=0,extra=0;
++      for(unsigned x=0;x<2468;++x) {
++        const double u=(x+.5)/2468;
++        const auto ideal=warpAtDepth(fixed,side,u,.5,z,1);
++        if(ideal[0]<0||ideal[0]>1) { continue; }
++        const bool expected=depthAt(ideal[0],ideal[1])==z;
++        const auto hit=warp(fixed,side,u,.5,1,depthAt,0,width/2,height/2,false,kNearestEyeDepthMetres,z);
++        const bool actual=depthAt(hit[0],hit[1])==z;
++        const auto old=warp(fixed,side,u,.5,1,depthAt,0,width/2,height/2,false);
++        fixedMisses+=expected&&depthAt(old[0],old[1])!=z;
++        missing+=expected&&!actual;extra+=!expected&&actual;
++      }
++      std::printf("dynamic near %.2f eye %.3f missing %u extra %u\n",z,side.eyeToHead.m[0][3],missing,extra);
++      require(missing==0&&extra==0,"dynamic search preserves close silhouettes inside the fixed centre projection");
++      require(fixed.width==width&&fixed.height==height,"close depth never widens the centre projection");
++    }
++    require(fixedMisses>0,"a fixed search range demonstrably loses close thin foreground");
++  }
+   Projection finite;
+   require(centreProjection(parallel,2016,2240,1,finite), "parallel-eye near projection accepted");
+   for(const auto& side:parallel) {
+-- 
+2.56.0.windows.1
+

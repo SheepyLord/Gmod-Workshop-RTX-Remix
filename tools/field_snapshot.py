@@ -239,11 +239,11 @@ def steam_manager(root: Path) -> str | None:
     return None
 
 
-def depot_inventory(root: Path, manifests_from: str | None) -> tuple[dict[str, bool] | None, list[Path], str]:
+def depot_inventory(root: Path, manifests_from: str | None, manifest_paths=None) -> tuple[dict[str, bool] | None, list[Path], str]:
     """({lower-case path: user-config flag} of every file Steam's depots list for the install, the
     manifests, ""), or (None, [], why not) when they cannot be read."""
     try:
-        manifests = list(locate_install(manifests_from or root).manifests)
+        manifests = [Path(p) for p in manifest_paths] if manifest_paths else list(locate_install(manifests_from or root).manifests)
         if not manifests:
             raise ValueError("the app manifest lists no installed depot")
         files: dict[str, bool] = {}
@@ -472,6 +472,20 @@ def restore_registry(folder: Path, info: dict) -> dict:
 
 # ---------------------------------------------------------------- steps
 
+def validate_manifest_pin(root, manifests):
+    """A caller-supplied inventory cannot change protection until it matches stock bytes."""
+    if not manifests:
+        raise Failure("explicit manifest does not match install: empty depot list")
+    try:
+        found=verify_depots(root,manifests)
+    except (OSError,ValueError) as error:
+        raise Failure(f"explicit manifest does not match install: {error}") from error
+    failed={key:found.get(key,[]) for key in ("missing","size_mismatch","hash_mismatch","reparse_point","unverified")}
+    if not found.get("ok") or any(failed.values()):
+        counts=", ".join(f"{key}={len(value)}" for key,value in failed.items() if value)
+        raise Failure("explicit manifest does not match install; nothing changed: "+(counts or "no stock files verified"))
+
+
 def snapshot(args) -> dict:
     root, folder = Path(args.root).resolve(), Path(args.snapshot)
     if (folder / "snapshot.json").exists():
@@ -485,22 +499,27 @@ def snapshot(args) -> dict:
                       "and a rename cannot cross volumes")
     if game_running(root):
         raise Failure("a game from this install is running")
+    if args.no_depot_check and getattr(args,'manifest',None):
+        raise Failure("explicit manifest cannot be combined with --no-depot-check; nothing changed")
     manager = steam_manager(root)
     inventory, why = None, "--no-depot-check"
     if not args.no_depot_check:
-        inventory, _, why = depot_inventory(root, args.manifests_from)
+        inventory, manifests, why = depot_inventory(root, args.manifests_from, getattr(args,'manifest',None))
         if inventory is None and (manager or args.manifests_from):
             source = f"Steam manages {root} ({manager})" if manager else f"--manifests-from {args.manifests_from} was given"
             raise Failure(f"{source}, but its depot manifests cannot be read: {why}. Without them the snapshot cannot tell "
                           "Steam's files from yours. Let Steam finish updating or verifying the game so it caches them, or "
                           "pass --no-depot-check (recorded in the snapshot; its rollback never reports clean unless the "
                           "manifests can be read by then).")
+    if getattr(args,'manifest',None):
+        validate_manifest_pin(root,manifests)
     key_exists = subprocess.run(["reg", "query", args.registry_key], capture_output=True).returncode == 0
     folder.mkdir(parents=True, exist_ok=True)
     state: dict = {"schema": SCHEMA, "root": str(root), "taken": stamp(), "manifests_from": args.manifests_from,
                    "steam_managed": manager, "depot_check": inventory is not None, "no_depot_check": bool(args.no_depot_check),
                    "kept": {}, "listed": {}, "watched": {}, "loader_paths": {},
                    "registry": {"key": args.registry_key, "existed": key_exists}}
+    if getattr(args,'manifest',None):state['manifest_paths']=[str(Path(p).resolve()) for p in args.manifest]
     # A key that exists but cannot be exported must not later count as absent (rollback deletes those);
     # one rollback could not read back would leave it unrestorable.
     if key_exists:
@@ -576,7 +595,9 @@ def rollback(args) -> dict:
                       "into it; move it back first. Nothing was changed")
     manager = steam_manager(root) or state["steam_managed"]
     depots_expected = bool(manager or state["manifests_from"])
-    inventory, manifests, why = depot_inventory(root, state["manifests_from"])
+    inventory, manifests, why = depot_inventory(root, state["manifests_from"],getattr(args,'manifest',None) or state.get('manifest_paths'))
+    if getattr(args,'manifest',None) or state.get('manifest_paths'):
+        validate_manifest_pin(root,manifests)
 
     def unwritable(rel: str, info: dict) -> str | None:
         """Why a kept file must not be written back, or None."""
@@ -745,11 +766,13 @@ def main(argv=None) -> int:
     s.add_argument("--root", default=str(DEFAULT_ROOT), help="the install (default: the field install)")
     s.add_argument("--registry-key", default=REGISTRY_KEY, help="registry key exported and restored (default: GMod's settings)")
     s.add_argument("--manifests-from", help="the Steam install whose depot manifests describe this one (for a copy such as the PoC)")
+    s.add_argument('--manifest',action='append',help='explicit cached stock depot manifest for a pinned copy; full verification still required')
     s.add_argument("--no-depot-check", action="store_true",
                    help="snapshot without reading Steam's depot manifests, even when Steam manages the install (recorded; "
                         "its rollback is never clean unless it can read them)")
     r = sub.add_parser("rollback")
     r.add_argument("--config", default="Release", choices=["Debug", "Release"], help="build whose uninstaller identity to use")
+    r.add_argument('--manifest',action='append',help='explicit stock manifest for recovery of a copy predating a field update')
     args = parser.parse_args(argv)
     try:
         result = snapshot(args) if args.action == "snapshot" else rollback(args)

@@ -3225,3 +3225,39 @@ Runtime patch 0086 ([ADR 0195](decisions/0195-the-mod-loader-keeps-its-texture-r
 - **Results** ([report](handover/mod-load-cache-report.md)): 19 mods, 9,042 files: 11.5 s to 1.36 s at a start with an
   empty file cache, 1.83 s to 1.09 s warm; every entry matched its file; the pinned view differs as little as two
   starts of one build.
+
+### VR V6: the quality ladder and Auto controller
+
+`companion/tests/vr_perf_test.py` runs [`vr_perf_harness.lua`](../companion/tests/vr_perf_harness.lua.md) under LuaJIT:
+the ladder's order, ceiling and start rules, and the controller's down and up steps, cool-down (with a controller
+lacking one that the check must catch), bounds, window averaging and that a rate wavering around the target never
+moves it. The native suite adds `V6 quality` (the module hands a step to the runtime and reports a refusal) and the
+API 4 layout (`rtxvr_Quality` 24 bytes, `rtxvr_Status` 488). The runtime's `test_vr_math.cpp` checks
+`vrpolicy::validQuality` and that the top step is V1's preset.
+
+The gate reaches the companion-owned V6 and V7 tests through `tools/tests/test_companion_vr_perf.py`. Since the first
+PoC runs the harness also holds Auto when frames are missed while the GPU has room (`control_cpu_bound`, with a
+controller that ignores the GPU, which must fail) and settles at SteamVR's half-rate lock as the Index measures it
+(`control_half_rate`, 44.1 to 45.1 of 45, which a 0.99 keep ratio never settles); the status is 496 bytes with
+`gpuMsWork` and `stereoActive` (runtime patch 0088).
+
+PoC: [`vr_quality_poc.py`](../companion/tests/vr_quality_poc.py.md) pins each step and checks the runtime applied it,
+then stages the measurement through `nlvr.Info` (GMod blocks `fps_max` from Lua): a miss while the GPU has room must
+hold, a GPU-bound load must walk to the floor one rung per cool-down, and the session's own readings must climb back to
+the top and stay; `runtime_follows_auto` compares the runtime's applied step with Auto's choice. Simulated and on the
+Index at its current 90 Hz.
+
+### VR V7: true stereo
+
+The runtime's `test_vr_math.cpp` checks the eye camera against the warp's own eye rays: a ray through eye pixel (u, v)
+lands on (u, v) through the eye's off-centre projection in both handednesses, the eye's view rotates into the centre
+view as the warp's rays do, the offset is in world units, and the aerial perspective basis spans the eye's frustum;
+`vrpolicy::stereoAllowed` needs Ray Reconstruction and the physical sky. The native suite passes the step's `stereo`
+flag through to the runtime; the Lua framework case checks the `stereo` setting.
+
+PoC: [`vr_stereo_poc.py`](../companion/tests/vr_stereo_poc.py.md) runs the warp, true stereo, the warp and stereo again
+at one pinned step, captures both eyes in each phase, and checks that the runtime's mode follows the switch, that each
+stereo eye correlates with its own warped eye (0.80 or more at 96 x 96, better than the other eye: nothing swapped,
+mirrored or misplaced), that the stereo eyes differ by their disparity but share their brightness, and that the second
+eye costs GPU work. `vr_stereo_test.py` shows each of those checks failing on a synthetic record that breaks it.
+

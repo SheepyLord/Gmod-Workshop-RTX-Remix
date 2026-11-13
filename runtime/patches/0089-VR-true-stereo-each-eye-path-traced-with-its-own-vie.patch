@@ -1,0 +1,1216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Fri, 13 Nov 2026 04:41:35 -0700
+Subject: [PATCH] VR true stereo: each eye path traced with its own view state
+
+V7 (ADR 0198): with RTXVR_QUALITY_TRUE_STEREO and Ray Reconstruction, the
+frame is path traced once per eye instead of warping one centre view.
+
+- rtx_vr_eye.h: the eye the render thread is tracing (-1 centre, 0 left,
+  1 right). The left eye keeps the default view state; the right eye's
+  Resources, ReSTIR GI, Ray Reconstruction, NRC and SHaRC are a second set
+  in DxvkObjects, selected by the existing accessors, so every pass and
+  shader runs unchanged and each eye's histories advance once a frame.
+  The right eye's Resources reads the frame's TLAS, noise, sky probe and
+  matte from the default state.
+- CameraManager: each eye's camera stands in for Main while that eye is
+  traced; both follow the centre camera once a frame from the eye's offset
+  and its own off-centre frustum (vrmath::eyeToCentreView, eyeProjection,
+  unit-tested against the warp's eye rays).
+- RtxContext::injectRTX traces one view per call of a local pass chain:
+  the centre, or each eye in turn. The sky's integrators and the froxel
+  volumetrics run once, on the centre camera; each eye fits the aerial
+  perspective volume to its own frustum and keeps its own cloud history;
+  auto exposure adapts once, from the left eye.
+- RtxVr copies each eye's picture into its eye image and submits as before;
+  the right eye writes no timestamps, so the profile's total covers both.
+- The NRC library starts with the first context and stops with the last,
+  so each eye's cache can exist at once.
+---
+ src/dxvk/dxvk_device.cpp                   |  29 +++++
+ src/dxvk/dxvk_objects.h                    |  34 ++++++
+ src/dxvk/rtx_render/rtx_atmosphere.cpp     |  50 ++++++++-
+ src/dxvk/rtx_render/rtx_atmosphere.h       |  24 ++--
+ src/dxvk/rtx_render/rtx_camera_manager.cpp |  16 +++
+ src/dxvk/rtx_render/rtx_camera_manager.h   |  17 ++-
+ src/dxvk/rtx_render/rtx_context.cpp        |  88 +++++++++++++--
+ src/dxvk/rtx_render/rtx_context.h          |   5 +
+ src/dxvk/rtx_render/rtx_nrc_context.cpp    |  24 +++-
+ src/dxvk/rtx_render/rtx_nrc_context.h      |   3 +
+ src/dxvk/rtx_render/rtx_resources.cpp      |   8 ++
+ src/dxvk/rtx_render/rtx_resources.h        |  12 +-
+ src/dxvk/rtx_render/rtx_vr.cpp             | 123 +++++++++++++++++++--
+ src/dxvk/rtx_render/rtx_vr.h               |  13 +++
+ src/dxvk/rtx_render/rtx_vr_api.h           |   1 +
+ src/dxvk/rtx_render/rtx_vr_eye.h           |  21 ++++
+ src/dxvk/rtx_render/rtx_vr_math.h          |  36 ++++++
+ src/dxvk/rtx_render/rtx_vr_policy.h        |   8 +-
+ tests/rtx/unit/test_vr_math.cpp            |  46 +++++++-
+ 19 files changed, 523 insertions(+), 35 deletions(-)
+ create mode 100644 src/dxvk/rtx_render/rtx_vr_eye.h
+
+diff --git a/src/dxvk/dxvk_device.cpp b/src/dxvk/dxvk_device.cpp
+index 3acff68b..7dd3dfd5 100644
+--- a/src/dxvk/dxvk_device.cpp
++++ b/src/dxvk/dxvk_device.cpp
+@@ -605,6 +605,32 @@ namespace dxvk {
+     return *m_textureManager;
+   }
+ 
++  // NV-DXVK start: VR true stereo
++  void DxvkObjects::createRightEyeState() {
++    if (m_rightEye) { return; }
++    auto eye = std::make_unique<RightEyeState>();
++    eye->resources = std::make_unique<Resources>(m_device);
++    // The TLAS, noise, sky probe and matte belong to the frame, not to a view: the default state keeps them.
++    eye->resources->shareGlobalsWith(&m_rtResources);
++    m_rightEye = std::move(eye);
++    // A pass registers its frame and resize events with the state getResources() returns while it is made.
++    vreye::Scope right(1);
++    m_rightEye->restirgi = std::make_unique<DxvkReSTIRGIRayQuery>(m_device);
++    m_rightEye->rayReconstruction = std::make_unique<DxvkRayReconstruction>(m_device);
++    m_rightEye->nrc = std::make_unique<NeuralRadianceCache>(m_device);
++    m_rightEye->sharc = std::make_unique<SpatiallyHashedRadianceCache>(m_device);
++    Logger::info("RTX VR true stereo: the right eye's view state was made");
++  }
++
++  void DxvkObjects::releaseRightEyeState() {
++    if (!m_rightEye) { return; }
++    m_device->waitForIdle();
++    if (m_rightEye->rayReconstruction) { m_rightEye->rayReconstruction->onDestroy(); }
++    m_rightEye.reset();
++    Logger::info("RTX VR true stereo: the right eye's view state was released");
++  }
++  // NV-DXVK end
++
+   void DxvkObjects::onDestroy() {
+     // NV-DXVK start: Retire VR before common query/image allocators are destroyed
+     metaVr().onDestroy();
+@@ -621,6 +647,9 @@ namespace dxvk {
+     m_referenceDenoiserSecondLobe0.get().onDestroy();
+     m_referenceDenoiserSecondLobe1.get().onDestroy();
+     m_referenceDenoiserSecondLobe2.get().onDestroy();
++    // NV-DXVK start: VR true stereo
++    releaseRightEyeState();
++    // NV-DXVK end
+     m_rayReconstruction.get().onDestroy();
+     m_dlssNeuralRendering.get().onDestroy();
+     m_dlss.get().onDestroy();
+diff --git a/src/dxvk/dxvk_objects.h b/src/dxvk/dxvk_objects.h
+index e965a15b..3b573ff1 100644
+--- a/src/dxvk/dxvk_objects.h
++++ b/src/dxvk/dxvk_objects.h
+@@ -23,6 +23,7 @@
+ 
+ // NV-DXVK start: On-demand VR output
+ #include "rtx_render/rtx_vr.h"
++#include "rtx_render/rtx_vr_eye.h"
+ // NV-DXVK end
+ #include "dxvk_gpu_event.h"
+ #include "dxvk_gpu_query.h"
+@@ -111,6 +112,12 @@ namespace dxvk {
+ 
+     // NV-DXVK start: On-demand VR output
+     RtxVr& metaVr() { return m_vr.get(); }
++    // VR true stereo: the right eye's view state, its ray-tracing outputs and the passes that keep per-pixel
++    // history. The left eye keeps the default state. Made on the render thread when true stereo starts, and
++    // selected while that thread traces the right eye (rtx_vr_eye.h).
++    bool hasRightEyeState() const { return m_rightEye != nullptr; }
++    void createRightEyeState();
++    void releaseRightEyeState();
+     // NV-DXVK end
+ 
+     DxvkMemoryAllocator& memoryManager() {
+@@ -190,6 +197,9 @@ namespace dxvk {
+     }
+ 
+     DxvkReSTIRGIRayQuery& metaReSTIRGIRayQuery() {
++      // NV-DXVK start: VR true stereo
++      if (rightEye() && m_rightEye->restirgi) { return *m_rightEye->restirgi; }
++      // NV-DXVK end
+       return m_restirgiRayQuery.get();
+     }
+ 
+@@ -210,10 +220,16 @@ namespace dxvk {
+     }
+ 
+     NeuralRadianceCache& metaNeuralRadianceCache() {
++      // NV-DXVK start: VR true stereo
++      if (rightEye() && m_rightEye->nrc) { return *m_rightEye->nrc; }
++      // NV-DXVK end
+       return m_neuralRadianceCache.get();
+     }
+ 
+     SpatiallyHashedRadianceCache& metaSpatiallyHashedRadianceCache() {
++      // NV-DXVK start: VR true stereo
++      if (rightEye() && m_rightEye->sharc) { return *m_rightEye->sharc; }
++      // NV-DXVK end
+       return m_spatiallyHashedRadianceCache.get();
+     }
+ 
+@@ -254,6 +270,9 @@ namespace dxvk {
+     }
+ 
+     DxvkRayReconstruction& metaRayReconstruction() {
++      // NV-DXVK start: VR true stereo
++      if (rightEye() && m_rightEye->rayReconstruction) { return *m_rightEye->rayReconstruction; }
++      // NV-DXVK end
+       return m_rayReconstruction.get();
+     }
+ 
+@@ -338,6 +357,9 @@ namespace dxvk {
+     }
+ 
+     Resources& getResources() {
++      // NV-DXVK start: VR true stereo
++      if (rightEye() && m_rightEye->resources) { return *m_rightEye->resources; }
++      // NV-DXVK end
+       return m_rtResources;
+     }
+ 
+@@ -477,5 +499,17 @@ namespace dxvk {
+     Lazy<RtxPointInstancerSystem>            m_pointInstancerSystem;
+ 
+     std::atomic<HWND>                       m_lastKnownWindowHandle;
++
++    // NV-DXVK start: VR true stereo
++    struct RightEyeState {
++      std::unique_ptr<Resources> resources;
++      std::unique_ptr<DxvkReSTIRGIRayQuery> restirgi;
++      std::unique_ptr<DxvkRayReconstruction> rayReconstruction;
++      std::unique_ptr<NeuralRadianceCache> nrc;
++      std::unique_ptr<SpatiallyHashedRadianceCache> sharc;
++    };
++    std::unique_ptr<RightEyeState> m_rightEye;
++    bool rightEye() const { return vreye::active() == 1 && m_rightEye != nullptr; }
++    // NV-DXVK end
+   };
+ }
+diff --git a/src/dxvk/rtx_render/rtx_atmosphere.cpp b/src/dxvk/rtx_render/rtx_atmosphere.cpp
+index fb4c9f84..7604bd57 100644
+--- a/src/dxvk/rtx_render/rtx_atmosphere.cpp
++++ b/src/dxvk/rtx_render/rtx_atmosphere.cpp
+@@ -30,6 +30,7 @@
+ #include "rtx_light_manager.h"
+ #include "rtx_camera.h"
+ #include "rtx_global_volumetrics.h"
++#include "rtx_vr_math.h"
+ #include "rtx_render/rtx_shader_manager.h"
+ #include "rtx/pass/common_binding_indices.h"
+ #include "rtx/pass/atmosphere/transmittance_lut_binding_indices.h"
+@@ -2096,6 +2097,40 @@ void RtxAtmosphere::setAerialPerspectiveCamera(const RtCamera& camera) {
+   m_apCameraUp = camera.getUp(/*freecam=*/true) * tanHalfFovY;
+ }
+ 
++// NV-DXVK start: VR true stereo
++void RtxAtmosphere::fitAerialPerspective(RtxContext& ctx, const RtCamera& eyeCamera, float left, float right, float top,
++                                         float bottom, AtmosphereArgs& args) {
++  // The shader's direction for screen ndc (x, y) is forward + right * x + up * y. An off-centre frustum is that
++  // with forward shifted, so the eye's volume needs nothing else; its forward component along the optical axis
++  // stays one, which the slice mapping relies on.
++  rtxvr_Eye edges {};
++  edges.tanLeft = left; edges.tanRight = right; edges.tanTop = top; edges.tanBottom = bottom;
++  const Vector3 f = eyeCamera.getDirection(/*freecam=*/true);
++  const Vector3 r = eyeCamera.getRight(/*freecam=*/true);
++  const Vector3 u = eyeCamera.getUp(/*freecam=*/true);
++  vrmath::Vec3 forward {}, rightScaled {}, upScaled {};
++  vrmath::eyeFrustumBasis(edges, { f.x, f.y, f.z }, { r.x, r.y, r.z }, { u.x, u.y, u.z }, forward, rightScaled, upScaled);
++  m_apCameraPosition = eyeCamera.getPosition(/*freecam=*/false);
++  m_apCameraForward = Vector3(float(forward.x), float(forward.y), float(forward.z));
++  m_apCameraRight = Vector3(float(rightScaled.x), float(rightScaled.y), float(rightScaled.z));
++  m_apCameraUp = Vector3(float(upScaled.x), float(upScaled.y), float(upScaled.z));
++  args.cameraPosition = m_apCameraPosition;
++  args.cameraForward = m_apCameraForward;
++  args.cameraRight = m_apCameraRight;
++  args.cameraUp = m_apCameraUp;
++  if (RtxOptions::skyMode() != SkyMode::Numos || !RtxAtmosphere::aerialPerspective()) {
++    return;
++  }
++  Rc<DxvkContext> context(&ctx);
++  dispatchAerialPerspectiveLut(context);
++  context->emitMemoryBarrier(0,
++    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
++    VK_ACCESS_SHADER_WRITE_BIT,
++    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
++    VK_ACCESS_SHADER_READ_BIT);
++}
++// NV-DXVK end
++
+ // In-scatter toward the camera in RGB, mean transmittance in A. Camera-frustum-fitted, so it is
+ // rebuilt every frame rather than on parameter change; consumed by the composite to haze geometry.
+ void RtxAtmosphere::createAerialPerspectiveLut(Rc<DxvkContext> ctx, uint32_t sizeXY, uint32_t sizeZ) {
+@@ -2900,15 +2935,18 @@ void RtxAtmosphere::onFrameAdvanceForCloudHistory(uint32_t currentFrameId) {
+ }
+ 
+ void RtxAtmosphere::ensureCloudHistoryResources(Rc<DxvkContext> ctx, const VkExtent3D& downscaledExtent) {
++  // NV-DXVK start: VR true stereo: the view being traced owns its history.
++  const int slot = cloudSlot();
++  // NV-DXVK end
+   // Bail on degenerate extents (can happen during early frames before resize
+   // events have settled) — we'll allocate on a later frame.
+   if (downscaledExtent.width == 0u || downscaledExtent.height == 0u) {
+     return;
+   }
+ 
+-  const bool extentsMatch = (m_cloudHistoryExtent.width == downscaledExtent.width)
+-                         && (m_cloudHistoryExtent.height == downscaledExtent.height);
+-  if (extentsMatch && m_cloudHistory[0].isValid() && m_cloudHistory[1].isValid()) {
++  const bool extentsMatch = (m_cloudHistoryExtent[slot].width == downscaledExtent.width)
++                         && (m_cloudHistoryExtent[slot].height == downscaledExtent.height);
++  if (extentsMatch && m_cloudHistory[slot][0].isValid() && m_cloudHistory[slot][1].isValid()) {
+     return;
+   }
+ 
+@@ -2921,7 +2959,7 @@ void RtxAtmosphere::ensureCloudHistoryResources(Rc<DxvkContext> ctx, const VkExt
+       "Atmosphere Cloud History 0",
+       "Atmosphere Cloud History 1",
+     };
+-    m_cloudHistory[i] = Resources::createImageResource(
++    m_cloudHistory[slot][i] = Resources::createImageResource(
+       ctx,
+       names[i],
+       extent,
+@@ -2951,7 +2989,7 @@ void RtxAtmosphere::ensureCloudHistoryResources(Rc<DxvkContext> ctx, const VkExt
+       "Atmosphere Cloud History Frame ID 0",
+       "Atmosphere Cloud History Frame ID 1",
+     };
+-    m_cloudHistoryFrameId[i] = Resources::createImageResource(
++    m_cloudHistoryFrameId[slot][i] = Resources::createImageResource(
+       ctx,
+       frameIdNames[i],
+       extent,
+@@ -2966,7 +3004,7 @@ void RtxAtmosphere::ensureCloudHistoryResources(Rc<DxvkContext> ctx, const VkExt
+     );
+   }
+ 
+-  m_cloudHistoryExtent = extent;
++  m_cloudHistoryExtent[slot] = extent;
+ }
+ 
+ AtmosphereArgs RtxAtmosphere::updateFrame(RtxContext& ctx,
+diff --git a/src/dxvk/rtx_render/rtx_atmosphere.h b/src/dxvk/rtx_render/rtx_atmosphere.h
+index e57b070e..28f81fb2 100644
+--- a/src/dxvk/rtx_render/rtx_atmosphere.h
++++ b/src/dxvk/rtx_render/rtx_atmosphere.h
+@@ -26,6 +26,7 @@
+ #include "rtx_common_object.h"
+ #include "rtx/pass/atmosphere/atmosphere_args.h"
+ #include "rtx_option.h"
++#include "rtx_vr_eye.h"
+ 
+ #include <atomic>
+ 
+@@ -77,6 +78,12 @@ public:
+   // shape as setCloudShadowCameraPosition: call once per frame before computeLuts, since the const
+   // getAtmosphereArgs() runs many times per frame and cannot derive this itself.
+   void setAerialPerspectiveCamera(const RtCamera& camera);
++  // NV-DXVK start: VR true stereo
++  // An eye's aerial perspective volume: fitted to its off-centre frustum (tangents of its edges) and baked again,
++  // after the frame's centre update. Writes the eye's basis into `args`.
++  void fitAerialPerspective(RtxContext& ctx, const RtCamera& eyeCamera, float left, float right, float top, float bottom,
++                            AtmosphereArgs& args);
++  // NV-DXVK end
+ 
+   // 2D R16F baked per frame; attenuates sky-view radiance by cloud coverage per hemisphere direction.
+   Resources::Resource getCloudSkyTransmittanceLut() const { return m_cloudSkyTransmittanceLut; }
+@@ -115,12 +122,12 @@ public:
+   // Advance the ping-pong index once per frame. Idempotent within a frame — safe to call from each raygen-bind site.
+   void onFrameAdvanceForCloudHistory(uint32_t currentFrameId);
+ 
+-  const Resources::Resource& getCurrentCloudHistory() const { return m_cloudHistory[m_cloudHistorySwap ? 1u : 0u]; }
+-  const Resources::Resource& getPreviousCloudHistory() const { return m_cloudHistory[m_cloudHistorySwap ? 0u : 1u]; }
++  const Resources::Resource& getCurrentCloudHistory() const { return m_cloudHistory[cloudSlot()][m_cloudHistorySwap ? 1u : 0u]; }
++  const Resources::Resource& getPreviousCloudHistory() const { return m_cloudHistory[cloudSlot()][m_cloudHistorySwap ? 0u : 1u]; }
+ 
+   // R16_UINT per-pixel last-write frame index; evalSkyRadiance rejects stale history at foreground-occluded pixels.
+-  const Resources::Resource& getCurrentCloudHistoryFrameId() const { return m_cloudHistoryFrameId[m_cloudHistorySwap ? 1u : 0u]; }
+-  const Resources::Resource& getPreviousCloudHistoryFrameId() const { return m_cloudHistoryFrameId[m_cloudHistorySwap ? 0u : 1u]; }
++  const Resources::Resource& getCurrentCloudHistoryFrameId() const { return m_cloudHistoryFrameId[cloudSlot()][m_cloudHistorySwap ? 1u : 0u]; }
++  const Resources::Resource& getPreviousCloudHistoryFrameId() const { return m_cloudHistoryFrameId[cloudSlot()][m_cloudHistorySwap ? 0u : 1u]; }
+ 
+   AtmosphereArgs getAtmosphereArgs() const;
+ 
+@@ -1365,11 +1372,14 @@ private:
+   static std::atomic<bool> s_lightningStrikeRequested;
+ 
+   // Ping-pong cloud history: [swap?1:0] = write target this frame, [swap?0:1] = read source.
+-  Resources::Resource m_cloudHistory[2];
++  // NV-DXVK start: VR true stereo: [view][ping-pong]; view 1 is the right eye's, which reprojects its own camera.
++  Resources::Resource m_cloudHistory[2][2];
++  static int cloudSlot() { return vreye::active() == 1 ? 1 : 0; }
++  // NV-DXVK end
+   // R16_UINT per-pixel last-write frame index. Without this, the alpha-only disocclusion guard
+   // misidentifies stale history at foreground-occluded pixels and produces ~30-frame ghost trails.
+-  Resources::Resource m_cloudHistoryFrameId[2];
+-  VkExtent3D          m_cloudHistoryExtent = { 0u, 0u, 0u };
++  Resources::Resource m_cloudHistoryFrameId[2][2];
++  VkExtent3D          m_cloudHistoryExtent[2] = { { 0u, 0u, 0u }, { 0u, 0u, 0u } };
+   bool                m_cloudHistorySwap = false;
+   uint32_t            m_cloudHistoryLastFrameId = UINT32_MAX;
+ 
+diff --git a/src/dxvk/rtx_render/rtx_camera_manager.cpp b/src/dxvk/rtx_render/rtx_camera_manager.cpp
+index 8b4cf2dd..89e63393 100644
+--- a/src/dxvk/rtx_render/rtx_camera_manager.cpp
++++ b/src/dxvk/rtx_render/rtx_camera_manager.cpp
+@@ -164,6 +164,22 @@ namespace dxvk {
+     }
+ 
+ 
++    // NV-DXVK start: VR true stereo
++    // Each eye's camera follows the centre's once a frame, from the eye's offset and its own off-centre frustum.
++    if (shouldUpdateMainCamera && !isPlaying && !isBrowsing && m_device->getCommon()->metaVr().stereoCameras()) {
++      for (int eye = 0; eye < 2; ++eye) {
++        Matrix4 eyeWorldToView, eyeProjection;
++        float eyeFov = 0, eyeAspect = 0;
++        if (m_device->getCommon()->metaVr().eyeView(eye, worldToView, viewToProjection, decomposeProjectionParams.isLHS,
++                                                     eyeWorldToView, eyeProjection, eyeFov, eyeAspect)) {
++          m_eyeCameras[eye].setCameraType(CameraType::Main);
++          m_eyeCameras[eye].update(frameId, eyeWorldToView, eyeProjection, eyeFov, eyeAspect,
++            decomposeProjectionParams.nearPlane, decomposeProjectionParams.farPlane, decomposeProjectionParams.isLHS);
++        }
++      }
++    }
++    // NV-DXVK end
++
+     if (shouldUpdateMainCamera && RtCameraSequence::mode() == RtCameraSequence::Mode::Record) {
+       auto& setting = camera.getSetting();
+       cameraSequence->addRecord(setting);
+diff --git a/src/dxvk/rtx_render/rtx_camera_manager.h b/src/dxvk/rtx_render/rtx_camera_manager.h
+index b377a0a0..1d02ce15 100644
+--- a/src/dxvk/rtx_render/rtx_camera_manager.h
++++ b/src/dxvk/rtx_render/rtx_camera_manager.h
+@@ -26,6 +26,7 @@
+ #include "rtx_types.h"
+ #include "rtx_common_object.h"
+ #include "rtx_matrix_helpers.h"
++#include "rtx_vr_eye.h"
+ 
+ namespace dxvk {
+   class DxvkDevice;
+@@ -48,6 +49,13 @@ namespace dxvk {
+     const RtCamera& getMainCamera() const { return getCamera(CameraType::Main); }
+     RtCamera& getMainCamera() { return getCamera(CameraType::Main); }
+ 
++    // NV-DXVK start: VR true stereo
++    // Each eye's camera stands in for Main while that eye is traced (rtx_vr_eye.h); the centre camera is Main.
++    RtCamera& getEyeCamera(int eye) { return m_eyeCameras[eye]; }
++    const RtCamera& getEyeCamera(int eye) const { return m_eyeCameras[eye]; }
++    RtCamera& getCentreCamera() { return m_cameras[CameraType::Main]; }
++    // NV-DXVK end
++
+     CameraType::Enum getLastSetCameraType() const { return m_lastSetCameraType; }
+     
+     bool isCameraValid(CameraType::Enum cameraType) const;
+@@ -72,7 +80,11 @@ namespace dxvk {
+       // still try to retrieve a camera corresponding to a DrawCall object.
+       // In that case it will read from the Main camera.
+       // This is OK as we never update Unknown camera directly.
+-      if (cameraType == CameraType::Unknown) {
++      if (cameraType == CameraType::Unknown || cameraType == CameraType::Main) {
++        // NV-DXVK start: VR true stereo
++        const int eye = vreye::active();
++        if (eye == 0 || eye == 1) { return cameraManager.m_eyeCameras[eye]; }
++        // NV-DXVK end
+         return cameraManager.m_cameras[CameraType::Main];
+       }
+       return cameraManager.m_cameras[cameraType];
+@@ -80,6 +92,9 @@ namespace dxvk {
+ 
+   private:
+     std::array<RtCamera, CameraType::Count> m_cameras;
++    // NV-DXVK start: VR true stereo
++    std::array<RtCamera, 2> m_eyeCameras;
++    // NV-DXVK end
+     CameraType::Enum m_lastSetCameraType = CameraType::Unknown;
+     float m_gameMainFov = 0;
+     uint32_t m_lastCameraCutFrameId = -1;
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index 72abdf2f..60cb433b 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -31,6 +31,7 @@
+ #include "rtx_shader_manager.h"
+ #include "dxvk_adapter.h"
+ #include "rtx_context.h"
++#include "rtx_vr_eye.h"
+ #include "rtx_asset_exporter.h"
+ #include "rtx_options.h"
+ #include "rtx_bindless_resource_manager.h"
+@@ -309,6 +310,11 @@ namespace dxvk {
+     dlssnr.setDlssNeuralRenderingSettings(displaySize);
+ 
+     // Set resolution to cameras for jittering
++    // NV-DXVK start: VR true stereo
++    for (int eye = 0; eye < 2; ++eye) {
++      getSceneManager().getCameraManager().getEyeCamera(eye).setResolution(renderSize, displaySize);
++    }
++    // NV-DXVK end
+     for (int i = 0; i < CameraType::Count; i++) {
+       if (i == CameraType::Unknown) {
+         continue;
+@@ -464,11 +470,18 @@ namespace dxvk {
+ 
+   void RtxContext::onInjectRtxFrameEnd(bool rayTracedThisFrame) {
+     if (rayTracedThisFrame) {
++      // NV-DXVK start: VR true stereo: each eye's view state ends its frame.
++      for (int eye = m_tracedStereo ? 0 : -1; eye <= (m_tracedStereo ? 1 : -1); ++eye) {
++        vreye::Scope view(eye);
++      // NV-DXVK end
+       Resources::RaytracingOutput& rtOutput = getResourceManager().getRaytracingOutput();
+ 
+       m_common->metaNeuralRadianceCache().onFrameEnd(rtOutput);
+       m_common->metaSpatiallyHashedRadianceCache().onFrameEnd(rtOutput);
+       rtOutput.onFrameEnd();
++      // NV-DXVK start: VR true stereo
++      }
++      // NV-DXVK end
+     }
+ 
+     getSceneManager().onFrameEnd(this, rayTracedThisFrame);
+@@ -698,7 +711,13 @@ namespace dxvk {
+       
+       // If we really don't have any RT to do, just bail early (could be UI/menus rendering)
+       if (getSceneManager().getSurfaceBuffer() != nullptr) {
+-
++        // NV-DXVK start: VR true stereo
++        // One view's passes, from its frame begin to its debug view. The flat game and the warp trace the centre
++        // (eye -1). True stereo traces each eye with its own view state (rtx_vr_eye.h); the frame's shared work
++        // happens once: the scene above, and the sky's integrators and the froxel volumetrics, which follow the
++        // centre camera, in the left eye's pass.
++        auto traceView = [&](const int eye, Rc<DxvkImageView>& linearViewZ) -> Rc<DxvkImage> {
++        // NV-DXVK end
+         VkExtent3D downscaledExtent = onInjectRtxFrameBegin(outputExtent);
+         if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::PathBegin); }
+ 
+@@ -719,7 +738,12 @@ namespace dxvk {
+         updateRaytraceArgsConstantBuffer(rtOutput, downscaledExtent, outputExtent);
+ 
+         // Volumetric Lighting
+-        dispatchVolumetrics(rtOutput);
++        // NV-DXVK start: VR true stereo
++        // Once a frame: in true stereo the left eye's pass integrates the froxel grid both eyes read.
++        if (eye != 1) {
++          dispatchVolumetrics(rtOutput);
++        }
++        // NV-DXVK end
+         
+         // Path Tracing
+         dispatchPathTracing(rtOutput);
+@@ -817,7 +841,9 @@ namespace dxvk {
+         // Motion blur runs before tonemapping while the image is still in linear HDR space.
+         dispatchPostFxMotionBlur(rtOutput);
+ 
+-        dispatchToneMapping(rtOutput, !dlssNrEnabled);
++        // NV-DXVK start: VR true stereo: both eyes share one exposure, which the left eye adapts.
++        dispatchToneMapping(rtOutput, !dlssNrEnabled && eye != 1);
++        // NV-DXVK end
+ 
+         // Lens effects (chromatic aberration, vignette) run AFTER tonemapping. They are
+         // display-space artifacts so they operate on post-tonemap LDR data.
+@@ -852,6 +878,29 @@ namespace dxvk {
+         // Debug view
+         dispatchDebugView(srcImage, rtOutput, captureScreenImage);
+ 
++        // NV-DXVK start: VR true stereo
++        linearViewZ = rtOutput.m_primaryLinearViewZ.view;
++        return srcImage;
++        };
++
++        m_tracedStereo = vr.stereoFrame();
++        if (m_tracedStereo) {
++          for (int eye = 0; eye < 2; ++eye) {
++            vreye::Scope view(eye);
++            // Each eye's upscaler keeps its own history, and with it its own record of the last upscaler.
++            const InternalUpscaler centreUpscaler = m_previousUpscaler;
++            if (eye == 1) { m_previousUpscaler = m_rightEyePreviousUpscaler; }
++            Rc<DxvkImageView> eyeViewZ;
++            const Rc<DxvkImage> eyeImage = traceView(eye, eyeViewZ);
++            if (eye == 1) { m_rightEyePreviousUpscaler = m_previousUpscaler; m_previousUpscaler = centreUpscaler; }
++            vr.outputEye(*this, eye, eyeImage);
++          }
++          vr.finishStereo(*this, targetImage, getResourceManager().getDownscaleDimensions());
++        } else {
++        Rc<DxvkImageView> linearViewZ;
++        Rc<DxvkImage> srcImage = traceView(-1, linearViewZ);
++        // NV-DXVK end
++
+         dispatchDLFG();
+ 
+         // Match FSR-3.1 sequencing: configure/prepare frame generation before final game-target blit.
+@@ -859,7 +908,7 @@ namespace dxvk {
+ 
+         // VR owns the centre output; the original target remains the game's raster canvas.
+         if (vr.useOutput()) {
+-          vr.output(*this, srcImage, rtOutput.m_primaryLinearViewZ.view, targetImage);
++          vr.output(*this, srcImage, linearViewZ, targetImage);
+         } else {
+         // Blit to the game target
+         {
+@@ -872,6 +921,9 @@ namespace dxvk {
+         }
+ 
+         }
++        // NV-DXVK start: VR true stereo
++        }
++        // NV-DXVK end
+ 
+         // Log stats when an image is taken
+         if (captureScreenImage) {
+@@ -1494,7 +1546,12 @@ namespace dxvk {
+     // Weather is transient frame state. Volumetrics and atmosphere consume the
+     // same immutable snapshot; authored RtxOptions remain untouched.
+     globalVolumetrics.applyWeatherOverride(weatherSnapshot);
+-    constants.volumeArgs = globalVolumetrics.getVolumeArgs(cameraManager, getSceneManager().getFogState(), enablePortalVolumes);
++    {
++      // NV-DXVK start: VR true stereo: one froxel grid serves both eyes, on the centre camera, whose frustum holds both.
++      vreye::Scope centre(-1);
++      // NV-DXVK end
++      constants.volumeArgs = globalVolumetrics.getVolumeArgs(cameraManager, getSceneManager().getFogState(), enablePortalVolumes);
++    }
+     constants.startInMediumMaterialIndex = getSceneManager().getStartInMediumMaterialIndex();
+     OpaqueMaterialOptions::fillShaderParams(constants.opaqueMaterialArgs);
+     TranslucentMaterialOptions::fillShaderParams(constants.translucentMaterialArgs);
+@@ -1543,8 +1600,25 @@ namespace dxvk {
+     }
+ 
+     RtxAtmosphere& atmosphere = getCommonObjects()->metaAtmosphere();
+-    const AtmosphereArgs atmosphereArgs = atmosphere.updateFrame(
+-      *this, weatherSnapshot, GlobalTime::get().deltaTime());
++    // NV-DXVK start: VR true stereo
++    // The sky's integrators advance once a frame, on the centre camera; each eye then fits the aerial perspective
++    // volume to its own off-centre frustum.
++    const int eye = vreye::active();
++    AtmosphereArgs atmosphereArgs;
++    if (eye == 1) {
++      atmosphereArgs = m_stereoAtmosphereArgs;
++    } else {
++      vreye::Scope centre(-1);
++      atmosphereArgs = atmosphere.updateFrame(*this, weatherSnapshot, GlobalTime::get().deltaTime());
++      m_stereoAtmosphereArgs = atmosphereArgs;
++    }
++    if (eye >= 0 && currentSkyMode == SkyMode::Numos) {
++      float left = 0, right = 0, top = 0, bottom = 0;
++      if (m_common->metaVr().eyeEdges(eye, left, right, top, bottom)) {
++        atmosphere.fitAerialPerspective(*this, getSceneManager().getCamera(), left, right, top, bottom, atmosphereArgs);
++      }
++    }
++    // NV-DXVK end
+     if (currentSkyMode == SkyMode::Numos) {
+       constants.atmosphereArgs = atmosphereArgs;
+     }
+diff --git a/src/dxvk/rtx_render/rtx_context.h b/src/dxvk/rtx_render/rtx_context.h
+index 766ff097..9f84ed42 100644
+--- a/src/dxvk/rtx_render/rtx_context.h
++++ b/src/dxvk/rtx_render/rtx_context.h
+@@ -249,6 +249,11 @@ namespace dxvk {
+ 
+     InternalUpscaler m_currentUpscaler = InternalUpscaler::None;
+     InternalUpscaler m_previousUpscaler = InternalUpscaler::None;
++    // NV-DXVK start: VR true stereo
++    InternalUpscaler m_rightEyePreviousUpscaler = InternalUpscaler::None;  // the right eye's own upscaler record
++    bool m_tracedStereo = false;                                         // this frame traced each eye
++    AtmosphereArgs m_stereoAtmosphereArgs {};                            // the frame's sky, for the right eye
++    // NV-DXVK end
+ 
+     uint32_t m_frameLastInjected = kInvalidFrameIndex;
+     uint32_t m_firstRaytracedFrameId = kInvalidFrameIndex;
+diff --git a/src/dxvk/rtx_render/rtx_nrc_context.cpp b/src/dxvk/rtx_render/rtx_nrc_context.cpp
+index 48c5eb8b..322f55af 100644
+--- a/src/dxvk/rtx_render/rtx_nrc_context.cpp
++++ b/src/dxvk/rtx_render/rtx_nrc_context.cpp
+@@ -30,6 +30,13 @@
+ namespace dxvk {
+   static const bool g_useCustomCPUMemoryAllocator = false;
+ 
++  // NV-DXVK start: VR true stereo
++  // Each eye has its own cache, so contexts can coexist: the library starts with the first and stops with the
++  // last (it refuses a second Initialize, and one context's Shutdown would stop the other's).
++  static std::mutex g_nrcLibraryMutex;
++  static uint32_t g_nrcLibraryUsers = 0;
++  // NV-DXVK end
++
+   // Utility
+   static void NRCLoggerCallback(const char* message, nrc::LogLevel logLevel) {
+     static std::mutex loggerMutex;
+@@ -134,7 +141,13 @@ namespace dxvk {
+     }
+ 
+     // Shutdown the NRC Library
+-    nrc::vulkan::Shutdown();
++    // NV-DXVK start: VR true stereo
++    if (m_holdsLibrary) {
++      std::lock_guard lock(g_nrcLibraryMutex);
++      if (--g_nrcLibraryUsers == 0) { nrc::vulkan::Shutdown(); }
++      m_holdsLibrary = false;
++    }
++    // NV-DXVK end
+   }
+ 
+   bool NrcContext::checkIsSupported(const DxvkDevice* device) {
+@@ -255,7 +268,14 @@ namespace dxvk {
+     globalSettings.depsDirectoryPath = wpath.c_str();
+ 
+     // Initialize the NRC Library
+-    nrc::Status status = nrc::vulkan::Initialize(globalSettings);
++    // NV-DXVK start: VR true stereo
++    nrc::Status status = nrc::Status::OK;
++    {
++      std::lock_guard lock(g_nrcLibraryMutex);
++      if (g_nrcLibraryUsers == 0) { status = nrc::vulkan::Initialize(globalSettings); }
++      if (status == nrc::Status::OK && !m_holdsLibrary) { ++g_nrcLibraryUsers; m_holdsLibrary = true; }
++    }
++    // NV-DXVK end
+     if (status != nrc::Status::OK) {
+       ONCE(Logger::err(str::format("[RTX Neural Radiance Cache] Failed to initialize NRC. Reason: ", getNrcStatusErrorMessage(status))));
+       return status;
+diff --git a/src/dxvk/rtx_render/rtx_nrc_context.h b/src/dxvk/rtx_render/rtx_nrc_context.h
+index bf83a180..8642de1e 100644
+--- a/src/dxvk/rtx_render/rtx_nrc_context.h
++++ b/src/dxvk/rtx_render/rtx_nrc_context.h
+@@ -82,6 +82,9 @@ namespace dxvk {
+ 
+     bool m_isSupported = false;
+     bool m_isDebugBufferRequired = false;
++    // NV-DXVK start: VR true stereo
++    bool m_holdsLibrary = false;
++    // NV-DXVK end
+     nrc::vulkan::Context* m_nrcContext = nullptr;
+     nrc::ContextSettings m_nrcContextSettings;
+     nrc::FrameSettings m_nrcFrameSettings;
+diff --git a/src/dxvk/rtx_render/rtx_resources.cpp b/src/dxvk/rtx_render/rtx_resources.cpp
+index a862b311..3ed37672 100644
+--- a/src/dxvk/rtx_render/rtx_resources.cpp
++++ b/src/dxvk/rtx_render/rtx_resources.cpp
+@@ -957,6 +957,7 @@ namespace dxvk {
+   }
+ 
+   Rc<DxvkImageView> Resources::getWhiteTexture(Rc<DxvkContext> ctx) {
++    if (m_globals) { return m_globals->getWhiteTexture(ctx); }
+     if (m_whiteTex == nullptr || m_whiteTexView == nullptr) {
+       DxvkImageCreateInfo desc;
+       desc.type = VK_IMAGE_TYPE_2D;
+@@ -1011,6 +1012,7 @@ namespace dxvk {
+   }
+ 
+   Rc<DxvkImageView> Resources::getBlueNoiseTexture(dxvk::Rc<DxvkContext> ctx) {
++    if (m_globals) { return m_globals->getBlueNoiseTexture(ctx); }
+     if (m_blueNoiseTex == nullptr) {
+       createBlueNoiseTexture(ctx);
+     }
+@@ -1021,6 +1023,7 @@ namespace dxvk {
+   }
+ 
+   Rc<DxvkImageView> Resources::getValueNoiseLut(dxvk::Rc<DxvkContext> ctx) {
++    if (m_globals) { return m_globals->getValueNoiseLut(ctx); }
+     if (m_valueNoiseLut == nullptr) {
+       createValueNoiseLut(ctx);
+     }
+@@ -1031,6 +1034,7 @@ namespace dxvk {
+   }
+ 
+   Resources::Resource Resources::getSkyMatte(Rc<DxvkContext> ctx, VkFormat format) {
++    if (m_globals) { return m_globals->getSkyMatte(ctx, format); }
+     if (format == VK_FORMAT_UNDEFINED) {
+       return m_skyMatte;
+     }
+@@ -1048,6 +1052,7 @@ namespace dxvk {
+   }
+ 
+   Resources::Resource Resources::getSkyProbe(Rc<DxvkContext> ctx, VkFormat format) {
++    if (m_globals) { return m_globals->getSkyProbe(ctx, format); }
+     if (format == VK_FORMAT_UNDEFINED) {
+       return m_skyProbe;
+     }
+@@ -1069,18 +1074,21 @@ namespace dxvk {
+   }
+ 
+   Resources::Resource Resources::getAtmosphereTransmittanceLut(Rc<DxvkContext> ctx) {
++    if (m_globals) { return m_globals->getAtmosphereTransmittanceLut(ctx); }
+     // Atmosphere LUTs are managed by RtxAtmosphere class
+     // This method returns the cached resource
+     return m_atmosphereTransmittanceLut;
+   }
+ 
+   Resources::Resource Resources::getAtmosphereMultiscatteringLut(Rc<DxvkContext> ctx) {
++    if (m_globals) { return m_globals->getAtmosphereMultiscatteringLut(ctx); }
+     // Atmosphere LUTs are managed by RtxAtmosphere class
+     // This method returns the cached resource
+     return m_atmosphereMultiscatteringLut;
+   }
+ 
+   Resources::Resource Resources::getAtmosphereSkyViewLut(Rc<DxvkContext> ctx) {
++    if (m_globals) { return m_globals->getAtmosphereSkyViewLut(ctx); }
+     // Atmosphere LUTs are managed by RtxAtmosphere class
+     // This method returns the cached resource
+     return m_atmosphereSkyViewLut;
+diff --git a/src/dxvk/rtx_render/rtx_resources.h b/src/dxvk/rtx_render/rtx_resources.h
+index 6b4307ac..82a0a0bf 100644
+--- a/src/dxvk/rtx_render/rtx_resources.h
++++ b/src/dxvk/rtx_render/rtx_resources.h
+@@ -521,7 +521,13 @@ namespace dxvk
+                                                const VkSamplerAddressMode addrMode, 
+                                                const float additionalMipBias = 0, const bool useAnisotropy = false);
+ 
+-    Tlas& getTLAS(Tlas::Type type) { return m_tlas[type]; }
++    Tlas& getTLAS(Tlas::Type type) { return m_globals ? m_globals->getTLAS(type) : m_tlas[type]; }
++
++    // NV-DXVK start: VR true stereo
++    // The right eye's view state reads the frame's own resources (the TLAS, noise, the white texture, the sky
++    // probe and matte, the atmosphere LUTs) from the default state, which keeps and updates them.
++    void shareGlobalsWith(Resources* owner) { m_globals = owner; }
++    // NV-DXVK end
+ 
+     void createConstantsBuffer();
+     void createBlueNoiseTexture(Rc<DxvkContext> ctx);
+@@ -581,6 +587,10 @@ namespace dxvk
+ 
+     RaytracingOutput m_raytracingOutput;
+ 
++    // NV-DXVK start: VR true stereo
++    Resources* m_globals = nullptr;
++    // NV-DXVK end
++
+     Rc<DxvkBuffer> m_constants;
+     Rc<DxvkImage> m_blueNoiseTex;
+     Rc<DxvkImageView> m_blueNoiseTexView;
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 96de5197..007764e3 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -17,6 +17,8 @@
+ #include "rtx_option_layer.h"
+ #include "rtx_global_volumetrics.h"
+ #include "rtx_atmosphere.h"
++#include "rtx_vr_eye.h"
++#include "rtx_camera_manager.h"
+ #include "rtx_shader_manager.h"
+ #include "../dxvk_device.h"
+ #include "../dxvk_scoped_annotation.h"
+@@ -458,8 +460,92 @@ namespace dxvk {
+     return true;
+   }
+ 
++  VkExtent3D RtxVr::renderExtent() const {
++    if (m_stereoFrame && m_eyes[0].image != nullptr) {
++      const auto size=m_eyes[0].image->info().extent;
++      return {size.width,size.height,1};
++    }
++    return {m_frameProjection.width,m_frameProjection.height,1};
++  }
++
++  bool RtxVr::eyeView(int eye,const Matrix4& centreWorldToView,const Matrix4& centreProjection,bool isLHS,
++                      Matrix4& worldToView,Matrix4& projection,float& fov,float& aspect) const {
++    if (eye<0 || eye>1 || !m_ready) { return false; }
++    const auto& e=m_frame.eyes[eye];
++    if (!vrmath::validEye(e) || !(m_frame.worldUnitsPerMetre>0)) { return false; }
++    // The centre view holds the eye's view as [R|t]; the eye's view holds the centre's as [R^T|-R^T t].
++    double toCentre[3][4];
++    vrmath::eyeToCentreView(e,isLHS,m_frame.worldUnitsPerMetre,toCentre);
++    Matrix4 centreToEye;
++    for (int row=0; row<3; ++row) {
++      double translation=0;
++      for (int k=0; k<3; ++k) { translation-=toCentre[k][row]*toCentre[k][3]; }
++      for (int column=0; column<3; ++column) { centreToEye[column][row]=float(toCentre[column][row]); }
++      centreToEye[3][row]=float(translation);
++    }
++    centreToEye[0][3]=0; centreToEye[1][3]=0; centreToEye[2][3]=0; centreToEye[3][3]=1;
++    worldToView=centreToEye*centreWorldToView;
++    // The centre's depth terms stay; the eye's own frustum is off-centre.
++    const auto p=vrmath::eyeProjection(e,centreProjection[2][3]<0 ? -1.0 : 1.0);
++    projection=centreProjection;
++    projection[0][0]=float(p.xScale); projection[1][1]=float(p.yScale);
++    projection[2][0]=float(p.xOffset); projection[2][1]=float(p.yOffset);
++    projection[1][0]=0; projection[0][1]=0;
++    fov=float(p.fovY); aspect=float(p.aspect);
++    return true;
++  }
++
++  bool RtxVr::eyeEdges(int eye,float& left,float& right,float& top,float& bottom) const {
++    if (eye<0 || eye>1 || !m_ready) { return false; }
++    const auto& e=m_frame.eyes[eye];
++    left=e.tanLeft; right=e.tanRight; top=e.tanTop; bottom=e.tanBottom;
++    return true;
++  }
++
++  void RtxVr::updateStereo(RtxContext& ctx) {
++    auto* common=ctx.getCommonObjects();
++    const bool requested=(m_appliedQuality.flags&RTXVR_QUALITY_TRUE_STEREO)!=0;
++    const bool allowed=vrpolicy::stereoAllowed(RtxOptions::isRayReconstructionEnabled() && common->metaDLSS().supportsDLSS(),
++                                               RtxOptions::skyMode()==SkyMode::Numos);
++    if (requested && !allowed && !m_stereoRefusalLogged) {
++      Logger::warn("RTX VR true stereo needs DLSS Ray Reconstruction and the physical sky; one view is warped to both eyes");
++    }
++    m_stereoRefusalLogged=requested && !allowed;
++    const bool mode=requested && allowed;
++    if (mode && !common->hasRightEyeState() &&
++        !vrpolicy::resources([&] { common->createRightEyeState(); },[&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); })) {
++      return;
++    }
++    if (!mode && common->hasRightEyeState()) { ctx.flushCommandList(); common->releaseRightEyeState(); }
++    if (mode!=m_stereoMode) {
++      Logger::info(mode ? "RTX VR true stereo: each eye is path traced with its own history" : "RTX VR true stereo off: one view is warped to both eyes");
++    }
++    m_stereoMode=mode;
++    if (!mode) { m_stereoFrame=false; }
++    std::lock_guard lock(m_requestMutex); m_status.stereoActive=m_stereoFrame ? 1u : 0u;
++  }
++
++  void RtxVr::outputEye(RtxContext& ctx,int eye,const Rc<DxvkImage>& colour) {
++    if (!m_ready || !active() || !m_frameEligible || eye<0 || eye>1 || colour==nullptr) { return; }
++    ScopedGpuProfileZone(&ctx, "VR eye copy");
++    // The eye was traced at its own size, so this is a copy into the image SteamVR receives.
++    vrpolicy::resources([&] { RtxContext::blitImageHelper(&ctx,colour,m_eyes[eye].image,VK_FILTER_NEAREST); },
++      [&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); });
++  }
++
++  void RtxVr::finishStereo(RtxContext& ctx,const Rc<DxvkImage>& game,VkExtent3D traced) {
++    if (!m_ready || !active()) { return; }
++    if (!m_frameEligible) { mirror(ctx,game); return; }
++    ScopedCpuProfileZone();
++    // No warp: the profile's warp interval is empty, and its post-processing interval holds the right eye.
++    timestamp(ctx,vrtiming::Stage::WarpBegin);
++    timestamp(ctx,vrtiming::Stage::WarpDispatchBegin);
++    finish(ctx,game,nullptr,nullptr,traced);
++  }
++
+   VkExtent3D RtxVr::beginFrame(RtxContext& ctx,VkExtent3D flat) {
+     m_frameEligible=false;
++    m_stereoFrame=false;
+     if(m_recordingThread.load(std::memory_order_acquire)) { collectRecordings(); }
+     uint64_t generation;
+     bool requested;
+@@ -474,6 +560,9 @@ namespace dxvk {
+       const bool hadResources=m_ready;
+       ctx.flushCommandList();
+       clearResources(true); m_renderGeneration=generation;
++      if (ctx.getCommonObjects()->hasRightEyeState()) { ctx.getCommonObjects()->releaseRightEyeState(); }
++      m_stereoMode=false;
++      { std::lock_guard lock(m_requestMutex); m_status.stereoActive=0; }
+       if (!requested) {
+         RtxOptionManager::applyPendingValues(m_device,false);
+         if (hadResources && m_flatExtent.width) { ctx.resetScreenResolution(m_flatExtent); }
+@@ -484,6 +573,13 @@ namespace dxvk {
+     }
+     m_flatExtent=flat;
+     m_canvasOwner.set(static_cast<DxvkContext*>(&ctx));
++    {
++      // True stereo traces each eye whenever the cameras followed both this frame, eligible to submit or not,
++      // so each eye's history advances once a frame.
++      const uint32_t frame=m_device->getCurrentFrameId();
++      const auto& cameras=ctx.getSceneManager().getCameraManager();
++      m_stereoFrame=m_stereoMode && m_ready && cameras.getEyeCamera(0).isValid(frame) && cameras.getEyeCamera(1).isValid(frame);
++    }
+     {
+       std::lock_guard lock(m_requestMutex);
+       // SDK readiness precedes the add-on's view hooks. Wait for their first camera, and never
+@@ -491,17 +587,18 @@ namespace dxvk {
+       if (!m_active) { return flat; }
+       if (m_latestPose<=m_consumedPose ||
+           !vrpolicy::cameraReady(m_device->getCurrentFrameId(),generation,m_cameraFrame,m_cameraGeneration)) {
+-        return m_ready ? VkExtent3D{m_frameProjection.width,m_frameProjection.height,1} : flat;
++        return m_ready ? renderExtent() : flat;
+       }
+     }
+     bool initialised=true;
+     if(!vrpolicy::resources([&] { if(!m_ready) { initialised=initialise(ctx); } },
+         [&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); }) || !initialised) { return flat; }
+     applyQuality(ctx);
++    updateStereo(ctx);
+     if(!m_hasFocus) {
+       std::lock_guard calls(m_openVrMutex);
+       if(active()&&m_compositor) { m_hasFocus=pace(); }
+-      if(!m_hasFocus) { return {m_frameProjection.width,m_frameProjection.height,1}; }
++      if(!m_hasFocus) { return renderExtent(); }
+     }
+     const auto& camera=ctx.getSceneManager().getCamera();
+     const auto origin=camera.getPosition(false); const auto dir=camera.getDirection(false); const auto up=camera.getUp(false);
+@@ -514,12 +611,12 @@ namespace dxvk {
+       if(selection==vrmath::PoseRing::Selection::Stale) {
+         ++m_staleCameras;
+         Logger::info(str::format("RTX VR stale camera: pose=",m_framePose.sequence,", consumed=",m_consumedPose,", skipped=",m_staleCameras));
+-        return {m_frameProjection.width,m_frameProjection.height,1};
++        return renderExtent();
+       }
+       const bool poseMatched=selection==vrmath::PoseRing::Selection::Fresh;
+       if(!vrpolicy::firstPoseReady(poseMatched,m_consumedPose)) {
+         Logger::info("RTX VR skipped initial camera: waiting for the first VR pose match");
+-        return {m_frameProjection.width,m_frameProjection.height,1};
++        return renderExtent();
+       }
+       if(!poseMatched) {
+         Logger::warn(str::format("RTX VR unmatched camera: position=",origin.x,",",origin.y,",",origin.z,
+@@ -528,7 +625,7 @@ namespace dxvk {
+           ", pose position=",m_framePose.cameraOrigin[0],",",m_framePose.cameraOrigin[1],",",m_framePose.cameraOrigin[2],
+           ", pose angles=",m_framePose.cameraAngles[0],",",m_framePose.cameraAngles[1],",",m_framePose.cameraAngles[2]));
+       }
+-      if (m_framePose.sequence<=m_consumedPose) { return {m_frameProjection.width,m_frameProjection.height,1}; }
++      if (m_framePose.sequence<=m_consumedPose) { return renderExtent(); }
+       m_frameEligible=true;
+       if (poseMatched) { ++m_status.posesMatched; } else { ++m_status.posesUnmatched; }
+       m_status.centreWidth=m_frameProjection.width; m_status.centreHeight=m_frameProjection.height;
+@@ -540,7 +637,7 @@ namespace dxvk {
+       Logger::info(str::format("RTX VR camera: main, cut=",camera.isCameraCut(),", FOV=",camera.getFov(),
+         ", pose=",m_framePose.sequence,", matched=",matched,", unmatched=",unmatched));
+     }
+-    return {m_frameProjection.width,m_frameProjection.height,1};
++    return renderExtent();
+   }
+ 
+   double RtxVr::cpuWallMs() {
+@@ -678,6 +775,8 @@ namespace dxvk {
+ 
+   void RtxVr::timestamp(RtxContext& ctx,vrtiming::Stage stage) {
+     if (!m_ready || !frameActive()) { return; }
++    // True stereo writes each stage once, from the left eye's passes.
++    if (vreye::active()==1) { return; }
+     const auto index=static_cast<size_t>(stage);
+     if (stage==vrtiming::Stage::FrameBegin) {
+       if (m_armTiming) {
+@@ -792,6 +891,10 @@ namespace dxvk {
+       ctx.dispatchIndirect(sizeof(VkDispatchIndirectCommand));
+     }
+     }
++    finish(ctx,game,colour,depth->image(),depth->imageInfo().extent);
++  }
++
++  void RtxVr::finish(RtxContext& ctx,const Rc<DxvkImage>& game,const Rc<DxvkImage>& colour,const Rc<DxvkImage>& depth,VkExtent3D traced) {
+     timestamp(ctx,vrtiming::Stage::MirrorBegin);
+     mirror(ctx,game);
+     timestamp(ctx,vrtiming::Stage::CaptureBegin);
+@@ -802,11 +905,12 @@ namespace dxvk {
+     }
+     if (m_frameCaptureWhat) {
+       std::error_code error; std::filesystem::create_directories(m_frameCaptureFolder,error);
+-      if (m_frameCaptureWhat&RTXVR_CAPTURE_CENTRE) {
++      // True stereo has no centre view to capture.
++      if ((m_frameCaptureWhat&RTXVR_CAPTURE_CENTRE) && colour!=nullptr && depth!=nullptr) {
+         captureImage(ctx,colour,m_frameCaptureFolder/L"centre.png");
+         captureImage(ctx,m_depthCoverage.image,m_frameCaptureFolder/L"centre_depth_coverage.png",true);
+         captureImage(ctx,m_depthFrameMinimum.image,m_frameCaptureFolder/L"frame_minimum_depth.png",true);
+-        captureImage(ctx,depth->image(),m_frameCaptureFolder/L"centre_depth.png",true);
++        captureImage(ctx,depth,m_frameCaptureFolder/L"centre_depth.png",true);
+       }
+       if (m_frameCaptureWhat&RTXVR_CAPTURE_EYES) {
+         captureImage(ctx,m_eyes[0].image,m_frameCaptureFolder/L"left.png"); captureImage(ctx,m_eyes[1].image,m_frameCaptureFolder/L"right.png");
+@@ -823,7 +927,8 @@ namespace dxvk {
+         m_consumedPose=m_framePose.sequence;
+         ++m_status.framesRendered;
+         if (m_active) { m_status.state=RTXVR_STATE_RUNNING; }
+-        m_status.renderWidth=depth->imageInfo().extent.width; m_status.renderHeight=depth->imageInfo().extent.height;
++        m_status.renderWidth=traced.width; m_status.renderHeight=traced.height;
++        m_status.stereoActive=m_stereoFrame ? 1u : 0u;
+       }
+     }
+     if (m_frame.flags&RTXVR_START_RENDER_PACING) {
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 7de6d116..723cc6c7 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -54,6 +54,15 @@ namespace dxvk {
+     void recordingEnd(DxvkContext& ctx);
+     void noteSubmission(const DxvkCommandList* list);
+     void output(RtxContext& ctx, const Rc<DxvkImage>& colour, const Rc<DxvkImageView>& depth, const Rc<DxvkImage>& game);
++    // True stereo (render thread): whether the cameras follow each eye, whether this frame traces each eye, an
++    // eye's camera and frustum from the centre camera, and each eye's picture into its image.
++    bool stereoCameras() const { return m_stereoMode; }
++    bool stereoFrame() const { return m_stereoFrame; }
++    bool eyeView(int eye, const Matrix4& centreWorldToView, const Matrix4& centreProjection, bool isLHS,
++                 Matrix4& worldToView, Matrix4& projection, float& fov, float& aspect) const;
++    bool eyeEdges(int eye, float& left, float& right, float& top, float& bottom) const;
++    void outputEye(RtxContext& ctx, int eye, const Rc<DxvkImage>& colour);
++    void finishStereo(RtxContext& ctx, const Rc<DxvkImage>& game, VkExtent3D traced);
+     void observeTarget(DxvkContext& ctx, const Rc<DxvkImage>& image);
+     void beforeSubmission();
+     void present(RtxContext& ctx, const Rc<DxvkImage>& game);
+@@ -71,6 +80,9 @@ namespace dxvk {
+     };
+     struct Recording { Rc<DxvkGpuQuery> begin,end; Rc<sync::Fence> completed; };
+     Image makeImage(DxvkContext& ctx, VkExtent3D size, VkFormat format=VK_FORMAT_R8G8B8A8_UNORM);
++    void finish(RtxContext& ctx, const Rc<DxvkImage>& game, const Rc<DxvkImage>& centre, const Rc<DxvkImage>& depth, VkExtent3D traced);
++    void updateStereo(RtxContext& ctx);
++    VkExtent3D renderExtent() const;
+     void captureImage(RtxContext& ctx, const Rc<DxvkImage>& image, const std::filesystem::path& path, bool depth=false);
+     void submit(RtxContext& ctx);
+     bool pace();
+@@ -104,6 +116,7 @@ namespace dxvk {
+     rtxvr_StartInfo m_requested {}, m_frame {};
+     rtxvr_Quality m_quality {}, m_appliedQuality {};
+     uint64_t m_qualityGeneration=0, m_renderQualityGeneration=0;
++    bool m_stereoMode=false, m_stereoFrame=false, m_stereoRefusalLogged=false;
+     vrmath::Projection m_projection {}, m_frameProjection {};
+     double m_nearestDepth=vrmath::kNearestEyeDepthMetres,m_frameNearestDepth=vrmath::kNearestEyeDepthMetres;
+     vrmath::PoseRing m_poses;
+diff --git a/src/dxvk/rtx_render/rtx_vr_api.h b/src/dxvk/rtx_render/rtx_vr_api.h
+index 7160a688..92dd80ba 100644
+--- a/src/dxvk/rtx_render/rtx_vr_api.h
++++ b/src/dxvk/rtx_render/rtx_vr_api.h
+@@ -44,6 +44,7 @@ typedef struct rtxvr_Quality {
+ 
+ #define RTXVR_QUALITY_VOLUMETRICS 0x1u   /* froxel volumetrics */
+ #define RTXVR_QUALITY_FINE_CLOUDS 0x2u   /* the sky's finer cloud sampling */
++#define RTXVR_QUALITY_TRUE_STEREO 0x4u   /* path trace each eye with its own history (needs Ray Reconstruction) */
+ 
+ typedef struct rtxvr_FramePose {
+   uint32_t structSize;
+diff --git a/src/dxvk/rtx_render/rtx_vr_eye.h b/src/dxvk/rtx_render/rtx_vr_eye.h
+new file mode 100644
+index 00000000..ecf28a1b
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_vr_eye.h
+@@ -0,0 +1,21 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++namespace dxvk::vreye {
++  // VR true stereo traces each eye with its own view state. The eye a thread is tracing selects that state:
++  // -1 is the centre (flat rendering, the warp, and the frame's once-per-frame work), 0 the left eye, which
++  // keeps the default view state, and 1 the right eye. Only the render thread sets it.
++  inline thread_local int g_active = -1;
++
++  inline int active() { return g_active; }
++
++  class Scope {
++  public:
++    explicit Scope(int eye) : m_previous(g_active) { g_active = eye; }
++    ~Scope() { g_active = m_previous; }
++    Scope(const Scope&) = delete;
++    Scope& operator=(const Scope&) = delete;
++  private:
++    int m_previous;
++  };
++}
+diff --git a/src/dxvk/rtx_render/rtx_vr_math.h b/src/dxvk/rtx_render/rtx_vr_math.h
+index 390ea7ad..21c5287e 100644
+--- a/src/dxvk/rtx_render/rtx_vr_math.h
++++ b/src/dxvk/rtx_render/rtx_vr_math.h
+@@ -235,6 +235,42 @@ namespace dxvk::vrmath {
+     return farUv;
+   }
+ 
++  // True stereo: an eye's view from the centre view. The engine's view space has x right and y up, and looks
++  // along +z when its projection is left-handed and -z otherwise; OpenVR's head and eye spaces look along -z,
++  // in metres. Row-major 3x4, translation in world units: centre-view point = toCentre * eye-view point.
++  inline void eyeToCentreView(const rtxvr_Eye& eye, bool leftHanded, double unitsPerMetre, double toCentre[3][4]) {
++    const double s[3] = { 1, 1, leftHanded ? -1.0 : 1.0 };
++    for (int i = 0; i < 3; ++i) {
++      for (int j = 0; j < 3; ++j) { toCentre[i][j] = s[i] * eye.eyeToHead.m[i][j] * s[j]; }
++      toCentre[i][3] = s[i] * eye.eyeToHead.m[i][3] * unitsPerMetre;
++    }
++  }
++
++  // The eye's projection terms in the engine's column-major matrix: [0][0], [1][1], and the off-centre [2][0] and
++  // [2][1]. `wSign` is the centre projection's [2][3] (+1 left-handed, -1 right-handed); its depth terms stay.
++  // fovY and aspect describe the frustum at the eye's optical centre, for the pixel's ray spread.
++  struct EyeProjection { double xScale, yScale, xOffset, yOffset, fovY, aspect; };
++  inline EyeProjection eyeProjection(const rtxvr_Eye& e, double wSign) {
++    const double w = double(e.tanRight) - e.tanLeft, h = double(e.tanBottom) - e.tanTop;
++    EyeProjection p {};
++    p.xScale = 2 / w; p.yScale = 2 / h;
++    p.xOffset = -wSign * (double(e.tanRight) + e.tanLeft) / w;
++    p.yOffset = wSign * (double(e.tanTop) + e.tanBottom) / h;
++    p.fovY = 2 * std::atan(h / 2); p.aspect = w / h;
++    return p;
++  }
++
++  // The aerial perspective volume's basis for an off-centre eye: a direction for screen ndc (x, y) is
++  // forward + right * x + up * y, which an off-centre frustum gets by shifting forward. The vectors are the eye
++  // camera's unit forward, right and up in world space.
++  inline void eyeFrustumBasis(const rtxvr_Eye& e, Vec3 forward, Vec3 right, Vec3 up, Vec3& outForward, Vec3& outRight, Vec3& outUp) {
++    const double cx = (double(e.tanRight) + e.tanLeft) / 2, sx = (double(e.tanRight) - e.tanLeft) / 2;
++    const double cy = -(double(e.tanTop) + e.tanBottom) / 2, sy = (double(e.tanBottom) - e.tanTop) / 2;
++    outForward = { forward.x + right.x*cx + up.x*cy, forward.y + right.y*cx + up.y*cy, forward.z + right.z*cx + up.z*cy };
++    outRight = { right.x*sx, right.y*sx, right.z*sx };
++    outUp = { up.x*sy, up.y*sy, up.z*sy };
++  }
++
+   struct Orientation { Vec3 forward, up; };
+ 
+   inline double dot(Vec3 a, Vec3 b) { return a.x*b.x + a.y*b.y + a.z*b.z; }
+diff --git a/src/dxvk/rtx_render/rtx_vr_policy.h b/src/dxvk/rtx_render/rtx_vr_policy.h
+index 186b32cb..c54c42cd 100644
+--- a/src/dxvk/rtx_render/rtx_vr_policy.h
++++ b/src/dxvk/rtx_render/rtx_vr_policy.h
+@@ -72,7 +72,7 @@ namespace dxvk::vrpolicy {
+   constexpr int kTopDlss=1, kTopMinBounces=1, kTopMaxBounces=4;
+   constexpr uint32_t kTopFlags=RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS;
+   constexpr uint32_t kFineCloudSamples=32u, kCoarseCloudSamples=16u;
+-  constexpr uint32_t kQualityFlagMask=RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS;
++  constexpr uint32_t kQualityFlagMask=RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS|RTXVR_QUALITY_TRUE_STEREO;
+ 
+   inline bool validQuality(const rtxvr_Quality& q) {
+     return q.structSize==sizeof(q) && q.renderScale==q.renderScale &&
+@@ -87,6 +87,12 @@ namespace dxvk::vrpolicy {
+     q.pathMinBounces=kTopMinBounces; q.pathMaxBounces=kTopMaxBounces; q.flags=kTopFlags;
+     return q;
+   }
++  // True stereo traces each eye with its own history. Only Ray Reconstruction denoises inside the upscaler, so
++  // only it keeps every per-pixel history in state a second eye can own; the physical sky is direction-based,
++  // while the rasterized sky's matte is a picture of the centre view.
++  inline bool stereoAllowed(bool rayReconstruction, bool physicalSky) {
++    return rayReconstruction && physicalSky;
++  }
+   inline uint32_t cloudSamples(uint32_t flags) {
+     return (flags&RTXVR_QUALITY_FINE_CLOUDS)?kFineCloudSamples:kCoarseCloudSamples;
+   }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 362d272f..6a4de713 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -373,9 +373,53 @@ int main() {
+     require(!validQuality(bad),"a minimum above the maximum is refused");
+     bad=top; bad.pathMaxBounces=17; require(!validQuality(bad),"more bounces than the limit are refused");
+     bad=top; bad.pathMinBounces=-1; require(!validQuality(bad),"negative bounces are refused");
+-    bad=top; bad.flags|=0x4u; require(!validQuality(bad),"an unknown effect flag is refused");
++    bad=top; bad.flags|=0x8u; require(!validQuality(bad),"an unknown effect flag is refused");
++    bad=top; bad.flags|=RTXVR_QUALITY_TRUE_STEREO; require(validQuality(bad),"true stereo is a step's flag");
++    require(stereoAllowed(true,true),"true stereo with Ray Reconstruction and the physical sky");
++    require(!stereoAllowed(false,true)&&!stereoAllowed(true,false),"no true stereo without Ray Reconstruction or with the rasterized sky");
+     bad=top; bad.flags=0; require(validQuality(bad),"the lowest effects are a step");
+   }
++  {
++    // True stereo: an eye's camera from the centre's. A ray through eye pixel (u, v), taken from the eye's own
++    // tangents, must land on (u, v) through the eye's projection, in both handednesses, with cant and offset.
++    using namespace dxvk::vrmath;
++    for (const bool leftHanded : { true, false }) {
++      const double wSign = leftHanded ? 1 : -1;
++      rtxvr_Eye e = eye(0.08, -0.032);
++      e.tanLeft = -1.39f; e.tanRight = 0.96f; e.tanTop = -1.25f; e.tanBottom = 1.20f;
++      const auto p = eyeProjection(e, wSign);
++      double toCentre[3][4]; eyeToCentreView(e, leftHanded, 40, toCentre);
++      for (double u : { 0.0, 0.25, 0.5, 0.9, 1.0 }) for (double v : { 0.0, 0.4, 1.0 }) {
++        // The eye-space direction (OpenVR: -z forward), then the engine's eye view.
++        const double l = e.tanLeft, r = e.tanRight, t = e.tanTop, b = e.tanBottom;
++        const double ex = l + (r - l) * u, ey = -(t + (b - t) * v);
++        const double vx = ex, vy = ey, vz = leftHanded ? 1.0 : -1.0;
++        const double w = wSign * vz;
++        const double ndcX = (p.xScale * vx + p.xOffset * vz) / w, ndcY = (p.yScale * vy + p.yOffset * vz) / w;
++        require(std::abs(ndcX - (2*u - 1)) < 1e-9 && std::abs(ndcY - (1 - 2*v)) < 1e-9, "an eye pixel's ray lands on its pixel");
++        // The same ray from the head: eyeToHead in metres, scaled to world units, then the engine's centre view.
++        const auto head = eyeRay(e, u, v);
++        const double cv[3] = { head.x, head.y, leftHanded ? -head.z : head.z };
++        double fromEye[3];
++        for (int i = 0; i < 3; ++i) { fromEye[i] = toCentre[i][0]*vx + toCentre[i][1]*vy + toCentre[i][2]*vz; }
++        require(std::abs(fromEye[0]-cv[0]) < 1e-6 && std::abs(fromEye[1]-cv[1]) < 1e-6 && std::abs(fromEye[2]-cv[2]) < 1e-6,
++          "the eye's view rotates into the centre view as the warp's rays do");
++      }
++      require(std::abs(toCentre[0][3] - (-0.032 * 40)) < 1e-4, "the eye's offset is in world units");
++      // The optical axis of an off-centre eye is not the middle of its picture.
++      require(std::abs(p.xOffset) > 0.1 && std::abs(p.aspect - (0.96 + 1.39) / (1.20 + 1.25)) < 1e-6, "an off-centre eye keeps its asymmetry");
++      Vec3 f, r, up;
++      eyeFrustumBasis(e, { 0, 0, 1 }, { 1, 0, 0 }, { 0, 1, 0 }, f, r, up);
++      // ndc (-1, +1) is the top left corner: the left and top tangents.
++      const Vec3 corner { f.x - r.x + up.x, f.y - r.y + up.y, f.z - r.z + up.z };
++      require(std::abs(corner.x / corner.z - e.tanLeft) < 1e-6 && std::abs(corner.y / corner.z - (-e.tanTop)) < 1e-6,
++        "the aerial perspective basis spans the eye's own frustum");
++    }
++    const rtxvr_Eye centred = eye(0, 0);
++    const auto symmetric = eyeProjection(centred, 1);
++    require(symmetric.xOffset == 0 && symmetric.yOffset == 0 && symmetric.xScale == 1 && symmetric.yScale == 1,
++      "a centred eye is the symmetric projection");
++  }
+   std::printf("PASS: %d projection/warp/pose checks\n",checks);
+   return 0;
+ }
+-- 
+2.56.0.windows.1
+

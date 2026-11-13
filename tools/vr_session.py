@@ -455,8 +455,11 @@ def capture_problems(root, records):
         if record.get('kind')!='capture' or not record.get('ok'):
             continue
         folder=root/record['label']
-        missing=[name for name in ('centre.png','centre_depth.png','left.png','right.png','mirror.png','timings.json')
-                 if not (folder/name).is_file()]
+        # V7's true stereo traces each eye and has no centre view to capture.
+        stereo=(record.get('info') or {}).get('stereoActive')==1
+        wanted=('left.png','right.png','mirror.png','timings.json') if stereo else \
+            ('centre.png','centre_depth.png','left.png','right.png','mirror.png','timings.json')
+        missing=[name for name in wanted if not (folder/name).is_file()]
         overlays=list(folder.glob('overlay_*.png'))
         declared='overlays' in record or record['label'] in manifests
         manifest = record.get('overlays', manifests.get(record['label'], {})) or {}

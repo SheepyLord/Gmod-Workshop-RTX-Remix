@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#define RTXVR_API_VERSION 3u
+#define RTXVR_API_VERSION 4u
 
 typedef struct rtxvr_Matrix34 { float m[3][4]; } rtxvr_Matrix34;      /* OpenVR's HmdMatrix34_t layout */
 
@@ -33,6 +33,18 @@ typedef struct rtxvr_StartInfo {
 #define RTXVR_START_NO_SUBMIT   0x1u   /* render and warp, hand nothing to the compositor (tests without SteamVR) */
 #define RTXVR_START_RENDER_PACING 0x4u /* render thread owns Submit/WaitGetPoses; module predicts without waiting */
 #define RTXVR_START_NO_MIRROR   0x2u   /* leave the game's own target alone */
+
+typedef struct rtxvr_Quality {
+  uint32_t structSize;                          /* sizeof(rtxvr_Quality) */
+  float    renderScale;                         /* on eyeWidth x eyeHeight: 0.25 .. 1.5 */
+  int32_t  dlssQuality;                         /* rtx.qualityDLSS: 0 ultra performance, 1 performance, 2 balanced, 3 quality */
+  int32_t  pathMinBounces, pathMaxBounces;      /* 0 .. 16, min <= max */
+  uint32_t flags;                               /* RTXVR_QUALITY_* */
+} rtxvr_Quality;
+
+#define RTXVR_QUALITY_VOLUMETRICS 0x1u   /* froxel volumetrics */
+#define RTXVR_QUALITY_FINE_CLOUDS 0x2u   /* the sky's finer cloud sampling */
+#define RTXVR_QUALITY_TRUE_STEREO 0x4u   /* path trace each eye with its own history (needs Ray Reconstruction) */
 
 typedef struct rtxvr_FramePose {
   uint32_t structSize;
@@ -68,6 +80,12 @@ typedef struct rtxvr_Status {
   float renderWaitMs, renderWaitMaxMs;
   uint64_t lastPoseSequence;
   uint64_t focusLossIntervals, waitFailures;    /* skipped focus intervals and other WaitGetPoses errors */
+  float    qualityRenderScale;                  /* the quality step the render thread is using */
+  int32_t  qualityDlss, qualityMinBounces, qualityMaxBounces;
+  uint32_t qualityFlags;
+  uint64_t qualityChanges;                      /* quality steps applied since Start */
+  float    gpuMsWork;                           /* gpuMsTotal without the queue's waits for the CPU: the GPU's work */
+  uint32_t stereoActive;                        /* 1 while each eye is path traced (true stereo), 0 for the warp */
 } rtxvr_Status;
 
 enum { RTXVR_STATE_OFF = 0, RTXVR_STATE_STARTING = 1, RTXVR_STATE_RUNNING = 2, RTXVR_STATE_FAILED = 3 };
@@ -78,6 +96,7 @@ uint32_t rtxvr_GetApiVersion(void);
 int  rtxvr_Start(const rtxvr_StartInfo* info);
 void rtxvr_Stop(void);
 int  rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]);                       /* the IPD or the projection changed */
+int  rtxvr_SetQuality(const rtxvr_Quality* quality);                  /* the ladder's step, while VR runs */
 int  rtxvr_PushFramePose(const rtxvr_FramePose* pose);
 int  rtxvr_SetOverlaySource(uint64_t overlayHandle, uint32_t width, uint32_t height);   /* 0 x 0 removes it */
 int  rtxvr_SetOverlayWindow(uint64_t overlayHandle, uint32_t flags); /* window after 2D, width <= 1920; 0 removes */

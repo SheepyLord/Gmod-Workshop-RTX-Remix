@@ -214,7 +214,8 @@ function Core.New(native, onError, units)
         turn_speed = {120, 30, 360}, teleport = {1, 0, 2}, vignette = {0.6, 0, 1}, seated = {0, 0, 1},
         seated_offset = {0.45, 0, 1}, height = {0, 0, 2.2}, ghost_hands = {1, 0, 1}, gloves = {1, 0, 1},
         climb = {1, 0, 1}, melee = {1, 0, 1}, wrist_hud = {1, 0, 1},
-        physical_reload = {1, 0, 1}, foregrip = {1, 0, 1}, ammo_counter = {1, 0, 1}, gun_angle = {0, -45, 45}}
+        physical_reload = {1, 0, 1}, foregrip = {1, 0, 1}, ammo_counter = {1, 0, 1}, gun_angle = {0, -45, 45},
+        quality = {0, 0, 16}, stereo = {0, 0, 1}}
     local function setting(name, spec)
         local cv = GetConVar("nl_vr_" .. name)
         local value = cv and cv:GetFloat() or spec[1]

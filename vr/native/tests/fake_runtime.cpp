@@ -17,6 +17,7 @@ std::string trace;
 int64_t submitted_at=0;
 rtxvr_FramePose last{};
 rtxvr_StartInfo started{};
+rtxvr_Quality quality{};
 rtxvr_Status status{};
 rtxvr_GetGenericInterfaceFn generic=nullptr;
 void complete() {
@@ -28,7 +29,7 @@ void complete() {
 void join() { if(renderer.joinable()) renderer.join(); }
 }
 extern "C" __declspec(dllexport) void nlvr_fake_reset() {
-  join();std::lock_guard lock(mutex);count={};fault=0;delay=0;pending=false;trace.clear();submitted_at=0;status={};last={};started={};generic=nullptr;
+  join();std::lock_guard lock(mutex);count={};fault=0;delay=0;pending=false;trace.clear();submitted_at=0;status={};last={};started={};quality={};generic=nullptr;
 }
 extern "C" __declspec(dllexport) void nlvr_fake_fault(int value) {
   std::lock_guard lock(mutex);fault=value;if(value==0&&status.state==RTXVR_STATE_STARTING) status.state=RTXVR_STATE_RUNNING;
@@ -45,6 +46,7 @@ extern "C" __declspec(dllexport) int64_t nlvr_fake_submit_time() { std::lock_gua
 extern "C" __declspec(dllexport) FakeCounters nlvr_fake_stats() { std::lock_guard lock(mutex);return count; }
 extern "C" __declspec(dllexport) rtxvr_FramePose nlvr_fake_pose() { std::lock_guard lock(mutex);return last; }
 extern "C" __declspec(dllexport) rtxvr_StartInfo nlvr_fake_start_info() { std::lock_guard lock(mutex);return started; }
+extern "C" __declspec(dllexport) rtxvr_Quality nlvr_fake_quality() { std::lock_guard lock(mutex);return quality; }
 extern "C" uint32_t rtxvr_GetApiVersion() { std::lock_guard lock(mutex);return fault==1?99u:RTXVR_API_VERSION; }
 extern "C" int rtxvr_Start(const rtxvr_StartInfo* info) {
   std::lock_guard lock(mutex);++count.runtime_starts;
@@ -64,6 +66,11 @@ extern "C" void rtxvr_Stop() {
   status.state=RTXVR_STATE_OFF;pending=false;
 }
 extern "C" int rtxvr_UpdateEyes(const rtxvr_Eye*) { std::lock_guard lock(mutex);++count.eyes;return RTXVR_OK; }
+extern "C" int rtxvr_SetQuality(const rtxvr_Quality* q) {
+  std::lock_guard lock(mutex);if(!q||q->structSize!=sizeof(*q)) return RTXVR_E_ARGUMENT;
+  if(fault==40) return RTXVR_E_NOT_RUNNING;
+  ++count.quality;quality=*q;return RTXVR_OK;
+}
 extern "C" int rtxvr_PushFramePose(const rtxvr_FramePose* pose) {
   join();std::lock_guard lock(mutex);++count.pushed;last=*pose;pending=true;
   if(delay==0) complete();

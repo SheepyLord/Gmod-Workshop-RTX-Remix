@@ -87,6 +87,7 @@ struct Session::Impl {
   decltype(&rtxvr_Capture) rt_capture=nullptr;
   decltype(&rtxvr_GetStatus) rt_status=nullptr;
   decltype(&rtxvr_SetOverlayWindow) rt_window=nullptr;
+  decltype(&rtxvr_SetQuality) rt_quality=nullptr;
   Options options;
   Info facts;
   rtxvr_Eye eyes[2]{};
@@ -238,6 +239,7 @@ struct Session::Impl {
       rt_overlay=symbol<decltype(rt_overlay)>(runtime,"rtxvr_SetOverlaySource");
       rt_capture=symbol<decltype(rt_capture)>(runtime,"rtxvr_Capture");rt_status=symbol<decltype(rt_status)>(runtime,"rtxvr_GetStatus");
       rt_window=reinterpret_cast<decltype(rt_window)>(GetProcAddress(runtime,"rtxvr_SetOverlayWindow"));
+      rt_quality=symbol<decltype(rt_quality)>(runtime,"rtxvr_SetQuality");
       if(cancelled) return;
       if(options.simulate) {
         const auto root=simulation_root(module_folder);
@@ -716,6 +718,16 @@ std::vector<Event> Session::events() {
   if(!lock||!s.ready||s.cancelled) return {};
   std::lock_guard events_lock(s.event_mutex);
   std::vector<Event> result(s.pending_events.begin(),s.pending_events.end());s.pending_events.clear();return result;
+}
+bool Session::set_quality(const Quality& quality,std::string& error) {
+  auto& s=*impl_;auto lock=s.access();
+  rtxvr_Quality request{};request.structSize=sizeof request;request.renderScale=quality.render_scale;
+  request.dlssQuality=quality.dlss;request.pathMinBounces=quality.min_bounces;request.pathMaxBounces=quality.max_bounces;
+  request.flags=(quality.volumetrics?RTXVR_QUALITY_VOLUMETRICS:0u)|(quality.fine_clouds?RTXVR_QUALITY_FINE_CLOUDS:0u)|
+    (quality.stereo?RTXVR_QUALITY_TRUE_STEREO:0u);
+  const auto result=s.rt_quality(&request);
+  if(result!=RTXVR_OK) { error="rtxvr_SetQuality: RTXVR error "+std::to_string(result);return false; }
+  return true;
 }
 void Session::capture(const std::filesystem::path& folder,uint32_t what) {
   need(folder.is_absolute()&&what>0&&(what&~15u)==0,"invalid capture folder/flags");

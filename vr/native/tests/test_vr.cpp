@@ -11,7 +11,7 @@
 #include <functional>
 
 extern "C" int nlvr_c_api_layout(void);
-static_assert(sizeof(rtxvr_StartInfo)==168&&sizeof(rtxvr_FramePose)==112&&sizeof(rtxvr_Status)==456);
+static_assert(sizeof(rtxvr_StartInfo)==168&&sizeof(rtxvr_FramePose)==112&&sizeof(rtxvr_Status)==496&&sizeof(rtxvr_Quality)==24);
 
 namespace {
 namespace v=nl::vr;

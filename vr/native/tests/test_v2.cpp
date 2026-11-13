@@ -177,6 +177,27 @@ TEST_CASE("V2 simulation: timer poses actions overlays keyboard and clean restar
   }
   CHECK(runtime.stats().runtime_starts==2&&runtime.stats().runtime_stops==2);
 }
+TEST_CASE("V6 quality: the module hands the ladder's step to the runtime and reports a refusal") {
+  REQUIRE(GetModuleHandleW(L"openvr_api.dll")==nullptr);Fake runtime(L"nlvr_test_runtime.dll");
+  const auto scratch=nl::test::scratch_dir("v6-quality");Root root(scratch);auto o=simulated(scratch);v::Session s(folder());
+  start(s,o);
+  v::Session::Quality q;q.render_scale=.7f;q.dlss=0;q.min_bounces=1;q.max_bounces=2;q.volumetrics=false;q.fine_clouds=false;
+  std::string error;REQUIRE(s.set_quality(q,error));CHECK(error.empty());
+  const auto received=fn<FakeQuality>(runtime.dll,"nlvr_fake_quality")();
+  CHECK(received.structSize==sizeof(rtxvr_Quality));CHECK(near_value(received.renderScale,.7f));
+  CHECK(received.dlssQuality==0&&received.pathMinBounces==1&&received.pathMaxBounces==2);
+  CHECK(received.flags==0u);
+  q.volumetrics=true;q.fine_clouds=true;REQUIRE(s.set_quality(q,error));
+  CHECK(fn<FakeQuality>(runtime.dll,"nlvr_fake_quality")().flags==(RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS));
+  // V7: true stereo rides on the step as its own flag.
+  q.stereo=true;REQUIRE(s.set_quality(q,error));
+  CHECK(fn<FakeQuality>(runtime.dll,"nlvr_fake_quality")().flags==(RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS|RTXVR_QUALITY_TRUE_STEREO));
+  q.stereo=false;
+  CHECK(runtime.stats().quality==3);
+  runtime.fault(40);CHECK(!s.set_quality(q,error));CHECK(error.find("rtxvr_SetQuality")!=std::string::npos);
+  CHECK(runtime.stats().quality==3);runtime.fault(0);
+  stop(s);
+}
 TEST_CASE("V2 simulation: bad device and timeline fail cleanly and a scripted quit needs no Lua polling") {
   Fake runtime(L"nlvr_test_runtime.dll");const auto scratch=nl::test::scratch_dir("v2-sim-bad");Root root(scratch);
   auto o=simulated(scratch);{ std::ofstream out(scratch/L"simulated-index.json");out<<"{}"; }

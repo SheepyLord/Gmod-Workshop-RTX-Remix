@@ -38,3 +38,5 @@ by the movement mover before tool controls. Gun aim re-expresses that same world
 Noclip takes precedence over water and retains full hand-directed throttle flight on
 land and underwater. SetupMove never flattens or rebases noclip. Core does not rewrite
 movement/tool buttons after module movers.
+
+V6: `quality` joins the settings (0 Auto, up to 16; [cl_perf.lua](../modules/cl_perf.lua.md) clamps it to the ladder).

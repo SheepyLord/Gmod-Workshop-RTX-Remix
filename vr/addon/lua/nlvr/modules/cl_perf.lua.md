@@ -1,0 +1,26 @@
+# cl_perf.lua
+
+VR V6's quality module ([ADR 0199](../../../../../docs/decisions/0199-vr-auto-quality-ladder.md)): it chooses the
+ladder step the runtime renders at and reports it. It renders nothing itself.
+
+- **Start.** On its first frame it reads the headset's refresh from `native.Info()`, sets the target to half of it
+  (the rate SteamVR's Motion Smoothing fills in) and the frame budget to `1000 / target` ms, and applies the step
+  the VR page chose for this start (`NativeLoaderVR.StartStep()`): the pinned step, or Auto's first step from the
+  GPU's tier and VRAM.
+- **Auto.** Every 0.25 s it reads the eye pairs submitted (rendered frames in a simulated session, which submits
+  none) and the runtime's last GPU work (`gpuMsWork`: on a headset the frame's total `gpuMsTotal` also holds the
+  queue's waits for the CPU, 6 to 10 ms at 45 fps on the Index; the total is the fallback), and feeds them to [`cl_perf_control.lua`](cl_perf_control.lua.md). A step
+  the controller returns is applied with `native.SetQuality`; a refused step is reported and the controller goes
+  back to the step in use.
+- **Fixed steps.** `nl_vr_quality` above 0 pins that rung (clamped to the ladder); setting it back to 0 resumes
+  Auto from the step in use. The `setting` event applies the change at once.
+- **Render scale.** `nl_vr_render_scale` is a ceiling on every step's scale
+  ([`cl_perf_ladder.lua`](cl_perf_ladder.lua.md)); a change callback re-applies the current step, so lowering it
+  takes effect at once. The callback is removed with the module.
+- **Report.** `NLVR.Debug.perf`: `step`, `step_name`, `reason` (a key: `gpu`, `hand`, `auto`, `down`, `up`; the
+  VR page owns the translated words), `render_scale`, `dlss`, `min_bounces`, `max_bounces`, `volumetrics`,
+  `fine_clouds`, `rate`, `gpu_ms`, `cpu_limited` (the last window missed while the GPU had room, so Auto holds),
+  `target_rate`, `budget_ms`, `auto`, `changes` and `error`. The table is removed when the session stops.
+
+Inputs: the native module's `Info()` and `SetQuality()`; `nl_vr_quality`, `nl_vr_render_scale`; the page's
+`NativeLoaderVR.StartStep`. Outputs: the runtime's quality step; `NLVR.Debug.perf`. No files, no network.

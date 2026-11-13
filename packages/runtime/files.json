@@ -27,10 +27,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "308ca2f7f8b43e3def28351c88e2c72688649d67",
+    "commit": "1097d7010b4f1ad7dfe9ae2628b439148b2995c0",
     "dirty": false
    },
-   "imported": "2026-11-13T03:37:52+00:00"
+   "imported": "2026-11-13T11:44:26+00:00"
   },
   "layers/classic_remix_defaults.conf": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\startup-bounce-defaults.conf",
@@ -227,12 +227,12 @@
    "stored_sha256": "9abbc646f44e7dd8345bb6d33949bd7f8ecbb97b96de9b0e50d785e1b31b6837"
   },
   "files/d3d9.dll": {
-   "size": 418444288,
-   "sha256": "7572e10453a386093eac75e0fa8424d53bfbbdeced163b8c15534a03390cb9d6",
-   "mtime_ns": 1794540953831197100,
+   "size": 418468864,
+   "sha256": "8d64393fdb4343f7e4db2f71c683a9becbd5fe167c84d23924712fb052fd437f",
+   "mtime_ns": 1794570135179029200,
    "stored": "xz",
-   "stored_size": 61668236,
-   "stored_sha256": "ee1b349f16845baff3efc27411af8a8d5e397c9337a2c8e9e8d45d3495524708"
+   "stored_size": 61694600,
+   "stored_sha256": "354e2f344183cbc09901158d94ccb7e1e1523e657bc88d0342189e62f753f379"
   },
   "files/GFSDK_Aftermath_Lib.x64.dll": {
    "size": 9240728,

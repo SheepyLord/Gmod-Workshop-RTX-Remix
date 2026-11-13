@@ -16,7 +16,7 @@ end
 local TIMER, SHUTDOWN = "nativeloader_vr_session", "nativeloader_vr_session"
 local scale = CreateClientConVar("nl_vr_scale", "40", true, false, "Game units per metre (restart VR after changing)", 10, 100)
 CreateClientConVar("nl_vr_fov", "145", true, false, "Engine culling FOV; tested on the Index at 16:9", 100, 170)
-local renderScale = CreateClientConVar("nl_vr_render_scale", "1", true, false, "V1 fixed render scale (restart VR after changing)", 0.25, 1.5)
+local renderScale = CreateClientConVar("nl_vr_render_scale", "1", true, false, "Highest VR render scale; Auto may choose a lower one", 0.25, 1.5)
 -- Settings live here while the add-on is dormant; active modules only read them.
 for _, spec in ipairs({
     {"dominant", "0", "Dominant hand: 0 right, 1 left", 0, 1},
@@ -38,6 +38,8 @@ for _, spec in ipairs({
     {"foregrip", "1", "Enable two-handed weapon grip", 0, 1},
     {"ammo_counter", "1", "Show ammo beside the weapon hand", 0, 1},
     {"gun_angle", "0", "Gun pitch in the hand in degrees", -45, 45},
+    {"quality", "0", "VR quality: 0 Auto; 1 Full (V1's preset) to 7 Floor", 0, 16},
+    {"stereo", "0", "VR true stereo: path trace each eye with its own history (needs DLSS Ray Reconstruction)", 0, 1},
 }) do
     CreateClientConVar("nl_vr_" .. spec[1], spec[2], true, false, spec[3], spec[4], spec[5])
 end
@@ -46,7 +48,7 @@ local ERRORS = {
     version = N("The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."),
     runtime = N("This Remix runtime has no VR output. Update the RTX package and restart Garry's Mod."),
     addon = N("The VR add-on could not start. Reinstall the RTX package and try again."),
-    server = N("V1 supports single-player and the listen-server host. Start a local game to use VR."),
+    server = N("VR works in single-player games only. Start a single-player game to use VR."),
     vrmod = N("Exit VRMod before starting RTX VR. Only one add-on can control the view."),
     gvrmod = N("Exit gVRMod before starting RTX VR. Only one add-on can control the view."),
     native = N("SteamVR could not start VR. Check the headset connection and SteamVR, then try again."),
@@ -67,6 +69,21 @@ local function loader_status()
         return text and util.JSONToTable(text)
     end)
     return ok and type(status) == "table" and status.schema == 1 and status or {}
+end
+VR.LoaderStatus = loader_status
+-- V6: the step Start renders at, so the first frames need no resize; Auto moves on from there.
+-- The ladder is the add-on's file, loaded only once VR is requested.
+function VR.StartStep()
+    local Ladder = include("nlvr/modules/cl_perf_ladder.lua")
+    local pinned = GetConVar("nl_vr_quality")
+    pinned = pinned and math.floor(pinned:GetFloat()) or 0
+    if pinned > 0 then return math.min(pinned, Ladder.Count()), Ladder end
+    local status = loader_status()
+    local activation = type(status.activation) == "table" and status.activation or {}
+    local tier = type(activation.performance_tier) == "table" and activation.performance_tier or {}
+    local memory = type(activation.memory) == "table" and activation.memory or {}
+    local vram = finite(tier.dedicated_vram_mib) and tier.dedicated_vram_mib > 0 and tier.dedicated_vram_mib or memory.vram_mib
+    return Ladder.Start(tier.tier, vram), Ladder
 end
 -- Exported for diagnostics and the offline harness; no state or file writes.
 function VR.GPUWarning(status)
@@ -209,21 +226,21 @@ end
 function VR.Start(options)
     if VR.state == "starting" or VR.state == "running" or VR.state == "stopping" then return false end
     local player = LocalPlayer()
-    if not IsValid(player) or not (game.SinglePlayer() or player:IsListenServerHost()) then return fail("server") end
+    if not IsValid(player) or not game.SinglePlayer() then return fail("server") end
     local other = conflict()
     if other then return fail(other) end
     local ok, reason, detail = load_native()
     if not ok then return fail(reason, detail) end
     local probeOK, probe = pcall(native.Probe)
     if probeOK and type(probe) == "table" then VR.probe = probe end
-    if VR.probe.runtime_api ~= 3 then return fail("runtime") end
+    if VR.probe.runtime_api ~= 4 then return fail("runtime") end
     if VR.probe.steamvr_installed == false then return fail("steamvr") end
     options = type(options) == "table" and options or {}
-    -- Auto is V6. V1 supplies one fixed scale, reduced on the warning tier, without blocking Start.
-    local selected = bounded(renderScale:GetFloat(), 1, 0.25, 1.5)
-    if VR.GPUWarning(loader_status()) then selected = math.min(selected, 0.5) end
+    -- V6: render at the step Auto starts from (or the pinned one); the slider is its ceiling.
+    local index, Ladder = VR.StartStep()
+    local step = Ladder.Step(index, bounded(renderScale:GetFloat(), 1, 0.25, 1.5))
     options.scale = bounded(scale:GetFloat(), 40, 10, 100)
-    options.render_scale = selected
+    options.render_scale = step.render_scale
     VR.sessionScale = options.scale -- the camera must use the same scale as the runtime, even if edited during startup
     VR.state, VR.reason, VR.detail, VR.info = "starting", nil, "", {}
     VR.stopReason, VR.stopDetail = nil, nil
@@ -288,6 +305,12 @@ function VR.BuildOptions(panel)
             end
         end
     end
+    panel:Help(L("Quality"))
+    choice(N("Quality step"), "nl_vr_quality",
+        {N("Auto"), N("Full"), N("High"), N("Balanced"), N("Fast"), N("Faster"), N("Low"), N("Floor")})
+    panel:ControlHelp(L("Auto keeps VR at half the headset's refresh rate, and SteamVR's Motion Smoothing fills in the rest. A fixed step stays where you set it."))
+    panel:CheckBox(L("True stereo"), "nl_vr_stereo")
+    panel:ControlHelp(L("Path traces each eye with its own history instead of turning one picture into both eyes. It costs about a quarter more GPU time, so Auto may choose a lower step, and it needs DLSS Ray Reconstruction."))
     panel:Help(L("Controls and comfort"))
     choice(N("Dominant hand"), "nl_vr_dominant", {N("Right hand"), N("Left hand")})
     choice(N("Movement direction"), "nl_vr_move_dir", {N("Off hand"), N("Head")})
@@ -333,6 +356,10 @@ local function yesno(value)
     return value and L("Yes") or L("No")
 end
 local function size(w, h) return number(w, "%.0f") .. " x " .. number(h, "%.0f") end
+local STEPS = {full = N("Full"), high = N("High"), balanced = N("Balanced"), fast = N("Fast"),
+    faster = N("Faster"), low = N("Low"), floor = N("Floor")}
+local REASONS = {gpu = N("chosen for this GPU"), hand = N("set by hand"), auto = N("back to Auto"),
+    down = N("frames were missed"), up = N("frames have headroom")}
 local function status_lines()
     local info, probe = VR.info, VR.probe
     local text = {L(STATES[VR.state] or STATES.failed)}
@@ -358,6 +385,22 @@ local function status_lines()
         -- Device activity and compositor field names are to be confirmed with VR-D at integration.
         local devices = type(info.devices) == "table" and info.devices or {}
         text[#text + 1] = string.format(L("Controllers tracked: left %s; right %s"), yesno(devices.left), yesno(devices.right))
+        local perf = NLVR and NLVR.Debug and NLVR.Debug.perf
+        if perf and perf.step_name then
+            text[#text + 1] = string.format(L("Quality: %s, %s"), L(STEPS[perf.step_name] or perf.step_name),
+                L(REASONS[perf.reason] or REASONS.gpu))
+            text[#text + 1] = string.format(L("Frame rate: %s of %s per second; GPU: %s of %s ms"),
+                number(perf.rate), number(perf.target_rate), number(perf.gpu_ms), number(perf.budget_ms))
+            if perf.error then text[#text + 1] = L("The runtime refused a quality step.") .. " " .. tostring(perf.error) end
+            if perf.cpu_limited then
+                text[#text + 1] = L("Frames are being missed while the GPU has room. A lower step would not help, so the step stays.")
+            end
+            text[#text + 1] = string.format(L("Stereo: %s"), info.stereoActive == 1 and L("each eye path traced") or
+                L("one picture turned into both eyes"))
+            if perf.stereo and info.stereoActive ~= 1 and (perf.changes or 0) > 0 then
+                text[#text + 1] = L("True stereo needs DLSS Ray Reconstruction and the physical sky, so one picture is turned into both eyes.")
+            end
+        end
         text[#text + 1] = string.format(L("Compositor: GPU %s ms; CPU %s ms"), number(info.compositor_gpu_ms), number(info.compositor_cpu_ms))
         local presents = info.presents
         local function percent(value)
@@ -387,7 +430,7 @@ local function build(panel)
     panel:Help(L("Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."))
     local status = panel:Help(status_lines())
     local warning = panel:Help("")
-    panel:Help(L("VR uses a fixed render preset. Auto quality arrives in a later milestone. For RTX, 80 or 90 Hz is recommended."))
+    panel:Help(L("Auto quality is on unless you choose a step under Quality. For RTX, 80 or 90 Hz is recommended."))
     -- GUI Scaler enlarges fonts after this builder; Source's slider label stays 114 pixels wide.
     -- Always use a full-width title, including short English labels that only overflow at 4K.
     panel:Help(L("World scale"))
@@ -395,11 +438,11 @@ local function build(panel)
     panel:ControlHelp(L("Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."))
     panel:Help(L("Render scale"))
     panel:NumSlider("", "nl_vr_render_scale", 0.25, 1.5, 2)
-    panel:ControlHelp(L("Scale of SteamVR's recommended eye size. V1 starts at 1.00, or at most 0.50 on a low tier or below 12 GB. Restart VR after changing."))
+    panel:ControlHelp(L("The highest render scale VR may use, on SteamVR's recommended eye size. Auto may choose a lower one. Changes take effect at once."))
     panel:Help(L("Culling FOV"))
     panel:NumSlider("", "nl_vr_fov", 100, 170, 0)
     panel:ControlHelp(L("Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."))
-    panel:Help(L("Use nl_vr_start and nl_vr_exit in the console. V1 supports single-player and the listen-server host."))
+    panel:Help(L("Use nl_vr_start and nl_vr_exit in the console. VR works in single-player games only."))
     VR.BuildOptions(panel)
     local nextUpdate = 0
     -- This belongs to the visible page, not a global frame hook or an idle timer.
@@ -414,7 +457,7 @@ local function build(panel)
         nextUpdate = RealTime() + 0.5
         self:SetText(status_lines())
         self:SizeToContents()
-        warning:SetText(VR.GPUWarning(loader_status()) and L("VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; V1 uses a lower render scale.") or "")
+        warning:SetText(VR.GPUWarning(loader_status()) and L("VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; Auto starts at its lowest step.") or "")
         warning:SizeToContents()
         start:SetEnabled(VR.state == "off" or VR.state == "failed")
         stop:SetEnabled(VR.state ~= "off")

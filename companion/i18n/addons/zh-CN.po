@@ -729,23 +729,23 @@ msgstr "[GMRTX - 地图修复] 以下地图尚未启用修复： "
 msgid "[GMRTX - Map Fixes] Auto-enabled for map: "
 msgstr "[GMRTX - 地图修复] 已为以下地图自动启用： "
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1269
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1897
 msgid " (EMERGENCY)"
 msgstr "（应急调整）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1271
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1899
 msgid " (MOVED)"
 msgstr "（已移动）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1279
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1907
 msgid " (OUT OF BOUNDS)"
 msgstr "（超出边界）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1316
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1944
 msgid "BOUNDS CHECK FAILED"
 msgstr "边界检查失败"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1347
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1975
 msgid " (NO UPDATER)"
 msgstr "（无光源更新器）"
 

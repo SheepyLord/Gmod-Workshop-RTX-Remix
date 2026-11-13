@@ -171,7 +171,7 @@ The package format permits these DLLs in `garrysmod/lua/bin`. Native hosts alone
 | `tests/test_vr.cpp` | Offline CTest coverage of lifecycle, maths, timeline, overlays and failures |
 | `tests/test_v2.cpp` | Simulated sessions, pacing, extended input/events, keyboard, binding UI and optional window-source tests |
 | `tests/test_window_input.cpp` | Stand-in window calls, message fields, Unicode, bounds/budget, failures, releases and Session lifecycle |
-| `tests/api_layout.c` | Compiles the current header as C and asserts the Windows x64 ABI layout |
+| `tests/api_layout.c` | Compiles the current header as C and asserts the Windows x64 ABI layout (API 4: `rtxvr_Quality` 24 bytes, `rtxvr_Status` 488) |
 | `tests/check_input.py` | Cross-checks bindings, action types and native readers offline |
 | `tests/session_host.cpp` | Explicit real Index host, two start/stop cycles, inputs and overlay visibility |
 
@@ -253,6 +253,13 @@ crosses the Lua ABI. Close stops and joins the session before unloading the modu
   dashboard_off, standby, wake, ipd and other. IPD events refresh eyes through `rtxvr_UpdateEyes`.
   `Capture(name,flags)` forwards capture flags to the runtime.
 - `TestState()` -> nil without a timeline, else `{time,step,ended}`; step is one-based.
+- `SetQuality{render_scale,dlss,min_bounces,max_bounces,volumetrics,fine_clouds,stereo}` (V6; `stereo` is V7's true
+  stereo, `RTXVR_QUALITY_TRUE_STEREO`, which the runtime honours only with Ray Reconstruction and the physical sky;
+  [ADR 0199](../../docs/decisions/0199-vr-auto-quality-ladder.md)) -> true, or false and the runtime's error: hands a
+  ladder step to `rtxvr_SetQuality` (runtime API 4). Ranges are checked here (scale 0.25-1.5, DLSS 0-3, bounces 0-16)
+  and again by the runtime; the add-on's `cl_perf.lua` is the only caller. `Info()` reports the step the render thread
+  applied: `qualityRenderScale`, `qualityDlss`, `qualityMinBounces`, `qualityMaxBounces`, `qualityFlags` and
+  `qualityChanges`.
 
 ## Timeline format
 

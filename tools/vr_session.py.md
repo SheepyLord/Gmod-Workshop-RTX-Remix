@@ -91,7 +91,9 @@ must not be ignored merely because they have no scripted final-vr record. Initia
 are recorded separately from submitted unmatched poses.
 
 Accepted captures must contain visible wrist glyph pixels, not merely a PNG and a positive copy
-counter. The checker reads the runtime's filter-zero RGBA8 PNG with the standard library and
+counter, and the centre view's colour and depth unless the capture's `Info()` says true stereo ran
+(`stereoActive` 1, VR V7: each eye is traced and there is no centre view); the eyes, the mirror and
+the timings are always required. The checker reads the runtime's filter-zero RGBA8 PNG with the standard library and
 rejects blank, malformed or oversized data. It requires at least 16 bright visible glyph pixels;
 numeric values and labels are also inspected in the saved images. The real queued and queue-zero
 neutral canvases are byte-identical and contain 8223 bright glyph pixels; a preview discrepancy

@@ -120,6 +120,12 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0193](0193-vr-weapons-after-independent-review.md) | VR weapons after independent review | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
 | [0194](0194-vr-hold-witnesses-and-ladder-sectors.md) | VR hold witnesses and ladder sectors | Accepted 2026-11-12 (VR V2-V4, approved by the user) |
 | [0196](0196-vr-motion-keeps-the-wires-cadence.md) | VR motion keeps the wire's cadence and eases buffer changes | Accepted 2026-11-12 (VR V4 final) |
+| [0197](0197-vr-is-single-player-only.md) | VR is single-player only; V5 is skipped | Accepted 2026-11-13 (the user) |
+| [0198](0198-vr-true-stereo-by-swapping-the-eyes-state.md) | True stereo path traces each eye with its own swapped state | Accepted 2026-11-13 (VR V7 spike) |
+| [0199](0199-vr-auto-quality-ladder.md) | VR's Auto quality: a seven-step ladder moved live by the add-on | Accepted 2026-11-13 (VR V6) |
+| [0200](0200-vr-auto-counts-only-the-gpus-misses.md) | VR's Auto counts only the frames the GPU lost | Accepted 2026-11-13 (VR V6) |
+| [0201](0201-vr-auto-reads-the-gpus-work.md) | VR's Auto reads the GPU's work, not the frame's span | Accepted 2026-11-13 (VR V6) |
+| [0202](0202-true-stereo-shares-the-frames-work.md) | True stereo shares the frame's work and keeps each view's history | Accepted 2026-11-13 (VR V7) |
 
 ## Template
 

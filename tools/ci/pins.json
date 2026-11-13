@@ -289,14 +289,14 @@
         "vr/native/controller_frames.h"
       ],
       "packaged": {
-        "sha256": "c5cb2a4844fa38e560639182063765619f3f8f816186ce2b52edd65478049e4d",
+        "sha256": "8d1b6f30b3e5c70140278eaa1601eb08c4e821595c31089cd1277d2a95efae84",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "vr/native/CMakeLists.txt": "1aaa5bfb9dd504bf90a0f329d80bb4f85b27fbe87b2ef441696a856bf6e9de18",
-          "vr/native/module.cpp": "3278f87f63bc644b1f24a2ed64fdc3ec4f7eb573d35d2df968e61885c8152bbc",
-          "vr/native/session.cpp": "b311e30ece4aeeb5649d1263e69acf48bc4e28996d4f13f95d27e9b8c578b0ed",
-          "vr/native/session.h": "c016376b767de213951defc5b3731bb5fd6da2a53651d5ac15ed09e813de7cd5",
+          "vr/native/module.cpp": "51f9755194f140c200e2ba4aed8eac7c8be7f42b4b75e78734550f308e6ddcea",
+          "vr/native/session.cpp": "5da1f46fa0cd0f141116d6a8e3461b2e2298db2ac4ef9bc387f070f19e601ea3",
+          "vr/native/session.h": "ca05d66527e7d2fad09d426003cc777d8b1c2e71155656686cdbc6216d09f06d",
           "vr/native/window_input.cpp": "85dadbd8d54496e8c317b97eefa9968423b8f2c5e836ed74b9822f611f474c4a",
           "vr/native/window_input.h": "aaacf49a541ef5c1fb6acbc198288ac69994385d9a16588ff4a4ec8449b70ad9",
           "vr/native/pose_math.cpp": "82f42248bad3e34bcdb8a0b70f831173a6d9707a4b82be5be3ac1a0631adc2ba",
@@ -306,7 +306,7 @@
           "vr/native/sim_device.cpp": "86292e57f740e0be3287e876ffaacd4d49ec881f794bd6852b341209821cdb7f",
           "vr/native/sim_device.h": "5a7a54aaabe21cf93311b9f8849dc9b2946f04ab6064d125a888281beabeea87",
           "vr/native/input_actions.h": "5a0d077ebd17b57a010a0d8ffa7d00859ad368b523663c18c8eafc2f985047af",
-          "vr/native/include/rtxvr_api.h": "3c303ce575a85680f6251018155ae26684c0ebe2612961778af2f2c5627ef8bf",
+          "vr/native/include/rtxvr_api.h": "0f1fc06333defaa238d7f438b5c316945ccbc273289ab84d52dc74aad3dc6d10",
           "vr/native/probe/CMakeLists.txt": "ae69d60b4a5914fee4a71e00ddc8a0a3f65b58f335e28ed273f9e84bb53e1265",
           "vr/native/probe/probe_data.cpp": "65f4b0b536607d67f3b7d5d729458f13819a363489433e9050c06732f67320a9",
           "vr/native/probe/probe_data.h": "8cb2e41273cf61624d9243c9426acaaba4847d0034c9384ee769241ac05175e3",
@@ -320,9 +320,9 @@
           "vr/native/controller_frames.cpp": "a8e361a9e7ee6c0811fe171c8658ec052f071278c205038b1476d4f81d7f5478",
           "vr/native/controller_frames.h": "91efeee3626947c6129b4a84a4264539b178eb0cc8b7594ba814bd858b8eea7b"
         },
-        "commit": "d3a875338f8123dc9af075feb2e5487c80b83114",
+        "commit": "657fcc87e761bc8d431f951ea3b45e59063e57c4",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "kept: a build of these sources is the same image"
+        "how": "imported: built from these sources"
       }
     }
   ],

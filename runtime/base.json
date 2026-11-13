@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "7572e10453a386093eac75e0fa8424d53bfbbdeced163b8c15534a03390cb9d6",
-  "built_from": "HEAD -> vr2 308ca2f7 (with what the rest of this record names)",
+  "d3d9.dll": "8d64393fdb4343f7e4db2f71c683a9becbd5fe167c84d23924712fb052fd437f",
+  "built_from": "HEAD -> vr2 1097d701 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -136,6 +136,9 @@
    "patches/0084-Keep-reconstructed-foreground-coverage-without-movin.patch": "783ef0824593a230961bf8d04c10963e728d7c73b138ffbcc5a9052697be415b",
    "patches/0085-Reject-foreground-eroding-guidance-and-retain-the-ac.patch": "fd277d6bd8a556fa238ce3b1fa30f2892cd57f7b4ce82436a21bad7fcdfcecde",
    "patches/0086-Keep-the-mod-loader-s-texture-reads-between-starts.patch": "38b624a01c2b893d2c1c61b8c9cb00106466965f66b07cf218d10a4972d9763b",
+   "patches/0087-A-live-VR-quality-step-rtxvr_SetQuality-API-4.patch": "7842a726cca073b5ce397ddeaba5cfdca1734d3655d5e17d9cba0cf4f2ffff31",
+   "patches/0088-The-VR-frame-s-GPU-work-in-rtxvr_Status.patch": "6ca907dfe1a3792fc6dc1146d59248a8778006f2b34638bbfe94eecfa58704ec",
+   "patches/0089-VR-true-stereo-each-eye-path-traced-with-its-own-vie.patch": "06131c09ed64c9b2b99761bdd85707e70593c316c8019ce1f322748a9b72cbbf",
    "submodules/rtxdi.patch": "006d534a48637125dcb1e4a5fcca9eabb8bd96f7a8935b5eb1ec49a64b0e1be5"
   }
  }

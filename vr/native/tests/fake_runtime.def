@@ -4,6 +4,7 @@ EXPORTS
   rtxvr_Start
   rtxvr_Stop
   rtxvr_UpdateEyes
+  rtxvr_SetQuality
   rtxvr_PushFramePose
   rtxvr_SetOverlaySource
   rtxvr_Capture

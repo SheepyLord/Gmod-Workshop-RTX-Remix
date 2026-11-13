@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Fri, 13 Nov 2026 04:20:48 -0700
+Subject: [PATCH] The VR frame's GPU work in rtxvr_Status
+
+On a headset the frame's GPU total also holds the queue's waits for the CPU (pacing), 6 to 10 ms at 45 fps on the Index, so VR's Auto could not see headroom. gpuMsWork is the total without those waits; stereoActive is reserved for true stereo and stays 0 here.
+---
+ src/dxvk/rtx_render/rtx_vr.cpp   | 2 ++
+ src/dxvk/rtx_render/rtx_vr_api.h | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 150f2249..96de5197 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -635,6 +635,8 @@ namespace dxvk {
+       std::lock_guard lock(m_requestMutex);
+       m_status.gpuMsPathTrace=path; m_status.gpuMsUpscale=upscale; m_status.gpuMsWarp=warp;
+       m_status.gpuMsOther=other; m_status.gpuMsTotal=total;
++      // On a headset the frame also waits on the CPU (pacing), which is not work: Auto reads this instead.
++      m_status.gpuMsWork=float(coverage ? std::max(0.0,rawTotal-gaps) : rawTotal);
+     }
+     std::ostringstream json; json.imbue(std::locale::classic()); json<<std::fixed<<std::setprecision(6);
+     json<<"{\"frame\":"<<timer.frame<<",\"pose\":"<<timer.pose
+diff --git a/src/dxvk/rtx_render/rtx_vr_api.h b/src/dxvk/rtx_render/rtx_vr_api.h
+index 5d7b4450..7160a688 100644
+--- a/src/dxvk/rtx_render/rtx_vr_api.h
++++ b/src/dxvk/rtx_render/rtx_vr_api.h
+@@ -83,6 +83,8 @@ typedef struct rtxvr_Status {
+   int32_t  qualityDlss, qualityMinBounces, qualityMaxBounces;
+   uint32_t qualityFlags;
+   uint64_t qualityChanges;                      /* quality steps applied since Start */
++  float    gpuMsWork;                           /* gpuMsTotal without the queue's waits for the CPU: the GPU's work */
++  uint32_t stereoActive;                        /* 1 while each eye is path traced (true stereo), 0 for the warp */
+ } rtxvr_Status;
+ 
+ enum { RTXVR_STATE_OFF = 0, RTXVR_STATE_STARTING = 1, RTXVR_STATE_RUNNING = 2, RTXVR_STATE_FAILED = 3 };
+-- 
+2.56.0.windows.1
+

@@ -2,7 +2,7 @@
 util.AddNetworkString("nlvr")
 local server
 local function eligible(ply)
-    return IsValid(ply) and ply:IsPlayer() and (game.SinglePlayer() or ply:IsListenServerHost())
+    return IsValid(ply) and ply:IsPlayer() and game.SinglePlayer()
 end
 net.Receive("nlvr", function(bits, ply)
     if not eligible(ply) or bits < 8 then return end

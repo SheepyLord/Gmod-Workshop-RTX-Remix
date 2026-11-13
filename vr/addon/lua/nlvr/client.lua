@@ -5,7 +5,7 @@ function Session.Start(native, onError, units)
     core = include("nlvr/core/cl_core.lua").New(native, onError, units)
     local modules = {}
     -- Fixed list: feature tasks replace their own files without editing this composition root.
-    for _, name in ipairs({"hud", "hands", "move", "ui", "weapons", "reload", "tools", "interact"}) do
+    for _, name in ipairs({"hud", "hands", "move", "ui", "weapons", "reload", "tools", "interact", "perf"}) do
         modules[#modules + 1] = include("nlvr/modules/cl_" .. name .. ".lua")
     end
     return core.Start(modules)

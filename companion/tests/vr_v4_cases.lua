@@ -113,12 +113,12 @@ return function(e, cases, helpers)
         e.clean()
     end
     function cases.f_v4_stubs()
-        -- Actual fixed lists, actual descriptors and both local game modes; the stubs own no resources.
-        for _, single in ipairs({true, false}) do
+        -- Actual fixed lists and descriptors in single-player, the one game mode VR runs in (ADR 0197).
+        for _, single in ipairs({true}) do
             game.SinglePlayer = function() return single end
             e.running() local clientEntries = NLVR.Registry.entries
             local order = {} for _, entry in ipairs(clientEntries) do order[#order + 1] = entry.module.name end
-            eq(table.concat(order, ","), "core,hud,hands,move,ui,weapons,reload,tools,interact")
+            eq(table.concat(order, ","), "core,hud,hands,move,ui,weapons,reload,tools,interact,perf")
             for _, entry in ipairs(clientEntries) do
                 if entry.module.name == "weapons" or entry.module.name == "reload" or entry.module.name == "tools" then
                     eq(#entry.cleanups, 0) eq(entry.active, true)

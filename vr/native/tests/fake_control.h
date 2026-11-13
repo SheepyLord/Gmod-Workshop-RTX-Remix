@@ -11,9 +11,10 @@ struct FakeCounters {
   uint32_t acknowledged=0,predicted=0;
   uint32_t init=0,shutdown=0,waits=0,manifests=0,actions=0,haptics=0,created=0,destroyed=0,eyes=0;
   uint32_t runtime_starts=0,runtime_stops=0,pushed=0,sources=0,absolute=0,relative=0,after_stop=0;
+  uint32_t quality=0;
 };
 // Faults: 1 no SteamVR, 2 no HMD, 3 missing interface, 4 manifest error,
-// 5 delayed init, 6 sleeping haptic, 7 WaitGetPoses error.
+// 5 delayed init, 6 sleeping haptic, 7 WaitGetPoses error; the runtime stand-in refuses a quality step at 40.
 using FakeReset=void (*)();
 using FakeFault=void (*)(int);
 using FakeStats=FakeCounters (*)();
@@ -26,4 +27,5 @@ using FakeComplete=void (*)();
 using FakeTrace=const char* (*)();
 using FakeSubmitTime=int64_t (*)();
 using FakeStartInfo=rtxvr_StartInfo (*)();
+using FakeQuality=rtxvr_Quality (*)();
 using FakeKeyboardText=void (*)(const char*);

@@ -70,3 +70,7 @@ Review correction: VR help directs the player to turn on Keep corpses in the gam
 
 
 Numeric settings sliders suppress redundant numeric echoes from their scratch/text controls, preserving the player's original convar spelling until an actual numeric edit.
+
+Single-player only ([ADR 0197](../../../../../docs/decisions/0197-vr-is-single-player-only.md)): Start refuses every game that is not single-player, the listen-server host included, with "VR works in single-player games only. Start a single-player game to use VR."; the console help says the same.
+
+V6 ([ADR 0199](../../../../../docs/decisions/0199-vr-auto-quality-ladder.md)): Start needs runtime API 4 and renders at the ladder step Auto begins from, or the step `nl_vr_quality` pins (`VR.StartStep()`, which loads the add-on's ladder only once VR is requested; `VR.LoaderStatus` exports the status reader). `nl_vr_render_scale` is a ceiling on every step and takes effect at once. The options gain a Quality group (Auto or one of seven steps), shown on the page and in the headset's settings panel; while VR runs the page shows the step, its reason and the measured rate and GPU time against the target and budget, all translated.

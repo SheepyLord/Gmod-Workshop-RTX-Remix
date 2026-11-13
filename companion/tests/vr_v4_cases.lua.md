@@ -4,3 +4,7 @@ Extends F's framework cases with nine V4 scaffold scenarios. vr_framework_cases.
 
 
 The central reservation count is 21 after Q adds two reserved arc-dot sizes. Existing V4 role sizes, module orders, protocol ranges and setting expectations remain checked.
+
+`f_v4_stubs` runs in single-player only, the one game mode VR runs in ([ADR 0197](../../docs/decisions/0197-vr-is-single-player-only.md)).
+
+The module order now ends with V6's `perf`.

@@ -116,7 +116,7 @@ function Core.New(protocol)
         registry:Start()
     end
     function SV.Start(ply, scale)
-        if not IsValid(ply) or not ply:IsPlayer() or not (game.SinglePlayer() or ply:IsListenServerHost()) or not protocol.Scale(scale) then return false end
+        if not IsValid(ply) or not ply:IsPlayer() or not game.SinglePlayer() or not protocol.Scale(scale) then return false end
         if SV.Players[ply] then SV.Players[ply].scale = scale return true end
         load()
         local state = {active = true, scale = scale, head = {valid = false}, hands = {left = {valid = false}, right = {valid = false}},
@@ -148,7 +148,7 @@ function Core.New(protocol)
     function SV.Receive(kind, bits, ply)
         local state = SV.Players[ply]
         if not state then return drop("inactive") end
-        if not IsValid(ply) or not ply:IsPlayer() or not (game.SinglePlayer() or ply:IsListenServerHost()) then return drop("player") end
+        if not IsValid(ply) or not ply:IsPlayer() or not game.SinglePlayer() then return drop("player") end
         if kind == protocol.SYNC then
             local current = tick()
             if state.syncTick ~= current then state.syncTick, state.syncCount = current, 0 end

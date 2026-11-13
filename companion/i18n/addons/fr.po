@@ -729,23 +729,23 @@ msgstr "[GMRTX - Correctifs de carte] Non activés pour la carte : "
 msgid "[GMRTX - Map Fixes] Auto-enabled for map: "
 msgstr "[GMRTX - Correctifs de carte] Activés automatiquement pour la carte : "
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1269
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1897
 msgid " (EMERGENCY)"
 msgstr " (AJUSTEMENT D'URGENCE)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1271
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1899
 msgid " (MOVED)"
 msgstr " (DÉPLACÉ)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1279
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1907
 msgid " (OUT OF BOUNDS)"
 msgstr " (HORS LIMITES)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1316
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1944
 msgid "BOUNDS CHECK FAILED"
 msgstr "ÉCHEC DU CONTRÔLE DES LIMITES"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1347
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_light_updater.lua:1975
 msgid " (NO UPDATER)"
 msgstr " (SANS MISE À JOUR)"
 

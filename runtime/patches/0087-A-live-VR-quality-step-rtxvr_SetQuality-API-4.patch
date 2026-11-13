@@ -1,0 +1,371 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Fri, 13 Nov 2026 03:32:45 -0700
+Subject: [PATCH] A live VR quality step: rtxvr_SetQuality (API 4)
+
+The session layer outranks every route Lua has, and the render scale was latched at Start.
+SetQuality records a step; the render thread writes the five ladder values into the session
+layer and reallocates the eye images when the scale changes. The centre projection follows at
+once, as it does for an IPD change. The status carries the step in use. The top step is V1s
+fixed preset, so an untouched session renders as before.
+---
+ src/d3d9/d3d9.def                     |  1 +
+ src/d3d9/d3d9_rtx_shim.cpp            |  3 ++
+ src/dxvk/rtx_render/rtx_remix_api.cpp |  4 ++
+ src/dxvk/rtx_render/rtx_vr.cpp        | 70 ++++++++++++++++++++++++++-
+ src/dxvk/rtx_render/rtx_vr.h          |  4 ++
+ src/dxvk/rtx_render/rtx_vr_api.h      | 18 ++++++-
+ src/dxvk/rtx_render/rtx_vr_exports.h  |  2 +
+ src/dxvk/rtx_render/rtx_vr_policy.h   | 25 ++++++++++
+ tests/rtx/unit/test_vr_math.cpp       | 25 ++++++++++
+ 9 files changed, 149 insertions(+), 3 deletions(-)
+
+diff --git a/src/d3d9/d3d9.def b/src/d3d9/d3d9.def
+index fef3f70c..84d52971 100644
+--- a/src/d3d9/d3d9.def
++++ b/src/d3d9/d3d9.def
+@@ -25,6 +25,7 @@ EXPORTS
+   rtxvr_Start
+   rtxvr_Stop
+   rtxvr_UpdateEyes
++  rtxvr_SetQuality
+   rtxvr_PushFramePose
+   rtxvr_SetOverlaySource
+   rtxvr_SetOverlayWindow
+diff --git a/src/d3d9/d3d9_rtx_shim.cpp b/src/d3d9/d3d9_rtx_shim.cpp
+index 102fffd1..b579c268 100644
+--- a/src/d3d9/d3d9_rtx_shim.cpp
++++ b/src/d3d9/d3d9_rtx_shim.cpp
+@@ -77,6 +77,7 @@ namespace {
+     decltype(&::rtxvr_Start) rtxvr_Start = nullptr;
+     decltype(&::rtxvr_Stop) rtxvr_Stop = nullptr;
+     decltype(&::rtxvr_UpdateEyes) rtxvr_UpdateEyes = nullptr;
++    decltype(&::rtxvr_SetQuality) rtxvr_SetQuality = nullptr;
+     decltype(&::rtxvr_PushFramePose) rtxvr_PushFramePose = nullptr;
+     decltype(&::rtxvr_SetOverlaySource) rtxvr_SetOverlaySource = nullptr;
+     decltype(&::rtxvr_SetOverlayWindow) rtxvr_SetOverlayWindow = nullptr;
+@@ -196,6 +197,7 @@ namespace {
+     LOAD_SHIM_EXPORT(rtxvr_Start);
+     LOAD_SHIM_EXPORT(rtxvr_Stop);
+     LOAD_SHIM_EXPORT(rtxvr_UpdateEyes);
++    LOAD_SHIM_EXPORT(rtxvr_SetQuality);
+     LOAD_SHIM_EXPORT(rtxvr_PushFramePose);
+     LOAD_SHIM_EXPORT(rtxvr_SetOverlaySource);
+     LOAD_SHIM_EXPORT(rtxvr_SetOverlayWindow);
+@@ -297,6 +299,7 @@ extern "C" {
+   REMIXAPI int REMIXAPI_CALL rtxvr_Start(const rtxvr_StartInfo* info) { return shim().rtxvr_Start ? shim().rtxvr_Start(info) : RTXVR_E_INTERFACE; }
+   REMIXAPI void REMIXAPI_CALL rtxvr_Stop(void) { if (shim().rtxvr_Stop) { shim().rtxvr_Stop(); } }
+   REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]) { return shim().rtxvr_UpdateEyes ? shim().rtxvr_UpdateEyes(eyes) : RTXVR_E_INTERFACE; }
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetQuality(const rtxvr_Quality* quality) { return shim().rtxvr_SetQuality ? shim().rtxvr_SetQuality(quality) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose* pose) { return shim().rtxvr_PushFramePose ? shim().rtxvr_PushFramePose(pose) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t handle, uint32_t w, uint32_t h) { return shim().rtxvr_SetOverlaySource ? shim().rtxvr_SetOverlaySource(handle,w,h) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlayWindow(uint64_t handle,uint32_t flags) { return shim().rtxvr_SetOverlayWindow ? shim().rtxvr_SetOverlayWindow(handle,flags) : RTXVR_E_INTERFACE; }
+diff --git a/src/dxvk/rtx_render/rtx_remix_api.cpp b/src/dxvk/rtx_render/rtx_remix_api.cpp
+index 15ec92c3..2c67416c 100644
+--- a/src/dxvk/rtx_render/rtx_remix_api.cpp
++++ b/src/dxvk/rtx_render/rtx_remix_api.cpp
+@@ -2866,6 +2866,10 @@ extern "C"
+     std::lock_guard lock(s_mutex);
+     return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().updateEyes(eyes) : RTXVR_E_NO_DEVICE;
+   }
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetQuality(const rtxvr_Quality* quality) {
++    std::lock_guard lock(s_mutex);
++    return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().setQuality(quality) : RTXVR_E_NO_DEVICE;
++  }
+   REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose* pose) {
+     std::lock_guard lock(s_mutex);
+     return s_dxvkDevice ? s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().pushPose(pose) : RTXVR_E_NO_DEVICE;
+diff --git a/src/dxvk/rtx_render/rtx_vr.cpp b/src/dxvk/rtx_render/rtx_vr.cpp
+index 67ae0571..150f2249 100644
+--- a/src/dxvk/rtx_render/rtx_vr.cpp
++++ b/src/dxvk/rtx_render/rtx_vr.cpp
+@@ -15,6 +15,8 @@
+ #include "rtx_context.h"
+ #include "rtx_option_manager.h"
+ #include "rtx_option_layer.h"
++#include "rtx_global_volumetrics.h"
++#include "rtx_atmosphere.h"
+ #include "rtx_shader_manager.h"
+ #include "../dxvk_device.h"
+ #include "../dxvk_scoped_annotation.h"
+@@ -30,6 +32,7 @@
+ namespace dxvk {
+   namespace {
+     constexpr RtxOptionLayerKey kVrLayer {0xFFFFFFFFu, "! VR session"};
++
+     class VrWarpShader : public ManagedShader {
+       SHADER_SOURCE(VrWarpShader, VK_SHADER_STAGE_COMPUTE_BIT, vr_warp)
+       PUSH_CONSTANTS(VrWarpArgs)
+@@ -116,6 +119,8 @@ namespace dxvk {
+     std::lock_guard lock(m_requestMutex);
+     if (m_active) { return RTXVR_E_ALREADY; }
+     m_requested=*info; m_projection=p;m_nearestDepth=nearest; ++m_generation;
++    m_quality=vrpolicy::topQuality(info->renderScale);
++    m_appliedQuality={}; m_qualityGeneration=0; m_renderQualityGeneration=0;
+     m_poseTimings.clear(); m_poses.clear(); m_latestPose=0; m_consumedPose=0; m_overlayRequests.clear(); m_captureRequest.clear();
+     m_windowSources.clear();m_windowNoMirror=false;
+     m_status={}; m_status.structSize=sizeof(m_status); m_status.state=RTXVR_STATE_STARTING;
+@@ -155,6 +160,57 @@ namespace dxvk {
+     return RTXVR_OK;
+   }
+ 
++  int RtxVr::setQuality(const rtxvr_Quality* quality) {
++    if (!quality || !vrpolicy::validQuality(*quality)) { return RTXVR_E_ARGUMENT; }
++    std::lock_guard lock(m_requestMutex);
++    if (!m_active) { return RTXVR_E_NOT_RUNNING; }
++    if (quality->renderScale!=m_requested.renderScale) {
++      // The centre view follows the scale at once, as it does for an IPD change; the eye images
++      // are the render thread's, and applyQuality reallocates them.
++      vrmath::Projection p;
++      if (!vrmath::centreProjection(m_requested.eyes,m_requested.eyeWidth,m_requested.eyeHeight,
++            quality->renderScale,p,m_nearestDepth)) { return RTXVR_E_ARGUMENT; }
++      m_requested.renderScale=quality->renderScale; m_projection=p;
++    }
++    m_quality=*quality; ++m_qualityGeneration;
++    return RTXVR_OK;
++  }
++
++  void RtxVr::applyQuality(RtxContext& ctx) {
++    rtxvr_Quality wanted; uint64_t generation;
++    {
++      std::lock_guard lock(m_requestMutex);
++      if (!m_layer || m_qualityGeneration==m_renderQualityGeneration) { return; }
++      wanted=m_quality; generation=m_qualityGeneration;
++    }
++    RtxOptions::qualityDLSS.setDeferred(static_cast<DLSSProfile>(wanted.dlssQuality),m_layer);
++    RtxOptions::pathMinBounces.setDeferred(static_cast<uint8_t>(wanted.pathMinBounces),m_layer);
++    RtxOptions::pathMaxBounces.setDeferred(static_cast<uint8_t>(wanted.pathMaxBounces),m_layer);
++    RtxGlobalVolumetrics::enable.setDeferred((wanted.flags&RTXVR_QUALITY_VOLUMETRICS)!=0,m_layer);
++    const uint32_t samples=vrpolicy::cloudSamples(wanted.flags);
++    RtxAtmosphere::cloudViewSamples.setDeferred(samples,m_layer);
++    RtxAtmosphere::cloudViewSamplesMax.setDeferred(samples*2u,m_layer);
++    RtxOptionManager::applyPendingValues(m_device,false);
++    const VkExtent3D size {std::max(1u,uint32_t(std::ceil(m_frame.eyeWidth*wanted.renderScale))),
++      std::max(1u,uint32_t(std::ceil(m_frame.eyeHeight*wanted.renderScale))),1};
++    if (m_eyes[0].image==nullptr || m_eyes[0].image->info().extent.width!=size.width ||
++        m_eyes[0].image->info().extent.height!=size.height) {
++      // The eye images are submitted; nothing may still be reading them when they go.
++      ctx.flushCommandList();
++      for (auto& eye:m_eyes) { testAllocation(AllocationTestSite::Eye);eye=makeImage(ctx,size); }
++    }
++    m_appliedQuality=wanted; m_renderQualityGeneration=generation;
++    {
++      std::lock_guard lock(m_requestMutex);
++      m_status.qualityRenderScale=wanted.renderScale; m_status.qualityDlss=wanted.dlssQuality;
++      m_status.qualityMinBounces=wanted.pathMinBounces; m_status.qualityMaxBounces=wanted.pathMaxBounces;
++      m_status.qualityFlags=wanted.flags; ++m_status.qualityChanges;
++    }
++    Logger::info(str::format("RTX VR quality: scale ",wanted.renderScale,", DLSS ",wanted.dlssQuality,
++      ", bounces ",wanted.pathMinBounces,"-",wanted.pathMaxBounces,", flags ",wanted.flags,
++      ", eyes ",size.width,"x",size.height));
++  }
++
+   int RtxVr::pushPose(const rtxvr_FramePose* pose) {
+     if (!pose || pose->structSize!=sizeof(*pose) || (pose->flags&~RTXVR_POSE_SCRIPTED) || !finitePose(*pose)) { return RTXVR_E_ARGUMENT; }
+     std::lock_guard lock(m_requestMutex);
+@@ -373,8 +429,10 @@ namespace dxvk {
+     static_assert(int(vrpolicy::Upscaler::Dlss)==int(UpscalerType::DLSS)&&int(vrpolicy::Upscaler::Taau)==int(UpscalerType::TAAU));
+     Config preset({{"rtx.dlfg.enable","False"},{"rtx.fsrfg.enable","False"},{"rtx.frameGenerationType","0"},
+       {"rtx.upscalerType",std::to_string(int(vrpolicy::upscaler(ctx.getCommonObjects()->metaDLSS().supportsDLSS())))},
+-      {"rtx.qualityDLSS","1"},{"rtx.enableRayReconstruction",ctx.getCommonObjects()->metaDLSS().supportsDLSS()?"True":"False"},
+-      {"rtx.pathMinBounces","1"},{"rtx.pathMaxBounces","4"},
++      {"rtx.qualityDLSS",std::to_string(m_quality.dlssQuality)},
++      {"rtx.enableRayReconstruction",ctx.getCommonObjects()->metaDLSS().supportsDLSS()?"True":"False"},
++      {"rtx.pathMinBounces",std::to_string(m_quality.pathMinBounces)},
++      {"rtx.pathMaxBounces",std::to_string(m_quality.pathMaxBounces)},
+       {"rtx.postfx.enableMotionBlur","False"},{"rtx.postfx.enableChromaticAberration","False"},
+       {"rtx.postfx.enableVignette","False"},{"rtx.enablePresentThrottle","False"},
+       {"rtx.camera.enableFreeCamera","False"},{"rtx.shakeCamera","False"}});
+@@ -387,6 +445,13 @@ namespace dxvk {
+       for (auto& q:timer.queries) { q=m_device->createGpuQuery(VK_QUERY_TYPE_TIMESTAMP,0,0); }
+     }
+     m_frames=0; m_timerIndex=0; m_ready=true;
++    {
++      std::lock_guard lock(m_requestMutex);
++      m_appliedQuality=m_quality; m_renderQualityGeneration=m_qualityGeneration;
++      m_status.qualityRenderScale=m_quality.renderScale; m_status.qualityDlss=m_quality.dlssQuality;
++      m_status.qualityMinBounces=m_quality.pathMinBounces; m_status.qualityMaxBounces=m_quality.pathMaxBounces;
++      m_status.qualityFlags=m_quality.flags;
++    }
+     Logger::info(str::format("RTX VR: centre ",m_frameProjection.width,"x",m_frameProjection.height,
+       ", eyes ",size.width,"x",size.height,", window unchanged, refresh ",m_frame.refreshHz,
+       ", warp search override ",m_warpSearchTaps," (0=pixel spacing)"));
+@@ -432,6 +497,7 @@ namespace dxvk {
+     bool initialised=true;
+     if(!vrpolicy::resources([&] { if(!m_ready) { initialised=initialise(ctx); } },
+         [&](const std::string& message) { fail(RTXVR_E_RESOURCES,message); }) || !initialised) { return flat; }
++    applyQuality(ctx);
+     if(!m_hasFocus) {
+       std::lock_guard calls(m_openVrMutex);
+       if(active()&&m_compositor) { m_hasFocus=pace(); }
+diff --git a/src/dxvk/rtx_render/rtx_vr.h b/src/dxvk/rtx_render/rtx_vr.h
+index 9dc54ae1..7de6d116 100644
+--- a/src/dxvk/rtx_render/rtx_vr.h
++++ b/src/dxvk/rtx_render/rtx_vr.h
+@@ -38,6 +38,7 @@ namespace dxvk {
+     int start(const rtxvr_StartInfo* info);
+     void stop();
+     int updateEyes(const rtxvr_Eye eyes[2]);
++    int setQuality(const rtxvr_Quality* quality);
+     int pushPose(const rtxvr_FramePose* pose);
+     int overlaySource(uint64_t handle, uint32_t w, uint32_t h);
+     int overlayWindow(uint64_t handle, uint32_t flags);
+@@ -48,6 +49,7 @@ namespace dxvk {
+     bool projection(Matrix4& matrix, float& fov, float& aspect);
+     VkExtent3D beginFrame(RtxContext& ctx, VkExtent3D flat);
+     void timestamp(RtxContext& ctx, vrtiming::Stage stage);
++    void applyQuality(RtxContext& ctx);   // render thread: the ladder's step into the session layer
+     void recordingBegin(DxvkContext& ctx);
+     void recordingEnd(DxvkContext& ctx);
+     void noteSubmission(const DxvkCommandList* list);
+@@ -100,6 +102,8 @@ namespace dxvk {
+     bool m_frameEligible=false;
+     uint64_t m_cameraFrame=~uint64_t(0), m_cameraGeneration=0;
+     rtxvr_StartInfo m_requested {}, m_frame {};
++    rtxvr_Quality m_quality {}, m_appliedQuality {};
++    uint64_t m_qualityGeneration=0, m_renderQualityGeneration=0;
+     vrmath::Projection m_projection {}, m_frameProjection {};
+     double m_nearestDepth=vrmath::kNearestEyeDepthMetres,m_frameNearestDepth=vrmath::kNearestEyeDepthMetres;
+     vrmath::PoseRing m_poses;
+diff --git a/src/dxvk/rtx_render/rtx_vr_api.h b/src/dxvk/rtx_render/rtx_vr_api.h
+index b7fd6e6f..5d7b4450 100644
+--- a/src/dxvk/rtx_render/rtx_vr_api.h
++++ b/src/dxvk/rtx_render/rtx_vr_api.h
+@@ -7,7 +7,7 @@
+ extern "C" {
+ #endif
+ 
+-#define RTXVR_API_VERSION 3u
++#define RTXVR_API_VERSION 4u
+ 
+ typedef struct rtxvr_Matrix34 { float m[3][4]; } rtxvr_Matrix34;      /* OpenVR's HmdMatrix34_t layout */
+ 
+@@ -34,6 +34,17 @@ typedef struct rtxvr_StartInfo {
+ #define RTXVR_START_RENDER_PACING 0x4u /* render thread owns Submit/WaitGetPoses; module predicts without waiting */
+ #define RTXVR_START_NO_MIRROR   0x2u   /* leave the game's own target alone */
+ 
++typedef struct rtxvr_Quality {
++  uint32_t structSize;                          /* sizeof(rtxvr_Quality) */
++  float    renderScale;                         /* on eyeWidth x eyeHeight: 0.25 .. 1.5 */
++  int32_t  dlssQuality;                         /* rtx.qualityDLSS: 0 ultra performance, 1 performance, 2 balanced, 3 quality */
++  int32_t  pathMinBounces, pathMaxBounces;      /* 0 .. 16, min <= max */
++  uint32_t flags;                               /* RTXVR_QUALITY_* */
++} rtxvr_Quality;
++
++#define RTXVR_QUALITY_VOLUMETRICS 0x1u   /* froxel volumetrics */
++#define RTXVR_QUALITY_FINE_CLOUDS 0x2u   /* the sky's finer cloud sampling */
++
+ typedef struct rtxvr_FramePose {
+   uint32_t structSize;
+   uint32_t flags;                               /* RTXVR_POSE_* */
+@@ -68,6 +79,10 @@ typedef struct rtxvr_Status {
+   float renderWaitMs, renderWaitMaxMs;
+   uint64_t lastPoseSequence;
+   uint64_t focusLossIntervals, waitFailures;    /* skipped focus intervals and other WaitGetPoses errors */
++  float    qualityRenderScale;                  /* the quality step the render thread is using */
++  int32_t  qualityDlss, qualityMinBounces, qualityMaxBounces;
++  uint32_t qualityFlags;
++  uint64_t qualityChanges;                      /* quality steps applied since Start */
+ } rtxvr_Status;
+ 
+ enum { RTXVR_STATE_OFF = 0, RTXVR_STATE_STARTING = 1, RTXVR_STATE_RUNNING = 2, RTXVR_STATE_FAILED = 3 };
+@@ -78,6 +93,7 @@ uint32_t rtxvr_GetApiVersion(void);
+ int  rtxvr_Start(const rtxvr_StartInfo* info);
+ void rtxvr_Stop(void);
+ int  rtxvr_UpdateEyes(const rtxvr_Eye eyes[2]);                       /* the IPD or the projection changed */
++int  rtxvr_SetQuality(const rtxvr_Quality* quality);                  /* the ladder's step, while VR runs */
+ int  rtxvr_PushFramePose(const rtxvr_FramePose* pose);
+ int  rtxvr_SetOverlaySource(uint64_t overlayHandle, uint32_t width, uint32_t height);   /* 0 x 0 removes it */
+ int  rtxvr_SetOverlayWindow(uint64_t overlayHandle, uint32_t flags); /* window after 2D, width <= 1920; 0 removes */
+diff --git a/src/dxvk/rtx_render/rtx_vr_exports.h b/src/dxvk/rtx_render/rtx_vr_exports.h
+index a9bf940d..724cd6a9 100644
+--- a/src/dxvk/rtx_render/rtx_vr_exports.h
++++ b/src/dxvk/rtx_render/rtx_vr_exports.h
+@@ -7,12 +7,14 @@
+ struct rtxvr_StartInfo;
+ struct rtxvr_Eye;
+ struct rtxvr_FramePose;
++struct rtxvr_Quality;
+ struct rtxvr_Status;
+ extern "C" {
+   REMIXAPI uint32_t REMIXAPI_CALL rtxvr_GetApiVersion(void);
+   REMIXAPI int REMIXAPI_CALL rtxvr_Start(const rtxvr_StartInfo*);
+   REMIXAPI void REMIXAPI_CALL rtxvr_Stop(void);
+   REMIXAPI int REMIXAPI_CALL rtxvr_UpdateEyes(const rtxvr_Eye*);
++  REMIXAPI int REMIXAPI_CALL rtxvr_SetQuality(const rtxvr_Quality*);
+   REMIXAPI int REMIXAPI_CALL rtxvr_PushFramePose(const rtxvr_FramePose*);
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlaySource(uint64_t,uint32_t,uint32_t);
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlayWindow(uint64_t,uint32_t);
+diff --git a/src/dxvk/rtx_render/rtx_vr_policy.h b/src/dxvk/rtx_render/rtx_vr_policy.h
+index 28022761..186b32cb 100644
+--- a/src/dxvk/rtx_render/rtx_vr_policy.h
++++ b/src/dxvk/rtx_render/rtx_vr_policy.h
+@@ -65,4 +65,29 @@ namespace dxvk::vrpolicy {
+   };
+   enum class Upscaler : int { Dlss=1,Taau=3 };
+   inline Upscaler upscaler(bool supported) { return supported?Upscaler::Dlss:Upscaler::Taau; }
++
++  // V6's ladder. V1's fixed preset is the top step, so an unchanged session renders as it did.
++  constexpr float kQualityMinScale=.25f, kQualityMaxScale=1.5f;
++  constexpr int kQualityMaxBounceLimit=16;
++  constexpr int kTopDlss=1, kTopMinBounces=1, kTopMaxBounces=4;
++  constexpr uint32_t kTopFlags=RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS;
++  constexpr uint32_t kFineCloudSamples=32u, kCoarseCloudSamples=16u;
++  constexpr uint32_t kQualityFlagMask=RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS;
++
++  inline bool validQuality(const rtxvr_Quality& q) {
++    return q.structSize==sizeof(q) && q.renderScale==q.renderScale &&
++           q.renderScale>=kQualityMinScale && q.renderScale<=kQualityMaxScale &&
++           q.dlssQuality>=0 && q.dlssQuality<=3 &&
++           q.pathMinBounces>=0 && q.pathMaxBounces<=kQualityMaxBounceLimit &&
++           q.pathMinBounces<=q.pathMaxBounces && !(q.flags&~kQualityFlagMask);
++  }
++  inline rtxvr_Quality topQuality(float renderScale) {
++    rtxvr_Quality q {};
++    q.structSize=sizeof(q); q.renderScale=renderScale; q.dlssQuality=kTopDlss;
++    q.pathMinBounces=kTopMinBounces; q.pathMaxBounces=kTopMaxBounces; q.flags=kTopFlags;
++    return q;
++  }
++  inline uint32_t cloudSamples(uint32_t flags) {
++    return (flags&RTXVR_QUALITY_FINE_CLOUDS)?kFineCloudSamples:kCoarseCloudSamples;
++  }
+ }
+diff --git a/tests/rtx/unit/test_vr_math.cpp b/tests/rtx/unit/test_vr_math.cpp
+index 559113bf..362d272f 100644
+--- a/tests/rtx/unit/test_vr_math.cpp
++++ b/tests/rtx/unit/test_vr_math.cpp
+@@ -351,6 +351,31 @@ int main() {
+   require(dxvk::vrtiming::covered(4,4,coverage)==0, "empty pass interval");
+   require(dxvk::vrtiming::external(size_t(dxvk::vrtiming::Stage::SubmitBegin)) && dxvk::vrtiming::external(size_t(dxvk::vrtiming::Stage::OverlayBegin)) && !dxvk::vrtiming::external(size_t(dxvk::vrtiming::Stage::RasterBegin)),
+     "external compositor intervals are not labelled CPU idle");
++  {
++    using namespace dxvk::vrpolicy;
++    // The top step is V1's fixed preset, so an untouched session renders as it always did.
++    auto top=topQuality(1.f);
++    require(validQuality(top),"the top step is a valid step");
++    require(top.dlssQuality==1&&top.pathMinBounces==1&&top.pathMaxBounces==4,"the top step is V1's preset");
++    require(top.flags==(RTXVR_QUALITY_VOLUMETRICS|RTXVR_QUALITY_FINE_CLOUDS),"the top step keeps both costly effects");
++    require(cloudSamples(top.flags)==32u&&cloudSamples(0u)==16u,"coarse clouds halve the sample count");
++    auto bad=top; bad.structSize=sizeof(bad)-4;
++    require(!validQuality(bad),"a step of another size is refused");
++    bad=top; bad.renderScale=.24f; require(!validQuality(bad),"a scale below the floor is refused");
++    bad.renderScale=1.51f; require(!validQuality(bad),"a scale above the ceiling is refused");
++    bad.renderScale=std::numeric_limits<float>::quiet_NaN();
++    require(!validQuality(bad),"a scale that is not a number is refused");
++    bad=top; bad.renderScale=.25f; require(validQuality(bad),"the floor itself is a step");
++    bad.renderScale=1.5f; require(validQuality(bad),"the ceiling itself is a step");
++    bad=top; bad.dlssQuality=-1; require(!validQuality(bad),"a DLSS mode below ultra performance is refused");
++    bad.dlssQuality=4; require(!validQuality(bad),"DLSS Auto is not a ladder step");
++    bad=top; bad.pathMinBounces=5; bad.pathMaxBounces=4;
++    require(!validQuality(bad),"a minimum above the maximum is refused");
++    bad=top; bad.pathMaxBounces=17; require(!validQuality(bad),"more bounces than the limit are refused");
++    bad=top; bad.pathMinBounces=-1; require(!validQuality(bad),"negative bounces are refused");
++    bad=top; bad.flags|=0x4u; require(!validQuality(bad),"an unknown effect flag is refused");
++    bad=top; bad.flags=0; require(validQuality(bad),"the lowest effects are a step");
++  }
+   std::printf("PASS: %d projection/warp/pose checks\n",checks);
+   return 0;
+ }
+-- 
+2.56.0.windows.1
+

@@ -8177,3 +8177,61 @@ left, "Loading enhancements" over "Processing Materials (496 processed)"). Fixed
   the view call's motor time) made up the rest. The final rule eases at 2.5 % and holds for ten seconds; the PoC result
   is in the V4 report.
 
+## VR quality and stereo in the runtime (2026-11-13, Claude, for V6 and V7)
+
+- **Why Lua could never move VR quality.** The VR preset is an option layer `{0xFFFFFFFF, "! VR session"}` built in
+  `RtxVr::initialise` (`rtx_vr.cpp:372-382` before patch 0087). Layers sort by priority and then by name
+  (`rtx_option_constants.h:154-165`), so at the same priority it also wins over "Quality Presets". Lua's only route
+  to options, the fixes' `RemixConfig.SetConfigVariable` -> `remixapi_SetConfigVariable`
+  (`rtx_remix_api.cpp:1776-1806`), writes the User layer (`0xFFFFFFFE`), which every key in the session layer
+  outranks. `RtxOption::setDeferred(value, layer)` (`rtx_option.h:414`) takes an explicit layer, which is how patch
+  0087 writes the session layer from the render thread.
+- **What a quality change recreates.** The DLSS mode changes the traced size every frame through
+  `setDownscaleExtent` (`rtx_context.cpp:249-296`), which recreates the ray-tracing outputs when the size changes
+  (`rtx_context.cpp:409-415`); the centre size already followed IPD changes (`rtxvr_UpdateEyes`). Only the eye
+  images were allocated once per session (`rtx_vr.cpp:383-385`).
+- **One view per frame, everywhere.** `Resources` is one member of `DxvkObjects` and is reached only through
+  `getResources()` (38 uses in `rtx_render`); the main camera only through `SceneManager::getCamera()` (40 uses). The
+  frame number is `QueuePresentCount` (`dxvk_device.cpp:363-367`) and keys TAA parity, RTXDI's reservoir page, the
+  "written last frame" stamps (`rtx_resources.cpp:323-326`), `RtCamera::update`'s guard (`rtx_camera.cpp:638-640`)
+  and NRD's `frameIndex`. DLSS and DLSS-RR are one NGX feature each and never set the SDK's subrect fields
+  (`rtx_ngx_wrapper.cpp:693-709, 855-878`); NRD takes one matrix pair per instance and its `rectOrigin` shifts
+  only the guides, behind `NRD_USE_VIEWPORT_OFFSET` in a prebuilt DLL (`NRDSettings.h:166-169`). A double-wide
+  picture would touch 143 `cb.camera` uses in 35 shader files and eight spatial filters across the seam; that is
+  why V7 swaps per-eye state instead ([ADR 0198](decisions/0198-vr-true-stereo-by-swapping-the-eyes-state.md)).
+- **The Index here** reports 90 Hz and, with SteamVR's own resolution at 150 % (`gpuSpeedRenderTargetScale` 1.5 in
+  `steamvr.vrsettings`), a recommended 2468 x 2740 per eye.
+- **The ladder on the Index at 90 Hz** (V6 run `out/vr/v6/quality-index-01`, PoC `gm_construct`, warp mode): steps 1
+  to 3 (`full`, `high`, `balanced`, DLSS Performance) held 45.0 fps, SteamVR's half rate; steps 4 to 7 (DLSS Ultra
+  Performance, scale 0.8 to 0.5) ran at 78 to 90 fps. The same steps in the simulated headset ran at 78 to 91 fps
+  with the top step's GPU work at 12.3-12.7 ms (path tracing with volumetrics 7.5 ms, upscaling 2.4 ms).
+- **The frame's GPU span is not its work on a headset.** On the Index `gpuMsTotal` filled the frame interval at every
+  step (21.9-23.2 ms at 45 fps, about 11 ms at 90 fps, even at the floor, whose work is under 5 ms): the profile's
+  `gpu_queue_wait_cpu_ms` (the span not covered by this context's recordings, `profileJson` in `rtx_vr.cpp`) was
+  6-10 ms of each 45 fps frame, while the passes' covered work at step 3 was 12-17 ms (path tracing 9.7 ms there,
+  against 7.5 ms at the top step in the simulation: the compositor's Motion Smoothing shares the GPU). Patch 0088
+  reports the work as `gpuMsWork` ([ADR 0201](decisions/0201-vr-auto-reads-the-gpus-work.md)).
+- **SteamVR's half-rate lock wobbles and lingers.** At steps that cannot make 90 Hz the Index ran at 44.1 to 45.1
+  frames a second per one-second window (a 0.99 keep ratio of 45 is 44.55, which half the windows missed), and
+  the lock outlives the step that caused it: step 4 measured 85 fps in one run and 44.6 in the next, right after
+  step 3. The GPU's work at the top step was 16.1 ms there (`out/vr/v6/quality-index-02`).
+- **What a second view must own** (surveyed for V7, ADR 0202). Only five passes keep per-view history outside
+  `Resources`: ReSTIR GI's reservoirs and last composite (`rtx_restir_gi_rayquery.h:144-150`), DLSS-RR's NGX feature,
+  the NRC context and SHaRC; RTXDI's reservoirs are in `RaytracingOutput` (`m_rtxdiReservoirBuffer`). Every `RtxPass`
+  registers its frame and resize events with `getCommon()->getResources()` in its constructor
+  (`rtx_resources.cpp:1674-1680`), so a pass made while an eye's state is selected follows that eye. `Resources` also
+  keeps the frame's TLAS, noise, white texture, sky probe and matte. The froxel integration reads only
+  `cb.volumeArgs.cameras` (`volume_integrate.slangh:43`), never `cb.camera`; the aerial perspective lookup maps a
+  pixel's screen UV through `forward + right * x + up * y` (`atmosphere_common.slangh:2329`), so an off-centre frustum
+  is the same formula with forward shifted; the cloud history is per pixel at `cb.camera.resolution`
+  (`geometry_resolver.slangh:2250`). The NRC SDK's `nrc::vulkan::Initialize` is process-wide and every
+  `NrcContext` destructor called `Shutdown` (`rtx_nrc_context.cpp:123-137`); a failed activation sets
+  `integrateIndirectMode` to importance sampling for everyone (`rtx_neural_radiance_cache.cpp:853-863`). The package's
+  `classic_remix_defaults.conf` selects NRC (`rtx.integrateIndirectMode = 2`) and the physical sky (`rtx.skyMode = 1`).
+- **True stereo's cost**, top step: on the Index (`out/vr/v7/stereo-index-01`) the GPU's median work 13.5-14.7 ms
+  warped and 17.0-17.5 ms with each eye traced (1.19 times), both holding SteamVR's 45 fps; simulated
+  (`out/vr/v7/stereo-sim-01`) 13.6-13.9 ms against 17.2-17.3 ms (1.27 times), each eye traced at 1234 x 1370 against the centre's
+  1556 x 1376: the second eye's path tracing and upscaling, less the warp and the work done once a frame.
+- **GMod blocks `fps_max` from Lua** (`RunConsoleCommand: Command is blocked! (fps_max)`), so a test cannot cap the
+  frame rate from the add-on's realm.
+

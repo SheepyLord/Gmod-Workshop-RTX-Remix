@@ -103,7 +103,8 @@ NATIVELOADER_I18N = i18n
 local page = root .. "/companion/nativeloader/lua/autorun/client/nativeloader_vr.lua"
 local addon = root .. "/vr/addon/lua/nlvr/client.lua"
 local moduleState, detail, startOptions = "off", "", nil
-local probe = {runtime_api = 3, steamvr_installed = true, steamvr_running = false, openvr_dll = "openvr_api.dll"}
+qualitySteps = {}
+local probe = {runtime_api = 4, steamvr_installed = true, steamvr_running = false, openvr_dll = "openvr_api.dll"}
 local info = {model = "Valve Index", refresh = 90, eye_width = 2016, eye_height = 2240, overlayUpdates = 1,
     devices = {left = true, right = false}, compositor_gpu_ms = 11.25, compositor_cpu_ms = 1.5,
     presents = 200, reprojected = 80, dropped = 2, gpuMsTotal = 12.3, gpuMsPathTrace = 10,
@@ -125,6 +126,7 @@ local api = {
     OverlaySource = function(handle, w, h) eq(handle, 19) eq(w, 769) eq(h, 257) end,
     OverlayAttach = function(handle, device, pos, ang, width) attached = {handle, device, pos, ang, width} end,
     OverlayShow = function() end, OverlayDestroy = function() overlayDestroyed = overlayDestroyed + 1 end,
+    SetQuality = function(step) qualitySteps[#qualitySteps + 1] = step return true end,
 }
 require = function(name)
     eq(name, "nlvr") requires = requires + 1
@@ -254,7 +256,11 @@ function cases.remote()
     singlePlayer, player.host = false, false
     eq(VR.Start(), false) eq(VR.reason, "server") eq(requires, 0) clean()
 end
-function cases.host() singlePlayer = false running() commands.nl_vr_exit() clean() end
+function cases.host()
+    -- VR is single-player only (ADR 0197): the listen-server host is refused like any other server.
+    singlePlayer, player.host = false, true
+    eq(VR.Start(), false) eq(VR.reason, "server") eq(requires, 0) clean()
+end
 function cases.vrmod()
     g_VR = {active = true} eq(VR.Start(), false) eq(VR.reason, "vrmod") eq(requires, 0) clean()
 end

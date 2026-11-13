@@ -153,7 +153,12 @@ return function(e)
     end
     function cases.f_settings()
         eq(next(e.callbacks), nil) e.running()
-        local n = 0 for _ in pairs(NLVR.Settings) do n = n + 1 end eq(n, 19)
+        local n = 0 for _ in pairs(NLVR.Settings) do n = n + 1 end eq(n, 21)
+        -- V7's true stereo is a switch: off by default, and anything above 1 is on.
+        eq(NLVR.Settings.stereo, 0) e.cv.nl_vr_stereo:SetString("5") eq(NLVR.Settings.stereo, 1) e.cv.nl_vr_stereo:SetString("0")
+        -- V6's quality: 0 is Auto, a step number pins that rung, and the setting stays within 0-16.
+        eq(NLVR.Settings.quality, 0) e.cv.nl_vr_quality:SetString("3") eq(NLVR.Settings.quality, 3)
+        e.cv.nl_vr_quality:SetString("99") eq(NLVR.Settings.quality, 16) e.cv.nl_vr_quality:SetString("0")
         e.cv.nl_vr_seated:SetString("1") e.cv.nl_vr_seated_offset:SetString("0.7") close(NLVR.Space.seated, 0.7)
         e.cv.nl_vr_height:SetString("0.5") close(NLVR.Settings.height, 1.2)
         e.cv.nl_vr_snap_angle:SetString("200") eq(NLVR.Settings.snap_angle, 90)
@@ -566,7 +571,10 @@ return function(e)
         end
         e.player.host = false local single = game.SinglePlayer game.SinglePlayer = function() return false end
         request(1, 40) eq(includes, 0)
-        e.player.host = true request(1, 101) request(1, 0 / 0) request(1, 40, 24) eq(includes, 0)
+        -- Single-player only (ADR 0197): a listen-server host is refused as well.
+        e.player.host = true request(1, 40) eq(includes, 0)
+        game.SinglePlayer = function() return true end
+        request(1, 101) request(1, 0 / 0) request(1, 40, 24) eq(includes, 0)
         request(1, 40) assert(includes > 0) assert(NLVR_SV)
         request(2) eq(NLVR_SV, nil)
         for event, entries in pairs(e.hooks) do eq(entries["nlvr.core"], nil, event) end

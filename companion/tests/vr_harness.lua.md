@@ -36,3 +36,7 @@ Independent review round: live hooks use the shared dispatcher and detached comp
 
 
 options_no_format_write reproduces Derma numeric echoes and requires exact original spelling plus real edit propagation in stock and ULib modes.
+
+`host` now requires the refusal: a listen-server host gets the page's server reason, as VR is single-player only ([ADR 0197](../../docs/decisions/0197-vr-is-single-player-only.md)).
+
+V6: the native stand-in reports runtime API 4 and records each `SetQuality` step in `qualitySteps`.

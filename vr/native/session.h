@@ -102,6 +102,13 @@ class Session {
   bool overlay_visible(uint64_t handle) const;
   OverlayInfo overlay_info(uint64_t handle) const;
   std::vector<Event> events();
+  // V6's ladder step. The runtime validates it and applies it on its render thread.
+  struct Quality {
+    float render_scale=1;
+    int dlss=1,min_bounces=1,max_bounces=4;
+    bool volumetrics=true,fine_clouds=true,stereo=false;
+  };
+  bool set_quality(const Quality& quality,std::string& error);
   void capture(const std::filesystem::path& folder,uint32_t what);
   std::optional<ScriptSample> test_state() const;
  private:

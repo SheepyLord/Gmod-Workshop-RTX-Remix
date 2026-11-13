@@ -32,3 +32,7 @@ Second-review regressions cover late head yaw .05/1/5degrees, small/side inputs 
 Native ladder follow-up preserves head pitch as well as yaw. Flattening pitch caused Back to climb up in real Source; armed/unarmed head-directed parity replaces that incorrect chosen rule without relaxing any angular/direction bound.
 
 Round5 adds fail-before/pass-after8-way ladder sectors(0,3,5,10,20,22.5+/-.001,45,67.5+/-.001,90degrees; head0/-45), untouched vehicle buttons, underwater noclip bypass, and tool commands surviving core dispatch. Tiny .02 side against3 forward now expects no side button.
+
+The server stub case refuses the listen-server host and accepts only in single-player ([ADR 0197](../../docs/decisions/0197-vr-is-single-player-only.md)).
+
+`f_settings` counts 20 settings with V6's `quality`, which clamps to 0-16.

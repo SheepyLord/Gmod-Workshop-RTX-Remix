@@ -1,5 +1,31 @@
 # runtime/
 
+Patch `0089-VR-true-stereo-each-eye-path-traced-with-its-own-vie.patch` (VR V7,
+[ADR 0198](../docs/decisions/0198-vr-true-stereo-by-swapping-the-eyes-state.md), branch `vr6`): with
+`RTXVR_QUALITY_TRUE_STEREO` and Ray Reconstruction the frame is path traced once per eye. `rtx_vr_eye.h` names the eye
+the render thread is tracing; the right eye's `Resources`, ReSTIR GI, Ray Reconstruction, NRC and SHaRC are a second
+set in `DxvkObjects` behind the existing accessors, each eye's camera stands in for Main, the sky's integrators and
+the froxel volumetrics run once on the centre camera, each eye fits the aerial perspective volume and keeps its own
+cloud history, and the NRC library is shared by both caches. `vrmath::eyeToCentreView`, `eyeProjection` and
+`eyeFrustumBasis` are unit-tested in `tests/rtx/unit/test_vr_math.cpp`. Built from the clone's `vr2` at `1097d701`
+(0001-0089): `d3d9.dll` 418,468,864 bytes, SHA-256
+`8d64393fdb4343f7e4db2f71c683a9becbd5fe167c84d23924712fb052fd437f`.
+
+Patch `0088-The-VR-frame-s-GPU-work-in-rtxvr_Status.patch` (VR V6,
+[ADR 0201](../docs/decisions/0201-vr-auto-reads-the-gpus-work.md), branch `vr6`): `rtxvr_Status` gains `gpuMsWork`, the
+VR frame's GPU span without the queue's waits for the CPU (on the Index 6 to 10 ms of each 45 fps frame is pacing), and
+`stereoActive`, reserved for true stereo; the status is 496 bytes within API 4. Built from the clone's `vr2` at
+`77014404` (0001-0088): `d3d9.dll` 418,447,872 bytes, SHA-256
+`746ca8bd565c6a5b21c9b0d91fcaddeedefbd303e586df0190c7a6ad5b0bf9bc`.
+
+Patch `0087-A-live-VR-quality-step-rtxvr_SetQuality-API-4.patch` (VR V6,
+[ADR 0199](../docs/decisions/0199-vr-auto-quality-ladder.md), branch `vr6`): `rtxvr_SetQuality`, API version 4. The
+render thread writes the step's DLSS mode, bounces, volumetrics and cloud samples into the `! VR session` layer and
+reallocates the eye images when the scale changes; the status reports the step in use. `vrpolicy::validQuality` and
+`topQuality` (V1's preset) are unit-tested in `tests/rtx/unit/test_vr_math.cpp`. Built from the clone's `vr2` at
+`6471ff89` (0001-0087): `d3d9.dll` 418,447,872 bytes, SHA-256
+`444e781da327315ff1df33cf16b14068e766b81848e45897783ad53be4c7bf93`.
+
 The merge of VR V2-V4 with `main` (2026-11-12) imports one build of every patch, 0001-0086: the VR clone's `vr2`
 at `308ca2f7` (`39e2ab77` with 0086 applied by `git am`), built by `build_runtime.ps1` in
 `out/worktrees/r17/out/runtime-src`: `d3d9.dll` 418,444,288 bytes, SHA-256

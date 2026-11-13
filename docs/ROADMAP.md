@@ -1,5 +1,15 @@
 # Roadmap
 
+VR V6 (Auto quality) and V7 (true stereo) were approved by the user on 2026-11-13 and merged to `main`; V5 (body and
+multiplayer) was skipped and VR is single-player only. Claude coded both. [The V6-V7 report](handover/VR-V6-V7-report.md)
+says what they deliver, what the Index runs showed and what is still untested.
+
+| Milestone | State |
+|---|---|
+| V5: Body and multiplayer | Skipped (the user, 2026-11-13) |
+| V6: Performance | Done (2026-11-13), tuned at the Index's 90 Hz only |
+| V7: True stereo | Done (2026-11-13), with Ray Reconstruction and the physical sky only |
+
 VR V2, V3 and V4 were approved by the user on 2026-11-12 as a deliverable at this stage and merged to `main`;
 Claude finished V4 itself at the user's request; merged as `7a149d76` and published as 0.0.0-dev.20261113050849+df868432.
 [The V4 report](handover/VR-V4-report.md) says what they deliver,
@@ -136,9 +146,9 @@ the user's approval before reaching `main`.
 | V2: Hands, movement, menus | Finger-tracked and ghost hands; smooth movement, snap turn, blink and shift teleport, comfort options, noclip flight, physical crouch and height calibration; spawn/context menus and the flat-screen panel with a laser; dominant hand. |
 | V3: Physical interaction | Physical hands against props, ragdolls and NPCs; one- and two-hand grab, throw, gravity gloves, ragdoll handling, use by hand, climbing and melee. |
 | V4: Weapons and tools | Hand-aimed weapons, foregrip, physical and button reload for the HL2 weapons, ammunition on the gun, weapon wheel, physgun and toolgun controls. |
-| V5: Body and multiplayer | An IK body in shadows and reflections; head and hands seen by other package users; limited mode on other servers. |
-| V6: Performance | The Auto preset and its ladder tuned on the Index at 80, 90 and 120 Hz; the page's warnings and readouts. |
-| V7: True stereo | A quality mode with each eye path traced with its own history, after a spike comparing two passes per frame with one double-wide picture. |
+| V5: Body and multiplayer | **Skipped** (the user, 2026-11-13): VR is single-player only for now ([ADR 0197](decisions/0197-vr-is-single-player-only.md)). |
+| V6: Performance | **Done**, approved by the user on 2026-11-13 (built on `vr6`): the Auto preset's seven-step ladder moved live by the add-on (runtime patches 0087-0088, [ADR 0199](decisions/0199-vr-auto-quality-ladder.md) to [ADR 0201](decisions/0201-vr-auto-reads-the-gpus-work.md)), tuned on the Index at its current 90 Hz only (the user's choice); the page's setting and readouts. |
+| V7: True stereo | **Done**, approved by the user on 2026-11-13 (built on `vr6`): each eye path traced with its own view state behind the existing accessors (runtime patch 0089, [ADR 0198](decisions/0198-vr-true-stereo-by-swapping-the-eyes-state.md)), a switch on the VR page, with Ray Reconstruction and the physical sky only. |
 
 The user's report of 2026-11-11 (unsubscribing did not uninstall RTX, then an uninstall that was not clean) is **done** on `unsub-fix` ([report](handover/unsubscribe-report.md), [ADR 0188](decisions/0188-unsubscribing-with-the-loader-already-installed.md)), in the package only (the user declined a loader release): Steam keeps an item while another Steam account of the computer subscribes, so the companion's menu tells the unsubscribed account why RTX stays and when it goes; the RTX client module moves the earlier RTX installation the package found at its paths (originals at an RTX start, adopted files at the session's end) into `native-loader/backup/former-rtx`, so an uninstall leaves no RTX Lua or module behind. Reproduced and verified on the PoC with the released loader 0.16.0. Its follow-up ([ADR 0189](decisions/0189-steams-per-account-switch-turns-rtx-off.md)): GMod's own Addons list already removed RTX (measured); Steam's per-account switch did not, so the RTX client module now writes a switched-off RTX into GMod's list, which the loaders read. Open: the next start after an unsubscribe is vanilla on a shared computer only with a loader change (the signed-in account's own subscription list).
 

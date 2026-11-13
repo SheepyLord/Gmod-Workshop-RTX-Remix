@@ -240,6 +240,19 @@ tick(1801.9) assert(finishes==0) tick(1802.01) assert(finishes==1)
         image.write_bytes(wrist_png())
         self.assertEqual(vr.capture_problems(self.root,records),[])
 
+    def test_a_true_stereo_capture_has_no_centre_view(self):
+        folder = self.root / 'stereo'
+        folder.mkdir()
+        for name in ('left.png','right.png','mirror.png','timings.json'):
+            (folder/name).write_bytes(b'fixture')
+        (folder/'overlay_1.png').write_bytes(wrist_png())
+        records = [{'kind':'capture','ok':True,'label':'stereo','overlays':{'1':{'role':'wrist'}},
+                    'info':{'stereoActive':1}}]
+        self.assertEqual(vr.capture_problems(self.root,records),[])
+        # The warp still owes its centre view.
+        records[0]['info']['stereoActive']=0
+        self.assertIn('missing centre.png, centre_depth.png',vr.capture_problems(self.root,records)[0])
+
     def test_overlay_roles_are_handle_based_and_accept_black_comfort_and_large_panels(self):
         folder = self.root / 'roles'
         folder.mkdir()

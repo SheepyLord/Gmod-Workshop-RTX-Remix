@@ -1,5 +1,7 @@
 # Handovers
 
+VR V6 (performance) and V7 (true stereo) were approved by the user on 2026-11-13 and merged to `main`; Claude coded
+both on the branch `vr6`, and V5 was skipped: [report](VR-V6-V7-report.md), [plan](VR-V6-V7-plan.md).
 VR V2-V4 were approved by the user on 2026-11-12 as a deliverable at this stage and merged to `main`; Claude finished
 V4 after Q's [hand-over](VR-V4-Q-resume.md). The [V4 report](VR-V4-report.md) starts with the final state, its test
 results and what is still untested.

@@ -334,7 +334,7 @@ A starting proposal; SteamVR's binding UI can change everything.
 | V2 | Hands, movement, menus | Finger-tracked hands; ghost hands; smooth movement, snap turn, teleport (blink and shift), comfort options, noclip flight, physical crouch, height calibration; spawn and context menus and the flat-screen panel with the laser; dominant hand |
 | V3 | Physical interaction | Physical hands against props, ragdolls and NPCs; grab, two-hand grab and throw; gravity gloves; ragdoll handling; use by hand; climbing; melee |
 | V4 | Weapons and tools | Hand-aimed weapons; foregrip; physical reload for the HL2 weapons and the button reload; ammo on the gun; weapon wheel; physgun and toolgun controls |
-| V5 | Body and multiplayer | The IK body in shadows and reflections; head and hands seen by other package users; the limited mode on other servers |
+| V5 | Body and multiplayer | **Skipped** (the user, 2026-11-13): VR is single-player only ([ADR 0197](../decisions/0197-vr-is-single-player-only.md)) |
 | V6 | Performance | The Auto preset and its ladder tuned on the Index at 80, 90 and 120 Hz; the page's warnings and readouts |
 | V7 | True stereo | Each eye path traced with its own history as a quality mode, after a design spike: two passes per frame or one double-wide picture |
 

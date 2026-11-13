@@ -127,6 +127,8 @@ void push_status(ILuaBase* l,const rtxvr_Status& s) {
   N(timingSamples);N(renderWaitCalls);N(poseAgeMs);N(predictionErrorMs);N(pipelineIntervals);N(renderWaitMs);N(renderWaitMaxMs);N(lastPoseSequence);
   N(focusLossIntervals);N(waitFailures);
   N(gpuMsTotal);N(gpuMsPathTrace);N(gpuMsUpscale);N(gpuMsWarp);N(gpuMsOther);N(cpuMsSubmit);N(overlaysBound);N(overlayUpdates);
+  N(qualityRenderScale);N(qualityDlss);N(qualityMinBounces);N(qualityMaxBounces);N(qualityFlags);N(qualityChanges);
+  N(gpuMsWork);N(stereoActive);
 #undef N
 }
 LUA_FUNCTION_STATIC(LuaInfo) { return guard(LUA,[&] {
@@ -269,6 +271,27 @@ LUA_FUNCTION_STATIC(Events) { return guard(LUA,[&] {
     if(e.type=="keyboard_done") text(LUA,"text",e.text);index(LUA,++i); }
   return 1;
 }); }
+LUA_FUNCTION_STATIC(SetQuality) { return guard(LUA,[&] {
+  need(LUA->IsType(1,Type::Table),"expected a quality step table");
+  Session::Quality quality;
+  const auto scalar=[&](const char* key,float& out,double low,double high) {
+    LUA->GetField(1,key);if(!LUA->IsType(-1,Type::Nil)) out=static_cast<float>(number(LUA,-1,low,high));LUA->Pop();
+  };
+  const auto whole=[&](const char* key,int& out,double low,double high) {
+    LUA->GetField(1,key);if(!LUA->IsType(-1,Type::Nil)) out=static_cast<int>(integer(LUA,-1,low,high));LUA->Pop();
+  };
+  const auto flag=[&](const char* key,bool& out) {
+    LUA->GetField(1,key);
+    if(!LUA->IsType(-1,Type::Nil)) { need(LUA->IsType(-1,Type::Bool),"quality flags must be boolean");out=LUA->GetBool(-1); }
+    LUA->Pop();
+  };
+  scalar("render_scale",quality.render_scale,.25,1.5);
+  whole("dlss",quality.dlss,0,3);whole("min_bounces",quality.min_bounces,0,16);whole("max_bounces",quality.max_bounces,0,16);
+  flag("volumetrics",quality.volumetrics);flag("fine_clouds",quality.fine_clouds);flag("stereo",quality.stereo);
+  std::string error;
+  if(!session->set_quality(quality,error)) { LUA->PushBool(false);LUA->PushString(error.c_str());return 2; }
+  return ok(LUA);
+}); }
 LUA_FUNCTION_STATIC(Capture) { return guard(LUA,[&] {
   const auto folder=session->data_path(string(LUA,1),true);session->capture(folder,static_cast<uint32_t>(integer(LUA,2,1,15)));return ok(LUA);
 }); }
@@ -321,7 +344,7 @@ GMOD_MODULE_OPEN() {
     {"Version",Version},{"Probe",LuaProbe},{"Start",Start},{"State",State},{"Stop",Stop},{"BeginFrame",BeginFrame},{"Skeleton",Skeleton},
     {"SetFrameCamera",SetFrameCamera},{"Info",LuaInfo},{"Actions",LuaActions},{"Haptic",Haptic},{"OverlayCreate",OverlayCreate},
     {"OverlaySource",OverlaySource},{"OverlayAttach",OverlayAttach},{"OverlayShow",OverlayShow},{"OverlayAlpha",OverlayAlpha},
-    {"OverlayDestroy",OverlayDestroy},{"OverlayVisible",OverlayVisible},{"OverlayInfo",LuaOverlayInfo},{"Events",Events},{"Capture",Capture},{"TestState",TestState}};
+    {"OverlayDestroy",OverlayDestroy},{"OverlayVisible",OverlayVisible},{"OverlayInfo",LuaOverlayInfo},{"Events",Events},{"Capture",Capture},{"TestState",TestState},{"SetQuality",SetQuality}};
   for(const auto& f:functions) { LUA->PushCFunction(f.fn);set(LUA,f.name); }
   LUA->Push(-1);LUA->SetField(GarrysMod::Lua::INDEX_GLOBAL,"nlvr");return 1;
 }

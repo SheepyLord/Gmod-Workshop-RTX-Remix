@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- VR true stereo (V7, approved by the user on 2026-11-13): a switch on the VR page path traces each eye with its own
+  history instead of warping one centre view to both eyes, at about a quarter more GPU work (1.19 times on the
+  Index, 1.28 simulated), with DLSS Ray Reconstruction and the physical sky; the page says which mode runs. Runtime patch 0089 keeps the right eye's view
+  state beside the left's behind the runtime's own accessors, so no shader changes
+  ([ADR 0198](docs/decisions/0198-vr-true-stereo-by-swapping-the-eyes-state.md)).
+- VR quality is Auto by default (V6, approved by the user on 2026-11-13): seven steps from V1's preset down to
+  a floor, moved one at a time to hold half the headset's refresh rate; a fixed step can be chosen on the VR page
+  or in the headset, the render-scale slider is a ceiling that applies at once, and the page shows the step and the
+  measured frame rate and GPU time. Runtime patch 0087 adds `rtxvr_SetQuality` (API 4)
+  ([ADR 0199](docs/decisions/0199-vr-auto-quality-ladder.md)). Auto steps down only for frames the GPU lost: when
+  frames are missed while the GPU has room it keeps the step and the page says why
+  ([ADR 0200](docs/decisions/0200-vr-auto-counts-only-the-gpus-misses.md)). It judges the GPU by its work, which runtime
+  patch 0088 reports without the frame's pacing waits ([ADR 0201](docs/decisions/0201-vr-auto-reads-the-gpus-work.md)).
+- VR is single-player only for now: Start VR refuses multiplayer games, the listen-server host included, and the
+  VR milestone V5 (body and multiplayer) is skipped at the user's request ([ADR 0197](docs/decisions/0197-vr-is-single-player-only.md)).
 - VR movement: the camera no longer stops for a frame or jumps ahead when the movement buffer changes, and walking
   after a blink, respawn or pause no longer stutters for its first half second; the buffer learned from the shared
   connection is kept across those resets ([ADR 0196](docs/decisions/0196-vr-motion-keeps-the-wires-cadence.md)).

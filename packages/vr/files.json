@@ -3,14 +3,14 @@
  "part": "vr",
  "origins": {
   "bin/gmcl_nlvr_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\v4c\\out\\build\\win64-release\\vr\\native\\gmcl_nlvr_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\vr6\\out\\build\\win64-release\\vr\\native\\gmcl_nlvr_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/v4c",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/vr6",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "adf44a5fd2d603c6bad97acb36ac9c51169cf075",
+    "commit": "657fcc87e761bc8d431f951ea3b45e59063e57c4",
     "dirty": false
    },
-   "imported": "2026-11-12T12:31:32+00:00"
+   "imported": "2026-11-13T11:45:20+00:00"
   },
   "bin/openvr_api.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\vr-q\\out\\vr\\verified\\vr\\bin\\openvr_api.dll",
@@ -25,12 +25,12 @@
  },
  "files": {
   "bin/gmcl_nlvr_win64.dll": {
-   "size": 539136,
-   "sha256": "c5cb2a4844fa38e560639182063765619f3f8f816186ce2b52edd65478049e4d",
-   "mtime_ns": 1794485514803260200,
+   "size": 542720,
+   "sha256": "8d1b6f30b3e5c70140278eaa1601eb08c4e821595c31089cd1277d2a95efae84",
+   "mtime_ns": 1794570319647337300,
    "stored": "xz",
-   "stored_size": 217096,
-   "stored_sha256": "16afad503f53c232a90d2df434dbf0fa04f22184a48e2087dc807edea9371c2e"
+   "stored_size": 217752,
+   "stored_sha256": "7e2e0ae50acccc21953a5c8c2441245bfa3064f74db59e164876f95d223dfd1e"
   },
   "bin/openvr_api.dll": {
    "size": 837272,

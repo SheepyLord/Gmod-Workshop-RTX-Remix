@@ -17,3 +17,5 @@ Review correction: after validating tracking-relative sync, add the authoritativ
 Velocity contract: synced pose.vel is the wire tracking-relative controller velocity, rotated to world axes and scaled to game units/s. It is never overwritten by stick/body motion. pose.wvel = (pose.vel or zero) + authoritative ply:GetVelocity(). Only following, holding and throw histories consume wvel; gestures, bare/weapon melee and reload consumers retain vel semantics. The wire format is unchanged.
 
 Independent review applies the shared sh_move_basis.lua in SetupMove before server movers, matching client correction without changing the weapon command.
+
+Single-player only ([ADR 0197](../../../../../docs/decisions/0197-vr-is-single-player-only.md)): Start and the per-tick sync are accepted only while `game.SinglePlayer()` is true, no longer from a listen-server host.

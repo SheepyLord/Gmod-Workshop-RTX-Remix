@@ -84,3 +84,5 @@ now (yes/no), off in SteamVR (with where to turn it on: SteamVR > Settings > Vid
 this GPU, or the switch off. Physical interaction gains a help line for turning a held object with the wrist, two-hand
 holds and freezing with the trigger ([ADR 0204](../../../../../docs/decisions/0204-the-holding-hands-trigger-freezes.md)).
 All new text is in the six companion catalogs.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

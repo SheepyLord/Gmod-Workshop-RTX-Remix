@@ -18,3 +18,5 @@ source is the old `bloodoverhaul/cl_core.lua`; preserve other add-ons' interveni
 No files, network messages or server gameplay changes. Missing parts are a no-op. No exit code.
 See ADRs 0118/0124 and the R20-C/R21-A Lua harness for both precedence orders and repeated initialization.
 The blood core now retints selected in-memory stock materials; this bootstrap never edits the legacy files.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

@@ -2,6 +2,9 @@
 -- Never use RemixConfig.GetConfigVariable: it reads rtx.conf, before live graphics/DLSS presets.
 -- GetUpscalingState is the optional live snapshot contract supplied by R20-E, documented beside
 -- this file. Older native modules or runtimes deliberately stay silent when it is unavailable.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local L = include("nativeloader/i18n.lua").L
 local enabled = CreateClientConVar("nativeloader_upscaling_hint", "1", true, false,
     L("Show upscaling and frame generation hint at startup"))

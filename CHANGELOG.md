@@ -37,6 +37,16 @@ Versions follow the loader's CMake project version once it ships; until then eve
   (`[nativeloader] RTX guard: hook.HUDPaint: MineMod's default texture pack cannot be baked ...`); the shader policy
   is unchanged, so MineMod itself still needs a start without RTX. Package only
   ([ADR 0210](docs/decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md)).
+- RTX a removed loader left removes itself, and the package's Lua stays out of every start without RTX (a
+  player's report of 2026-11-13: "the RTX Remix menu is still showing in-game, and the skybox now has a missing texture
+  error" after removing the add-on; package only, [ADR 0206](docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)).
+  With `bin\win64\winmm.dll` deleted before the unsubscribe took effect, the RTX client module now runs the loader's
+  own uninstall from the server realm of the next local game (an earlier RTX installation archived, files the game
+  holds open moved to `native-loader\backup\in-use`), the console settings RTX sessions changed are set back, and the
+  chat tells the player to restart. The companion's and the RTX fixes' autoruns return at once in any start where this
+  machine's loader did not activate RTX (`NativeLoaderRTXStart()`), so off switches and leftovers no longer show the
+  RTX Remix tab or run the fixes without the runtime. The fixes' debug add-on and the load accelerator no longer load their modules in such starts either. The player README's "Removing" no longer says leftover files are
+  unused.
 - VR true stereo (V7, approved by the user on 2026-11-13): a switch on the VR page path traces each eye with its own
   history instead of warping one centre view to both eyes, at about a quarter more GPU work (1.19 times on the
   Index, 1.28 simulated), with DLSS Ray Reconstruction and the physical sky; the page says which mode runs. Runtime patch 0089 keeps the right eye's view

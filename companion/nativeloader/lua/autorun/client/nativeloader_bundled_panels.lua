@@ -1,5 +1,8 @@
 -- The two independently testable parts also keep one RTX tab without the complete companion.
 -- In the combined package nativeloader_menu.lua owns the wrapper and translated categories.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 if not NativeLoaderBundledDTS or NativeLoaderBundledPanels then return end
 if file.Exists("autorun/client/nativeloader_menu.lua", "LUA") then return end
 NativeLoaderBundledPanels = true

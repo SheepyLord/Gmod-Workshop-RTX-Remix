@@ -7,6 +7,9 @@
 -- RemixConfig.SetConfigVariable. The settings are saved client settings (nativeloader_sky*,
 -- nativeloader_weather*), shown in the RTX Remix tab under "Sky and weather". Documented in
 -- nativeloader_sky.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 if SERVER then
     AddCSLuaFile()
     AddCSLuaFile("nativeloader/sky_model.lua")

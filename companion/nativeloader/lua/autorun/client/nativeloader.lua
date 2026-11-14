@@ -5,6 +5,9 @@
 -- next start deploys (steamworks.FileInfo, every ten minutes). Also reminds older loaders to update.
 -- Documented in nativeloader.lua.md beside this file.
 
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 if not CLIENT then return end
 
 local STATUS_FILE = "native-loader/status.json"

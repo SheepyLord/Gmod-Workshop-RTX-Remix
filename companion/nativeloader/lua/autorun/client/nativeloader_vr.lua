@@ -1,4 +1,7 @@
 -- V1's switch. No native module or nlvr/ file is loaded until an explicit request.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 if SERVER then return end
 if NativeLoaderVR and NativeLoaderVR.Stop then NativeLoaderVR.Stop() end
 local i18n = include("nativeloader/i18n.lua")

@@ -21,3 +21,8 @@ drawing the meshes it discards: about half of the native loader's PoC starts cra
 (review R4, 2026-10-31). It now switches queued rendering off, flushes four frames later (leaving
 that mode, the material system waits for its thread), and puts the player's mat_queue_mode back; if
 the switch does not take, it skips the flush and says so.
+
+Native loader (ADR 0206): this file and the add-on's other autoruns (sh_rtx.lua, sv_rtx.lua, tmc.lua,
+matdebug.lua) first return unless the companion's first autorun says this machine's loader activated RTX
+(NativeLoaderRTXStart) or the verified multiplayer initializer runs them. A start through an off switch, a game
+whose loader was removed, or files a loader left behind therefore run none of the fixes without the runtime.

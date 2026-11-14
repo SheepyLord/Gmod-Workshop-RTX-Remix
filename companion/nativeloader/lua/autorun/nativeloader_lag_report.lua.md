@@ -51,3 +51,5 @@ pasted into an issue report.
 second run while one is measuring is refused. No exit code (a console command).
 
 Checked in a game (the R28 report) and by [lag_report_harness.lua](../../../tests/lag_report_harness.lua.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

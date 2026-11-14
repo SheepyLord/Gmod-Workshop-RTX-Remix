@@ -6,6 +6,13 @@ realm (GMod runs `lua/autorun` in name order across the add-ons). It runs in RTX
 loader leaves every add-on folder of the RTX package out of GMod's searches
 ([ADR 0013](../../../../docs/decisions/0013-rtx-only-addons-hidden-without-rtx.md)), this one included.
 
+From [ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md) it also decides that
+itself, first: unless this machine's loader activated RTX in this start (its `native-loader/status.json` says so and,
+from loader 0.14.0, it holds `native-loader/rtx-session.txt` open; the companion's `_nativeloader_guard.lua` decides it
+the same way), it returns before any convar or module. A start through an off switch (`-nonativeloader`), a game whose
+loader was removed, or files a loader left behind still mount the folder, and loaded the module before (seen on the PoC,
+2026-11-13).
+
 In the server and the client realm it:
 
 1. Creates `nativeloader_load_accel` (archived, default 1; 0 leaves the module out from the next start) and

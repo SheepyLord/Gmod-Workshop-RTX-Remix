@@ -1,5 +1,8 @@
 -- R20-C/R21-A: exact-path coexistence guards and private blood implementation (ADRs 0118/0124).
 -- This sorts before standalone autoruns. Their on-disk files remain untouched.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local blood = file.Exists("nlblood/shapes.lua", "LUA")
 local screen = file.Exists("dynamic_toolgun_screen/nl_package.lua", "LUA")
 if not blood and not screen then return end

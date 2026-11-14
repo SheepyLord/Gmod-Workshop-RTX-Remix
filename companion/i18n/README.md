@@ -112,3 +112,6 @@ VR V8 adds seven page messages (the Frame generation switch's help, the Auto hel
 Smoothing status lines and the grab help line) and drops the old Auto help line. Their translations in all six
 catalogs are agent-written by Claude and not yet human-reviewed; "Frame generation" reuses the existing entry, and
 SteamVR's menu path is given in each language's SteamVR words.
+ADR 0206 adds two messages, the chat notice of the clean-up of a removed loader's files
+(`autorun/server/nativeloader_leftovers.lua`). Their translations in all six catalogs are agent-written by Claude and
+not yet human-reviewed; the path `bin/win64/winmm.dll` is kept as it is.

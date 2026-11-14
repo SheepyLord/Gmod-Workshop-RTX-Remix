@@ -2,6 +2,9 @@
 -- This layer handles JSON files so requests use the same console.log handshake
 -- as rtx_agent without putting a JSON parser or a socket on a render thread.
 
+-- Native loader (ADR 0206): only in this machine's RTX starts, as the companion's first autorun says, or under the
+-- verified multiplayer initializer; an off switch, a removed loader or files a loader left behind run none of this.
+if not (NATIVELOADER_VERIFIED_MULTIPLAYER or NativeLoaderRTXStart and NativeLoaderRTXStart()) then return end
 local loaded, err = pcall(require, "rtxdebug")
 if not loaded then
     ErrorNoHalt("[RTXDebug] require failed: " .. tostring(err) .. "\n")

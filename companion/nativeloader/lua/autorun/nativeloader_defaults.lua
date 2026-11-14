@@ -3,6 +3,9 @@
 -- its add-on's own default gets the classic value; a value the player chose is never touched.
 -- "nativeloader_rtx_defaults" applies every classic value again (the server half in single-player
 -- or for an admin), for a player who wants the classic look back.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 AddCSLuaFile()
 AddCSLuaFile("nativeloader/classic_defaults.lua")
 

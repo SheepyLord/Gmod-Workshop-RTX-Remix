@@ -8,12 +8,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:123
 #, c-format
 msgid "%s, in the add-on %s"
 msgstr "%s, dans l'addon %s"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:126
 #, c-format
 msgid ""
 "The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
@@ -27,978 +27,978 @@ msgstr ""
 msgid "Effect categories: %d observed materials"
 msgstr "Catégories des effets : %d matériaux observés"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:700
+#: nativeloader/lua/autorun/nativeloader_sky.lua:703
 msgid "Clear"
 msgstr "Dégagé"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:700
+#: nativeloader/lua/autorun/nativeloader_sky.lua:703
 msgid "Partly cloudy"
 msgstr "Partiellement nuageux"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:700
+#: nativeloader/lua/autorun/nativeloader_sky.lua:703
 msgid "Overcast"
 msgstr "Couvert"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Hazy"
 msgstr "Brumeux"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Foggy"
 msgstr "Brouillard"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Drizzle"
 msgstr "Bruine"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Rain"
 msgstr "Pluie"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:702
+#: nativeloader/lua/autorun/nativeloader_sky.lua:705
 msgid "Thunderstorm"
 msgstr "Orage"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:702
+#: nativeloader/lua/autorun/nativeloader_sky.lua:705
 msgid "Snow"
 msgstr "Neige"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:702
+#: nativeloader/lua/autorun/nativeloader_sky.lua:705
 msgid "Blizzard"
 msgstr "Blizzard"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:703
+#: nativeloader/lua/autorun/nativeloader_sky.lua:706
 msgid "Sandstorm"
 msgstr "Tempête de sable"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:703
+#: nativeloader/lua/autorun/nativeloader_sky.lua:706
 msgid "Smog"
 msgstr "Smog"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Spring"
 msgstr "Printemps"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Summer"
 msgstr "Été"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Autumn"
 msgstr "Automne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Winter"
 msgstr "Hiver"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:706
+#: nativeloader/lua/autorun/nativeloader_sky.lua:709
 msgid "New moon"
 msgstr "Nouvelle lune"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:706
+#: nativeloader/lua/autorun/nativeloader_sky.lua:709
 msgid "Waxing crescent"
 msgstr "Premier croissant"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:707
+#: nativeloader/lua/autorun/nativeloader_sky.lua:710
 msgid "First quarter"
 msgstr "Premier quartier"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:707
+#: nativeloader/lua/autorun/nativeloader_sky.lua:710
 msgid "Waxing gibbous"
 msgstr "Gibbeuse croissante"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:707
+#: nativeloader/lua/autorun/nativeloader_sky.lua:710
 msgid "Full moon"
 msgstr "Pleine lune"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:708
+#: nativeloader/lua/autorun/nativeloader_sky.lua:711
 msgid "Waning gibbous"
 msgstr "Gibbeuse décroissante"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:708
+#: nativeloader/lua/autorun/nativeloader_sky.lua:711
 msgid "Last quarter"
 msgstr "Dernier quartier"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:709
+#: nativeloader/lua/autorun/nativeloader_sky.lua:712
 msgid "Waning crescent"
 msgstr "Dernier croissant"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:710
+#: nativeloader/lua/autorun/nativeloader_sky.lua:713
 msgid "No eclipse"
 msgstr "Pas d'éclipse"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:710
+#: nativeloader/lua/autorun/nativeloader_sky.lua:713
 msgid "Lunar eclipse"
 msgstr "Éclipse de Lune"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:710
+#: nativeloader/lua/autorun/nativeloader_sky.lua:713
 msgid "Solar eclipse"
 msgstr "Éclipse de Soleil"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:711
+#: nativeloader/lua/autorun/nativeloader_sky.lua:714
 msgid "Night sky image"
 msgstr "Image du ciel nocturne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:711
+#: nativeloader/lua/autorun/nativeloader_sky.lua:714
 msgid "Simulated stars"
 msgstr "Étoiles simulées"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:713
+#: nativeloader/lua/autorun/nativeloader_sky.lua:716
 msgid "Sunrise"
 msgstr "Lever du soleil"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:713
+#: nativeloader/lua/autorun/nativeloader_sky.lua:716
 msgid "Morning"
 msgstr "Matin"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:713
+#: nativeloader/lua/autorun/nativeloader_sky.lua:716
 msgid "Noon"
 msgstr "Midi"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:714
+#: nativeloader/lua/autorun/nativeloader_sky.lua:717
 msgid "Sunset"
 msgstr "Coucher du soleil"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:714
+#: nativeloader/lua/autorun/nativeloader_sky.lua:717
 msgid "Night"
 msgstr "Nuit"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:724
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:266
+#: nativeloader/lua/autorun/nativeloader_sky.lua:727
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:269
 msgid "The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."
 msgstr "L'API Remix n'est pas disponible dans cette session : ces paramètres ne peuvent donc pas être appliqués. Exécutez nativeloader_status pour plus de détails."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:728
+#: nativeloader/lua/autorun/nativeloader_sky.lua:731
 #, c-format
 msgid "On this map %s also sets the sky. It keeps its sky while Follow the map's sun is ticked and nothing here is changed; otherwise your settings here replace it."
 msgstr "Sur cette carte, le ciel est aussi réglé par %s. Ce ciel est conservé tant que l'option « Suivre le soleil de la carte » est cochée et qu'aucun réglage n'est modifié ici ; sinon, vos réglages ici le remplacent."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:730
+#: nativeloader/lua/autorun/nativeloader_sky.lua:733
 msgid "Sky"
 msgstr "Ciel"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:731
+#: nativeloader/lua/autorun/nativeloader_sky.lua:734
 msgid "Physical sky"
 msgstr "Ciel physique"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:732
+#: nativeloader/lua/autorun/nativeloader_sky.lua:735
 msgid "The map's skybox"
 msgstr "Skybox de la carte"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:733
+#: nativeloader/lua/autorun/nativeloader_sky.lua:736
 msgid "The physical sky has a sun, clouds, stars and a moon, and lights the map from them."
 msgstr "Le ciel physique a un soleil, des nuages, des étoiles et une lune, qui éclairent la carte."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:734
+#: nativeloader/lua/autorun/nativeloader_sky.lua:737
 msgid "No horizon"
 msgstr "Sans horizon"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:735
+#: nativeloader/lua/autorun/nativeloader_sky.lua:738
 msgid "For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."
 msgstr "Pour les cartes qui flottent dans le ciel ou dans l'espace : sous l'horizon, le ciel continue, avec des nuages, les étoiles et la lune, au lieu de la brume d'un sol."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:736
+#: nativeloader/lua/autorun/nativeloader_sky.lua:739
 msgid "Follow the map's sun"
 msgstr "Suivre le soleil de la carte"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:737
+#: nativeloader/lua/autorun/nativeloader_sky.lua:740
 msgid "Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."
 msgstr "Place le soleil à la position du soleil de la carte ; si un addon de la carte, comme Modern House RTX, règle son propre ciel, ce ciel est conservé. Modifier « Heure » ou « Azimut solaire » désactive cette option."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:738
+#: nativeloader/lua/autorun/nativeloader_sky.lua:741
 msgid "Time of day"
 msgstr "Heure"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:742
+#: nativeloader/lua/autorun/nativeloader_sky.lua:745
 #, c-format
 msgid "Now %s"
 msgstr "Il est %s"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:760
+#: nativeloader/lua/autorun/nativeloader_sky.lua:763
 msgid "Sun direction"
 msgstr "Azimut solaire"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:761
+#: nativeloader/lua/autorun/nativeloader_sky.lua:764
 msgid "Turns the sun's path around the sky."
 msgstr "Fait tourner la course du soleil dans le ciel."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:762
+#: nativeloader/lua/autorun/nativeloader_sky.lua:765
 msgid "Time passes"
 msgstr "Faire avancer le temps"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:763
+#: nativeloader/lua/autorun/nativeloader_sky.lua:766
 msgid "Day length (min)"
 msgstr "Durée jour (min)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:764
+#: nativeloader/lua/autorun/nativeloader_sky.lua:767
 msgid "Time passes is on by default. A whole day takes 20 real minutes; untick Time passes to stop the clock."
 msgstr "L’option « Faire avancer le temps » est activée par défaut. Une journée dure 20 minutes réelles ; décochez-la pour arrêter l’horloge."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:765
+#: nativeloader/lua/autorun/nativeloader_sky.lua:768
 msgid "Sky update interval (s)"
 msgstr "Intervalle ciel (s)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:766
+#: nativeloader/lua/autorun/nativeloader_sky.lua:769
 msgid "How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."
 msgstr "Intervalle de mise à jour du soleil, de la lune, des étoiles et de la météo, en secondes : 0.02 correspond à 50 fois par seconde, 0 à chaque image. Un intervalle plus long réduit légèrement le temps de calcul par image, mais le ciel évolue par à-coups."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:767
+#: nativeloader/lua/autorun/nativeloader_sky.lua:770
 msgid "Season"
 msgstr "Saison"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:768
+#: nativeloader/lua/autorun/nativeloader_sky.lua:771
 msgid "Moon"
 msgstr "Lune"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:769
+#: nativeloader/lua/autorun/nativeloader_sky.lua:772
 msgid "Eclipse"
 msgstr "Éclipse"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:770
+#: nativeloader/lua/autorun/nativeloader_sky.lua:773
 msgid "Eclipse progress"
 msgstr "Progression de l'éclipse"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:771
+#: nativeloader/lua/autorun/nativeloader_sky.lua:774
 msgid "From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."
 msgstr "Du premier contact (0) au maximum (100) : une éclipse de Lune est totale à partir de 70, une éclipse de Soleil à partir de 90. Une éclipse fixe la phase de la Lune, et l'heure si le soleil n'est pas du bon côté de l'horizon."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:772
+#: nativeloader/lua/autorun/nativeloader_sky.lua:775
 msgid "Night sky"
 msgstr "Ciel nocturne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:773
+#: nativeloader/lua/autorun/nativeloader_sky.lua:776
 msgid "Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."
 msgstr "Image du ciel nocturne : étoiles nettes, une galaxie et des nébuleuses, qui tournent avec l'heure et la saison."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:774
+#: nativeloader/lua/autorun/nativeloader_sky.lua:777
 msgid "Weather"
 msgstr "Météo"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:775
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:275
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:279
+#: nativeloader/lua/autorun/nativeloader_sky.lua:778
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:278
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:282
 msgid "(leave to Remix)"
 msgstr "(laisser à Remix)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:777
+#: nativeloader/lua/autorun/nativeloader_sky.lua:780
 msgid "Clouds, haze, fog, rain and snow, from Remix's own weather presets."
 msgstr "Nuages, brume sèche, brouillard, pluie et neige, issus des préréglages météo de Remix."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:778
+#: nativeloader/lua/autorun/nativeloader_sky.lua:781
 msgid "Weather change (s)"
 msgstr "Transition (s)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:779
+#: nativeloader/lua/autorun/nativeloader_sky.lua:782
 msgid "How long a change of weather takes."
 msgstr "Durée d'un changement de temps."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:780
+#: nativeloader/lua/autorun/nativeloader_sky.lua:783
 msgid "Reset the sky and weather"
 msgstr "Réinitialiser le ciel et la météo"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:786
-#: nativeloader/lua/autorun/nativeloader_sky.lua:786
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
+#: nativeloader/lua/autorun/nativeloader_sky.lua:789
+#: nativeloader/lua/autorun/nativeloader_sky.lua:789
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:108
 msgid "Sky and weather"
 msgstr "Ciel et météo"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:219
+#: nativeloader/lua/autorun/client/nativeloader.lua:222
 #, c-format
 msgid "RTX package %s was updated: restart Garry's Mod to use it"
 msgstr "Le paquet RTX %s a été mis à jour : redémarrez Garry's Mod pour l'utiliser"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:360
+#: nativeloader/lua/autorun/client/nativeloader.lua:363
 msgid "A loader update is available"
 msgstr "Une mise à jour du chargeur est disponible"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:378
+#: nativeloader/lua/autorun/client/nativeloader.lua:381
 #, c-format
 msgid "You are running loader %s. The latest release is %s."
 msgstr "Vous utilisez le chargeur %s. La dernière version publiée est %s."
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:379
+#: nativeloader/lua/autorun/client/nativeloader.lua:382
 msgid "Download winmm.dll from the release page, replace bin\\win64\\winmm.dll in your game folder, then restart Garry's Mod. The Workshop package updates automatically; only this file needs a manual update."
 msgstr "Téléchargez winmm.dll depuis la page de la version, remplacez bin\\win64\\winmm.dll dans le dossier du jeu, puis redémarrez Garry's Mod. Le paquet Workshop se met à jour automatiquement ; seul ce fichier doit être mis à jour manuellement."
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:397
+#: nativeloader/lua/autorun/client/nativeloader.lua:400
 msgid "Open the download page"
 msgstr "Ouvrir la page de téléchargement"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:398
+#: nativeloader/lua/autorun/client/nativeloader.lua:401
 msgid "Later"
 msgstr "Plus tard"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:399
+#: nativeloader/lua/autorun/client/nativeloader.lua:402
 #, c-format
 msgid "Don't remind me about %s"
 msgstr "Ne plus me rappeler la version %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
 msgid "Realistic"
 msgstr "Réaliste"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
 msgid "Fresh arterial"
 msgstr "Sang artériel frais"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
 msgid "Dark venous"
 msgstr "Sang veineux sombre"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Aged, dried"
 msgstr "Sang ancien et séché"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Black ink"
 msgstr "Encre noire"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Toxic green"
 msgstr "Vert toxique"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Blue blood"
 msgstr "Sang bleu"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:14
 msgid "Violet"
 msgstr "Pourpre"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:14
 msgid "Golden ichor"
 msgstr "Ichor doré"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:14
 msgid "Synthetic white"
 msgstr "Blanc synthétique"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:15
 msgid "Rainbow"
 msgstr "Arc-en-ciel"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:15
 msgid "Custom colours"
 msgstr "Couleurs personnalisées"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:26
 msgid "Enable Blood Overhaul RTX"
 msgstr "Activer Blood Overhaul RTX"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:24
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:27
 msgid "Twenty-six patterns and twelve colour schemes, with wet PBR surfaces under RTX. No separate Blood Overhaul subscription is needed."
 msgstr "Vingt-six motifs et douze palettes, avec des surfaces PBR humides sous RTX. Aucun abonnement séparé à Blood Overhaul n’est nécessaire."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:28
 msgid "Off restores material colours, the mixer and engine impacts. Packaged Blood Overhaul textures and PBR remain until the package is removed."
 msgstr "La désactivation rétablit les couleurs des matériaux, le mélangeur et les impacts du moteur. Les textures et cartes PBR de Blood Overhaul restent jusqu’au retrait du paquet."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:26
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:29
 msgid "Realistic bullet impacts"
 msgstr "Impacts de balles réalistes"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:27
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:30
 msgid "Directional spray, brief mist and falling droplets that leave small stains. Off restores the engine's blood impact effect."
 msgstr "Projection directionnelle, brume brève et gouttes laissant de petites taches. Désactiver rétablit l’effet sanguin du moteur."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:28
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:31
 msgid "Impact amount"
 msgstr "Quantité à l’impact"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:29
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:32
 msgid "Zero uses the stock impact. Detail reduces with viewing distance; the particle and stain limits always apply."
 msgstr "Zéro utilise l’effet d’origine. Le détail diminue avec la distance ; les limites de particules et de taches restent actives."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:30
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:33
 msgid "Colour scheme"
 msgstr "Palette de couleurs"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:32
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:35
 msgid "Mix all blood patterns"
 msgstr "Mélanger tous les motifs"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:33
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:36
 msgid "Splat size"
 msgstr "Taille des éclaboussures"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:34
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:37
 msgid "Recolour flying droplets"
 msgstr "Recolorer les gouttes en vol"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:35
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:38
 msgid "Custom colours apply when the Custom colours scheme is selected."
 msgstr "Ces couleurs s’appliquent lorsque la palette Couleurs personnalisées est sélectionnée."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:36
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:39
 msgid "Red blood"
 msgstr "Sang rouge"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:37
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:40
 msgid "Alien blood"
 msgstr "Sang extraterrestre"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:38
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:41
 msgid "Limits: 640 particles per second, 512 alive; 48 new stains per second, 384 until map cleanup or Clear all decals. Existing stains stay when impacts are turned off."
 msgstr "Limites : 640 particules/s, 512 simultanées ; 48 nouvelles taches/s, 384 avant nettoyage de la carte ou effacement des décalcomanies. Désactiver les impacts conserve les taches existantes."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:39
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:42
 msgid "Test splats where you look"
 msgstr "Tester les taches au point visé"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:40
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:43
 msgid "Clear all decals"
 msgstr "Effacer toutes les décalcomanies"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:41
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:44
 msgid "Reset blood settings"
 msgstr "Réinitialiser les réglages du sang"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:42
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:45
 msgid "Eighteen new patterns made with an AI image model. Blood Overhaul resources by Crunchy (2683396098) and their PBR are bundled. SheepyLord reported the resource author's permission."
 msgstr "Dix-huit nouveaux motifs créés avec un modèle d’images IA. Les ressources de Blood Overhaul de Crunchy (2683396098) et leurs cartes PBR sont incluses. SheepyLord a indiqué avoir obtenu l’autorisation de la personne ayant créé les ressources."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:48
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:26
 msgid "Blood"
 msgstr "Sang"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:54
 msgid "Blood and impacts"
 msgstr "Sang et impacts"
 
-#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:12
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:176
+#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:15
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:179
 msgid "Dynamic toolgun screen"
 msgstr "Écran animé du toolgun"
 
-#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:21
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:17
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:176
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:357
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:24
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:20
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:179
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:361
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:362
 #: nativeloader/lua/nativeloader/guide_pages.lua:125
 msgid "Rendering"
 msgstr "Rendu"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:404
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:338
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:407
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:341
 msgid "Choose eye-white materials"
 msgstr "Choisir les matériaux du blanc des yeux"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:408
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:411
 msgid "Choose a spawned character here, or look at one before you open this window. Your choices are saved for this character and apply to all its copies at once, without respawning. Steady eye whites for imported characters and Eye-white brightness still apply."
 msgstr "Choisissez ici un personnage présent, ou regardez-en un avant d'ouvrir cette fenêtre. Vos choix sont enregistrés pour ce personnage et s'appliquent immédiatement à toutes ses copies, sans le faire réapparaître. « Stabiliser le blanc des yeux des personnages importés » et « Luminosité du blanc des yeux » restent actifs."
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:411
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:414
 msgid "Choose a spawned character"
 msgstr "Choisir un personnage présent"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:414
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:417
 msgid "Spawn an imported character first, from External Models. Only the materials of imported characters can be chosen."
 msgstr "Faites d'abord apparaître un personnage importé depuis « Modèles externes ». Seuls les matériaux des personnages importés peuvent être sélectionnés."
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:418
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:421
 msgid "Previous materials"
 msgstr "Matériaux précédents"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:419
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:422
 msgid "Next materials"
 msgstr "Matériaux suivants"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:431
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:434
 msgid "Ticked materials are eye whites. Use automatic detection removes your choice for that material. When the eyes share a texture with the face, the picture shows the face too; only the material you tick changes."
 msgstr "Les matériaux cochés sont traités comme le blanc des yeux. « Utiliser la détection automatique » efface votre choix pour ce matériau. Lorsque les yeux partagent une texture avec le visage, l'image montre aussi le visage ; seul le matériau coché change."
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:482
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:485
 msgid "Eye white"
 msgstr "Blanc des yeux"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:484
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:487
 msgid "Use automatic detection"
 msgstr "Utiliser la détection automatique"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:494
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:497
 msgid "Chosen: eye white"
 msgstr "Choix : blanc des yeux"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:494
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:497
 msgid "Chosen: ordinary material"
 msgstr "Choix : matériau ordinaire"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:496
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:499
 msgid "Automatic: eye white"
 msgstr "Automatique : blanc des yeux"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:496
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:499
 msgid "Automatic: ordinary material"
 msgstr "Automatique : matériau ordinaire"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:498
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:501
 msgid "Texture not available"
 msgstr "Texture indisponible"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:503
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:506
 msgid "Your choice could not be saved: the character may have been removed, or the file of saved choices was changed or cannot be read. No file was overwritten."
 msgstr "Impossible d'enregistrer votre choix : le personnage a peut-être été supprimé, ou le fichier des choix enregistrés a été modifié ou est illisible. Aucun fichier n'a été écrasé."
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:305
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:308
 #, c-format
 msgid "Previous: %s"
 msgstr "Précédent : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:316
 #, c-format
 msgid "Next: %s"
 msgstr "Suivant : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:376
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:379
 msgid "Contents"
 msgstr "Sommaire"
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:414
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:417
 msgid "RTX Remix guide"
 msgstr "Guide RTX Remix"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:18
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:21
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:149
 msgid "Lights"
 msgstr "Lumières"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:19
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:20
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:26
 #: nativeloader/lua/nativeloader/guide_pages.lua:161
 msgid "Water and glass"
 msgstr "Eau et verre"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:355
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:355
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
 #: nativeloader/lua/nativeloader/guide_pages.lua:87
 msgid "Start here"
 msgstr "Pour commencer"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:356
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
 #: nativeloader/lua/nativeloader/guide_pages.lua:98
 msgid "Remix settings"
 msgstr "Paramètres Remix"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:26
 msgid "VR"
 msgstr "VR (RV)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:73
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:76
 #: nativeloader/lua/nativeloader/guide_pages.lua:70
 msgid "Graphics preset"
 msgstr "Préréglage"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
 msgid "Ultra"
 msgstr "Ultra"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:234
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:237
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "High"
 msgstr "Élevé"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:214
 msgid "Medium"
 msgstr "Moyen"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
 msgid "Low"
 msgstr "Faible"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:75
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:78
 msgid "Custom (keeps your own settings)"
 msgstr "Personnalisé (vos réglages)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:75
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:78
 msgid "Automatic (by GPU)"
 msgstr "Auto (selon le GPU)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:76
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
 msgid "Upscaler"
 msgstr "Mise à l'échelle"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
 msgid "None"
 msgstr "Aucune"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:78
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 msgid "DLSS quality"
 msgstr "Qualité DLSS"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
 msgid "Ultra performance"
 msgstr "Ultra performances"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
 msgid "Performance"
 msgstr "Performances"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "Balanced"
 msgstr "Équilibré"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:312
 msgid "Quality"
 msgstr "Qualité"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:83
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
 msgid "Auto"
 msgstr "Auto"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:83
 msgid "Full resolution (DLAA)"
 msgstr "Pleine résolution (DLAA)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:84
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
 #: nativeloader/lua/nativeloader/guide_pages.lua:69
 msgid "Frame generation"
 msgstr "Génération d'images"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:281
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:85
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:284
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Off"
 msgstr "Désactivé"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:83
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:86
 msgid "Indirect lighting"
 msgstr "Éclairage indirect"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:84
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:87
 msgid "Importance sampled"
 msgstr "Échantillonnage préférentiel"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:84
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:87
 msgid "Neural Radiance Cache"
 msgstr "Cache de radiance neuronal (NRC)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:85
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:88
 msgid "Hashed radiance cache"
 msgstr "Cache de radiance par hachage"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:86
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:89
 msgid "Max light bounces"
 msgstr "Rebonds max."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:89
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
 msgid "Sky brightness"
 msgstr "Luminosité du ciel"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:90
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
 msgid "The map's own skybox only."
 msgstr "Pour la skybox de la carte seulement."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:91
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:94
 msgid "Fog"
 msgstr "Brouillard"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:95
 msgid "Remix default"
 msgstr "Par défaut (Remix)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:95
 msgid "Heavy fog"
 msgstr "Brouillard épais"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:95
 msgid "Light fog"
 msgstr "Brouillard léger"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Mist"
 msgstr "Brume"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Haze"
 msgstr "Brume sèche"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Dust"
 msgstr "Poussière"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Smoke"
 msgstr "Fumée"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:94
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:97
 msgid "Remix's volumetric fog presets. One chosen here replaces the weather's fog. Dense fog stays dark where no light reaches it."
 msgstr "Les préréglages de brouillard volumétrique de Remix. Celui choisi ici remplace le brouillard de la météo. Un brouillard dense reste sombre là où aucune lumière ne l'atteint."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:99
 msgid "Post effects"
 msgstr "Post-traitement"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:99
 msgid "Bloom, motion blur and film grain."
 msgstr "Halo lumineux, flou de mouvement et grain de pellicule."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:97
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:100
 msgid "Tone map colour purity"
 msgstr "Pureté des couleurs"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:215
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:218
 msgid "No tier layer is available."
 msgstr "Aucune couche de niveau n’est disponible."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:216
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:219
 #, c-format
 msgid "Performance tier %s is not applied: %s. See Performance and memory in the guide."
 msgstr "Le niveau de performance %s n'est pas appliqué : %s. Consultez « Performances et mémoire » dans le guide."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:219
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:222
 msgid "Automatic selection"
 msgstr "Sélection automatique"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:219
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:222
 msgid "Configuration override"
 msgstr "Choix dans la configuration"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:220
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:223
 msgid "Compatibility fallback"
 msgstr "Repli de compatibilité"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:225
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:228
 #, c-format
 msgid "Performance tier: %s (%s; %s, %s MiB VRAM). To change it, set remix.performance_tier in native-loader\\config.json to auto, high, medium or low, then restart Garry's Mod."
 msgstr "Niveau de performance : %s (%s ; %s, %s Mio de VRAM). Pour le modifier, réglez remix.performance_tier sur auto, high, medium ou low dans native-loader\\config.json, puis redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:226
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:229
 msgid "Unknown source"
 msgstr "Origine inconnue"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:233
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:236
 msgid "Below the minimum"
 msgstr "Inférieur au minimum"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:233
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:236
 msgid "Minimum"
 msgstr "Minimal"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:234
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:237
 msgid "Recommended"
 msgstr "Recommandé"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:239
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:242
 #, c-format
 msgid "Memory profile: %s (%s MiB VRAM, %s MiB RAM). Characters kept ready for an instant spawn: %s; the others load when first used. To change it, set remix.memory_profile in native-loader\\config.json to auto, minimum, recommended or high, then restart Garry's Mod."
 msgstr "Profil mémoire : %s (%s Mio de VRAM, %s Mio de RAM). Personnages gardés prêts pour une apparition immédiate : %s ; les autres se chargent à leur première utilisation. Pour le modifier, réglez remix.memory_profile sur auto, minimum, recommended ou high dans native-loader\\config.json, puis redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:244
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:247
 msgid "RTX Remix is running in this session. Every setting of the RTX package is in this tab, in the groups on the left."
 msgstr "RTX Remix fonctionne dans cette session. Tous les paramètres du paquet RTX se trouvent dans cet onglet, dans les groupes à gauche."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:250
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:253
 msgid "Open the RTX Remix guide"
 msgstr "Ouvrir le guide RTX Remix"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:251
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:254
 msgid "Performance and memory guide"
 msgstr "Guide des performances et de la mémoire"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:252
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:255
 #: nativeloader/lua/nativeloader/guide_pages.lua:332
 msgid "Print the loader's status to the console"
 msgstr "Afficher l'état du chargeur dans la console"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:253
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:256
 msgid "When RTX first ran, the RTX add-ons took the settings of the original RTX install, except for settings you had already changed. This button applies all of them again, also over your own changes."
 msgstr "Au premier lancement de RTX, les addons RTX ont repris les paramètres de l'installation RTX d'origine, sauf ceux que vous aviez déjà modifiés. Ce bouton les applique tous de nouveau, y compris en remplaçant vos propres modifications."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:254
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:257
 msgid "Use the classic RTX settings"
 msgstr "Utiliser les paramètres RTX classiques"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:255
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:258
 msgid "RTX session guard"
 msgstr "Protection de la session RTX"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:256
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:259
 msgid "Stops other add-ons from undoing RTX settings or drawing post-processing over the picture. Turn it off only to test an add-on that misbehaves."
 msgstr "Empêche les autres addons d'annuler les paramètres RTX ou d'ajouter du post-traitement à l'image. Ne désactivez cette option que pour tester un addon qui fonctionne mal."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:257
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:260
 msgid "Remix's own menu: press Alt+X, and save your changes there to keep them. Before you change single settings, set Graphics Preset, or DLSS Preset for the DLSS settings, to Custom; the guide shows how."
 msgstr "Menu propre à Remix : appuyez sur Alt+X et enregistrez-y vos modifications pour les conserver. Avant de modifier des paramètres un par un, réglez « Préréglage graphique », ou « Préréglage DLSS » pour les paramètres DLSS, sur « Personnalisé » ; le guide vous montre comment faire."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:258
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:261
 msgid "Language"
 msgstr "Langue"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:259
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:262
 msgid "Same as Garry's Mod"
 msgstr "Comme Garry's Mod"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:261
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:264
 msgid "Language of this tab and the guide"
 msgstr "Langue (onglet et guide)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:271
 msgid "Changes here apply at once, for this session. To keep them, press Alt+X and save them there. The values shown are this panel's own choices, not a live reading of Remix."
 msgstr "Les modifications faites ici s'appliquent immédiatement à cette session. Pour les conserver, appuyez sur Alt+X et enregistrez-les dans ce menu. Les valeurs affichées sont les choix de ce panneau, pas les valeurs actuelles de Remix."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:272
 msgid "Reapply these overrides at every launch"
 msgstr "Réappliquer les valeurs de ce panneau à chaque lancement"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:273
 msgid "Off (the default), Remix starts with its own saved settings. On, this panel applies its choices at every start, over those settings."
 msgstr "Désactivée (par défaut), cette option laisse Remix démarrer avec ses propres paramètres enregistrés. Activée, elle applique les choix de ce panneau à chaque démarrage, en remplaçant ces paramètres."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:280
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:283
 msgid "On"
 msgstr "Activé"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:284
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:287
 #, c-format
 msgid "Set %s here"
 msgstr "Régler « %s » ici"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:7
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:10
 msgid "Show upscaling and frame generation hint at startup"
 msgstr "Afficher le conseil de mise à l’échelle et de génération d’images au démarrage"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:316
 msgid "A number is used only while the box above it, Set ... here, is ticked. Zero is a valid value for sky brightness and colour purity."
 msgstr "Une valeur numérique n'est utilisée que si la case au-dessus, Régler « ... » ici, est cochée. Zéro est une valeur valide pour la luminosité du ciel et la pureté des couleurs."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:317
 msgid "Clear this panel's overrides"
 msgstr "Effacer les valeurs imposées par ce panneau"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:321
 msgid "Local player shadow"
 msgstr "Ombre du joueur local"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:322
 msgid "Shows the shadow and reflection of your own body while you play in first person. Other players and ragdolls are not affected."
 msgstr "Affiche l'ombre et le reflet de votre corps lorsque vous jouez à la première personne. Les autres joueurs et les ragdolls ne sont pas affectés."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:323
 msgid "Body height offset (units)"
 msgstr "Décalage vertical du corps (unités)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:321
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:324
 msgid "Raises (positive) or lowers (negative) only that body. Your view and your collisions stay where they are."
 msgstr "Relève (valeur positive) ou abaisse (valeur négative) uniquement ce corps. Votre vue et vos collisions restent en place."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:325
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:328
 msgid "Keep toolgun text sharp"
 msgstr "Garder le texte du toolgun net"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:326
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:329
 msgid "Draws the toolgun's screen at full resolution after DLSS or another upscaler, so its text stays readable. Animated and custom screens keep working."
 msgstr "Affiche l'écran du toolgun à pleine résolution après DLSS ou une autre méthode de mise à l'échelle, pour que son texte reste lisible. Les écrans animés et personnalisés continuent de fonctionner."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:330
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:333
 msgid "Hide outline meshes"
 msgstr "Masquer les maillages de contour"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:331
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:334
 msgid "Hides the outline shells that many anime models have: path tracing draws them as a dark layer over the model. The model's other materials are not changed."
 msgstr "Masque les coques de contour de nombreux modèles de style anime : le path tracing les affiche comme une couche sombre sur le modèle. Les autres matériaux du modèle ne changent pas."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:332
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:335
 msgid "Imported game PBR"
 msgstr "PBR des personnages importés"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:333
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:336
 msgid "Uses the game's own maps for characters imported from Wuthering Waves, Endfield and Silver Palace. Skin and faces stay as they are. Off restores the original materials."
 msgstr "Utilise les cartes du jeu pour les personnages importés de Wuthering Waves, Endfield et Silver Palace. La peau et les visages restent inchangés. Désactiver cette option rétablit les matériaux d'origine."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:334
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:337
 msgid "Steady eye whites for imported characters"
 msgstr "Stabiliser le blanc des yeux des personnages importés"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:335
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:338
 msgid "Keeps the whites of imported characters' eyes clean and bright. It finds them by their material names; if it misses one, choose them yourself below. Characters with a PBR pack keep its materials."
 msgstr "Garde le blanc des yeux des personnages importés propre et lumineux. Les matériaux sont reconnus par leur nom ; si certains ne sont pas détectés, sélectionnez-les vous-même ci-dessous. Les personnages dotés d'un pack PBR conservent ses matériaux."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:336
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:339
 msgid "Eye-white brightness"
 msgstr "Luminosité du blanc des yeux"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:337
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:340
 msgid "In percent; 100 is the tuned default. A change applies at once, to steady eye whites and to the eye glow of PBR packs that follows the scene's light; 0 removes that glow."
 msgstr "En pourcentage ; 100 est la valeur réglée par défaut. Une modification s'applique immédiatement à la stabilisation du blanc des yeux et à l'émission des yeux des packs PBR qui suit l'éclairage de la scène ; 0 supprime cette émission."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:339
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:342
 msgid "Hide painted shadows"
 msgstr "Masquer les ombres peintes"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:340
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:343
 msgid "Leaves out the shadows that imported characters have painted over their eyes, under their fringe and on their faces: path tracing casts real shadows there. Their bodygroups and saves do not change."
 msgstr "Masque les ombres peintes au niveau des yeux, sous la frange et sur le visage des personnages importés : le path tracing y projette de vraies ombres. Les groupes du modèle et les sauvegardes restent inchangés."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:341
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:344
 msgid "Solid hair"
 msgstr "Cheveux opaques"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:342
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:345
 msgid "Draws an imported character's hair solid when its texture is mostly opaque but the alpha test would cut holes into it, as in hair from Endfield. Hair cut out of its texture strand by strand keeps its cutouts."
 msgstr "Affiche les cheveux d'un personnage importé sans transparence lorsque leur texture est en grande partie opaque mais que le test alpha y créerait des trous, comme pour les cheveux d'Endfield. Les cheveux découpés mèche par mèche dans leur texture conservent leurs découpes."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:356
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
 msgid "Common Remix settings"
 msgstr "Réglages Remix usuels"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:357
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:360
 msgid "Player models"
 msgstr "Modèles de joueurs"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:361
 msgid "Toolgun screen"
 msgstr "Écran du toolgun"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:362
 msgid "Model outlines"
 msgstr "Contours des modèles"
 
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:12
 msgid "Motion importer"
 msgstr "Importateur de mouvements"
 
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:11
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:160
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:196
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:14
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:163
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:199
 msgid "Import VMD files and manage your motion library and playback."
 msgstr "Importez des fichiers VMD et gérez votre bibliothèque de mouvements et leur lecture."
 
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:74
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:77
 msgid "Open in window"
 msgstr "Ouvrir dans une fenêtre"
 
-#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:14
 #, c-format
 msgid "Preparing PBR materials for imported characters: %d of %d."
 msgstr "Préparation des matériaux PBR des personnages importés : %d sur %d."
 
-#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:38
 msgid "PBR materials for imported characters are ready."
 msgstr "Les matériaux PBR des personnages importés sont prêts."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:61
 msgid ""
 "Upscaling and frame generation are off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1008,7 +1008,7 @@ msgstr ""
 "RTX Remix > Paramètres Remix, ou Alt+X :\n"
 "Choisissez Mise à l'échelle: DLSS ; Génération d'images: DLSS-G."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:63
 msgid ""
 "Upscaling and frame generation are off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1018,7 +1018,7 @@ msgstr ""
 "RTX Remix > Paramètres Remix, ou Alt+X :\n"
 "Choisissez Mise à l'échelle: DLSS ; Génération d'images: FSR 3."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:62
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:65
 msgid ""
 "Upscaling is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1028,7 +1028,7 @@ msgstr ""
 "RTX Remix > Paramètres Remix, ou Alt+X :\n"
 "Choisissez Mise à l'échelle: DLSS."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:65
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:68
 msgid ""
 "Frame generation is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1038,7 +1038,7 @@ msgstr ""
 "RTX Remix > Paramètres Remix, ou Alt+X :\n"
 "Choisissez Génération d'images: DLSS-G."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:67
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:70
 msgid ""
 "Frame generation is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1048,568 +1048,576 @@ msgstr ""
 "RTX Remix > Paramètres Remix, ou Alt+X :\n"
 "Choisissez Génération d'images: FSR 3."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:11
 msgid "Health"
 msgstr "Santé"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:11
 msgid "Armour"
 msgstr "Armure"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:11
 msgid "Ammo"
 msgstr "Munitions"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:48
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
 msgid "The VR module is missing or could not load. Reinstall the RTX package, then restart Garry's Mod."
 msgstr "Le module VR est absent ou ne peut pas être chargé. Réinstallez le paquet RTX, puis redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:49
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
 msgid "The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."
 msgstr "L'API du module VR est incompatible. Mettez à jour le paquet RTX et redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:50
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
 msgid "This Remix runtime has no VR output. Update the RTX package and restart Garry's Mod."
 msgstr "Ce moteur Remix n'a pas de sortie VR. Mettez à jour le paquet RTX et redémarrez Garry's Mod."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
 msgid "The VR add-on could not start. Reinstall the RTX package and try again."
 msgstr "L'extension VR n'a pas pu démarrer. Réinstallez le paquet RTX et réessayez."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
 msgid "VR works in single-player games only. Start a single-player game to use VR."
 msgstr "La VR ne fonctionne qu’en jeu solo. Lancez une partie solo pour utiliser la VR."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:56
 msgid "Exit VRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "Quittez VRMod avant de lancer RTX VR. Une seule extension peut contrôler la vue."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
 msgid "Exit gVRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "Quittez gVRMod avant de lancer RTX VR. Une seule extension peut contrôler la vue."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
 msgid "SteamVR could not start VR. Check the headset connection and SteamVR, then try again."
 msgstr "SteamVR n'a pas pu démarrer la VR. Vérifiez la connexion du casque et SteamVR, puis réessayez."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:56
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:59
 msgid "SteamVR is not installed. Install SteamVR in Steam, connect the headset, then try again."
 msgstr "SteamVR n’est pas installé. Installez SteamVR dans Steam, connectez le casque, puis réessayez."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
 msgid "SteamVR ended the VR session. The flat game's settings have been restored."
 msgstr "SteamVR a terminé la session VR. Les réglages du jeu sur écran ont été restaurés."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
 msgid "Waiting for headset tracking. Check that the base stations can see the headset."
 msgstr "En attente du suivi du casque. Vérifiez que les stations de base voient le casque."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:63
 msgid "VR is off"
 msgstr "VR désactivée"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:63
 msgid "Starting SteamVR..."
 msgstr "Démarrage de SteamVR..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:63
 msgid "VR is running"
 msgstr "VR en cours"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:64
 msgid "Stopping VR..."
 msgstr "Arrêt de la VR..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:64
 msgid "VR could not start"
 msgstr "Échec du démarrage VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Wrist menu"
 msgstr "Menu au poignet"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Spawn menu"
 msgstr "Menu de création"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Context menu"
 msgstr "Menu contextuel"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Flat screen"
 msgstr "Écran plat"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:482
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:485
 msgid "VR settings"
 msgstr "Réglages VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:328
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:331
 msgid "Calibrate height"
 msgstr "Calibrer la taille"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:441
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:444
 msgid "Recentre VR"
 msgstr "Recentrer la VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:439
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:442
 msgid "Exit VR"
 msgstr "Quitter la VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:377
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:380
 msgid "Enter text"
 msgstr "Saisir du texte"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Keyboard"
 msgstr "Clavier"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Shift"
 msgstr "Maj"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Space"
 msgstr "Espace"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Backspace"
 msgstr "Retour"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Enter"
 msgstr "Entrer"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Close"
 msgstr "Fermer"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Tab"
 msgstr "Tabul."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Left"
 msgstr "Gauche"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Right"
 msgstr "Droite"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Home"
 msgstr "Début"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "End"
 msgstr "Fin"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Delete"
 msgstr "Suppr"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
 msgid "This menu is unavailable in this gamemode."
 msgstr "Ce menu est indisponible dans ce mode de jeu."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:274
 msgid "The flat screen needs a newer VR module and Remix runtime. Update the RTX package."
 msgstr "L'écran plat nécessite un module VR et un moteur Remix plus récents. Mettez le paquet RTX à jour."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:313
 msgid "Quality step"
 msgstr "Palier de qualité"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "Full"
 msgstr "Complet"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "Fast"
 msgstr "Rapide"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
 msgid "Faster"
 msgstr "Plus rapide"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
 msgid "Floor"
 msgstr "Minimum"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:312
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
 msgid "Auto picks the highest step that holds the frame rate Frame generation sets. A fixed step stays where you set it."
 msgstr "Auto choisit le palier le plus haut qui tient la fréquence fixée par Génération d'images. Un palier fixe reste là où vous l’avez mis."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
 msgid "On: VR renders half the headset's frames and SteamVR's Motion Smoothing makes the rest. Off: VR renders every frame, at a lower quality step. Remix's DLSS frame generation only adds frames to the desktop window, so it stays off in VR."
 msgstr "Activé : la VR rend la moitié des images du casque et le Motion Smoothing de SteamVR crée le reste. Désactivé : la VR rend chaque image, à un palier de qualité plus bas. La génération d'images DLSS de Remix n'ajoute des images qu'à la fenêtre du bureau ; elle reste donc désactivée en VR."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
 msgid "True stereo"
 msgstr "Stéréo réelle"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "Path traces each eye with its own history instead of turning one picture into both eyes. It costs about a quarter more GPU time, so Auto may choose a lower step, and it needs DLSS Ray Reconstruction."
 msgstr "Trace chaque œil avec son propre historique au lieu de transformer une seule image pour les deux yeux. Cela coûte environ un quart de temps GPU en plus, Auto peut donc choisir un palier plus bas, et il faut la Ray Reconstruction DLSS."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
 msgid "Controls and comfort"
 msgstr "Commandes et confort"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Dominant hand"
 msgstr "Main dominante"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Right hand"
 msgstr "Main droite"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Left hand"
 msgstr "Main gauche"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Movement direction"
 msgstr "Direction du mouvement"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Off hand"
 msgstr "Main secondaire"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Head"
 msgstr "Tête"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Turning"
 msgstr "Rotation"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Snap turn"
 msgstr "Rotation par crans"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Smooth turn"
 msgstr "Rotation continue"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:324
 msgid "Snap angle (degrees)"
 msgstr "Angle des crans (degrés)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:325
 msgid "Turn speed (degrees per second)"
 msgstr "Vitesse de rotation (degrés par seconde)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Teleport"
 msgstr "Téléportation"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Blink"
 msgstr "Fondu"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:324
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:327
 msgid "Movement vignette"
 msgstr "Vignette en mouvement"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:325
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:328
 msgid "The vignette shades the edge of your view while moving or turning. Zero turns it off."
 msgstr "La vignette assombrit le bord de la vue pendant les mouvements et les rotations. Zéro la désactive."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:329
 msgid "Seated mode"
 msgstr "Mode assis"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:327
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
 msgid "Seated height offset (metres)"
 msgstr "Décalage en position assise (mètres)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:329
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
 msgid "Start VR, stand straight, then calibrate. Your tracked eye height sets world scale. To reset, set nl_vr_height to 0."
 msgstr "Démarrez la VR, tenez-vous droit, puis calibrez. La hauteur suivie des yeux définit l'échelle du monde. Pour réinitialiser, réglez nl_vr_height sur 0."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
 msgid "A changed height calibration takes effect after Exit VR and Start VR."
 msgstr "La nouvelle calibration prend effet après avoir quitté puis relancé la VR."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:331
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:334
 msgid "Hands and HUD"
 msgstr "Mains et HUD"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:335
 msgid "Ghost hands"
 msgstr "Mains fantômes"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
 msgid "Show an outline at the real controller when the visible hand stops against something."
 msgstr "Affiche un contour à la position réelle de la manette quand la main visible est bloquée."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:334
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:337
 msgid "Wrist HUD"
 msgstr "HUD au poignet"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:335
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:338
 msgid "Physical interaction"
 msgstr "Interactions physiques"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:339
 msgid "Gravity gloves"
 msgstr "Gants de gravité"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:337
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:340
 msgid "Climbing"
 msgstr "Escalade"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:338
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
 msgid "Physical melee"
 msgstr "Mêlée physique"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:339
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:342
 msgid "Grip grabs. Point, grip and flick to pull a loose object. Grip a ledge to climb. Fast hands and held objects can strike."
 msgstr "Serrez pour saisir. Pointez un objet libre, serrez puis donnez un coup de poignet pour l'attirer. Saisissez un rebord pour grimper. Les mains et les objets tenus peuvent frapper à grande vitesse."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:340
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:343
 msgid "Turn your wrist to turn what you hold, or hold it with both hands. Pull the trigger while holding to freeze it in place; to free it, grip it and pull the trigger."
 msgstr "Tournez le poignet pour tourner ce que vous tenez, ou tenez-le à deux mains. Appuyez sur la gâchette en le tenant pour le figer sur place ; pour le libérer, serrez-le et appuyez sur la gâchette."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:344
 msgid "Turn on Keep corpses in the game's options to make NPC bodies grabbable in VR."
 msgstr "Activez « Conserver les cadavres » dans les options du jeu pour pouvoir saisir les corps des PNJ en VR."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:342
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:345
 msgid "Weapons"
 msgstr "Armes"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:343
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
 msgid "Physical reload"
 msgstr "Rechargement physique"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:344
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
 msgid "Eject with A, take ammo over your shoulder, then insert it into HL2 weapons. Other weapons reload on a B tap."
 msgstr "Éjectez avec A, prenez des munitions derrière l'épaule, puis insérez-les dans l'arme HL2. Pour les autres armes, appuyez brièvement sur B."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:345
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:348
 msgid "Foregrip"
 msgstr "Poignée avant"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:349
 msgid "Grip near a rifle's foregrip with the off hand to aim with both hands."
 msgstr "Serrez la poignée avant du fusil avec l'autre main pour viser à deux mains."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:350
 msgid "Ammo on the gun"
 msgstr "Munitions sur l'arme"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:348
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:351
 msgid "Show the clip and reserve ammo beside the weapon hand."
 msgstr "Affichez le chargeur et les munitions en réserve près de la main armée."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:349
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:352
 msgid "Gun angle (degrees)"
 msgstr "Angle de l'arme (degrés)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:350
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:353
 msgid "Adjust the gun's pitch in your hand."
 msgstr "Réglez l'inclinaison de l'arme dans votre main."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:351
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:354
 msgid "SteamVR controller bindings"
 msgstr "Affectations des manettes SteamVR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:352
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:355
 msgid "Start VR before opening SteamVR's binding editor. The off hand's B opens the wrist menu; point with the main hand and click with its trigger. Its stick scrolls."
 msgstr "Démarrez la VR avant d'ouvrir l'éditeur SteamVR. B sur la main secondaire ouvre le menu au poignet. Pointez avec la main dominante et cliquez avec sa gâchette. Son stick fait défiler."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:362
 msgid "Not checked"
 msgstr "Non vérifié"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "Yes"
 msgstr "Oui"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "No"
 msgstr "Non"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:368
 msgid "chosen for this GPU"
 msgstr "choisi pour ce GPU"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:368
 msgid "set by hand"
 msgstr "réglé à la main"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:368
 msgid "back to Auto"
 msgstr "retour en Auto"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:369
 msgid "frames were missed"
 msgstr "des images ont été manquées"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:369
 msgid "frames have headroom"
 msgstr "marge sur les images"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:375
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:378
 msgid "Height calibrated. Exit VR, then Start VR to use the new world scale."
 msgstr "Taille calibrée. Quittez puis relancez la VR pour appliquer la nouvelle échelle du monde."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:378
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:381
 #, c-format
 msgid "SteamVR installed: %s; running: %s"
 msgstr "SteamVR installé : %s ; en cours : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:381
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:384
 #, c-format
 msgid "Headset: %s; %s Hz; recommended per eye: %s"
 msgstr "Casque : %s ; %s Hz ; taille conseillée par œil : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:386
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:389
 #, c-format
 msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
 msgstr "fps_max vaut %s, en dessous des %s Hz du casque. Saisissez fps_max %s dans la console du jeu."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:391
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:394
 #, c-format
 msgid "Controllers tracked: left %s; right %s"
 msgstr "Suivi des contrôleurs : gauche %s ; droite %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:394
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:397
 #, c-format
 msgid "Quality: %s, %s"
 msgstr "Qualité : %s, %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:396
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:399
 #, c-format
 msgid "Frame rate: %s of %s per second; GPU: %s of %s ms"
 msgstr "Fréquence : %s sur %s par seconde ; GPU : %s sur %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:398
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:401
 msgid "The runtime refused a quality step."
 msgstr "Le runtime a refusé un palier de qualité."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:400
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:403
 msgid "Frames are being missed while the GPU has room. A lower step would not help, so the step stays."
 msgstr "Des images sont manquées alors que le GPU a de la marge. Un palier plus bas n’aiderait pas, le palier reste donc le même."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:402
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:405
 #, c-format
 msgid "Stereo: %s"
 msgstr "Stéréo : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:402
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:405
 msgid "each eye path traced"
 msgstr "chaque œil tracé séparément"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:403
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:406
 msgid "one picture turned into both eyes"
 msgstr "une seule image transformée pour les deux yeux"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:407
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:410
 msgid "Frame generation: off; VR renders every frame."
 msgstr "Génération d'images : désactivée ; la VR rend chaque image."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:409
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:412
 msgid "Frame generation: SteamVR's Motion Smoothing is not available on this GPU, so SteamVR repeats frames instead."
 msgstr "Génération d'images : le Motion Smoothing de SteamVR n'est pas disponible sur ce GPU, SteamVR répète donc les images."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:411
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:414
 msgid "Frame generation: Motion Smoothing is off in SteamVR. Turn it on in SteamVR > Settings > Video > Motion Smoothing."
 msgstr "Génération d'images : le Motion Smoothing est désactivé dans SteamVR. Activez-le dans SteamVR > Paramètres > Vidéo > Motion Smoothing."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:413
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:416
 #, c-format
 msgid "Frame generation: SteamVR Motion Smoothing; making frames now: %s"
 msgstr "Génération d'images : Motion Smoothing de SteamVR ; images créées en ce moment : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:416
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:419
 msgid "True stereo needs DLSS Ray Reconstruction and the physical sky, so one picture is turned into both eyes."
 msgstr "La stéréo réelle demande la Ray Reconstruction DLSS et le ciel physique : une seule image est donc transformée pour les deux yeux."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:419
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:422
 #, c-format
 msgid "Compositor: GPU %s ms; CPU %s ms"
 msgstr "Compositeur : GPU %s ms ; CPU %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:424
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:427
 #, c-format
 msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
 msgstr "Reprojection : %s%% ; images perdues : %s%% (cumul)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:425
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:428
 #, c-format
 msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
 msgstr "GPU du moteur (ms) : total %s ; tracé %s ; agrandissement %s ; déformation %s ; autre %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:427
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:430
 #, c-format
 msgid "Centre: %s; traced: %s; submitted per eye: %s"
 msgstr "Centre : %s ; tracé : %s ; envoi par œil : %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:429
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:432
 #, c-format
 msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
 msgstr "Images envoyées : %s ; erreurs : %s ; poses concordantes / sans correspondance : %s / %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:437
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:440
 msgid "Start VR"
 msgstr "Démarrer la VR"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:443
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:446
 msgid "Check status"
 msgstr "Vérifier l'état"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:445
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:448
 msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
 msgstr "La vérification charge seulement le module VR. SteamVR démarre avec Démarrer la VR ; cela peut prendre quelques secondes."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:448
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:451
 msgid "Auto quality is on unless you choose a step under Quality. For RTX, 80 or 90 Hz is recommended."
 msgstr "La qualité Auto est active, sauf si vous choisissez un palier sous Qualité. Pour RTX, 80 ou 90 Hz est recommandé."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:451
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:454
 msgid "World scale"
 msgstr "Échelle du monde"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:453
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:456
 msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
 msgstr "Unités de jeu par mètre. La valeur 40 fait correspondre un modèle de 72 unités à une personne de 1,8 m. Redémarrez la VR après modification."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:454
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:457
 msgid "Render scale"
 msgstr "Échelle de rendu"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:456
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:459
 msgid "The highest render scale VR may use, on SteamVR's recommended eye size. Auto may choose a lower one. Changes take effect at once."
 msgstr "L’échelle de rendu la plus haute que la VR peut utiliser, sur la taille par œil recommandée par SteamVR. Auto peut en choisir une plus basse. Les changements s’appliquent aussitôt."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:457
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:460
 msgid "Culling FOV"
 msgstr "Champ de visibilité"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:459
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:462
 msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
 msgstr "Champ de visibilité du moteur : 145 degrés par défaut, testé sur Index en 16:9. Le casque fournit la projection du rendu."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:460
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:463
 msgid "Use nl_vr_start and nl_vr_exit in the console. VR works in single-player games only."
 msgstr "Utilisez nl_vr_start et nl_vr_exit dans la console. La VR ne fonctionne qu’en jeu solo."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:475
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:478
 msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; Auto starts at its lowest step."
 msgstr "La VR peut être lente sur ce GPU : moins de 12 Go de VRAM ou niveau de performance bas. Vous pouvez démarrer ; Auto commence à son palier le plus bas."
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:22
+msgid "RTX Remix was removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod to finish."
+msgstr "RTX Remix a été retiré de ce jeu, car son chargeur (bin/win64/winmm.dll) n'est plus là. Redémarrez Garry's Mod pour terminer."
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:23
+msgid "RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed."
+msgstr "RTX Remix a été en partie retiré de ce jeu, car son chargeur (bin/win64/winmm.dll) n'est plus là. Redémarrez Garry's Mod ; la console indique ce qui reste."
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
 msgid "Garry's Mod is not finishing its start"

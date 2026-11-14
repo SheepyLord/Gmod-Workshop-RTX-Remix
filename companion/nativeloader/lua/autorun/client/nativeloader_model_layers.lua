@@ -9,6 +9,9 @@
 -- are looked up for a few names per frame: a new name, a name still without hashes (less and less
 -- often), or every name after Remix's material-hash revision changed. Documented in
 -- nativeloader_model_layers.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local names_enabled = CreateClientConVar("nativeloader_ignore_outlines", "1", true, false,
     "Hide the outline materials of loaded models (rtx.gmod.ignoredOutlineTextures)")
 local shells_enabled = CreateClientConVar("nativeloader_ignore_outline_shells", "0", true, false,

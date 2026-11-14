@@ -8,6 +8,36 @@
 if NLLOADACCEL ~= nil then return end
 NLLOADACCEL = false
 
+-- ADR 0206: only in a start where this machine's loader activated RTX, decided as the companion decides it
+-- (_nativeloader_guard.lua; this file sorts before the companion's NativeLoaderRTXStart): its report says so and, from
+-- loader 0.14.0, it holds native-loader/rtx-session.txt open. A start through an off switch, a game whose loader was
+-- removed or files a loader left behind load no module.
+do
+    local function markerHeld()
+        local ok, found = pcall(file.Exists, "native-loader/rtx-session.txt", "DATA")
+        if ok and found == true then return true end
+        local listed, names = pcall(file.Find, "native-loader/rtx-session.txt", "DATA")
+        if listed and type(names) == "table" then
+            for _, name in ipairs(names) do
+                if type(name) == "string" and name:lower() == "rtx-session.txt" then return true end
+            end
+        end
+        return false
+    end
+    local ok, text = pcall(file.Read, "native-loader/status.json", "DATA")
+    local rtx
+    if not ok or type(text) ~= "string" or text:find('"schema":1', 1, true) == nil then
+        rtx = markerHeld()
+    elseif text:find('\n"activation":{"outcome":"active"', 1, true) == nil then
+        rtx = false
+    else
+        local major, minor, patch = text:match('"loader_version":"(%d+)%.(%d+)%.(%d+)')
+        local marking = major and (tonumber(major) * 1000000 + tonumber(minor) * 1000 + tonumber(patch)) >= 14000
+        rtx = not marking or markerHeld()
+    end
+    if not rtx then return end
+end
+
 local enabled = CreateConVar("nativeloader_load_accel", "1", FCVAR_ARCHIVE,
     "The load accelerator (0 off from the next start): answers file lookups GMod repeats across the loose add-on folders, and add-on searches, from memory")
 local verify = CreateConVar("nativeloader_load_accel_verify", "0", FCVAR_NONE,

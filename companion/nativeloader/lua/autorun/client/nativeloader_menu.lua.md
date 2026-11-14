@@ -149,3 +149,5 @@ Both manage only the companion's nonpersistent native options; see [nativeloader
 
 R11 adds Imported game PBR to the character/model controls (`rtx_topbr_game_maps`, default 1).
 The bundled fixes read existing local hotloader metadata; off retracts generated game-map entries.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

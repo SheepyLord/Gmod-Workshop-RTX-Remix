@@ -44,3 +44,5 @@ A `NativeLoaderScreens` table that is already there is kept with its providers (
 runs). A provider, its screen test or its texture callback that fails, or a texture that is not one, only leaves that
 screen out; the toolgun's screen goes on. `nativeloader_weapon_screens 0` (archived) turns the provided screens off;
 `nativeloader_toolgun_status` also prints how many screens the last capture had.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

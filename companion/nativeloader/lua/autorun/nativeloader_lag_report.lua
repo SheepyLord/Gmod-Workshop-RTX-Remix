@@ -7,6 +7,9 @@
 -- timers, entity and weapon Think, panels' Paint. A time includes what the function calls. English only: a report
 -- meant to be pasted into an issue.
 -- Not sent to other players' clients (no AddCSLuaFile): a diagnosis of this computer's own game.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local realm = SERVER and "server" or "client"
 local running = false
 local TOP_HOOKS, TOP_NET, MIN_SECONDS, MAX_SECONDS = 15, 5, 2, 120

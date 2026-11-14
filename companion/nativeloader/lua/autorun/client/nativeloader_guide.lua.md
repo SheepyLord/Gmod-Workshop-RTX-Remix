@@ -111,3 +111,5 @@ Tests: [`tools/tests/test_companion_guide.py`](../../../../../tools/tests/test_c
 (every page and section in every language and for every loader, the pictures against their specs and
 budget) and [`tools/tests/test_companion_stability.py`](../../../../../tools/tests/test_companion_stability.py.md)
 (the loader-dependent advice).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

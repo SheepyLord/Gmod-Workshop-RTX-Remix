@@ -39,6 +39,16 @@ Archived archive_former_rtx(const std::filesystem::path& root, const journal::Jo
 // the loader's own (deploy.cpp, Act::install). Only when the game no longer reads them: the end of a session.
 Archived release_adopted(const std::filesystem::path& root, const journal::Journal& journal, std::string_view stamp);
 
+// ADR 0206: where the RTX package's own files go that a running game holds open when RTX is removed from inside it
+// (leftovers.h): Windows refuses to delete a loaded binary module but lets it be renamed.
+inline constexpr std::string_view kInUse = "native-loader/backup/in-use";
+
+// Moves each of the RTX package's `files` that is still at its place, unchanged (the recorded size and time), into
+// kInUse/<stamp>/<path> under the deployer's lock, beside an index.json; the rest stays, with a note. Renamed within
+// the volume, never copied or deleted; never writes the journal.
+Archived set_aside_in_use(const std::filesystem::path& root, const std::vector<journal::File>& files,
+                          std::string_view stamp);
+
 // Whether a gmod.exe of this game folder other than this process runs (-multirun): its Lua may still read the files.
 bool another_game_running(const std::filesystem::path& root);
 }

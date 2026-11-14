@@ -14,7 +14,8 @@ LUAJIT = shutil.which('luajit') or next((str(p) for p in [
 ] if p.is_file()), None)
 SCENARIOS = ('serve', 'not-title', 'selftest-mismatch', 'selftest-skip', 'selftest-none', 'selftest-changing', 'verify',
              'left-out', 'off', 'off-client', 'on-client', 'no-module', 'invalidate', 'tally', 'server-dedicated',
-             'server-listen', 'menu-install', 'menu-left-out', 'menu-not-menu', 'menu-off')
+             'server-listen', 'menu-install', 'menu-left-out', 'menu-not-menu', 'menu-off', 'not-rtx',
+             'not-rtx-marker')
 
 
 @unittest.skipUnless(LUAJIT, 'LuaJIT is not installed')

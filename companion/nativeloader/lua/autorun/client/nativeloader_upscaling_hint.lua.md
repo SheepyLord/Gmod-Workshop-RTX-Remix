@@ -76,3 +76,5 @@ corrected patch 0040 invalidates only the 19 relevant option dependencies. R20-Q
 follow-up reads ready 3,140 times with no pending/wrong steady samples while the sky keeps writing.
 The original unrelated-write defect and its corrected acceptance are in the integration report;
 never trust an unready snapshot.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

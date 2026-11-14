@@ -19,3 +19,5 @@ The server registers `nativeloader_localized_chat` and exposes `NATIVELOADER_LOC
 format, arguments)` for bundled glass notices. It sends only a format string and argument table to
 that player. The client translates and formats the notice with `pcall` before showing local chat
 text. It never executes received text, writes a file, or sends a message from the client.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

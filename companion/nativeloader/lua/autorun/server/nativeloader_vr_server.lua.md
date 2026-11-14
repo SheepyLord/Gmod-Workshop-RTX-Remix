@@ -5,3 +5,5 @@ Server autorun registers exactly one nlvr network string and receiver, no hook/t
 Inputs are the session/context arguments described above. Outputs are returned Lua tables and active-session state only. Errors propagate to the owning session or harness; there is no process exit code for production Lua.
 
 Single-player only ([ADR 0197](../../../../../docs/decisions/0197-vr-is-single-player-only.md)): the stub accepts a request only while `game.SinglePlayer()` is true; the listen-server host is refused like any other player.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

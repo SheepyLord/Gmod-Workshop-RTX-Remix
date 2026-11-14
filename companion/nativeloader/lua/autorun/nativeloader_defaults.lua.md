@@ -33,3 +33,5 @@ on the server and on the client.
 
 Console output: one line per realm on the first run, `[nativeloader] client: 7 of 176 RTX settings
 set to the classic RTX install's values (first run)`.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

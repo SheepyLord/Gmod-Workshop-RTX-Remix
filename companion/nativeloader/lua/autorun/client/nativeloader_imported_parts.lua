@@ -9,6 +9,9 @@
 --     the setting is off, outside RTX sessions and at shutdown. Texture hashes, and so PBR, stay.
 -- Only characters on the map are looked at. Per frame: one manifest read at most, 32 sampled texture
 -- rows, and a few material checks. Documented in nativeloader_imported_parts.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local shadows = include("nativeloader/painted_shadows.lua")
 local hair = include("nativeloader/solid_hair.lua")
 local hide = CreateClientConVar("nativeloader_hide_painted_shadows", "1", true, false,

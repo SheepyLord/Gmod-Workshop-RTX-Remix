@@ -44,3 +44,5 @@ Output/side effects: writes only `rtx.gmod.mmdAlphaTexturesForSession`, a NoSave
 runtime joins with the saved category. No files, original materials, entity overrides, assets or
 persistent Remix options are changed. There is no exit code. Tests live in
 [`companion/tests`](../../../../tests/test_mmd_alpha.py.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

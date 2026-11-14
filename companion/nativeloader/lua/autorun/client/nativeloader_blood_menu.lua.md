@@ -16,3 +16,5 @@ panel registers, even with the standalone copy. No settings are written by openi
 
 Inputs: included BO table and client ConVars. Outputs: Derma controls, explicit user console
 commands. No disk/network writes or exit code. The screen's own translated controls stay with it.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

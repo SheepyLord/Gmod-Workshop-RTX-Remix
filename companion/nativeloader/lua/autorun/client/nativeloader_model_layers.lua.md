@@ -44,3 +44,5 @@ Resources are client-local tables and native lookups; no server or network messa
 `nativeloader_model_layers_status` prints both switches, the counts of entities and materials
 followed, and the texture list sent. No process exit code. Tests:
 [`tools/tests/test_model_layers.py`](../../../../../tools/tests/test_model_layers.py.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

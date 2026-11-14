@@ -1,5 +1,8 @@
 -- Eye-only texture identities, transient Remix aliases and scene-adaptive albedo emission (ADR 0088).
 -- No hotloader hook: its renderer uses these exact public IMaterials. Never change an entity override.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local matcher = include("nativeloader/eye_white_names.lua")
 local vtf = include("nativeloader/eye_white_vtf.lua")
 local enabled = CreateClientConVar("nativeloader_eye_whites", "1", true, false,

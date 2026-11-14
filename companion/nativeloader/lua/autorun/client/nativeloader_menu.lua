@@ -7,6 +7,9 @@
 --     otherwise Remix's own saved files remain authoritative.
 --   * Sky and weather: the physical sky, its time of day and the weather (nativeloader_sky.lua).
 -- The tab's text is translated (nativeloader/i18n.lua). Documented in nativeloader_menu.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local i18n = include("nativeloader/i18n.lua")
 local L, N = i18n.L, i18n.N
 

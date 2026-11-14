@@ -14,6 +14,7 @@ not itself start with four `!`.
   On a remote server the client realm runs none of our autoruns; the early view
   (`_nativeloader_guard.lua` in `includes/init.lua`) loads the module there. A module already loaded
   by it is used as it is.
+- **The answer for the rest of the package** ([ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)). Before it stops in a start without RTX, it publishes that decision, worked out once, as `NativeLoaderRTXStart()`. Every other autorun of the companion, and of the RTX fixes' `remixbinary` add-on, returns at its first line of code when the answer is no; `server/nativeloader_leftovers.lua` uses it to stay out of RTX starts. This file sorts before all of them.
 - **The message.** The watchdog's native message (title, and a body with `%s` for the stuck file) comes from
   [`nativeloader/engine_guard_words.lua`](../nativeloader/engine_guard_words.lua.md), in the player's
   language from the companion's own catalog. The module takes only the first `SetMessage` call, and the

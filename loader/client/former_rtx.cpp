@@ -59,19 +59,33 @@ struct Move {
   const journal::File* record;  // what the journal says about the file
 };
 
-// Moves each file to kFormerRtx/<stamp>/<record path> under the deployer's lock, with an index.json.
+// Where move_all puts files, and what its index.json says about them.
+struct Area {
+  std::string_view folder;  // relative to the root: kFormerRtx or kInUse
+  std::string_view why;     // the index's explanation
+  std::string_view what;    // the files, in a note: "the former RTX files"
+  std::string_view was;     // each file's "was"; empty: "adopted" or "original" from its record
+};
+constexpr Area kFormer{kFormerRtx, kWhy, "the former RTX files", ""};
+constexpr std::string_view kWhyInUse =
+    "Files of the RTX package (gmod-rtx-remix) that Garry's Mod held open when it removed RTX after the native "
+    "loader (bin/win64/winmm.dll) was gone: Windows does not delete a file a running program has loaded, but lets it "
+    "be moved (ADR 0206). Nothing loads them from here; delete this folder whenever you like.";
+constexpr Area kHeld{kInUse, kWhyInUse, "the files the game holds open", "in use"};
+
+// Moves each file to <area>/<stamp>/<record path> under the deployer's lock, with an index.json.
 Archived move_all(const std::filesystem::path& root, const std::vector<Move>& moves, std::string_view stamp,
-                  Archived out) {
+                  Archived out, const Area& area = kFormer) {
   if (moves.empty()) return out;
   const Lock lock(fs::join(root, kLock));
   if (!lock.held()) {
     out.notes.push_back(lock.error() == ERROR_SHARING_VIOLATION
-                            ? std::string("another deployment holds native-loader/lock; the former RTX files move later")
-                            : "cannot open native-loader/lock (Windows error " + std::to_string(lock.error()) +
-                                  "); the former RTX files move later");
+                            ? "another deployment holds native-loader/lock; " + std::string(area.what) + " move later"
+                            : "cannot open native-loader/lock (Windows error " + std::to_string(lock.error()) + "); " +
+                                  std::string(area.what) + " move later");
     return out;
   }
-  const std::string base = std::string(kFormerRtx) + "/" + std::string(stamp);
+  const std::string base = std::string(area.folder) + "/" + std::string(stamp);
   std::string folder = base;
   for (unsigned n = 2; fs::stat(fs::join(root, folder)).exists; ++n) {
     if (n > 99) throw fs::Error("no free folder for " + base, 0);
@@ -85,16 +99,18 @@ Archived move_all(const std::filesystem::path& root, const std::vector<Move>& mo
       fs::refuse_links(root, to);
       fs::win32().move(fs::join(root, move.from), fs::join(root, to), false);
       ++out.moved;
+      const std::string_view was = !area.was.empty() ? area.was : move.record->adopted ? "adopted" : "original";
       index += std::string(index.empty() ? "\n    " : ",\n    ") + "{\"path\": " + json::quote(move.record->path) +
                ", \"size\": " + std::to_string(move.record->size) + ", \"sha256\": " + json::quote(move.record->sha256) +
-               ", \"was\": " + json::quote(move.record->adopted ? "adopted" : "original") + "}";
+               ", \"was\": " + json::quote(was) + "}";
     } catch (const fs::Error& error) {
       out.notes.push_back(move.from + ": could not be moved (" + error.what() + "); an uninstall would leave it");
     }
   }
   if (!out.moved) return out;
   out.folder = folder;
-  const std::string text = "{\n  \"schema\": 1,\n  \"why\": " + json::quote(kWhy) + ",\n  \"files\": [" + index + "\n  ]\n}\n";
+  const std::string text =
+      "{\n  \"schema\": 1,\n  \"why\": " + json::quote(area.why) + ",\n  \"files\": [" + index + "\n  ]\n}\n";
   try {
     fs::write_atomic(fs::win32(), fs::join(root, folder + "/index.json"), text);
   } catch (const fs::Error& error) {
@@ -152,6 +168,28 @@ Archived release_adopted(const std::filesystem::path& root, const journal::Journ
     }
   }
   return move_all(root, moves, stamp, std::move(out));
+}
+
+Archived set_aside_in_use(const std::filesystem::path& root, const std::vector<journal::File>& files,
+                          std::string_view stamp) {
+  Archived out;
+  std::vector<Move> moves;
+  for (const auto& file : files) {
+    if (file.package != kPackage || !paths::is_safe(file.path)) continue;
+    try {
+      fs::refuse_links(root, file.path);
+      const auto found = fs::stat(fs::join(root, file.path));
+      if (!found.exists) continue;  // deleted after all
+      if (found.directory || found.size != file.size || found.mtime != file.mtime) {
+        out.notes.push_back(file.path + ": changed since the loader placed it, so it stays");
+        continue;
+      }
+      moves.push_back({file.path, &file});
+    } catch (const fs::Error& error) {
+      out.notes.push_back(file.path + ": stays where it is (" + error.what() + ")");
+    }
+  }
+  return move_all(root, moves, stamp, std::move(out), kHeld);
 }
 
 bool another_game_running(const std::filesystem::path& root) {

@@ -1,4 +1,7 @@
 -- Settings shared by the RTX package and the standalone Blood Overhaul RTX part.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local BO = BloodOverhaul
 if not BO or not BO.Packaged or BO.MenuRegistered then return end
 BO.MenuRegistered = true

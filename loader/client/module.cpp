@@ -2,6 +2,7 @@
 #include "bootstrap_data.h"
 #include "addon_list.h"
 #include "former_rtx.h"
+#include "leftovers.h"
 #include "steam_switch.h"
 #include "poll.h"
 #include "nl/fs.h"
@@ -22,6 +23,7 @@ namespace Type = GarrysMod::Lua::Type;
 std::optional<nl::client::Catalog> catalog;
 ILuaShared* shared = nullptr;
 ILuaBase* menu = nullptr;
+ILuaBase* server = nullptr;  // ADR 0206: the engine's server state that required this module, for NativeLoaderLeftovers
 ILuaInterface* client = nullptr;
 std::string status = "not initialized";
 std::filesystem::path verified_root;  // the game folder of the verified RTX start (ADR 0188)
@@ -293,6 +295,93 @@ bool is_menu_state(ILuaBase* lua) {
   auto* state = found ? found->GetLuaInterface(GarrysMod::Lua::State::MENU) : nullptr;
   return state && static_cast<ILuaBase*>(state) == lua;
 }
+bool is_server_state(ILuaBase* lua) {
+  auto* found = lua_shared();
+  auto* state = found ? found->GetLuaInterface(GarrysMod::Lua::State::SERVER) : nullptr;
+  return state && static_cast<ILuaBase*>(state) == lua;
+}
+// ADR 0206: the game folder of a Garry's Mod client that loaded this module from its deployed path, or nullopt and why.
+// A dedicated server (srcds.exe) or another folder's game is not one.
+std::optional<std::filesystem::path> client_root(std::string& why) {
+  try {
+    HMODULE self = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                            reinterpret_cast<LPCWSTR>(&server), &self)) throw std::runtime_error("cannot identify the RTX client module");
+    const auto file = module_path(self);
+    auto root = file;
+    for (unsigned i = 0; i < 4; ++i) root = root.parent_path();
+    if (!same_path(file, nl::fs::join(root, nl::client::kModule))) throw std::runtime_error("the RTX client module is outside its deployed path");
+    if (!same_path(module_path(nullptr), nl::fs::join(root, "bin/win64/gmod.exe"))) throw std::runtime_error("this is not the Garry's Mod of the module's folder");
+    return root;
+  } catch (const std::exception& error) {
+    why = error.what();
+    return std::nullopt;
+  }
+}
+std::string utc_stamp();
+// NativeLoaderLeftovers.Check(): true when RTX a removed loader left is to be removed from this game (leftovers.h),
+// else false and why. Reads only.
+LUA_FUNCTION_STATIC(LeftoversCheck) {
+  std::string why = "unavailable in this realm";
+  if (LUA == server) {
+    why.clear();
+    if (const auto root = client_root(why)) why = nl::client::leftovers_refusal(*root);
+  }
+  LUA->PushBool(why.empty());
+  LUA->PushString(why.c_str());
+  return 2;
+}
+// NativeLoaderLeftovers.Remove(): removes it (nl::client::remove_leftovers) and returns what happened as a table:
+// outcome, deleted, restored, former, aside, former_folder, aside_folder, error, notes = {text...} and
+// restore = {{name, value}...}, the console settings for the caller to put back.
+LUA_FUNCTION_STATIC(LeftoversRemove) {
+  nl::client::Removed result;
+  if (LUA != server) {
+    result.outcome = "not needed";
+    result.error = "unavailable in this realm";
+  } else if (const auto root = client_root(result.error)) {
+    try {
+      result = nl::client::remove_leftovers(*root, utc_stamp(), GetCurrentProcessId());
+    } catch (const std::exception& error) {
+      result.outcome = "refused";
+      result.error = error.what();
+    }
+  } else {
+    result.outcome = "not needed";
+  }
+  LUA->CreateTable();
+  LUA->PushString(result.outcome.c_str()); LUA->SetField(-2, "outcome");
+  LUA->PushNumber(static_cast<double>(result.deleted)); LUA->SetField(-2, "deleted");
+  LUA->PushNumber(static_cast<double>(result.restored)); LUA->SetField(-2, "restored");
+  LUA->PushNumber(static_cast<double>(result.former)); LUA->SetField(-2, "former");
+  LUA->PushNumber(static_cast<double>(result.aside)); LUA->SetField(-2, "aside");
+  LUA->PushString(result.former_folder.c_str()); LUA->SetField(-2, "former_folder");
+  LUA->PushString(result.aside_folder.c_str()); LUA->SetField(-2, "aside_folder");
+  LUA->PushString(result.error.c_str()); LUA->SetField(-2, "error");
+  LUA->CreateTable();
+  for (std::size_t i = 0; i < result.notes.size(); ++i) {
+    LUA->PushNumber(static_cast<double>(i + 1)); LUA->PushString(result.notes[i].c_str()); LUA->RawSet(-3);
+  }
+  LUA->SetField(-2, "notes");
+  LUA->CreateTable();
+  for (std::size_t i = 0; i < result.restore.size(); ++i) {
+    LUA->PushNumber(static_cast<double>(i + 1));
+    LUA->CreateTable();
+    LUA->PushNumber(1); LUA->PushString(result.restore[i].first.c_str()); LUA->RawSet(-3);
+    LUA->PushNumber(2); LUA->PushString(result.restore[i].second.c_str()); LUA->RawSet(-3);
+    LUA->RawSet(-3);
+  }
+  LUA->SetField(-2, "restore");
+  return 1;
+}
+// The server realm's part: NativeLoaderLeftovers, set raw (add-ons' Lua may have set metamethods on _G).
+void expose_leftovers(ILuaBase* lua) {
+  server = lua;
+  lua->CreateTable();
+  lua->PushString("Check"); lua->PushCFunction(LeftoversCheck); lua->RawSet(-3);
+  lua->PushString("Remove"); lua->PushCFunction(LeftoversRemove); lua->RawSet(-3);
+  raw_set(lua, GarrysMod::Lua::SPECIAL_GLOB, "NativeLoaderLeftovers");
+}
 std::string utc_stamp() {
   SYSTEMTIME now{};
   GetSystemTime(&now);
@@ -345,7 +434,11 @@ void hook(ILuaBase* lua, bool add) {
 }
 
 GMOD_MODULE_OPEN() {
-  if (!boolean(LUA, "MENU_DLL") || !is_menu_state(LUA)) return 0;
+  if (!boolean(LUA, "MENU_DLL") || !is_menu_state(LUA)) {
+    // ADR 0206: in the engine's server state (a local game), only the clean-up of RTX a removed loader left.
+    if (is_server_state(LUA)) expose_leftovers(LUA);
+    return 0;
+  }
   if (menu == LUA && catalog) return 0;
   try {
     HMODULE self = nullptr;
@@ -390,6 +483,7 @@ GMOD_MODULE_OPEN() {
   return 0;
 }
 GMOD_MODULE_CLOSE() {
+  if (server == LUA) server = nullptr;
   if (menu == LUA) {
     try { hook(LUA, false); } catch (...) { }
     release_adopted_files();

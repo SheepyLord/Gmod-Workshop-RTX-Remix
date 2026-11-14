@@ -55,3 +55,5 @@ Both settings act only in RTX sessions: `mmdhl.UsesRemixPreview()` must be true 
 Reads `mmdhl.assets`, `mmdhl.softMaterials`, the mounted generated VTFs and asset manifests. Writes
 nothing to disk. Changes only the `$flags` and `$allowalphatocoverage` of the public and soft materials
 of measured hair parts, in memory. Tested by [`imported_parts_harness.lua`](../../../../../tools/tests/imported_parts_harness.lua.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

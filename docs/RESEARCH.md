@@ -8345,3 +8345,45 @@ Fixed in the render guard ([ADR 0210](decisions/0210-an-add-ons-notice-of-the-gu
   backend.
 - **The owner's first guess** (another HUD or crosshair add-on) was reasonable for a centred line over the HUD; the
   player's "HL2 customizable hud" was not involved.
+
+## A removed loader's leftovers (2026-11-13, Claude, ADR 0206)
+
+- **What runs without the loader.** The RTX client module is loaded only by the loader's main-menu script
+  (`loader/proxy/ui/mainmenu.js:12`, `require( "nlrtxclient" )` through the menu's Lua bridge), and GMod's own menu Lua
+  loads no add-on code (`garrysmod/lua/menu/menu.lua` includes only GMod's files; no `menu_plugins`, checked on the
+  PoC). With `bin\win64\winmm.dll` gone, the first code of the package that runs is the add-ons' autorun Lua in the
+  server and client realms of a map, mounted by GMod from `garrysmod/addons/<folder>`. The module's name has the
+  `gmsv_` prefix, so the server realm of a local game can `require` it.
+- **"RTX Remix" outside the tab.** Besides the companion's spawn-menu tab, `remixbinary` registers the Utilities >
+  "RTX Remix" options (`remixlua/cl/cl_rtx_settings.lua:27`, loaded by `cl_rtx.lua`), the entities `remix_rt_light` and
+  `remix_sky_editor` (`ENT.Category = "RTX Remix"`) and the tool `remix_rt_light_bonemerge` (`TOOL.Category`). Entities
+  and tools register from their files, not from autorun, so a gate in the autoruns does not hide them; only removing
+  the files (or the loader hiding the folder) does.
+- **The painted sky.** `remixbinary/materials/skybox/painted{bk,dn,ft,lf,rt,up}.vmt` replace GMod's painted sky (the
+  sky of gm_construct and gm_flatgrass) with `"sky"` and `$basetexture skybox/g_sky_baked_*`, whose VTFs ship beside
+  them. Any start that mounts the VMTs without those VTFs (part of an earlier installation left behind) shows the
+  missing-texture checkerboard there. `remixlua/sv/sv_skybox_fix.lua` switches `sv_skyname painted` to
+  `sky_day01_01` on other maps at `PlayerInitialSpawn`.
+- **Deleting a loaded module.** Windows refuses `DeleteFileW` on a DLL mapped as an image (here with
+  `LOAD_LIBRARY_AS_IMAGE_RESOURCE`) but lets it be renamed within the volume (`MoveFileExW`); measured in
+  `loader/client/tests/test_leftovers.cpp`. The deployer's `collect` keeps such a file as retired and the journal
+  stays; once the file is moved away, a second uninstall drops the record and removes the journal and the lock.
+- **The game's own helpers are `gmod.exe` of its folder.** In a running single-player game the Chromium helper
+  processes are `bin\win64\gmod.exe` of the same folder, children of the game: the first in-game removal on the PoC
+  (2026-11-13, run `04-removed`) refused with "another Garry's Mod runs from this folder" from
+  `former_rtx.cpp`'s `another_game_running`, and `deploy::uninstall`'s own check (`game_running`, which excludes only
+  the given process and its launcher) would refuse the same way mid-session. `leftovers.cpp`'s `another_game` leaves out
+  the processes whose parents lead to the game and that were not created before it.
+- **What an off-switch start still loads.** In the PoC's `-nonativeloader` start with the package deployed (run
+  `03-off-switch`), before ADR 0206 gated them, `gmcl_rtxdebug_win64.dll` was loaded (the fixes' `rtx_debug` add-on)
+  and the load accelerator printed its client tally; entities and tools register from their files, so
+  `remix_rt_light`, `remix_sky_editor` and the `remix_rt_light_bonemerge` tool stay registered there.
+- **Files the package's Lua writes at run time stay.** An RTX session's PBR conversion writes
+  `rtx-remix\mods\~gmod_topbr\{game_materials.registry, materials.usda.last-published,
+  materials.usda.before-r11-<hash>.bak}` and rewrites the deployed `materials.usda`; `nlctl uninstall` keeps all four
+  (not placed, or changed since). Only the Remix runtime reads that folder.
+- **The off switches load nothing.** `-nonativeloader`, `NATIVE_LOADER_DISABLE=1` and `native-loader\disable` return
+  from the bootstrap's `attach` before any hook (`loader/proxy/bootstrap.cpp:134-141`): no `status.json` is written,
+  and the RTX-session marker is not held, so `NativeLoaderRTXStart()` is false. Every start where the runtime does not
+  activate, with the loader's config enabled, restores the session cvars and hides the RTX add-ons
+  (`loader/proxy/startup.cpp:413-425`).

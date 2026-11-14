@@ -37,3 +37,5 @@ DXVK's totals or sum totals with their categories.
 
 No exit code (game Lua). Offline checks:
 [`test_companion_vram.py`](../../../../../tools/tests/test_companion_vram.py.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

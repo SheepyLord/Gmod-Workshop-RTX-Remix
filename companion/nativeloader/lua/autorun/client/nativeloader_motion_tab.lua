@@ -1,6 +1,9 @@
 -- The Motion importer creation tab beside External Models: the bundled Character Motion
 -- Importer's in-game importer and its Motion Manager, built into the tab with the add-on's own
 -- builders, in the look of External Models. Documented in nativeloader_motion_tab.lua.md.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local i18n = include("nativeloader/i18n.lua")
 local L = i18n.L
 if not spawnmenu or not isfunction(spawnmenu.AddCreationTab) then return end

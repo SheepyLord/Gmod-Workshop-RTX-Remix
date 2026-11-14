@@ -1,6 +1,9 @@
 -- Local Remix VRAM telemetry, when the RTX fixes expose GetVramStats. Two hourly CSV segments
 -- retain at most 240 samples across map changes and restarts. No API means no files or messages.
 -- Documented in nativeloader_vram.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 if not CLIENT then return end
 
 local enabled = CreateClientConVar("nativeloader_vram_telemetry", "1", true, false,

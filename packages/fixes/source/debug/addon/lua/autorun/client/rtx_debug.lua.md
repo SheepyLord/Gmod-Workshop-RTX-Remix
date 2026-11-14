@@ -9,3 +9,5 @@ Read-only diagnostics and local rtx.* rendering changes work in multiplayer. Nat
 gameplay/engine writes, memory writes and detours retain their single-player + cheats + insecure
 gate. This companion does not change sv_allowcslua or fetch/upload data. Protocol errors are
 returned locally; oversized or unserializable results fail cleanly.
+
+Native loader (ADR 0206): before it loads the `rtxdebug` module it returns unless the companion's first autorun says this machine's loader activated RTX (`NativeLoaderRTXStart`) or the verified multiplayer initializer runs it, so a start through an off switch, a removed loader or files a loader left behind load no debug module.

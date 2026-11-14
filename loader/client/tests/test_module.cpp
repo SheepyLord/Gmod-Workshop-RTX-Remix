@@ -103,9 +103,46 @@ TEST_CASE("client module: only the engine's own menu state takes the menu's part
   CHECK(state.find("== lua") != std::string::npos);
   const auto open = body(text, "GMOD_MODULE_OPEN()");
   REQUIRE(!open.empty());
-  const auto check = open.find("!is_menu_state(LUA)) return 0;");
+  const auto check = open.find("!is_menu_state(LUA)) {");
   REQUIRE(check != std::string::npos);
-  CHECK(check < open.find("menu = LUA;"));
+  const auto leave = open.find("return 0;", check);
+  REQUIRE(leave != std::string::npos);
+  CHECK(leave < open.find("menu = LUA;"));
+}
+
+TEST_CASE("client module: a server realm gets only the clean-up of RTX a removed loader left (ADR 0206)") {
+  const auto text = module_source();
+  // Outside the engine's menu state, the module takes no menu part: in the engine's server state it only publishes
+  // NativeLoaderLeftovers, raw, and returns.
+  const auto open = body(text, "GMOD_MODULE_OPEN()");
+  REQUIRE(!open.empty());
+  const auto check = open.find("!is_menu_state(LUA)) {");
+  const auto server = open.find("if (is_server_state(LUA)) expose_leftovers(LUA);");
+  REQUIRE(check != std::string::npos);
+  REQUIRE(server != std::string::npos);
+  CHECK(check < server);
+  CHECK(server < open.find("return 0;", check));
+  const auto state = body(text, "bool is_server_state(ILuaBase* lua)");
+  CHECK(state.find("GetLuaInterface(GarrysMod::Lua::State::SERVER)") != std::string::npos);
+  const auto expose = body(text, "void expose_leftovers(ILuaBase* lua)");
+  REQUIRE(!expose.empty());
+  CHECK(expose.find("raw_set(lua, GarrysMod::Lua::SPECIAL_GLOB, \"NativeLoaderLeftovers\")") != std::string::npos);
+  CHECK(expose.find("SetField(") == std::string::npos);
+  // It acts only for that state, only for a Garry's Mod client of the module's own folder, with no path from Lua.
+  const auto remove = body(text, "LUA_FUNCTION_STATIC(LeftoversRemove)");
+  REQUIRE(!remove.empty());
+  CHECK(remove.find("LUA != server") != std::string::npos);
+  CHECK(remove.find("GetString(") == std::string::npos);
+  CHECK(remove.find("remove_leftovers(*root, utc_stamp(), GetCurrentProcessId())") != std::string::npos);
+  CHECK(remove.find("catch (const std::exception& error)") != std::string::npos);
+  const auto check_fn = body(text, "LUA_FUNCTION_STATIC(LeftoversCheck)");
+  CHECK(check_fn.find("LUA == server") != std::string::npos);
+  const auto root = body(text, "std::optional<std::filesystem::path> client_root(std::string& why)");
+  REQUIRE(!root.empty());
+  CHECK(root.find("nl::client::kModule") != std::string::npos);
+  CHECK(root.find("\"bin/win64/gmod.exe\"") != std::string::npos);
+  const auto close = body(text, "GMOD_MODULE_CLOSE()");
+  CHECK(close.find("if (server == LUA) server = nullptr;") != std::string::npos);
 }
 
 TEST_CASE("client module: former RTX files are archived only in a verified RTX start, before its callbacks (ADR 0188)") {

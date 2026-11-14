@@ -98,3 +98,5 @@ older-loader fallback. The new menu uses its own local cookie. Both DATA files a
 bytes on read. No loader/cloud/Remix settings are changed.
 Title/body/buttons use the six catalogs, with fonts, frame, title bar and controls scaled by ScrH()/1080 and
 bounded to the viewport. Errors are contained by pcall. Harness: `tools/tests/loader_update_harness.lua`.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

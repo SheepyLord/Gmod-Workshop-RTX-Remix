@@ -7,6 +7,9 @@
 -- out with its legend). The text is translated (nativeloader/i18n.lua). The guide grows with the
 -- screen's height past 1080 lines, and with a larger DermaDefault (nativeloader_guide_scale overrides
 -- it). Documented in nativeloader_guide.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local SHOWN = "nativeloader_companion/guide_shown.txt"
 local i18n = include("nativeloader/i18n.lua")
 local L = i18n.L

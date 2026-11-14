@@ -41,6 +41,12 @@ file = {
     Delete = function(name) files[name] = nil note("delete " .. name) end,
     CreateDir = function() end,
 }
+file.Read = function(name) return files[name] end
+-- ADR 0206: an RTX start of this machine's loader (its report, its held marker), unless the scenario says otherwise.
+if scenario ~= "not-rtx" then
+    files["native-loader/status.json"] = '{"schema":1,"loader_version":"0.16.0",\n"activation":{"outcome":"active"}}'
+    if scenario ~= "not-rtx-marker" then files["native-loader/rtx-session.txt"] = "" end
+end
 local timers = {}
 timer = { Simple = function(seconds, fn) timers[#timers + 1] = { seconds = seconds, fn = fn } end }
 local function run_timers()
@@ -233,6 +239,11 @@ elseif scenario == "left-out" then
     assert(file.Find ~= gmod_find, "file.Find replaced")
     local found = file.Find("lua/*", "Alpha")
     eq(found[1], "lua/*@Alpha")
+elseif scenario == "not-rtx" or scenario == "not-rtx-marker" then
+    -- A start without RTX (an off switch, a removed loader): no convar, no module, GMod's own file.Find.
+    eq(find("require"), nil, "nothing loaded")
+    eq(GetConVar("nativeloader_load_accel"), nil, "no convar")
+    eq(file.Find, gmod_find, "file.Find untouched")
 elseif scenario == "off" or scenario == "no-module" then
     eq(find("require"), nil, "nothing loaded")
     eq(file.Find, gmod_find, "file.Find untouched")

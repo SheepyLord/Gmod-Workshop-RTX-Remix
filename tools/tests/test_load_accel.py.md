@@ -6,7 +6,7 @@ Unit test (R26) for the load accelerator's Lua: the add-on's autorun
 [`load_accel_harness.lua`](load_accel_harness.lua.md) with LuaJIT once per scenario (`serve`, `not-title`,
 `selftest-mismatch`, `selftest-skip`, `selftest-none`, `selftest-changing`, `verify`, `left-out`, `off`,
 `off-client`, `on-client`, `no-module`, `invalidate`, `tally`, `server-dedicated`, `server-listen`, `menu-install`,
-`menu-left-out`, `menu-not-menu`, `menu-off`) as subtests and requires `PASS <scenario>`. The module itself is tested
+`menu-left-out`, `menu-not-menu`, `menu-off`) and the two starts without RTX (`not-rtx`, `not-rtx-marker`, ADR 0206) as subtests and requires `PASS <scenario>`. The module itself is tested
 by CTest (`nl_fs_accel_tests`, [fs_accel](../../fs_accel/README.md)).
 
 Usage: `python -m unittest discover -s tools/tests -p test_load_accel.py` (also part of `tools\test.ps1`). Skipped

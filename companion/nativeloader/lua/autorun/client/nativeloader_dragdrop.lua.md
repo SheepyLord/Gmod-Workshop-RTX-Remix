@@ -26,3 +26,5 @@ pending press only gets `dragndrop.Clear()`. Either way the panel that captured 
 Inputs: GMod's `dragndrop` table, `vgui.CursorVisible`, `input.IsMouseDown`, `FrameNumber`. Outputs: none besides ending the stuck
 drag. No files, convars, network or server changes; no process exit code. Tested by
 [`tools/tests/stuck_drag_harness.lua`](../../../../../tools/tests/stuck_drag_harness.lua.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

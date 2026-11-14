@@ -20,3 +20,5 @@ materials for imported characters are ready." for four seconds. Translated (`L`)
 
 Tested by [`tools/tests/test_pbr_progress.py`](../../../../../tools/tests/test_pbr_progress.py.md) and,
 for the count, [`tools/tests/topbr_harness.lua`](../../../../../tools/tests/topbr_harness.lua.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

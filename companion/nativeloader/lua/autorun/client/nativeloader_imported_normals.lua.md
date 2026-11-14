@@ -9,3 +9,5 @@ unchanged. Remix generates area-weighted geometry normals; normal maps remain ac
 tags affect every draw sharing those captured textures, including another instance or preview.
 No disk/network operations, game launch, or exit status. Missing APIs are skipped and rejected
 updates are retried. GPU validation is intentionally waived for requests 17–20.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

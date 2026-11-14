@@ -1,4 +1,7 @@
 -- Dormant switch: no nlvr include, hooks or timers until this server's own player opts in.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 util.AddNetworkString("nlvr")
 local server
 local function eligible(ply)

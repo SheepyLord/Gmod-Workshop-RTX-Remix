@@ -3,6 +3,9 @@
 -- (RTXGamePBRProgress: materials still converting, and how many the batch had). Shown only once a batch
 -- has taken SHOW_AFTER seconds, so restoring saved maps shows nothing; a notice the player closes stays
 -- closed until the next batch. Documented in nativeloader_pbr_progress.lua.md beside this file.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local POLL, SHOW_AFTER, READY_SECONDS = 0.25, 1.5, 4
 local notice, began, closed
 local L = function(text) return text end

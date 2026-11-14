@@ -8,12 +8,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:118
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:123
 #, c-format
 msgid "%s, in the add-on %s"
 msgstr "%s(애드온 %s)"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:121
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:126
 #, c-format
 msgid ""
 "The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
@@ -27,978 +27,978 @@ msgstr ""
 msgid "Effect categories: %d observed materials"
 msgstr "효과 분류: 관찰된 머티리얼 %d개"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:700
+#: nativeloader/lua/autorun/nativeloader_sky.lua:703
 msgid "Clear"
 msgstr "맑음"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:700
+#: nativeloader/lua/autorun/nativeloader_sky.lua:703
 msgid "Partly cloudy"
 msgstr "구름 조금"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:700
+#: nativeloader/lua/autorun/nativeloader_sky.lua:703
 msgid "Overcast"
 msgstr "흐림"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Hazy"
 msgstr "연무"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Foggy"
 msgstr "안개"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Drizzle"
 msgstr "이슬비"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:701
+#: nativeloader/lua/autorun/nativeloader_sky.lua:704
 msgid "Rain"
 msgstr "비"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:702
+#: nativeloader/lua/autorun/nativeloader_sky.lua:705
 msgid "Thunderstorm"
 msgstr "뇌우"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:702
+#: nativeloader/lua/autorun/nativeloader_sky.lua:705
 msgid "Snow"
 msgstr "눈"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:702
+#: nativeloader/lua/autorun/nativeloader_sky.lua:705
 msgid "Blizzard"
 msgstr "눈보라"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:703
+#: nativeloader/lua/autorun/nativeloader_sky.lua:706
 msgid "Sandstorm"
 msgstr "모래폭풍"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:703
+#: nativeloader/lua/autorun/nativeloader_sky.lua:706
 msgid "Smog"
 msgstr "스모그"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Spring"
 msgstr "봄"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Summer"
 msgstr "여름"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Autumn"
 msgstr "가을"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:705
+#: nativeloader/lua/autorun/nativeloader_sky.lua:708
 msgid "Winter"
 msgstr "겨울"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:706
+#: nativeloader/lua/autorun/nativeloader_sky.lua:709
 msgid "New moon"
 msgstr "신월"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:706
+#: nativeloader/lua/autorun/nativeloader_sky.lua:709
 msgid "Waxing crescent"
 msgstr "초승달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:707
+#: nativeloader/lua/autorun/nativeloader_sky.lua:710
 msgid "First quarter"
 msgstr "상현달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:707
+#: nativeloader/lua/autorun/nativeloader_sky.lua:710
 msgid "Waxing gibbous"
 msgstr "차오르는 볼록달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:707
+#: nativeloader/lua/autorun/nativeloader_sky.lua:710
 msgid "Full moon"
 msgstr "보름달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:708
+#: nativeloader/lua/autorun/nativeloader_sky.lua:711
 msgid "Waning gibbous"
 msgstr "기우는 볼록달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:708
+#: nativeloader/lua/autorun/nativeloader_sky.lua:711
 msgid "Last quarter"
 msgstr "하현달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:709
+#: nativeloader/lua/autorun/nativeloader_sky.lua:712
 msgid "Waning crescent"
 msgstr "그믐달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:710
+#: nativeloader/lua/autorun/nativeloader_sky.lua:713
 msgid "No eclipse"
 msgstr "식 없음"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:710
+#: nativeloader/lua/autorun/nativeloader_sky.lua:713
 msgid "Lunar eclipse"
 msgstr "월식"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:710
+#: nativeloader/lua/autorun/nativeloader_sky.lua:713
 msgid "Solar eclipse"
 msgstr "일식"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:711
+#: nativeloader/lua/autorun/nativeloader_sky.lua:714
 msgid "Night sky image"
 msgstr "밤하늘 이미지"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:711
+#: nativeloader/lua/autorun/nativeloader_sky.lua:714
 msgid "Simulated stars"
 msgstr "절차적으로 생성한 별"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:713
+#: nativeloader/lua/autorun/nativeloader_sky.lua:716
 msgid "Sunrise"
 msgstr "일출"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:713
+#: nativeloader/lua/autorun/nativeloader_sky.lua:716
 msgid "Morning"
 msgstr "아침"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:713
+#: nativeloader/lua/autorun/nativeloader_sky.lua:716
 msgid "Noon"
 msgstr "정오"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:714
+#: nativeloader/lua/autorun/nativeloader_sky.lua:717
 msgid "Sunset"
 msgstr "일몰"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:714
+#: nativeloader/lua/autorun/nativeloader_sky.lua:717
 msgid "Night"
 msgstr "밤"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:724
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:266
+#: nativeloader/lua/autorun/nativeloader_sky.lua:727
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:269
 msgid "The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."
 msgstr "이번 세션에서는 Remix API를 사용할 수 없어 이 설정들을 적용할 수 없습니다. 자세한 내용은 nativeloader_status를 실행하세요."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:728
+#: nativeloader/lua/autorun/nativeloader_sky.lua:731
 #, c-format
 msgid "On this map %s also sets the sky. It keeps its sky while Follow the map's sun is ticked and nothing here is changed; otherwise your settings here replace it."
 msgstr "이 맵의 하늘도 %s이(가) 설정합니다. '맵의 태양 따르기'가 선택되어 있고 여기서 설정을 변경하지 않은 동안에는 해당 하늘을 유지하며, 그렇지 않으면 이 메뉴의 설정으로 대체합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:730
+#: nativeloader/lua/autorun/nativeloader_sky.lua:733
 msgid "Sky"
 msgstr "하늘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:731
+#: nativeloader/lua/autorun/nativeloader_sky.lua:734
 msgid "Physical sky"
 msgstr "물리 기반 하늘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:732
+#: nativeloader/lua/autorun/nativeloader_sky.lua:735
 msgid "The map's skybox"
 msgstr "맵의 스카이박스"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:733
+#: nativeloader/lua/autorun/nativeloader_sky.lua:736
 msgid "The physical sky has a sun, clouds, stars and a moon, and lights the map from them."
 msgstr "물리 기반 하늘에는 태양, 구름, 별, 달이 있고, 이것들이 맵을 비춥니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:734
+#: nativeloader/lua/autorun/nativeloader_sky.lua:737
 msgid "No horizon"
 msgstr "지평선 없음"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:735
+#: nativeloader/lua/autorun/nativeloader_sky.lua:738
 msgid "For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."
 msgstr "하늘이나 우주에 떠 있는 맵용입니다. 지평선 아래에는 지면의 연무 대신 하늘이 이어지고, 구름과 별과 달이 보입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:736
+#: nativeloader/lua/autorun/nativeloader_sky.lua:739
 msgid "Follow the map's sun"
 msgstr "맵의 태양 따르기"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:737
+#: nativeloader/lua/autorun/nativeloader_sky.lua:740
 msgid "Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."
 msgstr "태양을 맵 자체의 태양 위치에 맞춥니다. Modern House RTX처럼 애드온이 자체 하늘을 설정하는 맵에서는 해당 하늘을 유지합니다. 시각이나 태양 방향을 변경하면 이 옵션이 꺼집니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:738
+#: nativeloader/lua/autorun/nativeloader_sky.lua:741
 msgid "Time of day"
 msgstr "시각"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:742
+#: nativeloader/lua/autorun/nativeloader_sky.lua:745
 #, c-format
 msgid "Now %s"
 msgstr "현재 %s"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:760
+#: nativeloader/lua/autorun/nativeloader_sky.lua:763
 msgid "Sun direction"
 msgstr "태양 방향"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:761
+#: nativeloader/lua/autorun/nativeloader_sky.lua:764
 msgid "Turns the sun's path around the sky."
 msgstr "태양의 이동 경로를 수평으로 회전합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:762
+#: nativeloader/lua/autorun/nativeloader_sky.lua:765
 msgid "Time passes"
 msgstr "시간 흐름"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:763
+#: nativeloader/lua/autorun/nativeloader_sky.lua:766
 msgid "Day length (min)"
 msgstr "하루 길이(분)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:764
+#: nativeloader/lua/autorun/nativeloader_sky.lua:767
 msgid "Time passes is on by default. A whole day takes 20 real minutes; untick Time passes to stop the clock."
 msgstr "시간 흐름은 기본으로 켜져 있습니다. 하루는 실제 시간으로 20분입니다. 시간 흐름을 끄면 시계가 멈춥니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:765
+#: nativeloader/lua/autorun/nativeloader_sky.lua:768
 msgid "Sky update interval (s)"
 msgstr "하늘 갱신 간격(초)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:766
+#: nativeloader/lua/autorun/nativeloader_sky.lua:769
 msgid "How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."
 msgstr "해, 달, 별, 날씨를 갱신하는 간격(초)입니다. 0.02는 초당 50번, 0은 매 프레임입니다. 간격을 늘리면 프레임 시간이 조금 줄지만 하늘이 끊기듯 움직입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:767
+#: nativeloader/lua/autorun/nativeloader_sky.lua:770
 msgid "Season"
 msgstr "계절"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:768
+#: nativeloader/lua/autorun/nativeloader_sky.lua:771
 msgid "Moon"
 msgstr "달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:769
+#: nativeloader/lua/autorun/nativeloader_sky.lua:772
 msgid "Eclipse"
 msgstr "일식·월식"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:770
+#: nativeloader/lua/autorun/nativeloader_sky.lua:773
 msgid "Eclipse progress"
 msgstr "식 진행"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:771
+#: nativeloader/lua/autorun/nativeloader_sky.lua:774
 msgid "From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."
 msgstr "첫 접촉(0)부터 식의 최대(100)까지입니다. 월식은 70부터, 일식은 90부터 개기식입니다. 식을 고르면 달의 위상이 정해지고, 태양이 지평선 반대쪽에 있으면 시각도 바뀝니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:772
+#: nativeloader/lua/autorun/nativeloader_sky.lua:775
 msgid "Night sky"
 msgstr "밤하늘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:773
+#: nativeloader/lua/autorun/nativeloader_sky.lua:776
 msgid "Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."
 msgstr "밤하늘 이미지: 선명한 별, 은하, 성운이 시각과 계절에 따라 회전합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:774
+#: nativeloader/lua/autorun/nativeloader_sky.lua:777
 msgid "Weather"
 msgstr "날씨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:775
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:275
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:279
+#: nativeloader/lua/autorun/nativeloader_sky.lua:778
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:278
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:282
 msgid "(leave to Remix)"
 msgstr "(Remix에 맡김)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:777
+#: nativeloader/lua/autorun/nativeloader_sky.lua:780
 msgid "Clouds, haze, fog, rain and snow, from Remix's own weather presets."
 msgstr "Remix 자체의 날씨 프리셋으로 표현하는 구름, 연무, 안개, 비, 눈입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:778
+#: nativeloader/lua/autorun/nativeloader_sky.lua:781
 msgid "Weather change (s)"
 msgstr "날씨 전환(초)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:779
+#: nativeloader/lua/autorun/nativeloader_sky.lua:782
 msgid "How long a change of weather takes."
 msgstr "날씨가 바뀌는 데 걸리는 시간."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:780
+#: nativeloader/lua/autorun/nativeloader_sky.lua:783
 msgid "Reset the sky and weather"
 msgstr "하늘과 날씨 초기화"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:786
-#: nativeloader/lua/autorun/nativeloader_sky.lua:786
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
+#: nativeloader/lua/autorun/nativeloader_sky.lua:789
+#: nativeloader/lua/autorun/nativeloader_sky.lua:789
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:108
 msgid "Sky and weather"
 msgstr "하늘과 날씨"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:219
+#: nativeloader/lua/autorun/client/nativeloader.lua:222
 #, c-format
 msgid "RTX package %s was updated: restart Garry's Mod to use it"
 msgstr "RTX 패키지 %s이(가) 업데이트되었습니다. 사용하려면 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:360
+#: nativeloader/lua/autorun/client/nativeloader.lua:363
 msgid "A loader update is available"
 msgstr "로더 업데이트가 있습니다"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:378
+#: nativeloader/lua/autorun/client/nativeloader.lua:381
 #, c-format
 msgid "You are running loader %s. The latest release is %s."
 msgstr "현재 로더는 %s이며, 최신 릴리스는 %s입니다."
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:379
+#: nativeloader/lua/autorun/client/nativeloader.lua:382
 msgid "Download winmm.dll from the release page, replace bin\\win64\\winmm.dll in your game folder, then restart Garry's Mod. The Workshop package updates automatically; only this file needs a manual update."
 msgstr "릴리스 페이지에서 winmm.dll을 다운로드하여 게임 폴더의 bin\\win64\\winmm.dll을 교체한 후 Garry's Mod를 다시 시작하세요. 창작마당 패키지는 자동으로 업데이트되며, 이 파일만 수동으로 업데이트하면 됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:397
+#: nativeloader/lua/autorun/client/nativeloader.lua:400
 msgid "Open the download page"
 msgstr "다운로드 페이지 열기"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:398
+#: nativeloader/lua/autorun/client/nativeloader.lua:401
 msgid "Later"
 msgstr "나중에"
 
-#: nativeloader/lua/autorun/client/nativeloader.lua:399
+#: nativeloader/lua/autorun/client/nativeloader.lua:402
 #, c-format
 msgid "Don't remind me about %s"
 msgstr "%s 업데이트 알림 끄기"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
 msgid "Realistic"
 msgstr "사실적"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
 msgid "Fresh arterial"
 msgstr "선명한 동맥혈"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
 msgid "Dark venous"
 msgstr "어두운 정맥혈"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Aged, dried"
 msgstr "오래된 마른 피"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Black ink"
 msgstr "검은 잉크"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Toxic green"
 msgstr "독성 녹색"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:10
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:13
 msgid "Blue blood"
 msgstr "푸른 피"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:14
 msgid "Violet"
 msgstr "보라색"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:14
 msgid "Golden ichor"
 msgstr "황금 체액"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:14
 msgid "Synthetic white"
 msgstr "인공 흰색"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:15
 msgid "Rainbow"
 msgstr "무지개"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:12
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:15
 msgid "Custom colours"
 msgstr "사용자 지정 색상"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:26
 msgid "Enable Blood Overhaul RTX"
 msgstr "Blood Overhaul RTX 사용"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:24
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:27
 msgid "Twenty-six patterns and twelve colour schemes, with wet PBR surfaces under RTX. No separate Blood Overhaul subscription is needed."
 msgstr "무늬 26개와 색상 구성 12개를 제공하며 RTX에서는 젖은 PBR 표면을 표현합니다. Blood Overhaul을 따로 구독할 필요가 없습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:28
 msgid "Off restores material colours, the mixer and engine impacts. Packaged Blood Overhaul textures and PBR remain until the package is removed."
 msgstr "끄면 재질 색상, 믹서 및 엔진의 혈액 충격 효과가 복원됩니다. 포함된 Blood Overhaul 텍스처와 PBR은 패키지를 제거할 때까지 유지됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:26
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:29
 msgid "Realistic bullet impacts"
 msgstr "사실적인 탄환 충돌"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:27
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:30
 msgid "Directional spray, brief mist and falling droplets that leave small stains. Off restores the engine's blood impact effect."
 msgstr "방향성 분사, 짧은 안개와 작은 자국을 남기는 낙하 물방울을 표현합니다. 끄면 엔진의 기본 혈액 충돌 효과로 돌아갑니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:28
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:31
 msgid "Impact amount"
 msgstr "충돌 효과량"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:29
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:32
 msgid "Zero uses the stock impact. Detail reduces with viewing distance; the particle and stain limits always apply."
 msgstr "0이면 기본 효과를 사용합니다. 시점에서 멀수록 세부 묘사가 줄며 입자와 자국 제한은 항상 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:30
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:33
 msgid "Colour scheme"
 msgstr "색상 구성"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:32
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:35
 msgid "Mix all blood patterns"
 msgstr "모든 혈흔 무늬 섞기"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:33
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:36
 msgid "Splat size"
 msgstr "혈흔 크기"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:34
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:37
 msgid "Recolour flying droplets"
 msgstr "날아가는 방울 색상 변경"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:35
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:38
 msgid "Custom colours apply when the Custom colours scheme is selected."
 msgstr "사용자 지정 색상 구성을 선택하면 아래 색상이 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:36
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:39
 msgid "Red blood"
 msgstr "붉은 피"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:37
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:40
 msgid "Alien blood"
 msgstr "외계 생물의 피"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:38
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:41
 msgid "Limits: 640 particles per second, 512 alive; 48 new stains per second, 384 until map cleanup or Clear all decals. Existing stains stay when impacts are turned off."
 msgstr "제한: 초당 입자 640개, 동시 512개. 새 자국은 초당 48개이며 지도 정리 또는 모든 데칼 지우기 전까지 총 384개입니다. 충돌 효과를 꺼도 기존 자국은 남습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:39
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:42
 msgid "Test splats where you look"
 msgstr "바라보는 곳에 혈흔 시험"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:40
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:43
 msgid "Clear all decals"
 msgstr "모든 데칼 지우기"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:41
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:44
 msgid "Reset blood settings"
 msgstr "혈액 설정 초기화"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:42
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:45
 msgid "Eighteen new patterns made with an AI image model. Blood Overhaul resources by Crunchy (2683396098) and their PBR are bundled. SheepyLord reported the resource author's permission."
 msgstr "새 무늬 18개는 AI 이미지 모델로 제작했습니다. Crunchy의 Blood Overhaul (2683396098) 리소스와 그 PBR 맵을 포함합니다. SheepyLord가 리소스 저자의 허락을 받았다고 알렸습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:48
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:26
 msgid "Blood"
 msgstr "혈액"
 
-#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:54
 msgid "Blood and impacts"
 msgstr "혈액과 충돌 효과"
 
-#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:12
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:176
+#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:15
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:179
 msgid "Dynamic toolgun screen"
 msgstr "동적 툴건 화면"
 
-#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:21
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:17
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:176
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:357
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_bundled_panels.lua:24
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:20
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:179
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:361
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:362
 #: nativeloader/lua/nativeloader/guide_pages.lua:125
 msgid "Rendering"
 msgstr "렌더링"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:404
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:338
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:407
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:341
 msgid "Choose eye-white materials"
 msgstr "눈 흰자 머티리얼 선택"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:408
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:411
 msgid "Choose a spawned character here, or look at one before you open this window. Your choices are saved for this character and apply to all its copies at once, without respawning. Steady eye whites for imported characters and Eye-white brightness still apply."
 msgstr "생성된 캐릭터를 여기서 선택하거나 캐릭터를 바라본 뒤 이 창을 여세요. 선택은 이 캐릭터에 저장되며 같은 캐릭터의 모든 개체에 즉시 적용됩니다. 다시 생성할 필요가 없습니다. '가져온 캐릭터의 흰자 밝기 안정화'와 '흰자 밝기'도 계속 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:411
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:414
 msgid "Choose a spawned character"
 msgstr "생성된 캐릭터 선택"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:414
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:417
 msgid "Spawn an imported character first, from External Models. Only the materials of imported characters can be chosen."
 msgstr "먼저 외부 모델에서 가져온 캐릭터를 생성하세요. 가져온 캐릭터의 머티리얼만 선택할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:418
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:421
 msgid "Previous materials"
 msgstr "이전 머티리얼"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:419
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:422
 msgid "Next materials"
 msgstr "다음 머티리얼"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:431
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:434
 msgid "Ticked materials are eye whites. Use automatic detection removes your choice for that material. When the eyes share a texture with the face, the picture shows the face too; only the material you tick changes."
 msgstr "체크한 머티리얼을 눈 흰자로 처리합니다. 자동 감지 사용을 누르면 해당 머티리얼의 수동 선택이 해제됩니다. 눈과 얼굴이 텍스처를 공유하면 미리보기에 얼굴도 보이지만 체크한 머티리얼만 바뀝니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:482
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:485
 msgid "Eye white"
 msgstr "눈 흰자"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:484
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:487
 msgid "Use automatic detection"
 msgstr "자동 감지 사용"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:494
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:497
 msgid "Chosen: eye white"
 msgstr "수동: 눈 흰자"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:494
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:497
 msgid "Chosen: ordinary material"
 msgstr "수동: 일반 머티리얼"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:496
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:499
 msgid "Automatic: eye white"
 msgstr "자동: 눈 흰자"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:496
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:499
 msgid "Automatic: ordinary material"
 msgstr "자동: 일반 머티리얼"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:498
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:501
 msgid "Texture not available"
 msgstr "텍스처를 사용할 수 없음"
 
-#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:503
+#: nativeloader/lua/autorun/client/nativeloader_eye_whites.lua:506
 msgid "Your choice could not be saved: the character may have been removed, or the file of saved choices was changed or cannot be read. No file was overwritten."
 msgstr "선택을 저장할 수 없습니다. 캐릭터가 제거되었거나, 선택을 저장한 파일이 변경되었거나 읽을 수 없는 상태일 수 있습니다. 어떤 파일도 덮어쓰지 않았습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:305
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:308
 #, c-format
 msgid "Previous: %s"
 msgstr "이전: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:316
 #, c-format
 msgid "Next: %s"
 msgstr "다음: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:376
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:379
 msgid "Contents"
 msgstr "목차"
 
-#: nativeloader/lua/autorun/client/nativeloader_guide.lua:414
+#: nativeloader/lua/autorun/client/nativeloader_guide.lua:417
 msgid "RTX Remix guide"
 msgstr "RTX Remix 가이드"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:18
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:21
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:149
 msgid "Lights"
 msgstr "조명"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:19
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:20
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:26
 #: nativeloader/lua/nativeloader/guide_pages.lua:161
 msgid "Water and glass"
 msgstr "물과 유리"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:355
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:355
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
 #: nativeloader/lua/nativeloader/guide_pages.lua:87
 msgid "Start here"
 msgstr "시작하기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:22
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:356
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
 #: nativeloader/lua/nativeloader/guide_pages.lua:98
 msgid "Remix settings"
 msgstr "Remix 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:23
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:26
 msgid "VR"
 msgstr "가상 현실"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:73
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:76
 #: nativeloader/lua/nativeloader/guide_pages.lua:70
 msgid "Graphics preset"
 msgstr "그래픽 프리셋"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
 msgid "Ultra"
 msgstr "울트라"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:234
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:237
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "High"
 msgstr "높음"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:214
 msgid "Medium"
 msgstr "중간"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:214
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
 msgid "Low"
 msgstr "낮음"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:75
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:78
 msgid "Custom (keeps your own settings)"
 msgstr "사용자 지정(내 설정 유지)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:75
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:78
 msgid "Automatic (by GPU)"
 msgstr "자동(GPU에 따라)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:76
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
 msgid "Upscaler"
 msgstr "업스케일러"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:77
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
 msgid "None"
 msgstr "없음"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:78
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 msgid "DLSS quality"
 msgstr "DLSS 품질"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
 msgid "Ultra performance"
 msgstr "울트라 성능"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
 msgid "Performance"
 msgstr "성능"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "Balanced"
 msgstr "균형"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:312
 msgid "Quality"
 msgstr "품질"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:83
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
 msgid "Auto"
 msgstr "자동"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:83
 msgid "Full resolution (DLAA)"
 msgstr "전체 해상도(DLAA)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:84
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
 #: nativeloader/lua/nativeloader/guide_pages.lua:69
 msgid "Frame generation"
 msgstr "프레임 생성"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:281
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:85
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:284
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Off"
 msgstr "끄기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:83
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:86
 msgid "Indirect lighting"
 msgstr "간접 조명"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:84
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:87
 msgid "Importance sampled"
 msgstr "중요도 샘플링"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:84
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:87
 msgid "Neural Radiance Cache"
 msgstr "신경망 방사휘도 캐시(NRC)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:85
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:88
 msgid "Hashed radiance cache"
 msgstr "해시 방사휘도 캐시"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:86
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:89
 msgid "Max light bounces"
 msgstr "최대 광선 반사 수"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:89
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
 msgid "Sky brightness"
 msgstr "하늘 밝기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:90
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
 msgid "The map's own skybox only."
 msgstr "맵 자체의 스카이박스에만 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:91
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:94
 msgid "Fog"
 msgstr "안개"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:95
 msgid "Remix default"
 msgstr "Remix 기본값"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:95
 msgid "Heavy fog"
 msgstr "짙은 안개"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:92
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:95
 msgid "Light fog"
 msgstr "옅은 안개"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Mist"
 msgstr "박무"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Haze"
 msgstr "연무"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Dust"
 msgstr "먼지"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:93
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
 msgid "Smoke"
 msgstr "연기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:94
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:97
 msgid "Remix's volumetric fog presets. One chosen here replaces the weather's fog. Dense fog stays dark where no light reaches it."
 msgstr "Remix의 볼류메트릭 안개 프리셋입니다. 여기서 고르면 날씨의 안개를 대신합니다. 짙은 안개는 빛이 닿지 않는 곳에서는 어둡게 남습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:99
 msgid "Post effects"
 msgstr "후처리 효과"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:96
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:99
 msgid "Bloom, motion blur and film grain."
 msgstr "블룸, 모션 블러, 필름 그레인."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:97
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:100
 msgid "Tone map colour purity"
 msgstr "톤 매핑 색 순도"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:215
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:218
 msgid "No tier layer is available."
 msgstr "사용 가능한 등급 레이어가 없습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:216
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:219
 #, c-format
 msgid "Performance tier %s is not applied: %s. See Performance and memory in the guide."
 msgstr "성능 등급 %s이(가) 적용되지 않았습니다: %s. 가이드의 성능과 메모리를 참고하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:219
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:222
 msgid "Automatic selection"
 msgstr "자동 선택"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:219
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:222
 msgid "Configuration override"
 msgstr "설정 파일 지정"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:220
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:223
 msgid "Compatibility fallback"
 msgstr "호환성 대체 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:225
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:228
 #, c-format
 msgid "Performance tier: %s (%s; %s, %s MiB VRAM). To change it, set remix.performance_tier in native-loader\\config.json to auto, high, medium or low, then restart Garry's Mod."
 msgstr "성능 등급: %s(%s; %s, VRAM %s MiB). 변경하려면 native-loader\\config.json의 remix.performance_tier를 auto, high, medium, low 중 하나로 설정한 뒤 Garry's Mod를 다시 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:226
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:229
 msgid "Unknown source"
 msgstr "알 수 없는 선택 출처"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:233
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:236
 msgid "Below the minimum"
 msgstr "최소 사양 미만"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:233
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:236
 msgid "Minimum"
 msgstr "최소 사양"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:234
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:237
 msgid "Recommended"
 msgstr "권장 사양"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:239
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:242
 #, c-format
 msgid "Memory profile: %s (%s MiB VRAM, %s MiB RAM). Characters kept ready for an instant spawn: %s; the others load when first used. To change it, set remix.memory_profile in native-loader\\config.json to auto, minimum, recommended or high, then restart Garry's Mod."
 msgstr "메모리 프로필: %s(VRAM %s MiB, RAM %s MiB). 바로 스폰할 수 있게 준비해 두는 캐릭터: %s개, 나머지는 처음 사용할 때 불러옵니다. 변경하려면 native-loader\\config.json의 remix.memory_profile을 auto, minimum, recommended, high 중 하나로 설정한 뒤 Garry's Mod를 다시 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:244
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:247
 msgid "RTX Remix is running in this session. Every setting of the RTX package is in this tab, in the groups on the left."
 msgstr "이번 세션에서는 RTX Remix가 실행 중입니다. RTX 패키지의 모든 설정은 이 탭 왼쪽의 그룹에 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:250
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:253
 msgid "Open the RTX Remix guide"
 msgstr "RTX Remix 가이드 열기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:251
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:254
 msgid "Performance and memory guide"
 msgstr "성능과 메모리 가이드"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:252
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:255
 #: nativeloader/lua/nativeloader/guide_pages.lua:332
 msgid "Print the loader's status to the console"
 msgstr "로더 상태를 콘솔에 출력"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:253
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:256
 msgid "When RTX first ran, the RTX add-ons took the settings of the original RTX install, except for settings you had already changed. This button applies all of them again, also over your own changes."
 msgstr "RTX를 처음 실행했을 때 이미 변경한 설정을 제외하고 RTX 애드온에 기존 RTX 설치 환경의 설정이 적용되었습니다. 이 버튼은 직접 변경한 값까지 덮어쓰며 모든 설정을 다시 적용합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:254
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:257
 msgid "Use the classic RTX settings"
 msgstr "클래식 RTX 설정 사용"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:255
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:258
 msgid "RTX session guard"
 msgstr "RTX 세션 보호"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:256
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:259
 msgid "Stops other add-ons from undoing RTX settings or drawing post-processing over the picture. Turn it off only to test an add-on that misbehaves."
 msgstr "다른 애드온이 RTX 설정을 되돌리거나 화면에 후처리를 덧그리지 못하게 막습니다. 오작동하는 애드온을 테스트할 때만 끄세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:257
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:260
 msgid "Remix's own menu: press Alt+X, and save your changes there to keep them. Before you change single settings, set Graphics Preset, or DLSS Preset for the DLSS settings, to Custom; the guide shows how."
 msgstr "Remix 자체 메뉴는 Alt+X로 엽니다. 변경 사항을 유지하려면 그 메뉴에서 저장하세요. 개별 설정을 바꾸기 전에 그래픽 프리셋을 사용자 지정으로 설정하세요. DLSS 설정은 DLSS 프리셋을 사용자 지정으로 설정하세요. 방법은 가이드에 나와 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:258
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:261
 msgid "Language"
 msgstr "언어"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:259
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:262
 msgid "Same as Garry's Mod"
 msgstr "Garry's Mod와 동일"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:261
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:264
 msgid "Language of this tab and the guide"
 msgstr "언어(이 탭과 가이드)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:271
 msgid "Changes here apply at once, for this session. To keep them, press Alt+X and save them there. The values shown are this panel's own choices, not a live reading of Remix."
 msgstr "여기서 변경한 값은 이번 세션에 즉시 적용됩니다. 유지하려면 Alt+X를 눌러 그 메뉴에서 저장하세요. 표시된 값은 이 패널에서 선택한 값이며, Remix의 현재 값을 실시간으로 표시하는 것은 아닙니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:272
 msgid "Reapply these overrides at every launch"
 msgstr "시작할 때마다 이 덮어쓰기 값 다시 적용"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:273
 msgid "Off (the default), Remix starts with its own saved settings. On, this panel applies its choices at every start, over those settings."
 msgstr "끄기(기본값)에서는 Remix에 저장된 설정으로 시작합니다. 켜기에서는 이 패널의 선택이 시작할 때마다 저장된 설정을 덮어씁니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:280
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:283
 msgid "On"
 msgstr "켜기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:284
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:287
 #, c-format
 msgid "Set %s here"
 msgstr "여기서 %s 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:7
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:10
 msgid "Show upscaling and frame generation hint at startup"
 msgstr "시작 시 업스케일링 및 프레임 생성 힌트 표시"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:316
 msgid "A number is used only while the box above it, Set ... here, is ticked. Zero is a valid value for sky brightness and colour purity."
 msgstr "숫자는 바로 위의 '여기서 ... 설정' 상자를 체크했을 때만 사용됩니다. 하늘 밝기와 색 순도는 0으로 설정할 수도 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:317
 msgid "Clear this panel's overrides"
 msgstr "이 패널의 덮어쓰기 값 지우기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:321
 msgid "Local player shadow"
 msgstr "내 플레이어 그림자"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:322
 msgid "Shows the shadow and reflection of your own body while you play in first person. Other players and ragdolls are not affected."
 msgstr "1인칭 시점에서 내 몸의 그림자와 반사를 표시합니다. 다른 플레이어와 래그돌에는 영향을 주지 않습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:323
 msgid "Body height offset (units)"
 msgstr "몸 높이 오프셋(유닛)"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:321
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:324
 msgid "Raises (positive) or lowers (negative) only that body. Your view and your collisions stay where they are."
 msgstr "양수는 그 몸만 위로 올리고 음수는 아래로 내립니다. 시점과 충돌 판정 위치는 바뀌지 않습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:325
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:328
 msgid "Keep toolgun text sharp"
 msgstr "툴건 글자를 선명하게 표시"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:326
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:329
 msgid "Draws the toolgun's screen at full resolution after DLSS or another upscaler, so its text stays readable. Animated and custom screens keep working."
 msgstr "DLSS나 다른 업스케일러로 처리한 뒤 툴건 화면을 전체 해상도로 그려 글자를 읽기 쉽게 유지합니다. 애니메이션과 사용자 지정 화면도 계속 작동합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:330
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:333
 msgid "Hide outline meshes"
 msgstr "외곽선 메시 숨기기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:331
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:334
 msgid "Hides the outline shells that many anime models have: path tracing draws them as a dark layer over the model. The model's other materials are not changed."
 msgstr "많은 애니메이션풍 모델에 있는 외곽선 셸을 숨깁니다. 패스 트레이싱에서는 이 셸이 모델을 덮는 어두운 층으로 그려집니다. 모델의 다른 머티리얼은 바뀌지 않습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:332
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:335
 msgid "Imported game PBR"
 msgstr "가져온 캐릭터 PBR"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:333
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:336
 msgid "Uses the game's own maps for characters imported from Wuthering Waves, Endfield and Silver Palace. Skin and faces stay as they are. Off restores the original materials."
 msgstr "명조, 엔드필드, 실버 팰리스에서 가져온 캐릭터에 해당 게임의 맵을 사용합니다. 피부와 얼굴은 그대로 유지됩니다. 끄면 원래 머티리얼로 돌아갑니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:334
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:337
 msgid "Steady eye whites for imported characters"
 msgstr "가져온 캐릭터의 흰자 밝기 안정화"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:335
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:338
 msgid "Keeps the whites of imported characters' eyes clean and bright. It finds them by their material names; if it misses one, choose them yourself below. Characters with a PBR pack keep its materials."
 msgstr "가져온 캐릭터의 눈 흰자를 깨끗하고 밝게 유지합니다. 머티리얼 이름으로 흰자를 찾으며, 놓친 것이 있으면 아래에서 직접 선택할 수 있습니다. PBR 팩이 있는 캐릭터는 팩의 머티리얼을 유지합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:336
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:339
 msgid "Eye-white brightness"
 msgstr "흰자 밝기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:337
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:340
 msgid "In percent; 100 is the tuned default. A change applies at once, to steady eye whites and to the eye glow of PBR packs that follows the scene's light; 0 removes that glow."
 msgstr "백분율이며 100은 조정된 기본값입니다. 변경하면 흰자 밝기 안정화와 장면의 조명에 맞춰 변하는 PBR 팩의 눈 발광에 즉시 적용됩니다. 0은 이 발광을 끕니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:339
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:342
 msgid "Hide painted shadows"
 msgstr "그려진 그림자 숨기기"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:340
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:343
 msgid "Leaves out the shadows that imported characters have painted over their eyes, under their fringe and on their faces: path tracing casts real shadows there. Their bodygroups and saves do not change."
 msgstr "가져온 캐릭터의 눈 위, 앞머리 아래, 얼굴에 그려진 그림자를 숨깁니다. 이 부분에는 패스 트레이싱이 실제 그림자를 드리웁니다. 바디그룹과 저장 데이터는 바뀌지 않습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:341
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:344
 msgid "Solid hair"
 msgstr "머리카락을 불투명하게 표시"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:342
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:345
 msgid "Draws an imported character's hair solid when its texture is mostly opaque but the alpha test would cut holes into it, as in hair from Endfield. Hair cut out of its texture strand by strand keeps its cutouts."
 msgstr "엔드필드의 머리카락처럼 텍스처 대부분이 불투명한데도 알파 테스트로 구멍이 생기는 경우, 가져온 캐릭터의 머리카락을 불투명하게 그립니다. 텍스처에서 한 가닥씩 잘라낸 머리카락은 잘라낸 모양을 그대로 유지합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:356
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
 msgid "Common Remix settings"
 msgstr "주요 Remix 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:357
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:360
 msgid "Player models"
 msgstr "플레이어 모델"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:358
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:361
 msgid "Toolgun screen"
 msgstr "툴건 화면"
 
-#: nativeloader/lua/autorun/client/nativeloader_menu.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_menu.lua:362
 msgid "Model outlines"
 msgstr "모델 외곽선"
 
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:9
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:12
 msgid "Motion importer"
 msgstr "모션 가져오기"
 
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:11
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:160
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:196
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:14
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:163
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:199
 msgid "Import VMD files and manage your motion library and playback."
 msgstr "VMD 파일을 가져오고 모션 라이브러리와 재생을 관리합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:74
+#: nativeloader/lua/autorun/client/nativeloader_motion_tab.lua:77
 msgid "Open in window"
 msgstr "창으로 열기"
 
-#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:11
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:14
 #, c-format
 msgid "Preparing PBR materials for imported characters: %d of %d."
 msgstr "가져온 캐릭터의 PBR 머티리얼을 준비하는 중: %d / %d."
 
-#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:35
+#: nativeloader/lua/autorun/client/nativeloader_pbr_progress.lua:38
 msgid "PBR materials for imported characters are ready."
 msgstr "가져온 캐릭터의 PBR 머티리얼이 준비되었습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:58
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:61
 msgid ""
 "Upscaling and frame generation are off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1008,7 +1008,7 @@ msgstr ""
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 업스케일러: DLSS, 프레임 생성: DLSS-G."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:63
 msgid ""
 "Upscaling and frame generation are off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1018,7 +1018,7 @@ msgstr ""
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 업스케일러: DLSS, 프레임 생성: FSR 3."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:62
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:65
 msgid ""
 "Upscaling is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1028,7 +1028,7 @@ msgstr ""
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 업스케일러: DLSS."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:65
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:68
 msgid ""
 "Frame generation is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1038,7 +1038,7 @@ msgstr ""
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 프레임 생성: DLSS-G."
 
-#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:67
+#: nativeloader/lua/autorun/client/nativeloader_upscaling_hint.lua:70
 msgid ""
 "Frame generation is off.\n"
 "RTX Remix > Remix settings, or Alt+X:\n"
@@ -1048,568 +1048,576 @@ msgstr ""
 "RTX Remix > Remix 설정 또는 Alt+X:\n"
 "선택: 프레임 생성: FSR 3."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:11
 msgid "Health"
 msgstr "체력"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:11
 msgid "Armour"
 msgstr "방어구"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:8
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:11
 msgid "Ammo"
 msgstr "탄약"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:48
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
 msgid "The VR module is missing or could not load. Reinstall the RTX package, then restart Garry's Mod."
 msgstr "VR 모듈이 없거나 불러올 수 없습니다. RTX 패키지를 다시 설치한 후 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:49
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
 msgid "The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."
 msgstr "VR 모듈의 API가 호환되지 않습니다. RTX 패키지를 업데이트하고 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:50
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
 msgid "This Remix runtime has no VR output. Update the RTX package and restart Garry's Mod."
 msgstr "이 Remix 런타임은 VR 출력을 지원하지 않습니다. RTX 패키지를 업데이트하고 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
 msgid "The VR add-on could not start. Reinstall the RTX package and try again."
 msgstr "VR 애드온을 시작할 수 없습니다. RTX 패키지를 다시 설치하고 재시도하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
 msgid "VR works in single-player games only. Start a single-player game to use VR."
 msgstr "VR은 싱글 플레이에서만 작동합니다. VR을 사용하려면 싱글 플레이 게임을 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:56
 msgid "Exit VRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "RTX VR을 시작하기 전에 VRMod를 종료하세요. 시점을 제어하는 애드온은 하나만 사용할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
 msgid "Exit gVRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "RTX VR을 시작하기 전에 gVRMod를 종료하세요. 시점을 제어하는 애드온은 하나만 사용할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
 msgid "SteamVR could not start VR. Check the headset connection and SteamVR, then try again."
 msgstr "SteamVR에서 VR을 시작하지 못했습니다. 헤드셋 연결과 SteamVR을 확인한 후 재시도하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:56
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:59
 msgid "SteamVR is not installed. Install SteamVR in Steam, connect the headset, then try again."
 msgstr "SteamVR가 설치되어 있지 않습니다. Steam에서 SteamVR를 설치하고 헤드셋을 연결한 후 다시 시도하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
 msgid "SteamVR ended the VR session. The flat game's settings have been restored."
 msgstr "SteamVR이 VR 세션을 종료했습니다. 일반 화면 게임 설정이 복원되었습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
 msgid "Waiting for headset tracking. Check that the base stations can see the headset."
 msgstr "헤드셋 추적을 기다리는 중입니다. 베이스 스테이션이 헤드셋을 볼 수 있는지 확인하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:63
 msgid "VR is off"
 msgstr "VR 꺼짐"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:63
 msgid "Starting SteamVR..."
 msgstr "SteamVR 시작 중..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:63
 msgid "VR is running"
 msgstr "VR 실행 중"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:64
 msgid "Stopping VR..."
 msgstr "VR 종료 중..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:64
 msgid "VR could not start"
 msgstr "VR 시작 실패"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Wrist menu"
 msgstr "손목 메뉴"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Spawn menu"
 msgstr "생성 메뉴"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Context menu"
 msgstr "상황 메뉴"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Flat screen"
 msgstr "평면 화면"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:482
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:485
 msgid "VR settings"
 msgstr "VR 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:328
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:331
 msgid "Calibrate height"
 msgstr "키 보정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:441
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:444
 msgid "Recentre VR"
 msgstr "VR 중심 재설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:439
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:442
 msgid "Exit VR"
 msgstr "VR 종료"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:377
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:380
 msgid "Enter text"
 msgstr "텍스트 입력"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Keyboard"
 msgstr "키보드"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Shift"
 msgstr "시프트"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Space"
 msgstr "공백"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Backspace"
 msgstr "뒤로 삭제"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Enter"
 msgstr "입력"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Close"
 msgstr "닫기"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Tab"
 msgstr "탭"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Left"
 msgstr "왼쪽"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Right"
 msgstr "오른쪽"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Home"
 msgstr "처음"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "End"
 msgstr "끝"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:272
 msgid "Delete"
 msgstr "삭제"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:273
 msgid "This menu is unavailable in this gamemode."
 msgstr "이 게임 모드에서는 이 메뉴를 사용할 수 없습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:274
 msgid "The flat screen needs a newer VR module and Remix runtime. Update the RTX package."
 msgstr "평면 화면에는 최신 VR 모듈과 Remix 런타임이 필요합니다. RTX 패키지를 업데이트하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:313
 msgid "Quality step"
 msgstr "품질 단계"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "Full"
 msgstr "최고"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "Fast"
 msgstr "빠름"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
 msgid "Faster"
 msgstr "더 빠름"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:367
 msgid "Floor"
 msgstr "최저"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:312
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
 msgid "Auto picks the highest step that holds the frame rate Frame generation sets. A fixed step stays where you set it."
 msgstr "자동은 '프레임 생성'이 정한 프레임 속도를 유지할 수 있는 가장 높은 단계를 고릅니다. 고정 단계는 설정한 그대로 유지됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
 msgid "On: VR renders half the headset's frames and SteamVR's Motion Smoothing makes the rest. Off: VR renders every frame, at a lower quality step. Remix's DLSS frame generation only adds frames to the desktop window, so it stays off in VR."
 msgstr "켜짐: VR은 헤드셋 프레임의 절반만 렌더링하고 나머지는 SteamVR의 모션 스무딩이 만듭니다. 꺼짐: VR은 모든 프레임을 렌더링하며 품질 단계가 낮아집니다. Remix의 DLSS 프레임 생성은 데스크톱 창에만 프레임을 추가하므로 VR에서는 꺼진 상태로 둡니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
 msgid "True stereo"
 msgstr "진짜 스테레오"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "Path traces each eye with its own history instead of turning one picture into both eyes. It costs about a quarter more GPU time, so Auto may choose a lower step, and it needs DLSS Ray Reconstruction."
 msgstr "한 장의 화면을 양쪽 눈으로 변환하는 대신 눈마다 각자의 기록으로 패스 트레이싱합니다. GPU 시간이 약 4분의 1 늘어나므로 자동이 더 낮은 단계를 고를 수 있으며, DLSS 광선 재구성이 필요합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
 msgid "Controls and comfort"
 msgstr "조작 및 편안함"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Dominant hand"
 msgstr "주로 쓰는 손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Right hand"
 msgstr "오른손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Left hand"
 msgstr "왼손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Movement direction"
 msgstr "이동 방향"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Off hand"
 msgstr "반대쪽 손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Head"
 msgstr "머리"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Turning"
 msgstr "회전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Snap turn"
 msgstr "단계 회전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Smooth turn"
 msgstr "부드러운 회전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:324
 msgid "Snap angle (degrees)"
 msgstr "단계 회전 각도(도)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:325
 msgid "Turn speed (degrees per second)"
 msgstr "회전 속도(도/초)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Teleport"
 msgstr "순간 이동"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Blink"
 msgstr "암전 이동"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:324
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:327
 msgid "Movement vignette"
 msgstr "이동 시 주변부 어둡게"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:325
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:328
 msgid "The vignette shades the edge of your view while moving or turning. Zero turns it off."
 msgstr "이동하거나 회전할 때 시야 가장자리를 어둡게 합니다. 0으로 설정하면 꺼집니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:329
 msgid "Seated mode"
 msgstr "앉은 자세 모드"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:327
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
 msgid "Seated height offset (metres)"
 msgstr "앉은 자세 높이 보정(미터)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:329
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
 msgid "Start VR, stand straight, then calibrate. Your tracked eye height sets world scale. To reset, set nl_vr_height to 0."
 msgstr "VR을 시작하고 똑바로 선 다음 보정하세요. 추적된 눈높이로 월드 배율을 설정합니다. 초기화하려면 nl_vr_height를 0으로 설정하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
 msgid "A changed height calibration takes effect after Exit VR and Start VR."
 msgstr "키 보정 변경은 VR을 종료한 후 다시 시작하면 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:331
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:334
 msgid "Hands and HUD"
 msgstr "손 및 HUD"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:335
 msgid "Ghost hands"
 msgstr "유령 손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
 msgid "Show an outline at the real controller when the visible hand stops against something."
 msgstr "보이는 손이 무언가에 막히면 실제 컨트롤러 위치에 윤곽선을 표시합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:334
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:337
 msgid "Wrist HUD"
 msgstr "손목 HUD"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:335
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:338
 msgid "Physical interaction"
 msgstr "물리 상호작용"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:339
 msgid "Gravity gloves"
 msgstr "중력 장갑"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:337
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:340
 msgid "Climbing"
 msgstr "등반"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:338
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
 msgid "Physical melee"
 msgstr "물리 근접 공격"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:339
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:342
 msgid "Grip grabs. Point, grip and flick to pull a loose object. Grip a ledge to climb. Fast hands and held objects can strike."
 msgstr "쥐면 잡습니다. 고정되지 않은 물체를 가리키고 쥔 뒤 손목을 튕기면 당겨옵니다. 턱을 잡으면 올라갈 수 있습니다. 손이나 들고 있는 물체를 빠르게 움직여 공격할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:340
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:343
 msgid "Turn your wrist to turn what you hold, or hold it with both hands. Pull the trigger while holding to freeze it in place; to free it, grip it and pull the trigger."
 msgstr "손목을 돌리면 들고 있는 물체도 돌아갑니다. 두 손으로 잡을 수도 있습니다. 잡은 채로 트리거를 당기면 그 자리에 고정되고, 고정을 풀려면 쥔 뒤 트리거를 당기세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:344
 msgid "Turn on Keep corpses in the game's options to make NPC bodies grabbable in VR."
 msgstr "게임 옵션에서 \"시체 유지\"를 켜면 VR에서 NPC의 시체를 잡을 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:342
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:345
 msgid "Weapons"
 msgstr "무기"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:343
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
 msgid "Physical reload"
 msgstr "물리 재장전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:344
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
 msgid "Eject with A, take ammo over your shoulder, then insert it into HL2 weapons. Other weapons reload on a B tap."
 msgstr "A로 탄창을 빼고 어깨 뒤에서 탄약을 꺼내 HL2 무기에 넣으세요. 다른 무기는 B를 짧게 눌러 재장전합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:345
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:348
 msgid "Foregrip"
 msgstr "앞손잡이"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:349
 msgid "Grip near a rifle's foregrip with the off hand to aim with both hands."
 msgstr "보조 손으로 소총 앞손잡이 근처를 잡으면 양손으로 조준합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:350
 msgid "Ammo on the gun"
 msgstr "총 탄약 표시"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:348
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:351
 msgid "Show the clip and reserve ammo beside the weapon hand."
 msgstr "무기를 든 손 옆에 장전된 탄약과 예비 탄약을 표시합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:349
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:352
 msgid "Gun angle (degrees)"
 msgstr "총 각도 (도)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:350
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:353
 msgid "Adjust the gun's pitch in your hand."
 msgstr "손에 든 총의 상하 각도를 조절합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:351
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:354
 msgid "SteamVR controller bindings"
 msgstr "SteamVR 컨트롤러 바인딩"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:352
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:355
 msgid "Start VR before opening SteamVR's binding editor. The off hand's B opens the wrist menu; point with the main hand and click with its trigger. Its stick scrolls."
 msgstr "SteamVR 바인딩 편집기를 열기 전에 VR을 시작하세요. 반대쪽 손의 B로 손목 메뉴를 엽니다. 주로 쓰는 손으로 가리키고 트리거로 클릭하며 스틱으로 스크롤합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:362
 msgid "Not checked"
 msgstr "확인 안 됨"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "Yes"
 msgstr "예"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "No"
 msgstr "아니요"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:368
 msgid "chosen for this GPU"
 msgstr "이 GPU에 맞춰 선택"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:368
 msgid "set by hand"
 msgstr "수동 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:368
 msgid "back to Auto"
 msgstr "자동으로 돌아감"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:369
 msgid "frames were missed"
 msgstr "프레임이 누락됨"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:369
 msgid "frames have headroom"
 msgstr "프레임에 여유가 있음"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:375
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:378
 msgid "Height calibrated. Exit VR, then Start VR to use the new world scale."
 msgstr "키 보정 완료. 새 월드 배율을 사용하려면 VR을 종료한 후 다시 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:378
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:381
 #, c-format
 msgid "SteamVR installed: %s; running: %s"
 msgstr "SteamVR 설치: %s; 실행: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:381
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:384
 #, c-format
 msgid "Headset: %s; %s Hz; recommended per eye: %s"
 msgstr "헤드셋: %s; %s Hz; 눈당 권장 크기: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:386
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:389
 #, c-format
 msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
 msgstr "fps_max가 %s로 헤드셋의 %s Hz보다 낮습니다. 게임 콘솔에 fps_max %s를 입력하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:391
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:394
 #, c-format
 msgid "Controllers tracked: left %s; right %s"
 msgstr "컨트롤러 추적: 왼쪽 %s; 오른쪽 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:394
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:397
 #, c-format
 msgid "Quality: %s, %s"
 msgstr "품질: %s, %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:396
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:399
 #, c-format
 msgid "Frame rate: %s of %s per second; GPU: %s of %s ms"
 msgstr "프레임 속도: 초당 %s / %s, GPU: %s / %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:398
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:401
 msgid "The runtime refused a quality step."
 msgstr "런타임이 품질 단계를 거부했습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:400
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:403
 msgid "Frames are being missed while the GPU has room. A lower step would not help, so the step stays."
 msgstr "프레임이 누락되고 있지만 GPU에는 여유가 있습니다. 단계를 낮춰도 나아지지 않으므로 단계를 유지합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:402
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:405
 #, c-format
 msgid "Stereo: %s"
 msgstr "스테레오: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:402
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:405
 msgid "each eye path traced"
 msgstr "눈마다 패스 트레이싱"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:403
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:406
 msgid "one picture turned into both eyes"
 msgstr "한 장의 화면을 양쪽 눈으로 변환"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:407
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:410
 msgid "Frame generation: off; VR renders every frame."
 msgstr "프레임 생성: 꺼짐. VR이 모든 프레임을 렌더링합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:409
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:412
 msgid "Frame generation: SteamVR's Motion Smoothing is not available on this GPU, so SteamVR repeats frames instead."
 msgstr "프레임 생성: 이 GPU에서는 SteamVR의 모션 스무딩을 쓸 수 없어 SteamVR이 대신 프레임을 반복합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:411
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:414
 msgid "Frame generation: Motion Smoothing is off in SteamVR. Turn it on in SteamVR > Settings > Video > Motion Smoothing."
 msgstr "프레임 생성: SteamVR에서 모션 스무딩이 꺼져 있습니다. SteamVR > 설정 > 비디오 > 모션 스무딩에서 켜세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:413
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:416
 #, c-format
 msgid "Frame generation: SteamVR Motion Smoothing; making frames now: %s"
 msgstr "프레임 생성: SteamVR 모션 스무딩, 지금 프레임 생성 중: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:416
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:419
 msgid "True stereo needs DLSS Ray Reconstruction and the physical sky, so one picture is turned into both eyes."
 msgstr "진짜 스테레오에는 DLSS 광선 재구성과 물리 기반 하늘이 필요하므로 한 장의 화면을 양쪽 눈으로 변환합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:419
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:422
 #, c-format
 msgid "Compositor: GPU %s ms; CPU %s ms"
 msgstr "컴포지터: GPU %s ms; CPU %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:424
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:427
 #, c-format
 msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
 msgstr "재투영: %s%%; 누락: %s%% (누적)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:425
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:428
 #, c-format
 msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
 msgstr "런타임 GPU(ms): 전체 %s; 추적 %s; 업스케일 %s; 워프 %s; 기타 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:427
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:430
 #, c-format
 msgid "Centre: %s; traced: %s; submitted per eye: %s"
 msgstr "중앙: %s; 추적: %s; 눈당 제출 크기: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:429
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:432
 #, c-format
 msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
 msgstr "제출 프레임: %s; 제출 오류: %s; 포즈 일치 / 불일치: %s / %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:437
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:440
 msgid "Start VR"
 msgstr "VR 시작"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:443
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:446
 msgid "Check status"
 msgstr "상태 확인"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:445
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:448
 msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
 msgstr "상태 확인은 VR 모듈만 불러옵니다. VR 시작을 누르면 SteamVR이 시작되며 몇 초 걸릴 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:448
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:451
 msgid "Auto quality is on unless you choose a step under Quality. For RTX, 80 or 90 Hz is recommended."
 msgstr "품질에서 단계를 고르지 않으면 자동 품질이 켜져 있습니다. RTX에는 80 또는 90 Hz를 권장합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:451
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:454
 msgid "World scale"
 msgstr "월드 배율"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:453
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:456
 msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
 msgstr "미터당 게임 단위 수입니다. 기본값 40은 72단위 모델을 키 1.8 m인 사람에 맞춥니다. 변경 후 VR을 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:454
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:457
 msgid "Render scale"
 msgstr "렌더 배율"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:456
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:459
 msgid "The highest render scale VR may use, on SteamVR's recommended eye size. Auto may choose a lower one. Changes take effect at once."
 msgstr "VR이 사용할 수 있는 최대 렌더 배율로, SteamVR 권장 한쪽 눈 크기가 기준입니다. 자동은 더 낮은 배율을 고를 수 있습니다. 변경은 즉시 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:457
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:460
 msgid "Culling FOV"
 msgstr "컬링 시야각"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:459
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:462
 msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
 msgstr "엔진 가시 범위는 기본 145도이며 Index에서 16:9로 검증했습니다. 렌더링 투영은 헤드셋이 제공합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:460
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:463
 msgid "Use nl_vr_start and nl_vr_exit in the console. VR works in single-player games only."
 msgstr "콘솔에서는 nl_vr_start와 nl_vr_exit를 사용합니다. VR은 싱글 플레이에서만 작동합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:475
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:478
 msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; Auto starts at its lowest step."
 msgstr "이 GPU에서는 VR이 느릴 수 있습니다. VRAM이 12 GB 미만이거나 성능 등급이 낮습니다. VR 시작은 가능하며 자동은 가장 낮은 단계에서 시작합니다."
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:22
+msgid "RTX Remix was removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod to finish."
+msgstr "로더(bin/win64/winmm.dll)가 없어서 이 게임에서 RTX Remix를 제거했습니다. 제거를 마치려면 Garry's Mod를 다시 시작하세요."
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:23
+msgid "RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed."
+msgstr "로더(bin/win64/winmm.dll)가 없어서 이 게임에서 RTX Remix를 일부 제거했습니다. Garry's Mod를 다시 시작하세요. 남은 항목은 콘솔에 표시됩니다."
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
 msgid "Garry's Mod is not finishing its start"

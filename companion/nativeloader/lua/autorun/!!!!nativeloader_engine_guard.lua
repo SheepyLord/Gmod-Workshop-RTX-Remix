@@ -35,7 +35,12 @@ local function rtxStart()
     local marking = major and (tonumber(major) * 1000000 + tonumber(minor) * 1000 + tonumber(patch)) >= 14000
     return not marking or markerHeld()
 end
-if not rtxStart() then return end
+-- ADR 0206: the same answer, worked out once, for the companion's other autoruns and the RTX fixes' (this file sorts
+-- before them), which do nothing in a start where this machine's loader did not activate RTX: an off switch, a loader
+-- that was removed, or files a loader left behind.
+local isRTXStart = rtxStart()
+NativeLoaderRTXStart = function() return isRTXStart end
+if not isRTXStart then return end
 
 local guard = rawget(_G, "nlengineguard")
 if type(guard) ~= "table" then

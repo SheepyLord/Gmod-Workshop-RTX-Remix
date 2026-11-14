@@ -28,5 +28,9 @@ a scenario.
 | `menu-off` | the client's off file present: nothing loaded, one line |
 | `menu-not-menu` | outside the menu realm: nothing loaded |
 
+Every scenario but two runs as an RTX start of loader 0.16.0 (a mocked `status.json` and the held
+`rtx-session.txt`); `not-rtx` (no report) and `not-rtx-marker` (the report, but no marker) check that the add-on
+then makes no convar, loads no module and leaves `file.Find` alone (ADR 0206).
+
 Prints `PASS <scenario>`; any difference is a Lua error (nonzero exit). Writes no files and launches no game. Run by
 [`test_load_accel.py`](test_load_accel.py.md).

@@ -129,6 +129,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0203](0203-precise-vr-holds-follow-the-hand.md) | Precise VR holds follow the hand, and held props are drawn where the hand is | Accepted 2026-11-13 (VR V8) |
 | [0204](0204-the-holding-hands-trigger-freezes.md) | The holding hand's trigger freezes what it holds | Accepted 2026-11-13 (VR V8) |
 | [0205](0205-frame-generation-in-vr-is-motion-smoothing.md) | Frame generation in the headset is SteamVR's Motion Smoothing, behind a switch | Accepted 2026-11-13 (VR V8) |
+| [0206](0206-rtx-a-removed-loader-left-removes-itself.md) | RTX a removed loader left removes itself; the package's Lua stays out of every start without RTX | Accepted 2026-11-13 |
 | [0210](0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md) | An add-on's notice of the guard's refusal stays off the screen: MineMod's "Default texture pack is not ready" line (GitHub issue 5), shader policy unchanged | Accepted 2026-11-13 (issue 5, approved by the user) |
 
 ## Template

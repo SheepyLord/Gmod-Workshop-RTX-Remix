@@ -3,6 +3,9 @@
 -- keep updating it normally. No captured render-target hashes or persistent Remix categories.
 -- R24: other live screens on the view model come from providers (NativeLoaderScreens.Register): the RTX fixes'
 -- ARC9 patch gives its gun screen charms (kill counter, clock), whose render target is black in the path-traced image.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local enabled = CreateClientConVar("nativeloader_toolgun_screen", "1", true, false,
     "Draw the live toolgun screen after Remix upscaling to keep animated text readable")
 local others = CreateClientConVar("nativeloader_weapon_screens", "1", true, false,

@@ -146,8 +146,10 @@ Settings (native-loader\config.json)
 - -nonativeloader in the launch options (or the environment variable NATIVE_LOADER_DISABLE=1, or a
   file named native-loader\disable) skips the loader for that start, for troubleshooting. It is not
   a way to play without RTX: the loader then deploys, hides and puts back nothing. The package's
-  add-ons stay in the game and run without Remix, console settings an RTX session changed stay as
-  they are, and a Workshop update waits for the next start with the loader. It uninstalls nothing.
+  add-ons stay in the game: its own Lua (the RTX Remix tab, the RTX fixes) does nothing in such a
+  start, the other bundled add-ons run as ordinary add-ons, console settings an RTX session changed
+  stay as they are, and a Workshop update waits for the next start with the loader. It uninstalls
+  nothing.
 - Loader 0.11.0 also reads these, all optional. An older loader rejects them and starts without
   RTX, so replace bin\win64\winmm.dll first.
   - "remix": { "performance_tier": "low" } picks the tier yourself: "high", "medium" or "low";
@@ -246,5 +248,8 @@ Removing
 - Delete bin\win64\winmm.dll: the next start is plain Garry's Mod again. Do it after the
   unsubscribed package is gone (one start later), so your own files are back first; otherwise
   they stay in native-loader\backup\originals.
-- The files the loader deployed stay where they are but are no longer used. To remove them too, see
-  the project's uninstall steps: "nlctl uninstall" in the loader's repository.
+- If bin\win64\winmm.dll is deleted before the package is gone, the files the loader deployed stay,
+  and Garry's Mod would mount the package's add-ons without RTX. The RTX package removes them itself
+  (2026-11 or later): start a single-player game once; the chat says RTX Remix was removed, then
+  restart Garry's Mod. Its own files the game had open move to native-loader\backup\in-use, which
+  you can delete. With an older package, put winmm.dll back, start the game once, then delete it.

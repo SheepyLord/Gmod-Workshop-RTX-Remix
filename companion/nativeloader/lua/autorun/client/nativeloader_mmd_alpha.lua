@@ -1,6 +1,9 @@
 -- Model Hotloader's public mmd/<asset>/<part> materials and its soft copies share base textures.
 -- Send their Remix hashes to a NoSave category joined with the user's saved rtx.mmdAlphaTextures.
 -- No material, asset, persistent Remix option or file is changed. See ADR 0081.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local OPTION = "rtx.gmod.mmdAlphaTexturesForSession"
 local DISCOVER, LOOKUPS = 128, 16 -- maximum asset slots and material/hash lookups per frame
 local SWEEP, POLL = 1, 0.1

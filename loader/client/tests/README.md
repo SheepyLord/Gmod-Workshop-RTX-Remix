@@ -19,6 +19,10 @@ adopted, partly an original is gone after archive, release, a second deployment 
 adopted) and the uninstall. `test_module.cpp` adds that the originals move only after the catalog is verified and
 before the callbacks, and the adopted files only from `GMOD_MODULE_CLOSE`, without a client realm or another game.
 
+`test_leftovers.cpp` (ADR 0206) checks, through the real deployer, that the loader counts as installed while `bin/win64/winmm.dll` is in the folder; that nothing happens without the loader's journal or without the RTX package in it (another package's journal stays); that with the loader gone `remove_leftovers` leaves no file of the package at its paths and removes the journal and the lock, puts the player's own Remix mod back, archives an earlier RTX installation's original and adopted files in `former-rtx`, moves the binary module the test holds mapped as an image (Windows refuses to delete it) to `native-loader/backup/in-use/<stamp>/` with an index and finishes the uninstall, returns the console setting the player had not changed since and marks the record; and that another deployment's lock leaves everything as it was, until it is free. It also checks `another_game`: a copy of Windows' `ping.exe` named the fixture's `gmod.exe` and started by the test
+(as the game starts its Chromium helpers) is not another game; one started through a `cmd.exe` that ends at once, so
+that it does not descend from the test, is. `test_module.cpp` adds that a server realm gets only `NativeLoaderLeftovers`, raw, acting for that state, the module's own folder and this process's `gmod.exe`, with no path from Lua.
+
 `test_addon_list.cpp` (ADR 0189) checks the add-on list writer against GMod's own file byte for byte (and the
 loader's reader of it), a missing list and one written on one line, refusals of other files, bad ids and links, and,
 through the real deployer with a Workshop fixture, that the RTX item in the list removes the package at the next start

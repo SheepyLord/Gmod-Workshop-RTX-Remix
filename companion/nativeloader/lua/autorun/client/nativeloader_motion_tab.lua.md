@@ -39,3 +39,5 @@ The tab itself writes no files and sends nothing; the add-on's sections do what 
 (read the files the player chooses through Model Hotloader, write the motion into `data/`, ask the
 server for the motion list). No process exit code; missing Sandbox APIs skip registration.
 Tested by [test_motion_tab.py](../../../../../tools/tests/test_motion_tab.py.md).
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

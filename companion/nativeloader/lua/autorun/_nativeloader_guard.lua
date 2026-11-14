@@ -541,6 +541,7 @@ lua/autorun/nlglass.lua
 lua/autorun/poolrooms_rtx.lua
 lua/autorun/rtx_water.lua
 lua/autorun/server/hl2rtx_model_compat.lua
+lua/autorun/server/nativeloader_leftovers.lua
 lua/autorun/server/sv_portals_pvs.lua
 lua/autorun/server/sv_prop_teleport.lua
 lua/autorun/sh_detours.lua

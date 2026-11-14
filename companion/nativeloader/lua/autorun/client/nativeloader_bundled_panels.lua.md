@@ -9,3 +9,5 @@ companion catalog; otherwise the existing six-catalog title/category are used.
 Returns when the full nativeloader_menu.lua exists, so the combined package has its original single
 wrapper/category owner. Idempotent; no settings, files, network or native preferences are changed.
 No process exit code. The packager attaches this maintained source to the independent screen part.
+
+Only in this machine's RTX starts ([ADR 0206](../../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)): its first line of code returns when `NativeLoaderRTXStart()`, set by `!!!!nativeloader_engine_guard.lua`, says the loader did not activate RTX (a start through an off switch, a removed loader, files a loader left behind).

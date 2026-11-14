@@ -5,6 +5,9 @@
 -- release goes to the game instead, the drag never ends, and the DrawOverlay hook "DragNDropPaint" keeps painting the
 -- icon at the last cursor position. A drag needs a visible cursor, and a panel on screen or a held button: once that
 -- is no longer so, it is ended here as GMod ends one (dragndrop.StopDragging) and the panel lets the mouse go.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 if SERVER then return end
 
 local MAX_DEPTH = 64

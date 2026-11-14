@@ -1,4 +1,7 @@
 -- Imported files retain their authored normals; Remix may regenerate them for world draws.
+-- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
+-- !!!!nativeloader_engine_guard.lua, which runs first).
+if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
 local enabled = CreateClientConVar("nativeloader_imported_model_normals", "0", true, false)
 local nextScan, sent = 0, nil
 local tracked = {}

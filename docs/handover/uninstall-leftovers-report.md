@@ -134,5 +134,17 @@ A package update cannot reach a game that already unsubscribed, so they need to 
 `tools\test.ps1 -Config Release` passes on the branch (uncommitted, 2026-11-13), last after the PoC series' fixes: the
 conventions, the C++ build and CTest (35 of 35; the client module's 48 cases among them), Python 29 + 26 + 1,868
 tests. An earlier run failed only on two documentation checks (the decision index takes table rows; a roadmap link
-was checked before this report existed), both fixed. The branch was cut from `a897abe9`; `main` has moved since
-(issue 5, `951fafa2`), so the merge needs a rebase and the gate again.
+was checked before this report existed), both fixed. The branch was cut from `a897abe9`; `main` had moved since
+(issue 5, then VR V8), so the branch was rebased onto `9d422240` (the shared docs kept both sides' additions, the
+translation catalogs regenerated from the merged Lua with this branch's two translations) and the gate passed again
+on the rebased tree: 35 of 35, Python 29 + 26 + 1,897 tests.
+
+## Published
+
+The user approved the merge on 2026-11-13 ("Merge and publish"). `main` was fast-forwarded to `b7411ff7` in the main
+checkout; the merge's hook built the package from `packages/` and uploaded item 3829070317 as
+**0.0.0-dev.20261114043600+85469ba3** (2,086,649,608 bytes, SHA-256
+`e47bb9b1269c3e88095ec2e3ebd206ef820d3252dabcda63a112ac75023f61b5`, content digest `edd89fc2...`), at 04:36 UTC on
+2026-11-14. It is the PoC's tested `0.0.0-uninst.2` plus `main`'s VR V8 and issue 5 changes. This record and `main`
+were then pushed to GitHub (one new Git LFS object, the client module). No GitHub Action was started; the loader is
+unchanged.

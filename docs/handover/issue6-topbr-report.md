@@ -131,7 +131,7 @@ two list entries, now gone. Before the gate: both native regressions, the four L
 - The reply below is a draft: it says the fix comes with the next package update, which a merge of this branch into
   `main` publishes, and asks for the console line only to confirm which mod triggered it.
 
-## Reply draft for the issue (not posted)
+## Reply draft for the issue (superseded by the posted reply below)
 
 > Thanks for the detailed report, and sorry: my earlier reply was wrong. ToPBR has not been replaced; it is still the
 > only part of the package that converts map and prop materials, and it is being fixed rather than removed. (The
@@ -156,3 +156,12 @@ two list entries, now gone. Before the gate: both native regressions, the four L
 ## Published
 
 The user asked for the round to be committed and pushed when finished (2026-11-14: "Commit and push after you finish"). `main` was fast-forwarded to `058f28cf` (the round on `qol-1114`, one squashed commit per item, after the gate passed on the combined tree: C++ 35 of 35, Python 1,958 + 29 + 26 tests); the merge's hook built the package from `packages/` and uploaded item 3829070317 as **0.0.0-dev.20261114090900+c46c58b9** (2,088,047,623 bytes, SHA-256 `94061aff390e3ebbddcbbc689610ee7c10439f1c5d3f444c343f714f8b1c9ae4`, content digest `cb36cc1c...`) at 2026-11-14 09:09:20 UTC. Not yet checked in a game: the checks above are open.
+
+## Reply posted
+
+On the user's go-ahead (2026-11-14, "Post it") the reply was posted on the issue at 2026-11-14 19:05 UTC:
+https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues/6#issuecomment-6882708564. It is the draft above
+reworded for the published fix: it names the package version that carries it (0.0.0-dev.20261114090900), drops the
+check before the update and keeps the console lines to expect after it (`Published N fallback materials (...
+scan=partial)` with N above 0, and the `Mod scan partial` line naming the first file not read). The issue stays open
+for the reporter's answer; post nothing more there without the user.

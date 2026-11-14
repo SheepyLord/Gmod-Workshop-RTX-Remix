@@ -69,6 +69,15 @@ seconds on screen, counted while the pointer is not over it. Three new messages 
 
 Not covered: the field install; the note's Open the collection in the user's own game with the Steam overlay; VR.
 
+## Published
+
+`main` fast-forwarded to `5d6285de` after `tools\test.ps1 -Config Release` passed (with `NL_FIXES_CLONE`, so the patch
+replay ran), pushed with the fixes module's Git LFS object. The merge's hook uploaded item 3829070317 as
+**0.0.0-dev.20261114214127+c7ab57a1** (2,148,123,748 bytes, SHA-256
+`c7707a68c8b025d546e040b36953274d892593bb1e543e9162b560563d61ebf5`, content digest `2e148b11...`) at 2026-11-14 21:41
+UTC; the push's hook found the same inputs and uploaded nothing. The PoC's loader was uninstalled afterwards, as the
+runtime update's round left it.
+
 ## Open
 
 - Legacy Emissive by default (for `$selfillum`): the user's decision.

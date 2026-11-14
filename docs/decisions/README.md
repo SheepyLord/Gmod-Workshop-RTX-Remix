@@ -130,6 +130,8 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0204](0204-the-holding-hands-trigger-freezes.md) | The holding hand's trigger freezes what it holds | Accepted 2026-11-13 (VR V8) |
 | [0205](0205-frame-generation-in-vr-is-motion-smoothing.md) | Frame generation in the headset is SteamVR's Motion Smoothing, behind a switch | Accepted 2026-11-13 (VR V8) |
 | [0206](0206-rtx-a-removed-loader-left-removes-itself.md) | RTX a removed loader left removes itself; the package's Lua stays out of every start without RTX | Accepted 2026-11-13 |
+| [0208](0208-the-rtx-flashlights-automatic-brightness.md) | The RTX flashlight's automatic brightness, on by default: seven traces across the beam make one distance, the light eases to (d / 256)^1.6 within 1/64-8, down fast and up gently; the haze is not boosted | Accepted 2026-11-14 (branch `qol-lights`) |
+| [0209](0209-the-dance-lights-uniform-lighting-and-options.md) | The dance light's uniform lighting (off by default): the light follows the inverse square of its distance to where its axis passes the framed or nearest dancing character, set at once across cuts; aim at the character, colour temperature, a rim light and presets | Accepted 2026-11-14 (branch `qol-lights`) |
 | [0210](0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md) | An add-on's notice of the guard's refusal stays off the screen: MineMod's "Default texture pack is not ready" line (GitHub issue 5), shader policy unchanged | Accepted 2026-11-13 (issue 5, approved by the user) |
 
 ## Template

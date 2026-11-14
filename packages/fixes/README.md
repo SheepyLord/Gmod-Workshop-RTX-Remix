@@ -6,6 +6,20 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## The flashlight's automatic brightness (2026-11-14)
+
+The user's request ([ADR 0208](../../docs/decisions/0208-the-rtx-flashlights-automatic-brightness.md)): the
+flashlight adjusts its brightness to what it lights, on by default. Imported with `inputs.py --file`; every other
+indexed input is unchanged.
+
+- `remixlua/cl/remixapi/cl_remix_flashlight.lua`: seven traces across the beam each frame make one distance; the light
+  eases to (distance / `rtx_flashlight_auto_distance`)^(2 x `rtx_flashlight_auto_strength`), within 1/64 and
+  `rtx_flashlight_auto_max`, down fast and up gently; the haze is not boosted; `rtx_flashlight_auto 0` is the light as
+  before. The menu's Automatic Brightness section and Reset.
+- `remixlua/cl/remixapi/cl_remix_light_gain.lua` (new): the distance maths, this project's own code (MIT), byte for byte
+  the character motion importer's `mmd_vmd_npc/cl_light_gain.lua`, which its dance light uses
+  ([ADR 0209](../../docs/decisions/0209-the-dance-lights-uniform-lighting-and-options.md)).
+
 ## The fixes never read a queued draw's renderable (2026-11-12)
 
 The VR work's crash triage found a crash in the fixes, not in VR

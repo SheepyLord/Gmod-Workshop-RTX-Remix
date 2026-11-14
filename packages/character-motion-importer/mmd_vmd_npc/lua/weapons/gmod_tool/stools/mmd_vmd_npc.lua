@@ -1221,6 +1221,26 @@ function TOOL.BuildCPanel(panel)
     add_checkbox_with_help(lightingTab, L("mmd_vmd_npc.lighting.follow_eye"), "mmd_vmd_npc_flashlight_follow_eye", L("mmd_vmd_npc.lighting.follow_eye_help"))
     add_checkbox_with_help(lightingTab, L("mmd_vmd_npc.lighting.shadows"), "mmd_vmd_npc_flashlight_shadows", L("mmd_vmd_npc.lighting.shadows_help"))
 
+    -- Presets and character lighting (ADR 0209; cl_flashlight.lua defines the presets).
+    local presetCombo = lightingTab:ComboBox(L("mmd_vmd_npc.lighting.preset"))
+    presetCombo:SetValue(L("mmd_vmd_npc.lighting.preset_choose"))
+    for _, preset in ipairs(MMDVMDNPC.FlashlightPresets or {}) do
+        presetCombo:AddChoice(L(preset.label), preset.id)
+    end
+    presetCombo.OnSelect = function(_, _, _, id)
+        if MMDVMDNPC.ApplyFlashlightPreset then MMDVMDNPC.ApplyFlashlightPreset(id) end
+    end
+    lightingTab:Help(L("mmd_vmd_npc.lighting.preset_help"))
+
+    section(lightingTab, L("mmd_vmd_npc.lighting.character"), Color(255, 220, 120))
+    add_checkbox_with_help(lightingTab, L("mmd_vmd_npc.lighting.uniform"), "mmd_vmd_npc_flashlight_uniform", L("mmd_vmd_npc.lighting.uniform_help"))
+    add_slider(lightingTab, L("mmd_vmd_npc.lighting.strength"), "mmd_vmd_npc_flashlight_uniform_strength", 0, 1, 2)
+    add_slider(lightingTab, L("mmd_vmd_npc.lighting.normal_distance"), "mmd_vmd_npc_flashlight_uniform_distance", 32, 1024, 0)
+    add_slider(lightingTab, L("mmd_vmd_npc.lighting.max_boost"), "mmd_vmd_npc_flashlight_uniform_max", 1, 64, 0)
+    add_checkbox_with_help(lightingTab, L("mmd_vmd_npc.lighting.aim"), "mmd_vmd_npc_flashlight_aim", L("mmd_vmd_npc.lighting.aim_help"))
+    add_slider(lightingTab, L("mmd_vmd_npc.lighting.rim"), "mmd_vmd_npc_flashlight_rim", 0, 2, 2)
+    lightingTab:Help(L("mmd_vmd_npc.lighting.rim_help"))
+
     section(lightingTab, L("mmd_vmd_npc.lighting.beam"), Color(255, 220, 120))
     add_slider(lightingTab, L("mmd_vmd_npc.lighting.brightness"), "mmd_vmd_npc_flashlight_brightness", 0, 100, 2)
     add_slider(lightingTab, L("mmd_vmd_npc.lighting.fov"), "mmd_vmd_npc_flashlight_fov", 5, 170, 0)
@@ -1234,6 +1254,8 @@ function TOOL.BuildCPanel(panel)
     add_slider(lightingTab, L("mmd_vmd_npc.lighting.rtx_volumetric"), "mmd_vmd_npc_flashlight_rtx_volumetric", 0, 5, 1)
 
     section(lightingTab, L("mmd_vmd_npc.lighting.color"), Color(255, 220, 120))
+    add_slider(lightingTab, L("mmd_vmd_npc.lighting.temperature"), "mmd_vmd_npc_flashlight_temperature", 0, 12000, 0)
+    lightingTab:Help(L("mmd_vmd_npc.lighting.temperature_help"))
     add_slider(lightingTab, L("mmd_vmd_npc.lighting.color_r"), "mmd_vmd_npc_flashlight_color_r", 0, 255, 0)
     add_slider(lightingTab, L("mmd_vmd_npc.lighting.color_g"), "mmd_vmd_npc_flashlight_color_g", 0, 255, 0)
     add_slider(lightingTab, L("mmd_vmd_npc.lighting.color_b"), "mmd_vmd_npc_flashlight_color_b", 0, 255, 0)

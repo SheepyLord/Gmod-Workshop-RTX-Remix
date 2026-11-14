@@ -593,6 +593,7 @@ lua/mmd_vmd_npc/cl_flashlight.lua
 lua/mmd_vmd_npc/cl_import_bake.lua
 lua/mmd_vmd_npc/cl_import_data.lua
 lua/mmd_vmd_npc/cl_importer.lua
+lua/mmd_vmd_npc/cl_light_gain.lua
 lua/mmd_vmd_npc/cl_menu.lua
 lua/mmd_vmd_npc/cl_radial.lua
 lua/mmd_vmd_npc/sh_core.lua
@@ -761,6 +762,7 @@ lua/remixlua/cl/remixapi/cl_remix_category_1_pseudoplayer.lua
 lua/remixlua/cl/remixapi/cl_remix_category_debug.lua
 lua/remixlua/cl/remixapi/cl_remix_flashlight.lua
 lua/remixlua/cl/remixapi/cl_remix_light_cmd.lua
+lua/remixlua/cl/remixapi/cl_remix_light_gain.lua
 lua/remixlua/cl/remixapi/cl_remix_map_configs.lua
 lua/remixlua/cl/remixapi/debug_hash_hud.lua
 lua/remixlua/cl/remixapi/rtx_hash_lookup.lua

@@ -3281,3 +3281,30 @@ button's two clocks and same-frame readiness, the empty hold's 3500 s floor, the
 reload, the left-hand melee-walk step, the hands-phase can inside the hand's sphere, and phase 15's level window;
 see [the V8 report](handover/VR-V8-report.md). V7's package fails the button, rocket, walk and can checks the same
 way; the empty hold's floor depends on a session's length, not the version.
+
+## Lights: the flashlight's automatic brightness and the dance light's uniform lighting (2026-11-14, Claude, branch `qol-lights`)
+
+Offline, in the gate ([ADR 0208](decisions/0208-the-rtx-flashlights-automatic-brightness.md),
+[ADR 0209](decisions/0209-the-dance-lights-uniform-lighting-and-options.md)):
+
+- [test_flashlight.py](../tools/tests/test_flashlight.py.md)'s `test_client_automatic_brightness`
+  ([flashlight_harness.lua](../tools/tests/flashlight_harness.lua.md) `auto`): the packaged `cl_remix_flashlight.lua`
+  with a wall at chosen distances: on by default, the light comes on at its measured gain, dims over 90 % within
+  0.2 s, brightens under a third of the way in 0.2 s up to Max Boost, the haze divided by the boost, traces in a solid
+  ignored, the player's car (and the seat's parent) left out, off is the fixed radiance with no traces, seven traces a
+  frame for your own light and about seven a tenth of a second for another player's, the menu's four settings and
+  Reset. The R19 `server` and `client` checks are unchanged.
+- [test_lights.py](../tools/tests/test_lights.py.md): the two copies of the shared maths are the same bytes and pass
+  [light_gain_harness.lua](../tools/tests/light_gain_harness.lua.md); the dance light under
+  [dance_light_harness.lua](../tools/tests/dance_light_harness.lua.md) in eight scenarios (the defaults as before,
+  uniform lighting through cuts and a dolly-in, the subject, aim, colour temperature, the rim light, presets, the
+  vanilla projected texture); every Lighting-tab key and preset label is in the add-on's English catalog and every
+  setting has a control.
+- `tools/check_addon_i18n.py` (the motion catalog's nineteen new keys in all nine languages) and
+  `tools/companion_i18n.py check` (the flashlight's six new texts in the six catalogs), both in the gate.
+- Each harness was run against deliberately broken copies (no cut snap, no hold on a miss, aiming at the feet, picking
+  the nearest dancer instead of the one on the axis, no rim share, no luminance scaling, symmetric easing, remote
+  lights measured every frame, solid traces counted, no initial gain, traces from the light, no vehicle filter): each
+  break failed its scenario.
+
+Not yet checked in a game (the user's call): see [the report](handover/lights-report.md) for the list.

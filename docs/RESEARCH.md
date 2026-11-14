@@ -8387,3 +8387,54 @@ Fixed in the render guard ([ADR 0210](decisions/0210-an-add-ons-notice-of-the-gu
   and the RTX-session marker is not held, so `NativeLoaderRTXStart()` is false. Every start where the runtime does not
   activate, with the loader's config enabled, restores the session cvars and hides the RTX add-ons
   (`loader/proxy/startup.cpp:413-425`).
+
+## The RTX flashlight and the dance light: what sets their brightness (2026-11-14, Claude, ADR 0208, ADR 0209)
+
+Read for the flashlight's automatic brightness and the dance light's uniform lighting (branch `qol-lights`); nothing
+here was measured in a game.
+
+- **A Remix sphere light falls off with the square of the distance.** A uniformly radiant sphere of radius r lights a
+  surface facing it at distance d >= r with irradiance pi x radiance x (r / d)^2 (the radius-squared growth noted in
+  R2's field comparison above). Keeping a subject's light steady therefore takes an intensity proportional to d^2.
+  Shaping (the cone and its softness) multiplies by the angle only.
+- **Source's projected texture falls off as 100 / d.** The Source SDK 2013 flashlight shader
+  (`common_flashlight_fxc.h`, `DoFlashlight`) multiplies by `saturate(dot(attenuation, (1, 1/d, 1/d^2)))`, and GMod's
+  `ProjectedTexture` defaults to constant 0, linear 100, quadratic 0 (the player flashlight's `r_flashlightlinear 100`):
+  no fade within 100 units, then 100 / d, and a fade to 0 between 0.6 x far Z and far Z. From the SDK's source, not
+  measured here; the dance light's vanilla path compensates with exponent 1 and 100 units.
+- **The fixes' flashlight in the classic settings** (`companion/nativeloader/lua/nativeloader/classic_defaults.lua:93-102`):
+  Brightness 5 against the add-on's own default 1000 (radiance = colour x brightness / 1000, so 1.3 per channel),
+  cone angle 90, which Remix shaping reads as the half angle, a hemisphere, and the light 20 units behind the eyes
+  (`rtx_flashlight_offset_forward -20`): a trace from the light itself starts inside the wall a player backs against,
+  so the measurement starts at the eyes and measures from the light.
+- **The flashlight's `PreRender` hook gets no arguments.** `cl_remix_flashlight.lua:309` (before ADR 0208; 429 after)
+  declares `function(origin, angles, fov)`, but GMod's `PreRender` passes nothing, so the local light always follows
+  `ply:EyePos()` and `ply:EyeAngles()`. In VR the core copies the head's pitch and yaw (no roll) into the command's view
+  angles (`vr/addon/lua/nlvr/core/cl_core.lua.md`, "CreateMove copies head pitch/yaw"), so the flashlight follows the
+  head from the player's eye position. True stereo is the runtime's, so `PreRender` runs once a frame.
+- **VR has no flashlight hand.** `vr/addon/lua/nlvr/core/cl_input.lua:7` maps the main hand's stick click to a logical
+  `flashlight` action, and the input README lists it, but no module reads it (searched: `vr/addon`, `vr/native`,
+  `companion`); the VR plan's "Flashlight (on the off hand's wrist)" (`docs/handover/VR-plan.md:204`) was not built. In
+  the headset the flashlight is switched by the flashlight key (the fixes' `PlayerSwitchFlashlight` override).
+- **The dance light runs a frame behind the camera.** It updates from a `Think` hook (`cl_flashlight.lua`), which GMod
+  runs before the frame's `CalcView`; the camera path's view is published by `CalcView` (`cl_camera.lua:826-827`,
+  `CameraAnimViewOrigin/Angles`), the third-person self view by `cl_menu.lua:2465` (`SelfThirdPersonViewOrigin/Angles`,
+  its dancer `MMDVMDNPC.SelfPlaybackCameraEnt`). The camera path's dancer is `Entity(MMDVMDNPC.CameraAnimEntIndex)`; its
+  path is anchored to the dance's start (`cl_camera.lua:213-224`).
+- **Which entities dance, on a client.** `MMDVMDNPC.LocalPlaybacks` holds the dances this client poses itself
+  (`cl_menu.lua:1776-1815`, only when it has the built motion); the server flags every dancing entity with
+  `SetNW2Bool("MMDVMDNPCDancing", true)` (`sv_commands.lua:4246`), which `cl_menu.lua:2104` reads for PAC3. A dance
+  built in an earlier session reaches a client only through the flag.
+- **Imported characters' bones are ValveBiped.** The importer maps 上半身2, 首 and 頭 to `ValveBiped.Bip01_Spine2`,
+  `Bip01_Neck1` and `Bip01_Head1` (`cl_import_data.lua:163-165`); the camera's pivot is `ValveBiped.Bip01_Pelvis` or
+  `Pelvis` (`cl_camera.lua:243-262`).
+- **The motion importer's catalog has nine languages** (`sh_core.lua`: en, zh, ja, ko, fr, ru, ar, es, zh-tw; all but
+  English and zh-tw are merged over English). `tools/check_addon_i18n.py` checks Arabic and Spanish too and rejects a
+  translation equal to its English unless `tools/addon_i18n_unchanged.json` lists it, so a key added in English only
+  fails the gate.
+- **Every Lua file of `remixlua/cl/remixapi/` is a sub-add-on.** `autorun/cl_rtx.lua:78` (`LoadSubAddons`) `include`s
+  each file it finds there, so a module file in that folder runs once from the loader too (harmless when it only
+  returns a table), and the server sends the folder to clients (`autorun/sv_rtx.lua`).
+- **A new bundled Lua file needs a line in the render guard.** `tools/tests/test_render_guard_addons.py`
+  (`BundledMaterialPathTests`) requires the guard's exemption list in `_nativeloader_guard.lua` to be exactly the
+  indexed package and companion Lua paths, and checks each indexed file's SHA-256 against `files.json`.

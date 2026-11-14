@@ -115,3 +115,8 @@ SteamVR's menu path is given in each language's SteamVR words.
 ADR 0206 adds two messages, the chat notice of the clean-up of a removed loader's files
 (`autorun/server/nativeloader_leftovers.lua`). Their translations in all six catalogs are agent-written by Claude and
 not yet human-reviewed; the path `bin/win64/winmm.dll` is kept as it is.
+ADR 0208 adds six texts to the bundled add-ons' catalogs (`addons/`): the RTX flashlight's Automatic Brightness section
+(the heading, the switch, its help line, Strength, Normal Distance, Max Boost). ADR 0209 adds nineteen keys to the
+character motion importer's own catalog (`sh_core.lua` in its part, not here), in all eight of its other languages
+including Arabic and Spanish. Both sets are agent-written by Claude and not yet human-reviewed; the unit K and
+the ranges are kept as they are.

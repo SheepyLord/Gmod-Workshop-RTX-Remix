@@ -69,6 +69,12 @@ off the screen: [issue5-report.md](issue5-report.md), by Claude, package only, m
 an in-game check and published 2026-11-13
 ([ADR 0210](../decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md)).
 
+Then the user's requests of 2026-11-14 on the lights (the RTX flashlight's automatic brightness, on by default; the
+dance animation player's light with uniform lighting, aim, colour temperature, a rim light and presets):
+[lights-report.md](lights-report.md), by Claude on the branch `qol-lights`, package only, not merged
+([ADR 0208](../decisions/0208-the-rtx-flashlights-automatic-brightness.md),
+[ADR 0209](../decisions/0209-the-dance-lights-uniform-lighting-and-options.md)).
+
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),
 by Claude (no Codex). Its follow-up, the fixes part's Seamless Portals off the same crash path:

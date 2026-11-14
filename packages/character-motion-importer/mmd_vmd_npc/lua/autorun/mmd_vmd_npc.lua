@@ -6,6 +6,7 @@ if SERVER then
     AddCSLuaFile("mmd_vmd_npc/cl_camera.lua")
     AddCSLuaFile("mmd_vmd_npc/cl_menu.lua")
     AddCSLuaFile("mmd_vmd_npc/cl_flashlight.lua")
+    AddCSLuaFile("mmd_vmd_npc/cl_light_gain.lua")
     AddCSLuaFile("mmd_vmd_npc/cl_import_data.lua")
     AddCSLuaFile("mmd_vmd_npc/cl_import_bake.lua")
     AddCSLuaFile("mmd_vmd_npc/cl_importer.lua")

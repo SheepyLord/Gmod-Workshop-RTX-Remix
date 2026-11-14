@@ -6,6 +6,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- The RTX flashlight adjusts its brightness to what it lights, on by default: seven traces across the beam find how
+  far it lands, near hits counting most, and the light eases to the level that keeps that distance as bright as the
+  normal distance (256 units), dimming within a few frames for a wall up close and brightening gently for far ones, up
+  to Max Boost (8). Brightness stays the level at the normal distance; the haze is not boosted; the player's own car
+  is left out; `rtx_flashlight_auto 0` is the fixed light as before. Lights > Flashlight has an Automatic Brightness
+  section (switch, Strength, Normal Distance, Max Boost; Reset restores them). Works the same in VR, where the light
+  follows the head ([ADR 0208](docs/decisions/0208-the-rtx-flashlights-automatic-brightness.md)).
+- The dance animation player's light (MMD VMD NPC, the tool's Lighting tab) gets uniform lighting: its intensity
+  follows the inverse square of its distance to the dancing character the camera frames (else the one its beam points
+  at, else what it points at), so the dancer stays equally lit through a camera path's close-ups and wide shots, set at
+  once across cuts; Strength, Normal distance and Max boost. Also new: aim at the character, a colour temperature, a
+  rim light behind the character and four presets (Camera light, Uniform camera light, Follow spot, Stage with rim
+  light). All off by default, so the light stays as it was; translated into the add-on's nine languages
+  ([ADR 0209](docs/decisions/0209-the-dance-lights-uniform-lighting-and-options.md)). Both lights share one distance
+  maths file, shipped in each part and checked byte-identical.
+
 - VR grabbing is precise and hands-on (V8, approved by the user on 2026-11-13): a held object keeps its pose in the
   hand, comes to rest against the palm and follows the hand's movement and wrist turns with the hand's own velocity
   and spin fed forward, so turning the wrist turns it; light objects follow within millimetres while heavy ones still

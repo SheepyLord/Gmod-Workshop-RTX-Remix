@@ -1,5 +1,6 @@
 """Run the RTX fixes' packaged flashlight Lua under flashlight_harness.lua (R19, ADR 0112): toggle and
-colour cooldowns, the gamemode's flashlight rule, and one Remix light per player. No game."""
+colour cooldowns, the gamemode's flashlight rule, and one Remix light per player; and its automatic
+brightness (ADR 0208). No game."""
 import os
 import shutil
 import subprocess
@@ -25,6 +26,12 @@ class FlashlightTests(unittest.TestCase):
     @unittest.skipUnless(Path(LUA).is_file(), 'LuaJIT is not installed')
     def test_client_one_light_per_player(self):
         self.run_harness('client', REMIXLUA / 'cl/remixapi/cl_remix_flashlight.lua')
+
+    @unittest.skipUnless(Path(LUA).is_file(), 'LuaJIT is not installed')
+    def test_client_automatic_brightness(self):
+        # ADR 0208: on by default; dims within 0.2 s for a wall up close, brightens gently up to Max Boost,
+        # holds in a solid, is the fixed brightness when off; the menu's four settings and Reset.
+        self.run_harness('auto', REMIXLUA / 'cl/remixapi/cl_remix_flashlight.lua')
 
 
 if __name__ == '__main__':

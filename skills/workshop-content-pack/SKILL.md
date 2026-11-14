@@ -491,6 +491,9 @@ such folders may also sit hand-placed in the field (`rtx-remix\mods\Poolday`); t
    --mount-workshop <map item> --change-map <map>`), each view with the pack and with Remix's replacements
    switched off, and the map's live hashes against the pack's (`RemixMaterial.GetCachedMaterials`,
    `GetAllTextureHashes`). Mesh and light hashes have no Lua view: look at the replaced props and lamps.
+   Wait about 20 s at the first view after the map load (Remix streams textures in; Valley View Mall's first
+   view was blurry after 5 s), and blame the pack only for what the replacements-off shot does not show
+   (gm_backrooms' main hall draws without walls or ceiling in RTX sessions either way).
    **Hold `out\r10\poc.lock` while the field game runs:** the VR labs quit any field game before their
    PoC runs and take that lock first (2026-11-12, a first Pool Day run ended this way, exit 1, no dump).
    Put the config and the hand-placed folders back afterwards, then `nlctl apply <field>` (after
@@ -556,7 +559,10 @@ lock. The description credits the map's author, the mod's author and its ModDB p
 permission, and says when the textures were fitted or re-keyed.
 
 Built on 2026-11-13 (the worktree `gmod-pbr-maps-packaging-b6de9c`'s `out\packages\<id>`, each with its
-description, port, re-key and fit reports; `out\pbr-maps\build_round2.py` rebuilds them; nothing uploaded):
+description, port, re-key and fit reports; `out\pbr-maps\build_round2.py` rebuilds them; nothing uploaded).
+The HamzaPOPO archives below are the ones after `tune_displacement.py`; Pool Day RTX was tuned the same way
+(347,191,703 bytes, `a068526b...`), and its hidden item 3838671223 still holds the untuned upload above
+until it is updated:
 
 | Package | Map item | Mod (author) | Hash | Archive |
 |---|---|---|---|---|
@@ -564,13 +570,13 @@ description, port, re-key and fit reports; `out\pbr-maps\build_round2.py` rebuil
 | `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | 3,849,898,264, from 8.69 GB, `157c65eb...` |
 | `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | 3,848,492,875, from 7.95 GB, `54030f28...` |
 | `bigcity-rtx` | 105982362 gm_bigcity | BigCityRTX (skurtyyskirts) | XXH64 | 3,848,266,155, from 3.99 GB, `97dfbbae...` |
-| `jupiter-underground-rtx` | 2381557019 | Jupiter (HamzaPOPO) | XXH64 | 3,037,424,818, `7d65e237...` |
-| `abandoned-mall-rtx` | 2878375438 | Abandoned | XXH64 | 1,605,513,108, `d045e223...` |
-| `alley-triste-rtx` | 3289201411 | Alley | XXH64 | 1,365,745,585, `b6ce483c...` |
-| `gold-dust-rtx` | 214281320 de_gold_dust, de_gold_dust2 | Medieval Dust2 | XXH64 | 1,322,761,710, `ff6da86b...` |
-| `old-russian-sauna-rtx` | 2847541813 gm_banya | Cabin | XXH64 | 804,494,276, `87ce44e2...` |
-| `backrooms-rtx` | 2732733089 gm_backrooms, gm_backrooms_classic | Backroom | XXH64 | 335,002,920, `514f531b...` |
-| `dark-forest-rtx` | 3284067939 | dark forest | XXH64 | 191,609,772, `104d6a64...` |
+| `jupiter-underground-rtx` | 2381557019 | Jupiter (HamzaPOPO) | XXH64 | 3,037,424,854, `8513b8da...` |
+| `abandoned-mall-rtx` | 2878375438 | Abandoned | XXH64 | 1,605,512,947, `5e2768f6...` |
+| `alley-triste-rtx` | 3289201411 | Alley | XXH64 | 1,365,745,403, `7c99fe9f...` |
+| `gold-dust-rtx` | 214281320 de_gold_dust, de_gold_dust2 | Medieval Dust2 | XXH64 | 1,322,761,718, `37b091a3...` |
+| `old-russian-sauna-rtx` | 2847541813 gm_banya | Cabin | XXH64 | 804,494,155, `665dd25a...` |
+| `backrooms-rtx` | 2732733089 gm_backrooms, gm_backrooms_classic | Backroom | XXH64 | 335,002,917, `b757a24e...` |
+| `dark-forest-rtx` | 3284067939 | dark forest | XXH64 | 191,609,744, `ec63228c...` |
 
 ## Scripts
 

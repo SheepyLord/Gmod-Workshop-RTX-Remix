@@ -8662,3 +8662,14 @@ map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-m
   `mods.rar`). Country Estate's `rtx-remix.zip` 6,599,054,109 bytes, MD5 491b01cf...; both checked.
 - **`nlctl apply` on the field** with the eleven archives local: generation 25, "deployed", exit code 255 (not
   explained); a dry run after it: unchanged, exit 0, every pack's folder present.
+- **Re-tours after `tune_displacement.py`** (2026-11-14, field, the RTX package of 09:09 UTC): Abandoned Mall drew
+  195 of 211 hashes and its floors lay flat; Pool Day 19 of 22 with flat tiles. Valley View Mall's first view,
+  blurry on 2026-11-13, was sharp once the tour waited 20 s after the map load (387 of 420 hashes): the blur
+  was Remix's texture streaming, not the fit.
+- **gm_backrooms draws its main hall without walls or ceiling in RTX sessions**, with Remix's replacements on
+  or off: from its spawn points the carpet floor, the ceiling lights and a few wall stubs draw against the sky.
+  Its side rooms draw whole, and gm_backrooms_classic (same item, 2732733089) draws whole (14 of Backrooms RTX's
+  23 hashes). The map has 34 `func_brush`, 39 `trigger_teleport` and 27 `func_door` entities; the classic map
+  has 3 brush entities. Not the pack's doing; not checked without RTX.
+- **A GPU device loss** (`VK_ERROR_DEVICE_LOST` at a fence, frame 1783) ended one Abandoned Mall start at its
+  first view, with 6.6 of 32 GB of VRAM in use and no dump; the same view drew in three other starts.

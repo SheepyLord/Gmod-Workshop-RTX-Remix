@@ -333,6 +333,14 @@ Valley View Mall RTX's page links the map 3417387329, which now answers `result 
 the map lives on as 3624445216. Find a map by its BSP name in the installed archives' indexes, and name
 the item that exists as the Required item.
 
+### 32. Floors look like stacked blocks, props tear (2026-11-13)
+
+Parallax displacement too deep: HamzaPOPO's Map Pack RTX gives nearly every material, props and decals
+included, a height map at `displace_in` 0.05 (up to 0.145). The user saw Abandoned Mall's ground; Jupiter
+Underground's walls smeared and its floor grew spikes. `tune_displacement.py` (models and decals 0, world at
+most 0.008). The hash and texture checks cannot see this: look at the ground at a grazing angle in the field
+shots, with the pack and with Remix's replacements off.
+
 ## Diagnosing
 
 | Question | Where to look |

@@ -3,6 +3,7 @@ mods (all written here; nothing from a game)."""
 import io
 import json
 import os
+import re
 import struct
 import sys
 import tempfile
@@ -146,6 +147,32 @@ class Rekey(unittest.TestCase):
             with redirect_stdout(io.StringIO()):
                 self.assertEqual(rekey_mod_hashes.main(["--mod", mod, "--source", src]), 1)
             self.assertEqual(open(os.path.join(mod, "mod.usda"), encoding="utf-8").read(), before)
+
+
+class TuneDisplacement(unittest.TestCase):
+    def test_models_and_decals_off_world_capped(self):
+        import tune_displacement
+        tops = {"models/props/box": bytes(range(8)), "decals/stain": bytes(range(8, 16)),
+                "concrete/floor": bytes(range(16, 24)), "brick/wall": bytes(range(24, 32))}
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "src")
+            for name, top in tops.items():
+                os.makedirs(os.path.dirname(os.path.join(src, "materials", name)), exist_ok=True)
+                with open(os.path.join(src, "materials", name + ".vtf"), "wb") as fh:
+                    fh.write(make_vtf(13, 4, 4, top))
+            mod = os.path.join(d, "mod")
+            os.makedirs(mod)
+            blocks = "".join('  over "mat_%s"\n  {\n   over "Shader"\n   {\n    float inputs:displace_in = %s\n   }\n  }\n'
+                             % (h64(top), v) for (name, top), v in zip(tops.items(), ("0.05", "0.05", "0.05", "0.004")))
+            with open(os.path.join(mod, "mod.usda"), "w", encoding="utf-8", newline="\n") as fh:
+                fh.write('#usda 1.0\nover "RootNode"\n{\n over "Looks"\n {\n' + blocks + ' }\n}\n')
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                self.assertEqual(tune_displacement.main(["--mod", mod, "--source", src]), 0)
+            text = open(os.path.join(mod, "mod.usda"), encoding="utf-8").read()
+            values = re.findall(r"displace_in = ([0-9.]+)", text)
+            self.assertEqual(values, ["0", "0", "0.008", "0.004"])
+            self.assertIn("1 model and 1 decal materials set to 0, 1 world materials capped", buf.getvalue())
 
 
 class FitMod(unittest.TestCase):

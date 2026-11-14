@@ -8624,3 +8624,41 @@ The evidence and clusters are in [crash-0xc0000005-report.md](handover/crash-0xc
   the new one alike (`test_documentation` loads the same DLL in the same environment); the other 39 pass.
 - **`build_runtime.ps1` after a source-only change** compiles only the changed objects: the shader step runs but finds
   nothing to recompile (no `slangc` line), so a C++-only patch builds in minutes.
+
+## Other authors' map mods: hashes, sizes, gaps (2026-11-13, Claude)
+
+The user's request: pack four ModDB map mods by skurtyyskirts and HamzaPOPO's Map Pack RTX as one `.gma` per
+map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-mods-as-content-packs.md)).
+
+- **Two texture hashes in the wild.** Offline, every VTF of each map item (loose files and BSP pakfiles) and of
+  the stock VPKs (GMod's `garrysmod_dir.vpk`, `sourceengine\content_cstrike`, `content_hl2`, `hl2_textures`;
+  F:\SteamLibrary's Half-Life 2 and Counter-Strike: Source `*_dir.vpk`) was hashed both ways
+  (`skills/workshop-content-pack/scripts/vtf_hash.py`). By XXH64 (the package's
+  `rtx.useObsoleteHashOnTextureUpload = True`) Valley View Mall RTX, FunkisRTX and Country Estate V1 RTX
+  (skurtyyskirts, January-February 2025) matched none of their materials; by XXH3 (Remix's default) 418 of 420,
+  440 of 448 and 402 of 413. BigCityRTX ("Gmod Hashes Update", May 2024) and HamzaPOPO's pack (July 2024) are
+  XXH64: 353 of 356, and per map 15-295 of 23-297 (Old Russian Sauna 73 of 73, Gold Dust 31 of 31).
+- **Upload layouts.** vtf_hash agrees with rpai's `remixhash.predict` on all 726 VTFs both read (DXT, RGBA8888)
+  of three maps and also reads 405 more (BGR888 as BGR0, RGBA16161616F, BGRA8888, I8). The map textures alone
+  explained 323 of Valley View Mall's materials; with the stock VPKs, 418.
+- **Map Pack RTX's contents** (`mods.rar`, 3,637,817,378 bytes, MD5 cf94b5e1...): folders `Abandoned`
+  (gm_abandoned_mall, 2878375438), `Alley` (gm_alley_triste, 3289201411), `Backroom` (gm_backrooms and
+  gm_backrooms_classic, 2732733089), `Cabin` (gm_banya, Old russian sauna, 2847541813), `dark forest`
+  (gm_dark_forest, 3284067939), `Jupiter` (rp_jupiter_underground, 2381557019), `Medieval Dust2` (de_gold_dust
+  and de_gold_dust2, 214281320, a legacy .bin), `Poolday`. The author's comment on the file page lists the eight
+  items. Every folder names roughness and `metallness` maps for nearly every material and ships none (Jupiter 297
+  and 292 of them, 599 dangling references in all; Abandoned 419; Alley 224 including 3 albedos).
+- **A missing texture and `@@` are the same to the runtime:** `UsdMod::Impl::getTexture`
+  (`rtx_mod_usd.cpp:672-725`) returns no texture for an empty asset path and, after logging `err:`, for a path
+  that resolves to nothing.
+- **Sizes and the fit.** Valley View Mall 8.38 GB (16384 px textures among them), Funkis 8.69 GB, Country Estate
+  7.95 GB, BigCity 3.99 GB; every texture a BC DDS with a full mip chain. `fit_mod.py` brought each to 3.85 GB:
+  Valley View Mall by aux maps at half their albedo (409), 33 textures to 4096 and 130 to 2048; Funkis and Country
+  Estate also 210 and 91 normal maps at half their albedo; BigCity 51 aux maps.
+- **Map items.** Valley View Mall's page links 3417387329, which answers `result 9`; `gm_vvmall` is item
+  3624445216 ("gm_valley_view_mall"). Found by reading the file index of every installed `.gma` for the BSP name.
+- **ModDB and scripts.** ModDB answers 403 to scripts for pages and mirror links. The built-in browser downloads
+  to `%USERPROFILE%\Downloads`; each "Your download is starting" page it opened started its own copy (three of
+  `mods.rar`). Country Estate's `rtx-remix.zip` 6,599,054,109 bytes, MD5 491b01cf...; both checked.
+- **`nlctl apply` on the field** with the eleven archives local: generation 25, "deployed", exit code 255 (not
+  explained); a dry run after it: unchanged, exit 0, every pack's folder present.

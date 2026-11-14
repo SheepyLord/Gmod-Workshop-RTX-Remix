@@ -542,6 +542,11 @@ Three things differ from the user's own classic mods.
    BigCity's "Gmod Hashes Update" and HamzaPOPO's Map Pack RTX were XXH64.
 3. **Fit it with `fit_mod.py`**, not fit_map_mod.py (that one needs this project's pipeline): over 3.85 GB
    it leaves out top mips, aux maps first, the biggest upscales of small game textures before others.
+4. **Check its displacement depths** (`displace_in` with a height map): a mod with one depth everywhere
+   (HamzaPOPO's 0.05, up to 0.145, on props and decals too) draws floors as stacked blocks and tears props
+   along their UV seams. `tune_displacement.py` sets models and decals to 0 and caps world materials at
+   0.008 (the remasters' range); the user pointed at Abandoned Mall's ground on 2026-11-13. Look at the
+   ground at a grazing angle in the field shots of every map, not only at whether the textures changed.
 
 Then `port_classic_mods.py --blank-missing --drop-unreferenced` (HamzaPOPO's pack names roughness and
 `metallness` maps for nearly every material and ships none: Remix drew the material's constants, and an
@@ -549,6 +554,23 @@ empty `@@` gives the same result, the runtime returning no texture for both,
 `UsdMod::Impl::getTexture`), `package_content.py`, `check_pack.py`, and the field check under the PoC
 lock. The description credits the map's author, the mod's author and its ModDB page, says the author gave
 permission, and says when the textures were fitted or re-keyed.
+
+Built on 2026-11-13 (the worktree `gmod-pbr-maps-packaging-b6de9c`'s `out\packages\<id>`, each with its
+description, port, re-key and fit reports; `out\pbr-maps\build_round2.py` rebuilds them; nothing uploaded):
+
+| Package | Map item | Mod (author) | Hash | Archive |
+|---|---|---|---|---|
+| `valley-view-mall-rtx` | 3624445216 gm_vvmall | ValleyViewMallRTX (skurtyyskirts) | re-keyed 418/420 | 3,848,099,905 bytes, fitted from 8.38 GB, `86cedf98...` |
+| `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | 3,849,898,264, from 8.69 GB, `157c65eb...` |
+| `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | 3,848,492,875, from 7.95 GB, `54030f28...` |
+| `bigcity-rtx` | 105982362 gm_bigcity | BigCityRTX (skurtyyskirts) | XXH64 | 3,848,266,155, from 3.99 GB, `97dfbbae...` |
+| `jupiter-underground-rtx` | 2381557019 | Jupiter (HamzaPOPO) | XXH64 | 3,037,424,818, `7d65e237...` |
+| `abandoned-mall-rtx` | 2878375438 | Abandoned | XXH64 | 1,605,513,108, `d045e223...` |
+| `alley-triste-rtx` | 3289201411 | Alley | XXH64 | 1,365,745,585, `b6ce483c...` |
+| `gold-dust-rtx` | 214281320 de_gold_dust, de_gold_dust2 | Medieval Dust2 | XXH64 | 1,322,761,710, `ff6da86b...` |
+| `old-russian-sauna-rtx` | 2847541813 gm_banya | Cabin | XXH64 | 804,494,276, `87ce44e2...` |
+| `backrooms-rtx` | 2732733089 gm_backrooms, gm_backrooms_classic | Backroom | XXH64 | 335,002,920, `514f531b...` |
+| `dark-forest-rtx` | 3284067939 | dark forest | XXH64 | 191,609,772, `104d6a64...` |
 
 ## Scripts
 
@@ -568,6 +590,7 @@ permission, and says when the textures were fitted or re-keyed.
 | `scripts/usd_refs.py` | module | every layer and file a mod references, text and binary crate layers alike (no `pxr`); used by `check_pack.py` and `port_classic_mods.py` |
 | `scripts/rekey_mod_hashes.py` | another author's mod | renames a mod's XXH3-keyed materials to the XXH64 keys the RTX package's runtime uses; its dry run says which hash a mod uses and how many materials a map explains |
 | `scripts/vtf_hash.py` | module | both Remix hashes of every VTF in a map item, legacy .bin, BSP pakfile, VPK or folder, with a cache |
+| `scripts/tune_displacement.py` | another author's mod | no parallax on model and decal textures, world depth capped at 0.008 |
 | `scripts/fit_mod.py` | any mod over 3.85 GB | fits any mod folder under a budget by leaving out top mips (no re-encoding), ordered by role and by upscale factor |
 | `scripts/test_rekey_fit.py` | tests | `python -I -m unittest discover -p "test_rekey_fit.py"` in `scripts\` (needs `xxhash`) |
 | `scripts/test_port_classic_mods.py` | tests | `python -I -m unittest discover -p "test_port_classic_mods.py"` in `scripts\`: the reference reader, the LZ4 and crate decoder, the port's order, overlaps, blanks and refusals |

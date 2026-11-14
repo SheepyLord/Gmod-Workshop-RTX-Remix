@@ -268,6 +268,9 @@ Versions follow the loader's CMake project version once it ships; until then eve
 - **Three of the mods never applied under the RTX package:** made with Remix's default XXH3 texture hash where the
   package keys by XXH64. Re-keyed (418 of 420, 440 of 448 and 402 of 413 materials) and fitted from 7.9-8.7 GB to
   one 3.85 GB item each without re-encoding.
+- **Map Pack RTX's parallax toned down** (the user saw Abandoned Mall's ground): its materials, props and decals
+  included, were 0.05-0.145 deep, which drew floors as stacked blocks and tore props; models and decals now have
+  none and world materials at most 0.008, in all eight of its packs (Pool Day RTX's archive rebuilt too).
 - **workshop-content-pack skill:** "Another author's map mod (ModDB)"; `rekey_mod_hashes.py` (XXH3 to XXH64, and
   which hash a mod uses), `vtf_hash.py` (both hashes of every VTF in map items, legacy .bin, BSP pakfiles and VPKs),
   `fit_mod.py` (any mod under one item's budget, by role and upscale factor); tests; pitfalls 29-31.

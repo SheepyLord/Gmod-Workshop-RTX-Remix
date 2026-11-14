@@ -140,6 +140,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0215](0215-the-loads-estimate-learned-from-the-loads-before.md) | The load's estimate, learned from the loads before (`data/nativeloader/load_times.txt`): this map's median, else the machine's maps fitted to its size; a countdown and a bar the module moves by itself | Accepted 2026-11-14 on the branch `qol-load` (not merged) |
 | [0216](0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md) | The runtime's pipeline-handle race (upstream dxvk-remix `c1a891bf85` ported, compute too) and the in-Present message dispatch of the Reflex ping fixed: the "Crash detected ... 0xC0000005" clusters A and B | Accepted 2026-11-14 (runtime patches 0091, 0092; in-game checks pending) |
 | [0217](0217-a-main-menu-note-on-pbr-for-maps.md) | A main-menu note on PBR for maps: the demo resources (Workshop collection 3834474695) and what a map without PBR looks like | Accepted 2026-11-14 |
+| [0211](0211-other-authors-map-mods-as-content-packs.md) | Other authors' map mods as content packs: re-keyed from Remix's default XXH3 texture hash to the package's XXH64, fitted to one item, one package per map item | Accepted 2026-11-13 (the user's request) |
 
 ## Template
 
@@ -368,3 +369,6 @@ Each with the reason it lost.
   twice at each start ("Loading enhancements"); runtime patch 0086 keeps each file's headers and smallest mips per mod
   in `rtx-remix\cache\mod-textures` and uses them while the folder listing shows the file unchanged (size, write
   time, change time, file id).
+- [0211: Other authors' map mods as content packs](0211-other-authors-map-mods-as-content-packs.md) (the user's
+  request of 2026-11-13: eleven ModDB map mods, one package per map item; the XXH3-keyed ones re-keyed to the
+  package's XXH64 and the large ones fitted to one item by leaving out top mips).

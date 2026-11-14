@@ -18,6 +18,7 @@ python -I -m unittest discover -v -p "test_rekey_fit.py"
 | `test_uncompressed_layouts` | RGBA8888 as BGRA with an alpha flag and BGR0 without; BGR888 as BGR0; not a VTF refused |
 | `test_containers` | a .gma yields only its VTFs; a VPK yields its `materials/` VTF and not its sound; the source table and its cache |
 | `test_rename_known_keep_others_and_refuse_clash` | an XXH3 material renamed with the path that binds it; an XXH64 one and an unknown one kept; a rename onto an existing material refused with nothing written |
+| `test_models_and_decals_off_world_capped` | [tune_displacement.py](tune_displacement.py.md): a model and a decal material's depth to 0, a world one capped at 0.008, one already shallower kept |
 | `test_aux_first_then_lossless_layers_kept` | a constant metallic map cut to a 16 px tail; the roughness map at half its albedo; the albedo and the layers byte-identical; the cut file's data is the source's lower mips |
 | `test_out_of_reach_and_existing_out` | a budget out of reach writes nothing; an existing `--out` needs `--force` |
 

@@ -36,6 +36,9 @@
    height maps at half their albedo first, then textures above 4096, then above 2048 and normal maps, the
    biggest upscales of small game textures first.
 4. **Blank what a mod never had** (`port_classic_mods.py --blank-missing`) and leave out files no layer reaches.
+   **Tone down parallax the author set everywhere** (`tune_displacement.py`): after the user pointed at Abandoned
+   Mall's ground, HamzaPOPO's eight packs keep no displacement on model and decal textures and at most 0.008 on
+   world ones (it was 0.05-0.145 on nearly every material); the other authors' packs keep theirs.
 5. **Credit and permission in the description**: the map's author, the mod's author and ModDB page, that the
    author gave permission, and whether the textures were fitted or re-keyed.
 6. **Checked in the field** like ADR 0191's packs; **not uploaded** until the user asks.

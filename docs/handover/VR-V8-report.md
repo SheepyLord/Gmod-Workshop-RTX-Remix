@@ -8,7 +8,10 @@ not launch game to test, write code and validate them first then ask me for perm
 
 Claude wrote all of it on the branch `vr8` (worktree `out/worktrees/vr8`, from `main` `a897abe9`), validated it
 offline first, then ran the three in-game runs the user allowed ("Run all three", 2026-11-13; results below). The
-user approved the merge to `main` on 2026-11-13 ("Merge and publish").
+user approved the merge to `main` on 2026-11-13 ("Merge and publish"): squashed as `ecb741be` (with `main`'s Issue 5
+fix merged in first; the gate passed again on the merged tree, 1,882 Python tests). The commit's hook uploaded item
+3829070317 as 0.0.0-dev.20261114041031+02be1344 (2,086,460,987 bytes, SHA-256 `2eefc6ff...`, content digest
+`57fcc255...`); it differs from the tested candidate v8.1 by Issue 5's render guard change.
 
 ## 1. The V4 neutral-yaw fixture
 

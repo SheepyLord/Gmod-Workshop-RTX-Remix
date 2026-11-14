@@ -91,3 +91,7 @@ entry.
   way, not changed (it would change every sky); RESEARCH.md has the analysis.
 - A second runtime job arrived after this report's build: the 0xC0000005 fixes, patches 0091 and 0092. The imported DLL
   now holds 0001-0092 ([crash-0xc0000005-report.md](crash-0xc0000005-report.md)).
+
+## Published
+
+The user asked for the round to be committed and pushed when finished (2026-11-14: "Commit and push after you finish"). `main` was fast-forwarded to `058f28cf` (the round on `qol-1114`, one squashed commit per item, after the gate passed on the combined tree: C++ 35 of 35, Python 1,958 + 29 + 26 tests); the merge's hook built the package from `packages/` and uploaded item 3829070317 as **0.0.0-dev.20261114090900+c46c58b9** (2,088,047,623 bytes, SHA-256 `94061aff390e3ebbddcbbc689610ee7c10439f1c5d3f444c343f714f8b1c9ae4`, content digest `cb36cc1c...`) at 2026-11-14 09:09:20 UTC. Not yet checked in a game: the checks above are open.

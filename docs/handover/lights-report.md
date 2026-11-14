@@ -151,3 +151,7 @@ The dance light (a dance with a camera path, the tool's Lighting tab):
 3. VR's main-hand stick click is mapped to `flashlight` but nothing reads it: should it switch the flashlight (a VR
    change, which needs the user's approval)?
 4. The translations (6 x 6 for the flashlight, 19 x 8 for the dance light) are Claude's and await a person's review.
+
+## Published
+
+The user asked for the round to be committed and pushed when finished (2026-11-14: "Commit and push after you finish"). `main` was fast-forwarded to `058f28cf` (the round on `qol-1114`, one squashed commit per item, after the gate passed on the combined tree: C++ 35 of 35, Python 1,958 + 29 + 26 tests); the merge's hook built the package from `packages/` and uploaded item 3829070317 as **0.0.0-dev.20261114090900+c46c58b9** (2,088,047,623 bytes, SHA-256 `94061aff390e3ebbddcbbc689610ee7c10439f1c5d3f444c343f714f8b1c9ae4`, content digest `cb36cc1c...`) at 2026-11-14 09:09:20 UTC. Not yet checked in a game: the checks above are open.

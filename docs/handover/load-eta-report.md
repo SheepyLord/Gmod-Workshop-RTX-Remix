@@ -148,3 +148,7 @@ File: materials/models/x.vtf
 3. **Joined servers' names** are stored in the local history file (to key a server's loads). Keep them, or store only
    a hash?
 4. **Merging** needs the user's approval. A commit on `main` publishes the package to item 3829070317 through the hook.
+
+## Published
+
+The user asked for the round to be committed and pushed when finished (2026-11-14: "Commit and push after you finish"). `main` was fast-forwarded to `058f28cf` (the round on `qol-1114`, one squashed commit per item, after the gate passed on the combined tree: C++ 35 of 35, Python 1,958 + 29 + 26 tests); the merge's hook built the package from `packages/` and uploaded item 3829070317 as **0.0.0-dev.20261114090900+c46c58b9** (2,088,047,623 bytes, SHA-256 `94061aff390e3ebbddcbbc689610ee7c10439f1c5d3f444c343f714f8b1c9ae4`, content digest `cb36cc1c...`) at 2026-11-14 09:09:20 UTC. Not yet checked in a game: the checks above are open.

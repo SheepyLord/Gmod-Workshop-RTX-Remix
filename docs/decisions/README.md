@@ -369,6 +369,3 @@ Each with the reason it lost.
   twice at each start ("Loading enhancements"); runtime patch 0086 keeps each file's headers and smallest mips per mod
   in `rtx-remix\cache\mod-textures` and uses them while the folder listing shows the file unchanged (size, write
   time, change time, file id).
-- [0211: Other authors' map mods as content packs](0211-other-authors-map-mods-as-content-packs.md) (the user's
-  request of 2026-11-13: eleven ModDB map mods, one package per map item; the XXH3-keyed ones re-keyed to the
-  package's XXH64 and the large ones fitted to one item by leaving out top mips).

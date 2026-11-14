@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "8d64393fdb4343f7e4db2f71c683a9becbd5fe167c84d23924712fb052fd437f",
-  "built_from": "HEAD -> vr2 1097d701 (with what the rest of this record names)",
+  "d3d9.dll": "e242dfdb08486fd97012e3af89b2955fc4f9a11e992902e383cbb844cc857531",
+  "built_from": "HEAD -> claude/crash-0xc0000005 dd580bc2 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -139,6 +139,9 @@
    "patches/0087-A-live-VR-quality-step-rtxvr_SetQuality-API-4.patch": "7842a726cca073b5ce397ddeaba5cfdca1734d3655d5e17d9cba0cf4f2ffff31",
    "patches/0088-The-VR-frame-s-GPU-work-in-rtxvr_Status.patch": "6ca907dfe1a3792fc6dc1146d59248a8778006f2b34638bbfe94eecfa58704ec",
    "patches/0089-VR-true-stereo-each-eye-path-traced-with-its-own-vie.patch": "06131c09ed64c9b2b99761bdd85707e70593c316c8019ce1f322748a9b72cbbf",
+   "patches/0090-Atmosphere-the-Moon-by-day.patch": "c25ae4841d2501f2d6940d91f7273a1b81b358c530dbb4f44521643a471ca5e5",
+   "patches/0091-Core-fixes-the-pipeline-handle-race-command-list-rec.patch": "4206d449736b4211c7a0537a42ad1c9f672e78522d503ec58feb9d73e545a1d7",
+   "patches/0092-Reflex-no-sent-message-is-dispatched-inside-Present.patch": "0ed81e2e660c0454efe72566d29c94ae1e2c8b4b3286459328f9491b92313437",
    "submodules/rtxdi.patch": "006d534a48637125dcb1e4a5fcca9eabb8bd96f7a8935b5eb1ec49a64b0e1be5"
   }
  }

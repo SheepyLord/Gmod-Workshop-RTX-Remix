@@ -133,6 +133,13 @@ tests; [`third_party/jolt`](../third_party/jolt/README.md) holds the pinned MIT 
 and `world.lua` implement the agreed client debris API, static import, rendering and fallback.
 The LuaJIT manager harness lives in `tools/tests`; the performance probe lives in `tools/qa`.
 
+ADR 0207 adds [`tools/sky/moon_daylight.py`](../tools/sky/moon_daylight.py.md), which rebuilds the runtime's sky
+(transmittance and multiple-scattering LUTs, the sky-view march) and textured Moon in numpy and prints how the Moon shows
+against the day sky; [`tools/tests/test_moon_daylight.py`](../tools/tests/test_moon_daylight.py.md) checks it and
+compiles runtime patch 0090's phase-law unit test. ADR 0216 adds
+[`tools/tests/test_runtime_crash_fixes.py`](../tools/tests/test_runtime_crash_fixes.py.md), a static check that runtime
+patches 0091 and 0092 hold the 0xC0000005 fixes.
+
 R6 T6 adds [`tools/sky/drop_top_mip.py`](../tools/sky/drop_top_mip.py.md), a standard-library DDS
 mip-removal tool, with generated-fixture coverage in
 [`tools/tests/test_drop_top_mip.py`](../tools/tests/test_drop_top_mip.py.md). The runtime packager's

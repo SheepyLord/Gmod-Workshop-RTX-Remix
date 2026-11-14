@@ -1,5 +1,48 @@
 # runtime/
 
+Patches `0091-Core-fixes-the-pipeline-handle-race-command-list-rec.patch` and
+`0092-Reflex-no-sent-message-is-dispatched-inside-Present.patch`
+([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md),
+[report](../docs/handover/crash-0xc0000005-report.md), branch `claude/crash-0xc0000005`), the "Crash detected ...
+0xC0000005" most players report:
+
+- **0091** ports upstream dxvk-remix `c1a891bf85dbda78cab979010089c5c9b4256a11` ("[REMIX-6230] Core fixes", MIT) with
+  its exact hunks: `DxvkGraphicsPipeline::getPipelineHandle` copies the new instance's `VkPipeline` while `m_mutex` is
+  held (the state-cache workers' `emplace_back` reallocated `m_pipelines` between the unlock and the read, and the
+  render thread bound a freed handle: `nvoglv64.dll+0xe622f8` 7-35 s after start); `DxvkSubmissionQueue` recycles a
+  finished command list before it decrements `m_pending` and wakes the waiters; frame generation waits once on the
+  swapchain's acquire semaphore. The same handle fix in `DxvkComputePipeline::getPipelineHandle` (not upstream's).
+- **0092**: `RtxReflex::latencyPing`, inside Present, peeks for the PCL ping only while `GetQueueStatus` reports a
+  posted message and no sent one, with `PM_REMOVE | PM_QS_POSTMESSAGE`, so another Source game's WM_COPYDATA
+  release/reacquire is no longer handled mid-frame. `PM_QS_POSTMESSAGE` alone does not stop `PeekMessage` from
+  dispatching sent messages (measured; RESEARCH.md).
+
+Exported one at a time (`format-patch -1 --start-number 91|92 --zero-commit`) from `827870ba` and `dd580bc2` on 0090's
+`aea5d31e`, and built with it by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0092), replacing the
+Moon-only import below: **`d3d9.dll` 418,989,056 bytes, SHA-256
+`e242dfdb08486fd97012e3af89b2955fc4f9a11e992902e383cbb844cc857531`** (61,736,412 bytes xz in Git LFS). The build's PDB
+shows the handle loaded before the unlock (graphics `+0xb5 mov r14,[rax+1C8h]`, unlock `+0xbd`; compute `+0xa8 mov
+rsi,[rax+80h]`, unlock `+0xb0`; before: `+0x207 mov rax,[rdi+1C8h]` after the unlock at `+0xb4`, and `+0x146 mov
+rax,[rdi+80h]` after `+0x9e`). Its unit tests: 39 of 40 pass; `test_remix_categories` cannot load `d3d9.dll` in its
+process with this build or the 0090 one alike. [`test_runtime_crash_fixes.py`](../tools/tests/test_runtime_crash_fixes.py.md)
+checks both patches statically.
+
+Patch `0090-Atmosphere-the-Moon-by-day.patch` ([ADR 0207](../docs/decisions/0207-the-moon-by-day.md),
+[report](../docs/handover/moon-by-day-report.md), branch `claude/moon-by-day`): the moons are drawn by day. A
+moon's light is added to the sky's in-scatter in front of it, and its disc hides only what lies beyond it (the stars and
+the night sky image, the airglow layer and the halos, earlier moons, the sun disc); with the in-scatter faded out at
+night this is the old replace composite exactly. By day each moon's light follows the real Moon's phase law
+(`rtx_moon_daylight.h`: Allen's law over the drawn Lunar-Lambert one, held from 150 degrees) times
+`rtx.atmosphere.daytimeMoonBrightness` (default 1, 0-4, 0 = no moon by day), handed over to the night's look as the
+sun sinks to 5 degrees below the horizon. The horizon hides a disc below it unless `rtx.atmosphere.noHorizon`.
+`AtmosphereArgs` grows by one 16-byte row (`moonDaytimeScale0-3`, zeroed in the LUT cache key); the dev menu's
+Daytime Brightness (Moons, Global Lighting) is translated in the six catalogs; `RtxOptions.md` has the option;
+`tests/rtx/unit/test_moon_daylight.cpp` is compiled from the patch by the Release gate (`test_moon_daylight.py`).
+Built from the clone's `claude/moon-by-day` at `aea5d31e` (0001-0090, on `vr2`'s `1097d701`) by `build_runtime.ps1` in
+`out/worktrees/r17/out/runtime-src`: `d3d9.dll` 418,989,056 bytes, SHA-256
+`fb0e2b21d057a76ee0572c57d5e33311a94e048ed5c54758102a61b6ec5b2ee0` (61,729,712 bytes xz in Git LFS); imported, then
+replaced on the same branch by the 0001-0092 build above.
+
 Patch `0089-VR-true-stereo-each-eye-path-traced-with-its-own-vie.patch` (VR V7,
 [ADR 0198](../docs/decisions/0198-vr-true-stereo-by-swapping-the-eyes-state.md), branch `vr6`): with
 `RTXVR_QUALITY_TRUE_STEREO` and Ray Reconstruction the frame is path traced once per eye. `rtx_vr_eye.h` names the eye
@@ -485,6 +528,9 @@ NVIDIA's SDKs, is about 3.6 GB and keeps its own history, so this repository hol
 | `0040-Publish-live-upscaling-...` | Runtime-owned atomic effective upscaling/frame-generation state and capabilities, gated on presets and callback convergence, for the native startup hint readback; pending the combined R20 runtime import ([ADR 0123](../docs/decisions/0123-live-upscaling-readback.md)) |
 | `0041-Atmosphere-the-sky-without-...` | `rtx.atmosphere.noHorizon`: below the horizon the mirror's sky gradient, the antipode's clouds and high clouds, the true angle to the sun for every phase term, the stars and moons where they are ([ADR 0139](../docs/decisions/0139-the-sky-without-a-horizon.md)) |
 | `0086-Keep-the-mod-loader-s-texture-reads-...` | The USD mod loader keeps each texture file's DDS headers and five smallest mips per mod in `rtx-remix\cache\mod-textures` and uses them while a folder listing shows the file unchanged (size, write and change times, file id), so a later start opens no texture file; `rtx.initializer.modTextureCache`; `[RTX Mod Load]` timing lines ([ADR 0195](../docs/decisions/0195-the-mod-loader-keeps-its-texture-reads-between-starts.md)) |
+| `0090-Atmosphere-the-Moon-by-day` | The moons by day: a moon's light added to the sky in front of it, its disc hiding only what lies beyond; by day the real Moon's phase law times `rtx.atmosphere.daytimeMoonBrightness`, the night's look kept; no disc below the horizon unless `noHorizon` ([ADR 0207](../docs/decisions/0207-the-moon-by-day.md)) |
+| `0091-Core-fixes-the-pipeline-handle-race-...` | Upstream dxvk-remix `c1a891bf85` (MIT): the pipeline handle read under the pipeline's lock (graphics, and compute too), a finished command list recycled before its waiters wake, frame generation's duplicate acquire-semaphore waits removed ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
+| `0092-Reflex-no-sent-message-is-dispatched-...` | The Reflex latency ping inside Present peeks only while `GetQueueStatus` shows a posted message and no sent one (`PM_REMOVE \| PM_QS_POSTMESSAGE`): no window procedure runs mid-frame ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
 
 - [`build_runtime.ps1`](build_runtime.ps1.md): applies them in a worktree of a fork clone, builds, and
   stores the new `d3d9.dll` in [`packages/runtime`](../packages/README.md).

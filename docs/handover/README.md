@@ -86,6 +86,16 @@ of a load's length learned from the loads before): [load-eta-report.md](load-eta
 on the branch `qol-load`, not merged
 ([ADR 0214](../decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md),
 [ADR 0215](../decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)).
+Then the user's request of 2026-11-14 ("Enhance the skybox about the moon, the moon should be visible during the day
+given correct moon phase"): the moon by day, as bright as the real one at its phase, runtime patch 0090 and the
+companion's Moon by day slider: [moon-by-day-report.md](moon-by-day-report.md), by Claude, package only, on the branch
+`qol-moon`, in-game checks pending ([ADR 0207](../decisions/0207-the-moon-by-day.md)).
+
+On the same branch, the user's request of 2026-11-14 to trace "0xC0000005", the crash most players report: the
+investigation's clusters and the runtime's fixes, upstream dxvk-remix `c1a891bf85` ported (patch 0091) and no sent
+message handled inside Present (patch 0092): [crash-0xc0000005-report.md](crash-0xc0000005-report.md), by Claude,
+package only, in-game checks pending
+([ADR 0216](../decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)).
 
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),

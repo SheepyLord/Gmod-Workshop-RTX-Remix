@@ -8515,3 +8515,112 @@ Read offline (no game was run): the PoC's game files and this repository's evide
   not compile. A free function `fill(std::string_view, std::string_view, std::string_view)` called with `std::string`
   arguments resolves to `std::fill` by argument-dependent lookup (a template, an exact match) and returns `void`; the
   overlay's is `fill_value`.
+## The Moon by day (2026-11-14, Claude, ADR 0207)
+
+What hid the Moon by day, how bright the runtime's day sky and Moon are in its own units, and what a real Moon would
+show. Numbers from [`tools/sky/moon_daylight.py`](../tools/sky/moon_daylight.py.md), which rebuilds the runtime's
+transmittance and multiple-scattering LUTs and the sky-view march in numpy (no GPU); line numbers are the fork's
+`claude/moon-by-day` (`aea5d31e`, patch 0090) unless said otherwise.
+
+- **Where the Moon was hidden.** Before patch 0090, `evalSkyRadiance` multiplied each disc's coverage by
+  `moonFade = smoothstep(0, -0.09, sunDirection.y)` (now `atmosphere_sky.slangh:1618`, kept for the halo and the
+  handover): 0 with the sun up, 1 from 5.16 degrees down. The disc then replaced the background:
+  `radiance = mix(radiance, moon * cirrusT + cirrusLight, coverage)`. Nothing else in the runtime gates the disc by the
+  time of day; the companion already put the Moon by its phase (`sky_model.lua`, `phase` of a turn east of the sun).
+- **The night's composite is the additive one with nothing in front.** The sky's in-scatter (the sky-view LUT) is
+  multiplied by `atmosphereFade` (`:1572`), whole to half of `twilightFadeDepth` (8 degrees) and 0 from 16 degrees down.
+  With it at 0, `radiance` before the moons is the high layer's light plus the airglow and the halos, which is what the
+  new composite keeps in front of (the high layer) or hides (the rest), so `radiance + coverage * (moon - beyond)`
+  (`:1684`) equals the old `mix` exactly. From 5 degrees down the in-scatter at a moon's place is under 0.001, against a
+  lit part of 0.33-0.41.
+- **A moon below the horizon showed.** Neither `evalMoonDisk` nor the composite tested the view's elevation; the stars
+  fade out by `smoothstep(-0.02, 0.1, y)`. `getAtmosphericTransmittanceForDir` below the horizon gives an air mass of
+  `40 exp(-10 y)` and an extra `exp(15 y)`: a moon 1.7 degrees down kept about 3 % of its red, a dim orange disc in the
+  ground's haze. Patch 0090 cuts the disc at y = 0 (`:1673`), two pixels soft, unless `noHorizon`.
+- **The runtime's sky in its units** (the sun's illuminance E = 19 under partly cloudy, 20 clear; Rec. 709 Y). Zenith
+  with the sun at 49 degrees: 0.24-0.30, that is 0.013-0.016 E per steradian; a real clear sky's zenith at a 45 degree
+  sun is 1.3-2.7 kcd/m^2 against 127 klx above the air (Karayel's formula, Linke turbidity 2-3), 0.010-0.021 E/sr. At
+  90 degrees from the sun the sky stands at 0.14-0.36 for sun heights of 15-54 degrees; within 10 degrees of the
+  horizon's haze 0.7-1.5. Clear, partly cloudy and hazy differ by under 15 % away from the sun and the horizon.
+- **The drawn Moon in the same units.** `evalTexturedMoon`: E times the Kasten-Young transmittance towards the Moon
+  (0.7-0.85 above 30 degrees) times brightness / pi times the albedo (the map's near-side mean, 0.12) times the
+  Lunar-Lambert term `0.75 * 2 cosI / (cosI + cosE) + 0.25 cosI`. Over the full disc the term averages 0.917
+  (Lommel-Seeliger 1, Lambert 2/3), so the full Moon's mean is 0.035 E T per steradian; the real full Moon (geometric
+  albedo 0.12) has 0.038 E T. The lit part of a high Moon is 0.35-0.41 in the units above whatever the phase.
+- **The phase laws.** The drawn Moon's light relative to full is `(0.75 PhiLS(a) + 0.1667 PhiL(a)) / 0.9167`, with
+  `PhiLS = 1 - sin(a/2) tan(a/2) ln(cot(a/4))` and `PhiL = (sin a + (pi - a) cos a) / pi` (matches a 801 x 801 disc sum
+  to 1e-4; the shader's softplus near the terminator adds 8 % at 90 degrees, 17 % at 126, 28 % at 150). The real Moon's
+  (Allen; Krisciunas and Schaefer 1991) is `10^(-0.4 (0.026 a + 4e-9 a^4))`, a in degrees:
+
+  | Phase (companion) | Phase angle | Drawn | Real | Real / drawn |
+  |---|---|---|---|---|
+  | full (0.5) | 0 | 1 | 1 | 1 |
+  | gibbous (0.35, 0.65) | 54 | 0.670 | 0.266 | 0.397 |
+  | quarter (0.25, 0.75) | 90 | 0.366 | 0.091 | 0.249 |
+  | crescent (0.15, 0.85) | 126 | 0.132 | 0.0193 | 0.146 |
+  | | 150 | 0.040 | 0.0043 | 0.107 (the minimum) |
+  | | 170 | 0.0043 | 0.0008 | 0.185 (the fit's extrapolation) |
+
+  The ratio is smallest near 150 degrees and climbs towards new as the drawn sliver vanishes faster than the fitted law,
+  so `rtx_moon_daylight.h` holds it from 150.
+- **The contrast by day** (the lit part's mean over the sky where the Moon stands, summer, latitude 40, partly cloudy):
+  with the day's law 0.09-0.69 with the sun above 10 degrees (crescents 0.09-0.31, quarters 0.09-0.69, gibbous
+  0.16-0.60), 1.3 at a 4 degree sun, 0-15 % above a real Moon's (the shader's softplus); the night's law by day would
+  have been 0.37-2.79, a crescent 0.6-2.1. Under 10 degrees of elevation the horizon's haze takes it to 1-2 %. The
+  table is in ADR 0207.
+- **The multiple-scattering LUT's bottom row holds nothing.** `multiscattering_lut.comp.slang` samples row 0 at
+  altitude exactly 0 (`:268`, `textureCoordToUnitRange` of the first texel centre is 0), at `(0, 0, 0)` on the planet's
+  surface (`:200`). `intersectSphereNearest` against the planet (`:134`) then has `c = |oc|^2 - R^2 = 0` and returns 0
+  (or -0) for every direction, up or down; `hitsGround` is true, `tEnd` is 0, and `integrateDirection` returns nothing
+  (`:140`), ground bounce included. Sky samples below 3.2 km interpolate towards that zero, and the estimate's day sky
+  comes out 6-11 % darker than with the row 1 m up (`moon_daylight.py --ground-row 0`). If the GPU contracts the
+  subtraction into an FMA, `c` becomes -1 km^2 (R^2 = 40,589,641 rounds to 40,589,640 in float32) and the row would
+  instead see the ground in every upward direction; which one happens was not measured. Not changed by patch 0090.
+
+## 0xC0000005: the pipeline-handle race and the in-Present dispatch (2026-11-14, Claude, ADR 0216)
+
+The evidence and clusters are in [crash-0xc0000005-report.md](handover/crash-0xc0000005-report.md) (from
+`out\crash\report.md`). Facts gathered while fixing clusters A and B (runtime patches 0091, 0092):
+
+- **Layouts (the runtime's PDB):** `DxvkGraphicsPipelineInstance` is 0x1E0 bytes, `m_pipeline` at +0x1C8;
+  `DxvkComputePipelineInstance` 0xA0 bytes, `m_pipeline` at +0x80. `m_mutex` (a spinlock; unlocked by
+  `mov dword ptr [rbx],0`) is at +0x80 of `DxvkGraphicsPipeline` and +0x50 of `DxvkComputePipeline`, `m_pipelines` (the
+  `std::vector` the state-cache workers append to in `compilePipeline`) right after it.
+- **`getPipelineHandle` before and after** (cdb `uf` with each build's PDB; before = the 0090 build, whose functions are
+  the shipped runtime's, the investigation's offsets):
+
+  | Function | 0090 build (`fb0e2b21...`) | 0001-0092 build (`e242dfdb...`) |
+  |---|---|---|
+  | `DxvkGraphicsPipeline::getPipelineHandle` | `+0xab call createInstance`, `+0xb0 mov rdi,rax`, unlock `+0xb4`, `+0x202 call DxvkStateCache::addGraphicsPipeline`, **`+0x207 mov rax,qword ptr [rdi+1C8h]`** | `+0xab call createInstance`, **`+0xb5 mov r14,qword ptr [rax+1C8h]`**, unlock `+0xbd`, `+0x208 call ...addGraphicsPipeline`, `+0x20d mov rax,r14` |
+  | `DxvkComputePipeline::getPipelineHandle` | `+0x95 call createInstance`, unlock `+0x9e`, `+0x141 call ...addComputePipeline`, **`+0x146 mov rax,qword ptr [rdi+80h]`** | `+0x9e call createInstance`, **`+0xa8 mov rsi,qword ptr [rax+80h]`**, unlock `+0xb0`, `+0x156 call ...addComputePipeline`, `+0x15b mov rax,rsi` |
+
+  The found-instance path was already right in both: graphics `+0x8f mov rax,[rax+1C8h]` before the unlock at `+0x97`;
+  compute the read at `+0x7c` and the unlock at `+0x84` before, `+0x85` and `+0x8d` after.
+- **`DxvkSubmissionQueue::finishCmdLists`** before: `lock dec dword ptr [rbx+10h]` (`m_pending`),
+  `WakeAllConditionVariable`, `ReleaseSRWLockExclusive`, then `DxvkCommandList::reset` and
+  `DxvkDevice::recycleCommandList`; after: `reset` and `recycleCommandList` first, then the lock, the decrement and the
+  wake.
+- **`PeekMessage` dispatches inbound sent messages whatever its flags** (measured 2026-11-14 on Windows 11 Pro
+  10.0.26300, `out\crash-probe`): a window on the probing thread; another thread (`peek_probe`) or another process
+  (`peek_probe_xproc`) sends it WM_COPYDATA with `SendMessageTimeout`; once `GetQueueStatus(QS_SENDMESSAGE)` shows it
+  pending, one `PeekMessage(&msg, (HWND)-1, ping, ping, flags)` runs. The window procedure ran inside that call with
+  `PM_REMOVE`, `PM_REMOVE | PM_QS_POSTMESSAGE`, `PM_NOREMOVE | PM_QS_POSTMESSAGE`, `PM_REMOVE | PM_QS_INPUT` and
+  `PM_REMOVE | PM_QS_SENDMESSAGE` alike: sent messages are dispatched first, and the `PM_QS_*` flags only narrow what
+  is retrieved afterwards, whatever the documentation's "PM_QS_SENDMESSAGE: Process all sent messages" suggests.
+  `GetQueueStatus` reports the pending message without dispatching it. A posted thread message is retrieved with
+  `PM_REMOVE | PM_QS_POSTMESSAGE`.
+- **The PCL ping** is `PostThreadMessageW(g_PCLStatsIdThread, g_PCLStatsWindowMessage, 0, 0)` from
+  `PCLStatsPingThreadProc` every 100-300 ms while an ETW consumer enables the provider (`pclstats.h:63-66`, the Reflex
+  SDK `rtx-remix-reflex 1+c1`); `RtxReflex::setLatencyPingThread` sets the id to the presenting thread
+  (`rtx_reflex.cpp:201`, called from `D3D9SwapChainEx::Present`, `d3d9_swapchain.cpp:1230`); `latencyPing` runs at the
+  end of Present (`:1333`). The runtime's `PeekMessage` resolves to `PeekMessageA` (the Steam overlay hooks it).
+- **Patch 0092's logic** (`peek_probe_guard`, the patch's code copied): with a ping posted and another process's
+  WM_COPYDATA pending, 100 calls dispatched nothing and took no ping; after a window-message loop handled the
+  WM_COPYDATA, the next call took the ping; with nothing queued it does not peek. In the build: `GetQueueStatus(100h)`
+  (QS_ALLPOSTMESSAGE), `GetQueueStatus(40h)` (QS_SENDMESSAGE, `shr eax,10h; test al,40h`) before each
+  `PeekMessageA(..., 980001h)` (PM_REMOVE | PM_QS_POSTMESSAGE). Left: the microseconds between the check and the peek.
+- **The runtime's unit tests in the Release build folder** (`meson test -C _CompRelease_x64 --no-rebuild`, 40 tests):
+  `test_remix_categories` fails before testing anything, "Unable to load D3D9" in its own process, with the 0090 DLL and
+  the new one alike (`test_documentation` loads the same DLL in the same environment); the other 39 pass.
+- **`build_runtime.ps1` after a source-only change** compiles only the changed objects: the shader step runs but finds
+  nothing to recompile (no `slangc` line), so a C++-only patch builds in minutes.

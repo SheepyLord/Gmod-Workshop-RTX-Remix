@@ -1,5 +1,12 @@
 # nativeloader_sky.lua
 
+ADR 0207: **Moon by day** (`nativeloader_sky_moon_day`, 1 by default, 0-4), a slider under Moon. It sends
+`rtx.atmosphere.daytimeMoonBrightness`, the runtime's option of patch 0090
+([ADR 0207](../../../../docs/decisions/0207-the-moon-by-day.md)): while the sun is up the moon's light is added to the
+sky in front of it, as bright as the real Moon at its phase at 1, so a first-quarter moon stands as a pale disc in the
+afternoon sky and a crescent shows faintly near the sun; 0 hides the moon by day, as before. The night's moon is not
+changed by it (see "The moon by day").
+
 R26: **No horizon** (`nativeloader_sky_no_horizon`, off by default), a checkbox under Sky, for maps
 that float in the sky or in space. It sends `rtx.atmosphere.noHorizon`, the runtime's option of patch
 0041 ([ADR 0139](../../../../docs/decisions/0139-the-sky-without-a-horizon.md)): below the horizon the
@@ -53,6 +60,7 @@ Saved client settings, shown in the RTX Remix tab under "Sky and weather":
 | `nativeloader_sky_day_minutes` | `20` | Real minutes for a whole day while the clock runs |
 | `nativeloader_sky_season` | `summer` | `spring`, `summer`, `autumn`, `winter`: how high the sun climbs and how long the day is |
 | `nativeloader_sky_moon` | `full` | Moon phase: `new`, `waxingCrescent`, `firstQuarter`, `waxingGibbous`, `full`, `waningGibbous`, `lastQuarter`, `waningCrescent` |
+| `nativeloader_sky_moon_day` | `1` | The moon by day, 0-4: 1 is as bright as the real Moon at its phase, 0 hides it while the sun is up (ADR 0207) |
 | `nativeloader_sky_eclipse` | (empty) | `lunar` or `solar`; empty for none. An eclipse sets the moon's phase (full, new) |
 | `nativeloader_sky_eclipse_amount` | `100` | How far through the eclipse, 0-100: first contact to the middle; lunar total from 70, solar from 90 |
 | `nativeloader_sky_stars` | `map` | Night sky: `map` (the night sky image: stars, galaxy and nebulae) or `procedural` |
@@ -97,6 +105,7 @@ With the physical sky on (`nativeloader_sky 1`):
     `sky_model.ECLIPSE`).
 - `rtx.atmosphere.starMapEnable`: `True` for the night sky image (`nativeloader_sky_stars map`),
   `False` for the procedural one.
+- `rtx.atmosphere.daytimeMoonBrightness`: the Moon by day (`nativeloader_sky_moon_day`, held to 0-4).
 
 With the map's skybox (`nativeloader_sky 0`): `rtx.skyMode 0`, and
 `rtx.ignoreGameDirectionalLights` back to its `rtx.conf` value (`False` if none).
@@ -151,6 +160,20 @@ moon is never quite on the ecliptic:
 - **An eclipse:** the moon is full (lunar) or new (solar), and its distance from the shadow's centre
   or the sun's comes from `nativeloader_sky_eclipse_amount`, by stages. The model's
   `eclipseSeparation` says which.
+
+### The moon by day
+
+The moon stands where its phase puts it: a first quarter 90 degrees east of the sun (rising at noon, high in the
+afternoon), a full moon opposite it (rising at sunset), a waning one in the morning sky. Since runtime patch 0090
+([ADR 0207](../../../../docs/decisions/0207-the-moon-by-day.md)) the runtime draws it while the sun is up too, as the
+real one shows: its light is added to the sky in front of it, so the blue shows through its dark side, and by day it is
+as bright as the real Moon at its phase. Against the sky around it (the decision's numbers, partly cloudy, summer) the
+lit part of a first-quarter moon at 16:00 is about 40 % brighter than the sky, a waxing gibbous one before sunset about
+60 %, a crescent 15 to 30 %; near the horizon's haze and near the sun it all but vanishes, as the real one does.
+`nativeloader_sky_moon_day` (`rtx.atmosphere.daytimeMoonBrightness`) scales that light, 0 to 4; 0 hides the moon by day.
+As the sun sinks to 5 degrees below the horizon the runtime hands the moon over to the night's look, which this setting
+does not change; the moon's ground light (`surfaceMoonBrightness`, above) stays a night light. The runtime also hides a
+moon below the horizon now (it showed through the ground's haze), except with No horizon.
 
 ### Following the map
 

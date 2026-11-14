@@ -26,6 +26,7 @@ local DEFAULTS = {
     nativeloader_sky = "1", nativeloader_sky_no_horizon = "0", nativeloader_sky_follow_map = "1",
     nativeloader_sky_hour = "14.5", nativeloader_sky_direction = "0", nativeloader_sky_time_passes = "1",
     nativeloader_sky_day_minutes = "20", nativeloader_sky_season = "summer", nativeloader_sky_moon = "full",
+    nativeloader_sky_moon_day = "1",
     nativeloader_sky_eclipse = "", nativeloader_sky_eclipse_amount = "100", nativeloader_sky_stars = "map",
     nativeloader_weather = "partlyCloudy", nativeloader_weather_seconds = "30", nativeloader_sky_interval = "0.02",
 }
@@ -41,6 +42,8 @@ local HELP = {
     nativeloader_sky_season = "spring, summer, autumn or winter: how high the sun climbs and how long the day is",
     nativeloader_sky_moon = "Moon phase: new, waxingCrescent, firstQuarter, waxingGibbous, full, waningGibbous, "
         .. "lastQuarter or waningCrescent",
+    nativeloader_sky_moon_day = "The moon by day, 0-4: 1 is as bright as the real Moon at its phase, a pale disc over "
+        .. "the blue sky; 0 hides it while the sun is up",
     nativeloader_sky_eclipse = "Eclipse: lunar or solar; empty for none. It sets the moon's phase",
     nativeloader_sky_eclipse_amount = "How far through the eclipse, 0-100: lunar total from 70, solar from 90",
     nativeloader_sky_stars = "Night sky: map (the night sky image: stars, galaxy and nebulae) or procedural",
@@ -94,6 +97,14 @@ local MOON_RADIUS = tonumber(LOOK["rtx.atmosphere.moon0.angularRadius"]) / 2
 local MOONLIGHT = 240
 local function moonlight(sunElevation)
     return MOONLIGHT * model.ease((-sunElevation - 4) / 8)
+end
+
+-- The moon by day (ADR 0207). While the sun is up the runtime adds the moon's light to the sky in front of
+-- it, as bright as the real Moon at its phase (rtx.atmosphere.daytimeMoonBrightness 1): a pale disc over
+-- the blue, a quarter clear in the afternoon, a crescent faint near the sun. The setting scales that, 0 to 4;
+-- 0 hides the moon by day, as before. The night's moon is not changed by it.
+local function moonByDay()
+    return math.Clamp(cv.nativeloader_sky_moon_day:GetFloat(), 0, 4)
 end
 
 -- GMod's scale. Remix takes 100 units for a metre (rtx.sceneScale 1), and a GMod unit is 1.905 cm,
@@ -456,6 +467,7 @@ local function pushSky()
         for option, text in pairs(LOOK) do set(option, text) end
         -- The night sky: the runtime's night sky image (stars, galaxy, nebulae) or its procedural field.
         set("rtx.atmosphere.starMapEnable", nightSkyImage() and "True" or "False")
+        set("rtx.atmosphere.daytimeMoonBrightness", model.optionText(moonByDay()))
     elseif physical ~= false then
         set("rtx.skyMode", "0")
         local configured = RemixConfig.GetConfigVariable and RemixConfig.GetConfigVariable("rtx.ignoreGameDirectionalLights")
@@ -678,8 +690,8 @@ concommand.Add("nativeloader_sky_status", function()
         sky.sun.elevation, sky.sun.bearing, sky.moon.elevation,
         eclipse() and string.format("%s eclipse %d %%", eclipse(), cv.nativeloader_sky_eclipse_amount:GetInt())
             or cv.nativeloader_sky_moon:GetString()))
-    print(string.format("[nativeloader] night sky %s; %s", nightSkyImage() and "image" or "procedural",
-        noHorizon() and "no horizon (the sky in every direction)" or "horizon"))
+    print(string.format("[nativeloader] night sky %s; %s; moon by day %.2f", nightSkyImage() and "image" or "procedural",
+        noHorizon() and "no horizon (the sky in every direction)" or "horizon", moonByDay()))
     local info = mapInfo or {}
     print(string.format("[nativeloader] map sky %q%s; map sun %s", info.skyname or "", info.mood and (" (" .. info.mood .. ")") or "",
         info.sun and string.format("%.1f deg high at bearing %.1f", info.sun.elevation, info.sun.bearing) or "none"))
@@ -769,6 +781,8 @@ local function buildPanel(panel)
     panel:ControlHelp(L("How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."))
     combo(panel, N("Season"), "nativeloader_sky_season", SEASONS)
     combo(panel, N("Moon"), "nativeloader_sky_moon", MOONS)
+    panel:NumSlider(L("Moon by day"), "nativeloader_sky_moon_day", 0, 4, 2)
+    panel:ControlHelp(L("How bright the moon is while the sun is up. At 1 it is as bright as the real Moon: a pale disc over the blue sky, a quarter clear in the afternoon, a crescent faint near the sun. Higher makes it stand out; 0 hides it by day."))
     combo(panel, N("Eclipse"), "nativeloader_sky_eclipse", ECLIPSES)
     panel:NumSlider(L("Eclipse progress"), "nativeloader_sky_eclipse_amount", 0, 100, 0)
     panel:ControlHelp(L("From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."))

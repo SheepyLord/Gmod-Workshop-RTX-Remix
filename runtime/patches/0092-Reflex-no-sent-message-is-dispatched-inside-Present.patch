@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 01:46:01 -0700
+Subject: [PATCH] Reflex: no sent message is dispatched inside Present
+
+RtxReflex::latencyPing runs at the end of D3D9 Present and drained the PCL stats ping with
+PeekMessage(-1, ping, ping, PM_REMOVE). Any PeekMessage call first dispatches the messages other
+threads and processes have sent to the calling thread's windows, so the game's window procedure ran
+inside Present, mid-frame. A Source game that creates its D3D9 device broadcasts WM_COPYDATA
+(0x5E740DE0 release, 0x5E740DE1 reacquire) to every window; the receiving engine releases and
+reacquires all its D3D resources in it. In the GMod native loader project's dumps that crashed GMod
+in engine.dll or shaderapidx9.dll (cluster B of its 0xC0000005 investigation, 2026-11-14).
+
+PM_QS_POSTMESSAGE alone does not prevent it: measured on Windows 11 with a cross-process
+SendMessageTimeout(WM_COPYDATA), PeekMessage dispatched the sent message with PM_REMOVE,
+PM_REMOVE | PM_QS_POSTMESSAGE, PM_NOREMOVE | PM_QS_POSTMESSAGE, PM_QS_INPUT and PM_QS_SENDMESSAGE
+alike (as Wine and ReactOS implement it). So the queue is peeked only while GetQueueStatus, which
+dispatches nothing, reports a posted message (the PCL ping is a thread message posted by
+PCLStatsPingThreadProc) and no sent one, checked again before each peek. A sent message then waits
+for the application's own message loop, and the ping for the next frame. The peek also takes
+PM_QS_POSTMESSAGE, which keeps it to posted messages (no input processed inside Present); the posted
+ping is still retrieved with it (measured).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/dxvk/rtx_render/rtx_reflex.cpp | 22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_reflex.cpp b/src/dxvk/rtx_render/rtx_reflex.cpp
+index a1c15d51..26cff50e 100644
+--- a/src/dxvk/rtx_render/rtx_reflex.cpp
++++ b/src/dxvk/rtx_render/rtx_reflex.cpp
+@@ -226,13 +226,33 @@ namespace dxvk {
+ 
+     // Place latency ping marker when requested
+ 
++    // NV-DXVK start (the GMod native loader's ADR 0216): no sent message is dispatched inside Present
++    // Any PeekMessage call dispatches the messages other threads and processes have sent to this thread's windows
++    // before it looks at the queue, whatever its filter and its PM_QS_* flags (measured on Windows 11: PM_REMOVE |
++    // PM_QS_POSTMESSAGE dispatches them too). This runs inside Present, mid-frame, where the application's window
++    // procedure must not run: Source games broadcast WM_COPYDATA to every window when one creates its D3D9 device,
++    // and the receiving engine releases and reacquires all its resources in it. So the queue is peeked only while it
++    // holds a posted message (the PCL stats ping is a thread message, posted by PCLStatsPingThreadProc) and no sent
++    // one, which GetQueueStatus reports without dispatching anything. A sent message waits for the application's own
++    // message loop, and the ping for the next frame. PM_QS_POSTMESSAGE keeps the peek to posted messages (no input
++    // is processed inside Present); the ping is still retrieved with it.
++    const auto sentMessagePending = []() {
++      return (HIWORD(::GetQueueStatus(QS_SENDMESSAGE)) & QS_SENDMESSAGE) != 0;
++    };
++
++    if ((HIWORD(::GetQueueStatus(QS_ALLPOSTMESSAGE)) & QS_ALLPOSTMESSAGE) == 0) {
++      return;
++    }
++    // NV-DXVK end
++
+     MSG msg;
+     // Note: A HWND of -1 indicates that PeekMessage should only peek messages on the current thread.
+     const HWND kCurrentThreadId = reinterpret_cast<HWND>(-1);
+     bool sendPclPing = false;
+ 
+     // Note: This peek will remove messages from the queue so it should be allowed to go over all of them rather than breaking early.
+-    while (PeekMessage(&msg, kCurrentThreadId, g_PCLStatsWindowMessage, g_PCLStatsWindowMessage, PM_REMOVE)) {
++    while (!sentMessagePending() &&
++           PeekMessage(&msg, kCurrentThreadId, g_PCLStatsWindowMessage, g_PCLStatsWindowMessage, PM_REMOVE | PM_QS_POSTMESSAGE)) {
+       // Note: PeekMessage even with wMsgFilterMin and wMsgFilterMax set can still return messages outside this range, specifically WM_QUIT,
+       // so a check here is required.
+       if (PCLSTATS_IS_PING_MSG_ID(msg.message)) {
+-- 
+2.56.0.windows.1
+

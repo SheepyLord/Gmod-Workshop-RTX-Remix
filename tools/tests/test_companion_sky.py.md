@@ -88,6 +88,10 @@ The harness is written to a scratch folder under `out\tmp`.
   start sends nothing at all; ticking it sends that option alone, and 11 s later the companion has
   still sent no `rtx.skyMode` (the add-on keeps its sky). Saved ticked, the start sends that option and
   nothing else, and unticking sends `False`.
+- **The moon by day** (ADR 0207, `nativeloader_sky_moon_day`): the start of gm_construct sends
+  `rtx.atmosphere.daytimeMoonBrightness 1` (as bright as the real Moon); the slider's 2.5 sends `2.5` and the sky
+  still follows the map's sun; 9 is held to `4`; 0 sends `0` and the status line says "moon by day 0.00"; the reset
+  sends `1` again.
 
 Run with the other tool tests: `python -m unittest discover -s tests` from `tools\` (as
 `tools\test.ps1` does). Skipped when LuaJIT is not installed (on `PATH` or in

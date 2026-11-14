@@ -135,3 +135,7 @@ the estimate ("about %s s left", its rough and minute forms, "Taking longer than
 estimate). Their translations in all six catalogs are agent-written by Claude and not yet human-reviewed. They are
 short because the overlay gives each one line; "Workshop" stays as the other messages keep it (创意工坊 in zh-CN), and
 the spawn menu and add-ons use the catalogs' own words.
+ADR 0207 adds two messages, the Sky and weather panel's Moon by day slider and its help line. Their translations in all
+six catalogs are agent-written by Claude and not yet human-reviewed; the phase names reuse the catalogs' own (First
+quarter, Waxing crescent). The runtime's two new menu entries (Daytime Brightness and the option's description, patch
+0090) are likewise agent-written in the runtime's catalogs.

@@ -1,0 +1,165 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Sat, 14 Nov 2026 01:48:28 -0700
+Subject: [PATCH] Core fixes: the pipeline-handle race, command-list recycling,
+ DLFG waits
+
+Ported from NVIDIA's dxvk-remix, commit c1a891bf85dbda78cab979010089c5c9b4256a11 ("[REMIX-6230] Core
+fixes: pipeline-handle race...", 2026-10-26, MIT, NVIDIA Corporation), which the fork this project
+builds on (sambow23/dxvk-remix-gmod gmod-numos3 c6b48ed1) does not have:
+
+- DxvkGraphicsPipeline::getPipelineHandle copied the new instance's VkPipeline out of m_pipelines
+  only after releasing m_mutex. DXVK's state-cache workers (30 on a 32-thread CPU) compile cached
+  states of the same shader pair in compilePipeline and emplace_back into the same std::vector, so a
+  reallocation between the unlock and the read left the render thread holding a pointer into freed
+  memory, and the handle it passed to vkCmdBindPipeline was garbage. In the GMod native loader
+  project's crash dumps that is nvoglv64.dll+0xe622f8 reading a non-pointer VkPipeline 7-35 s after
+  start (8 dumps, every runtime build since 2026-10-31). The handle is now read under the lock.
+- The same pattern in DxvkComputePipeline::getPipelineHandle (not in the upstream commit), fixed the
+  same way.
+- DxvkSubmissionQueue::finishCmdLists resets and recycles a finished command list before m_pending
+  is decremented and waitForIdle's waiters are woken: a zero pending count now promises that the
+  command lists' references are released.
+- DxvkDLFGPresenter (frame generation) no longer waits a second time on the swapchain's acquire
+  semaphore after blitRenderedFrame has waited on it: a binary semaphore waited twice in one
+  submission has no signal for the second wait.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/dxvk/dxvk_compute.cpp        | 14 ++++++++++----
+ src/dxvk/dxvk_graphics.cpp       | 13 +++++++++----
+ src/dxvk/dxvk_queue.cpp          | 10 ++++++----
+ src/dxvk/rtx_render/rtx_dlfg.cpp |  2 --
+ 4 files changed, 25 insertions(+), 14 deletions(-)
+
+diff --git a/src/dxvk/dxvk_compute.cpp b/src/dxvk/dxvk_compute.cpp
+index adb67e1e..729d4eac 100644
+--- a/src/dxvk/dxvk_compute.cpp
++++ b/src/dxvk/dxvk_compute.cpp
+@@ -61,11 +61,14 @@ namespace dxvk {
+   
+   VkPipeline DxvkComputePipeline::getPipelineHandle(
+     const DxvkComputePipelineStateInfo& state) {
+-    DxvkComputePipelineInstance* instance = nullptr;
++    // NV-DXVK start: Read the pipeline handle while holding the lock
++    // (as upstream dxvk-remix c1a891bf85 does for graphics pipelines: compilePipeline's emplace_back on a
++    // state-cache worker can reallocate m_pipelines as soon as the lock is released)
++    VkPipeline pipeline = VK_NULL_HANDLE;
+ 
+     { std::lock_guard<sync::Spinlock> lock(m_mutex);
+ 
+-      instance = this->findInstance(state);
++      DxvkComputePipelineInstance* instance = this->findInstance(state);
+ 
+       if (instance)
+         return instance->pipeline();
+@@ -73,9 +76,11 @@ namespace dxvk {
+       // If no pipeline instance exists with the given state
+       // vector, create a new one and add it to the list.
+       instance = this->createInstance(state);
++      if (instance)
++        pipeline = instance->pipeline();
+     }
+     
+-    if (!instance)
++    if (!pipeline)
+       return VK_NULL_HANDLE;
+ 
+     // Note: Only write pipelines with actual spec constant state to the cache as
+@@ -85,7 +90,8 @@ namespace dxvk {
+       this->writePipelineStateToCache(state);
+     }
+ 
+-    return instance->pipeline();
++    return pipeline;
++    // NV-DXVK end
+   }
+ 
+ 
+diff --git a/src/dxvk/dxvk_graphics.cpp b/src/dxvk/dxvk_graphics.cpp
+index 96bdb050..3dd3d19e 100644
+--- a/src/dxvk/dxvk_graphics.cpp
++++ b/src/dxvk/dxvk_graphics.cpp
+@@ -63,23 +63,28 @@ namespace dxvk {
+   VkPipeline DxvkGraphicsPipeline::getPipelineHandle(
+     const DxvkGraphicsPipelineStateInfo& state,
+     const DxvkRenderPass*                renderPass) {
+-    DxvkGraphicsPipelineInstance* instance = nullptr;
++    // NV-DXVK start: Read the pipeline handle while holding the lock
++    VkPipeline pipeline = VK_NULL_HANDLE;
+ 
+     { std::lock_guard<sync::Spinlock> lock(m_mutex);
+     
+-      instance = this->findInstance(state, renderPass);
++      DxvkGraphicsPipelineInstance* instance =
++        this->findInstance(state, renderPass);
+       
+       if (instance)
+         return instance->pipeline();
+       
+       instance = this->createInstance(state, renderPass);
++      if (instance)
++        pipeline = instance->pipeline();
+     }
+     
+-    if (!instance)
++    if (!pipeline)
+       return VK_NULL_HANDLE;
+ 
+     this->writePipelineStateToCache(state, renderPass->format());
+-    return instance->pipeline();
++    return pipeline;
++    // NV-DXVK end
+   }
+ 
+ 
+diff --git a/src/dxvk/dxvk_queue.cpp b/src/dxvk/dxvk_queue.cpp
+index d71bf8e3..271f2d8a 100644
+--- a/src/dxvk/dxvk_queue.cpp
++++ b/src/dxvk/dxvk_queue.cpp
+@@ -366,16 +366,18 @@ namespace dxvk {
+       // order to reduce delays as much as possible.
+       entry.submit.cmdList->notifyObjects();
+ 
++      // NV-DXVK start: Recycle the command list before waking finish waiters
++      // A zero pending count promises that command-list references have been released.
++      entry.submit.cmdList->reset();
++      m_device->recycleCommandList(entry.submit.cmdList);
++
+       lock.lock();
+       m_pending -= 1;
+ 
+       m_finishQueue.pop();
+       m_finishCond.notify_all();
+       lock.unlock();
+-
+-      // Free the command list and associated objects now
+-      entry.submit.cmdList->reset();
+-      m_device->recycleCommandList(entry.submit.cmdList);
++      // NV-DXVK end
+     }
+   }
+ 
+diff --git a/src/dxvk/rtx_render/rtx_dlfg.cpp b/src/dxvk/rtx_render/rtx_dlfg.cpp
+index 8b779b3d..770ebde9 100644
+--- a/src/dxvk/rtx_render/rtx_dlfg.cpp
++++ b/src/dxvk/rtx_render/rtx_dlfg.cpp
+@@ -856,7 +856,6 @@ namespace dxvk {
+         commandList = m_dlfgCommandLists.nextCmdList();
+         blitRenderedFrame(commandList, renderedSwapchainImage, present, true);
+ 
+-        commandList->addWaitSemaphore(renderedSwapchainImage.sync.acquire);
+         commandList->addSignalSemaphore(backbufferSignalSemaphore);
+         commandList->endRecording();
+         commandList->submit();
+@@ -885,7 +884,6 @@ namespace dxvk {
+ 
+         blitRenderedFrame(commandList, renderedSwapchainImage, present, false);
+ 
+-        commandList->addWaitSemaphore(renderedSwapchainImage.sync.acquire);
+         commandList->addSignalSemaphore(backbufferSignalSemaphore);
+         commandList->endRecording();
+         commandList->submit();
+-- 
+2.56.0.windows.1
+

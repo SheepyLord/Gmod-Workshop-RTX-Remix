@@ -3353,3 +3353,58 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
   file's round trip, outliers, scaling, the size fit).
 - **Not run in a game:** the window over a real load, the settling phase's end against the frames the player sees, the
   activity line's words on real stacks, and the estimate over a week of real loads. See the report.
+## The Moon by day (2026-11-14, Claude, ADR 0207)
+
+- **Harness:** [`test_companion_sky.py`](../tools/tests/test_companion_sky.py.md) (LuaJIT, in the Release gate): the
+  start of gm_construct sends `rtx.atmosphere.daytimeMoonBrightness 1`; the Moon by day slider sends its value held to
+  0-4 and keeps the map's sun followed; the status line names it; the reset sends 1.
+  [`test_moon_daylight.py`](../tools/tests/test_moon_daylight.py.md): patch 0090's phase-law unit test compiled from the
+  patch and run (MSVC); the composite, option, arguments, `RtxOptions.md` row and catalogs in the patch; the estimate
+  tool's numbers.
+- **Runtime:** patch 0090 built through `runtime\build_runtime.ps1` (the tree checked against the base and the 86
+  patches, both compile passes, every shader that evaluates the sky compiled again); `test_moon_daylight.exe` from that
+  build passes 1,520 checks; the six catalogs checked by `i18n/tools/embed.py` (3,360 of 3,360 messages in each, glyphs
+  included), `update_strings.py --check` current, `test_embed.py` passes. Imported `d3d9.dll` `fb0e2b21...`.
+- **Offline:** [`moon_daylight.py`](../tools/sky/moon_daylight.py.md) for partly cloudy, clear and hazy summer days
+  (the table in ADR 0207).
+- **Not run: no game session.** The checks still to make in the game (Sky and weather panel; `nativeloader_sky_status`
+  prints where the sun and the moon stand; untick Follow the map's sun to choose the time):
+  1. **Noon**, summer, Moon Waxing crescent: a faint crescent 36 degrees up in the east (bearings on the map's compass,
+     as the status prints them), its lit side towards the sun; Moon Full: no moon (68 degrees below the horizon) and
+     nothing drawn in the ground's haze.
+  2. **Afternoon first quarter**, 16:00: a pale half disc 45 degrees up in the south-east, its dark half the sky's blue
+     (no dark disc, no outline), hidden behind clouds and dimmed under high cloud; also in a mirror or water.
+  3. **Dusk**, 19:00 to 20:00 with Time passes on: the moon brightens smoothly as the sky darkens, no step, and from
+     about 20:00 (the sun 5 degrees down) looks as before.
+  4. **Night**, 23:00, full and partial phases: as before (the disc, its halo, the stars beside it, the clouds' silver
+     lining, the ground's moonlight).
+  5. **Lunar eclipse** (progress 0-100): as before. **Solar eclipse** (progress 0-100): the sun disc's handover, the
+     dark Moon over the sun, the corona and the stars at totality; no lit disc and no outline on the sun.
+  6. **No horizon** on a floating map (gm_flatgrass high above the floor, R26's spot): a moon below the horizon is drawn
+     (lit through the air of its mirror), day and night. Without No horizon, a moon low in the sky is cut at the horizon
+     line and none is drawn below it.
+  7. **Moon by day** at 0: no moon while the sun is up, then the night's moon as before; at 4: a bright, clear disc.
+     The Remix menu (Alt+X): Moons, Global Lighting, Daytime Brightness, its tooltip, in a CJK language too.
+
+## 0xC0000005: the runtime's crash fixes (2026-11-14, Claude, ADR 0216)
+
+- **Static:** [`test_runtime_crash_fixes.py`](../tools/tests/test_runtime_crash_fixes.py.md) (in the Release gate):
+  patches 0091 and 0092 hold the handle read under the lock (graphics and compute), the recycle before the notify, the
+  duplicate semaphore waits removed and the guarded peek; each check fails on a reverted shape of its fix.
+- **Runtime:** 0001-0092 built by `runtime\build_runtime.ps1` (the tree checked against the base and the patches; only
+  the five changed sources and their dependants compiled), imported as `d3d9.dll` `e242dfdb...` (replacing the Moon-only
+  `fb0e2b21...`). The build's unit tests: 39 of 40 pass (`test_moon_daylight` and `test_documentation` among them);
+  `test_remix_categories` cannot load `d3d9.dll` in its process, with the 0090 DLL alike.
+- **Disassembly:** cdb with each build's PDB: the handle loaded before the unlock in both `getPipelineHandle`s, the
+  queue's recycle before its wake, `latencyPing`'s `GetQueueStatus` checks and flags (RESEARCH.md, "0xC0000005").
+- **Message probes** (`out\crash-probe`, this machine): `PeekMessage` dispatches a pending cross-thread or
+  cross-process sent message whatever its `PM_QS_*` flags; patch 0092's logic dispatches none over 100 frames and
+  still takes the posted ping.
+- **Not run: no game session.** Still to do in the PoC (the investigation's proposal 1):
+  1. a fault-injection build (a 2 ms sleep between the unlock and the read in the old code, the same sleep after the
+     read in the new) with the field's state cache in `DXVK_STATE_CACHE_PATH`: the old crashes most starts, the new
+     none;
+  2. 30 or more cold starts before and after (about 2-4 crashes against 0 expected);
+  3. frame generation on for 10 minutes, no device loss;
+  4. an RTX session while a second `-multirun` game creates its device: no crash in engine.dll or shaderapidx9.dll
+     inside Present (the message itself may still crash GMod in its own loop; see the report's "Open").

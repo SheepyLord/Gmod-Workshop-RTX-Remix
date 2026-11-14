@@ -217,7 +217,7 @@ report("start", "rtx.skyMode", "rtx.ignoreGameDirectionalLights", "rtx.atmospher
   "rtx.atmosphere.moon0.enabled", "rtx.atmosphere.sunElevation", "rtx.atmosphere.sunRotation",
   "rtx.atmosphere.cloudDensity", "rtx.volumetrics.transmittanceMeasurementDistanceMeters",
   "rtx.weather.precipitation.intensity", "rtx.atmosphere.starAxisElevation",
-  "rtx.atmosphere.surfaceMoonBrightness", "rtx.atmosphere.noHorizon")
+  "rtx.atmosphere.surfaceMoonBrightness", "rtx.atmosphere.noHorizon", "rtx.atmosphere.daytimeMoonBrightness")
 print("convars " .. convars.nativeloader_sky_hour.value .. " " .. convars.nativeloader_sky_direction.value
   .. " " .. convars.nativeloader_sky_follow_map.value)
 if SCRIPT == "defaults" then
@@ -398,6 +398,26 @@ if SCRIPT == "eclipse" then
   geometry("none")
   cmd("nativeloader_sky_stars", "procedural")
   report("stars", "rtx.atmosphere.starMapEnable", "rtx.atmosphere.nightSkyBrightness")
+  return
+end
+if SCRIPT == "moonday" then
+  -- ADR 0207: the moon by day, its slider, the status line and the reset.
+  cmd("nativeloader_sky_moon_day", "2.5")
+  report("moonday_bright", "rtx.atmosphere.daytimeMoonBrightness")
+  print("moonday_follow " .. convars.nativeloader_sky_follow_map.value)
+  cmd("nativeloader_sky_moon_day", "9")
+  report("moonday_high", "rtx.atmosphere.daytimeMoonBrightness")
+  cmd("nativeloader_sky_moon_day", "0")
+  report("moonday_off", "rtx.atmosphere.daytimeMoonBrightness")
+  local lines, realPrint = {}, print
+  print = function(text) lines[#lines + 1] = text end
+  cmd("nativeloader_sky_status")
+  print = realPrint
+  for _, line in ipairs(lines) do
+    if line:find("moon by day", 1, true) then print("moonday_status " .. line) end
+  end
+  cmd("nativeloader_sky_reset")
+  report("moonday_reset", "rtx.atmosphere.daytimeMoonBrightness")
   return
 end
 if SCRIPT == "fog" then
@@ -719,6 +739,18 @@ class SkyTests(unittest.TestCase):
         self.assertEqual((phase, hour), ('0.500', '12.00'))
         self.assertEqual(self.settings(out['stars']), {
             'rtx.atmosphere.starMapEnable': 'False', 'rtx.atmosphere.nightSkyBrightness': '0.008'})
+
+    def test_the_moon_by_day_goes_to_remix(self):
+        # ADR 0207: by default the moon by day is as bright as the real Moon at its phase (1, the runtime's own
+        # default); the slider scales it from 0 (no moon while the sun is up) to 4, and is not a change of time.
+        out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='moonday')
+        self.assertEqual(self.settings(out['start'])['rtx.atmosphere.daytimeMoonBrightness'], '1')
+        self.assertEqual(self.settings(out['moonday_bright'])['rtx.atmosphere.daytimeMoonBrightness'], '2.5')
+        self.assertEqual(out['moonday_follow'], '1')
+        self.assertEqual(self.settings(out['moonday_high'])['rtx.atmosphere.daytimeMoonBrightness'], '4')
+        self.assertEqual(self.settings(out['moonday_off'])['rtx.atmosphere.daytimeMoonBrightness'], '0')
+        self.assertIn('moon by day 0.00', out['moonday_status'])
+        self.assertEqual(self.settings(out['moonday_reset'])['rtx.atmosphere.daytimeMoonBrightness'], '1')
 
     def test_a_fog_preset_sets_remix_fog_and_the_weather_leaves_it_alone(self):
         out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='fog', MENU=True)

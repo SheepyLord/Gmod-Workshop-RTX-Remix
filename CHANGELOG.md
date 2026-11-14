@@ -62,6 +62,29 @@ Versions follow the loader's CMake project version once it ships; until then eve
   (200 loads at most), which the engine guard reads and writes for the menu realm
   ([ADR 0215](docs/decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)). Fifteen new messages, in all
   seven languages.
+- The crash most players report, "Crash detected ... 0xC0000005" 7-35 s after start (`nvoglv64.dll+0xe622f8`): the
+  Remix runtime read a new pipeline's handle after releasing its lock while DXVK's state-cache workers could reallocate
+  the list it was in, and bound a freed handle. Runtime patch 0091 ports NVIDIA's upstream fix (dxvk-remix
+  `c1a891bf85`, MIT): the handle is read under the lock, for compute pipelines too; a finished command list is recycled
+  before its waiters wake; frame generation waits once on the swapchain image ([ADR 0216](docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md),
+  [report](docs/handover/crash-0xc0000005-report.md)).
+- When another Source game (a second Garry's Mod, SFM, Hammer) creates its device during an RTX session, GMod no longer
+  handles its release/reacquire message inside the frame: runtime patch 0092 keeps the Reflex latency ping from
+  dispatching sent messages inside Present (ADR 0216). `d3d9.dll` with patches 0001-0092: SHA-256 `e242dfdb...`.
+- `tools/tests/test_runtime_crash_fixes.py` checks that patches 0091 and 0092 hold their fixes (ADR 0216).
+- The Moon by day (the user's request of 2026-11-14): the physical sky shows the moon while the sun is up wherever its
+  phase puts it, a first quarter in the afternoon, a waning moon in the morning. Its light is added to the sky in
+  front of it, so the blue shows through its dark side, and by day it is as bright as the real Moon at its phase: a pale
+  disc 10 to 70 % brighter than the sky around it, a crescent faint near the sun. As the sun sets it hands over to the
+  night's moon, which is unchanged ([ADR 0207](docs/decisions/0207-the-moon-by-day.md), runtime patch 0090).
+- Moon by day (ADR 0207), a slider under Moon in the Sky and weather panel (`nativeloader_sky_moon_day`, 1, 0-4): how
+  bright the moon is by day against the real Moon; 0 hides it while the sun is up. It sends the runtime's new
+  `rtx.atmosphere.daytimeMoonBrightness`, also in the Remix developer menu (Moons, Global Lighting, Daytime
+  Brightness). Translated in all six languages.
+- The physical sky no longer draws a moon below the horizon, where it showed through the ground's haze, except with No
+  horizon; with eclipses off a moon in front of the sun now covers its disc (ADR 0207).
+- `tools/sky/moon_daylight.py` rebuilds the runtime's sky and Moon offline and prints how the Moon shows against the day
+  sky for a time, a phase and a weather (ADR 0207).
 - VR grabbing is precise and hands-on (V8, approved by the user on 2026-11-13): a held object keeps its pose in the
   hand, comes to rest against the palm and follows the hand's movement and wrist turns with the hand's own velocity
   and spin fed forward, so turning the wrist turns it; light objects follow within millimetres while heavy ones still

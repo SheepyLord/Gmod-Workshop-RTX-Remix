@@ -6,6 +6,30 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- VR grabbing is precise and hands-on (V8, approved by the user on 2026-11-13): a held object keeps its pose in the
+  hand, comes to rest against the palm and follows the hand's movement and wrist turns with the hand's own velocity
+  and spin fed forward, so turning the wrist turns it; light objects follow within millimetres while heavy ones still
+  lag. Both hands can hold one object, which then sits on the line between them and rolls with both wrists, and
+  neither the second grab nor letting go of one hand moves it. Held props are drawn where the hands are now, not where
+  the server last had them ([ADR 0203](docs/decisions/0203-precise-vr-holds-follow-the-hand.md)).
+- VR freezing (V8): pulling the trigger of a hand that holds something freezes it in place, a ragdoll's held
+  bone or a whole prop, as the physgun does; gripping a frozen object and pulling the trigger frees it into the hand
+  ([ADR 0204](docs/decisions/0204-the-holding-hands-trigger-freezes.md)).
+- VR frame generation (V8): a Frame generation switch on the VR page keeps rendering half the headset's
+  frames so SteamVR's Motion Smoothing makes the rest, or renders every frame when off; the page says whether Motion
+  Smoothing is making frames, is off in SteamVR or is unavailable. Remix's DLSS frame generation stays off in VR: it only
+  adds frames to the desktop window ([ADR 0205](docs/decisions/0205-frame-generation-in-vr-is-motion-smoothing.md)).
+- VR test fixtures (V8): the weapons and reload drivers face their requested 180 degrees again (V4's shared adapter
+  had turned the room to 0), and every scripted session clears physical mouse input before the move module can turn
+  the room with it.
+- VR test checks (V8, found by the first PoC runs): the reload button's delivery is read on one clock (the server's
+  ran up to 75 ms behind the client's, so B seemed to arrive before its release), readiness stops at the first B
+  record in the console's order, an empty gun's hold counts from when it was applied (an unloaded RPG is held from the
+  session's start), the guns fixture's rocket phase runs with physical reload off (it never loads a rocket by hand),
+  its left-hand melee-walk steps toward the gun hand's side, its hands-phase can no longer starts inside the hand's
+  physics sphere (which bounced it out of reach), and the grab session measures the two-hand roll from a plank held
+  level first. With them, V8 passed both hands' weapons and reload sections and the grab session, simulated and on the
+  Index, where Motion Smoothing made frames and Frame generation off doubled Auto's target.
 - GitHub issue 5: "Default texture pack is not ready: resource_sampling_unsupported:[[0,0,0],...]" no longer stays in
   the middle of the screen in RTX sessions. The line is MineMod's (a Minecraft blocks add-on): its texture pack probe
   draws with its own shader, which the render guard keeps inert under RTX, so its bake failed and the line showed on

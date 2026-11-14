@@ -58,6 +58,8 @@ struct Info {
   uint32_t eye_width=0,eye_height=0;
   rtxvr_Status runtime{};
   bool timing_valid=false;
+  // V8: SteamVR's Motion Smoothing (its frame generation): supported here, and on in the user's settings.
+  bool motion_smoothing_supported=false,motion_smoothing_enabled=false;
   bool left_tracked=false,right_tracked=false;
   ::vr::Compositor_FrameTiming timing{};
   ::vr::Compositor_CumulativeStats cumulative{};

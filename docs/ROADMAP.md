@@ -1,5 +1,15 @@
 # Roadmap
 
+VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing with one-hand
+turning, a freeze key, frame generation in the headset, the desktop's resolution) was **approved by the user on
+2026-11-13 and merged to `main`**. Claude coded it on `vr8`, tested it offline and ran it in the game (PoC both
+hands, simulated and Index).
+[The V8 report](handover/VR-V8-report.md) says what it holds and what is still untested.
+
+| Milestone | State |
+|---|---|
+| V8: Grabbing, freezing, frame generation | Done (approved by the user, 2026-11-13) |
+
 VR V6 (Auto quality) and V7 (true stereo) were approved by the user on 2026-11-13 and merged to `main`; V5 (body and
 multiplayer) was skipped and VR is single-player only. Claude coded both; merged as `c8eba6d0` and published as
 0.0.0-dev.20261113173439+d1cc7cda. [The V6-V7 report](handover/VR-V6-V7-report.md) says what they deliver, what the

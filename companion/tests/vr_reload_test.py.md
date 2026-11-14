@@ -41,3 +41,9 @@ A receipt counterexample excludes the reload's own subsequent attack lock from p
 Q4 retains a regression for an unclassified pre-chapter attack row: it cannot crash analysis or falsely pass a reload criterion.
 
 Independent review round: live hooks use the shared dispatcher and detached compatibility snapshots; geometry witnesses use raw posed-mesh/hand-bone data with rejecting placement/skew mutants. Full destructive acceptance stays gated pending Claude's fixes repair. See VR-V4-Q-resume.md for exact test/evidence scope.
+
+V8: `test_delivery_tick_is_read_on_the_clients_clock` (run 1's pistol: server 63 ms behind the client, delivery one tick
+after the release passes; 22 ticks late fails; without client ticks the server's time stands),
+`test_server_deadlines_move_with_the_delivery_offset` (a server readiness deadline moves with the offset) and
+`test_empty_hold_counts_from_when_it_was_applied` (an RPG held since the session's start, 3477 s left, passes; a
+native refire delay and a hold older than any session fail).

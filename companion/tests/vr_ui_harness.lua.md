@@ -28,3 +28,5 @@ verify_background_drag_cursor resets desktop input to (0,0) between injected mov
 verify_background_drag_events covers missing native movement callbacks after a successful press, a moving controller, unchanged-pixel suppression, delivered-native-callback de-duplication and method restoration.
 
 Q4 integration: uses the shared `companion/tests/vr_hook_fixture.lua` contract for hook-library compatibility; retained regression cases run without SteamVR.
+
+V8: the page has 21 settings controls, the Frame generation checkbox among them.

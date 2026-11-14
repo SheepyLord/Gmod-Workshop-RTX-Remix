@@ -104,6 +104,66 @@ class VRReloadReceiptTests(unittest.TestCase):
         self.assertFalse(button_delivery(records,"weapon_rpg")["one_tick"])
         self.assertFalse(button_delivery(records,"weapon_rpg")["on_time"])
 
+    def test_delivery_tick_is_read_on_the_clients_clock(self):
+        # V8 run 1: the server's SysTime clock ran 0.063 s behind the fixture's clock in the first phase, so B
+        # reached the server "before" its release. The delivery tick is placed where the client recorded that tick.
+        from vr_reload_analyse import button_delivery
+        cls="weapon_pistol"
+        def rows(delivery_tick, delivery_time):
+            return [{"kind":"setup","class":cls,"phase":0},
+                    {"kind":"sample","class":cls,"time":3.0,"player_next_attack":0},
+                    {"kind":"button-input","class":cls,"time":3.1732,"released":True,"tapped":True,"tick":1791},
+                    {"kind":"button-command","class":cls,"time":3.1732,"command_tick":1791,"tick":1791,"reload":True},
+                    *[{"kind":"button-command","class":cls,"time":round(3.1732+.015*i,4),"command_tick":1791+i,"tick":1791+i,
+                       "reload":False} for i in range(1,30)],
+                    {"kind":"reload-button","class":cls,"time":delivery_time,"tick":delivery_tick,"player_next_attack":0}]
+        result=button_delivery(rows(1792,3.1102),cls)
+        self.assertTrue(result["on_time"],result)
+        self.assertAlmostEqual(result["latency"],.015,places=4)
+        self.assertAlmostEqual(result["server_clock_offset"],.0780,places=4)
+        late=button_delivery(rows(1792+22,3.1102+.33),cls)
+        self.assertFalse(late["on_time"],"a delivery 22 ticks after release passed")
+        self.assertAlmostEqual(late["latency"],.345,places=4)
+        # Without a client record of the tick the server's own time stands, as before.
+        bare=[r if r["kind"]=="reload-button" else {k:v for k,v in r.items() if k!="tick"} for r in rows(1792,3.1102)]
+        self.assertFalse(button_delivery(bare,cls)["on_time"])
+        self.assertAlmostEqual(button_delivery(bare,cls)["latency"],3.1102-3.1732,places=4)
+
+    def test_server_deadlines_move_with_the_delivery_offset(self):
+        from vr_reload_analyse import button_delivery
+        cls="weapon_rpg"
+        records=[{"kind":"setup","class":cls,"phase":0},
+                 {"kind":"sample","class":cls,"time":3.0,"player_next_attack":.3},
+                 {"kind":"button-input","class":cls,"time":3.1,"released":True,"tapped":True,"tick":200},
+                 *[{"kind":"button-command","class":cls,"time":round(3.1+.015*i,4),"command_tick":200+i,"tick":200+i,
+                    "reload":i==20} for i in range(0,25)],
+                 {"kind":"reload-button","class":cls,"time":3.35,"tick":221,"player_next_attack":0}]
+        result=button_delivery(records,cls)
+        self.assertAlmostEqual(result["server_clock_offset"],3.415-3.35,places=4)
+        self.assertAlmostEqual(result["ready"],3.3+3.415-3.35,places=4)
+        self.assertAlmostEqual(result["latency"],3.35-3.3,places=4)
+        self.assertTrue(result["on_time"])
+
+    def test_empty_hold_counts_from_when_it_was_applied(self):
+        import json
+        from vr_reload_analyse import analyse, HOLD_FLOOR
+        scratch=ROOT/"out/tmp";scratch.mkdir(parents=True,exist_ok=True)
+        def held(remaining):
+            rows=[{"kind":"setup","class":"weapon_rpg","phase":0,"reserve":0}]
+            rows+=[{"kind":"sample","class":"weapon_rpg","time":2.5+.25*i,"reserve":0,"active":"weapon_rpg",
+                    "reload":{"command_primary":remaining-.25*i,"held":0}} for i in range(21)]
+            with tempfile.TemporaryDirectory(dir=scratch,prefix="K-empty-hold-") as tmp:
+                folder=Path(tmp)
+                for name,data in (("reload.json",rows),("summary.json",{"success":True}),("reload-receipt.json",{"success":True}),("sources.json",{"config":{}})):
+                    (folder/name).write_text(json.dumps(data),encoding="utf-8")
+                with patch("vr_reload_analyse.counter_metrics",return_value={"success":True}):
+                    return analyse(folder,empty=True)["checks"]["weapon_rpg"]["held"]
+        self.assertEqual(HOLD_FLOOR,3000)
+        self.assertTrue(held(3477.5),"an RPG held since the session's start (V8 run 1) failed")
+        self.assertTrue(held(3600))
+        self.assertFalse(held(2.0),"a native refire delay passed as a hold")
+        self.assertFalse(held(2900),"a hold applied before any session could have begun passed")
+
     def test_port_chain_documented(self):
         text=(ROOT / "vr/addon/lua/nlvr/modules/sv_reload.lua.md").read_text(encoding="utf-8")
         for term in ("pitch", "45", "foregrip", "0.65", "SafeMuzzle"):

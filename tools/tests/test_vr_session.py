@@ -32,6 +32,61 @@ def wrist_png(blank=False, size=(8, 8), pixel=None):
 
 
 class VrSessionTests(unittest.TestCase):
+    def test_scripted_sessions_face_the_requested_yaw_and_clear_physical_mouse(self):
+        sys.path.insert(0, str(TOOLS.parent / 'companion' / 'tests'))
+        from test_mmd_alpha import LUAJIT
+        if not LUAJIT:
+            self.skipTest('LuaJIT is not installed')
+        source = (TOOLS / 'vr_session.lua').read_text(encoding='utf-8')
+        start = source.index('local fixtureYawCore')
+        block = source[start:source.index('\nnotices()', start)]
+        lua = '''local CONFIG, camera, records = {}, {823, -657, -40, 0, 180, 0}, {}
+local function emit(kind, value) records[#records + 1] = {kind = kind, value = value} end
+local NLVR
+local function core(yaw, headYaw)
+    local c = {Space = {yaw = yaw}, Pose = {head = yaw and {ang = {y = yaw + headYaw}} or nil}, movers = {}}
+    function c.Space.Turn(d)
+        c.Space.yaw = (c.Space.yaw + d + 180) %% 360 - 180 c.Pose.head.ang.y = c.Space.yaw + headYaw
+    end
+    c.Registry = {entries = {{module = {name = "hands"}, ctx = {}},
+        {module = {name = "move"}, ctx = {mover = function(p, fn) c.movers[#c.movers + 1] = {p, fn} end}}}}
+    return c
+end
+local function wrap(v) return (v + 180) %% 360 - 180 end
+%s
+-- Mouse noise of 22 counts (m_yaw 0.022) moved the room 0.484 degrees in quality-sim-03.
+NLVR = core(180.484, 0) hold_fixture_yaw()
+assert(math.abs(wrap(NLVR.Pose.head.ang.y - 180)) < 1e-6, "camera does not face the requested yaw")
+assert(#NLVR.movers == 1 and NLVR.movers[1][1] == -30, "no mouse-clearing mover before the move module")
+local cmd = {x = 40, y = -3}
+function cmd:SetMouseX(n) self.x = n end function cmd:SetMouseY(n) self.y = n end
+NLVR.movers[1][2](cmd) assert(cmd.x == 0 and cmd.y == 0, "physical mouse input reached the move module")
+assert(records[1].kind == "fixture-yaw" and math.abs(records[1].value.turned + 0.484) < 1e-6)
+hold_fixture_yaw() assert(#NLVR.movers == 1 and #records == 1, "the hold repeated within one VR start")
+-- The weapons fixture's head turns 45 degrees: the camera, not the room, faces the request.
+NLVR = core(135.3, 45) hold_fixture_yaw()
+assert(math.abs(wrap(NLVR.Space.yaw - 135)) < 1e-6 and math.abs(wrap(NLVR.Pose.head.ang.y - 180)) < 1e-6)
+-- No yaw yet: wait for the core's first view instead of inventing one.
+NLVR = core(nil, 0) hold_fixture_yaw() assert(NLVR.Space.yaw == nil and #NLVR.movers == 0)
+NLVR.Space.yaw, NLVR.Pose.head = 170, {ang = {y = 170}} hold_fixture_yaw()
+assert(math.abs(wrap(NLVR.Space.yaw - 180)) < 1e-6, "the hold did not apply once the core set a yaw")
+for _, key in ipairs({"look", "live_poses"}) do
+    CONFIG = {[key] = true} NLVR = core(100, 0) hold_fixture_yaw()
+    assert(NLVR.Space.yaw == 100 and #NLVR.movers == 0, key .. " sessions keep the player's own view")
+end
+-- A tools session requests yaw 0 with the head at 0: the room keeps facing world +X.
+CONFIG, camera = {}, {0, 0, 512, 0, 0, 0} NLVR = core(0.2, 0) hold_fixture_yaw()
+assert(math.abs(NLVR.Space.yaw) < 1e-6)
+print("ok")
+''' % block
+        run = subprocess.run([LUAJIT, '-e', lua], capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn('ok', run.stdout)
+        # The moving drivers replace the CreateMove block up to `if CONFIG.flat then`; the hold must survive that.
+        block_end = source.index('\nif CONFIG.flat then', source.index('if not CONFIG.look then\n    hook.Add("CreateMove",ID,'))
+        self.assertGreater(start, block_end)
+        self.assertIn('    hold_fixture_yaw()\n    notices()', source)
+
     def test_requested_simulation_takes_both_shared_locks(self):
         self.assertTrue(vr.needs_vr_lock(argparse.Namespace(flat=False,simulate=True,both_locks=True)))
 

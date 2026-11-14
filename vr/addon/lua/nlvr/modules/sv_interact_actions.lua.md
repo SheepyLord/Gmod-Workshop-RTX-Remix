@@ -48,3 +48,9 @@ Independent review: contact is observed while Use is masked, so ending a claim c
 
 
 Watch-only contact updates return false: they do not consume an available grip while the menu owns only the trigger.
+
+**V8 ([ADR 0204](../../../../../docs/decisions/0204-the-holding-hands-trigger-freezes.md)).** `Freeze(ply, state, h)`: a fresh trigger press
+on a holding hand freezes its body (both hands let go; refused for unfreezable bodies, which stay held) with pulse 6
+and the `freeze` event. `Unfreeze(ply, state, h, touch)`: a fresh trigger press with grip held near a frozen body
+(16 cm) frees it into that hand with pulse 7 and the `unfreeze` event. After either, the same grip takes nothing else,
+frees nothing and does not climb until it is let go (`h.freezeLatch`). A grip alone never takes a frozen body.

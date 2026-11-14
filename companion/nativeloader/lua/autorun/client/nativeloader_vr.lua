@@ -40,6 +40,7 @@ for _, spec in ipairs({
     {"gun_angle", "0", "Gun pitch in the hand in degrees", -45, 45},
     {"quality", "0", "VR quality: 0 Auto; 1 Full (V1's preset) to 7 Floor", 0, 16},
     {"stereo", "0", "VR true stereo: path trace each eye with its own history (needs DLSS Ray Reconstruction)", 0, 1},
+    {"frame_generation", "1", "VR frame generation: 1 renders half the refresh and SteamVR's Motion Smoothing makes the rest; 0 renders every frame", 0, 1},
 }) do
     CreateClientConVar("nl_vr_" .. spec[1], spec[2], true, false, spec[3], spec[4], spec[5])
 end
@@ -308,7 +309,9 @@ function VR.BuildOptions(panel)
     panel:Help(L("Quality"))
     choice(N("Quality step"), "nl_vr_quality",
         {N("Auto"), N("Full"), N("High"), N("Balanced"), N("Fast"), N("Faster"), N("Low"), N("Floor")})
-    panel:ControlHelp(L("Auto keeps VR at half the headset's refresh rate, and SteamVR's Motion Smoothing fills in the rest. A fixed step stays where you set it."))
+    panel:ControlHelp(L("Auto picks the highest step that holds the frame rate Frame generation sets. A fixed step stays where you set it."))
+    panel:CheckBox(L("Frame generation"), "nl_vr_frame_generation")
+    panel:ControlHelp(L("On: VR renders half the headset's frames and SteamVR's Motion Smoothing makes the rest. Off: VR renders every frame, at a lower quality step. Remix's DLSS frame generation only adds frames to the desktop window, so it stays off in VR."))
     panel:CheckBox(L("True stereo"), "nl_vr_stereo")
     panel:ControlHelp(L("Path traces each eye with its own history instead of turning one picture into both eyes. It costs about a quarter more GPU time, so Auto may choose a lower step, and it needs DLSS Ray Reconstruction."))
     panel:Help(L("Controls and comfort"))
@@ -334,6 +337,7 @@ function VR.BuildOptions(panel)
     panel:CheckBox(L("Climbing"), "nl_vr_climb")
     panel:CheckBox(L("Physical melee"), "nl_vr_melee")
     panel:ControlHelp(L("Grip grabs. Point, grip and flick to pull a loose object. Grip a ledge to climb. Fast hands and held objects can strike."))
+    panel:ControlHelp(L("Turn your wrist to turn what you hold, or hold it with both hands. Pull the trigger while holding to freeze it in place; to free it, grip it and pull the trigger."))
     panel:ControlHelp(L("Turn on Keep corpses in the game's options to make NPC bodies grabbable in VR."))
     panel:Help(L("Weapons"))
     panel:CheckBox(L("Physical reload"), "nl_vr_physical_reload")
@@ -397,6 +401,17 @@ local function status_lines()
             end
             text[#text + 1] = string.format(L("Stereo: %s"), info.stereoActive == 1 and L("each eye path traced") or
                 L("one picture turned into both eyes"))
+            -- V8: frame generation in the headset is SteamVR's Motion Smoothing; its setting stays SteamVR's.
+            local smoothing = perf.motion_smoothing
+            if perf.frame_generation == false then
+                text[#text + 1] = L("Frame generation: off; VR renders every frame.")
+            elseif smoothing and not smoothing.supported then
+                text[#text + 1] = L("Frame generation: SteamVR's Motion Smoothing is not available on this GPU, so SteamVR repeats frames instead.")
+            elseif smoothing and not smoothing.enabled then
+                text[#text + 1] = L("Frame generation: Motion Smoothing is off in SteamVR. Turn it on in SteamVR > Settings > Video > Motion Smoothing.")
+            elseif smoothing then
+                text[#text + 1] = string.format(L("Frame generation: SteamVR Motion Smoothing; making frames now: %s"), yesno(smoothing.generating))
+            end
             if perf.stereo and info.stereoActive ~= 1 and (perf.changes or 0) > 0 then
                 text[#text + 1] = L("True stereo needs DLSS Ray Reconstruction and the physical sky, so one picture is turned into both eyes.")
             end

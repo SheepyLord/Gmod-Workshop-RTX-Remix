@@ -20,6 +20,20 @@ local function run(control, from, seconds, rate, gpuMs, budgetMs, target)
     return steps, now
 end
 
+function cases.frame_generation_rates()
+    -- V8: with frame generation Auto holds half the refresh (Motion Smoothing makes the rest), without it all of it.
+    include = function(path) return load(path) end
+    local Perf = load("nlvr/modules/cl_perf.lua")
+    local target, budget = Perf.Rates(90, 1) close(target, 45, "half rate") close(budget, 1000 / 45, "half-rate budget")
+    target, budget = Perf.Rates(90, 0) close(target, 90, "full rate") close(budget, 1000 / 90, "full-rate budget")
+    close(Perf.Rates(120, 1), 60, "120 Hz") close(Perf.Rates(90, nil), 45, "frame generation is on by default")
+    close(Perf.Rates(0 / 0, 1), 45, "a broken refresh reads as 90 Hz") close(Perf.Rates(-5, 0), 90) close(Perf.Rates(math.huge, 0), 90)
+    -- Compositor_FrameTiming.m_nReprojectionFlags bit 0x08 marks a frame Motion Smoothing made.
+    for _, flags in ipairs({8, 9, 12, 0x108, 0x30F}) do eq(Perf.Smoothed(flags), true, "flags " .. flags) end
+    for _, flags in ipairs({0, 4, 7, 0x100, 0x200, 0x400, -8}) do eq(Perf.Smoothed(flags), false, "flags " .. flags) end
+    eq(Perf.Smoothed(nil), false, "no timing")
+end
+
 function cases.ladder_order()
     local n = Ladder.Count()
     assert(n >= 5, "a ladder needs room to move")

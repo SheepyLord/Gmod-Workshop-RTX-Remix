@@ -153,7 +153,10 @@ return function(e)
     end
     function cases.f_settings()
         eq(next(e.callbacks), nil) e.running()
-        local n = 0 for _ in pairs(NLVR.Settings) do n = n + 1 end eq(n, 21)
+        local n = 0 for _ in pairs(NLVR.Settings) do n = n + 1 end eq(n, 22)
+        -- V8's frame generation: on by default (V6's half rate), a switch.
+        eq(NLVR.Settings.frame_generation, 1) e.cv.nl_vr_frame_generation:SetString("0") eq(NLVR.Settings.frame_generation, 0)
+        e.cv.nl_vr_frame_generation:SetString("7") eq(NLVR.Settings.frame_generation, 1)
         -- V7's true stereo is a switch: off by default, and anything above 1 is on.
         eq(NLVR.Settings.stereo, 0) e.cv.nl_vr_stereo:SetString("5") eq(NLVR.Settings.stereo, 1) e.cv.nl_vr_stereo:SetString("0")
         -- V6's quality: 0 is Auto, a step number pins that rung, and the setting stays within 0-16.

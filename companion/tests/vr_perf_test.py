@@ -6,7 +6,8 @@ import unittest
 from test_mmd_alpha import LUAJIT, ROOT
 
 SCENARIOS = ("ladder_order", "ladder_ceiling", "ladder_start", "control_down", "control_cooldown",
-             "control_up", "control_bounds", "control_no_oscillation", "control_window", "control_cpu_bound", "control_half_rate")
+             "control_up", "control_bounds", "control_no_oscillation", "control_window", "control_cpu_bound", "control_half_rate",
+             "frame_generation_rates")
 
 
 @unittest.skipUnless(LUAJIT, "LuaJIT is not installed")

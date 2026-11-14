@@ -36,3 +36,5 @@ Round5 adds fail-before/pass-after8-way ladder sectors(0,3,5,10,20,22.5+/-.001,4
 The server stub case refuses the listen-server host and accepts only in single-player ([ADR 0197](../../docs/decisions/0197-vr-is-single-player-only.md)).
 
 `f_settings` counts 20 settings with V6's `quality`, which clamps to 0-16.
+
+V8: `f_settings` counts 22 settings and checks `frame_generation` (on by default, a 0/1 switch).

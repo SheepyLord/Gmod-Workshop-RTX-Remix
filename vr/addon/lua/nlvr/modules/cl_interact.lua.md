@@ -28,3 +28,9 @@ Review correction: state 41 reads authoritative obstruction offset. Drawing foll
 Verification regressions exercise locomotion versus intentional gestures, held body wall/constraint safety, deferred window refusal, moving two-hand mesh-query rate, pending overlay cancellation, expected logical capture roles and ULib/unknown/reentrant view ownership. Tests retain failures from the prior source, use stand-ins without SDK, and remain in the normal gate.
 
 Unwanted glove markers call Show(false) only while visible or wanted, canceling pending acquisition once without repeated native hide/transform calls.
+
+**V8 ([ADR 0203](../../../../../docs/decisions/0203-precise-vr-holds-follow-the-hand.md)).** Message 41 also carries each hold's relation
+(floats), `tracking`, `single` and the two-hand pair frame; they go to [`cl_interact_predict.lua`](cl_interact_predict.lua.md),
+which draws a followed one-body prop at the hold's pose from this frame's hands. `Debug.interact[hand]` adds
+`holding`, `tracking`, `rel` and `predicted` (`mode`, `follow`, `blending`), and `Debug.interact.pair`. Haptic pulses
+last 35 ms for a hit, 50 ms for a freeze or a free, 18 ms otherwise. Stop gives every draw override back.

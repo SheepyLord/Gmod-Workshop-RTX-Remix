@@ -1,10 +1,16 @@
 local module = {name = "interact", order = 20}
 local Math = include("nlvr/modules/sv_interact_math.lua")
+local Grab = include("nlvr/modules/sh_grab_math.lua")
 local Protocol = include("nlvr/sh_protocol.lua")
 local context, physics, action, live
 local hands = {"left", "right"}
-local pulsePriority={[1]=1,[2]=3,[3]=2,[4]=4,[5]=5}
+-- Pulse kinds: 1 touch, 2 grab, 3 release, 4 catch, 5 hit, 6 freeze, 7 unfreeze (V8).
+local pulsePriority={[1]=1,[2]=3,[3]=2,[4]=4,[5]=5,[6]=6,[7]=7}
 local function opposite(hand) return hand == "left" and "right" or "left" end
+local function floats(w, v)
+    if v.p then w.WriteFloat(v.p) w.WriteFloat(v.y) w.WriteFloat(v.r)
+    else w.WriteFloat(v.x) w.WriteFloat(v.y) w.WriteFloat(v.z) end
+end
 local function pulse(h, strength, kind)
     kind=kind or 1
     if h.pulseTick==engine.TickCount() then
@@ -26,15 +32,18 @@ local function release(ply, hand, throw)
     if not h or not h.grip then return false end
     local grip = h.grip
     h.grip = nil h.contact=nil physics.Untrack(grip.ent,true)
-    local other = state.interact[opposite(hand)].grip
+    local otherHand = state.interact[opposite(hand)]
+    local other = otherHand.grip
     if other and other.phys == grip.phys and IsValid(other.phys) then
-        local ignored
-        ignored,other.localAng=WorldToLocal(Vector(),state.hands[opposite(hand)].ang,Vector(),other.phys:GetAngles())
+        -- The hand that stays holds the body where it is now: no jump back to its own old hold.
+        local anchor = physics.Anchor(otherHand, state.hands[opposite(hand)], state.scale)
+        other.rel = Grab.Relation(other.phys:GetPos(), other.phys:GetAngles(), anchor.pos, anchor.ang)
+        other.two, other.twoWith, grip.two, grip.twoWith = nil, nil, nil, nil
     end
     if throw and IsValid(grip.ent) and IsValid(grip.phys) and (not other or other.phys ~= grip.phys) then
         local velocity, spin = Math.Throw(state.history[hand], CurTime(), state.scale)
         local center = LocalToWorld(grip.phys:GetMassCenter(),Angle(),grip.phys:GetPos(),grip.phys:GetAngles())
-        local wrist=IsValid(h.phys) and h.phys:GetPos() or state.hands[hand].pos
+        local wrist=physics.Anchor(h, state.hands[hand], state.scale).pos
         local centerVelocity = velocity+Math.Cross(spin, center-wrist)
         grip.phys:SetVelocity(centerVelocity)
         local localSpin = WorldToLocal(spin, Angle(), Vector(), grip.phys:GetAngles())*(180/math.pi)
@@ -51,7 +60,8 @@ local function grab(ply, hand, ent, bone, localPos, localAng)
     bone = bone or 0
     if type(bone) ~= "number" or bone%1 ~= 0 or bone < 0 or bone >= math.min(ent:GetPhysicsObjectCount(),128) then return false end
     local pose = state.hands[hand]
-    local position = IsValid(h.phys) and h.phys:GetPos() or pose.pos
+    local anchor = physics.Anchor(h, pose, state.scale)
+    local position = anchor.pos
     if position:DistToSqr(ply:EyePos())>context.Reach(ply)^2 then return false end
     local nearest = physics.Closest(ent, position, bone)
     if not nearest or nearest.distance > state.scale*0.16 or not physics.Visible(ply,position,nearest.point,ent) then return false end
@@ -61,18 +71,26 @@ local function grab(ply, hand, ent, bone, localPos, localAng)
         local point = LocalToWorld(localPos,Angle(),phys:GetPos(),phys:GetAngles())
         if point:DistToSqr(position) > (state.scale*0.16)^2 then return false end
     else localPos = nearest.localPos end
+    local bodyPos, bodyAng = phys:GetPos(), phys:GetAngles()
+    local goalAng = bodyAng
     if localAng then
+        -- An API caller's hand orientation in the bone's frame: the body turns to meet the hand.
         if not isangle(localAng) or not Protocol.Finite(localAng.p) or not Protocol.Finite(localAng.y) or not Protocol.Finite(localAng.r) then return false end
-    else
-        local ignored
-        ignored, localAng = WorldToLocal(position,pose.ang,phys:GetPos(),phys:GetAngles())
+        local _, inverse = WorldToLocal(Vector(), Angle(), Vector(), localAng)
+        _, goalAng = LocalToWorld(Vector(), inverse, Vector(), anchor.ang)
     end
     release(ply,hand,false)
     action.EndPull(h)
     h.climb, h.pull, h.lock, h.target = nil,nil,nil,nil
-    local point=LocalToWorld(localPos,Angle(),phys:GetPos(),phys:GetAngles())
-    local handOffset=WorldToLocal(point,Angle(),position,pose.ang)
-    h.grip = {ent=ent,bone=bone,phys=phys,localPos=Vector(localPos.x,localPos.y,localPos.z),localAng=Angle(localAng.p,localAng.y,localAng.r),handOffset=handOffset}
+    -- Hands on (V8): the touched point comes to rest against the palm, and the body keeps that pose in the
+    -- hand's frame, so turning the wrist turns it about the hand.
+    local point = LocalToWorld(localPos,Angle(),bodyPos,bodyAng)
+    local rest = Grab.Snap(point, position, state.scale*Grab.PALM)
+    local goalPos = rest - LocalToWorld(localPos,Angle(),Vector(),goalAng)
+    h.grip = {ent=ent,bone=bone,phys=phys,localPos=Vector(localPos.x,localPos.y,localPos.z),
+        rel=Grab.Relation(goalPos,goalAng,position,anchor.ang),single=ent:GetPhysicsObjectCount()==1}
+    local partner = state.interact[opposite(hand)].grip
+    if partner and partner.phys == phys then partner.two, partner.twoWith = nil, nil end -- re-form the pair where it is
     physics.Track(ply,ent) pulse(h,0.35,2)
     context.Emit("grab",ply,hand,ent,bone)
     return true
@@ -122,7 +140,20 @@ local function send(ply,state)
             w.WriteEntity(h.target and h.target.ent) w.WriteVector(h.target and h.target.point or Vector())
             w.WriteBool(h.pull ~= nil) w.WriteVector(h.lastThrow or Vector()) w.WriteVector(h.lastSpin or Vector())
             w.WriteUInt(h.pulse or 0,16) w.WriteFloat(h.strength or 0) w.WriteUInt(h.pulseKind or 0,3)
+            -- V8: the hold's pose in the hand's frame (floats, not quantised), whether the body follows it
+            -- now, and whether the entity is one body: the client draws such a body at the hand's pose.
+            local grip = h.grip
+            local holding = grip ~= nil and IsValid(grip.ent) and grip.rel ~= nil
+            w.WriteBool(holding)
+            if holding then
+                floats(w, grip.rel.pos) floats(w, grip.rel.ang)
+                w.WriteBool(grip.tracking == true) w.WriteBool(grip.single == true)
+            end
         end
+        local left, right = data.left.grip, data.right.grip
+        local pair = left and right and left.phys == right.phys and left.two or nil
+        w.WriteBool(pair ~= nil)
+        if pair then floats(w, pair.pos) floats(w, pair.ang) end
     end)
 end
 function module.Start(ctx)

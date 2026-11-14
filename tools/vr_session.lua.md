@@ -100,3 +100,10 @@ The one-second flat-selector settlement is shared by look, native test_quit and 
 
 
 The paused test_quit branch enforces its25-second native deadline even after the page reports off.
+
+V8: scripted sessions (neither `look` nor `live_poses`) hold the requested fixture yaw once per VR start
+(`hold_fixture_yaw`, from the PreRender hook): as soon as the core has a play-space yaw, a priority -30 mover on the
+move module clears physical mouse X/Y before the move module (priority 0) can turn the room with it, and the room is
+turned so the camera faces `CONFIG.camera`'s yaw; a `fixture-yaw` record notes the turn. Desktop mouse input had moved
+the room 0.484 degrees (22 counts at `m_yaw` 0.022) in `quality-sim-03`, past the 0.5-degree neutral check. The hold
+sits outside the CreateMove block that the moving drivers replace.

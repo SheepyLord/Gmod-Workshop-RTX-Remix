@@ -453,8 +453,19 @@ step(1.01) assert(finished,"settled Stop never completes")
         spike=[(i*.03,8 if i==20 else 0) for i in range(43)]
         self.assertFalse(result(spike)['heavy_crate_lag_duration_seconds'])
         self.assertFalse(result([(0,8),(1.26,8)])['heavy_crate_lag_duration_seconds'])
-        split=[(i*.03,0 if 20<=i<=22 else 8) for i in range(43)]
+        # V8 needs 0.1 s above 1 unit: two 0.06 s bursts split by a gap do not add up.
+        split=[(i*.03,8 if i<=2 or 6<=i<=8 else 0) for i in range(9)]
         self.assertFalse(result(split)['heavy_crate_lag_duration_seconds'])
+        self.assertFalse(result([(i*.03,0.9) for i in range(43)])['heavy_crate_lag_duration_seconds'])
+        self.assertTrue(result([(i*.03,1.2) for i in range(5)])['heavy_crate_lag_duration_seconds'])
+        # The probe's per-tick record wins over the 0.25 s samples, which miss V8's short lag windows.
+        def ticked(above,peak):
+            rows=[{'kind':'sample','phase':4,'time':3.2,'right':{'held':1,'grip_error':0.1},'heavy':{'above':above,'peak':peak}}]
+            return q.physical_check.analyse(rows,selected=[4])['checks']
+        self.assertTrue(ticked(0.18,1.5)['heavy_crate_lag_duration_seconds'])
+        self.assertTrue(ticked(0.18,1.5)['heavy_crate_lag_units'])
+        self.assertFalse(ticked(0.03,1.5)['heavy_crate_lag_duration_seconds'])
+        self.assertFalse(ticked(0.18,0.8)['heavy_crate_lag_units'])
 
     @unittest.skipUnless(LUAJIT, 'LuaJIT is not installed')
     def test_temporal_probes_observe_rendered_view_with_owned_calcview(self):

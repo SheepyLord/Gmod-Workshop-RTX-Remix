@@ -74,3 +74,13 @@ Numeric settings sliders suppress redundant numeric echoes from their scratch/te
 Single-player only ([ADR 0197](../../../../../docs/decisions/0197-vr-is-single-player-only.md)): Start refuses every game that is not single-player, the listen-server host included, with "VR works in single-player games only. Start a single-player game to use VR."; the console help says the same.
 
 V6 ([ADR 0199](../../../../../docs/decisions/0199-vr-auto-quality-ladder.md)): Start needs runtime API 4 and renders at the ladder step Auto begins from, or the step `nl_vr_quality` pins (`VR.StartStep()`, which loads the add-on's ladder only once VR is requested; `VR.LoaderStatus` exports the status reader). `nl_vr_render_scale` is a ceiling on every step and takes effect at once. The options gain a Quality group (Auto or one of seven steps), shown on the page and in the headset's settings panel; while VR runs the page shows the step, its reason and the measured rate and GPU time against the target and budget, all translated.
+
+V8 ([ADR 0205](../../../../../docs/decisions/0205-frame-generation-in-vr-is-motion-smoothing.md)): the client setting
+`nl_vr_frame_generation` (1, the default: Auto holds half the refresh and SteamVR's Motion Smoothing makes the other
+frames; 0: VR renders every frame) and its **Frame generation** checkbox under Quality, whose help says Remix's DLSS
+frame generation only adds frames to the desktop window and so stays off in VR. The Auto help now names the rate that
+switch sets. While VR runs the status says what SteamVR does, from `NLVR.Debug.perf`: Motion Smoothing making frames
+now (yes/no), off in SteamVR (with where to turn it on: SteamVR > Settings > Video > Motion Smoothing), not available on
+this GPU, or the switch off. Physical interaction gains a help line for turning a held object with the wrist, two-hand
+holds and freezing with the trigger ([ADR 0204](../../../../../docs/decisions/0204-the-holding-hands-trigger-freezes.md)).
+All new text is in the six companion catalogs.

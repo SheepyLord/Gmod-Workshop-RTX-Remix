@@ -98,7 +98,7 @@ local prepared=false
 hook.Add("Think","q_v4_fixture_prepare",function()
  if prepared or not NLVR or NativeLoaderVR.state~="running" then return end
  prepared=true
- NLVR.Space.Turn(-(NLVR.Space.yaw or 0))
+ -- The shared probe faces the requested fixture yaw (weapons and reload 180, tools 0); never zero it here.
  for _,entry in ipairs(NLVR.Registry.entries) do if entry.module.name=="move" then
   entry.ctx.mover(-30,function(cmd) cmd:ClearMovement() cmd:ClearButtons() cmd:SetMouseX(0) cmd:SetMouseY(0) end)
  end end

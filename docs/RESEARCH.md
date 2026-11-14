@@ -8235,6 +8235,69 @@ left, "Loading enhancements" over "Processing Materials (496 processed)"). Fixed
 - **GMod blocks `fps_max` from Lua** (`RunConsoleCommand: Command is blocked! (fps_max)`), so a test cannot cap the
   frame rate from the add-on's realm.
 
+## VR V8: grabbing, the fixture's yaw, frame generation and the desktop (2026-11-13, Claude)
+
+- **Why V4's weapons and reload drivers faced 0 or 45 degrees.** The shared adapter `companion/tests/vr_v4_fixture.py`
+  (from `b026e910` on `vr2`) appended a Think hook calling `NLVR.Space.Turn(-(NLVR.Space.yaw or 0))` as soon as VR ran,
+  copied from `companion/tests/vr_combined_probe.lua:28`. The combined, movement, flight, integration and cache drivers
+  request `--camera 823,-657,-79,0,0,0` and tools `0,0,512,0,0,0` (yaw 0), so for them that turn changed nothing; the
+  weapons and reload drivers use `tools/vr_session.py`'s default camera (yaw 180), and the turn left their camera on the
+  head's own yaw: 0, or 45 in the gun phases (`vr_weapons_poc.py` sets `head_yaw=45` outside the class phases).
+- **Why the neutral check also failed "now and then".** `cl_move.lua:152-156` turns the play space by
+  `-mouseX * m_yaw` whenever a fresh command carries mouse X and no cursor shows. In `quality-sim-03` (no adapter) the
+  camera wandered 1 to 2.2 degrees in the first seconds and settled at -179.516: 0.484 degrees, 22 counts at
+  `m_yaw` 0.022, against the probe's 0.5-degree tolerance. The probe's own CreateMove cleared movement and buttons but
+  not mouse deltas, and GMod's hook order decides whether it runs before the core's.
+- **V3's hold, measured from its code.** The proxy follows the controller at 22/s (about 45 ms); the old hold's spring
+  used omega = clamp(24 / (mass/10)^0.75, 2.5, 40) on the proxy's position (10 kg about 42 ms, 100 kg about 230 ms,
+  250 kg 0.4 s); its angular servo integrated Euler differences at 45/sqrt(mass) with 8/s damping (about 0.27 s at
+  10 kg, overdamped above), with no hand velocity or spin fed forward. In single-player, Source SDK 2013's
+  `C_BaseEntity::GetInterpolationAmount` interpolates entities simulated every tick by one tick (plus the threaded
+  engine's ticks), not by `cl_interp`; GMod's client derives from it, but this was not measured in GMod. On that
+  reading the drawn body also trailed the server's by 15 to 30 ms.
+- **The V8 controller offline** (`out/tmp/grab_sim.lua` on `vr8`, a rigid body, one physics step a tick): no overshoot
+  at any mass from 0.2 to 250 kg; a hand swinging at 1 m/s is followed within 0.057 units up to 30 kg; a wrist turning at
+  6 rad/s within 0.65 degrees up to 30 kg; a 20-unit step leaves 3.58 units after 40 ticks at 250 kg (ADR 0169's
+  test needs over 3) and a hand moving at 43 units/s lags a 250 kg crate by at most 6.8 units, over 3 for 0.44 s.
+  Braking at 0.8 of the strength with a continuous stopping distance overshot a 20-unit step by 0.34 units for light
+  bodies (the two-tick tail needs twice the brake); 0.45 with a whole-tick stopping distance does not.
+- **Remix's frame generation cannot reach the headset.** `DxvkDLFGPresenter` (`rtx_dlfg.h:136` in the runtime
+  source) is a `vk::Presenter` of the desktop swapchain: it interpolates between two presented frames and presents the
+  extra one. The VR eyes leave through OpenVR's Submit on the render thread (`RtxVr::submit`). The VR session's config
+  layer sets `rtx.dlfg.enable`, `rtx.fsrfg.enable` and `rtx.frameGenerationType` off (patch 0043, kept by 0047, 0062 and
+  0087).
+- **SteamVR's frame generation from an app.** `IVRCompositor::IsMotionSmoothingSupported` and
+  `IsMotionSmoothingEnabled` (`openvr.h:3850-3853`, v2.15.6) read the user's setting; a frame Motion Smoothing made has
+  `Compositor_FrameTiming.m_nReprojectionFlags & VRCompositor_ReprojectionMotion` (0x08, `openvr.h:2132`).
+- **The desktop window during VR.** `rtx_context.cpp:639` takes the path tracer's output extent from
+  `RtxVr::beginFrame`, the headset's render extent, whenever VR has work; `RtxVr::mirror` (`rtx_vr.cpp:943`) blits a
+  centred crop of the left eye into the game's target. V2 measured 0.04 ms more GPU work at 3840 x 2160 than at
+  1280 x 720 and no higher SteamVR estimate of the game's GPU time ([VR-V2-R report](handover/VR-V2-R-report.md)).
+- **The reload drivers' two clocks (V8 run 1, `out/vr/v8/fixture-sim-01`).** `vr_reload_poc_server.lua` stamps
+  its records with `SysTime() - began`, aligned to the client's phase offset when the phase command arrives;
+  `vr_reload_poc_client.lua` stamps the fixture's own clock (`nlvr.TestState().time`). In each session's first phase
+  the server's clock ran 44-75 ms behind the client's (V7 package 0.044 s, V8 0.063 and 0.075 s), in later phases
+  within 11 ms. Both realms count the same ticks in single-player: the server took B at the release tick + 1 for every
+  gun on both hands. `CreateMove` runs for each tick a frame simulates (and once more with command tick 0), so one
+  frame's records share one clock reading, and the commands after the B command already carry the reload's own lock
+  (the 357's 3.66 s, the AR2's 1.56 s, the pistol's 1.42 s).
+- **An unloaded RPG is held from the session's start.** With physical reload on (the default,
+  `cl_core.lua:217`), `sv_reload.lua` tracks every gun the player owns, and an RPG starts `loaded=false`
+  (`sv_reload.lua:27`), so the sandbox loadout's RPG is held (`SetNextPrimaryFire(now + 3600)`) as soon as VR runs,
+  not from its phase. In run 1's seven-gun empty section its phase found 3477.5 s left. The reload fixture puts a
+  rocket in by hand before its first shot (loaded at 1.07 s, fired at 1.69 s in `reload-r`); the guns fixture's rocket
+  phase never did, so the RPG never fired there (V7 and V8 alike).
+- **The guns fixture's left-hand run mirrored everything but the walk.** `vr_v4_fixture.physical_fields` swaps
+  `hands.left/right` in the server fixture, so targets follow the gun hand, but the client's melee-walk mover stepped
+  +200 sideways in both runs: toward the right hand's forward-right plate (the crowbar met it at 133 units/s), away from
+  the left hand's forward-left one (no contact, V7 and V8 alike).
+- **The guns fixture's hands-phase can started inside the hand.** `vr_weapons_poc.lua` spawned it with its centre 3
+  units (0.075 m) in front of the palm, gravity off; the hand's physics proxy is a 0.075 m rubber sphere centred on
+  the palm (`sv_interact_physics.lua` `P.Proxy`, `PhysicsInitSphere(radius, "rubber")`). In V8's full right-hand
+  run (`out/vr/v8/hands-probe/v8-guns-r`, a probe every 0.1 s) the sphere bounced the can out at about 24 units/s
+  and it drifted 31 units away before the grip closed 1.2 s later, beyond the 6.4-unit (0.16 m) reach; V7's package
+  did the same (`v7-guns-r`, 31 units). Where the hands phase ran first, or with the left hand, the grab still caught
+  it.
 
 ## GitHub issue 5: "Default texture pack is not ready: resource_sampling_unsupported" (2026-11-13, Claude)
 

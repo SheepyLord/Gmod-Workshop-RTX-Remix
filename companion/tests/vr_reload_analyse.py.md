@@ -33,3 +33,16 @@ Full-phase counting exists only to detect duplicates. Acceptance separately requ
 Native readiness observations stop at the first client reload bit (or server delivery if earlier), excluding the attack lock created by the reload itself. A retained cross-clock counterexample enforces this without changing the0.3-second bound.
 
 Combined sessions can contain attack observer rows before a reload phase is assigned. Those unclassified rows cannot satisfy the empty-fire witness; they are ignored for per-class matching rather than raising KeyError. All fire/wait/clip/reserve/engine-reload/counter bounds remain unchanged.
+
+V8 (run 1 on the PoC, 2026-11-13): the server stamps its records with `SysTime` from the phase's start and the client
+with the fixture's own clock, and in a session's first phase the two parted by 44-75 ms, so B reached the server
+"before" its release (latency -0.063 and -0.075 s). Both realms count the same ticks in single-player, so
+`button_delivery` now reads the delivery tick on the client's clock, at the first client `button-command` record of
+that tick or later, and moves the server's sample deadlines by the same offset (`server_clock_offset` in the result).
+Without a client record of the tick the server's own time stands, as before. Readiness evidence now stops at the first
+record of B in the console's order (the first client reload bit or the server's delivery), not at a clock reading: a
+frame runs several commands at one reading, and those after B already carry the reload's own lock (the 357's 3.66 s).
+
+`HOLD_FLOOR` (3000 s) replaces the 3500 s threshold of the empty-gun and physical-reload hold checks: a hold runs 3600 s
+from when it was applied, and an unloaded RPG from the sandbox loadout is held from the session's start, so in a
+seven-gun session its phase finds ~3477 s left. Sessions run under ten minutes.

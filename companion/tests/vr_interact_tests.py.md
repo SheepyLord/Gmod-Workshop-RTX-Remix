@@ -49,3 +49,18 @@ Independent review round: live hooks use the shared dispatcher and detached comp
 
 
 Registers the trigger-only healthkit regression.
+
+V8: registers the fourteen `v8_*` harness cases, and `GrabMutantTests` reverts each V8 safeguard in a scratch copy
+under `out/tmp` (the freeze latch on freeing, the pair capture, the remaining hand's re-capture, gravity paid in
+advance, the hand's velocity and spin fed forward, freezing one bone, the drawing blend): each must fail its case.
+
+V8: `V8AnalysisTests` runs the analysis on synthetic records: a good run passes, six injected faults (a half turn, no
+rise, no roll, no freeze, every bone frozen, a drawn prop far from its physics) each fail their check, and a V3-only
+selection gets no V8 checks.
+
+V8: `test_frame_generation_check`: the Frame generation records pass, and a target that does not double, a setting
+left off and a status without the Frame generation line each fail.
+
+V8: `test_pair_windows_sit_in_the_timelines_steady_poses` interpolates `vr_interact_poc.timeline` for phase 15 and
+requires both hands' pitch to be 0 throughout the level window and 25 throughout the turned window; it fails for the
+earlier timeline or windows.

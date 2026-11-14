@@ -9,7 +9,7 @@ SCENARIOS = (
     "idle", "options_no_format_write", "probe", "missing_module", "require_error", "version", "runtime", "remote", "host", "vrmod", "gvrmod",
     "inactive_vrmod", "api_vrmod", "start_exit", "start_cancel", "failure", "failure_running", "start_error", "missing_addon",
     "guard_refused", "overlay_error", "quit", "off", "shutdown", "shutdown_starting", "hot_reload",
-    "frame_error", "paint_error", "tracking", "no_tracking", "scale_latched", "hud", "notifications", "proxies", "wrist", "gpu", "metrics", "uncapped",
+    "frame_error", "paint_error", "tracking", "no_tracking", "scale_latched", "hud", "notifications", "proxies", "wrist", "gpu", "metrics", "frame_generation", "uncapped",
     "authoritative_view", "predicted_origin", "frame_once", "calcview_before_prerender",
     "review_nil_camera", "review_return_failures", "review_paused_poll", "review_native_stopping", "review_page_nil", "review_overlay_nil", "review_recenter",
     "sdk_ready", "async_stop", "cap_warning", "native_return_error", "missing_steamvr",

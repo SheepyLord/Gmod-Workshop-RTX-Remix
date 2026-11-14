@@ -138,7 +138,7 @@ concommand.Add("nlvr_p_phase",function(ply,_,args)
     elseif phase==2 then
         local e=spawn("prop_physics","models/hunter/blocks/cube025x025x025.mdl",hand.pos,100)
         atHand(e,hand,5) e:GetPhysicsObject():EnableMotion(false) fixtures.main=e
-    elseif phase==3 then
+    elseif phase==3 or phase==15 then
         local e=spawn("prop_physics","models/props_debris/wood_board04a.mdl",(hand.pos+left.pos)*0.5,12)
         local lo,hi=Vector(1e9,1e9,1e9),Vector(-1e9,-1e9,-1e9)
         for _,mesh in ipairs(e:GetPhysicsObject():GetMeshConvexes() or {}) do
@@ -207,7 +207,16 @@ concommand.Add("nlvr_p_phase",function(ply,_,args)
     elseif phase==13 then
         local e=spawn("prop_physics","models/props_junk/wood_crate001a.mdl",hand.pos,4)
         atHand(e,hand,3.5) fixtures.main=e fixtures.bat=e
+    elseif phase==14 or phase==16 then
+        -- V8: a light cube against the right palm (14: the wrist turns it; 16: freeze and free it).
+        local e=spawn("prop_physics","models/hunter/blocks/cube025x025x025.mdl",hand.pos,3)
+        atHand(e,hand,1) fixtures.main=e
+    elseif phase==17 then
+        local e=spawn("prop_ragdoll","models/Humans/Group01/male_07.mdl",hand.pos)
+        placeRagdoll(e,left,hand,true)
+        fixtures.main=e
     end
+    fixtures.v8={}
     local ent=fixtures.main
     fixtures.initial=IsValid(ent) and ent:GetPos() or ply:GetPos()
     out("begin",{position=fixtures.initial,feet=ply:GetPos(),hand=hand.pos,entity=IsValid(ent) and ent:EntIndex() or 0})
@@ -216,10 +225,15 @@ end)
 hook.Add("CreateEntityRagdoll","nlvr_p_probe",function(npc,rag)
     if npc==fixtures.main then fixtures.deathrag=rag fixtures[#fixtures+1]=rag out("death-ragdoll",{entity=rag:EntIndex(),bones=rag:GetPhysicsObjectCount()}) end
 end)
-hook.Add("Tick","nlvr_p_probe",function()
+-- V8: the Index run's samples stopped in phase 3 with no error printed; any error here is now a record.
+local probeErrors,noStatePhase=0,nil
+local function probeTick()
     local ply=Entity(1)
     local state=NLVR_SV and NLVR_SV.Players[ply]
-    if not state or phase<0 then return end
+    if not state or phase<0 then
+        if phase>=0 and noStatePhase~=phase then noStatePhase=phase out("probe-no-state",{vr=NLVR_SV~=nil}) end
+        return
+    end
     local t=CurTime()-began
     local d=state.interact
     for _,hand in ipairs({"left","right"}) do
@@ -264,6 +278,26 @@ hook.Add("Tick","nlvr_p_probe",function()
         fixtures.died=true ply:Kill()
         out("player-death",{vr_active=NLVR_SV~=nil,held=d.right.grip~=nil,proxy=IsValid(d.right.proxy)})
     end
+    -- V8: the heavy crate's lag every tick (its longest run above 1 unit and its peak). It lags only while the
+    -- hand's motion starts and stops, shorter than the 0.25 s samples below.
+    if phase==4 and t>3 and d.right.grip and d.right.grip.goal and IsValid(d.right.grip.phys) then
+        local lag=(d.right.grip.goal-d.right.grip.phys:GetPos()):Length()
+        local heavy=fixtures.heavy or {above=0,run=0,peak=0}
+        fixtures.heavy=heavy
+        heavy.peak=math.max(heavy.peak,lag)
+        if lag>1 then heavy.run=heavy.run+engine.TickInterval() heavy.above=math.max(heavy.above,heavy.run) else heavy.run=0 end
+    end
+    -- V8: every tick, the worst distance and angle between a hold and its goal while the hand moves or turns.
+    local v8=fixtures.v8
+    if v8 and phase>=14 then
+        local driving=d.left.grip and d.right.grip and d.left.grip.phys==d.right.grip.phys and d.left.grip or d.right.grip
+        if driving and driving.error and t>2.5 then
+            local key=t<3 and "settle" or "hold"
+            v8[key.."_error"]=math.max(v8[key.."_error"] or 0,driving.error)
+            v8[key.."_angle"]=math.max(v8[key.."_angle"] or 0,math.deg(driving.angleError or 0))
+            v8.pair=v8.pair or (driving.two~=nil)
+        end
+    end
     if CurTime()-last<0.25 then return end last=CurTime()
     local e=fixtures.main
     local r,l=d.right,d.left
@@ -292,6 +326,24 @@ hook.Add("Tick","nlvr_p_probe",function()
         record.hull_trace=tr.Hit and tr.HitPos or nil record.hull_inside=tr.StartSolid
     end
     if fixtures.melonSpawned then record.held_melon_alive=IsValid(fixtures.secondmelon) end
+    if fixtures.heavy then record.heavy={above=fixtures.heavy.above,peak=fixtures.heavy.peak} end
+    if phase>=14 then
+        -- V8 witnesses: the hold's relation, its errors, the pair frame and each body's motion.
+        local driving=l.grip and r.grip and l.grip.phys==r.grip.phys and l.grip or r.grip
+        record.v8={worst=fixtures.v8,right_hand_ang=state.hands.right.ang,left_hand_ang=state.hands.left.ang,
+            left_hand=state.hands.left.pos,
+            error=driving and driving.error,angle=driving and driving.angleError and math.deg(driving.angleError),
+            tracking=driving and driving.tracking,pair=driving and driving.two~=nil or false,
+            right_pulse_kind=r.pulseKind,left_held=l.grip and l.grip.ent:EntIndex() or 0}
+        if IsValid(e) then
+            record.v8.ang=e:GetAngles()
+            local motion={}
+            for i=0,math.min(e:GetPhysicsObjectCount()-1,31) do
+                local p=e:GetPhysicsObjectNum(i) motion[#motion+1]=IsValid(p) and p:IsMotionEnabled() or false
+            end
+            record.v8.motion=motion
+        end
+    end
     if IsValid(fixtures.bat) then
         local near=diagnostics.Closest(fixtures.bat,IsValid(r.phys) and r.phys:GetPos() or state.hands.right.pos)
         record.bat={pos=fixtures.bat:GetPos(),nearest=near and near.distance,buttons=state.hands.right.buttons,
@@ -304,6 +356,10 @@ hook.Add("Tick","nlvr_p_probe",function()
         record.alignment=(wb-wa):GetNormalized():Dot((l.phys:GetPos()-r.phys:GetPos()):GetNormalized())
     end
     out("sample",record)
+end
+hook.Add("Tick","nlvr_p_probe",function()
+    local ok,err=xpcall(probeTick,debug.traceback)
+    if not ok and probeErrors<20 then probeErrors=probeErrors+1 out("probe-error",{message=tostring(err)}) end
 end)
 concommand.Add("nlvr_p_done",function()
     out("cleanup",{active=NLVR_SV~=nil,ragdolls=GetConVar("ai_serverragdolls"):GetString(),saved_ragdolls=originalRagdolls,

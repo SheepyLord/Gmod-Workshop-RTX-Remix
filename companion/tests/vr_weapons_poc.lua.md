@@ -31,3 +31,12 @@ Third-review receipts include the spawned target EntIndex, phase serial/start an
 plus EntityTakeDamage witnesses restricted to that target, player and melee inflictor.
 Room-scale lunge uses actual L room follow in walk mode on a temporary static floor;
 FinishMove records cumulative room movement. Done restores the prior move mode.
+
+V8: during the hands phase a `hands-probe` record every 0.1 s says what the main hand's grab saw: the can's position,
+motion and sleep, the tracked palm and buttons, the hand's physics proxy, its follow target and the anchor a grab
+measures from (ADR 0203), whether the proxy is blocked, the hand's claim owner, grip, pull, climb, freeze latch and
+contact. It only reads state.
+
+V8: the hands phase's can now has its surface 0.0875 m in front of the palm and sleeps until touched. It was spawned
+with its centre 3 units (0.075 m) in front, inside the hand's 0.075 m rubber physics sphere, which bounced it out; with
+gravity off it drifted out of reach (24 units/s, 31 units away when the grip closed in V8's full right-hand run).

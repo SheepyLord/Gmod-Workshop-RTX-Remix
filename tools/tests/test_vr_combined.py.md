@@ -74,3 +74,7 @@ Executed ULib dispatch regression: initial118.5degree view becomes requested90 b
 New executed curl witness rejects stale engine matrices despite changed command angles; axis-independent1degree relative rotations are required. Carry-input extraction requires a fresh release/press after Hands setup.
 
 Executed packing regression checks no input and trigger-only input cannot prepare carry, while the actual grip bit can. It failed before the fixture bit correction and passes after.
+
+V8: the heavy-lag duration test follows the restated phase-4 check (over 1 unit for at least 0.1 s): two 0.06 s bursts
+do not add up, 0.9 units never counts, 0.12 s at 1.2 units passes, and the probe's per-tick `heavy` record (0.18 s
+passes, 0.03 s and a 0.8-unit peak do not) wins over the samples.

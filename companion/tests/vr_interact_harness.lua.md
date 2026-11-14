@@ -46,3 +46,14 @@ Independent review round: live hooks use the shared dispatcher and detached comp
 
 
 q4s_trigger_claim_item requires both-hand healthkit grabbing under trigger-only ownership and forbids Use.
+
+V8 cases ([ADR 0203](../../docs/decisions/0203-precise-vr-holds-follow-the-hand.md),
+[ADR 0204](../../docs/decisions/0204-the-holding-hands-trigger-freezes.md)): `settle` runs a server tick and then one
+physics step for every moving body (gravity, velocity, spin). `v8_math` (rotation vectors, axes, spin frames, snap,
+strength, the pair frame), `v8_correction_cap`, `v8_light_follow` (a 5 kg hold follows a 1 m/s, 3 rad/s hand within
+0.25 units and 1 degree), `v8_wrist_turn`, `v8_two_hand` (no jump when the second hand closes or one lets go; follow,
+roll and tilt with the hands), `v8_two_hand_ragdoll`, `v8_snap`, `v8_api_localang`, `v8_freeze`, `v8_unfreeze`,
+`v8_freeze_two_hands`, `v8_freeze_ragdoll_bone`, `v8_message` (message 41 through the real packet writer and client
+reader) and `v8_predict` (drawing at the hand, the blend, release, another add-on's override, two hands, ragdolls).
+`heavy`, `impulse_units` and `contact_offset` now check velocity control, gravity paid in advance and the palm snap;
+the client case's message carries V8's fields.

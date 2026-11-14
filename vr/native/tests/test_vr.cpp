@@ -129,6 +129,8 @@ TEST_CASE("VR lifecycle: two starts stops duplicate start poses inputs overlays 
     s.set_camera(f->sequence,{10,20,30},{40,50,60});
     REQUIRE(s.begin_frame());CHECK(api.stats().eye_reads==uint32_t(4+cycle*4));
     CHECK(s.info().eye_width==2016);CHECK(s.info().timing_valid);
+    CHECK(s.info().motion_smoothing_supported);CHECK(s.info().motion_smoothing_enabled);
+    api.fault(27);CHECK(!s.info().motion_smoothing_enabled);CHECK(s.info().motion_smoothing_supported);api.fault(0);
     s.overlay_create("auto.cleanup","test");
     stop(s);stop(s);CHECK(s.state().first=="off");CHECK(!s.begin_frame());CHECK(s.actions().empty());CHECK(!s.test_state());
   }

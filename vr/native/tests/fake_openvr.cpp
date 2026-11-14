@@ -87,6 +87,8 @@ struct Compositor final:vr::StubIVRCompositor {
   }
   bool GetFrameTiming(vr::Compositor_FrameTiming* t,uint32_t) override { t->m_nFrameIndex=count.waits;t->m_nNumFramePresents=count.waits;return true; }
   void GetCumulativeStats(vr::Compositor_CumulativeStats* s,uint32_t) override { *s={};s->m_nNumFramePresents=count.waits; }
+  bool IsMotionSmoothingSupported() override { return true; }
+  bool IsMotionSmoothingEnabled() override { return fault!=27; } // 27: Motion Smoothing off in SteamVR
 } compositor;
 struct Input final:vr::StubIVRInput {
   vr::EVRInputError SetActionManifestPath(const char* path) override { manifest_path=path;++count.manifests;return fault==4?vr::VRInputError_MismatchedActionManifest:vr::VRInputError_None; }

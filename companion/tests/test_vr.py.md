@@ -58,3 +58,5 @@ The options_no_format_write case runs under both hook libraries.
 Registers the second-review medium-parity and late-yaw ladder cases in both stock and ULib core suites.
 
 Round5 registers ladder sector, underwater noclip basis and ladder/tool command-order cases in both stock and ULib dispatch.
+
+V8: adds the `frame_generation` scenario.

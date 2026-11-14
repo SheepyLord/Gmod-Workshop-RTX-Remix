@@ -292,6 +292,24 @@ hook.Add("CalcView", ID, function()
     if CONFIG.flat then flatViewCalls = flatViewCalls + 1 end
     return {origin = origin, angles = angles, fov = 90, drawviewer = false}
 end)
+-- Scripted sessions face the requested fixture yaw, once per VR start. The core takes its first yaw from the
+-- engine view, which desktop mouse input can move between ticks, and the move module turns the play space with
+-- physical mouse X (cl_move.lua). Clear that input before the move module (mover priority 0) reads it.
+local fixtureYawCore
+local function hold_fixture_yaw()
+    if CONFIG.look or CONFIG.live_poses or not NLVR or fixtureYawCore == NLVR then return end
+    local head = NLVR.Pose and NLVR.Pose.head
+    if NLVR.Space.yaw == nil or not head or not head.ang then return end
+    fixtureYawCore = NLVR
+    for _, entry in ipairs(NLVR.Registry.entries) do
+        if entry.module.name == "move" then
+            entry.ctx.mover(-30, function(cmd) cmd:SetMouseX(0) cmd:SetMouseY(0) end)
+        end
+    end
+    local turned = (camera[5] - head.ang.y + 180) % 360 - 180
+    if math.abs(turned) > 0.0001 then NLVR.Space.Turn(turned) end
+    emit("fixture-yaw", {requested = camera[5], turned = turned})
+end
 notices()
 local barrel = ClientsideModel("models/props_c17/oildrum001.mdl", RENDERGROUP_OPAQUE)
 emit("install-stage", {stage="barrel-created",valid=IsValid(barrel)})
@@ -313,6 +331,7 @@ hook.Add("PreRender", ID, function()
     local now = SysTime()
     -- RunConsoleCommand dispatches after this callback, so require() may finish on the next tick.
     if (requested or CONFIG.look) and not native and type(nlvr) == "table" then attach_probe() end
+    hold_fixture_yaw()
     notices()
     -- Console writes are queued. Establish the comparison baseline only after the
     -- fixture commands have actually latched, not during the first cold render callback.

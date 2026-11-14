@@ -162,6 +162,8 @@ LUA_FUNCTION_STATIC(LuaInfo) { return guard(LUA,[&] {
   LUA->CreateTable();boolean(LUA,"left",i.left_tracked);boolean(LUA,"right",i.right_tracked);set(LUA,"devices");
   num(LUA,"presents",i.cumulative.m_nNumFramePresents);num(LUA,"dropped",i.cumulative.m_nNumDroppedFrames);
   num(LUA,"reprojected",i.cumulative.m_nNumReprojectedFrames);
+  boolean(LUA,"motion_smoothing_supported",i.motion_smoothing_supported);
+  boolean(LUA,"motion_smoothing_enabled",i.motion_smoothing_enabled);
   if(i.timing_valid) {
     num(LUA,"compositor_gpu_ms",i.timing.m_flCompositorRenderGpuMs);num(LUA,"compositor_cpu_ms",i.timing.m_flCompositorRenderCpuMs);
   }

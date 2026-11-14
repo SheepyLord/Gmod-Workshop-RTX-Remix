@@ -289,14 +289,14 @@
         "vr/native/controller_frames.h"
       ],
       "packaged": {
-        "sha256": "8d1b6f30b3e5c70140278eaa1601eb08c4e821595c31089cd1277d2a95efae84",
+        "sha256": "aa1d8b651caa445e9a8acc97e8c3e68ff6b8307e83d59b6f8798d6cadff5dadf",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
           "vr/native/CMakeLists.txt": "1aaa5bfb9dd504bf90a0f329d80bb4f85b27fbe87b2ef441696a856bf6e9de18",
-          "vr/native/module.cpp": "51f9755194f140c200e2ba4aed8eac7c8be7f42b4b75e78734550f308e6ddcea",
-          "vr/native/session.cpp": "5da1f46fa0cd0f141116d6a8e3461b2e2298db2ac4ef9bc387f070f19e601ea3",
-          "vr/native/session.h": "ca05d66527e7d2fad09d426003cc777d8b1c2e71155656686cdbc6216d09f06d",
+          "vr/native/module.cpp": "8544a204f0d293fe97f45c8ddfc80491b5dc9230ace4fd0c7ef280a200e9854a",
+          "vr/native/session.cpp": "8b05537f1583d3f782576a0d06cda5e5bf367d793e7371bbd3da70bcba505d0a",
+          "vr/native/session.h": "285f4296dc196909edca8e59151af3757b60e38e9c9eaddfcaefbf2a5d84885a",
           "vr/native/window_input.cpp": "85dadbd8d54496e8c317b97eefa9968423b8f2c5e836ed74b9822f611f474c4a",
           "vr/native/window_input.h": "aaacf49a541ef5c1fb6acbc198288ac69994385d9a16588ff4a4ec8449b70ad9",
           "vr/native/pose_math.cpp": "82f42248bad3e34bcdb8a0b70f831173a6d9707a4b82be5be3ac1a0631adc2ba",
@@ -320,7 +320,7 @@
           "vr/native/controller_frames.cpp": "a8e361a9e7ee6c0811fe171c8658ec052f071278c205038b1476d4f81d7f5478",
           "vr/native/controller_frames.h": "91efeee3626947c6129b4a84a4264539b178eb0cc8b7594ba814bd858b8eea7b"
         },
-        "commit": "657fcc87e761bc8d431f951ea3b45e59063e57c4",
+        "commit": "48328f96ba61d203a84bf416deae4b9de7f07f82",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }

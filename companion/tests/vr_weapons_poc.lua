@@ -117,8 +117,13 @@ concommand.Add("nlvr_w_phase",function(_,_,args)
         samples.target=target
         samples.targetIndex=target:EntIndex()
     elseif wanted=="hands" then
-        local target=spawn("prop_physics","models/props_junk/PopCan01a.mdl",hand.pos+dir*3)
-        local phys=target:GetPhysicsObject() if IsValid(phys) then phys:EnableGravity(false) end
+        -- The can's surface sits 0.0875 m (3.5 units here) in front of the palm: outside the hand's physics sphere
+        -- (0.075 m, rubber), which bounced a can spawned inside it away (gravity off, it drifted out of reach at 24
+        -- units/s in V8's run), and well inside the grab reach (0.16 m). It sleeps until the hand closes on it.
+        local target=spawn("prop_physics","models/props_junk/PopCan01a.mdl",hand.pos+dir*s.scale*.25)
+        local face=hand.pos+dir*s.scale*.0875
+        target:SetPos(target:GetPos()+face-target:NearestPoint(hand.pos))
+        local phys=target:GetPhysicsObject() if IsValid(phys) then phys:SetPos(target:GetPos()) phys:EnableGravity(false) phys:Sleep() end
         samples.target=target
     end
     out("phase",{target_index=samples.targetIndex,class=class,valid=IsValid(w),weapon=IsValid(ply:GetActiveWeapon()) and ply:GetActiveWeapon():GetClass(),hand=hand,head=s.head})
@@ -257,6 +262,21 @@ hook.Add("Tick","nlvr_w_fixture",function()
         samples.lateProjectile=nil
     end
     if phase=="hands" and IsValid(NLVR_SV.Holding(ply,"right")) then out("grab",{held=true}) end
+    -- V8 diagnosis: what the main hand's grab saw while the hands phase ran (the can, the tracked palm, the
+    -- proxy, the follow target and anchor a grab measures from, and every state that refuses a grab).
+    if phase=="hands" and (not samples.handsProbeAt or CurTime()-samples.handsProbeAt>=.1) then
+        samples.handsProbeAt=CurTime()
+        local main=s.weapon and s.weapon.hand or "right"
+        local h=s.interact and s.interact[main] local pose=s.hands[main]
+        local can=samples.target local canPhys=IsValid(can) and can:GetPhysicsObject()
+        out("hands-probe",{main=main,can=IsValid(can) and can:GetPos(),can_motion=IsValid(canPhys) and canPhys:IsMotionEnabled(),
+            can_asleep=IsValid(canPhys) and canPhys:IsAsleep(),palm=pose and pose.pos,buttons=pose and pose.buttons,
+            proxy=h and IsValid(h.phys) and h.phys:GetPos(),follow=h and h.followTarget,anchor=h and h.anchorPos,
+            blocked=h and h.blocked,owner=s.interact and s.interact.owners and s.interact.owners[main],
+            grip=h and h.grip and IsValid(h.grip.ent) and h.grip.ent:GetClass(),pull=h and h.pull~=nil,climb=h and h.climb~=nil,
+            latch=h and h.freezeLatch==true,was_grip=h and h.wasGrip,lock=h and h.lock~=nil,target=h and h.target and IsValid(h.target.ent) and h.target.ent:GetClass(),
+            contact=h and h.contact and IsValid(h.contact.ent) and h.contact.ent:GetClass()})
+    end
 end)
 hook.Add("OnEntityCreated","nlvr_w_fixture",function(ent)
     if ent:GetClass()~="npc_grenade_frag" then return end

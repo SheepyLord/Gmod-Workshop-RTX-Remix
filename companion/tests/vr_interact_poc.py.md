@@ -23,3 +23,19 @@ same production timeline and probe. Omit the phase selector for all fourteen pha
 Phase 13 is an isolated held-object impact: acquire first, then strike a fresh target. It
 can be selected with the world ledge (`--interact-phases 13,6 --seconds 20`) so punch debris
 cannot disturb the held-impact fixture. The report keeps per-phase witnesses explicit.
+
+V8: phases 14 to 17 (`--interact-phases 14,15,16,17`; the default run stays 0 to 13). 14: the right hand holds a light
+cube, turns the wrist a quarter turn in half a second and carries it. 15: both hands take one plank, raise it 0.2 m,
+tilt it (the right hand rises 0.15 m) and turn both wrists 25 degrees about the line between them (a pitch of each
+controller, which rolls the plank about its length; `interact-sim-01` rolled each controller about its own forward,
+an axis across that line, which rightly rolls nothing). 16: hold, freeze with the trigger, let go, grip
+again and free it with the trigger, carry it 0.25 m. 17: hold one bone of a ragdoll and freeze it. Timeline steps can
+now press the right trigger and pitch either hand.
+
+V8: `--fg-check` adds a Frame generation check after the phases (at `phases x 8 + 2` s of the timeline; give
+`--seconds` room for 10 s more): the client part turns `nl_vr_frame_generation` off for 4 s and then back to the value
+it had, and prints `v8-frame-generation` records (`on`, `off`, `restored`).
+
+V8, phase 15 after the PoC's second run: the tilted plank is held level from 4.6 to 5.2 s and both wrists then turn
+25 degrees from 5.2 to 5.8 s. Poses interpolate between steps, so the earlier timeline had no level moment: the turn
+began where the tilt ended.

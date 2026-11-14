@@ -3,6 +3,7 @@ local phase,lastSend,captured,seen,offAt=nil,-1,{},false,nil
 local recorded={}
 local savedDominant=GetConVar("nl_vr_dominant"):GetString()
 local savedGunAngle=GetConVar("nl_vr_gun_angle"):GetString()
+local savedPhysical=GetConVar("nl_vr_physical_reload"):GetString()
 local serial,seenEnt,seenRole,seenFrame,lastTwo,punchSeen=0,nil,nil,0,false,{}
 local shotCaptures={}
 local effectCapture={}
@@ -33,7 +34,9 @@ hook.Add("PreRender","nlvr_w_probe",function()
             entry.ctx.mover(43,function(command)
                 local sample=nlvr.TestState()
                 if phase=="melee-walk" and sample and sample.time%4>=1 and sample.time%4<1.2 then
-                    command:SetSideMove(200) -- actual predicted/host CMoveData, not pose translation
+                    -- Actual predicted/host CMoveData, not pose translation. The step goes toward the gun hand's side, which
+                    -- carries the held crowbar into the plate; a left-hand run mirrors the hands, so it mirrors the step.
+                    command:SetSideMove(NLVR.Input.mainHand=="left" and -200 or 200)
                 end
             end)
             local projectile={crossbow_bolt=true,rpg_missile=true,grenade_ar2=true,prop_combine_ball=true,npc_grenade_frag=true,npc_grenade_bugbait=true}
@@ -195,6 +198,10 @@ hook.Add("PreRender","nlvr_w_probe",function()
         local nextPhase=CONFIG.weapons_phases[slot+1]
         if nextPhase and (phase~=nextPhase or NLVR_W_ACK~=nextPhase and sample.time-lastSend>.25) then
             phase,lastSend=nextPhase,sample.time
+            -- The rocket phase measures W's launch, not K's reload: physical reload (on by default) holds an RPG
+            -- until a rocket is put in by hand, which this fixture never does, so that phase runs with it off.
+            local physical=phase=="rocket" and "0" or savedPhysical
+            if GetConVar("nl_vr_physical_reload"):GetString()~=physical then RunConsoleCommand("nl_vr_physical_reload",physical) end
             RunConsoleCommand("nlvr_w_phase",phase)
         end
         if phase and sample.time%4>=2.65 and not captured[phase] and NLVR_W_ACK==phase then
@@ -238,14 +245,16 @@ hook.Add("PreRender","nlvr_w_probe",function()
             RunConsoleCommand("nlvr_w_done")
             RunConsoleCommand("nl_vr_dominant",savedDominant)
             RunConsoleCommand("nl_vr_gun_angle",savedGunAngle)
+            RunConsoleCommand("nl_vr_physical_reload",savedPhysical)
             local untilTime=RealTime()+1
             hook.Add("Think","nlvr_w_settings_restore",function()
                 local dominant=GetConVar("nl_vr_dominant"):GetString()
                 local gunAngle=GetConVar("nl_vr_gun_angle"):GetString()
-                local restored=dominant==savedDominant and gunAngle==savedGunAngle
+                local physical=GetConVar("nl_vr_physical_reload"):GetString()
+                local restored=dominant==savedDominant and gunAngle==savedGunAngle and physical==savedPhysical
                 if restored or RealTime()>=untilTime then
-                    wEmit({kind="fixture-settings",restored=restored,dominant=dominant,gun_angle=gunAngle,
-                        before={dominant=savedDominant,gun_angle=savedGunAngle}})
+                    wEmit({kind="fixture-settings",restored=restored,dominant=dominant,gun_angle=gunAngle,physical_reload=physical,
+                        before={dominant=savedDominant,gun_angle=savedGunAngle,physical_reload=savedPhysical}})
                     hook.Remove("Think","nlvr_w_settings_restore")
                 end
             end)

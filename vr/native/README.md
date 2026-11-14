@@ -228,6 +228,10 @@ crosses the Lua ABI. Close stops and joins the session before unloading the modu
   Stop owns cleanup on its worker and outwaits the current runtime SDK call barrier.
   Page convenience fields: `devices={left=bool,right=bool}` (last acquired frame), `presents`,
   `dropped`, `reprojected` (counts), `compositor_gpu_ms`, `compositor_cpu_ms` (only with valid timing).
+  V8: `motion_smoothing_supported` and `motion_smoothing_enabled` (booleans, false when simulated) read
+  `IVRCompositor::IsMotionSmoothingSupported`/`IsMotionSmoothingEnabled`: SteamVR's frame generation and
+  whether the user has it on. The module only reads that setting; it never writes SteamVR's settings.
+  `timing.m_nReprojectionFlags` bit 0x08 says Motion Smoothing made the latest frame.
 - `Actions()` -> named action records `{active,state,changed,x,y,z,error,curls={5 numbers}}`.
   See [input README](../input/README.md). Updated once by BeginFrame; reads do not advance input.
   Inactive/sleeping devices keep error codes and never fail an otherwise usable VR session.

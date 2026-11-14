@@ -534,10 +534,10 @@ function cases.page()
     function panel:CheckBox(label, cvar) assert(#label > 0) variables[cvar] = true end
     function panel:Button(label) local b = {} buttons[label] = b return b end
     NativeLoaderVR.BuildOptions(panel)
-    -- V6 added the quality step and V7 true stereo.
-    local n = 0 for _ in pairs(variables) do n = n + 1 end eq(n, 20)
+    -- V6 added the quality step, V7 true stereo and V8 frame generation.
+    local n = 0 for _ in pairs(variables) do n = n + 1 end eq(n, 21)
     for _, cvar in ipairs({"dominant", "move_dir", "turn", "snap_angle", "turn_speed", "teleport", "vignette", "seated", "seated_offset",
-        "ghost_hands", "wrist_hud", "gloves", "climb", "melee", "quality", "stereo"}) do assert(variables["nl_vr_" .. cvar], cvar) end
+        "ghost_hands", "wrist_hud", "gloves", "climb", "melee", "quality", "stereo", "frame_generation"}) do assert(variables["nl_vr_" .. cvar], cvar) end
     eq(#choices.nl_vr_quality, 8) eq(choices.nl_vr_quality[1][2], 0) eq(choices.nl_vr_quality[8][2], 7)
     eq(choices.nl_vr_teleport[1][2], 0) eq(choices.nl_vr_teleport[3][2], 2)
     eq(choices.nl_vr_dominant[2][1], "Left hand")

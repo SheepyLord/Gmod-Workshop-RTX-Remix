@@ -20,3 +20,9 @@ Remix user.conf. Exact generated sources/preferences/adapter hashes are kept in
 `handed-fixture.json`. No SDK calls or game launch occur in this module itself.
 
 Independent review round: live hooks use the shared dispatcher and detached compatibility snapshots; geometry witnesses use raw posed-mesh/hand-bone data with rejecting placement/skew mutants. Full destructive acceptance stays gated pending Claude's fixes repair. See VR-V4-Q-resume.md for exact test/evidence scope.
+
+V8: the prepared probe's Think hook no longer turns the room to yaw 0. Only the combined, movement and tools drivers
+request yaw 0; the weapons and reload drivers request 180, so that turn made their neutral view face the head's own
+yaw (0, or 45 in the gun phases) and failed the driver's neutral check in V4's final run. The shared probe now holds
+the requested yaw itself ([vr_session.lua](../../tools/vr_session.lua.md)); the adapter keeps only its mover that clears
+physical movement, buttons and mouse.

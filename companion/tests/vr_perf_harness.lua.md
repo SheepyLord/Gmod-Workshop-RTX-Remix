@@ -23,3 +23,6 @@ luajit companion/tests/vr_perf_harness.lua <repository root> <scenario>
 | `control_cpu_bound` | frames missed while the GPU has room never step down and set `cpuLimited`; the same misses with the GPU over its share do; a controller that ignores the GPU must fail the hold check |
 
 Prints `PASS <scenario>`; exits non-zero on a failed assertion. Run by [`vr_perf_test.py`](vr_perf_test.py.md).
+
+V8: `frame_generation_rates` loads `cl_perf.lua` and checks `Rates` (half the refresh with frame generation, the full
+refresh without, on by default, broken refreshes read as 90 Hz) and `Smoothed` (bit 0x08 of the reprojection flags).

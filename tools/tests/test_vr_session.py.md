@@ -63,3 +63,8 @@ Independent review round: live hooks use the shared dispatcher and detached comp
 A retained forced-simulation lock test fails the old needs_vr_lock rule and passes the explicit both-locks option.
 
 Round5 exercises the unconditional two-lock policy for simulated, flat and native PoC modes.
+
+V8: `test_scripted_sessions_face_the_requested_yaw_and_clear_physical_mouse` runs the probe's `hold_fixture_yaw`
+under LuaJIT with a stand-in core: a 0.484-degree mouse offset is undone, a head turned 45 degrees keeps the camera on
+the requested yaw, the mouse-clearing mover is registered once per start, a core without a yaw yet is left until it
+has one, look and live-pose sessions are untouched, and the hold stays outside the replaced CreateMove block.

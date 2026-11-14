@@ -3261,3 +3261,23 @@ stereo eye correlates with its own warped eye (0.80 or more at 96 x 96, better t
 mirrored or misplaced), that the stereo eyes differ by their disparity but share their brightness, and that the second
 eye costs GPU work. `vr_stereo_test.py` shows each of those checks failing on a synthetic record that breaks it.
 
+## VR V8 (2026-11-13, Claude, branch `vr8`)
+
+Offline, in the gate: the interaction harness's fourteen `v8_*` cases and `GrabMutantTests`
+(`companion/tests/vr_interact_tests.py`, through `tools/tests/test_companion_vr_interact.py`), the perf scenario
+`frame_generation_rates`, the VR page's `frame_generation` case, the framework's and UI harness's setting counts, the
+native lifecycle test's Motion Smoothing checks (fault 27 is "off in SteamVR"), and two fixture tests:
+`test_scripted_sessions_face_the_requested_yaw_and_clear_physical_mouse` (`tools/tests/test_vr_session.py`) and
+`test_prepared_probe_keeps_the_room_yaw_and_clears_physical_input` (`tools/tests/test_vr_v4_fixture.py`, which fails
+against V4's adapter). The harness's `settle` runs a server tick and one rigid-body physics step; it has no joints or
+contacts, so ragdoll joints and bodies pressed on walls are untested offline.
+
+In the game (the user allowed them on 2026-11-13): the full sequence's weapons, calibration, reload, button and empty
+sections for both hands (`companion/tests/vr_full_sequence.py`, run here by section), simulated; the interaction
+driver's phases 1, 3, 4, 5 and 14-17 with `--fg-check`, simulated and on the Index with both shared locks
+(`vr_interact_poc.py`, then `vr_interact_analyse.py <evidence> --phases ...`, which writes
+`interaction-checks.json`). The runs found six faults in the checks and fixtures, none in V8's code: the reload
+button's two clocks and same-frame readiness, the empty hold's 3500 s floor, the guns rocket phase under physical
+reload, the left-hand melee-walk step, the hands-phase can inside the hand's sphere, and phase 15's level window;
+see [the V8 report](handover/VR-V8-report.md). V7's package fails the button, rocket, walk and can checks the same
+way; the empty hold's floor depends on a session's length, not the version.

@@ -40,3 +40,6 @@ options_no_format_write reproduces Derma numeric echoes and requires exact origi
 `host` now requires the refusal: a listen-server host gets the page's server reason, as VR is single-player only ([ADR 0197](../../docs/decisions/0197-vr-is-single-player-only.md)).
 
 V6: the native stand-in reports runtime API 4 and records each `SetQuality` step in `qualitySteps`.
+
+V8: `frame_generation` checks the page's four Motion Smoothing states (making frames, off in SteamVR with where to
+turn it on, not available on this GPU, the switch off) from the perf module's readings.

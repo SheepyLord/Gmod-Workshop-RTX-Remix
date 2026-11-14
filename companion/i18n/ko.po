@@ -604,8 +604,8 @@ msgstr "울트라"
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:234
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "High"
 msgstr "높음"
 
@@ -616,8 +616,8 @@ msgstr "중간"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:74
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:211
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
 msgid "Low"
 msgstr "낮음"
 
@@ -650,18 +650,18 @@ msgid "Performance"
 msgstr "성능"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "Balanced"
 msgstr "균형"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:79
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:308
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
 msgid "Quality"
 msgstr "품질"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:80
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
 msgid "Auto"
 msgstr "자동"
 
@@ -670,13 +670,14 @@ msgid "Full resolution (DLAA)"
 msgstr "전체 해상도(DLAA)"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:313
 #: nativeloader/lua/nativeloader/guide_pages.lua:69
 msgid "Frame generation"
 msgstr "프레임 생성"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:82
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:281
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Off"
 msgstr "끄기"
 
@@ -1059,529 +1060,554 @@ msgstr "방어구"
 msgid "Ammo"
 msgstr "탄약"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:47
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:48
 msgid "The VR module is missing or could not load. Reinstall the RTX package, then restart Garry's Mod."
 msgstr "VR 모듈이 없거나 불러올 수 없습니다. RTX 패키지를 다시 설치한 후 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:48
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:49
 msgid "The VR module has an incompatible API. Update the RTX package and restart Garry's Mod."
 msgstr "VR 모듈의 API가 호환되지 않습니다. RTX 패키지를 업데이트하고 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:49
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:50
 msgid "This Remix runtime has no VR output. Update the RTX package and restart Garry's Mod."
 msgstr "이 Remix 런타임은 VR 출력을 지원하지 않습니다. RTX 패키지를 업데이트하고 Garry's Mod를 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:50
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
 msgid "The VR add-on could not start. Reinstall the RTX package and try again."
 msgstr "VR 애드온을 시작할 수 없습니다. RTX 패키지를 다시 설치하고 재시도하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:51
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
 msgid "VR works in single-player games only. Start a single-player game to use VR."
 msgstr "VR은 싱글 플레이에서만 작동합니다. VR을 사용하려면 싱글 플레이 게임을 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:52
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
 msgid "Exit VRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "RTX VR을 시작하기 전에 VRMod를 종료하세요. 시점을 제어하는 애드온은 하나만 사용할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:53
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
 msgid "Exit gVRMod before starting RTX VR. Only one add-on can control the view."
 msgstr "RTX VR을 시작하기 전에 gVRMod를 종료하세요. 시점을 제어하는 애드온은 하나만 사용할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:54
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
 msgid "SteamVR could not start VR. Check the headset connection and SteamVR, then try again."
 msgstr "SteamVR에서 VR을 시작하지 못했습니다. 헤드셋 연결과 SteamVR을 확인한 후 재시도하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:55
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:56
 msgid "SteamVR is not installed. Install SteamVR in Steam, connect the headset, then try again."
 msgstr "SteamVR가 설치되어 있지 않습니다. Steam에서 SteamVR를 설치하고 헤드셋을 연결한 후 다시 시도하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:56
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
 msgid "SteamVR ended the VR session. The flat game's settings have been restored."
 msgstr "SteamVR이 VR 세션을 종료했습니다. 일반 화면 게임 설정이 복원되었습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:57
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:58
 msgid "Waiting for headset tracking. Check that the base stations can see the headset."
 msgstr "헤드셋 추적을 기다리는 중입니다. 베이스 스테이션이 헤드셋을 볼 수 있는지 확인하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:59
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
 msgid "VR is off"
 msgstr "VR 꺼짐"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:59
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
 msgid "Starting SteamVR..."
 msgstr "SteamVR 시작 중..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:59
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
 msgid "VR is running"
 msgstr "VR 실행 중"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
 msgid "Stopping VR..."
 msgstr "VR 종료 중..."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:60
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:61
 msgid "VR could not start"
 msgstr "VR 시작 실패"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
 msgid "Wrist menu"
 msgstr "손목 메뉴"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
 msgid "Spawn menu"
 msgstr "생성 메뉴"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
 msgid "Context menu"
 msgstr "상황 메뉴"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
 msgid "Flat screen"
 msgstr "평면 화면"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:265
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:467
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:482
 msgid "VR settings"
 msgstr "VR 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:325
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:328
 msgid "Calibrate height"
 msgstr "키 보정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:426
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:441
 msgid "Recentre VR"
 msgstr "VR 중심 재설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:424
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:439
 msgid "Exit VR"
 msgstr "VR 종료"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:266
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:373
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:377
 msgid "Enter text"
 msgstr "텍스트 입력"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
 msgid "Keyboard"
 msgstr "키보드"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Shift"
 msgstr "시프트"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
 msgid "Space"
 msgstr "공백"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
 msgid "Backspace"
 msgstr "뒤로 삭제"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
 msgid "Enter"
 msgstr "입력"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
 msgid "Close"
 msgstr "닫기"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:267
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
 msgid "Tab"
 msgstr "탭"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Left"
 msgstr "왼쪽"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Right"
 msgstr "오른쪽"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Home"
 msgstr "처음"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "End"
 msgstr "끝"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:268
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
 msgid "Delete"
 msgstr "삭제"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:269
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
 msgid "This menu is unavailable in this gamemode."
 msgstr "이 게임 모드에서는 이 메뉴를 사용할 수 없습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:270
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "The flat screen needs a newer VR module and Remix runtime. Update the RTX package."
 msgstr "평면 화면에는 최신 VR 모듈과 Remix 런타임이 필요합니다. RTX 패키지를 업데이트하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:309
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
 msgid "Quality step"
 msgstr "품질 단계"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "Full"
 msgstr "최고"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:363
 msgid "Fast"
 msgstr "빠름"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
 msgid "Faster"
 msgstr "더 빠름"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:310
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:364
 msgid "Floor"
 msgstr "최저"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:311
-msgid "Auto keeps VR at half the headset's refresh rate, and SteamVR's Motion Smoothing fills in the rest. A fixed step stays where you set it."
-msgstr "자동은 VR을 헤드셋 주사율의 절반으로 유지하고, 나머지는 SteamVR의 모션 스무딩이 채웁니다. 고정 단계는 설정한 그대로 유지됩니다."
-
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:312
+msgid "Auto picks the highest step that holds the frame rate Frame generation sets. A fixed step stays where you set it."
+msgstr "자동은 '프레임 생성'이 정한 프레임 속도를 유지할 수 있는 가장 높은 단계를 고릅니다. 고정 단계는 설정한 그대로 유지됩니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+msgid "On: VR renders half the headset's frames and SteamVR's Motion Smoothing makes the rest. Off: VR renders every frame, at a lower quality step. Remix's DLSS frame generation only adds frames to the desktop window, so it stays off in VR."
+msgstr "켜짐: VR은 헤드셋 프레임의 절반만 렌더링하고 나머지는 SteamVR의 모션 스무딩이 만듭니다. 꺼짐: VR은 모든 프레임을 렌더링하며 품질 단계가 낮아집니다. Remix의 DLSS 프레임 생성은 데스크톱 창에만 프레임을 추가하므로 VR에서는 꺼진 상태로 둡니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
 msgid "True stereo"
 msgstr "진짜 스테레오"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:313
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
 msgid "Path traces each eye with its own history instead of turning one picture into both eyes. It costs about a quarter more GPU time, so Auto may choose a lower step, and it needs DLSS Ray Reconstruction."
 msgstr "한 장의 화면을 양쪽 눈으로 변환하는 대신 눈마다 각자의 기록으로 패스 트레이싱합니다. GPU 시간이 약 4분의 1 늘어나므로 자동이 더 낮은 단계를 고를 수 있으며, DLSS 광선 재구성이 필요합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
 msgid "Controls and comfort"
 msgstr "조작 및 편안함"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
 msgid "Dominant hand"
 msgstr "주로 쓰는 손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
 msgid "Right hand"
 msgstr "오른손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:315
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
 msgid "Left hand"
 msgstr "왼손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "Movement direction"
 msgstr "이동 방향"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "Off hand"
 msgstr "반대쪽 손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:316
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
 msgid "Head"
 msgstr "머리"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
 msgid "Turning"
 msgstr "회전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
 msgid "Snap turn"
 msgstr "단계 회전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:317
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
 msgid "Smooth turn"
 msgstr "부드러운 회전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:318
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
 msgid "Snap angle (degrees)"
 msgstr "단계 회전 각도(도)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:319
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
 msgid "Turn speed (degrees per second)"
 msgstr "회전 속도(도/초)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Teleport"
 msgstr "순간 이동"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:320
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
 msgid "Blink"
 msgstr "암전 이동"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:321
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:324
 msgid "Movement vignette"
 msgstr "이동 시 주변부 어둡게"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:322
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:325
 msgid "The vignette shades the edge of your view while moving or turning. Zero turns it off."
 msgstr "이동하거나 회전할 때 시야 가장자리를 어둡게 합니다. 0으로 설정하면 꺼집니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:323
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
 msgid "Seated mode"
 msgstr "앉은 자세 모드"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:324
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:327
 msgid "Seated height offset (metres)"
 msgstr "앉은 자세 높이 보정(미터)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:329
 msgid "Start VR, stand straight, then calibrate. Your tracked eye height sets world scale. To reset, set nl_vr_height to 0."
 msgstr "VR을 시작하고 똑바로 선 다음 보정하세요. 추적된 눈높이로 월드 배율을 설정합니다. 초기화하려면 nl_vr_height를 0으로 설정하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:327
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
 msgid "A changed height calibration takes effect after Exit VR and Start VR."
 msgstr "키 보정 변경은 VR을 종료한 후 다시 시작하면 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:328
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:331
 msgid "Hands and HUD"
 msgstr "손 및 HUD"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:329
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
 msgid "Ghost hands"
 msgstr "유령 손"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:330
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
 msgid "Show an outline at the real controller when the visible hand stops against something."
 msgstr "보이는 손이 무언가에 막히면 실제 컨트롤러 위치에 윤곽선을 표시합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:331
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:334
 msgid "Wrist HUD"
 msgstr "손목 HUD"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:332
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:335
 msgid "Physical interaction"
 msgstr "물리 상호작용"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:333
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
 msgid "Gravity gloves"
 msgstr "중력 장갑"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:334
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:337
 msgid "Climbing"
 msgstr "등반"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:335
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:338
 msgid "Physical melee"
 msgstr "물리 근접 공격"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:336
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:339
 msgid "Grip grabs. Point, grip and flick to pull a loose object. Grip a ledge to climb. Fast hands and held objects can strike."
 msgstr "쥐면 잡습니다. 고정되지 않은 물체를 가리키고 쥔 뒤 손목을 튕기면 당겨옵니다. 턱을 잡으면 올라갈 수 있습니다. 손이나 들고 있는 물체를 빠르게 움직여 공격할 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:337
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:340
+msgid "Turn your wrist to turn what you hold, or hold it with both hands. Pull the trigger while holding to freeze it in place; to free it, grip it and pull the trigger."
+msgstr "손목을 돌리면 들고 있는 물체도 돌아갑니다. 두 손으로 잡을 수도 있습니다. 잡은 채로 트리거를 당기면 그 자리에 고정되고, 고정을 풀려면 쥔 뒤 트리거를 당기세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
 msgid "Turn on Keep corpses in the game's options to make NPC bodies grabbable in VR."
 msgstr "게임 옵션에서 \"시체 유지\"를 켜면 VR에서 NPC의 시체를 잡을 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:338
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:342
 msgid "Weapons"
 msgstr "무기"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:339
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:343
 msgid "Physical reload"
 msgstr "물리 재장전"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:340
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:344
 msgid "Eject with A, take ammo over your shoulder, then insert it into HL2 weapons. Other weapons reload on a B tap."
 msgstr "A로 탄창을 빼고 어깨 뒤에서 탄약을 꺼내 HL2 무기에 넣으세요. 다른 무기는 B를 짧게 눌러 재장전합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:341
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:345
 msgid "Foregrip"
 msgstr "앞손잡이"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:342
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
 msgid "Grip near a rifle's foregrip with the off hand to aim with both hands."
 msgstr "보조 손으로 소총 앞손잡이 근처를 잡으면 양손으로 조준합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:343
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
 msgid "Ammo on the gun"
 msgstr "총 탄약 표시"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:344
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:348
 msgid "Show the clip and reserve ammo beside the weapon hand."
 msgstr "무기를 든 손 옆에 장전된 탄약과 예비 탄약을 표시합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:345
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:349
 msgid "Gun angle (degrees)"
 msgstr "총 각도 (도)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:346
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:350
 msgid "Adjust the gun's pitch in your hand."
 msgstr "손에 든 총의 상하 각도를 조절합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:347
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:351
 msgid "SteamVR controller bindings"
 msgstr "SteamVR 컨트롤러 바인딩"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:348
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:352
 msgid "Start VR before opening SteamVR's binding editor. The off hand's B opens the wrist menu; point with the main hand and click with its trigger. Its stick scrolls."
 msgstr "SteamVR 바인딩 편집기를 열기 전에 VR을 시작하세요. 반대쪽 손의 B로 손목 메뉴를 엽니다. 주로 쓰는 손으로 가리키고 트리거로 클릭하며 스틱으로 스크롤합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:355
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:359
 msgid "Not checked"
 msgstr "확인 안 됨"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:356
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
 msgid "Yes"
 msgstr "예"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:356
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:360
 msgid "No"
 msgstr "아니요"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:361
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
 msgid "chosen for this GPU"
 msgstr "이 GPU에 맞춰 선택"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:361
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
 msgid "set by hand"
 msgstr "수동 설정"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:361
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:365
 msgid "back to Auto"
 msgstr "자동으로 돌아감"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:362
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "frames were missed"
 msgstr "프레임이 누락됨"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:362
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:366
 msgid "frames have headroom"
 msgstr "프레임에 여유가 있음"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:371
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:375
 msgid "Height calibrated. Exit VR, then Start VR to use the new world scale."
 msgstr "키 보정 완료. 새 월드 배율을 사용하려면 VR을 종료한 후 다시 시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:374
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:378
 #, c-format
 msgid "SteamVR installed: %s; running: %s"
 msgstr "SteamVR 설치: %s; 실행: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:377
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:381
 #, c-format
 msgid "Headset: %s; %s Hz; recommended per eye: %s"
 msgstr "헤드셋: %s; %s Hz; 눈당 권장 크기: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:382
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:386
 #, c-format
 msgid "fps_max is %s, below the headset's %s Hz. Type fps_max %s in the game console."
 msgstr "fps_max가 %s로 헤드셋의 %s Hz보다 낮습니다. 게임 콘솔에 fps_max %s를 입력하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:387
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:391
 #, c-format
 msgid "Controllers tracked: left %s; right %s"
 msgstr "컨트롤러 추적: 왼쪽 %s; 오른쪽 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:390
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:394
 #, c-format
 msgid "Quality: %s, %s"
 msgstr "품질: %s, %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:392
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:396
 #, c-format
 msgid "Frame rate: %s of %s per second; GPU: %s of %s ms"
 msgstr "프레임 속도: 초당 %s / %s, GPU: %s / %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:394
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:398
 msgid "The runtime refused a quality step."
 msgstr "런타임이 품질 단계를 거부했습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:396
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:400
 msgid "Frames are being missed while the GPU has room. A lower step would not help, so the step stays."
 msgstr "프레임이 누락되고 있지만 GPU에는 여유가 있습니다. 단계를 낮춰도 나아지지 않으므로 단계를 유지합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:398
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:402
 #, c-format
 msgid "Stereo: %s"
 msgstr "스테레오: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:398
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:402
 msgid "each eye path traced"
 msgstr "눈마다 패스 트레이싱"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:399
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:403
 msgid "one picture turned into both eyes"
 msgstr "한 장의 화면을 양쪽 눈으로 변환"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:401
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:407
+msgid "Frame generation: off; VR renders every frame."
+msgstr "프레임 생성: 꺼짐. VR이 모든 프레임을 렌더링합니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:409
+msgid "Frame generation: SteamVR's Motion Smoothing is not available on this GPU, so SteamVR repeats frames instead."
+msgstr "프레임 생성: 이 GPU에서는 SteamVR의 모션 스무딩을 쓸 수 없어 SteamVR이 대신 프레임을 반복합니다."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:411
+msgid "Frame generation: Motion Smoothing is off in SteamVR. Turn it on in SteamVR > Settings > Video > Motion Smoothing."
+msgstr "프레임 생성: SteamVR에서 모션 스무딩이 꺼져 있습니다. SteamVR > 설정 > 비디오 > 모션 스무딩에서 켜세요."
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:413
+#, c-format
+msgid "Frame generation: SteamVR Motion Smoothing; making frames now: %s"
+msgstr "프레임 생성: SteamVR 모션 스무딩, 지금 프레임 생성 중: %s"
+
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:416
 msgid "True stereo needs DLSS Ray Reconstruction and the physical sky, so one picture is turned into both eyes."
 msgstr "진짜 스테레오에는 DLSS 광선 재구성과 물리 기반 하늘이 필요하므로 한 장의 화면을 양쪽 눈으로 변환합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:404
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:419
 #, c-format
 msgid "Compositor: GPU %s ms; CPU %s ms"
 msgstr "컴포지터: GPU %s ms; CPU %s ms"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:409
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:424
 #, c-format
 msgid "Reprojected: %s%%; dropped: %s%% (cumulative)"
 msgstr "재투영: %s%%; 누락: %s%% (누적)"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:410
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:425
 #, c-format
 msgid "Runtime GPU (ms): total %s; trace %s; upscale %s; warp %s; other %s"
 msgstr "런타임 GPU(ms): 전체 %s; 추적 %s; 업스케일 %s; 워프 %s; 기타 %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:412
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:427
 #, c-format
 msgid "Centre: %s; traced: %s; submitted per eye: %s"
 msgstr "중앙: %s; 추적: %s; 눈당 제출 크기: %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:414
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:429
 #, c-format
 msgid "Frames submitted: %s; submit errors: %s; poses matched / unmatched: %s / %s"
 msgstr "제출 프레임: %s; 제출 오류: %s; 포즈 일치 / 불일치: %s / %s"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:422
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:437
 msgid "Start VR"
 msgstr "VR 시작"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:428
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:443
 msgid "Check status"
 msgstr "상태 확인"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:430
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:445
 msgid "Checking status loads only the VR module. SteamVR starts when you press Start VR; this may take several seconds."
 msgstr "상태 확인은 VR 모듈만 불러옵니다. VR 시작을 누르면 SteamVR이 시작되며 몇 초 걸릴 수 있습니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:433
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:448
 msgid "Auto quality is on unless you choose a step under Quality. For RTX, 80 or 90 Hz is recommended."
 msgstr "품질에서 단계를 고르지 않으면 자동 품질이 켜져 있습니다. RTX에는 80 또는 90 Hz를 권장합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:436
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:451
 msgid "World scale"
 msgstr "월드 배율"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:438
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:453
 msgid "Game units per metre. Default 40 fits a 72-unit model to a 1.8 m person. Restart VR after changing."
 msgstr "미터당 게임 단위 수입니다. 기본값 40은 72단위 모델을 키 1.8 m인 사람에 맞춥니다. 변경 후 VR을 재시작하세요."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:439
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:454
 msgid "Render scale"
 msgstr "렌더 배율"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:441
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:456
 msgid "The highest render scale VR may use, on SteamVR's recommended eye size. Auto may choose a lower one. Changes take effect at once."
 msgstr "VR이 사용할 수 있는 최대 렌더 배율로, SteamVR 권장 한쪽 눈 크기가 기준입니다. 자동은 더 낮은 배율을 고를 수 있습니다. 변경은 즉시 적용됩니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:442
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:457
 msgid "Culling FOV"
 msgstr "컬링 시야각"
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:444
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:459
 msgid "Engine visibility setting, default 145 degrees, tested on the Index at 16:9. The headset supplies the rendered projection."
 msgstr "엔진 가시 범위는 기본 145도이며 Index에서 16:9로 검증했습니다. 렌더링 투영은 헤드셋이 제공합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:445
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:460
 msgid "Use nl_vr_start and nl_vr_exit in the console. VR works in single-player games only."
 msgstr "콘솔에서는 nl_vr_start와 nl_vr_exit를 사용합니다. VR은 싱글 플레이에서만 작동합니다."
 
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:460
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:475
 msgid "VR may be slow on this GPU: less than 12 GB VRAM or a low performance tier. You can still start VR; Auto starts at its lowest step."
 msgstr "이 GPU에서는 VR이 느릴 수 있습니다. VRAM이 12 GB 미만이거나 성능 등급이 낮습니다. VR 시작은 가능하며 자동은 가장 낮은 단계에서 시작합니다."
 

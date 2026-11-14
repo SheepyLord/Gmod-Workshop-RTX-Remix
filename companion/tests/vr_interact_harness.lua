@@ -55,6 +55,7 @@ function Phys:SetVelocity(v) self.velocity=v end
 function Phys:AddAngleVelocity(v) self.spin=self.spin+v end
 function Phys:ApplyForceCenter(v) self.force=v self.velocity=self.velocity+v/self.mass end
 function Phys:ApplyForceOffset(v) self.impulse=v end
+function Phys:EnableMotion(b) self.motion=b end
 local function phys(pos,mass)
     return setmetatable({valid=true,pos=pos or Vector(),ang=Angle(),mass=mass or 10,motion=true,gravity=true,
         collisions=true,velocity=Vector(),spin=Vector(),mesh={}},Phys)
@@ -622,11 +623,12 @@ function cases.heavy()
     local h=state.interact.left
     local a,b=phys(Vector(),10),phys(Vector(),250)
     local grip={phys=a,localPos=Vector(),localAng=Angle()}
+    -- V8 holds by velocity: compare the first tick's change without the paid-in-advance gravity.
     P.Drive(grip,nil,h,nil,state.hands.left,40,1/66)
-    local lightAcceleration=(a.force*66+physenv.GetGravity()*a.mass)/a.mass
+    local lightChange=(a.velocity+physenv.GetGravity()/66):Length()
     grip.phys=b P.Drive(grip,nil,h,nil,state.hands.left,40,1/66)
-    local heavyAcceleration=(b.force*66+physenv.GetGravity()*b.mass)/b.mass
-    assert(lightAcceleration:Length()>heavyAcceleration:Length()*10)
+    local heavyChange=(b.velocity+physenv.GetGravity()/66):Length()
+    assert(lightChange>heavyChange*10,"a 250 kg hold accelerated like a 10 kg one")
     stop()
 end
 function cases.client()
@@ -656,7 +658,9 @@ function cases.client()
             local function add(v) values[#values+1]=v end
             add(true) add(Vector(1,2,3)) add(Angle()) add(Vector(-1,0,0)) add(true) add(ent or false) add(2)
             add(false) add(Vector()) add(case=="verify_pending_marker" and held or false) add(Vector(30,0,40)) add(false) add(Vector(120,0,0)) add(Vector(0,0,2)) add(sequence) add(0.35) add(2)
+            add(false) -- V8: no hold relation
         end
+        values[#values+1]=false -- V8: no two-hand pair
         local cursor=0 local function read() cursor=cursor+1 return values[cursor] end
         net={ReadBool=read,ReadVector=read,ReadAngle=read,ReadEntity=read,ReadUInt=read,ReadFloat=read}
         receiver()
@@ -837,8 +841,8 @@ function cases.impulse_units()
         local p=phys(Vector(),10)
         local grip={phys=p,localPos=Vector(),localAng=Angle()}
         P.Drive(grip,nil,h,nil,pose(Vector()),40,dt)
+        -- A hold at rest pays exactly this step's gravity, whatever the tick length.
         vec(p:GetVelocity()+physenv.GetGravity()*dt,Vector())
-        close(p.force.z,10*600*dt)
     end
     stop()
 end
@@ -884,8 +888,10 @@ function cases.contact_offset()
     prop:GetPhysicsObject():EnableGravity(false)
     state.hands.right.buttons=1 step()
     local grip=state.interact.right.grip
-    assert(grip and grip.handOffset:Length()>0)
-    vec(grip.goal,prop:GetPhysicsObject():GetPos())
+    -- V8: the touched point, 3 units from the palm, comes to rest against it; the body keeps its orientation.
+    assert(grip and grip.rel)
+    local G8=include("nlvr/modules/sh_grab_math.lua")
+    vec(grip.goal,prop:GetPhysicsObject():GetPos()-Vector(3-40*G8.PALM,0,0),1e-4)
     stop()
 end
 function cases.release_grace()
@@ -1053,6 +1059,347 @@ function cases.q4r_dispatch_peer()
     hook.Add("Tick","peer",function() calls=calls+1 return false end,HOOK_MONITOR_HIGH)
     start() step() assert(calls==1,"Tick bypassed the shared dispatcher")
     hook.Remove("Tick","peer") stop()
+end
+-- V8 (ADR 0203/0204): precise holds, one-hand turning, two hands, freezing, the client's drawn hold.
+local G8=include("nlvr/modules/sh_grab_math.lua")
+-- One server tick, then one physics step for every moving body (gravity, velocity, spin).
+local function settle(list,ticks,before)
+    for _=1,ticks do
+        if before then before() end
+        step()
+        for _,e in ipairs(list) do
+            for _,p in ipairs(e.bones) do
+                if p.motion then
+                    if p.gravity then p.velocity=p.velocity+physenv.GetGravity()/66 end
+                    p.pos=p.pos+p.velocity/66 p.ang=G8.Rotate(p.ang,G8.WorldSpin(p.spin,p.ang)/66)
+                end
+            end
+            e.pos,e.ang=e.bones[1].pos,e.bones[1].ang
+        end
+    end
+end
+local function degrees(a,b) return math.deg(G8.RotationError(a,b):Length()) end
+local function moveHand(hand,velocity,spin)
+    return function()
+        hand.pos=hand.pos+velocity/66 hand.ang=G8.Rotate(hand.ang,spin/66) hand.vel,hand.angvel=velocity,spin
+    end
+end
+function cases.v8_math()
+    for i=1,60 do
+        local a=Angle(i*2.9-80,i*11.3-170,i*7.1-160)
+        local X,Y,Z=G8.Axes(a)
+        local back=G8.AngleFromAxes(X,Y,Z)
+        assert(degrees(a,back)<1e-6,"angle from its axes")
+        local turn=Vector(math.sin(i),math.cos(i*1.7),math.sin(i*0.3)):GetNormalized()*(i/60*3) -- under half a turn
+        local b=G8.Rotate(a,turn)
+        vec(G8.RotationError(a,b),turn,1e-6)
+        local spin=Vector(i,-2*i,0.5*i)
+        vec(G8.WorldSpin(G8.LocalSpin(spin,a),a),spin,1e-9)
+    end
+    -- The short way round, never the long one.
+    close(G8.RotationError(Angle(),Angle(0,190,0)):Length(),math.rad(170),1e-9)
+    -- Snap: a far touched point comes to the palm's surface; a near one stays.
+    vec(G8.Snap(Vector(10,0,0),Vector(),1.4),Vector(1.4,0,0)) vec(G8.Snap(Vector(1,0,0),Vector(),1.4),Vector(1,0,0))
+    -- Strength: light bodies are limited only by the hand, heavy ones by their mass.
+    local light,heavy=G8.Limits(2,nil,40),G8.Limits(250,nil,40)
+    close(light.accel,G8.MAX_ACCEL*40) close(heavy.accel,G8.STRENGTH/250*40)
+    -- The pair frame: the line between the hands, rolled by their mean up.
+    local a={pos=Vector(0,8,0),ang=Angle()} local b={pos=Vector(0,-8,0),ang=Angle()}
+    local mid,frame=G8.PairFrame(a,b)
+    vec(mid,Vector()) vec(frame:Forward(),Vector(0,-1,0),1e-9) vec(frame:Up(),Vector(0,0,1),1e-9)
+    -- Both hands turned 30 degrees about the line between them (world Y): the frame rolls 30 degrees.
+    a.ang,b.ang=Angle(30,0,0),Angle(30,0,0)
+    local _,rolled=G8.PairFrame(a,b)
+    close(degrees(frame,rolled),30,1e-6)
+    -- Turned about an axis across the line instead, the hands' up keeps its roll: no roll.
+    a.ang,b.ang=Angle(0,0,30),Angle(0,0,30)
+    local _,across=G8.PairFrame(a,b)
+    close(degrees(frame,across),0,1e-6)
+    -- Hands stacked along their own up still give a frame (their forward rolls it).
+    local _,stacked=G8.PairFrame({pos=Vector(),ang=Angle()},{pos=Vector(0,0,20),ang=Angle()})
+    assert(stacked and math.abs(stacked:Forward().z-1)<1e-9)
+end
+function cases.v8_correction_cap()
+    -- A body pressed 50 units into a wall (or a bone held back by its joints) is never driven hard into it.
+    for _,linked in ipairs({false,true}) do
+        local limits=G8.Limits(2,nil,40,linked)
+        local body={pos=Vector(),ang=Angle(),vel=Vector(),spin=Vector()}
+        local goal={pos=Vector(50,0,0),ang=Angle(0,170,0),vel=Vector(),spin=Vector()}
+        for _=1,20 do
+            local dv,dw=G8.Step(body,goal,limits,1/66)
+            body.vel,body.spin=body.vel+dv,body.spin+dw -- held in place: the wall stops it every tick
+        end
+        close(body.vel:Length(),40*(linked and G8.LINKED_CORRECT or G8.CORRECT),1e-6)
+        close(body.spin:Length(),linked and G8.LINKED_SPIN or G8.CORRECT_SPIN,1e-6)
+    end
+    -- Following the hand is not capped: a body reaches the hand's own 6 m/s (twice the cap) and stays on it.
+    local limits=G8.Limits(2,nil,40)
+    local body={pos=Vector(),ang=Angle(),vel=Vector(),spin=Vector()}
+    for i=1,20 do
+        local goal={pos=Vector(240*i/66,0,0),ang=Angle(),vel=Vector(240,0,0),spin=Vector()}
+        local dv=G8.Step(body,goal,limits,1/66)
+        body.vel=body.vel+dv body.pos=body.pos+body.vel/66
+    end
+    close(body.vel.x,240,0.01) close(body.pos.x,240*21/66,0.05)
+end
+function cases.v8_light_follow()
+    start() step()
+    local hand=state.hands.right
+    local prop=entity("prop_physics",hand.pos+Vector(2,0,0),5)
+    hand.buttons=1 settle({prop},2)
+    assert(ctx.core.Holding(ply,"right")==prop,"grip did not take the prop")
+    settle({prop},20)
+    local rel=state.interact.right.grip.rel
+    local velocity,spin=Vector(40,0,0),Vector(0,0,3) -- 1 m/s and 3 rad/s, the wrist turning
+    local worstPos,worstAng=0,0
+    for i=1,40 do
+        settle({prop},1,moveHand(hand,velocity,spin))
+        if i>6 then
+            -- Physics ran to the end of the tick: compare with the hand at the end of the tick.
+            local goal,goalAng=G8.OneHand(rel,{pos=hand.pos+velocity/66,ang=G8.Rotate(hand.ang,spin/66)})
+            worstPos=math.max(worstPos,(prop.bones[1].pos-goal):Length())
+            worstAng=math.max(worstAng,degrees(prop.bones[1].ang,goalAng))
+        end
+    end
+    assert(worstPos<0.25,"a light hold lagged the moving hand by "..worstPos)
+    assert(worstAng<1,"a light hold lagged the turning wrist by "..worstAng)
+    print(string.format("v8 light hold: %.4f units, %.4f degrees",worstPos,worstAng))
+    stop()
+end
+function cases.v8_wrist_turn()
+    start() step()
+    local hand=state.hands.right
+    -- Beside the palm (+Y), so a roll about the hand's forward (+X) must carry it up to +Z.
+    local prop=entity("prop_physics",hand.pos+Vector(1,5,0),3)
+    hand.buttons=1 settle({prop},30)
+    local rel=state.interact.right.grip.rel
+    assert((prop.bones[1].pos-hand.pos).y>3,"fixture: the prop is not beside the palm")
+    -- Turn the wrist a quarter turn about its own forward at about 6 rad/s, then hold still.
+    local axis=hand.ang:Forward()
+    settle({prop},17,moveHand(hand,Vector(),axis*(math.pi/2/(17/66))))
+    hand.angvel=Vector() settle({prop},20)
+    local goal,goalAng=G8.OneHand(rel,{pos=hand.pos,ang=hand.ang})
+    vec(prop.bones[1].pos,goal,0.05)
+    assert(degrees(prop.bones[1].ang,goalAng)<0.2,"one hand did not turn the body with the wrist")
+    assert((prop.bones[1].pos-hand.pos).z>3,"the body did not swing about the palm")
+    close(degrees(prop.bones[1].ang,Angle()),90,0.5)
+    stop()
+end
+function cases.v8_two_hand()
+    start() step()
+    local left,right=state.hands.left,state.hands.right -- (10,8,40) and (10,-8,40)
+    local plank=entity("prop_physics",Vector(10,0,40),8) plank.ext=Vector(2,10,2)
+    local p=plank.bones[1]
+    left.buttons=1 settle({plank},30)
+    assert(ctx.core.Holding(ply,"left")==plank)
+    local pos,ang=p.pos,p.ang
+    right.buttons=1 settle({plank},2)
+    assert(ctx.core.Holding(ply,"right")==plank,"the second hand could not take the held body")
+    settle({plank},30)
+    assert((p.pos-pos):Length()<0.05 and degrees(p.ang,ang)<0.2,"the second hand made the body jump")
+    -- Both hands up 10 units: the body follows.
+    settle({plank},30,function()
+        for _,h in ipairs({left,right}) do h.pos=h.pos+Vector(0,0,10/30) h.vel=Vector(0,0,10*66/30) end
+    end)
+    left.vel,right.vel=Vector(),Vector() settle({plank},20)
+    vec(p.pos,pos+Vector(0,0,10),0.05)
+    -- Both wrists roll 30 degrees about the line between them: the body rolls with them.
+    local line=(right.pos-left.pos):GetNormalized()
+    local before=p.ang
+    settle({plank},10,function()
+        for _,h in ipairs({left,right}) do h.ang=G8.Rotate(h.ang,line*math.rad(3)) h.angvel=line*math.rad(3)*66 end
+    end)
+    left.angvel,right.angvel=Vector(),Vector() settle({plank},20)
+    assert(math.abs(degrees(before,p.ang)-30)<0.3,"two hands did not roll the body")
+    -- The left hand rises 8 units: the body tilts with the line between the hands.
+    local grip=state.interact.left.grip
+    local level=p.ang
+    settle({plank},20,function() left.pos=left.pos+Vector(0,0,8/20) end)
+    settle({plank},20)
+    local slope=math.deg(math.asin((left.pos.z-right.pos.z)/(left.pos-right.pos):Length()))
+    assert(slope>20,"fixture: the hands did not tilt")
+    local goal,goalAng=G8.TwoHand(grip.two,{pos=left.pos,ang=left.ang},{pos=right.pos,ang=right.ang})
+    vec(p.pos,goal,0.05) assert(degrees(p.ang,goalAng)<0.3,"the pair did not hold the body on its line")
+    close(degrees(level,p.ang),slope,0.5)
+    -- Letting go of one hand leaves the body where it is.
+    local tilted,tiltedAng=p.pos,p.ang
+    left.buttons=0 settle({plank},1) settle({plank},20)
+    assert(ctx.core.Holding(ply,"right")==plank and not ctx.core.Holding(ply,"left"))
+    assert((p.pos-tilted):Length()<0.1 and degrees(p.ang,tiltedAng)<0.5,"letting go of one hand moved the body")
+    stop()
+end
+function cases.v8_two_hand_ragdoll()
+    start() step()
+    local left,right=state.hands.left,state.hands.right
+    local rag=entity("prop_ragdoll",Vector(10,0,40),5) rag.ext=Vector(2,10,2)
+    rag.bones={phys(left.pos+Vector(0,0,1),5),phys(right.pos+Vector(0,0,1),5)}
+    left.buttons,right.buttons=1,1 settle({rag},3)
+    local _,leftBone=ctx.core.Holding(ply,"left") local _,rightBone=ctx.core.Holding(ply,"right")
+    assert(leftBone==0 and rightBone==1,"each hand did not take its own bone")
+    local a,b=rag.bones[1].pos,rag.bones[2].pos
+    settle({rag},30,function() left.pos=left.pos+Vector(6/30,0,0) right.pos=right.pos-Vector(6/30,0,0) end)
+    settle({rag},20)
+    vec(rag.bones[1].pos,a+Vector(6,0,0),0.1) vec(rag.bones[2].pos,b-Vector(6,0,0),0.1)
+    stop()
+end
+function cases.v8_snap()
+    start() step()
+    local hand=state.hands.right
+    local prop=entity("prop_physics",hand.pos+Vector(7,0,0),2) -- its surface is 5 units from the palm
+    hand.buttons=1 settle({prop},40)
+    assert(ctx.core.Holding(ply,"right")==prop)
+    close((prop:NearestPoint(hand.pos)-hand.pos):Length(),40*G8.PALM,0.05)
+    stop()
+end
+function cases.v8_api_localang()
+    start() step()
+    local hand=state.hands.left
+    local prop=entity("prop_physics",hand.pos+Vector(1,0,0),2)
+    assert(ctx.core.Grab(ply,"left",prop,0,nil,Angle(0,90,0)))
+    hand.buttons=1 settle({prop},40) -- a hold lasts while its grip is held
+    assert(ctx.core.Holding(ply,"left")==prop)
+    local _,inBody=WorldToLocal(Vector(),hand.ang,prop.bones[1].pos,prop.bones[1].ang)
+    assert(degrees(inBody,Angle(0,90,0))<0.5,"an API grab's hand orientation was not kept")
+    stop()
+end
+function cases.v8_freeze()
+    start() step()
+    local hand=state.hands.right
+    local frozen={} ply.AddFrozenPhysicsObject=function(_,ent,body) frozen[#frozen+1]={ent,body} end
+    local prop=entity("prop_physics",hand.pos+Vector(2,0,0),5)
+    local spare=entity("prop_physics",hand.pos+Vector(0,3.5,0),5)
+    spare.bones[1]:EnableGravity(false) -- a body resting within reach; the fixture has no floor
+    hand.buttons=1 settle({prop,spare},2)
+    local held=ctx.core.Holding(ply,"right") assert(held)
+    local other=held==prop and spare or prop
+    settle({prop,spare},10)
+    local at=held.bones[1].pos
+    hand.buttons=3 settle({prop,spare},1) -- the trigger while gripping
+    assert(not ctx.core.Holding(ply,"right"),"freezing kept the body in the hand")
+    assert(held.bones[1].motion==false,"the held body was not frozen")
+    assert(#frozen==1 and frozen[1][1]==held and frozen[1][2]==held.bones[1],"not listed for the physgun's unfreeze all")
+    assert(state.interact.right.pulseKind==6,"no freeze pulse")
+    -- The grip still held takes nothing else; a fresh grip takes the other body, never the frozen one.
+    hand.buttons=1 settle({prop,spare},5)
+    assert(not ctx.core.Holding(ply,"right"),"a grip held through a freeze took another body")
+    hand.buttons=0 settle({prop,spare},1) hand.buttons=1 settle({prop,spare},2)
+    assert(ctx.core.Holding(ply,"right")==other,"a fresh grip did not take the free body")
+    vec(held.bones[1].pos,at,0.5)
+    stop()
+end
+function cases.v8_unfreeze()
+    start() step()
+    local hand=state.hands.right
+    local prop=entity("prop_physics",hand.pos+Vector(2,0,0),5) prop.bones[1].motion=false
+    hand.buttons=1 settle({prop},2)
+    assert(not ctx.core.Holding(ply,"right"),"a grip alone took a frozen body")
+    hook.Add("CanPlayerUnfreeze","peer",function() return false end)
+    hand.buttons=3 settle({prop},1)
+    assert(prop.bones[1].motion==false and not ctx.core.Holding(ply,"right"),"unfreezing ignored CanPlayerUnfreeze")
+    hook.Remove("CanPlayerUnfreeze","peer")
+    hand.buttons=1 settle({prop},1) hand.buttons=3 settle({prop},1)
+    assert(prop.bones[1].motion==true and ctx.core.Holding(ply,"right")==prop,"the trigger did not free the body into the hand")
+    assert(state.interact.right.pulseKind==7,"no unfreeze pulse")
+    -- A body that may not be frozen stays in the hand.
+    hand.buttons=1 settle({prop},1)
+    prop.GetUnFreezable=function() return true end
+    hand.buttons=3 settle({prop},1)
+    assert(prop.bones[1].motion==true and ctx.core.Holding(ply,"right")==prop,"froze an unfreezable body or dropped it")
+    stop()
+end
+function cases.v8_freeze_two_hands()
+    start() step()
+    local plank=entity("prop_physics",Vector(10,0,40),8) plank.ext=Vector(2,10,2)
+    state.hands.left.buttons,state.hands.right.buttons=1,1 settle({plank},3)
+    assert(ctx.core.Holding(ply,"left")==plank and ctx.core.Holding(ply,"right")==plank)
+    state.hands.right.buttons=3 settle({plank},1)
+    assert(plank.bones[1].motion==false,"two-hand freeze did not freeze")
+    assert(not ctx.core.Holding(ply,"left") and not ctx.core.Holding(ply,"right"),"a hand kept a frozen body")
+    stop()
+end
+function cases.v8_freeze_ragdoll_bone()
+    start() step()
+    local hand=state.hands.right
+    local rag=entity("prop_ragdoll",hand.pos,5) rag.ext=Vector(40,2,2)
+    rag.bones={phys(hand.pos+Vector(1,0,0),5),phys(hand.pos+Vector(30,0,0),5)}
+    hand.buttons=1 settle({rag},2) assert(ctx.core.Holding(ply,"right")==rag)
+    hand.buttons=3 settle({rag},1)
+    assert(rag.bones[1].motion==false and rag.bones[2].motion==true,"freezing a held bone stopped the whole ragdoll")
+    stop()
+end
+function cases.v8_message()
+    start() step()
+    local plank=entity("prop_physics",Vector(10,0,40),8) plank.ext=Vector(2,10,2)
+    state.hands.left.buttons,state.hands.right.buttons=1,1 settle({plank},3)
+    local grip=state.interact.left.grip
+    assert(grip.two,"no pair frame on the driving grip")
+    local w=S.Wire() local byIndex={}
+    function w.WriteEntity(e) local i=IsValid(e) and e:EntIndex() or 0 byIndex[i]=e w.WriteUInt(i,16) end
+    function w.ReadEntity() return byIndex[w.ReadUInt(16)] or {valid=false} end
+    sent[41].Write(w) w.Rewind()
+    local client=include("nlvr/modules/cl_interact.lua")
+    local receiver
+    local c={Debug={},Hand={left={},right={}},Settings={gloves=1,climb=1,melee=1},Input={Owner=function() return nil end},
+        Native={Haptic=function() return true end},Overlay={Sizes={},Objects={}},
+        Net={On=function(_,fn) receiver=fn end,Send=function() end},resolver=function() end,mover=function() end,On=function() end,Emit=function() end}
+    client.Start(c)
+    local originalNet=net net=w receiver() net=originalNet
+    local d=c.Debug.interact
+    assert(d.left.holding and d.right.holding,"holds not received")
+    vec(d.left.rel.pos,grip.rel.pos,1e-4) close(degrees(d.left.rel.ang,grip.rel.ang),0,1e-3)
+    assert(d.pair,"pair not received") vec(d.pair.pos,grip.two.pos,1e-4)
+    assert(type(d.left.tracking)=="boolean")
+    client.Stop() stop()
+end
+function cases.v8_predict()
+    local Predict=include("nlvr/modules/cl_interact_predict.lua")
+    local c={Hand={left={shown={valid=true,pos=Vector(10,8,40),ang=Angle()}},right={shown={valid=true,pos=Vector(10,-8,40),ang=Angle()}}}}
+    local function drawable(pos,class)
+        local e=entity(class or "prop_physics",pos,2)
+        e.GetTable=function(self) return self end
+        function e:SetRenderOrigin(p) self.renderOrigin=p end function e:SetRenderAngles(a) self.renderAngles=a end
+        function e:SetupBones() end
+        function e:DrawModel() self.drawn={pos=self.renderOrigin,ang=self.renderAngles} end
+        return e
+    end
+    local prop=drawable(Vector(12,-8,40))
+    local P=Predict.New(c)
+    local rel=G8.Relation(Vector(12,-8,40),Angle(),Vector(10,-8,40),Angle())
+    local hold={ent=prop,holding=true,single=true,tracking=true,rel=rel}
+    P.Update({right=hold},nil,clock)
+    assert(prop.RenderOverride,"no draw override for a followed hold")
+    c.Hand.right.shown.pos=Vector(20,-8,40) -- the hand moved 10 units this frame; the physics has not
+    prop:RenderOverride()
+    vec(prop.drawn.pos,Vector(22,-8,40)) assert(prop.renderOrigin==nil,"render origin left set after the draw")
+    -- Held back (not following): blend from the held pose to the physics pose over BLEND seconds.
+    hold.tracking=false P.Update({right=hold},nil,clock)
+    prop:RenderOverride() vec(prop.drawn.pos,Vector(22,-8,40),1e-6)
+    clock=clock+Predict.BLEND/2 prop:RenderOverride() vec(prop.drawn.pos,Vector(17,-8,40),1e-4)
+    clock=clock+Predict.BLEND prop:RenderOverride() vec(prop.drawn.pos,prop.pos,1e-6)
+    -- Released after the blend: the engine draws it again.
+    P.Update({},nil,clock) prop:RenderOverride()
+    assert(prop.RenderOverride==nil,"draw override left after a release")
+    -- Another add-on's override is called and given back.
+    local theirs=function(self) self.theirs=(self.theirs or 0)+1 self:DrawModel() end
+    prop.RenderOverride=theirs
+    P.Update({right={ent=prop,holding=true,single=true,tracking=true,rel=rel}},nil,clock)
+    prop:RenderOverride() assert(prop.theirs==1,"the add-on's own override was skipped")
+    P.Stop() assert(prop.RenderOverride==theirs,"the add-on's override was not given back")
+    -- Two hands: the pair's frame places the body.
+    local plank=drawable(Vector(10,0,40))
+    local P2=Predict.New(c)
+    c.Hand.right.shown.pos=Vector(10,-8,40)
+    local mid,frame=G8.PairFrame({pos=c.Hand.left.shown.pos,ang=Angle()},{pos=c.Hand.right.shown.pos,ang=Angle()})
+    local pair=G8.Relation(Vector(10,0,40),Angle(),mid,frame)
+    P2.Update({left={ent=plank,holding=true,single=true,tracking=true,rel=rel},right={ent=plank,holding=true,single=true,tracking=true,rel=rel}},pair,clock)
+    c.Hand.left.shown.pos=Vector(10,8,50) c.Hand.right.shown.pos=Vector(10,-8,50)
+    plank:RenderOverride() vec(plank.drawn.pos,Vector(10,0,50),1e-6)
+    P2.Stop()
+    -- Ragdolls are drawn by their physics.
+    local rag=drawable(Vector(10,0,40),"prop_ragdoll")
+    local P3=Predict.New(c)
+    P3.Update({right={ent=rag,holding=true,single=true,tracking=true,rel=rel}},nil,clock)
+    assert(rag.RenderOverride==nil,"a ragdoll was drawn by prediction") P3.Stop()
 end
 assert(cases[case],case)()
 print("PASS "..case)

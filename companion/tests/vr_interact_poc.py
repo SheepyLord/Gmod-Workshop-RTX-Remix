@@ -10,14 +10,17 @@ import vr_session as driver
 import poc_session as poc
 
 
+LAST_PHASE = 17  # V8 adds 14 (wrist turn), 15 (two-hand plank), 16 (freeze and free), 17 (a ragdoll bone frozen)
+
+
 def timeline(seconds, phases=None):
     steps = []
 
-    def step(time, x=.3, z=1.2, grip=False, left=False, lx=.3, yaw=0, lz=1.2, span=.3):
+    def step(time, x=.3, z=1.2, grip=False, left=False, lx=.3, yaw=0, lz=1.2, span=.3, trigger=False, pitch=0, lpitch=0):
         steps.append({"time": time, "hmd": {"pos": [0, 0, 1.6], "ang": [0, 0, 0]},
-                      "left": {"pos": [lx, span, lz], "ang": [0, 0, 0]},
-                      "right": {"pos": [x, -span, z], "ang": [0, yaw, 0]},
-                      "actions": {"right_grip": grip, "left_grip": left}})
+                      "left": {"pos": [lx, span, lz], "ang": [lpitch, 0, 0]},
+                      "right": {"pos": [x, -span, z], "ang": [pitch, yaw, 0]},
+                      "actions": {"right_grip": grip, "left_grip": left, "right_trigger": trigger}})
 
     phases = list(range(14)) if phases is None else phases
     for slot, phase in enumerate(phases):
@@ -85,6 +88,49 @@ def timeline(seconds, phases=None):
             step(t+4.15, x=.9, grip=True)
             step(t+6, x=.9, grip=True)
             step(t+6.2, x=.9)
+        elif phase == 14:
+            # V8: hold a light cube, turn the wrist a quarter turn in half a second, then move it while held.
+            step(t+2.1, grip=True)
+            step(t+3, grip=True)
+            step(t+3.5, grip=True, yaw=90)
+            step(t+4.5, grip=True, yaw=90)
+            step(t+5.5, x=.6, z=1.35, grip=True, yaw=90)
+            step(t+6.5, x=.6, z=1.35, grip=True, yaw=90)
+            step(t+6.7, x=.6, z=1.35, yaw=90)
+        elif phase == 15:
+            # V8: both hands take one plank, raise it, tilt it (the right hand rises) and turn both wrists 25
+            # degrees about the line between the hands (a pitch of each controller: the hands are side by side), which
+            # rolls the plank about its length. A roll about each controller's own forward crosses that line: no roll.
+            step(t+2.1, grip=True, left=True)
+            step(t+3, grip=True, left=True)
+            step(t+4, z=1.4, lz=1.4, grip=True, left=True)
+            step(t+4.6, z=1.55, lz=1.4, grip=True, left=True)
+            # Held level until 5.2 s, the analysis's level reference (poses interpolate between steps), then the turn.
+            step(t+5.2, z=1.55, lz=1.4, grip=True, left=True)
+            step(t+5.8, z=1.55, lz=1.4, grip=True, left=True, pitch=25, lpitch=25)
+            step(t+6.4, z=1.55, lz=1.4, grip=True, left=True, pitch=25, lpitch=25)
+            step(t+6.6, z=1.55, lz=1.4, pitch=25, lpitch=25)
+        elif phase == 16:
+            # V8: hold, freeze with the trigger, let go, grip again and free it with the trigger, then carry it.
+            step(t+2.1, grip=True)
+            step(t+3, grip=True)
+            step(t+3.05, grip=True, trigger=True)
+            step(t+3.3, grip=True)
+            step(t+3.5)
+            step(t+4.5, grip=True)
+            step(t+5, grip=True)
+            step(t+5.05, grip=True, trigger=True)
+            step(t+5.3, grip=True)
+            step(t+6.2, x=.55, grip=True)
+            step(t+6.6, x=.55, grip=True)
+            step(t+6.8, x=.55)
+        elif phase == 17:
+            # V8: hold one ragdoll bone and freeze it: only that bone stops.
+            step(t+2.1, grip=True)
+            step(t+3, grip=True)
+            step(t+3.05, grip=True, trigger=True)
+            step(t+3.3, grip=True)
+            step(t+3.5)
         step(t+7.5)
     step(max(len(phases)*8+2, seconds + 5))
     return {"version": 1, "steps": steps}
@@ -103,12 +149,19 @@ def main():
     if "--interact-phases" in sys.argv:
         slot = sys.argv.index("--interact-phases")
         phases = [int(n) for n in sys.argv[slot+1].split(",")]
-        if not phases or any(n < 0 or n > 13 for n in phases):
-            raise ValueError("interaction phases must be 0..13")
+        if not phases or any(n < 0 or n > LAST_PHASE for n in phases):
+            raise ValueError("interaction phases must be 0..%d" % LAST_PHASE)
         del sys.argv[slot:slot+2]
+
+    fg_check = "--fg-check" in sys.argv
+    if fg_check:
+        sys.argv.remove("--fg-check")
 
     def script(path, settings):
         settings["interact_phases"] = phases
+        # V8: Frame generation off for 4 s after the phases, then the saved value again (the client part restores it).
+        settings["fg_check"] = fg_check
+        settings["fg_check_at"] = len(phases if phases is not None else range(14)) * 8 + 2
         original_script(path, settings)
         with path.open("a", encoding="utf-8") as stream:
             stream.write("\n" + Path(__file__).with_name("vr_interact_poc_client.lua").read_text(encoding="utf-8"))

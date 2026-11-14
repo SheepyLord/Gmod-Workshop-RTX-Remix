@@ -1,5 +1,12 @@
 local module={name="interact",order=50}
-local context,states,markers,lastConfig,released,bodyTrace
+local Predict=include("nlvr/modules/cl_interact_predict.lua")
+local context,states,markers,lastConfig,released,bodyTrace,predict
+local function readFloats(angle)
+    local a,b,c=net.ReadFloat(),net.ReadFloat(),net.ReadFloat()
+    return angle and Angle(a,b,c) or Vector(a,b,c)
+end
+-- Haptic seconds per pulse kind: 5 hit, 6 freeze, 7 unfreeze (V8); the rest are short taps.
+local pulseSeconds={[5]=0.035,[6]=0.05,[7]=0.05}
 local names={"left","right"}
 local function heldEvent(hand,previous,current)
     local old=previous and previous.ent
@@ -22,6 +29,7 @@ end
 function module.Start(ctx)
     context,states,markers,lastConfig=ctx,{},{},nil
     released=setmetatable({},{__mode="k"})
+    predict=Predict.New(ctx)
     local core=ctx.core or ctx
     bodyTrace=function(ply,ent)
         if ent==ply then return false end
@@ -43,19 +51,32 @@ function module.Start(ctx)
             s.target,s.targetPos=net.ReadEntity(),net.ReadVector()
             s.pulling,s.throwVelocity,s.spin=net.ReadBool(),net.ReadVector(),net.ReadVector()
             s.pulse,s.strength,s.kind=net.ReadUInt(16),net.ReadFloat(),net.ReadUInt(3)
+            s.holding=net.ReadBool()
+            if s.holding then
+                s.rel={pos=readFloats(false),ang=readFloats(true)}
+                s.tracking,s.single=net.ReadBool(),net.ReadBool()
+            end
             s.received=RealTime()
             local previous=states[hand]
             s.hapticOk,s.hapticError=previous and previous.hapticOk,previous and previous.hapticError
             states[hand]=s heldEvent(hand,previous,s)
             core.HandRevision=(core.HandRevision or 0)+1
             if s.pulse~=(previous and previous.pulse or 0) and ctx.Native.Haptic then
-                s.hapticOk,s.hapticError=ctx.Native.Haptic(hand,s.kind==5 and 0.035 or 0.018,100+s.strength*100,s.strength)
+                s.hapticOk,s.hapticError=ctx.Native.Haptic(hand,pulseSeconds[s.kind] or 0.018,100+s.strength*100,s.strength)
             end
             local debug=ctx.Debug.interact[hand]
             debug.proxy_pos,debug.blocked,debug.held,debug.bone=s.pos,s.blocked,IsValid(s.ent) and s.ent:EntIndex() or 0,s.bone
             debug.throw_velocity,debug.throw_spin,debug.climbing,debug.anchor=s.throwVelocity,s.spin,s.climbing,s.anchor
             debug.gloves_target,debug.pulling=IsValid(s.target) and s.target:EntIndex() or 0,s.pulling
             debug.pulse,debug.pulse_kind,debug.haptic_ok,debug.haptic_error=s.pulse,s.kind,s.hapticOk,s.hapticError
+            debug.holding,debug.tracking,debug.rel=s.holding,s.tracking==true,s.rel
+        end
+        local pair=net.ReadBool() and {pos=readFloats(false),ang=readFloats(true)} or nil
+        ctx.Debug.interact.pair=pair
+        predict.Update(states,pair,RealTime())
+        for _,hand in ipairs(names) do
+            local s=states[hand]
+            ctx.Debug.interact[hand].predicted=s and IsValid(s.ent) and predict.Debug(s.ent) or nil
         end
     end)
     ctx.resolver(200,function(hand,state)
@@ -114,6 +135,7 @@ function module.Start(ctx)
     end)
 end
 function module.Stop()
+    if predict then predict.Stop() predict=nil end
     if context then
         local core=context.core or context
         if core.BodyTrace==bodyTrace then core.BodyTrace=nil end

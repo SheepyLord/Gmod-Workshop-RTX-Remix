@@ -4,6 +4,11 @@ import argparse
 import json
 import math
 
+# A hold pushes the gun's next shot R.HOLD_SECONDS (3600 s) past the moment it was applied, not past the phase:
+# an unloaded RPG from the sandbox loadout is held from the session's start, so in a seven-gun session its phase
+# finds ~3477 s left (V8 run 1). Sessions run under ten minutes, so a hold is anything above 3000 s.
+HOLD_FLOOR = 3000
+
 
 def counter_metrics(records, require_motion=False):
     rows = [r for r in records if r["kind"] == "counter"]
@@ -49,16 +54,32 @@ def button_delivery(records, cls, deploy=False):
     release=max(releases) if releases else 3.15
     one=len({r["tick"] for r in commands})==1
     delivered=commands[0]["time"] if one else None
+    # The server's records count SysTime from the phase's start and the client's the fixture's own clock; the two part
+    # by tens of milliseconds within a phase (V8 run 1: the server 0.063-0.075 s behind in the first phase, so the
+    # server took B "before" the client released it). Both realms count the same ticks in single-player, so the
+    # delivery tick is placed on the client's clock where the client recorded that tick, and the server's other times
+    # move by the same offset. Without a client record of that tick the server's own time stands.
+    offset=0
+    if one:
+        ticked=sorted((r for r in records if r["kind"]=="button-command" and r.get("class")==cls
+                       and isinstance(r.get("tick"),(int,float)) and 0<=r["time"]-base<=18.5),key=lambda r:r["time"])
+        at=next((r for r in ticked if r["tick"]>=commands[0]["tick"]),None)
+        if at is not None:
+            offset=at["time"]-base-delivered
+            delivered=at["time"]-base
     deadlines=[];observed=False
-    first_bits=[r["time"]-base for r in records if r["kind"]=="button-command" and r.get("class")==cls and r.get("reload") and 0<=r["time"]-base<=18.5]
-    cutoff=min([delivered]+first_bits) if delivered is not None else None
+    # Readiness is what the game showed before B reached it: the records printed before the class's first reload bit or
+    # the server's delivery, whichever came first. The console keeps both realms in order, while one frame runs several
+    # commands at one clock reading and those after B already carry the reload's own lock (the 357's 3.66 s in V8 run 1).
+    marks=[i for i,r in enumerate(records) if r.get("class")==cls and (r["kind"]=="reload-button" and 0<=r["time"]<=18.5
+           or r["kind"]=="button-command" and r.get("reload") and 0<=r["time"]-base<=18.5)]
     if delivered is not None:
-        for r in records:
+        for r in records[:marks[0]]:
             if r.get("class")!=cls:continue
-            if r["kind"]=="sample" and 0<=r["time"]<=cutoff and isinstance(r.get("player_next_attack"),(int,float)):
+            if r["kind"]=="sample" and r["time"]>=0 and isinstance(r.get("player_next_attack"),(int,float)):
                 observed=True
-                if r["player_next_attack"]>0:deadlines.append(r["time"]+r["player_next_attack"])
-            if r["kind"]=="button-command" and 0<=r["time"]-base<=cutoff and all(isinstance(r.get(k),(int,float)) for k in ("next_attack","client_game_time")):
+                if r["player_next_attack"]>0:deadlines.append(r["time"]+offset+r["player_next_attack"])
+            if r["kind"]=="button-command" and r["time"]-base>=0 and all(isinstance(r.get(k),(int,float)) for k in ("next_attack","client_game_time")):
                 observed=True
                 remaining=r["next_attack"]-r["client_game_time"]
                 if remaining>0:deadlines.append(r["time"]-base+remaining)
@@ -69,7 +90,8 @@ def button_delivery(records, cls, deploy=False):
     native_ok=one and all(r.get("player_next_attack",999)<=.015 for r in commands)
     on_time=one and observed and lock_ok and native_ok and latency is not None and -.02<=latency<=.300001
     return {"one_tick":one,"native_lock_observed":lock_ok,"native_ready":native_ok,
-            "on_time":on_time,"release":release,"ready":ready,"delivered":delivered,"latency":latency,"bound":.3}
+            "on_time":on_time,"release":release,"ready":ready,"delivered":delivered,"latency":latency,"bound":.3,
+            "server_clock_offset":offset}
 
 
 def analyse(folder, button=False, empty=False):
@@ -91,7 +113,7 @@ def analyse(folder, button=False, empty=False):
             hold = [r for r in samples if 2.5 <= r["time"] <= 7.5]
             checks[cls] = {"empty_reserve": bool(hold) and all(r["reserve"] == 0 for r in hold),
                            "no_pickup": bool(samples) and all(r.get("reload", {}).get("held", 0) == 0 for r in samples),
-                           "held": bool(hold) and all(r.get("reload", {}).get("command_primary", 0) > 3500 and r["active"] == cls for r in hold)}
+                           "held": bool(hold) and all(r.get("reload", {}).get("command_primary", 0) > HOLD_FLOOR and r["active"] == cls for r in hold)}
             measurements[cls] = {"samples": len(samples), "hold": hold[-1] if hold else None}
             continue
         if button:
@@ -124,8 +146,8 @@ def analyse(folder, button=False, empty=False):
         held_seconds = hold[-1].get("hold_wall_seconds", 0) if hold else 0
         check = {"initial_fire": fired_initially, "five_seconds": held_seconds >= 5,
                  "empty_fire_attempt": any(r["kind"] == "attack-button" and r.get("class") == cls and 3 <= r["time"] <= 7 for r in records),
-                 "native_attempt_deadline": any(r["primary"] > 3500 for r in hold if 3.4 <= r["time"] <= 3.55 or 6.2 <= r["time"] <= 6.35),
-                 "empty_held": bool(hold) and all(logical(r) == 0 and r.get("reload", {}).get("command_primary", 0) > 3500 for r in hold),
+                 "native_attempt_deadline": any(r["primary"] > HOLD_FLOOR for r in hold if 3.4 <= r["time"] <= 3.55 or 6.2 <= r["time"] <= 6.35),
+                 "empty_held": bool(hold) and all(logical(r) == 0 and r.get("reload", {}).get("command_primary", 0) > HOLD_FLOOR for r in hold),
                  "no_engine_reload": bool(hold) and all(not r["native"].get("in_reload") and not r["native"].get("must_reload") for r in hold),
                  "same_weapon": bool(hold) and all(r["active"] == cls for r in samples if 0.5 <= r["time"] <= 18.5),
                  "reserve_constant": bool(hold) and len({r["reserve"] for r in hold}) == 1,

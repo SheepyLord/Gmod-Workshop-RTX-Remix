@@ -26,3 +26,20 @@ Heavy lag is still measured and must be positive and finite. The former lower bo
 The original heavy-crate lag >3-unit criterion is restored. Any positive lag is no longer sufficient.
 
 Heavy acceptance now requires both finite peak >3 units and >=1.0 continuous actual game second above3 while held, after nominal time3. It uses elapsed_seconds in compressed fixtures, time in standalone runs; a gap >.30 seconds breaks continuity. This rejects spikes, missing coverage and disjoint bursts. Duration is an acceptance check for selected phase4.
+
+V8: `v8_checks` (selected with phases 14 to 17): the cube held through the turn and carry, its worst error (under 1.5
+units) and angle (under 6 degrees), its turn (90 degrees within 8); the pair: both hands on one body, a pair frame, under
+2 units of jump when both close, an 8-unit rise (within 2.5), a 25-degree roll (within 6), worst error under 2.5 units;
+freezing: frozen and let go while the hand stays, under 0.5 units of drift, freed into the hand and carried over 6 units;
+one bone frozen of a ragdoll; held props drawn at the hand in at least four client samples, within 2.5 units of the
+physics while followed. Phase 16 needs haptic kinds 6 and 7, phase 17 kind 6. Phase 4's heavy-crate check is restated
+for V8's hold ([ADR 0203](../../docs/decisions/0203-precise-vr-holds-follow-the-hand.md)): over 1 unit of lag for at
+least 0.1 s (seven ticks), from the probe's per-tick `heavy` record when there is one, else from the samples (V3's
+spring held it over 3 units for a second).
+
+V8, when `v8-frame-generation` records exist (`fg_checks`): Auto's target doubles with Frame generation off
+(`v8_fg_target_switch`), the setting and target come back (`v8_fg_restored`), and the page's status has a Frame
+generation line (`v8_fg_page_line`).
+
+V8: `v8_pair_roll_degrees` compares the plank at 4.75-5.15 s (held level) with 6.0-6.45 s (turned). The first windows
+(4.9-5.25 s) sat inside the wrists' turn and read 3.9 of the plank's 24.9 degrees in the PoC's second run.

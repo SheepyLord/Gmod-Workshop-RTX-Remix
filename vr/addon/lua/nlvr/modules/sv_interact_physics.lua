@@ -1,4 +1,5 @@
 local Math = include("nlvr/modules/sv_interact_math.lua")
+local Grab = include("nlvr/modules/sh_grab_math.lua")
 local Physics = {}
 function Physics.New(SV, ctx)
     local P = {proxies = {}, held = {}, pulling = {}, released = {}}
@@ -27,11 +28,12 @@ function Physics.New(SV, ctx)
         if ent.CPPICanPickup and ent:CPPICanPickup(ply) == false then return false end
         return hook.Run("AllowPlayerPickup", ply, ent) ~= false
     end
-    function P.Closest(ent, point, onlyBone)
+    -- frozen: true searches only bones whose motion is off (to free them), otherwise only moving ones.
+    function P.Closest(ent, point, onlyBone, frozen)
         local best, result
         for bone = onlyBone or 0, onlyBone or math.min(ent:GetPhysicsObjectCount()-1, 127) do
             local phys = ent:GetPhysicsObjectNum(bone)
-            if IsValid(phys) and phys:IsMotionEnabled() then
+            if IsValid(phys) and phys:IsMotionEnabled() ~= (frozen == true) then
                 local localPoint = WorldToLocal(point, Angle(), phys:GetPos(), phys:GetAngles())
                 local data = meshes[phys]
                 if not data then data = phys:GetMeshConvexes() or {} meshes[phys] = data end
@@ -80,12 +82,12 @@ function Physics.New(SV, ctx)
         end
         return result
     end
-    function P.Nearest(ply, position, reach)
+    function P.Nearest(ply, position, reach, frozen)
         local box = Vector(reach,reach,reach)
         local best
         for _, ent in ipairs(ents.FindInBox(position-box, position+box)) do
             if P.Allowed(ply, ent) then
-                local candidate = P.Closest(ent, position)
+                local candidate = P.Closest(ent, position, nil, frozen)
                 if candidate and candidate.distance <= reach and (not best or candidate.distance < best.distance) and
                     P.Visible(ply, position, candidate.point, ent) then best = candidate end
             end
@@ -217,29 +219,86 @@ function Physics.New(SV, ctx)
             if not IsValid(ent) or CurTime()>=record.untilTime then P.released[ent]=nil rules(record.ply) rules(ent) end
         end
     end
-    function P.Drive(grip, other, h, otherHand, pose, scale, dt,otherPose)
-        local phys = grip.phys
-        local touch=LocalToWorld(grip.handOffset or Vector(),Angle(),h.phys:GetPos(),pose.ang)
-        local pos, ang = Math.HeldTransform(grip.localPos, grip.localAng, touch, pose.ang)
-        if other and other.phys == phys then
-            local otherTouch=LocalToWorld(other.handOffset or Vector(),Angle(),otherHand.phys:GetPos(),otherPose and otherPose.ang or pose.ang)
-            local p, a = Math.TwoHand(grip.localPos, other.localPos, touch, otherTouch, pose.ang:Up())
-            if p then pos, ang = p, a end
+    -- What a hold follows (V8, ADR 0203): the tracked palm, stopped at world brushes where the proxy stops,
+    -- never the proxy's lagging physics position and never the eye that WorldTarget falls back to in a wall.
+    function P.Anchor(h, pose, scale)
+        local stop = h and h.followTarget
+        local anchor = {pos = pose.pos, ang = pose.ang, vel = pose.wvel or pose.vel or Vector(), spin = pose.angvel or Vector()}
+        if stop and stop:DistToSqr(pose.pos) > (scale * 0.001) ^ 2 then
+            if stop:DistToSqr(pose.pos) <= (scale * 0.5) ^ 2 then anchor.pos, anchor.vel = stop, Vector()
+            elseif h.anchorPos then anchor.pos, anchor.vel = h.anchorPos, Vector() end
         end
-        local mass, gravity = phys:GetMass(), physenv.GetGravity()
-        local support = phys:IsGravityEnabled() and -gravity*mass or Vector()
-        -- Backward-Euler PD: mass-normalised, critically damped, stable even for light bones.
-        -- Heavy objects keep a slower transient response without a mass-dependent instability.
-        local omega=math.Clamp(24/(math.max(mass,1)/10)^0.75,2.5,40)
-        local acceleration=((pos-phys:GetPos())*(omega*omega)+((pose.wvel or pose.vel)-phys:GetVelocity())*(2*omega+omega*omega*dt))/
-            (1+2*omega*dt+omega*omega*dt*dt)
-        local force=acceleration*mass+support
-        phys:ApplyForceCenter(Math.Limit(force, 300000)*dt) -- this API takes an impulse, not force
-        local _, error = WorldToLocal(Vector(), ang, Vector(), phys:GetAngles())
-        local function wrap(n) return (n+180)%360-180 end
-        local angular = Vector(wrap(error.r), wrap(error.p), wrap(error.y))
-        phys:AddAngleVelocity(Math.Limit(angular*(45/math.sqrt(math.max(mass,1)))*dt-phys:GetAngleVelocity()*math.min(1,dt*8), 720*dt))
-        phys:Wake() grip.goal, grip.goalAng = pos, ang
+        if h then h.anchorPos = anchor.pos end
+        return anchor
+    end
+    -- Velocity control of the held body toward the hand's hold, with the hand's own velocity and spin fed
+    -- forward: light bodies follow within two ticks, heavy ones at the hand's strength (Grab.Limits).
+    function P.Drive(grip, other, h, otherHand, pose, scale, dt, otherPose)
+        local phys = grip.phys
+        local anchor = P.Anchor(h, pose, scale)
+        local goalPos, goalAng, goalVel, goalSpin, origin
+        if other and other.phys == phys and otherPose then
+            local second = P.Anchor(otherHand, otherPose, scale)
+            if not grip.two or grip.twoWith ~= other then
+                -- Capture the pair where the body is now, so a second hand never makes it jump or roll.
+                local mid, frame = Grab.PairFrame(anchor, second)
+                grip.two, grip.twoWith = mid and Grab.Relation(phys:GetPos(), phys:GetAngles(), mid, frame) or nil, other
+            end
+            if grip.two then
+                goalPos, goalAng = Grab.TwoHand(grip.two, anchor, second)
+                goalVel, goalSpin = Grab.PairMotion(anchor, second)
+                origin = (anchor.pos + second.pos) * 0.5
+            end
+        end
+        if not goalPos then
+            -- Callers from before V8 give the hand's pose in the body's frame (localPos, localAng) instead.
+            local rel = grip.rel or Grab.Relation(Vector(), Angle(), grip.localPos or Vector(), grip.localAng or Angle())
+            goalPos, goalAng = Grab.OneHand(rel, anchor)
+            goalVel, goalSpin, origin = anchor.vel, anchor.spin, anchor.pos
+        end
+        local center, bodyAng = phys:GetMassCenter(), phys:GetAngles()
+        local goalCenter = LocalToWorld(center, Angle(), goalPos, goalAng)
+        local body = {pos = LocalToWorld(center, Angle(), phys:GetPos(), bodyAng), ang = bodyAng, vel = phys:GetVelocity(),
+            spin = Grab.WorldSpin(phys:GetAngleVelocity(), bodyAng)}
+        local goal = {pos = goalCenter, ang = goalAng, vel = goalVel + Grab.Cross(goalSpin, goalCenter - origin), spin = goalSpin}
+        local inertia = phys.GetInertia and phys:GetInertia()
+        local ent = grip.ent
+        local linked = IsValid(ent) and ent:GetPhysicsObjectCount() > 1
+        local limits = Grab.Limits(phys:GetMass(), inertia and math.max(inertia.x, inertia.y, inertia.z), scale, linked)
+        local dv, dw, distance, angle = Grab.Step(body, goal, limits, dt)
+        -- The step's gravity is paid in advance, so a hold never sags whatever the body weighs.
+        if phys:IsGravityEnabled() then dv = dv - physenv.GetGravity() * dt end
+        phys:SetVelocity(body.vel + dv)
+        phys:AddAngleVelocity(Grab.LocalSpin(dw, bodyAng))
+        phys:Wake()
+        -- The client draws a body that follows its hold at the hand's current pose (hysteresis: 1x in, 2x out).
+        local within = distance <= scale * Grab.TRACK_METRES and angle <= math.rad(Grab.TRACK_DEGREES)
+        local beyond = distance > 2 * scale * Grab.TRACK_METRES or angle > 2 * math.rad(Grab.TRACK_DEGREES)
+        grip.tracking = within or (grip.tracking == true and not beyond)
+        grip.goal, grip.goalAng, grip.error, grip.angleError = goalPos, goalAng, distance, angle
+        if other and other.phys == phys then
+            other.tracking, other.goal, other.goalAng, other.error, other.angleError = grip.tracking, goalPos, goalAng, distance, angle
+        end
+    end
+    -- The physgun's convention: freezing a held ragdoll stops only that bone; a prop stops whole.
+    function P.CanFreeze(ply, ent, phys)
+        if not IsValid(ent) or not IsValid(phys) or not phys:IsMotionEnabled() then return false end
+        if ent.GetUnFreezable and ent:GetUnFreezable() then return false end
+        return not (ent.CPPICanPhysgun and ent:CPPICanPhysgun(ply) == false)
+    end
+    function P.Freeze(ply, ent, phys)
+        if not P.CanFreeze(ply, ent, phys) then return false end
+        phys:EnableMotion(false)
+        -- The physgun's "unfreeze all" (its reload) then frees hand-frozen bodies too.
+        if ply.AddFrozenPhysicsObject then ply:AddFrozenPhysicsObject(ent, phys) end
+        return true
+    end
+    function P.Unfreeze(ply, ent, phys)
+        if not IsValid(ent) or not IsValid(phys) or phys:IsMotionEnabled() or not P.Allowed(ply, ent) then return false end
+        if ent.CPPICanPhysgun and ent:CPPICanPhysgun(ply) == false then return false end
+        if hook.Run("CanPlayerUnfreeze", ply, ent, phys) == false then return false end
+        phys:EnableMotion(true) phys:Wake()
+        return true
     end
     function P.Transport(ply,state,delta)
         local dropped={}

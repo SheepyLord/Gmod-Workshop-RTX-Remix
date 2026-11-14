@@ -183,12 +183,36 @@ function Actions.New(ctx, pulse, grab, release)
             phys:SetVelocity(Math.Limit(Math.Arc(phys:GetPos(),pose.pos,remaining,gravity),state.scale*16))
         end
     end
+    -- V8 (ADR 0204): the holding hand's trigger freezes what it holds where it is; both hands let go of it.
+    function A.Freeze(ply,state,h)
+        local grip=h.grip
+        if not grip or not A.physics.CanFreeze(ply,grip.ent,grip.phys) then return false end
+        local otherName=h.name=="left" and "right" or "left"
+        local other=state.interact[otherName]
+        if other and other.grip and other.grip.phys==grip.phys then release(ply,otherName,false) end
+        release(ply,h.name,false)
+        if not A.physics.Freeze(ply,grip.ent,grip.phys) then return false end
+        pulse(h,0.45,6)
+        ctx.Emit("freeze",ply,h.name,grip.ent,grip.bone)
+        return true
+    end
+    -- Grip near a frozen body and pull the trigger: it is freed into the hand.
+    function A.Unfreeze(ply,state,h,touch)
+        local frozen=A.physics.Nearest(ply,touch.pos,state.scale*0.16,true)
+        if not frozen or not A.physics.Unfreeze(ply,frozen.ent,frozen.phys) then return false end
+        if grab(ply,h.name,frozen.ent,frozen.bone) then pulse(h,0.45,7) end
+        ctx.Emit("unfreeze",ply,h.name,frozen.ent,frozen.bone)
+        return true
+    end
     function A.Step(ply,state,h,pose,dt)
         local options,control=state.interact.options,state.interact.controls[h.name] or {}
         local owned=state.interact.owners and state.interact.owners[h.name]
         local gripping=not owned and control.grip~=false and bit.band(pose.buttons,1)~=0
         local trigger=not owned and control.trigger~=false and bit.band(pose.buttons,2)~=0
         local pressed,triggered=gripping and not h.wasGrip,trigger and not h.wasTrigger
+        -- After a freeze or an unfreeze the same grip takes nothing else until it is let go.
+        if not gripping then h.freezeLatch=nil end
+        if triggered and gripping and h.grip and A.Freeze(ply,state,h) then h.freezeLatch=true end
         if h.grip and not gripping then release(ply,h.name,control.grip~=false) end
         if h.climb and (not gripping or not options.climb) then
             h.climb=nil
@@ -199,7 +223,11 @@ function Actions.New(ctx, pulse, grab, release)
         local touch={pos=h.phys:GetPos(),ang=pose.ang,vel=pose.vel}
         local canUse=not owned and control.grip~=false and control.trigger~=false and not h.grip and not h.climb
         local used=A.Use(ply,h,touch,state.scale,pressed,triggered,gripping,canUse)
-        if gripping and not h.grip and not h.climb and not h.pull and not used then
+        if triggered and gripping and not used and not h.grip and not h.climb and not h.pull and not h.freezeLatch and
+            A.Unfreeze(ply,state,h,touch) then
+            h.freezeLatch=true
+        end
+        if gripping and not h.grip and not h.climb and not h.pull and not used and not h.freezeLatch then
             local near=A.physics.Nearest(ply,touch.pos,state.scale*0.16)
             if near then grab(ply,h.name,near.ent,near.bone)
             elseif pressed and options.climb then

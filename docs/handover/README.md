@@ -1,5 +1,9 @@
 # Handovers
 
+VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing, a freeze key,
+frame generation in the headset, the desktop's resolution) was approved by the user on 2026-11-13 and merged to
+`main`; Claude coded it on the branch `vr8` and ran it in the PoC and on the Index: [report](VR-V8-report.md).
+
 VR V6 (performance) and V7 (true stereo) were approved by the user on 2026-11-13 and merged to `main`; Claude coded
 both on the branch `vr6`, and V5 was skipped: [report](VR-V6-V7-report.md), [plan](VR-V6-V7-plan.md).
 VR V2-V4 were approved by the user on 2026-11-12 as a deliverable at this stage and merged to `main`; Claude finished

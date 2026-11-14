@@ -465,6 +465,25 @@ function cases.metrics()
     end
     info.presents = 0 poll() assert(VR.StatusText():find("Reprojected: ?%", 1, true)) VR.Stop() clean()
 end
+function cases.frame_generation()
+    running()
+    -- V8: the page reports SteamVR's Motion Smoothing from the perf module's readings.
+    assert(NLVR and NLVR.Debug, "the add-on did not start")
+    local perf = NLVR.Debug.perf or {}
+    NLVR.Debug.perf = perf
+    perf.step_name, perf.reason, perf.rate, perf.target_rate, perf.gpu_ms, perf.budget_ms = "full", "gpu", 45, 45, 10, 22.2
+    perf.frame_generation, perf.motion_smoothing = true, {supported = true, enabled = false, generating = false}
+    assert(VR.StatusText():find("Motion Smoothing is off in SteamVR. Turn it on in SteamVR > Settings > Video", 1, true))
+    perf.motion_smoothing = {supported = true, enabled = true, generating = true}
+    assert(VR.StatusText():find("Frame generation: SteamVR Motion Smoothing; making frames now: Yes", 1, true))
+    perf.motion_smoothing.generating = false
+    assert(VR.StatusText():find("making frames now: No", 1, true))
+    perf.motion_smoothing.supported = false
+    assert(VR.StatusText():find("not available on this GPU, so SteamVR repeats frames instead", 1, true))
+    perf.frame_generation = false
+    assert(VR.StatusText():find("Frame generation: off; VR renders every frame.", 1, true))
+    VR.Stop() clean()
+end
 function cases.uncapped()
     cv.fps_max._engineValue("0") running() eq(cv.fps_max:GetString(), "0") VR.Stop() eq(cv.fps_max:GetString(), "0")
     cv.fps_max._engineValue("144") running() eq(cv.fps_max:GetString(), "144") VR.Stop() eq(cv.fps_max:GetString(), "144")

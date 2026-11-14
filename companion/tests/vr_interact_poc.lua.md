@@ -21,3 +21,17 @@ Review correction: the deliberate NPC death-ragdoll fixture uses Entity:SetShoul
 
 
 When W is loaded the bare-hand V2/V3 fixture explicitly selects nlvr_hands; W otherwise preserves the equipped weapon and claims that hand. The dedicated NPC alone requests a server ragdoll with its per-entity API.
+
+V8: phases 14 and 16 spawn a 3 kg PHX cube at the right palm, 15 the phase-3 plank between the hands, 17 a ragdoll at
+the right hand. Every tick it keeps the worst error and angle between the driving hold and its goal (settling before
+3 s, holding after), and from phase 14 each sample adds `v8`: those worsts, the hold's current error, angle,
+`tracking` and pair frame, the right pulse kind, the left hand's held entity and position, both hands' angles, the
+entity's angles and each physics object's motion state.
+
+V8, after `interact-sim-01`: phase 4 measures the heavy crate's lag every tick (`heavy`: the longest run above 1 unit
+and the peak), because V8's crate lags only while the hand's motion starts and stops, windows shorter than the 0.25 s
+samples.
+
+V8: the Tick probe runs under `xpcall`; an error is printed as a `probe-error` record (at most 20), and a phase whose
+player has no VR server state prints one `probe-no-state` record. The first Index run's samples stopped in phase 3 with
+nothing printed.

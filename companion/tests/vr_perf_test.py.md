@@ -8,3 +8,5 @@ python -m unittest discover -s companion/tests -t companion/tests -p vr_perf_tes
 ```
 
 Each test passes when the scenario exits 0 and prints `PASS <scenario>`. No files are written.
+
+V8: adds the `frame_generation_rates` scenario.

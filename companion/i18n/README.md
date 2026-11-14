@@ -107,3 +107,8 @@ checked; preserve `nl_vr_*`, the product names, dimensions and units when review
 VR-V2-M adds 40 page/panel messages per language, agent-written by Codex and awaiting human review.
 `vr_ui_catalog.py` reproduces them from ASCII-escaped data using the UTF-8 catalog writer, checks for lost
 characters and validates complete catalogs. Existing translations are retained.
+
+VR V8 adds seven page messages (the Frame generation switch's help, the Auto help naming its rate, four Motion
+Smoothing status lines and the grab help line) and drops the old Auto help line. Their translations in all six
+catalogs are agent-written by Claude and not yet human-reviewed; "Frame generation" reuses the existing entry, and
+SteamVR's menu path is given in each language's SteamVR words.

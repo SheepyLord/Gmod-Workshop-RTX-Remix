@@ -587,6 +587,9 @@ Info Session::info() const {
   out.runtime.lastErrorText[sizeof(out.runtime.lastErrorText)-1]=0;
   out.timing.m_nSize=sizeof out.timing;out.timing_valid=s.compositor->GetFrameTiming(&out.timing,0);
   s.compositor->GetCumulativeStats(&out.cumulative,sizeof out.cumulative);
+  // Read-only: the setting is the user's, in SteamVR; VR never writes it.
+  out.motion_smoothing_supported=s.compositor->IsMotionSmoothingSupported();
+  out.motion_smoothing_enabled=s.compositor->IsMotionSmoothingEnabled();
   out.activity=s.system->GetTrackedDeviceActivityLevel(0);return out;
 }
 Actions Session::actions() const {

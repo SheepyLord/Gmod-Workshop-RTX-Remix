@@ -18,6 +18,105 @@ def distance(a, b):
     return math.sqrt(sum((x-y)**2 for x, y in zip(vector(a), vector(b))))
 
 
+# V8 (ADR 0203): a 250 kg crate lags while the hand's motion starts and stops, at the hand's strength, then follows;
+# V3's spring kept it over 3 units for a whole second. Over 1 unit for at least 0.1 s (seven ticks, so never a one-tick
+# spike) is the V8 hold's perceptible weight. The probe measures it every tick (`heavy`): the lag windows are shorter
+# than its 0.25 s samples, which only the sample-based fallback below uses.
+HEAVY_LAG_UNITS, HEAVY_LAG_SECONDS = 1.0, 0.1
+
+
+def axes(angles):
+    """Source's forward, left and up of an angle (pitch, yaw, roll in degrees)."""
+    p, y, r = (math.radians(v) for v in vector(angles))
+    forward = (math.cos(p)*math.cos(y), math.cos(p)*math.sin(y), -math.sin(p))
+    right = (-math.sin(r)*math.sin(p)*math.cos(y)+math.cos(r)*math.sin(y),
+             -math.sin(r)*math.sin(p)*math.sin(y)-math.cos(r)*math.cos(y), -math.sin(r)*math.cos(p))
+    up = (math.cos(r)*math.sin(p)*math.cos(y)+math.sin(r)*math.sin(y),
+          math.cos(r)*math.sin(p)*math.sin(y)-math.sin(r)*math.cos(y), math.cos(r)*math.cos(p))
+    return forward, tuple(-v for v in right), up
+
+
+def turn_degrees(a, b):
+    """The rotation between two orientations, in degrees."""
+    fa, la, ua = axes(a)
+    fb, lb, ub = axes(b)
+    trace = sum(x*y for x, y in zip(fa, fb)) + sum(x*y for x, y in zip(la, lb)) + sum(x*y for x, y in zip(ua, ub))
+    return math.degrees(math.acos(max(-1.0, min(1.0, (trace-1)/2))))
+
+
+def v8_checks(records, measure):
+    """V8's phases: the wrist turns a hold, two hands hold one plank, the trigger freezes and frees, a bone freezes."""
+    def rows(phase):
+        return sorted((r for r in records if r.get("phase") == phase and r.get("kind") == "sample"), key=lambda r: r["time"])
+
+    def at(rows_, low, high):
+        return next((r for r in rows_ if low < r["time"] < high and r.get("v8")), None)
+
+    p = rows(14)
+    worst = (p[-1].get("v8") or {}).get("worst") or {} if p else {}
+    measure("v8_turn_held_samples", sum(bool(r["right"]["held"]) for r in p), sum(bool(r["right"]["held"]) for r in p) >= 12)
+    hold_error, hold_angle = worst.get("hold_error"), worst.get("hold_angle")
+    measure("v8_turn_worst_error_units", hold_error, hold_error is not None and hold_error < 1.5)
+    measure("v8_turn_worst_angle_degrees", hold_angle, hold_angle is not None and hold_angle < 6)
+    before, after = at(p, 2.6, 3.0), at(p, 4.6, 5.1)
+    turned = turn_degrees(before["v8"]["ang"], after["v8"]["ang"]) if before and after and before["v8"].get("ang") and after["v8"].get("ang") else None
+    measure("v8_turn_body_degrees", turned, turned is not None and abs(turned-90) < 8)
+    p = rows(15)
+    both = [r for r in p if r["right"]["held"] and r["v8"].get("left_held") == r["right"]["held"]]
+    measure("v8_pair_held_samples", len(both), len(both) >= 12)
+    measure("v8_pair_frame", any(r["v8"].get("pair") for r in both), any(r["v8"].get("pair") for r in both))
+    start, settled = at(p, 2.2, 2.8), at(p, 2.8, 3.05)
+    jump = distance(settled["position"], start["position"]) if start and settled and start.get("position") and settled.get("position") else None
+    measure("v8_pair_grab_jump_units", jump, jump is not None and jump < 2)
+    raised = at(p, 4.0, 4.5)
+    rise = vector(raised["position"])[2]-vector(settled["position"])[2] if raised and settled and raised.get("position") else None
+    measure("v8_pair_rise_units", rise, rise is not None and abs(rise-8) < 2.5)
+    # The timeline holds the tilted plank level from 4.6 to 5.2 s and turns both wrists from 5.2 to 5.8 s (V8 run 2's
+    # first windows sat inside the turn and read 3.9 of its 24.9 degrees).
+    level, rolled = at(p, 4.75, 5.15), at(p, 6.0, 6.45)
+    roll = turn_degrees(level["v8"]["ang"], rolled["v8"]["ang"]) if level and rolled and level["v8"].get("ang") and rolled["v8"].get("ang") else None
+    measure("v8_pair_roll_degrees", roll, roll is not None and abs(roll-25) < 6)
+    pair_worst = (p[-1].get("v8") or {}).get("worst") or {} if p else {}
+    measure("v8_pair_worst_error_units", pair_worst.get("hold_error"), pair_worst.get("hold_error") is not None and pair_worst["hold_error"] < 2.5)
+    p = rows(16)
+    held_first = any(r["right"]["held"] for r in p if 2.5 < r["time"] < 3.0)
+    frozen = [r for r in p if 3.2 < r["time"] < 4.4]
+    frozen_ok = bool(frozen) and all(not r["right"]["held"] and r["v8"].get("motion") == [False] for r in frozen)
+    measure("v8_freeze_frozen_samples", len(frozen), held_first and frozen_ok)
+    still = max((distance(r.get("position"), frozen[0].get("position")) for r in frozen if r.get("position")), default=None) if frozen else None
+    measure("v8_freeze_stays_units", still, still is not None and still < 0.5)
+    freed = [r for r in p if 5.3 < r["time"] < 6.5]
+    freed_ok = bool(freed) and all(r["right"]["held"] and r["v8"].get("motion") == [True] for r in freed)
+    measure("v8_unfreeze_held_samples", len(freed), freed_ok)
+    carried = distance(freed[-1].get("position"), freed[0].get("position")) if len(freed) > 1 else None
+    measure("v8_unfreeze_carried_units", carried, carried is not None and carried > 6)
+    p = rows(17)
+    bone = [r for r in p if 3.4 < r["time"] < 5 and r.get("v8", {}).get("motion")]
+    one = bool(bone) and all(r["v8"]["motion"].count(False) == 1 and len(r["v8"]["motion"]) > 1 for r in bone)
+    measure("v8_freeze_one_bone", [r["v8"]["motion"].count(False) for r in bone[:1]], one)
+    client = [r for r in records if r.get("kind") == "v8-client"]
+    drawn = [r for r in client if r.get("mode") == "held"]
+    gaps = [distance(r.get("drawn"), r.get("physics")) for r in drawn if r.get("drawn") and r.get("physics") and r.get("tracking")]
+    measure("v8_drawn_at_hand_samples", len(drawn), len(drawn) >= 4)
+    measure("v8_drawn_vs_physics_units", max(gaps, default=None), bool(gaps) and max(gaps) < 2.5)
+
+
+FG_CHECKS = ("v8_fg_target_switch", "v8_fg_restored", "v8_fg_page_line")
+
+
+def fg_checks(records, measure):
+    """The --fg-check records: Frame generation off doubles Auto's target, back restores it and the setting."""
+    states = {r.get("state"): r for r in records if r.get("kind") == "v8-frame-generation"}
+    on, off, back = states.get("on"), states.get("off"), states.get("restored")
+    targets = [r.get("target") if r else None for r in (on, off, back)]
+    switched = all(isinstance(t, (int, float)) for t in targets[:2]) and abs(targets[1] - 2 * targets[0]) < 0.01
+    measure("v8_fg_target_switch", targets, switched)
+    restored = bool(on and back) and back.get("target") == on.get("target") and back.get("setting") == on.get("setting")
+    measure("v8_fg_restored", [back and back.get("setting"), on and on.get("setting")], restored)
+    line = next((part for part in str((on or {}).get("status", "")).split("\n\n") if part.startswith("Frame generation")), None)
+    measure("v8_fg_page_line", line, line is not None)
+
+
 def analyse(records, selected=None):
     selected = list(range(14)) if selected is None else selected
     phases = {i: [r for r in records if r.get("phase") == i and r.get("kind") == "sample"] for i in range(14)}
@@ -51,7 +150,7 @@ def analyse(records, selected=None):
     alignment = max(alignments, default=-1)
     measure("two_hand_alignment_dot", alignment, alignment > .9)
     lag = max((r["right"].get("grip_error", 0) for r in phases[4] if r["time"] > 3), default=0)
-    measure("heavy_crate_lag_units", lag, math.isfinite(lag) and lag > 3)
+    measure("heavy_crate_lag_units", lag, math.isfinite(lag) and lag > HEAVY_LAG_UNITS)
     # One consecutive second, not a spike or disjoint bursts. Actual game seconds
     # survive compressed fixtures; the standalone fixture's time is already real.
     start = previous = None
@@ -59,7 +158,7 @@ def analyse(records, selected=None):
     for row in sorted(phases[4], key=lambda r: r.get('elapsed_seconds', r['time'])):
         seconds = row.get('elapsed_seconds', row['time'])
         error = row['right'].get('grip_error', 0)
-        high = row['time'] > 3 and row['right'].get('held') and math.isfinite(error) and error > 3
+        high = row['time'] > 3 and row['right'].get('held') and math.isfinite(error) and error > HEAVY_LAG_UNITS
         if high and math.isfinite(seconds):
             if start is None or previous is None or not 0 < seconds-previous <= .30:
                 start = seconds
@@ -67,7 +166,12 @@ def analyse(records, selected=None):
             previous = seconds
         else:
             start = previous = None
-    measure('heavy_crate_lag_duration_seconds', duration, duration >= 1.0)
+    ticked = [r['heavy'] for r in phases[4] if isinstance(r.get('heavy'), dict)]
+    if ticked:
+        duration = max(float(h.get('above', 0)) for h in ticked)
+        lag = max([lag] + [float(h.get('peak', 0)) for h in ticked])
+        measure("heavy_crate_lag_units", lag, math.isfinite(lag) and lag > HEAVY_LAG_UNITS)
+    measure('heavy_crate_lag_duration_seconds', duration, duration >= HEAVY_LAG_SECONDS)
     bones = sorted({(r["left"].get("bone", -1), r["right"].get("bone", -1)) for r in phases[5]
                     if r["left"]["held"] and r["right"]["held"]})
     measure("two_hand_ragdoll_bones", bones, any(a != b and a >= 0 and b >= 0 for a, b in bones))
@@ -118,6 +222,11 @@ def analyse(records, selected=None):
     if 9 in selected: required.update((2,3,4))
     if 8 in selected or 10 in selected or 13 in selected: required.add(5)
     if 13 in selected: required.update((2,3))
+    if any(phase in selected for phase in (14, 15, 16, 17)):
+        v8_checks(records, measure)
+        required.add(2)
+    if 16 in selected: required.update((6, 7))
+    if 17 in selected: required.add(6)
     measure("haptic_event_kinds", sorted(kinds), required.issubset(kinds))
     cleanup = [r for r in records if r.get("kind") == "cleanup"]
     measure("exit_restored", bool(cleanup) and all(not r["active"] and not r["custom"] and r["ragdolls"] == r["saved_ragdolls"] for r in cleanup),
@@ -130,9 +239,18 @@ def analyse(records, selected=None):
               8:["melon_broken"],
               9:["glove_marked","glove_launched","glove_caught"],
               10:["npc_min_health_before_fixture_kill","npc_server_death_ragdoll","death_ragdoll_grabbed","death_releases_with_vr_active"],
-              11:["door_states"],12:["ladder_grip_samples","ladder_climb_rise_units"],13:["held_object_hit_samples","held_object_melon_broken"]}
+              11:["door_states"],12:["ladder_grip_samples","ladder_climb_rise_units"],13:["held_object_hit_samples","held_object_melon_broken"],
+              14:["v8_turn_held_samples","v8_turn_worst_error_units","v8_turn_worst_angle_degrees","v8_turn_body_degrees",
+                  "v8_drawn_at_hand_samples","v8_drawn_vs_physics_units"],
+              15:["v8_pair_held_samples","v8_pair_frame","v8_pair_grab_jump_units","v8_pair_rise_units","v8_pair_roll_degrees",
+                  "v8_pair_worst_error_units"],
+              16:["v8_freeze_frozen_samples","v8_freeze_stays_units","v8_unfreeze_held_samples","v8_unfreeze_carried_units"],
+              17:["v8_freeze_one_bone"]}
     keys={"haptic_event_kinds","exit_restored"}
     for phase in selected: keys.update(by_phase[phase])
+    if any(r.get("kind") == "v8-frame-generation" for r in records):
+        fg_checks(records, measure)
+        keys.update(FG_CHECKS)
     checks={k:v for k,v in checks.items() if k in keys}
     return {"selected_phases":selected,"metrics":metrics,"checks":checks,"success":all(checks.values()),"records":len(records)}
 

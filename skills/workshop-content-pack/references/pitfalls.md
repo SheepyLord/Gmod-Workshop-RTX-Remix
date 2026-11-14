@@ -341,6 +341,14 @@ Underground's walls smeared and its floor grew spikes. `tune_displacement.py` (m
 most 0.008). The hash and texture checks cannot see this: look at the ground at a grazing angle in the field
 shots, with the pack and with Remix's replacements off.
 
+### 33. ToPBR's materials empty once a pack with binary layers is deployed (fixed 2026-11-14)
+
+The RTX fixes' ToPBR scanned every mod folder and published nothing when it met a file it could not read,
+such as a binary `.usd` from the Remix Toolkit: Country Estate RTX, Funkis RTX and Safehouse RTX hold 26 of
+them, so on the field ToPBR's and Imported game PBR's materials were empty. GitHub issue 6, ADR 0212: the
+fixed module publishes past unreadable files. A pack still wins over ToPBR (runtime patch 0020). Ship binary
+layers as they are; nothing to convert.
+
 ## Diagnosing
 
 | Question | Where to look |

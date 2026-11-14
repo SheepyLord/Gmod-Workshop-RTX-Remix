@@ -28,6 +28,24 @@ Versions follow the loader's CMake project version once it ships; until then eve
   open the collection, to read what a map without PBR looks like (path traced light on colour-only textures: flat
   walls, plastic-like metal, painted shine that looks doubled) and to hide it. Never over a loading or running game;
   "Don't show the note again" keeps it away (`nativeloader_pbr_note_reset` brings it back).
+- GitHub issue 6, "Gmod ToPBR stopped loading?": ToPBR's materials show again. Its publication scans the other mods
+  to leave out what they cover, and since R11 it published nothing at all when it could not read every file: one
+  binary USD (the RTX Remix Toolkit's meshes, common in map packs), one over 16 MiB or more than 64 MiB of text was
+  enough, so `rtx-remix\mods\~gmod_topbr\textures` filled while no material showed, and Imported game PBR's maps
+  vanished with them. The runtime already ranks the generated mod after every authored one (patch 0020), so the scan
+  now only leaves out the hashes it can read; it runs at most every 30 s, re-reads only changed files and names the
+  first file it could not read once in the console. ToPBR stays (it is the only conversion of map and prop materials;
+  Imported game PBR covers imported characters): its page is now **Map and prop PBR (ToPBR)** and says so, its
+  metallic switch (a no-op since R11) is gone, and turning it on converts the materials already drawn without a map
+  reload. The RTX fixes' module rebuilt with its eleventh patch; package only
+  ([ADR 0212](docs/decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md)).
+- Automatic categorization (Utilities > RTX Remix > Auto-Categorization) is sturdier: its World Geometry switch works
+  (it was never read), the map scan runs 2 ms a frame instead of stalling one, reads each VMT once and goes on past a
+  material it cannot read, blended displacements are found under the names the game draws them with, the queue holds
+  one entry per material and checks 64 a frame, and switches and map changes drop automatic work. A texture the
+  player takes out of a category in the Remix developer menu and saves to `rtx.conf` is no longer put back every
+  session (the RTX fixes' twelfth patch). Package only ([ADR 0213](docs/decisions/0213-automatic-categorization-hardened.md)).
+
 - VR grabbing is precise and hands-on (V8, approved by the user on 2026-11-13): a held object keeps its pose in the
   hand, comes to rest against the palm and follows the hand's movement and wrist turns with the hand's own velocity
   and spin fed forward, so turning the wrist turns it; light objects follow within millimetres while heavy ones still

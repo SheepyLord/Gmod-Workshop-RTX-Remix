@@ -354,47 +354,37 @@ end)
 -- ToPBR Conversion Settings (Only show for 64-bit client)
 if BRANCH == "x86-64" or BRANCH == "chromium" then
     hook.Add( "PopulateToolMenu", "RTXOptionsClient_ToPBR", function()
-        spawnmenu.AddToolMenuOption( "Utilities", "RTX Remix", "RTX_Client_ToPBR", NL("ToPBR"), "", "", function( panel )
+        -- Issue 6 (ADR 0212): what ToPBR does, next to Imported game PBR. Its metallic switch is gone from the page:
+        -- since R11 darkness never makes a material metal, so rtx_topbr_metallic changes nothing.
+        spawnmenu.AddToolMenuOption( "Utilities", "RTX Remix", "RTX_Client_ToPBR", NL("Map and prop PBR (ToPBR)"), "", "", function( panel )
             panel:ClearControls()
             -- Master toggle
-            local enabledCheckbox = panel:CheckBox(NL("Enable ToPBR"), "rtx_topbr_enabled")
-            panel:ControlHelp(NL("Converts source material maps (normal, bump, ssbump, etc) to a pseudo-pbr format for RTX Remix."))
+            local enabledCheckbox = panel:CheckBox(NL("Enable ToPBR for maps and props"), "rtx_topbr_enabled")
+            panel:ControlHelp(NL("Builds PBR materials for map, prop and weapon materials from what their Source materials already have: bump and normal maps, Phong and envmap masks, and community PBR shaders."))
+            panel:ControlHelp(NL("Off by default. A real PBR mod for a texture always wins over it. Imported characters use Imported game PBR instead."))
             panel:ControlHelp(NL("Conversion is experimental and cannot reproduce every material exactly."))
-            panel:ControlHelp(NL("This will use a significant amount of VRAM, disk space, and may cause stability issues."))
-            panel:ControlHelp("")
-            panel:ControlHelp(NL("Requires a map reload to enable."))
-            
-            -- Experimental metallic generation
-            local metallicCheckbox = panel:CheckBox(NL("Experimental Metallic Detection"), "rtx_topbr_metallic")
-            panel:ControlHelp(NL("Generate metallic maps from base texture brightness."))
-            panel:ControlHelp(NL("WARNING: May cause dark materials to appear completely black!"))
-            
+            panel:ControlHelp(NL("It writes textures into rtx-remix/mods/~gmod_topbr, which takes disk space and video memory. Materials appear a few seconds after they are first drawn."))
+
             -- Debug output toggle
-            local debugCheckbox = panel:CheckBox(NL("Debug Output"), "rtx_topbr_debug")
+            panel:CheckBox(NL("Debug Output"), "rtx_topbr_debug")
             panel:ControlHelp(NL("Shows debug messages in console for troubleshooting."))
-            
+
             -- Clear cache button
             local clearButton = panel:Button(NL("Clear Cache"))
             clearButton.DoClick = function()
                 RunConsoleCommand("rtx_topbr_clear")
             end
             panel:ControlHelp(NL("Clear the conversion cache (useful after changing settings)."))
-            
+
             -- Update controls based on enabled state
             local function UpdateControls()
                 local enabled = GetConVar("rtx_topbr_enabled"):GetBool()
-                if autoCheckbox then autoCheckbox:SetEnabled(enabled) end
-                if delaySlider then delaySlider:SetEnabled(enabled) end
-                if metallicCheckbox then metallicCheckbox:SetEnabled(enabled) end
-                if autodiscoverCheckbox then autodiscoverCheckbox:SetEnabled(enabled) end
-                if processButton then processButton:SetEnabled(enabled) end
-                if statsButton then statsButton:SetEnabled(enabled) end
                 if clearButton then clearButton:SetEnabled(enabled) end
             end
-            
+
             -- Set initial state
             UpdateControls()
-            
+
             -- Update when master checkbox changes
             if enabledCheckbox then
                 enabledCheckbox.OnChange = function(self, value)
@@ -414,14 +404,16 @@ if BRANCH == "x86-64" or BRANCH == "chromium" then
             -- Master toggle
             local masterCheckbox = panel:CheckBox(NL("Enable Auto-Categorization"), "rtx_auto_categorize")
             panel:ControlHelp(NL("Automatically categorizes textures for RTX Remix."))
-            
+            -- ADR 0213: the player's own choices in the Remix developer menu stay.
+            panel:ControlHelp(NL("A texture you take out of a category in the Remix developer menu and save to rtx.conf is never put back in it."))
+
             -- Delay slider
             local delaySlider = panel:NumSlider(NL("Delay (seconds)"), "rtx_auto_categorize_delay", 0, 10, 1)
             panel:ControlHelp(NL("How long to wait after map load before scanning (allows BSP data to load)."))
 
-            -- World geometry toggle
+            -- World geometry toggle (read by every scan since ADR 0213)
             local worldCheckbox = panel:CheckBox(NL("World Geometry"), "rtx_auto_categorize_world")
-            panel:ControlHelp(NL("Categorizes walls, floors, and ceilings from BSP as Decals for proper blending."))
+            panel:ControlHelp(NL("Categorizes the map's walls, floors, ceilings, displacements and static props as Decals for proper blending."))
             
             -- Particles toggle
             local particlesCheckbox = panel:CheckBox(NL("Particles"), "rtx_auto_categorize_particles")

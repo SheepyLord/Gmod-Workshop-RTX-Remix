@@ -1,0 +1,413 @@
+diff --git a/source/d3d9_texture_tracker.cpp b/source/d3d9_texture_tracker.cpp
+index ec7da49e4c2d6f1abd75804526381aa3a7326b52..54abfd3b264cd3b740ca790de45921c085d2d57f 100644
+--- a/source/d3d9_texture_tracker.cpp
++++ b/source/d3d9_texture_tracker.cpp
+@@ -18,6 +18,7 @@
+ #include "material_pipeline/material_pipeline.h"
+ #include "material_pipeline/material_filter.h"
+ #include "material_pipeline/auto_categorisation/auto_categorisation.h"
++#include "material_pipeline/auto_categorisation/player_categories.h"
+ 
+ // Global material system pointer (from module.cpp)
+ extern IMaterialSystem* materials;
+@@ -1644,7 +1645,21 @@ void D3D9TextureTracker::ApplyCategoryToHash(uint64_t hash, uint32_t categoryFla
+         Msg("[D3D9] WARNING: Removing WORLD_UI flag from '%s' (flags: 0x%X)\n", materialName, categoryFlags);
+         categoryFlags &= ~WORLD_UI;  // Remove the WORLD_UI bit
+     }
+-    
++
++    // ADR 0213: never add a hash to a list the player's rtx.conf takes it out of.
++    {
++        const uint32_t allowed =
++            MaterialPipeline::AutoCategorisation::PlayerCategories::File::Instance().Allowed(hash, categoryFlags);
++        if (allowed != categoryFlags) {
++            if (m_enableDebugOutput) {
++                Msg("[D3D9] rtx.conf keeps hash 0x%llX ('%s') out of flags 0x%X\n",
++                    hash, materialName, categoryFlags & ~allowed);
++            }
++            categoryFlags = allowed;
++            if (categoryFlags == 0) return;
++        }
++    }
++
+     char hashStr[32];
+     sprintf_s(hashStr, "0x%llX", hash);
+     
+diff --git a/source/material_pipeline/auto_categorisation/auto_categorisation.cpp b/source/material_pipeline/auto_categorisation/auto_categorisation.cpp
+index f431b5aa42ea4bf04a688d72a2b91cc1c121afd5..d55967be063fa5ee53e56ad16fb3f806a59fbe96 100644
+--- a/source/material_pipeline/auto_categorisation/auto_categorisation.cpp
++++ b/source/material_pipeline/auto_categorisation/auto_categorisation.cpp
+@@ -7,6 +7,7 @@
+ #ifdef _WIN64
+ 
+ #include "auto_categorisation.h"
++#include "player_categories.h"
+ #include "../../d3d9_texture_tracker.h"
+ #include "../../remixapi/material_lua_bindings.h"
+ #include "../../lua_path_policy.h"
+@@ -500,8 +501,21 @@ void Initialize(remix::Interface* remix) {
+     s_worldTextureNames.clear();
+     s_stats = Stats();
+     s_initialized = true;
+-    
++
+     Msg("[MaterialPipeline::AutoCategorisation] Initialized\n");
++
++    // ADR 0213: the player's rtx.conf, in the game folder two levels above bin\win64.
++    wchar_t exe[MAX_PATH];
++    const DWORD length = GetModuleFileNameW(nullptr, exe, MAX_PATH);
++    if (length && length < MAX_PATH) {
++        const auto root = std::filesystem::path(std::wstring(exe, length)).parent_path().parent_path().parent_path();
++        auto& player = PlayerCategories::File::Instance();
++        player.SetPath(root / L"rtx.conf");
++        player.Refresh(true);
++        if (player.Count())
++            Msg("[MaterialPipeline::AutoCategorisation] rtx.conf takes %zu textures out of categories; automatic categories leave them out\n",
++                player.Count());
++    }
+ }
+ 
+ void Shutdown() {
+@@ -933,6 +947,17 @@ bool ApplyKnownCategoryToTexture(const std::string& materialName, IDirect3DTextu
+ void ApplyToHash(uint64_t hash, uint32_t flags, const std::string& materialName) {
+     if (!s_remix || hash == 0 || flags == 0) return;
+ 
++    // ADR 0213: never add a hash to a list the player's rtx.conf takes it out of.
++    const uint32_t allowed = PlayerCategories::File::Instance().Allowed(hash, flags);
++    if (allowed != flags) {
++        if (s_config.debugOutput) {
++            Msg("[AutoCategorisation] rtx.conf keeps hash 0x%llX (%s) out of flags 0x%X\n",
++                hash, materialName.c_str(), flags & ~allowed);
++        }
++        flags = allowed;
++        if (flags == 0) return;
++    }
++
+     // Snapshot tracker state before taking the AutoCategorisation lock. The
+     // render hook uses the opposite direction (tracker -> AutoCategorisation),
+     // so holding both locks here would allow a worker/render-thread deadlock.
+@@ -1313,6 +1338,12 @@ void AddPendingCategory(IDirect3DTexture9* texture,
+ int RetryPendingCategories() {
+     if (!s_remix) return 0;
+ 
++    // Called every frame on the game thread: a saved rtx.conf takes effect for later categories (ADR 0213).
++    if (PlayerCategories::File::Instance().Refresh() && s_config.debugOutput) {
++        Msg("[AutoCategorisation] rtx.conf read again: %zu textures kept out of categories\n",
++            PlayerCategories::File::Instance().Count());
++    }
++
+     struct ReadyCategory {
+         PendingCategory pending;
+         uint64_t hash;
+diff --git a/source/material_pipeline/auto_categorisation/player_categories.h b/source/material_pipeline/auto_categorisation/player_categories.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..b5922fb0825d2600f0a47a14066086b10c7bb768
+--- /dev/null
++++ b/source/material_pipeline/auto_categorisation/player_categories.h
+@@ -0,0 +1,173 @@
++// GPL-2.0. The player's own Remix categories win over automatic categorisation (the loader's ADR 0213).
++//
++// Automatic categories go to the runtime's user layer (remixapi_AddTextureHash), which is stronger than rtx.conf.
++// A texture the player took out of a category in rtx.conf (a "-0x..." entry, which the Remix developer menu writes
++// when a category is cleared and the settings are saved) was put back there by the next automatic pass, every
++// session. Automatic categorisation now never adds a hash to a list the player's rtx.conf takes it out of. user.conf
++// is not read: Remix writes its texture lists only from automatic categories that a Save Settings kept, never from
++// the player's own choices. Removals are unchanged (they correct automatic leftovers such as water saved as a decal).
++#pragma once
++#include <algorithm>
++#include <cctype>
++#include <chrono>
++#include <cstdint>
++#include <cstdlib>
++#include <filesystem>
++#include <fstream>
++#include <mutex>
++#include <string>
++#include <system_error>
++#include <unordered_map>
++#include <unordered_set>
++#include <utility>
++
++namespace MaterialPipeline { namespace AutoCategorisation { namespace PlayerCategories {
++
++// Bounds: a larger rtx.conf is read up to MaxBytes, and at most MaxHashes exclusions are kept.
++constexpr std::uintmax_t MaxBytes = 16u * 1024 * 1024;
++constexpr size_t MaxHashes = 1000000;
++
++// For each rtx.*Textures list (lower-case name), the hashes the file takes out of it.
++struct Exclusions {
++    std::unordered_map<std::string, std::unordered_set<uint64_t>> lists;
++    size_t count = 0;
++    bool truncated = false;
++};
++
++inline std::string Lower(std::string text) {
++    for (auto& c : text) c = char(std::tolower(static_cast<unsigned char>(c)));
++    return text;
++}
++
++inline std::string Trim(const std::string& text) {
++    const auto begin = text.find_first_not_of(" \t\r\n\"");
++    if (begin == std::string::npos) return {};
++    const auto end = text.find_last_not_of(" \t\r\n\"");
++    return text.substr(begin, end - begin + 1);
++}
++
++// Remix config text: "key = value" lines; '#' starts a comment line. A texture list's value is comma-separated
++// hashes, "-0x..." taking one out. Only the exclusions are kept.
++inline Exclusions Parse(const std::string& text, size_t maxHashes = MaxHashes) {
++    Exclusions result;
++    size_t start = 0;
++    while (start < text.size()) {
++        size_t stop = text.find('\n', start);
++        if (stop == std::string::npos) stop = text.size();
++        const std::string line = Trim(text.substr(start, stop - start));
++        start = stop + 1;
++        if (line.empty() || line[0] == '#') continue;
++        const size_t equals = line.find('=');
++        if (equals == std::string::npos) continue;
++        const std::string key = Lower(Trim(line.substr(0, equals)));
++        if (key.size() <= 12 || key.compare(0, 4, "rtx.") != 0 || key.compare(key.size() - 8, 8, "textures") != 0) continue;
++        const std::string value = line.substr(equals + 1);
++        size_t at = 0;
++        while (at <= value.size()) {
++            size_t comma = value.find(',', at);
++            if (comma == std::string::npos) comma = value.size();
++            const std::string item = Trim(value.substr(at, comma - at));
++            at = comma + 1;
++            if (item.size() < 2 || item[0] != '-') continue;
++            const std::string digits = item.substr(1);
++            char* end = nullptr;
++            const unsigned long long hash = std::strtoull(digits.c_str(), &end, 16);
++            if (!end || *end != '\0' || hash == 0) continue;
++            if (result.count >= maxHashes) { result.truncated = true; return result; }
++            if (result.lists[key].insert(hash).second) ++result.count;
++        }
++    }
++    return result;
++}
++
++inline bool Excluded(const Exclusions& exclusions, const char* option, uint64_t hash) {
++    if (!option || !hash) return false;
++    const auto list = exclusions.lists.find(Lower(option));
++    return list != exclusions.lists.end() && list->second.count(hash) != 0;
++}
++
++// The category bits automatic categorisation writes, and their lists (the values of the module's CategoryFlags and
++// of the Lua RemixCategoryManager.CATEGORY bits for these six are the same).
++struct BitList { uint32_t bit; const char* option; };
++constexpr BitList Lists[] = {
++    {0x4, "rtx.skyBoxTextures"}, {0x8, "rtx.ignoreTextures"}, {0x400, "rtx.particleTextures"},
++    {0x1000, "rtx.decalTextures"}, {0x40000, "rtx.animatedWaterTextures"}, {0x1000000, "rtx.legacyEmissiveTextures"},
++};
++
++// The bits of flags that may be added for hash: those whose list the exclusions do not take the hash out of.
++inline uint32_t Allowed(const Exclusions& exclusions, uint64_t hash, uint32_t flags) {
++    for (const auto& list : Lists)
++        if ((flags & list.bit) && Excluded(exclusions, list.option, hash)) flags &= ~list.bit;
++    return flags;
++}
++
++// The player's rtx.conf in the game folder (two folders above bin\win64), read again when its size or write time
++// changes; Refresh looks at most every two seconds. Thread-safe: the render hooks and the pipeline worker ask.
++class File {
++public:
++    static File& Instance() { static File file; return file; }
++
++    void SetPath(std::filesystem::path path) {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        m_path = std::move(path);
++        m_size = std::uintmax_t(-1);
++        m_checked = {};
++    }
++
++    // Returns true when the exclusions changed.
++    bool Refresh(bool force = false) {
++        std::filesystem::path path;
++        {
++            std::lock_guard<std::mutex> lock(m_mutex);
++            const auto now = std::chrono::steady_clock::now();
++            if (!force && m_checked != std::chrono::steady_clock::time_point{} && now - m_checked < std::chrono::seconds(2))
++                return false;
++            m_checked = now;
++            path = m_path;
++        }
++        if (path.empty()) return false;
++        std::error_code ec;
++        const auto size = std::filesystem::file_size(path, ec);
++        const auto time = ec ? std::filesystem::file_time_type{} : std::filesystem::last_write_time(path, ec);
++        const bool present = !ec;
++        {
++            std::lock_guard<std::mutex> lock(m_mutex);
++            if (present == m_present && (!present || (size == m_size && time == m_time))) return false;
++        }
++        Exclusions exclusions;
++        if (present) {
++            std::ifstream file(path, std::ios::binary);
++            std::string text(size_t((std::min)(size, MaxBytes)), '\0');
++            if (!file.read(text.data(), std::streamsize(text.size()))) text.resize(size_t(file.gcount()));
++            exclusions = Parse(text);
++            exclusions.truncated = exclusions.truncated || size > MaxBytes;
++        }
++        std::lock_guard<std::mutex> lock(m_mutex);
++        m_present = present; m_size = present ? size : std::uintmax_t(-1); m_time = time;
++        m_exclusions = std::move(exclusions);
++        return true;
++    }
++
++    uint32_t Allowed(uint64_t hash, uint32_t flags) const {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        return PlayerCategories::Allowed(m_exclusions, hash, flags);
++    }
++
++    bool MayAdd(const char* option, uint64_t hash) const {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        return !Excluded(m_exclusions, option, hash);
++    }
++
++    size_t Count() const { std::lock_guard<std::mutex> lock(m_mutex); return m_exclusions.count; }
++
++private:
++    mutable std::mutex m_mutex;
++    std::filesystem::path m_path;
++    bool m_present = false;
++    std::uintmax_t m_size = std::uintmax_t(-1);
++    std::filesystem::file_time_type m_time{};
++    std::chrono::steady_clock::time_point m_checked{};
++    Exclusions m_exclusions;
++};
++
++}}}
+diff --git a/source/remixapi/material_lua_bindings.cpp b/source/remixapi/material_lua_bindings.cpp
+index d3743fe2cfdbbc1a0409839cbef8c95ae3aa9178..b5347845cf50f07c53f31de0136b6d0364289c2f 100644
+--- a/source/remixapi/material_lua_bindings.cpp
++++ b/source/remixapi/material_lua_bindings.cpp
+@@ -13,6 +13,7 @@
+ #include "../d3d9_texture_tracker.h"
+ #include "../globalconvars.h"
+ #include "../material_pipeline/auto_categorisation/auto_categorisation.h"
++#include "../material_pipeline/auto_categorisation/player_categories.h"
+ #include "../material_pipeline/material_pipeline.h"
+ #include "../lua_path_policy.h"
+ 
+@@ -870,14 +871,25 @@ LUA_FUNCTION(RemixMaterial_SetHashCategory) {
+     }
+     
+     uint32_t categoryFlags = static_cast<uint32_t>(LUA->GetNumber(2));
+-    
++
++    // ADR 0213: automatic categorisation (a third argument true) never adds a hash to a list the player's rtx.conf
++    // takes it out of. Other callers (the player body's proxies, RTX Water's own textures) are not limited.
++    if (LUA->IsType(3, Type::Bool) && LUA->GetBool(3)) {
++        categoryFlags = MaterialPipeline::AutoCategorisation::PlayerCategories::File::Instance().Allowed(
++            textureHash, categoryFlags);
++        if (categoryFlags == 0) {
++            LUA->PushBool(false);
++            return 1;
++        }
++    }
++
+     // Convert hash to string for Remix API
+     char hashStr[32];
+     sprintf_s(hashStr, "0x%llX", textureHash);
+-    
++
+     // Get the Remix category option names from the flags
+     auto options = GetRemixCategoryOptions(categoryFlags);
+-    
++
+     // Add hash to each relevant Remix category
+     bool success = true;
+     for (const char* option : options) {
+diff --git a/tests/player_categories_test.cpp b/tests/player_categories_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..06235179469331120f7f9241656f0d5e5bb4a55d
+--- /dev/null
++++ b/tests/player_categories_test.cpp
+@@ -0,0 +1,86 @@
++// GPL-2.0. SDK-free regression for automatic categorisation and the player's rtx.conf (the loader's ADR 0213).
++// cl /EHsc /std:c++17 /W4 /WX /UNDEBUG /DWIN32_LEAN_AND_MEAN /DNOMINMAX /utf-8 player_categories_test.cpp
++// player_categories_test.exe <empty scratch folder>
++#include <cassert>
++#include <filesystem>
++#include <fstream>
++#include <iostream>
++#include <string>
++#include "../source/material_pipeline/auto_categorisation/player_categories.h"
++
++namespace fs = std::filesystem;
++using namespace MaterialPipeline::AutoCategorisation;
++
++namespace {
++constexpr uint32_t SKY = 0x4, IGNORED = 0x8, PARTICLE = 0x400, DECAL = 0x1000, WATER = 0x40000, EMISSIVE = 0x1000000;
++constexpr uint32_t OTHER = 0x800;  // a bit that names no list here
++
++void Put(const fs::path& path, const std::string& text) {
++    std::ofstream file(path, std::ios::binary | std::ios::trunc);
++    file << text;
++}
++}
++
++int main(int argc, char** argv) {
++    assert(argc == 2);
++    const fs::path root = fs::u8path(argv[1]);
++    fs::remove_all(root);
++    fs::create_directories(root);
++
++    // Parsing: only "-0x..." entries of rtx.*Textures lists count; keys match without case, quotes and spaces are
++    // trimmed, comments and other options are ignored, and invalid tokens are skipped.
++    const std::string conf =
++        "# rtx.decalTextures = -0x1\n"
++        "rtx.decalTextures = 0x00000000000000AA, -0x00000000000000BB, -0xcc , 0xDD\r\n"
++        "RTX.ParticleTextures=\"-0x0000000000000EE1\"\n"
++        "  rtx.legacyEmissiveTextures =   -0x0000000000000FF1,-zz, -, -0x, 0x12\n"
++        "rtx.someOption = -0x77\n"
++        "rtx.textures = -0x78\n"
++        "garbage line without equals -0x79\n";
++    const auto parsed = PlayerCategories::Parse(conf);
++    assert(parsed.count == 4 && !parsed.truncated);
++    assert(PlayerCategories::Excluded(parsed, "rtx.decalTextures", 0xbb));
++    assert(PlayerCategories::Excluded(parsed, "rtx.decalTextures", 0xcc));
++    assert(!PlayerCategories::Excluded(parsed, "rtx.decalTextures", 0xaa));   // a positive entry excludes nothing
++    assert(!PlayerCategories::Excluded(parsed, "rtx.decalTextures", 0x1));    // commented out
++    assert(PlayerCategories::Excluded(parsed, "rtx.particleTextures", 0xee1));
++    assert(PlayerCategories::Excluded(parsed, "RTX.PARTICLETEXTURES", 0xee1));
++    assert(PlayerCategories::Excluded(parsed, "rtx.legacyEmissiveTextures", 0xff1));
++    assert(!PlayerCategories::Excluded(parsed, "rtx.someOption", 0x77));
++    assert(!PlayerCategories::Excluded(parsed, "rtx.particleTextures", 0xbb)); // only its own list
++    assert(!PlayerCategories::Excluded(parsed, nullptr, 0xbb) && !PlayerCategories::Excluded(parsed, "rtx.decalTextures", 0));
++
++    // Allowed: only the excluded list's bit goes; other bits and bits that name no list stay.
++    assert(PlayerCategories::Allowed(parsed, 0xbb, DECAL | PARTICLE | OTHER) == (PARTICLE | OTHER));
++    assert(PlayerCategories::Allowed(parsed, 0xee1, PARTICLE | DECAL) == DECAL);
++    assert(PlayerCategories::Allowed(parsed, 0xff1, EMISSIVE | WATER) == WATER);
++    assert(PlayerCategories::Allowed(parsed, 0xaa, DECAL | SKY | IGNORED) == (DECAL | SKY | IGNORED));
++    assert(PlayerCategories::Allowed(parsed, 0x1234, ~0u) == ~0u);
++
++    // The bound: at most maxHashes exclusions are kept.
++    std::string many = "rtx.decalTextures = ";
++    for (int i = 1; i <= 10; ++i) many += "-0x" + std::to_string(i) + ",";
++    const auto bounded = PlayerCategories::Parse(many, 4);
++    assert(bounded.count == 4 && bounded.truncated);
++
++    // The live file: read on the first refresh, again when it changes, cleared when it goes.
++    auto& file = PlayerCategories::File::Instance();
++    const fs::path path = root / L"rtx.conf";
++    file.SetPath(path);
++    assert(!file.Refresh(true) && file.Count() == 0 && file.MayAdd("rtx.decalTextures", 0xbb));
++    Put(path, "rtx.decalTextures = -0xBB\n");
++    assert(file.Refresh(true) && file.Count() == 1);
++    assert(!file.MayAdd("rtx.decalTextures", 0xbb) && file.MayAdd("rtx.particleTextures", 0xbb));
++    assert(file.Allowed(0xbb, DECAL | WATER) == WATER);
++    assert(!file.Refresh(true));                                       // unchanged
++    assert(!file.Refresh());                                           // looked at less than two seconds ago
++    Put(path, "rtx.decalTextures = -0xBB, -0xBC\nrtx.ignoreTextures = -0x5\n");
++    assert(file.Refresh(true) && file.Count() == 3 && file.Allowed(0x5, IGNORED | SKY) == SKY);
++    fs::remove(path);
++    assert(file.Refresh(true) && file.Count() == 0 && file.MayAdd("rtx.decalTextures", 0xbb));
++
++    fs::remove_all(root);
++    std::cout << "PASS player categories: rtx.conf exclusions parsed (case, quotes, comments, invalid tokens, bound), "
++                 "only excluded lists' bits dropped, file read again on change and cleared when gone\n";
++    return 0;
++}

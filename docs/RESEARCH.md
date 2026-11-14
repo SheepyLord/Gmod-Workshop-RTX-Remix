@@ -8438,3 +8438,42 @@ here was measured in a game.
 - **A new bundled Lua file needs a line in the render guard.** `tools/tests/test_render_guard_addons.py`
   (`BundledMaterialPathTests`) requires the guard's exemption list in `_nativeloader_guard.lua` to be exactly the
   indexed package and companion Lua paths, and checks each indexed file's SHA-256 against `files.json`.
+## GitHub issue 6: ToPBR's materials not shown, and automatic categorization (2026-11-14, Claude, ADR 0212, 0213)
+
+- **ToPBR's publication** (the fixes' patched tree before the eleventh patch, `packages/fixes/licenses/oversized-skinning/autopbr`):
+  the worker publishes `rtx-remix\mods\~gmod_topbr\materials.usda` at most every 3 s (`to_pbr.cpp:5035-5040`, "Poll even
+  when idle"), and `PumpSnapshots` starts that worker every frame whatever the switches (`to_pbr.cpp:4655`), so the
+  publication ran in every RTX session (Imported game PBR is on by default). `WriteModUSDA` (`to_pbr.cpp:4736-4764`)
+  scanned every other mod's USD text each time; `FallbackGuard::Select` (`fallback_guard.h:15`) published only when the
+  scan read every file (`if (guard.complete)`). Conversion was never stopped by it: the DDS kept being written.
+- **The owner's field `rtx-remix\mods`, read-only (2026-11-14)**: 33 mods besides `~gmod_topbr`, 17,214 entries,
+  65,528,191 bytes of USD text; 26 files the old scan could not read: 25 binary `.usd` crates (`PXR-USDC`) in
+  `country_estate_rtx\models` (1), `funkis_rtx\models` (12) and `safehouse_rtx\ambientmodels` (12), plus
+  `safehouse_rtx\ambientmodels\mantel_clock_01_4k.usd` at 29,283,975 bytes, over the 16 MiB bound. The three packs were
+  installed 2026-11-12/13; `materials.usda` is the empty snapshot (92 bytes) of 2026-11-11 00:29 with its
+  `.last-published` sidecar, and no `~gmod_topbr` file exists in `rtx-remix\cache\mod-textures`. The package's own mods
+  (base_mod, gm_poolrooms_rtx, rtx_water, Emissives, nl_blood_overhaul_rtx, ~gmod_topbr) are all text USD.
+- **The runtime is not involved**: mods are enumerated once, when the ModManager is made and when the developer menu
+  refreshes them (`rtx_mod_manager.cpp:49-73`, `dxvk_imgui.cpp:2987`), and the package deploys `~gmod_topbr\mod.usda`
+  (create-only), so the mod exists from the first start. A loaded mod reloads when its root layer or a composed layer
+  changes (`rtx_mod_usd.cpp:476-499`, `usdShouldTriggerReload`), reported by `ReadDirectoryChangesW` on every search
+  path (`rtx_asset_data_manager.cpp:660`; file name, write time, size and creation). Patch 0086's texture cache is
+  only used for a mod's first load (`rtx_mod_usd.cpp:1829`).
+- **Where automatic categories go**: `remixapi_AddTextureHash` / `RemoveTextureHash` change the runtime's user layer
+  (`rtx_fork_api_entry.cpp:203`, `mutateTextureHashOption`; a removal is a negative entry, `-0x...`), which is
+  `user.conf`'s layer (`rtx_option_layer.cpp:779`) and the strongest; for a hash the strongest layer with an opinion
+  decides (`util_hash_set_layer.h:292-305`, `mergeFrom`). The Remix developer menu edits texture lists in the
+  `rtx.conf` layer; Save Settings in the user menu writes the whole user layer, automatic categories included.
+- **Leftovers in config files (read-only counts)**: the field `rtx.conf` has opinions on 752 texture hashes (540 decal
+  entries, 45 of them negative; 99 player-model negatives), its `user.conf` on 434 (371 decal entries, 45 negative);
+  each lists 4 animated-water hashes as decals. The package's `classic_remix_defaults.conf` has 6,770 hashes, 33 water
+  hashes as decals. The water rule's removals (`auto_categorisation.cpp`, "Water must never remain in the decal list")
+  correct these at run time, which is why ADR 0213 does not block removals.
+- **The category manager before ADR 0213** (`cl_remix_category_0_manager.lua`): `rtx_auto_categorize_world` was created
+  and shown but never read; `SmartMarkWorldTextures` ran in one frame with list searches for every displacement and
+  prop material and a GAME-path VMT read in `ShouldExcludeFromWorldGeometry` for every brush; it added blended
+  displacements as `maps/<map>/..._wvt_patch` and two variants, names the tracker does not use; every request added a
+  queue entry, and the queue (every BSP material until drawn) was checked whole each frame.
+- **The rebuilt module**: 5,597,696 bytes (from 5,518,848), SHA-256
+  `45f489903d4a1bb4f6fe1f9a55f1d1cf6db3968385122f4a3981ccc6c778d7c7`, `build_modules.ps1 -Only fixes` with the pinned
+  garrysmod_common `a854f23` and premake 5.0.0-beta2; patched native tree `source` `7464a58db926d77ab1f203f380ead90cc78692ae`.

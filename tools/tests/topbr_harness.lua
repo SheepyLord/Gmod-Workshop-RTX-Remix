@@ -59,6 +59,10 @@ commands.rtx_topbr_stats() -- Removed APIs must never be called.
 RunConsoleCommand("rtx_topbr_debug","1") assert(calls.debug==true)
 RunConsoleCommand("rtx_topbr_autodiscover","0") assert(calls.discover==false)
 RunConsoleCommand("rtx_topbr_enabled","1") assert(enabled)
+-- Issue 6 (ADR 0212): turning ToPBR on queues the materials already drawn; no map reload is needed.
+assert(calls.queue, "enabling queues the tracked materials") calls.queue=nil
+RunConsoleCommand("rtx_topbr_enabled","0") assert(not enabled and not calls.queue)
+RunConsoleCommand("rtx_topbr_enabled","1") assert(enabled and calls.queue)
 RunConsoleCommand("rtx_topbr_game_maps","0") assert(not gameEnabled and enabled)
 RunConsoleCommand("rtx_topbr_game_maps","1") assert(gameEnabled)
 local id=string.rep("a",64)

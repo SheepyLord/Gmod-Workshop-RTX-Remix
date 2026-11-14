@@ -918,132 +918,124 @@ msgstr "您已启用 r_3dsky。由于引擎剔除天空盒的方式，这可能�
 msgid "Don't show this warning again"
 msgstr "不再显示此警告"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:357
-msgid "ToPBR"
-msgstr "ToPBR"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:360
-msgid "Enable ToPBR"
-msgstr "启用 ToPBR"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:361
-msgid "Converts source material maps (normal, bump, ssbump, etc) to a pseudo-pbr format for RTX Remix."
-msgstr "将 Source 材质的法线、凹凸、ssbump 等贴图转换为供 RTX Remix 使用的近似 PBR 格式。"
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:359
+msgid "Map and prop PBR (ToPBR)"
+msgstr "地图和道具 PBR（ToPBR）"
 
 #: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:362
+msgid "Enable ToPBR for maps and props"
+msgstr "为地图和道具启用 ToPBR"
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:363
+msgid "Builds PBR materials for map, prop and weapon materials from what their Source materials already have: bump and normal maps, Phong and envmap masks, and community PBR shaders."
+msgstr "根据 Source 材质已有的内容，为地图、道具和武器材质生成 PBR 材质：凹凸和法线贴图、Phong 与环境贴图遮罩，以及社区 PBR 着色器。"
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:364
+msgid "Off by default. A real PBR mod for a texture always wins over it. Imported characters use Imported game PBR instead."
+msgstr "默认关闭。只要某纹理有真正的 PBR 模组，就总是优先使用该模组。导入的角色改用“导入的游戏 PBR”。"
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:365
 msgid "Conversion is experimental and cannot reproduce every material exactly."
 msgstr "此功能仍在开发中，转换结果无法完全准确。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:363
-msgid "This will use a significant amount of VRAM, disk space, and may cause stability issues."
-msgstr "会占用大量显存和磁盘空间，也可能导致稳定性问题。"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:365
-msgid "Requires a map reload to enable."
-msgstr "需要重新加载地图才能启用。"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:368
-msgid "Experimental Metallic Detection"
-msgstr "金属度检测（实验性）"
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:366
+msgid "It writes textures into rtx-remix/mods/~gmod_topbr, which takes disk space and video memory. Materials appear a few seconds after they are first drawn."
+msgstr "它会把纹理写入 rtx-remix/mods/~gmod_topbr，占用磁盘空间和显存。材质会在首次绘制后几秒内出现。"
 
 #: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:369
-msgid "Generate metallic maps from base texture brightness."
-msgstr "根据基础贴图的亮度生成金属度贴图。"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:370
-msgid "WARNING: May cause dark materials to appear completely black!"
-msgstr "警告：可能让深色材质变成全黑！"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:373
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:441
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:433
 msgid "Debug Output"
 msgstr "调试输出"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:374
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:370
 msgid "Shows debug messages in console for troubleshooting."
 msgstr "在控制台显示调试信息，便于排查问题。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:377
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:373
 msgid "Clear Cache"
 msgstr "清空缓存"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:381
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:377
 msgid "Clear the conversion cache (useful after changing settings)."
 msgstr "清空转换缓存，修改设置后可使用此操作。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:411
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:401
 msgid "Auto-Categorization"
 msgstr "自动分类"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:415
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:405
 msgid "Enable Auto-Categorization"
 msgstr "启用自动分类"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:416
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:406
 msgid "Automatically categorizes textures for RTX Remix."
 msgstr "为 RTX Remix 自动对纹理进行分类。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:419
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:408
+msgid "A texture you take out of a category in the Remix developer menu and save to rtx.conf is never put back in it."
+msgstr "你在 Remix 开发者菜单中从某个分类移除并保存到 rtx.conf 的纹理，不会再被自动放回该分类。"
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:411
 msgid "Delay (seconds)"
 msgstr "延迟（秒）"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:420
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:412
 msgid "How long to wait after map load before scanning (allows BSP data to load)."
 msgstr "地图加载后开始扫描前的等待时间，用于让 BSP 数据加载完成。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:423
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:415
 msgid "World Geometry"
 msgstr "世界几何体"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:424
-msgid "Categorizes walls, floors, and ceilings from BSP as Decals for proper blending."
-msgstr "将 BSP 中的墙面、地板和天花板归为贴花，以正确混合显示。"
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:416
+msgid "Categorizes the map's walls, floors, ceilings, displacements and static props as Decals for proper blending."
+msgstr "将地图中的墙面、地板、天花板、置换面和静态道具归为贴花，以正确混合显示。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:427
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:419
 msgid "Particles"
 msgstr "粒子"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:428
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:420
 msgid "Categorizes particle effects (smoke, fire, sparks, etc) as Particles."
 msgstr "将烟雾、火焰、火花等粒子特效归为粒子。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:431
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:423
 msgid "Overlay Decals"
 msgstr "叠加贴花"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:432
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:424
 msgid "Categorizes materials with $decal parameter (posters, graffiti, bullet holes, etc) as Decals."
 msgstr "将带有 $decal 参数的材质（海报、涂鸦、弹孔等）归为贴花。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:435
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:427
 msgid "Legacy Emissive"
 msgstr "原版自发光"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:436
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:428
 msgid "Categorizes materials with $selfillum parameter as Legacy Emissive."
 msgstr "将带有 $selfillum 参数的材质归为原版自发光材质。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:437
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:429
 msgid "Materials that use $selfillum incorrectly may be misclassified."
 msgstr "部分材质未正确使用 $selfillum 参数，因此可能被错误分类。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:439
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:431
 msgid "Debug Options"
 msgstr "调试选项"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:442
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:434
 msgid "Shows debug messages in console for categorization activity (useful for troubleshooting)."
 msgstr "在控制台显示分类过程的调试信息，便于排查问题。"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:444
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:436
 msgid "Manual Controls"
 msgstr "手动控制"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:446
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:438
 msgid "Scan Now"
 msgstr "立即扫描"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:450
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:442
 msgid "Manually parse BSP and categorize world textures, decals, and emissive materials."
 msgstr "手动解析 BSP，对世界纹理、贴花和自发光材质进行分类。"
 
@@ -1099,15 +1091,15 @@ msgstr " - 构建似乎已卡住！（%d 秒内无进展）"
 msgid "Remix Render Debug"
 msgstr "Remix 渲染调试"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:911
 msgid "EMISSIVE"
 msgstr "自发光"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:897
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:916
 msgid "PARTICLE | EMISSIVE"
 msgstr "粒子 | 自发光"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:901
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:920
 msgid "DECAL | EMISSIVE"
 msgstr "贴花 | 自发光"
 

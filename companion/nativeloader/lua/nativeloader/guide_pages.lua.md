@@ -61,3 +61,6 @@ Each picture's badges are drawn by [`tools/guide_annotate.py`](../../../../tools
 from the spec in `tools/guide_pictures.json`; the number of badges there equals the number of legend
 entries here, which [`tools/tests/test_companion_guide.py`](../../../../tools/tests/test_companion_guide.py.md)
 checks.
+
+GitHub issue 6 ([ADR 0212](../../../../docs/decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md)): the
+Rendering list names the fixes' renamed page, Map and prop PBR (ToPBR), and no longer says it needs a map reload.

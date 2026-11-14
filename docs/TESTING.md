@@ -3308,3 +3308,24 @@ Offline, in the gate ([ADR 0208](decisions/0208-the-rtx-flashlights-automatic-br
   break failed its scenario.
 
 Not yet checked in a game (the user's call): see [the report](handover/lights-report.md) for the list.
+## GitHub issue 6: ToPBR's publication and automatic categorization (2026-11-14, Claude, branch `qol-topbr`)
+
+The RTX fixes' eleventh and twelfth native patches and three of their Lua files
+([ADR 0212](decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md),
+[ADR 0213](decisions/0213-automatic-categorization-hardened.md), [report](handover/issue6-topbr-report.md)):
+
+- **Release gate:** [`test_topbr_publish.py`](../tools/tests/test_topbr_publish.py.md) checks the `topbr-publish`
+  folder against its patch, that the shipped selector no longer looks at whether the scan read everything, and compiles
+  and runs `fallback_guard_test.cpp` (`/W4 /WX`) on a scratch mods folder: Remix Toolkit crates, a NUL byte, an
+  oversized file, the read limit, the entry bound, the per-file cache and removed mods; it runs
+  [`rtx_settings_harness.lua`](../tools/tests/rtx_settings_harness.lua.md) on the packaged pages.
+  [`test_player_categories.py`](../tools/tests/test_player_categories.py.md) checks the `player-categories` folder
+  against its patch, that every automatic add path asks the player's `rtx.conf` first, compiles and runs
+  `player_categories_test.cpp`, and runs [`category_manager_harness.lua`](../tools/tests/category_manager_harness.lua.md)
+  (the scan job in steps, switches, tracker names, one VMT read, an unreadable material, idempotence, the bounded merged
+  queue, manual versus automatic writes, the master switch and map changes). `topbr_harness.lua` checks that enabling
+  ToPBR queues the drawn materials. `test_ci_tools.py`'s replay (with `NL_FIXES_CLONE`) checks the twelve patches give
+  the recorded tree.
+- **Offline evidence:** two scratch scripts (in the worktree's `out\issue6`, not kept) emulated the old scan over an install's
+  `rtx-remix\mods` without writing anything; on the field install it reports 26 unread files.
+- **In game:** not run; the checks the user may run are listed in the report.

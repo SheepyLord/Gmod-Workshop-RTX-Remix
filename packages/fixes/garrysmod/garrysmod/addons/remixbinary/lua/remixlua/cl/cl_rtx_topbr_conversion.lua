@@ -570,14 +570,15 @@ concommand.Add("rtx_topbr_help", function()
     MsgC(Color(100, 200, 255), string.rep("=", 70) .. "\n")
     MsgC(Color(255, 255, 255), [[
 This module converts Source Engine materials to PBR materials in RTX Remix.
+It is off by default: rtx_topbr_enabled 1 (Map and prop PBR in the RTX Remix
+menu) turns it on. It writes rtx-remix/mods/~gmod_topbr, which Remix ranks
+after every other mod, so a real PBR mod for a texture always wins over it.
+Characters imported with the Model Hotloader use Imported game PBR
+(rtx_topbr_game_maps) instead.
 
-NOTE: Material discovery and continuous processing is now handled by
-RTXMaterialPipeline (cl_material_pipeline.lua). ToPBR only processes
-individual materials when called by the pipeline.
-
-Use these pipeline convars for continuous processing:
-  rtx_mat_continuous          - Enable continuous discovery (default: 1)
-  rtx_mat_continuous_interval - Discovery interval in seconds (default: 5)
+Materials are found by RTXMaterialPipeline (cl_material_pipeline.lua) as
+they are drawn; turning ToPBR on also queues the materials already drawn.
+The console line "Published N fallback materials" says how many show.
 
 ToPBR Configuration Commands:
   rtx_topbr_inspect [material] - Inspect material's PBR properties
@@ -619,6 +620,10 @@ cvars.AddChangeCallback("rtx_topbr_enabled", function(_, _, new)
     local processor = GetProcessor()
     if processor and processor.SetEnabled then
         processor.SetEnabled(tobool(new))
+        -- Issue 6 (ADR 0212): the materials already drawn convert now; no map reload needed.
+        if tobool(new) and processor.QueueMaterialsForProcessing then
+            processor.QueueMaterialsForProcessing()
+        end
     end
 end, "RTXToPBREnabled")
 
@@ -718,6 +723,7 @@ local i18n = file.Exists("nativeloader/i18n.lua", "LUA") and include("nativeload
 -- New panel phrases live in the GPL part; use the bundle catalog first.
 local panelPhrases = {
     ["zh-CN"] = {
+        ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "用于通过 Model Hotloader 导入的角色：使用其游戏随模型附带的 PBR 贴图。地图和道具请见“地图和道具 PBR（ToPBR）”。",
         ["Character"] = "角色",
         ["Selected maps use another game layout."] = "所选贴图使用另一种游戏格式。",
         ["Imported game PBR"] = "导入的游戏 PBR",
@@ -743,6 +749,7 @@ local panelPhrases = {
         ["error"] = "错误",
     },
     ["zh-TW"] = {
+        ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "用於透過 Model Hotloader 匯入的角色：使用其遊戲隨模型附帶的 PBR 貼圖。地圖和道具請見「地圖和道具 PBR（ToPBR）」。",
         ["Character"] = "角色",
         ["Selected maps use another game layout."] = "所選貼圖使用另一種遊戲格式。",
         ["Imported game PBR"] = "匯入的遊戲 PBR",
@@ -768,6 +775,7 @@ local panelPhrases = {
         ["error"] = "錯誤",
     },
     ["ja"] = {
+        ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Model Hotloader で取り込んだキャラクター用：そのゲームがモデルと一緒に収録している PBR マップを使います。マップとプロップは「マップとプロップの PBR (ToPBR)」を参照してください。",
         ["Character"] = "キャラクター",
         ["Selected maps use another game layout."] = "選択したマップは別のゲーム形式です。",
         ["Imported game PBR"] = "インポートしたゲームの PBR",
@@ -793,6 +801,7 @@ local panelPhrases = {
         ["error"] = "エラー",
     },
     ["ko"] = {
+        ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Model Hotloader로 가져온 캐릭터용: 게임이 모델 옆에 함께 제공한 PBR 맵을 사용합니다. 맵과 프롭은 '맵과 프롭 PBR (ToPBR)'을 참고하세요.",
         ["Character"] = "캐릭터",
         ["Selected maps use another game layout."] = "선택한 맵은 다른 게임 형식입니다.",
         ["Imported game PBR"] = "가져온 게임 PBR",
@@ -818,6 +827,7 @@ local panelPhrases = {
         ["error"] = "오류",
     },
     ["fr"] = {
+        ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Pour les personnages importés avec Model Hotloader : utilise les textures PBR que leur jeu fournit à côté du modèle. Pour les cartes et objets, voir PBR des cartes et objets (ToPBR).",
         ["Character"] = "Personnage",
         ["Selected maps use another game layout."] = "Ces cartes utilisent un autre format de jeu.",
         ["Imported game PBR"] = "PBR des jeux importés",
@@ -843,6 +853,7 @@ local panelPhrases = {
         ["error"] = "erreur",
     },
     ["ru"] = {
+        ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Для персонажей, импортированных через Model Hotloader: использует PBR-текстуры, которые их игра поставляет рядом с моделью. Для карт и объектов см. «PBR карт и объектов (ToPBR)».",
         ["Character"] = "Персонаж",
         ["Selected maps use another game layout."] = "Выбранные карты используют другой формат игры.",
         ["Imported game PBR"] = "PBR импортированных игр",
@@ -944,6 +955,8 @@ end
 function P.Build(panel)
     panel:Clear()
     panel:CheckBox(L("Imported game PBR"), "rtx_topbr_game_maps")
+    -- Issue 6 (ADR 0212): which of the two PBR pages is which.
+    panel:Help(L("For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."))
     panel:Help(L("Look at a character, then list its materials. Choices apply to every character sharing the same texture."))
     panel:Help(L("Authored Remix replacements take priority. Face and eye protection stays active."))
     local characters = panel:ComboBox(L("Character"))

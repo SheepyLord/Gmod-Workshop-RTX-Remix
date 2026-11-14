@@ -130,7 +130,7 @@ local PAGES = {
             N("Imported game PBR: the texture maps that imported characters bring from their games, described in Characters."),
             N("Player models: your own body's shadow and reflection, and the height it is drawn at."),
             N("Performance: draws the map faster. Mesh replacements stop working while Performance Mode is on."),
-            N("ToPBR: makes PBR maps from the game's own materials. It uses a lot of VRAM and needs a map reload."),
+            N("Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."),
             N("Auto-Categorization: sorts textures into Remix's categories automatically."),
             N("Toolgun screen: keeps the toolgun's screen text sharp.") },
         { "p", N("Dynamic toolgun screen, beside Toolgun screen in Rendering, customizes the live display, its layouts and language. The same panel selects its entity-tracking tool.") },

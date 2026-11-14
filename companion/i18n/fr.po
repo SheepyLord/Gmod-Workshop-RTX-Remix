@@ -1963,8 +1963,8 @@ msgid "Performance: draws the map faster. Mesh replacements stop working while P
 msgstr "Performances : accélère le rendu de la carte. Les remplacements de maillage cessent de fonctionner lorsque « Mode performances » est activé."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:133
-msgid "ToPBR: makes PBR maps from the game's own materials. It uses a lot of VRAM and needs a map reload."
-msgstr "ToPBR : crée des cartes PBR à partir des matériaux du jeu. Il utilise beaucoup de VRAM et nécessite de recharger la carte."
+msgid "Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."
+msgstr "PBR des cartes et objets (ToPBR) : crée des matériaux PBR pour les cartes et les objets à partir de ce que leurs matériaux Source contiennent déjà. Désactivé par défaut ; utilise de l'espace disque et de la VRAM."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:134
 msgid "Auto-Categorization: sorts textures into Remix's categories automatically."

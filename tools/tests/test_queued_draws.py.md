@@ -13,7 +13,8 @@ cd tools; python -m unittest discover -s tests -p test_queued_draws.py -v
   `source/prop_fixes.cpp`, `source/studio_draw_policy.h` and `tests/studio_draw_policy_test.cpp`. The folder's
   `HardwareSkinningHooks.cpp` is the patch applied to backrooms' copy (no patch between changes it); its
   `prop_fixes.cpp` (no earlier copy here: the public base's) has the patch's new side at every hunk; the two new files
-  are the patch's added lines. `tools/ci/pins.json` builds the module with the patch, last.
+  are the patch's added lines. `tools/ci/pins.json` builds the module with the patch, tenth, right after game emission (issue 6's two
+  patches follow it).
 - `test_the_lighting_hook_never_reads_the_renderable`: in the shipped `prop_fixes.cpp` the renderable lookup
   (`GetBoneCountForRenderable`, the `vtbl[9]` `GetModel` call, its pointer checks) is gone; the
   `R_StudioSetupSkinAndLighting` hook passes the renderable only to its two trampoline calls, a debug print and

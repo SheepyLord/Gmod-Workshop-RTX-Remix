@@ -74,6 +74,13 @@ dance animation player's light with uniform lighting, aim, colour temperature, a
 [lights-report.md](lights-report.md), by Claude on the branch `qol-lights`, package only, not merged
 ([ADR 0208](../decisions/0208-the-rtx-flashlights-automatic-brightness.md),
 [ADR 0209](../decisions/0209-the-dance-lights-uniform-lighting-and-options.md)).
+Then GitHub issue 6 of 2026-11-13 ("Gmod ToPBR stopped loading?": textures written, no material shown): ToPBR's scan
+of the other mods published nothing when it could not read a file (a binary Remix Toolkit mesh was enough); ToPBR stays,
+publishes past such mods and its page says what it does beside Imported game PBR; the automatic categorization is
+bounded, obeys its switches and keeps the player's `rtx.conf` choices: [issue6-topbr-report.md](issue6-topbr-report.md),
+by Claude, package only, on the branch `qol-topbr` awaiting the user
+([ADR 0212](../decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md),
+[ADR 0213](../decisions/0213-automatic-categorization-hardened.md)).
 
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),

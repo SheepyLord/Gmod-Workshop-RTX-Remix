@@ -29,7 +29,9 @@
       "packages/fixes/licenses/oversized-skinning/wuwa-maps/wuwa-maps.patch",
       "packages/fixes/licenses/oversized-skinning/endfield-maps/endfield-maps.patch",
       "packages/fixes/licenses/oversized-skinning/game-emission/game-emission.patch",
-      "packages/fixes/licenses/oversized-skinning/queued-draws/queued-draws.patch"
+      "packages/fixes/licenses/oversized-skinning/queued-draws/queued-draws.patch",
+      "packages/fixes/licenses/oversized-skinning/topbr-publish/topbr-publish.patch",
+      "packages/fixes/licenses/oversized-skinning/player-categories/player-categories.patch"
     ],
     "patch_paths": [
       "source/*",
@@ -37,7 +39,7 @@
       "public/*"
     ],
     "patched_tree": {
-      "source": "4843764b963ccc93e50dfc9257aa5bc655057c62",
+      "source": "7464a58db926d77ab1f203f380ead90cc78692ae",
       "public": "7165af4dc4ab4d841a19b7405211b27190bddea6",
       "premake5.lua": "b308ed2f6b0b31aa7b69f0ee576c0bcf5f666cd1"
     },

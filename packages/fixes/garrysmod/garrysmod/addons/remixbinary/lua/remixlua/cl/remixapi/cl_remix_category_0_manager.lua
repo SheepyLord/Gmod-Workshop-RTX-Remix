@@ -108,7 +108,17 @@ local processedTextures = {}
 local pendingCategorizations = {}
 
 -- Map token to guard against stale timers firing after map change
+local mapLoads = 0
 local currentMapToken = game.GetMap() or ""
+
+-- ADR 0213: the map scan runs as a job, in steps of at most SCAN_STEP_SECONDS a frame (a large map has
+-- thousands of materials, each a VMT read). Step() hands the frame back when the step's time is up; outside
+-- the job (a console command, a test) it does nothing.
+local SCAN_STEP_SECONDS = 0.002
+local scanStepDeadline = nil
+local function Step()
+    if scanStepDeadline and SysTime() > scanStepDeadline then coroutine.yield() end
+end
 
 -- $no_fullbright is stored in Source's material flags as bit 1
 -- (MATERIAL_VAR_NO_DEBUG_OVERRIDE). Prefer the raw VMT so an explicit opt-out
@@ -119,10 +129,22 @@ local VERTEXALPHA_FLAG = 0x20
 local ADDITIVE_FLAG = 0x80
 local TRANSLUCENT_FLAG = 0x200000
 
+-- ADR 0213: during a map scan each VMT is read once. A GAME-path read walks every mounted add-on (1-3.5 ms
+-- with many), and the emissive, decal and world checks each read the same file.
+local vmtScanCache = nil
+
 local function ReadRawVMT(materialName)
     local vmtPath = "materials/" .. materialName
     if not string.EndsWith(vmtPath, ".vmt") then
         vmtPath = vmtPath .. ".vmt"
+    end
+    if vmtScanCache then
+        local cached = vmtScanCache[vmtPath]
+        if cached == nil then
+            cached = file.Read(vmtPath, "GAME") or false
+            vmtScanCache[vmtPath] = cached
+        end
+        return cached or nil, vmtPath
     end
     return file.Read(vmtPath, "GAME"), vmtPath
 end
@@ -466,19 +488,14 @@ function RemixCategoryManager.ShouldExcludeFromWorldGeometry(materialName)
     end
     
     -- Raw VMT file parse for reliability
-    local vmtPath = "materials/" .. materialName
-    if not string.EndsWith(vmtPath, ".vmt") then
-        vmtPath = vmtPath .. ".vmt"
-    end
-    
-    local content = file.Read(vmtPath, "GAME")
+    local content = ReadRawVMT(materialName)
     if content then
         local lines = string.Explode("\n", content)
-        
+
         for _, line in ipairs(lines) do
             local lowerLine = line:lower()
             local trimmedLine = string.Trim(lowerLine)
-            
+
             -- Skip commented lines
             if not string.StartsWith(trimmedLine, "//") then
                 -- Check for $translucent 1
@@ -565,12 +582,7 @@ function RemixCategoryManager.IsMaterialDecal(materialName)
     if keyValues and next(keyValues) ~= nil then
         return false
     end
-    local vmtPath = "materials/" .. materialName
-    if not string.EndsWith(vmtPath, ".vmt") then
-        vmtPath = vmtPath .. ".vmt"
-    end
-
-    local content = file.Read(vmtPath, "GAME")
+    local content = ReadRawVMT(materialName)
     if content then
         local lines = string.Explode("\n", content)
         
@@ -787,13 +799,15 @@ function RemixCategoryManager.CategorizeAllTrackedMaterials()
     local enableEmissive = GetConVar("rtx_auto_categorize_emissive"):GetBool()
     
     for _, matName in ipairs(materials) do
+        Step()
         local lowerName = matName:lower()
-        
+
         if not processedTextures[lowerName] then
             processedTextures[lowerName] = true
             local category = nil
-            
-            
+
+            -- One material that cannot be read must not stop the scan (ADR 0213).
+            local ok = pcall(function()
             -- Unlit materials must retain emissive priority even when their path
             -- or VMT also resembles a decal.
             if enableEmissive and RemixCategoryManager.IsMaterialEmissive(matName) then
@@ -804,13 +818,18 @@ function RemixCategoryManager.CategorizeAllTrackedMaterials()
             elseif enableDecals and RemixCategoryManager.IsMaterialDecal(matName) then
                 category = RemixCategoryManager.CATEGORY.DECAL_STATIC
                 stats.decals = stats.decals + 1
-                
+
                 -- Debug first few
                 if stats.decals <= 3 then
                     MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Found overlay decal: %s\n", matName))
                 end
             end
-            
+            end)
+            if not ok then
+                category = nil
+                stats.failed = (stats.failed or 0) + 1
+            end
+
             if category then
                 local forceAlbedoCallback =
                     RemixCategoryManager.MakeForceAlbedoCallback(matName, category)
@@ -830,7 +849,7 @@ function RemixCategoryManager.CategorizeAllTrackedMaterials()
                     
                     if not alreadyCategorized then
                         if RemixCategoryManager.SetMaterialCategory(
-                            matName, category, forceAlbedoCallback) then
+                            matName, category, forceAlbedoCallback, true) then
                             stats.newly_categorized = stats.newly_categorized + 1
                         end
                     elseif forceAlbedoCallback then
@@ -841,7 +860,7 @@ function RemixCategoryManager.CategorizeAllTrackedMaterials()
                 else
                     -- No hashes yet, categorize anyway (will retry later)
                     if RemixCategoryManager.SetMaterialCategory(
-                        matName, category, forceAlbedoCallback) then
+                        matName, category, forceAlbedoCallback, true) then
                         stats.newly_categorized = stats.newly_categorized + 1
                     end
                 end
@@ -979,7 +998,7 @@ function RemixCategoryManager.AutoCategorizeMaterial(materialName)
         
         -- Apply category (with pcall protection)
         local setSuccess, setResult = pcall(function()
-            return RemixCategoryManager.SetMaterialCategory(materialName, category, forceAlbedoCallback)
+            return RemixCategoryManager.SetMaterialCategory(materialName, category, forceAlbedoCallback, true)
         end)
         
         if setSuccess and setResult then
@@ -1133,10 +1152,12 @@ end
     Set category flags for a texture hash
     @param textureHash string|number - The texture hash (can be hex string like "0x..." or number)
     @param categoryFlags number - The category flags to set (use CATEGORY constants)
+    @param automatic boolean - true for automatic categorisation: the native side then leaves out every list the
+        player's rtx.conf takes this hash out of (ADR 0213). Manual commands pass nothing.
     @return boolean - Success
 ]]--
-function RemixCategoryManager.SetHashCategory(textureHash, categoryFlags)
-    return RemixMaterial.SetHashCategory(textureHash, categoryFlags)
+function RemixCategoryManager.SetHashCategory(textureHash, categoryFlags, automatic)
+    return RemixMaterial.SetHashCategory(textureHash, categoryFlags, automatic == true)
 end
 
 --[[
@@ -1196,27 +1217,79 @@ function RemixCategoryManager.GetMaterialHash(materialName)
     return nil, nil
 end
 
+-- ADR 0213: one pending entry per material. A repeated request (another scan, Scan Now, a map's second pass)
+-- merges its bits into the entry instead of adding a second one that the per-frame drain would check again.
+-- A manual request makes the entry manual (not limited by the player's rtx.conf); callbacks are chained.
+local pendingByMaterial = {}
+local MAX_PENDING = 16384
+
+local function QueuePending(entry)
+    local key = string.lower(entry.materialName)
+    local existing = pendingByMaterial[key]
+    if existing and existing.alive then
+        existing.categoryFlags = bit.bor(existing.categoryFlags, entry.categoryFlags)
+        existing.automatic = existing.automatic and entry.automatic
+        if entry.firstApplied then existing.firstApplied = entry.firstApplied end
+        if entry.callback then
+            if existing.callback then
+                local first, second = existing.callback, entry.callback
+                existing.callback = function(success, hashStr) first(success, hashStr) second(success, hashStr) end
+            else
+                existing.callback = entry.callback
+            end
+            -- The new callback has not seen any hash yet.
+            existing.callbackFiredForHashes = {}
+        end
+        existing.categoryAttemptedForHashes = {}
+        return existing
+    end
+    if #pendingCategorizations >= MAX_PENDING then return nil end
+    entry.alive = true
+    pendingByMaterial[key] = entry
+    table.insert(pendingCategorizations, entry)
+    return entry
+end
+
+-- ADR 0213: switching automatic categorization (or World Geometry) off takes its queued work away; manual
+-- entries stay.
+local pendingCursor = 1
+local function DropAutomaticQueue()
+    local kept = {}
+    for _, pending in ipairs(pendingCategorizations) do
+        if pending.automatic then
+            pending.alive = false
+            pendingByMaterial[string.lower(pending.materialName)] = nil
+        else
+            table.insert(kept, pending)
+        end
+    end
+    pendingCategorizations, pendingCursor = kept, 1
+end
+
 --[[
     Set category for a material by name
     @param materialName string - The Source Engine material name
     @param categoryFlags number - The category flags to set
     @param callback function - Optional callback(success, hash) when done
+    @param automatic boolean - true for automatic categorisation (ADR 0213: never into a list the player's rtx.conf
+        takes the hash out of); manual commands pass nothing
     @return boolean - Success (immediate if cached, false if needs tracking)
 ]]--
-function RemixCategoryManager.SetMaterialCategory(materialName, categoryFlags, callback)
+function RemixCategoryManager.SetMaterialCategory(materialName, categoryFlags, callback, automatic)
+    automatic = automatic == true
     -- Try both the base material name and the _stage1 variant (for displacement materials)
     local materialsToTry = {materialName}
     if not string.match(materialName, "_stage1$") then
         table.insert(materialsToTry, materialName .. "_stage1")
     end
-    
+
     local foundAny = false
     local categorizedHashes = {}
-    
+
     for _, tryName in ipairs(materialsToTry) do
         -- Get ALL hashes for this material (there can be multiple texture variants)
         local allHashes = RemixMaterial.GetAllTextureHashes and RemixMaterial.GetAllTextureHashes(tryName)
-        
+
         if allHashes and #allHashes > 0 then
             for _, hashStr in ipairs(allHashes) do
                 -- Skip if we've already handled this hash in this call
@@ -1229,9 +1302,11 @@ function RemixCategoryManager.SetMaterialCategory(materialName, categoryFlags, c
                                      RemixMaterial.GetHashCategory(hashStr) or 0
                     local mergedFlags = bit.bor(existing, categoryFlags)
                     if mergedFlags ~= existing then
-                        MsgC(Color(0, 255, 150), string.format("[RemixCategoryManager] Setting category 0x%X for material '%s' (hash %s)\n", 
-                            mergedFlags, tryName, hashStr))
-                        local success = RemixCategoryManager.SetHashCategory(hashStr, mergedFlags)
+                        if not automatic or cvar_debug_categorization:GetBool() then
+                            MsgC(Color(0, 255, 150), string.format("[RemixCategoryManager] Setting category 0x%X for material '%s' (hash %s)\n",
+                                mergedFlags, tryName, hashStr))
+                        end
+                        local success = RemixCategoryManager.SetHashCategory(hashStr, mergedFlags, automatic)
                         if callback then callback(success, hashStr) end
                     else
                         -- The requested bits already exist, but side-effects such
@@ -1243,32 +1318,34 @@ function RemixCategoryManager.SetMaterialCategory(materialName, categoryFlags, c
             end
         end
     end
-    
+
     if foundAny then
         -- Hashes were available immediately. Still push a watch entry into the pending
         -- queue so any additional variants that appear within the next few seconds
         -- (e.g. a second _stage1 displacement instance) also get categorized.
-        table.insert(pendingCategorizations, {
+        QueuePending({
             materialName   = materialName,
             categoryFlags  = categoryFlags,
             materialsToTry = materialsToTry,
             callback       = callback,
+            automatic      = automatic,
             firstApplied   = CurTime(),
         })
         return true
     end
-    
+
     -- Hash not available yet - add to persistent retry queue so it gets applied the
     -- first frame the material is rendered (no matter how late that happens).
     -- processedTextures is NOT set here; it will be set when the queue entry succeeds.
     RemixMaterial.TrackMaterial(materialName)
-    table.insert(pendingCategorizations, {
+    QueuePending({
         materialName = materialName,
         categoryFlags = categoryFlags,
         materialsToTry = materialsToTry,
         callback = callback,
+        automatic = automatic,
     })
-    
+
     return false -- Not immediate
 end
 
@@ -1493,306 +1570,193 @@ end
 --[[
     Apply categories to world textures based on their properties
     Uses heuristics to determine appropriate categories (e.g., glass vs solid walls)
+
+    ADR 0213: map loads and Scan Now run this as a job (RemixCategoryManager.StartWorldScan), a few milliseconds
+    a frame. It obeys the World Geometry, Overlay Decals and Legacy Emissive switches, reads each VMT once, goes on
+    past a material it cannot read, and stops when the map changes or automatic categorisation is switched off.
+    Called directly (outside the job) it runs to the end at once.
     @return table - Statistics about processed textures
 ]]--
+
+-- The name the texture tracker records for a BSP material: no materials/ prefix or .vmt, forward slashes, and
+-- for a blended displacement's runtime patch material no maps/<map>/ prefix or _wvt_patch suffix (as
+-- MarkWorldTextures and rtx_look_hash normalise it).
+local function TrackerMaterialName(name)
+    name = string.gsub(name, "\\", "/")
+    name = string.gsub(name, "^materials/", "")
+    name = string.gsub(name, "%.vmt$", "")
+    name = string.gsub(name, "^maps/[^/]+/", "")
+    name = string.gsub(name, "_wvt_patch$", "")
+    return name
+end
+RemixCategoryManager.TrackerMaterialName = TrackerMaterialName
+
 function RemixCategoryManager.SmartMarkWorldTextures()
     if not NikNaks or not NikNaks.CurrentMap then
         MsgC(Color(255, 100, 100), "[RemixCategoryManager] Error: NikNaks library not available!\n")
         return { error = "NikNaks not available" }
     end
-    
+
     local bsp = NikNaks.CurrentMap
     if not bsp then
         MsgC(Color(255, 100, 100), "[RemixCategoryManager] Error: Could not load current map BSP!\n")
         return { error = "BSP not loaded" }
     end
-    
-    MsgC(Color(100, 200, 255), "[RemixCategoryManager] Smart-marking world textures...\n")
-    MsgC(Color(200, 200, 200), "[RemixCategoryManager] BSP object: " .. tostring(bsp) .. "\n")
-    MsgC(Color(200, 200, 200), "[RemixCategoryManager] Map name: " .. game.GetMap() .. "\n")
-    
+
     -- Check if GetTextures exists
     if not bsp.GetTextures then
         MsgC(Color(255, 100, 100), "[RemixCategoryManager] Error: BSP has no GetTextures method!\n")
         return { error = "GetTextures not available" }
     end
-    
+
+    local markWorld = GetConVar("rtx_auto_categorize_world"):GetBool()
+    local markDecals = cvar_auto_categorize_decals:GetBool()
+    local markEmissive = cvar_auto_categorize_emissive:GetBool()
+
+    MsgC(Color(100, 200, 255), string.format("[RemixCategoryManager] Smart-marking world textures of %s (world %s, decals %s, emissive %s)...\n",
+        game.GetMap(), markWorld and "on" or "off", markDecals and "on" or "off", markEmissive and "on" or "off"))
+
     local ok, textures = pcall(function() return bsp:GetTextures() end)
     if not ok then
         MsgC(Color(255, 100, 100), "[RemixCategoryManager] Error calling GetTextures: " .. tostring(textures) .. "\n")
         return { error = "GetTextures failed: " .. tostring(textures) }
     end
-    
-    MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Got %d textures from GetTextures()\n", textures and #textures or 0))
-    
+
+    -- Each material once, in the order found: a set beside the list (the old list searches were quadratic).
+    local list, listed = {}, {}
+    local function add(name)
+        if isstring(name) and name ~= "" and not listed[name] then
+            listed[name] = true
+            list[#list + 1] = name
+            return true
+        end
+        return false
+    end
+    for _, texName in ipairs(textures or {}) do add(texName) end
+
     -- If GetTextures returns nothing, try getting from faces instead
-    if not textures or #textures == 0 then
+    if #list == 0 and bsp.GetFaces then
         MsgC(Color(255, 200, 100), "[RemixCategoryManager] GetTextures() returned empty, trying GetFaces() instead...\n")
-        
-        local faces = bsp:GetFaces()
-        if faces then
-            MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Got %d faces from BSP\n", #faces))
-            
-            -- Extract unique texture names from faces
-            local textureSet = {}
-            for _, face in pairs(faces) do
-                if face then
-                    -- Try GetMaterial first (returns IMaterial)
-                    if face.GetMaterial then
-                        local ok2, material = pcall(function() return face:GetMaterial() end)
-                        if ok2 and material and material.GetName then
-                            local matName = material:GetName()
-                            if matName and matName ~= "" then
-                                textureSet[matName] = true
-                            end
-                        end
-                    end
-                    -- Also try GetTexture (might return texture object or string)
-                    if face.GetTexture then
-                        local ok3, texture = pcall(function() return face:GetTexture() end)
-                        if ok3 and texture then
-                            -- Could be string or object
-                            if type(texture) == "string" then
-                                textureSet[texture] = true
-                            elseif type(texture) == "table" and texture.name then
-                                textureSet[texture.name] = true
-                            end
-                        end
+        local okFaces, faces = pcall(function() return bsp:GetFaces() end)
+        for _, face in pairs(okFaces and faces or {}) do
+            Step()
+            if face then
+                if face.GetMaterial then
+                    local ok2, material = pcall(function() return face:GetMaterial() end)
+                    if ok2 and material and material.GetName then add(material:GetName()) end
+                end
+                if face.GetTexture then
+                    local ok3, texture = pcall(function() return face:GetTexture() end)
+                    if ok3 and type(texture) == "string" then
+                        add(texture)
+                    elseif ok3 and type(texture) == "table" and texture.name then
+                        add(texture.name)
                     end
                 end
             end
-            
-            -- Convert set to array
-            textures = {}
-            for texName, _ in pairs(textureSet) do
-                table.insert(textures, texName)
-            end
-            
-            MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Extracted %d unique textures from faces\n", #textures))
         end
+        MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Extracted %d unique textures from faces\n", #list))
     end
-    
-    -- Also get displacement textures (terrain surfaces)
-    local displacementTextures = {}  -- Track which textures are from displacements
-    MsgC(Color(200, 200, 200), "[RemixCategoryManager] Checking for displacements...\n")
-    
-    local okLeafs, allLeafs = pcall(function() return bsp:GetLeafs() end)
-    MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] GetLeafs result: ok=%s, leafs=%s\n", 
-        tostring(okLeafs), allLeafs and table.Count(allLeafs) or "nil"))
-    
-    if okLeafs and allLeafs then
-        textures = textures or {}
-        local dispCount = 0
-        local leafCount = 0
-        local faceCount = 0
-        local dispFaceCount = 0
-        
-        for _, leaf in pairs(allLeafs) do
-            leafCount = leafCount + 1
-            if leaf then
+
+    -- Track which materials are from BSP world geometry (these get DECAL_STATIC)
+    local bspWorldTextures = {}
+    for _, texName in ipairs(list) do bspWorldTextures[texName] = true end
+
+    -- Displacements (terrain) and the map's static props are world geometry too: only with World Geometry on.
+    local displacementTextures = {}
+    local propTextures = {}
+    if markWorld then
+        local okLeafs, allLeafs = pcall(function() return bsp:GetLeafs() end)
+        if okLeafs and allLeafs then
+            local dispCount = 0
+            for _, leaf in pairs(allLeafs) do
+                Step()
                 local okFaces, leafFaces = pcall(function() return leaf:GetFaces(true) end) -- include displacements
                 if okFaces and leafFaces then
                     for _, face in pairs(leafFaces) do
-                        faceCount = faceCount + 1
                         if face and face.IsDisplacement and face:IsDisplacement() then
-                            dispFaceCount = dispFaceCount + 1
-                            -- Get material from this displacement face
                             local ok_mat, material = pcall(function() return face:GetMaterial() end)
-                            if ok_mat and material then
-                                -- Get the ACTUAL material name being rendered by the engine
-                                -- This is what gets tracked by D3D9 (e.g., "maps/.../blend_blacktop_01_wvt_patch")
-                                local matName = material:GetName()
-                                
-                                if matName and matName ~= "" and not displacementTextures[matName] then
-                                    displacementTextures[matName] = true
+                            local matName = ok_mat and material and material:GetName()
+                            if isstring(matName) and matName ~= "" then
+                                local tracked = TrackerMaterialName(matName)
+                                if not displacementTextures[tracked] then
+                                    displacementTextures[tracked] = true
+                                    displacementTextures[string.lower(tracked)] = true
                                     dispCount = dispCount + 1
-                                    
-                                    -- Store normalized versions for matching
-                                    local normalizedMatName = matName
-                                    normalizedMatName = string.gsub(normalizedMatName, "^materials/", "")
-                                    normalizedMatName = string.gsub(normalizedMatName, "%.vmt$", "")
-                                    normalizedMatName = string.gsub(normalizedMatName, "\\", "/")  -- Normalize slashes
-                                    displacementTextures[normalizedMatName] = true
-                                    displacementTextures[string.lower(normalizedMatName)] = true
-                                    
-                                    -- Debug: Log first few
-                                    if dispCount <= 5 then
-                                        MsgC(Color(200, 200, 255), string.format("[RemixCategoryManager] Displacement #%d: material='%s'\n", dispCount, normalizedMatName))
-                                        
-                                        -- Also show the base textures for debug
-                                        local baseTex = material:GetTexture("$basetexture")
-                                        local baseTex2 = material:GetTexture("$basetexture2")
-                                        if baseTex and baseTex.GetName then
-                                            MsgC(Color(200, 200, 200), string.format("    $basetexture: %s\n", baseTex:GetName()))
-                                        end
-                                        if baseTex2 and baseTex2.GetName then
-                                            MsgC(Color(200, 200, 200), string.format("    $basetexture2: %s\n", baseTex2:GetName()))
-                                        end
-                                    end
-                                    
+                                    add(tracked)
                                     -- Track the material (will be auto-tracked when rendered)
-                                    RemixMaterial.TrackMaterial(normalizedMatName)
+                                    RemixMaterial.TrackMaterial(tracked)
                                 end
                             end
                         end
                     end
                 end
             end
-        end
-        
-        MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Traversed %d leafs, %d faces, found %d displacement faces\n", 
-            leafCount, faceCount, dispFaceCount))
-        
-        if dispCount > 0 then
-            MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Found %d unique displacement materials\n", dispCount))
-            
-            -- Debug: List all displacement material names (limited output)
-            local debugCount = 0
-            local debugList = {}
-            for matName, _ in pairs(displacementTextures) do
-                -- Only show actual material names (not texture names)
-                if not string.find(matName, "^rtx_force_track") then
-                    table.insert(debugList, matName)
-                end
-            end
-            
-            table.sort(debugList)
-            for _, matName in ipairs(debugList) do
-                if debugCount < 10 then
-                    MsgC(Color(200, 200, 200), string.format("  - %s\n", matName))
-                    debugCount = debugCount + 1
-                end
-            end
-            
-            if #debugList > 10 then
-                MsgC(Color(200, 200, 200), string.format("  ... and %d more\n", #debugList - 10))
-            end
+            MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Found %d unique displacement materials\n", dispCount))
         else
-            MsgC(Color(200, 200, 200), "[RemixCategoryManager] No displacement materials found\n")
+            MsgC(Color(255, 200, 100), "[RemixCategoryManager] Could not get leafs from BSP\n")
         end
-    else
-        MsgC(Color(255, 200, 100), "[RemixCategoryManager] Could not get leafs from BSP\n")
-    end
-    
-    -- Track which materials are from BSP world geometry (these get DECAL_STATIC)
-    local bspWorldTextures = {}
-    for _, texName in ipairs(textures or {}) do
-        bspWorldTextures[texName] = true
-    end
-    
-    -- Track which materials are from displacements (these also get DECAL_STATIC)
-    local bspDisplacementTextures = displacementTextures
-    
-    -- Add displacement materials to the main textures list for processing
-    -- (They might not be in the BSP GetTextures() list)
-    textures = textures or {}
-    local addedDispCount = 0
-    for dispMat, _ in pairs(displacementTextures) do
-        -- Only add if not a texture name (avoid duplicates)
-        if not string.find(dispMat, "^rtx_force_track") then
-            local found = false
-            for _, existing in ipairs(textures) do
-                if existing == dispMat then
-                    found = true
-                    break
-                end
-            end
-            
-            if not found then
-                table.insert(textures, dispMat)
-                addedDispCount = addedDispCount + 1
-            end
-        end
-    end
-    
-    if addedDispCount > 0 then
-        MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Added %d displacement materials to processing queue\n", addedDispCount))
-    end
-    
-    -- Process static props baked into the BSP. These are map-owned static
-    -- geometry just like brush faces, so their material slots belong in the
-    -- persistent DECAL_STATIC world list too. This is important for decal-card
-    -- models that use ordinary translucent VertexLitGeneric materials.
-    local propTextures = {}  -- Track BSP static-prop materials separately
-    MsgC(Color(200, 200, 200), "[RemixCategoryManager] Checking static props...\n")
-    if bsp.GetStaticProps then
-        local ok_props, staticProps = pcall(function() return bsp:GetStaticProps() end)
-        if ok_props and staticProps then
-            local propCount = 0
-            local propMatCount = 0
-            local processedModelSkins = {}
-            
-            for _, prop in pairs(staticProps) do
-                local modelName = prop.PropType
-                local skin = tonumber(prop.Skin) or 0
-                local modelSkinKey = string.lower(modelName or "") .. "#" .. skin
-                if modelName and not processedModelSkins[modelSkinKey] then
-                    processedModelSkins[modelSkinKey] = true
-                    propCount = propCount + 1
-                    
-                    -- Get materials for this model
-                    local matNames = {}
-                    
-                    if util.GetModelMaterials then
-                        matNames = util.GetModelMaterials(modelName) or {}
-                    elseif NikNaks and NikNaks.ModelMaterials then
-                        local materials = NikNaks.ModelMaterials(modelName)
-                        if materials then
-                            for _, mat in pairs(materials) do
-                                if mat and mat.GetName then
-                                    table.insert(matNames, mat:GetName())
-                                end
-                            end
-                        end
-                    end
 
-                    -- util.GetModelMaterials always reports skin 0. Resolve the
-                    -- actual skin family used by this BSP static prop so every
-                    -- authored material variant enters the persistent world list.
-                    if RTXModelSkinResolver and
-                       RTXModelSkinResolver.GetMaterialNames then
-                        matNames = RTXModelSkinResolver.GetMaterialNames(
-                            modelName, skin, matNames)
-                    end
-                    
-                    for _, matName in ipairs(matNames) do
-                        -- Mark as prop texture
-                        propTextures[matName] = true
-                        
-                        -- Check if already in list to avoid duplicates
-                        local found = false
-                        for _, existing in ipairs(textures) do
-                            if existing == matName then 
-                                found = true 
-                                break 
+        -- Process static props baked into the BSP. These are map-owned static
+        -- geometry just like brush faces, so their material slots belong in the
+        -- persistent DECAL_STATIC world list too. This is important for decal-card
+        -- models that use ordinary translucent VertexLitGeneric materials.
+        if bsp.GetStaticProps then
+            local ok_props, staticProps = pcall(function() return bsp:GetStaticProps() end)
+            if ok_props and staticProps then
+                local propCount, propMatCount = 0, 0
+                local processedModelSkins = {}
+                for _, prop in pairs(staticProps) do
+                    Step()
+                    local modelName = prop.PropType
+                    local skin = tonumber(prop.Skin) or 0
+                    local modelSkinKey = string.lower(modelName or "") .. "#" .. skin
+                    if modelName and not processedModelSkins[modelSkinKey] then
+                        processedModelSkins[modelSkinKey] = true
+                        propCount = propCount + 1
+                        local okNames, matNames = pcall(function()
+                            local names = {}
+                            if util.GetModelMaterials then
+                                names = util.GetModelMaterials(modelName) or {}
+                            elseif NikNaks and NikNaks.ModelMaterials then
+                                for _, mat in pairs(NikNaks.ModelMaterials(modelName) or {}) do
+                                    if mat and mat.GetName then table.insert(names, mat:GetName()) end
+                                end
                             end
-                        end
-                        
-                        if not found then
-                            table.insert(textures, matName)
-                            propMatCount = propMatCount + 1
+                            -- util.GetModelMaterials always reports skin 0. Resolve the
+                            -- actual skin family used by this BSP static prop so every
+                            -- authored material variant enters the persistent world list.
+                            if RTXModelSkinResolver and RTXModelSkinResolver.GetMaterialNames then
+                                names = RTXModelSkinResolver.GetMaterialNames(modelName, skin, names)
+                            end
+                            return names
+                        end)
+                        for _, matName in ipairs(okNames and matNames or {}) do
+                            propTextures[matName] = true
+                            if add(matName) then propMatCount = propMatCount + 1 end
                         end
                     end
                 end
+                MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Scanned %d unique static prop model/skin variants, added %d new textures\n", propCount, propMatCount))
+            else
+                MsgC(Color(255, 200, 100), "[RemixCategoryManager] GetStaticProps returned error or nil\n")
             end
-            MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Scanned %d unique static prop model/skin variants, added %d new textures\n", propCount, propMatCount))
-        else
-             MsgC(Color(255, 200, 100), "[RemixCategoryManager] GetStaticProps returned error or nil\n")
         end
-    else
-        MsgC(Color(255, 200, 100), "[RemixCategoryManager] BSP does not support GetStaticProps\n")
     end
 
     -- Send the complete NikNaks-derived list to C++ after brushes,
     -- displacements, and static props have all been collected. C++ retains
     -- this list and categorizes materials that do not render until later.
-    if RemixMaterial and RemixMaterial.SetWorldTextureList and #textures > 0 then
-        RemixMaterial.SetWorldTextureList(textures)
-        MsgC(Color(100, 255, 100), string.format(
-            "[RemixCategoryManager] Sent %d BSP-owned materials to C++\n",
-            #textures))
+    -- With World Geometry off it keeps none, so nothing drawn later becomes a decal for being in the map.
+    if markWorld then
+        if RemixMaterial and RemixMaterial.SetWorldTextureList and #list > 0 then
+            RemixMaterial.SetWorldTextureList(list)
+            MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Sent %d BSP-owned materials to C++\n", #list))
+        end
+    elseif RemixMaterial and RemixMaterial.ClearWorldTextureList then
+        RemixMaterial.ClearWorldTextureList()
     end
-    
+
     local stats = {
         total = 0,
         solid = 0,
@@ -1803,65 +1767,50 @@ function RemixCategoryManager.SmartMarkWorldTextures()
         decals = 0,
         emissive = 0,
         props = 0,  -- Materials from static props (not categorized unless special)
-        skipped = 0
+        skipped = 0,
+        failed = 0
     }
-    
-    if not textures then
-        return { error = "Could not get textures from BSP" }
-    end
-    
-    for i, texName in ipairs(textures) do
-        if texName then
-            stats.total = stats.total + 1
-            
-            -- Normalize material name - remove materials/ prefix and .vmt extension if present
-            -- The C++ tracking expects just the material path like "dev/dev_measurecrate01"
-            local materialName = texName
-            materialName = string.gsub(materialName, "^materials/", "")
-            materialName = string.gsub(materialName, "%.vmt$", "")
-            
-            local lowerName = string.lower(materialName)
-            
-            if not processedTextures[lowerName] then
-                -- Determine if this is from BSP world geometry or a static prop
-                local isFromBSP = bspWorldTextures[texName] or false
-                local isFromProp = propTextures[texName] or false
-                -- Check multiple variants for displacement detection
-                local isFromDisplacement = bspDisplacementTextures[texName] or 
-                                          bspDisplacementTextures[materialName] or 
-                                          bspDisplacementTextures[lowerName] or
-                                          false
-                
-                -- Determine category based on texture properties and source
-                local category = nil
-                
+
+    for _, texName in ipairs(list) do
+        Step()
+        stats.total = stats.total + 1
+
+        -- Normalize material name - remove materials/ prefix and .vmt extension if present
+        -- The C++ tracking expects just the material path like "dev/dev_measurecrate01"
+        local materialName = texName
+        materialName = string.gsub(materialName, "^materials/", "")
+        materialName = string.gsub(materialName, "%.vmt$", "")
+
+        local lowerName = string.lower(materialName)
+
+        if not processedTextures[lowerName] then
+            -- Determine if this is from BSP world geometry or a static prop
+            local isFromBSP = bspWorldTextures[texName] or false
+            local isFromProp = propTextures[texName] or false
+            local isFromDisplacement = displacementTextures[texName] or
+                                      displacementTextures[materialName] or
+                                      displacementTextures[lowerName] or
+                                      false
+
+            -- Determine category based on texture properties and source
+            local category = nil
+            local classified = pcall(function()
                 -- Emissive/Self-illuminated materials (check first for priority)
                 -- This is more reliable than keyword matching
-                if cvar_auto_categorize_emissive:GetBool() and
-                   RemixCategoryManager.IsMaterialEmissive(materialName) then
+                if markEmissive and RemixCategoryManager.IsMaterialEmissive(materialName) then
                     category = RemixCategoryManager.PRESET.EMISSIVE
                     stats.emissive = stats.emissive + 1
-                
+
                 -- Materials with $decal parameter (actual decals)
-                elseif RemixCategoryManager.IsMaterialDecal(materialName) then
+                elseif markDecals and RemixCategoryManager.IsMaterialDecal(materialName) then
                     category = RemixCategoryManager.CATEGORY.DECAL_STATIC
                     stats.decals = stats.decals + 1
-                    
-                    -- Debug: Log first few decal categorizations
-                    if stats.decals <= 3 then
-                        MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Categorizing decal: %s\n", materialName))
-                    end
-                
+
                 -- Displacement textures (terrain) - always marked as DECAL_STATIC
                 elseif isFromDisplacement then
                     category = RemixCategoryManager.PRESET.TERRAIN  -- This is DECAL_STATIC (0x1000)
                     stats.displacements = stats.displacements + 1
-                    
-                    -- Debug: Log first few displacement categorizations
-                    if stats.displacements <= 3 then
-                        MsgC(Color(100, 255, 100), string.format("[RemixCategoryManager] Categorizing displacement: %s\n", materialName))
-                    end
-                
+
                 -- BSP world geometry textures (faces from brushes) - mark as DECAL_STATIC
                 -- This is ONLY for actual world brushes, not props
                 elseif isFromBSP and not isFromProp then
@@ -1873,21 +1822,23 @@ function RemixCategoryManager.SmartMarkWorldTextures()
                         RemixMaterial.RegisterBSPWorldMaterial(materialName)
                     end
 
+                    if not markWorld then
+                        stats.skipped = stats.skipped + 1
                     -- Check if material should be excluded (translucent, no_decal, etc.)
-                    if RemixCategoryManager.ShouldExcludeFromWorldGeometry(materialName) then
+                    elseif RemixCategoryManager.ShouldExcludeFromWorldGeometry(materialName) then
                         -- Leave uncategorized; hash-collision protection is handled by the
                         -- reverse map registered above.
                         stats.skipped = stats.skipped + 1
-                    
+
                     -- Check for transparent world geometry (glass, fences, etc.)
-                    elseif string.find(lowerName, "glass") or 
+                    elseif string.find(lowerName, "glass") or
                        string.find(lowerName, "window") or
                        string.find(lowerName, "fence") or
                        string.find(lowerName, "grate") or
                        string.find(lowerName, "chain") then
                         category = RemixCategoryManager.PRESET.WORLD_GEOMETRY_TRANSPARENT
                         stats.transparent = stats.transparent + 1
-                    
+
                     -- Check for terrain-like textures
                     elseif string.find(lowerName, "dirt") or
                            string.find(lowerName, "grass") or
@@ -1895,13 +1846,13 @@ function RemixCategoryManager.SmartMarkWorldTextures()
                            string.find(lowerName, "terrain") then
                         category = RemixCategoryManager.PRESET.TERRAIN
                         stats.terrain = stats.terrain + 1
-                    
+
                     -- Default: solid world geometry (DECAL_STATIC)
                     else
                         category = RemixCategoryManager.PRESET.WORLD_GEOMETRY
                         stats.solid = stats.solid + 1
                     end
-                
+
                 -- Static props baked into the BSP are map-owned static geometry.
                 -- Categorize them even when the VMT itself has no decal metadata;
                 -- many maps implement paint, posters, and grime as thin prop models.
@@ -1909,43 +1860,93 @@ function RemixCategoryManager.SmartMarkWorldTextures()
                     category = RemixCategoryManager.PRESET.WORLD_GEOMETRY
                     stats.props = stats.props + 1
                 end
-                
-                if category then
-                    local forceAlbedoCallback =
-                        RemixCategoryManager.MakeForceAlbedoCallback(materialName, category)
-                    
-                    -- If SetMaterialCategory succeeds immediately (hash available), mark as
-                    -- processed now. If it returns false the entry is in pendingCategorizations
-                    -- and the Think hook will mark processedTextures on success.
-                    if RemixCategoryManager.SetMaterialCategory(materialName, category, forceAlbedoCallback) then
-                        processedTextures[lowerName] = true
-                    end
-                else
-                    -- No category assigned (excluded/prop/skipped) - mark as processed so we
-                    -- don't re-evaluate this material on subsequent SmartMark calls.
+            end)
+            if not classified then
+                category = nil
+                stats.failed = stats.failed + 1
+            end
+
+            if category then
+                local forceAlbedoCallback =
+                    RemixCategoryManager.MakeForceAlbedoCallback(materialName, category)
+
+                -- If SetMaterialCategory succeeds immediately (hash available), mark as
+                -- processed now. If it returns false the entry is in pendingCategorizations
+                -- and the Think hook will mark processedTextures on success.
+                if RemixCategoryManager.SetMaterialCategory(materialName, category, forceAlbedoCallback, true) then
                     processedTextures[lowerName] = true
                 end
-                
-                -- If this is a displacement material, also ensure it's tracked
-                if isFromDisplacement and category then
-                    RemixMaterial.TrackMaterial(materialName)
-                end
             else
-                stats.skipped = stats.skipped + 1
+                -- No category assigned (excluded/prop/skipped) - mark as processed so we
+                -- don't re-evaluate this material on subsequent SmartMark calls.
+                processedTextures[lowerName] = true
             end
+
+            -- If this is a displacement material, also ensure it's tracked
+            if isFromDisplacement and category then
+                RemixMaterial.TrackMaterial(materialName)
+            end
+        else
+            stats.skipped = stats.skipped + 1
         end
     end
-    
+
     MsgC(Color(100, 255, 100), "[RemixCategoryManager] Smart-mark complete:\n")
-    MsgC(Color(200, 200, 200), string.format("  Total: %d, Solid: %d, Emissive: %d, Transparent: %d, Sky: %d, Terrain: %d, Decals: %d, Props: %d, Skipped: %d\n",
-        stats.total, stats.solid, stats.emissive, stats.transparent, stats.sky, stats.terrain, stats.decals, stats.props, stats.skipped))
-    
+    MsgC(Color(200, 200, 200), string.format("  Total: %d, Solid: %d, Emissive: %d, Transparent: %d, Sky: %d, Terrain: %d, Decals: %d, Props: %d, Skipped: %d, Unreadable: %d\n",
+        stats.total, stats.solid, stats.emissive, stats.transparent, stats.sky, stats.terrain + stats.displacements, stats.decals, stats.props, stats.skipped, stats.failed))
+
     -- Also scan all tracked/rendered materials to catch overlay decals, effects, etc.
     MsgC(Color(200, 200, 200), "[RemixCategoryManager] Scanning tracked materials for decals, particles, etc...\n")
-    local trackedStats = RemixCategoryManager.CategorizeAllTrackedMaterials()
-    
+    RemixCategoryManager.CategorizeAllTrackedMaterials()
+
     return stats
 end
+
+-- ADR 0213: the job that runs SmartMarkWorldTextures a step a frame (the Think hook below), one at a time.
+local scanJob = nil
+
+local function StopWorldScan()
+    scanJob = nil
+    scanStepDeadline = nil
+    vmtScanCache = nil
+end
+RemixCategoryManager.StopWorldScan = StopWorldScan
+
+-- Starts the map's scan; force forgets which materials earlier scans already looked at. A running scan restarts.
+function RemixCategoryManager.StartWorldScan(force)
+    if force then processedTextures = {} end
+    local job = {token = currentMapToken}
+    job.co = coroutine.create(function()
+        vmtScanCache = {}
+        RemixCategoryManager.SmartMarkWorldTextures()
+    end)
+    scanJob = job
+    return true
+end
+
+function RemixCategoryManager.IsWorldScanRunning()
+    return scanJob ~= nil
+end
+
+hook.Add("Think", "RemixCategoryManager_WorldScan", function()
+    local job = scanJob
+    if not job then return end
+    if job.token ~= currentMapToken or not GetConVar("rtx_auto_categorize"):GetBool() then
+        MsgC(Color(255, 200, 100), "[RemixCategoryManager] Map scan stopped: the map changed or automatic categorization is off\n")
+        StopWorldScan()
+        return
+    end
+    scanStepDeadline = SysTime() + SCAN_STEP_SECONDS
+    local ok, err = coroutine.resume(job.co)
+    scanStepDeadline = nil
+    if scanJob ~= job then return end -- restarted or stopped while it ran
+    if not ok then
+        MsgC(Color(255, 100, 100), "[RemixCategoryManager] Map scan failed: " .. tostring(err) .. "\n")
+        StopWorldScan()
+    elseif coroutine.status(job.co) == "dead" then
+        StopWorldScan()
+    end
+end)
 
 --[[
     Console command to mark all world textures
@@ -1969,12 +1970,14 @@ end, nil, "Mark all world geometry textures with a category (default: DECAL_STAT
 ]]--
 concommand.Add("rtx_smart_mark_world", function(ply, cmd, args)
     -- Optionally clear the processed cache to reprocess everything
-    if args[1] == "force" then
-        processedTextures = {}
+    local force = args[1] == "force"
+    if force then
         MsgC(Color(255, 200, 100), "[RemixCategoryManager] Cleared processed texture cache\n")
     end
     
-    RemixCategoryManager.SmartMarkWorldTextures()
+    -- ADR 0213: the scan runs a few milliseconds a frame; its summary prints when it is done.
+    RemixCategoryManager.StartWorldScan(force)
+    MsgC(Color(200, 200, 200), "[RemixCategoryManager] Map scan started\n")
 end, nil, "Intelligently mark world textures based on their properties (use 'force' to reprocess all)")
 
 --[[
@@ -2660,19 +2663,19 @@ local function AutoInitFunction()
     MsgC(Color(200, 200, 200), string.format("[RemixCategoryManager] Will parse BSP and send world textures to C++ in %.1f seconds...\n", delay))
     
     -- Wait for NikNaks and textures to be ready, then run full categorization
+    local token = currentMapToken
     timer.Simple(delay, function()
+        if token ~= currentMapToken then return end -- set for a map that is gone
         if not GetConVar("rtx_auto_categorize"):GetBool() then
             MsgC(Color(255, 200, 100), "[RemixCategoryManager] Auto-categorization disabled, skipping\n")
             return
         end
-        
+
         MsgC(Color(100, 200, 255), "[RemixCategoryManager] Running auto-categorization (SmartMarkWorldTextures)...\n")
-        
-        -- Clear processed cache so everything gets categorized fresh
-        processedTextures = {}
-        
-        -- Run the same full categorization that "Scan Now" uses
-        RemixCategoryManager.SmartMarkWorldTextures()
+
+        -- The same full categorization that "Scan Now" uses, as a job a few milliseconds a frame (ADR 0213),
+        -- every material looked at afresh
+        RemixCategoryManager.StartWorldScan(true)
     end)
 end
 
@@ -2686,13 +2689,28 @@ end
 -- additional variants that render a few frames later (e.g. _stage1 blend displacements
 -- with multiple UV instances sharing the same material but different hashes).
 local PENDING_WATCH_SECONDS = 10
+-- ADR 0213: the queue holds every BSP material until it is first drawn, which on a large map is thousands that
+-- may never be. Each frame looks at no more than this many entries (two native lookups each), in turn.
+local PENDING_PER_FRAME = 64
 
 local function DrainPendingCategorizations()
-    if #pendingCategorizations == 0 then return end
+    local count = #pendingCategorizations
+    if count == 0 then return end
 
+    local automaticAllowed = GetConVar("rtx_auto_categorize"):GetBool()
     local remaining = {}
     local now = CurTime()
-    for _, pending in ipairs(pendingCategorizations) do
+    if pendingCursor > count then pendingCursor = 1 end
+    local first, last = pendingCursor, math.min(count, pendingCursor + PENDING_PER_FRAME - 1)
+    pendingCursor = last + 1
+    for index, pending in ipairs(pendingCategorizations) do
+      if index < first or index > last then
+        table.insert(remaining, pending)
+      elseif pending.automatic and not automaticAllowed then
+        -- Automatic categorisation was switched off: its queued work goes.
+        pending.alive = false
+        pendingByMaterial[string.lower(pending.materialName)] = nil
+      else
         local foundAnyHash = false
 
         -- callbackFiredForHashes tracks which hashes in this pending entry have already
@@ -2716,7 +2734,7 @@ local function DrainPendingCategorizations()
                        not pending.categoryAttemptedForHashes[hashStr] then
                         pending.categoryAttemptedForHashes[hashStr] = true
                         local success =
-                            RemixCategoryManager.SetHashCategory(hashStr, mergedFlags)
+                            RemixCategoryManager.SetHashCategory(hashStr, mergedFlags, pending.automatic)
                         if pending.callback and not pending.callbackFiredForHashes[hashStr] then
                             pending.callbackFiredForHashes[hashStr] = true
                             pending.callback(success, hashStr)
@@ -2751,10 +2769,16 @@ local function DrainPendingCategorizations()
             -- additional variants that appear over the next few seconds also get caught.
             if not pending.firstApplied then pending.firstApplied = now end
             table.insert(remaining, pending)
+        else
+            -- PENDING_WATCH_SECONDS has elapsed since the last new hash was categorized
+            pending.alive = false
+            pendingByMaterial[string.lower(pending.materialName)] = nil
         end
-        -- else: PENDING_WATCH_SECONDS has elapsed since the last new hash was categorized
+      end
     end
 
+    -- Entries before the window keep their place; the cursor moves past those that left.
+    pendingCursor = math.max(1, pendingCursor - (count - #remaining))
     pendingCategorizations = remaining
 end
 
@@ -2762,6 +2786,11 @@ hook.Add("Think", "RemixCategoryManager_DrainPending", function()
     DrainPendingCategorizations()
     RemixCategoryManager.RefreshChromeHashes()
 end)
+
+-- How many materials wait for their first draw (or are watched for more variants), for diagnostics and tests.
+function RemixCategoryManager.GetPendingCount()
+    return #pendingCategorizations
+end
 
 -- Chrome materials arrive with whatever the player spawns, so the map-load sweep
 -- can't catch them. Poll for models not yet inspected; dedup keeps this cheap.
@@ -2837,7 +2866,15 @@ hook.Add("InitPostEntity", "RemixCategoryManager_InitFlags", function()
     processedTextures = {}
     materialHashCache = {}
     pendingCategorizations = {}
-    currentMapToken = game.GetMap() or ""
+    pendingByMaterial = {}
+    pendingCursor = 1
+    RemixCategoryManager.StopWorldScan()
+    -- A new token per map load, also when the same map loads again (ADR 0213)
+    mapLoads = mapLoads + 1
+    currentMapToken = (game.GetMap() or "") .. "#" .. mapLoads
+    if not GetConVar("rtx_auto_categorize_world"):GetBool() and RemixMaterial and RemixMaterial.ClearWorldTextureList then
+        RemixMaterial.ClearWorldTextureList()
+    end
     chromeScannedModels = {}
     RemixCategoryManager.ResetChromeState()
 
@@ -3129,6 +3166,12 @@ cvars.AddChangeCallback("rtx_auto_categorize", function(convar, oldValue, newVal
         MsgC(Color(100, 200, 255), string.format("[RemixCategoryManager] Auto-categorization %s\n", 
             enabled and "enabled" or "disabled"))
         
+        if not enabled then
+            -- ADR 0213: nothing automatic stays queued
+            RemixCategoryManager.StopWorldScan()
+            DropAutomaticQueue()
+        end
+
         -- If enabling, rescan all tracked materials to catch what was missed
         if enabled and RemixMaterial.RescanAllMaterials then
             timer.Simple(0.1, function()
@@ -3143,6 +3186,24 @@ cvars.AddChangeCallback("rtx_auto_categorize", function(convar, oldValue, newVal
         end
     end
 end, "RemixCategoryManager_MasterToggle")
+
+-- ADR 0213: World Geometry is read by every scan; switching it applies at once. Off empties the C++ world list
+-- and the automatic queue, then scans again for what the other switches still mark.
+cvars.AddChangeCallback("rtx_auto_categorize_world", function(convar, oldValue, newValue)
+    local enabled = tonumber(newValue) == 1
+    if not enabled then
+        if RemixMaterial and RemixMaterial.ClearWorldTextureList then
+            RemixMaterial.ClearWorldTextureList()
+        end
+        DropAutomaticQueue()
+        MsgC(Color(100, 200, 255), "[RemixCategoryManager] World geometry categorization disabled (applies to textures not yet categorized; a restart removes what was)\n")
+    else
+        MsgC(Color(100, 200, 255), "[RemixCategoryManager] World geometry categorization enabled: scanning the map\n")
+    end
+    if GetConVar("rtx_auto_categorize"):GetBool() then
+        RemixCategoryManager.StartWorldScan(true)
+    end
+end, "RemixCategoryManager_WorldToggle")
 
 -- Add ConVar callback to update C++ module when particle toggle changes
 cvars.AddChangeCallback("rtx_auto_categorize_particles", function(convar, oldValue, newValue)
@@ -3181,6 +3242,9 @@ cvars.AddChangeCallback("rtx_auto_categorize_decals", function(convar, oldValue,
                 end
             end)
         end
+        -- ADR 0213: the map's scan follows the switch; work queued under the old setting goes
+        if not enabled then DropAutomaticQueue() end
+        if GetConVar("rtx_auto_categorize"):GetBool() then RemixCategoryManager.StartWorldScan(true) end
     end
 end, "RemixCategoryManager_DecalToggle")
 
@@ -3201,6 +3265,9 @@ cvars.AddChangeCallback("rtx_auto_categorize_emissive", function(convar, oldValu
                 end
             end)
         end
+        -- ADR 0213: the map's scan follows the switch; work queued under the old setting goes
+        if not enabled then DropAutomaticQueue() end
+        if GetConVar("rtx_auto_categorize"):GetBool() then RemixCategoryManager.StartWorldScan(true) end
     end
 end, "RemixCategoryManager_EmissiveToggle")
 

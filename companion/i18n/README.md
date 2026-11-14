@@ -123,3 +123,8 @@ the ranges are kept as they are.
 ADR 0217 adds eleven messages, the main menu's note on PBR for maps and its card (`menu/pbr_note.lua`). Their
 translations in all six catalogs are agent-written by Claude and not yet human-reviewed; "Workshop" stays in English
 as in the other notices, and the spawn menu's Utilities tab takes each catalog's existing word for it.
+GitHub issue 6 (ADR 0212, 0213) renames the RTX fixes' ToPBR page Map and prop PBR (ToPBR) and adds seven add-on
+messages (that page, the Auto-Categorization page's rtx.conf line and World Geometry help), one line in the Imported
+game PBR panel's own table and one guide message (Rendering). Their translations in all six languages are
+agent-written by Claude and not yet human-reviewed; the path rtx-remix/mods/~gmod_topbr and rtx.conf are kept as they
+are. Nine add-on messages of the old ToPBR and World Geometry help left the catalogs.

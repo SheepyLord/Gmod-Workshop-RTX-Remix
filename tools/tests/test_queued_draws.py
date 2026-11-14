@@ -63,7 +63,7 @@ class QueuedDrawsTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """The folder's files are the patch applied: HardwareSkinningHooks.cpp to backrooms' copy (unchanged by the
         patches between), prop_fixes.cpp (no earlier copy: the base's) on the patch's new side at every hunk, the
-        two new files line for line; pins.json builds the module with it, last."""
+        two new files line for line; pins.json builds the module with it, tenth (after game emission)."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), [HOOKS, PROPS, POLICY, TEST])
         self.assertEqual(apply(patch, HOOKS, text(SKINNING / 'backrooms' / HOOKS)), text(FOLDER / HOOKS))
@@ -73,7 +73,10 @@ class QueuedDrawsTests(unittest.TestCase):
         for path in (POLICY, TEST):
             self.assertEqual(added(patch, path), text(FOLDER / path).rstrip('\n').split('\n'), path)
         pins = json.loads((REPO / 'tools/ci/pins.json').read_text(encoding='utf-8'))['fixes']
-        self.assertEqual(pins['patches'][-1], PATCH.relative_to(REPO).as_posix())
+        # Tenth: after game emission; issue 6's two patches (ADR 0212, 0213) follow it.
+        patches = pins['patches']
+        self.assertEqual(patches.index(PATCH.relative_to(REPO).as_posix()),
+                         patches.index('packages/fixes/licenses/oversized-skinning/game-emission/game-emission.patch') + 1)
 
     def test_the_lighting_hook_never_reads_the_renderable(self):
         """R_StudioSetupSkinAndLighting takes the bone count from studiorender's state (its this) and hands the

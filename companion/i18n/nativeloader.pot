@@ -1941,7 +1941,7 @@ msgid "Performance: draws the map faster. Mesh replacements stop working while P
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:133
-msgid "ToPBR: makes PBR maps from the game's own materials. It uses a lot of VRAM and needs a map reload."
+msgid "Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:134

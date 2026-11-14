@@ -11,3 +11,7 @@ and `game_pbr_panel_harness.lua` separately executes that exact marked section w
 
 R23 (the user's item 3): `RTXGamePBRProgress()` counts a queued imported game material as pending while
 its native view says `waiting`, ends the batch once none is, and counts an unreadable view as finished.
+
+Issue 6 ([ADR 0212](../../docs/decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md)): turning
+`rtx_topbr_enabled` on queues the materials already drawn (`QueueMaterialsForProcessing`), so ToPBR needs no
+map reload; turning it off queues nothing.

@@ -19,6 +19,33 @@ indexed input is unchanged.
 - `remixlua/cl/remixapi/cl_remix_light_gain.lua` (new): the distance maths, this project's own code (MIT), byte for byte
   the character motion importer's `mmd_vmd_npc/cl_light_gain.lua`, which its dance light uses
   ([ADR 0209](../../docs/decisions/0209-the-dance-lights-uniform-lighting-and-options.md)).
+## ToPBR's materials show again; automatic categories keep the player's choices (GitHub issue 6, 2026-11-14)
+
+ToPBR wrote its textures but published no material whenever its scan could not read every other mod
+([ADR 0212](../../docs/decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md)); automatic categorization
+ignored its World Geometry switch, scanned a map in one frame and put back categories the player took out in `rtx.conf`
+([ADR 0213](../../docs/decisions/0213-automatic-categorization-hardened.md)). Imported 2026-11-14 on branch
+`qol-topbr` with `inputs.py --file`; every other indexed input is unchanged.
+
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,597,696 bytes, SHA-256 `45f48990...c778d7c7`): the public base with the
+  twelve patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The eleventh,
+  [topbr-publish.patch](licenses/oversized-skinning/topbr-publish/topbr-publish.patch): a partial scan publishes every
+  generated material no readable mod names (runtime patch 0020 ranks the generated mod last), at most every 30 s with a
+  per-file cache ([source, tests](licenses/oversized-skinning/topbr-publish/README.md)). The twelfth,
+  [player-categories.patch](licenses/oversized-skinning/player-categories/player-categories.patch): no automatic path
+  adds a texture to a list the player's `rtx.conf` takes it out of
+  ([source, tests](licenses/oversized-skinning/player-categories/README.md)).
+- `garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua`: "ToPBR" is **Map and prop PBR
+  (ToPBR)**, saying what it builds, that it is off by default, that a real PBR mod wins and that imported characters
+  use Imported game PBR; the metallic switch that does nothing since R11 is gone; the Auto-Categorization page names
+  what World Geometry covers and the `rtx.conf` rule. Local changes (GPL-2.0, as the part is).
+- `.../cl/cl_rtx_topbr_conversion.lua`: turning ToPBR on queues the materials already drawn (no map reload); the
+  Imported game PBR panel points maps and props to ToPBR (its six translations in the panel's table).
+- `.../cl/remixapi/cl_remix_category_0_manager.lua`: the map scan is a job of 2 ms a frame that obeys World
+  Geometry, Overlay Decals and Legacy Emissive, names blended displacements as the tracker does, reads each VMT once
+  and goes on past an unreadable material; one queue entry per material, 64 checked a frame; switches and map
+  changes drop automatic work; automatic writes pass `automatic = true` to `RemixMaterial.SetHashCategory`.
+- The seven new menu texts are in the six [add-on catalogs](../../companion/i18n/addons/README.md).
 
 ## The fixes never read a queued draw's renderable (2026-11-12)
 

@@ -918,132 +918,124 @@ msgstr "Вы включили r_3dsky. Из-за того, как движок �
 msgid "Don't show this warning again"
 msgstr "Больше не показывать это предупреждение"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:357
-msgid "ToPBR"
-msgstr "ToPBR"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:360
-msgid "Enable ToPBR"
-msgstr "Включить ToPBR"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:361
-msgid "Converts source material maps (normal, bump, ssbump, etc) to a pseudo-pbr format for RTX Remix."
-msgstr "Преобразует карты материалов Source (нормали, рельеф, ssbump и другие) в приближённый формат PBR для RTX Remix."
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:359
+msgid "Map and prop PBR (ToPBR)"
+msgstr "PBR карт и объектов (ToPBR)"
 
 #: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:362
+msgid "Enable ToPBR for maps and props"
+msgstr "Включить ToPBR для карт и объектов"
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:363
+msgid "Builds PBR materials for map, prop and weapon materials from what their Source materials already have: bump and normal maps, Phong and envmap masks, and community PBR shaders."
+msgstr "Создаёт PBR-материалы для карт, объектов и оружия из того, что уже есть в их материалах Source: текстур рельефа и нормалей, масок Phong и envmap и PBR-шейдеров сообщества."
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:364
+msgid "Off by default. A real PBR mod for a texture always wins over it. Imported characters use Imported game PBR instead."
+msgstr "По умолчанию выключено. Настоящий PBR-мод для текстуры всегда важнее. Импортированные персонажи вместо этого используют «PBR импортированных игр»."
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:365
 msgid "Conversion is experimental and cannot reproduce every material exactly."
 msgstr "Функция ещё в разработке. Преобразование никогда не будет полностью точным."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:363
-msgid "This will use a significant amount of VRAM, disk space, and may cause stability issues."
-msgstr "Требует много видеопамяти и места на диске и может снизить стабильность."
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:365
-msgid "Requires a map reload to enable."
-msgstr "Для включения нужно перезагрузить карту."
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:368
-msgid "Experimental Metallic Detection"
-msgstr "Экспериментальное определение металла"
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:366
+msgid "It writes textures into rtx-remix/mods/~gmod_topbr, which takes disk space and video memory. Materials appear a few seconds after they are first drawn."
+msgstr "Текстуры записываются в rtx-remix/mods/~gmod_topbr и занимают место на диске и видеопамять. Материалы появляются через несколько секунд после первой отрисовки."
 
 #: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:369
-msgid "Generate metallic maps from base texture brightness."
-msgstr "Создаёт карты металличности по яркости базовой текстуры."
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:370
-msgid "WARNING: May cause dark materials to appear completely black!"
-msgstr "ВНИМАНИЕ: тёмные материалы могут стать полностью чёрными!"
-
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:373
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:441
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:433
 msgid "Debug Output"
 msgstr "Отладочный вывод"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:374
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:370
 msgid "Shows debug messages in console for troubleshooting."
 msgstr "Выводит отладочные сообщения в консоль для поиска проблем."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:377
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:373
 msgid "Clear Cache"
 msgstr "Очистить кэш"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:381
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:377
 msgid "Clear the conversion cache (useful after changing settings)."
 msgstr "Очищает кэш преобразования; полезно после изменения настроек."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:411
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:401
 msgid "Auto-Categorization"
 msgstr "Автоматическая классификация"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:415
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:405
 msgid "Enable Auto-Categorization"
 msgstr "Включить автоматическую классификацию"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:416
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:406
 msgid "Automatically categorizes textures for RTX Remix."
 msgstr "Автоматически классифицирует текстуры для RTX Remix."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:419
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:408
+msgid "A texture you take out of a category in the Remix developer menu and save to rtx.conf is never put back in it."
+msgstr "Текстура, которую вы убрали из категории в меню разработчика Remix и сохранили в rtx.conf, больше не возвращается в неё автоматически."
+
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:411
 msgid "Delay (seconds)"
 msgstr "Задержка (секунды)"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:420
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:412
 msgid "How long to wait after map load before scanning (allows BSP data to load)."
 msgstr "Время ожидания после загрузки карты перед сканированием, чтобы успели загрузиться данные BSP."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:423
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:415
 msgid "World Geometry"
 msgstr "Геометрия мира"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:424
-msgid "Categorizes walls, floors, and ceilings from BSP as Decals for proper blending."
-msgstr "Относит стены, полы и потолки BSP к декалям для правильного смешивания."
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:416
+msgid "Categorizes the map's walls, floors, ceilings, displacements and static props as Decals for proper blending."
+msgstr "Относит стены, полы, потолки, дисплейсменты и статичные объекты карты к декалям для правильного смешивания."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:427
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:419
 msgid "Particles"
 msgstr "Частицы"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:428
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:420
 msgid "Categorizes particle effects (smoke, fire, sparks, etc) as Particles."
 msgstr "Относит эффекты дыма, огня, искр и другие подобные эффекты к частицам."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:431
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:423
 msgid "Overlay Decals"
 msgstr "Наложенные декали"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:432
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:424
 msgid "Categorizes materials with $decal parameter (posters, graffiti, bullet holes, etc) as Decals."
 msgstr "Относит материалы с параметром $decal (плакаты, граффити, следы пуль и другие) к декалям."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:435
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:427
 msgid "Legacy Emissive"
 msgstr "Исходное свечение"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:436
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:428
 msgid "Categorizes materials with $selfillum parameter as Legacy Emissive."
 msgstr "Относит материалы с параметром $selfillum к категории исходного свечения."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:437
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:429
 msgid "Materials that use $selfillum incorrectly may be misclassified."
 msgstr "Материалы с некорректным использованием $selfillum могут быть классифицированы ошибочно."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:439
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:431
 msgid "Debug Options"
 msgstr "Параметры отладки"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:442
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:434
 msgid "Shows debug messages in console for categorization activity (useful for troubleshooting)."
 msgstr "Выводит в консоль отладочную информацию о классификации для поиска проблем."
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:444
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:436
 msgid "Manual Controls"
 msgstr "Ручное управление"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:446
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:438
 msgid "Scan Now"
 msgstr "Сканировать сейчас"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:450
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_settings.lua:442
 msgid "Manually parse BSP and categorize world textures, decals, and emissive materials."
 msgstr "Вручную разбирает BSP и классифицирует текстуры мира, декали и светящиеся материалы."
 
@@ -1099,15 +1091,15 @@ msgstr " — Построение, похоже, зависло! (Нет про�
 msgid "Remix Render Debug"
 msgstr "Отладка рендеринга Remix"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:892
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:911
 msgid "EMISSIVE"
 msgstr "СВЕЧЕНИЕ"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:897
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:916
 msgid "PARTICLE | EMISSIVE"
 msgstr "ЧАСТИЦА | СВЕЧЕНИЕ"
 
-#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:901
+#: packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_category_0_manager.lua:920
 msgid "DECAL | EMISSIVE"
 msgstr "ДЕКАЛЬ | СВЕЧЕНИЕ"
 

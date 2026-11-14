@@ -71,30 +71,34 @@ an in-game check and published 2026-11-13
 
 Then the user's requests of 2026-11-14 on the lights (the RTX flashlight's automatic brightness, on by default; the
 dance animation player's light with uniform lighting, aim, colour temperature, a rim light and presets):
-[lights-report.md](lights-report.md), by Claude on the branch `qol-lights`, package only, not merged
+[lights-report.md](lights-report.md), by Claude on the branch `qol-lights`, package only, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push"
 ([ADR 0208](../decisions/0208-the-rtx-flashlights-automatic-brightness.md),
 [ADR 0209](../decisions/0209-the-dance-lights-uniform-lighting-and-options.md)).
 Then GitHub issue 6 of 2026-11-13 ("Gmod ToPBR stopped loading?": textures written, no material shown): ToPBR's scan
 of the other mods published nothing when it could not read a file (a binary Remix Toolkit mesh was enough); ToPBR stays,
 publishes past such mods and its page says what it does beside Imported game PBR; the automatic categorization is
 bounded, obeys its switches and keeps the player's `rtx.conf` choices: [issue6-topbr-report.md](issue6-topbr-report.md),
-by Claude, package only, on the branch `qol-topbr` awaiting the user
+by Claude, package only, on the branch `qol-topbr`, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push"
 ([ADR 0212](../decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md),
 [ADR 0213](../decisions/0213-automatic-categorization-hardened.md)).
+Then the user's request of 2026-11-14 for a main-menu note on demo PBR resources (Workshop collection 3834474695)
+and what a map without PBR looks like: by Claude on the branch `qol-menu`, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push" ([ADR
+0217](../decisions/0217-a-main-menu-note-on-pbr-for-maps.md); no report of its own: the decision record and
+[pbr_note.lua.md](../../companion/nativeloader/lua/nativeloader/menu/pbr_note.lua.md) hold it).
 Then the user's QoL request of 2026-11-14 (a long silent wait between "Ready to play!" and a playable map; an estimate
 of a load's length learned from the loads before): [load-eta-report.md](load-eta-report.md), by Claude, package only,
-on the branch `qol-load`, not merged
+on the branch `qol-load`, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push"
 ([ADR 0214](../decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md),
 [ADR 0215](../decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)).
 Then the user's request of 2026-11-14 ("Enhance the skybox about the moon, the moon should be visible during the day
 given correct moon phase"): the moon by day, as bright as the real one at its phase, runtime patch 0090 and the
 companion's Moon by day slider: [moon-by-day-report.md](moon-by-day-report.md), by Claude, package only, on the branch
-`qol-moon`, in-game checks pending ([ADR 0207](../decisions/0207-the-moon-by-day.md)).
+`qol-moon`, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push" ([ADR 0207](../decisions/0207-the-moon-by-day.md)).
 
 On the same branch, the user's request of 2026-11-14 to trace "0xC0000005", the crash most players report: the
 investigation's clusters and the runtime's fixes, upstream dxvk-remix `c1a891bf85` ported (patch 0091) and no sent
 message handled inside Present (patch 0092): [crash-0xc0000005-report.md](crash-0xc0000005-report.md), by Claude,
-package only, in-game checks pending
+package only, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push"
 ([ADR 0216](../decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)).
 
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no

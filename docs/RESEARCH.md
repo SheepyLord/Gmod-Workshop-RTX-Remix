@@ -8477,3 +8477,41 @@ here was measured in a game.
 - **The rebuilt module**: 5,597,696 bytes (from 5,518,848), SHA-256
   `45f489903d4a1bb4f6fe1f9a55f1d1cf6db3968385122f4a3981ccc6c778d7c7`, `build_modules.ps1 -Only fixes` with the pinned
   garrysmod_common `a854f23` and premake 5.0.0-beta2; patched native tree `source` `7464a58db926d77ab1f203f380ead90cc78692ae`.
+## The wait after "Ready to play!" and the load's estimate (2026-11-14, Claude, ADR 0214 and 0215)
+
+Read offline (no game was run): the PoC's game files and this repository's evidence.
+
+- **The engine's progress strings.** In the PoC's `engine.dll` the loading progress strings sit together (file offsets
+  0x3efbd0-0x3efdc8): `#LoadingProgress_SpawningServer`, `_LoadMap`, `_PrecacheWorld`, `_LoadResources`, "Starting
+  local server...", `_SignonLocal`, `_ProcessServerInfo`, "Retrieving string tables...", `_SendClientInfo`,
+  `_SignonDataLocal`, "Fully connected!", "Ready to play!", then `_Changelevel`, `_BeginConnect`, `_Connecting`,
+  "Authenticating with Steam...", `_SignonData`. "Ready to play!" is the last of a load.
+- **The menu's end of a load.** `lua/menu/loading.lua:225-233`: `IsInLoading()` is `IsValid(pnlLoading) and
+  IsValid(pnlLoading.HTML)`. `OnDeactivate` (`:73-82`) removes the HTML and calls `system.FlashWindow()` ("Notify the
+  user that the game is ready"). The panel's `Think` (`:90-103`) passes `GetLoadStatus()` to its page and, once
+  `IsHostingGame()`, calls `GameDetails` for the game started here. So the R24 overlay, which followed
+  `IsInLoading()`, ended when the panel deactivated, not when the game could be played. R26's measurements put 5.2-12.3
+  s between `InitPostEntity` and the first two seconds without a frame over 100 ms (R26, above).
+- **The menu realm's hooks run in a game.** `lua/menu/errors.lua:94` draws the Lua error notices in game from the menu's
+  `DrawOverlay` hook (it reads `cl_drawhud`); `lua/menu/openurl.lua:124` adds a menu `Think` hook named `AlwaysThink`
+  that runs while the game UI is hidden; the load accelerator's menu script takes its marker off from `Think` ten
+  seconds after a load (R26). The menu's `engine.GetAddons()` lists the subscriptions with `mounted`
+  (`lua/menu/getmaps.lua:271`, `mainmenu.lua:575`), and `IsInGame()` is the menu's (`mainmenu.lua:89`).
+- **The Workshop's menu hooks** (`lua/menu/mount/mount.lua`): `WorkshopStart` and `WorkshopEnd` open and close the
+  Workshop panel; `WorkshopSubscriptionsProgress(current, total)` is "Fetching Subscriptions" (`#ugc.fetching`,
+  `mount/vgui/workshop.lua:212`); `WorkshopDownloadFile`, `WorkshopDownloadProgress`, `WorkshopDownloadedFile`,
+  `WorkshopExtractProgress(id, image, title, percent)`; `WorkshopDownloadTotals(remaining, total)`, where
+  `remaining == total` is taken as finished; `WorkshopSubscriptionsMessage(text)`.
+- **The Remix runtime's own libraries** (`packages/runtime/files.json`): `d3d9.dll` with `NRD.dll`, `NRC_Vulkan.dll`,
+  `NvLowLatencyVk.dll`, `nvngx_dlss.dll`, `nvngx_dlssd.dll`, `nvngx_dlssg.dll`, `nvngx_dlssnr.dll`, `libxess.dll`,
+  `amd_fidelityfx_vk.dll`, `rtxio.dll`, `cudart64_13.dll`, `nvrtc*.dll`, `tbb12.dll` (USD's, on the mod loader's
+  thread) and Aftermath's. With the Vulkan loader (`vulkan-1.dll`) and drivers (`nvoglv64.dll`, `nvgpucomp64.dll`,
+  `amdvlk64.dll`, `igvk64.dll`) they are the activity line's "RTX Remix" class; GMod's `bin\win64` modules are listed in
+  `load_activity.cpp`.
+- **GDI draws CJK text in Segoe UI** through Windows' font linking: the overlay's picture test renders Japanese with
+  `CreateFontW(..., L"Segoe UI")` and `DrawTextW` into a DIB section, glyphs and all (`scratch\load_overlay_picture`
+  beside `nl_engine_guard_tests.exe`).
+- **Build pitfalls met here.** `windows.h` defines `far` (and `near`) as empty macros, so a variable named `far` does
+  not compile. A free function `fill(std::string_view, std::string_view, std::string_view)` called with `std::string`
+  arguments resolves to `std::fill` by argument-dependent lookup (a template, an exact match) and returns `void`; the
+  overlay's is `fill_value`.

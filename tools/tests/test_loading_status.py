@@ -1,5 +1,6 @@
 """R24 (ADR 0134): the companion's loading status menu script under LuaJIT (loading_status_harness.lua), and a check
-that the companion's menu scripts use no name GMod's Lua reserves."""
+that the companion's menu scripts use no name GMod's Lua reserves. ADR 0214: the overlay stays after the engine's load
+until the game runs steadily; ADR 0215: the estimate learned from the loads before, and its history."""
 import os
 from pathlib import Path
 import re
@@ -49,6 +50,44 @@ class LoadingStatusTests(unittest.TestCase):
     def test_nothing_without_the_module_or_outside_the_menu(self):
         self.run_case('no-module')
         self.run_case('not-menu')
+
+    # ADR 0214: after "Ready to play!", until the game runs steadily.
+
+    def test_a_load_that_ends_without_a_game_is_not_timed(self):
+        self.run_case('cancelled')
+
+    def test_a_game_there_a_moment_after_the_load_is_waited_for(self):
+        self.run_case('late-game')
+
+    def test_a_game_that_ends_or_a_load_that_follows_while_settling(self):
+        self.run_case('left-while-settling')
+        self.run_case('next-while-settling')
+
+    def test_the_wait_ends_at_its_time_limit_and_is_learned_as_such(self):
+        self.run_case('capped')
+
+    def test_slow_steady_frames_are_a_running_game(self):
+        self.run_case('slow-frames')
+
+    def test_a_demo_is_not_timed(self):
+        self.run_case('demo')
+
+    def test_the_workshops_work_is_named_not_waited_for(self):
+        self.run_case('workshop')
+
+    def test_r24s_module_keeps_r24s_overlay(self):
+        self.run_case('old-module')
+
+    # ADR 0215: the estimate.
+
+    def test_the_estimate_from_this_maps_loads_and_the_machines(self):
+        self.run_case('estimate')
+
+    def test_loads_of_games_started_here_say_nothing_about_servers_joined(self):
+        self.run_case('joined-history')
+
+    def test_the_estimator_records_bounds_and_estimates(self):
+        self.run_case('eta')
 
 
 class GModSyntaxTests(unittest.TestCase):

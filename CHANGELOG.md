@@ -46,6 +46,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
   player takes out of a category in the Remix developer menu and saves to `rtx.conf` is no longer put back every
   session (the RTX fixes' twelfth patch). Package only ([ADR 0213](docs/decisions/0213-automatic-categorization-hardened.md)).
 
+- The load overlay no longer leaves the player at "Ready to play!" (the user's request of 2026-11-14, package only;
+  branch `qol-load`). It stays after the engine's load until the game runs steadily (two seconds of the menu's frames
+  without a freeze, at most two minutes), with "The map has loaded; the game is starting". A new line says in plain
+  words what the main thread is doing: "RTX Remix is preparing the scene", "Running add-on scripts", "Building the
+  spawn menu" or "Loading game files". The engine guard classes each sample by the module the main thread is in, or
+  for a waiting thread by its nearest known caller. The Workshop's own fetching, downloading and extracting go on the
+  status line. The console line now gives both parts of the wait and the main thread's busiest activities
+  ([ADR 0214](docs/decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md)).
+- Map loads get an estimate learned from the loads before: "about 25 s left" with a bar that the module moves by
+  itself while the game is blocked. It reads "(rough estimate)" when it comes from other maps, "Taking longer than
+  usual" (amber) past it, and says the load is being timed when there is no history yet. The estimate is this map's
+  median of its newest five loads, scaled to today's add-on count and first-load state. A map not loaded before gets
+  the machine's other maps fitted to its size. Each load is kept in `garrysmod/data/nativeloader/load_times.txt`
+  (200 loads at most), which the engine guard reads and writes for the menu realm
+  ([ADR 0215](docs/decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)). Fifteen new messages, in all
+  seven languages.
 - VR grabbing is precise and hands-on (V8, approved by the user on 2026-11-13): a held object keeps its pose in the
   hand, comes to rest against the palm and follows the hand's movement and wrist turns with the hand's own velocity
   and spin fed forward, so turning the wrist turns it; light objects follow within millimetres while heavy ones still

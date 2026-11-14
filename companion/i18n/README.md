@@ -128,3 +128,10 @@ messages (that page, the Auto-Categorization page's rtx.conf line and World Geom
 game PBR panel's own table and one guide message (Rendering). Their translations in all six languages are
 agent-written by Claude and not yet human-reviewed; the path rtx-remix/mods/~gmod_topbr and rtx.conf are kept as they
 are. Nine add-on messages of the old ToPBR and World Geometry help left the catalogs.
+
+ADR 0214 and 0215 add fifteen messages to the load overlay (`menu/loading_status.lua`): the line after the engine's
+load, what the main thread is doing (RTX Remix, add-on scripts, the spawn menu, game files), the Workshop's work and
+the estimate ("about %s s left", its rough and minute forms, "Taking longer than usual", the line without an
+estimate). Their translations in all six catalogs are agent-written by Claude and not yet human-reviewed. They are
+short because the overlay gives each one line; "Workshop" stays as the other messages keep it (创意工坊 in zh-CN), and
+the spawn menu and add-ons use the catalogs' own words.

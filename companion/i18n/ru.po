@@ -2772,28 +2772,95 @@ msgstr "Окно игры"
 msgid "With RTX the game runs in a borderless window as large as your screen, because exclusive fullscreen crashes Remix. For another size, add -w and -h to the game's launch options in Steam, for example -w 1920 -h 1080."
 msgstr "С RTX игра работает в окне без рамки размером с экран, потому что эксклюзивный полноэкранный режим вызывает сбой Remix. Для другого размера добавьте -w и -h в параметры запуска игры в Steam, например -w 1920 -h 1080."
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:14
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
 msgid "Loading…"
 msgstr "Загрузка…"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:15
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:19
 #, c-format
 msgid "Loading %s"
 msgstr "Загрузка %s"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:16
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:20
 #, c-format
 msgid "Joining %s"
 msgstr "Подключение к %s"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:17
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:21
 msgid "File"
 msgstr "Файл"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:22
 #, c-format
 msgid "%s file lookups answered from memory"
 msgstr "%s обращений к файлам обслужено из памяти"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:24
+msgid "The map has loaded; the game is starting"
+msgstr "Карта загружена, игра запускается"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:25
+msgid "RTX Remix is preparing the scene"
+msgstr "RTX Remix подготавливает сцену"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:26
+msgid "Running add-on scripts"
+msgstr "Выполняются скрипты дополнений"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:27
+msgid "Building the spawn menu"
+msgstr "Строится меню создания"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:28
+msgid "Loading game files"
+msgstr "Загружаются файлы игры"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:29
+msgid "Workshop: updating add-ons"
+msgstr "Workshop: обновление дополнений"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:30
+#, c-format
+msgid "Workshop: fetching subscriptions (%s of %s)"
+msgstr "Workshop: получение подписок (%s из %s)"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:31
+#, c-format
+msgid "Workshop: downloading add-ons (%s of %s)"
+msgstr "Workshop: загрузка дополнений (%s из %s)"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:32
+#, c-format
+msgid "Workshop: extracting %s"
+msgstr "Workshop: распаковка %s"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:34
+#, c-format
+msgid "about %s s left"
+msgstr "осталось около %s с"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:35
+#, c-format
+msgid "about %s min left"
+msgstr "осталось около %s мин"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:36
+#, c-format
+msgid "about %s s left (rough estimate)"
+msgstr "осталось около %s с (приблизительная оценка)"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:37
+#, c-format
+msgid "about %s min left (rough estimate)"
+msgstr "осталось около %s мин (приблизительная оценка)"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:38
+msgid "Taking longer than usual"
+msgstr "Дольше, чем обычно"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:39
+msgid "No estimate yet: this load is timed for the next one"
+msgstr "Оценки пока нет: время этой загрузки запоминается для следующей"
 
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
 msgid "Before you join a server"

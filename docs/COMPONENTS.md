@@ -514,6 +514,15 @@ Material colours above 1 (2026-11-11): the engine guard gains [`colour_cap.cpp`]
 as 1 instead of a wrapped byte ([ADR 0190](decisions/0190-material-colours-above-1-capped-for-remix.md)), with the
 end-to-end `nl_engine_guard_colour_tests` and its stand-in `shaderapidx9.dll` and Remix `d3d9.dll`.
 
+The load's wait and estimate (2026-11-14, branch `qol-load`): the engine guard gains
+[`load_activity.cpp`](../engine_guard/README.md) (what the sampled main thread is doing: RTX Remix, add-on scripts, the
+spawn menu, game files) and [`load_eta.cpp`](../engine_guard/README.md) (the countdown, the bar and the history file).
+The overlay stays after "Ready to play!" until the game runs steadily
+([ADR 0214](decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md)), and
+[`menu/loading_status.lua`](../companion/nativeloader/lua/nativeloader/menu/loading_status.lua.md) learns the wait from
+the loads before, kept in `garrysmod/data/nativeloader/load_times.txt`
+([ADR 0215](decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)).
+
 ## VR in the RTX package
 
 VR V1 was approved by the user and merged on 2026-11-10 ([report](handover/VR-V1-report.md)). The loader deploys the

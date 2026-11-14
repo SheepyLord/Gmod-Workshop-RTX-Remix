@@ -2772,28 +2772,95 @@ msgstr "游戏窗口"
 msgid "With RTX the game runs in a borderless window as large as your screen, because exclusive fullscreen crashes Remix. For another size, add -w and -h to the game's launch options in Steam, for example -w 1920 -h 1080."
 msgstr "启用 RTX 时，游戏会在与屏幕同样大小的无边框窗口中运行，因为独占全屏会导致 Remix 崩溃。要使用其他尺寸，请在 Steam 中为游戏启动选项添加 -w 和 -h，例如 -w 1920 -h 1080。"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:14
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
 msgid "Loading…"
 msgstr "正在加载…"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:15
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:19
 #, c-format
 msgid "Loading %s"
 msgstr "正在加载 %s"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:16
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:20
 #, c-format
 msgid "Joining %s"
 msgstr "正在加入 %s"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:17
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:21
 msgid "File"
 msgstr "文件"
 
-#: nativeloader/lua/nativeloader/menu/loading_status.lua:18
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:22
 #, c-format
 msgid "%s file lookups answered from memory"
 msgstr "已从内存应答 %s 次文件查找"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:24
+msgid "The map has loaded; the game is starting"
+msgstr "地图已加载，游戏正在启动"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:25
+msgid "RTX Remix is preparing the scene"
+msgstr "RTX Remix 正在准备场景"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:26
+msgid "Running add-on scripts"
+msgstr "正在运行插件脚本"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:27
+msgid "Building the spawn menu"
+msgstr "正在构建生成菜单"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:28
+msgid "Loading game files"
+msgstr "正在加载游戏文件"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:29
+msgid "Workshop: updating add-ons"
+msgstr "创意工坊：正在更新插件"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:30
+#, c-format
+msgid "Workshop: fetching subscriptions (%s of %s)"
+msgstr "创意工坊：正在获取订阅（%s / %s）"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:31
+#, c-format
+msgid "Workshop: downloading add-ons (%s of %s)"
+msgstr "创意工坊：正在下载插件（%s / %s）"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:32
+#, c-format
+msgid "Workshop: extracting %s"
+msgstr "创意工坊：正在解压 %s"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:34
+#, c-format
+msgid "about %s s left"
+msgstr "大约还剩 %s 秒"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:35
+#, c-format
+msgid "about %s min left"
+msgstr "大约还剩 %s 分钟"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:36
+#, c-format
+msgid "about %s s left (rough estimate)"
+msgstr "大约还剩 %s 秒（粗略估计）"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:37
+#, c-format
+msgid "about %s min left (rough estimate)"
+msgstr "大约还剩 %s 分钟（粗略估计）"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:38
+msgid "Taking longer than usual"
+msgstr "比平时用时更长"
+
+#: nativeloader/lua/nativeloader/menu/loading_status.lua:39
+msgid "No estimate yet: this load is timed for the next one"
+msgstr "暂无估计：本次加载的用时将用于下次估计"
 
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:12
 msgid "Before you join a server"

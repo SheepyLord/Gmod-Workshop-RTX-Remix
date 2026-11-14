@@ -81,6 +81,11 @@ bounded, obeys its switches and keeps the player's `rtx.conf` choices: [issue6-t
 by Claude, package only, on the branch `qol-topbr` awaiting the user
 ([ADR 0212](../decisions/0212-topbr-kept-and-publishes-past-unreadable-mods.md),
 [ADR 0213](../decisions/0213-automatic-categorization-hardened.md)).
+Then the user's QoL request of 2026-11-14 (a long silent wait between "Ready to play!" and a playable map; an estimate
+of a load's length learned from the loads before): [load-eta-report.md](load-eta-report.md), by Claude, package only,
+on the branch `qol-load`, not merged
+([ADR 0214](../decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md),
+[ADR 0215](../decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)).
 
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),

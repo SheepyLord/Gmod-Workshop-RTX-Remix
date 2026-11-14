@@ -1,5 +1,6 @@
 # The engine guard (R23, ADR 0130): a client and a server binary module from one source.
-add_library(nl_engine_guard STATIC guard.cpp watchdog.cpp load_overlay.cpp crash_report.cpp colour_cap.cpp)
+add_library(nl_engine_guard STATIC guard.cpp watchdog.cpp load_overlay.cpp load_activity.cpp load_eta.cpp crash_report.cpp
+  colour_cap.cpp)
 target_include_directories(nl_engine_guard PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(nl_engine_guard PRIVATE nl_build_options user32 gdi32)
 
@@ -21,7 +22,7 @@ foreach(realm IN ITEMS client server)
 endforeach()
 
 add_executable(nl_engine_guard_tests ../loader/tests/test_main.cpp tests/test_guard.cpp tests/test_overlay.cpp
-  tests/test_crash_report.cpp tests/test_colour_cap.cpp)
+  tests/test_load_activity.cpp tests/test_load_eta.cpp tests/test_crash_report.cpp tests/test_colour_cap.cpp)
 target_include_directories(nl_engine_guard_tests PRIVATE ../loader/tests)
 target_link_libraries(nl_engine_guard_tests PRIVATE nl_engine_guard nl_build_options)
 target_compile_definitions(nl_engine_guard_tests PRIVATE

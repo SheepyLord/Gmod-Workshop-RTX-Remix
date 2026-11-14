@@ -3329,3 +3329,27 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
 - **Offline evidence:** two scratch scripts (in the worktree's `out\issue6`, not kept) emulated the old scan over an install's
   `rtx-remix\mods` without writing anything; on the field install it reports 26 unread files.
 - **In game:** not run; the checks the user may run are listed in the report.
+## The wait after "Ready to play!" and the load's estimate (2026-11-14, Claude, branch `qol-load`)
+
+[ADR 0214](decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md),
+[ADR 0215](decisions/0215-the-loads-estimate-learned-from-the-loads-before.md); the
+[report](handover/load-eta-report.md) lists the checks still to make in a game.
+
+- **Native** (`nl_engine_guard_tests`): [`test_load_activity.cpp`](../engine_guard/tests/test_load_activity.cpp)
+  (modules by name; this executable's code ranges from its PE headers, and headers that cannot be read refused under
+  SEH; LuaJIT-style executable memory; one sample classed from fake ranges and stacks: Remix, files, scripts, the
+  nearest known caller of a waiting thread, a caller beyond the 4 KiB scanned, game code called from Lua; the spawn
+  menu's files; the two-second smoothing), [`test_load_eta.cpp`](../engine_guard/tests/test_load_eta.cpp) (a
+  translation's `%s` filled or the English, how a remaining time is said, the bar toward its cap, creeping past it and
+  never back, the history file written whole through a temporary file and read back, bounded), and
+  [`test_overlay.cpp`](../engine_guard/tests/test_overlay.cpp) (the phase after the engine's load in a process without a
+  game window, the estimate's and the activity's words, the window's picture drawn into bitmaps and checked by pixel:
+  the bar, the amber overrun, Japanese through font linking; the new functions only in the menu copy).
+- **Lua under LuaJIT** ([`test_loading_status.py`](../tools/tests/test_loading_status.py.md), 22 tests): the overlay
+  through a freeze to two steady seconds, a load without a game waited out for a second, a game a moment late, the game
+  ending or the next load while settling, the 120 s limit, slow steady frames, the Workshop's words, a demo, R24's
+  module, the estimate from a history file (the machine's before the map is known, the map's after `GameDetails`, the
+  engine's actual load plus the expected wait), loads of the other kind, and the estimator alone (medians, bounds, the
+  file's round trip, outliers, scaling, the size fit).
+- **Not run in a game:** the window over a real load, the settling phase's end against the frames the player sees, the
+  activity line's words on real stacks, and the estimate over a week of real loads. See the report.

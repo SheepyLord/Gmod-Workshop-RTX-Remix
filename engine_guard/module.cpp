@@ -15,6 +15,10 @@
 // ADR 0190: every realm's load also caps material colours above 1 for Remix (colour_cap.h, Remix starts only);
 // nlengineguard.colour_cap says how that went, nlengineguard.ColourCap([enabled]) -> enabled, capped switches it
 // for a comparison and counts the calls it capped.
+// ADR 0214 and 0215 (menu realm only, like the rest of the overlay): LoadSettling() keeps the overlay up after the
+// engine's load until the game runs steadily, LoadExpect(seconds, confidence) gives it the estimated end of the wait,
+// LoadTimes() -> text and LoadTimesSave(text) -> saved read and replace the history the estimate is learned from
+// (garrysmod/data/nativeloader/load_times.txt). LoadStart's labels gain the activity line's and the estimate's words.
 #include "colour_cap.h"
 #include "crash_report.h"
 #include "guard.h"
@@ -102,13 +106,67 @@ std::string field(GarrysMod::Lua::ILuaBase* LUA, int table, const char* name, co
   return value;
 }
 
-// Menu realm only. nlengineguard.LoadStart(heading, labels): the loading panel activated.
+// Menu realm only. nlengineguard.LoadStart(heading, labels): the loading panel activated. labels: the window's words
+// in the player's language (lua, file; ADR 0214: remix, scripts, spawnmenu, files; ADR 0215: secondsLeft,
+// minutesLeft, secondsRough, minutesRough, longer, learning); a missing one keeps its English.
 LUA_FUNCTION_STATIC(LoadStart) {
   nl::engine_guard::overlay::Labels labels;
-  labels.lua = field(LUA, 2, "lua", "Lua");
-  labels.file = field(LUA, 2, "file", "File");
+  const nl::engine_guard::overlay::Labels english;
+  labels.lua = field(LUA, 2, "lua", english.lua.c_str());
+  labels.file = field(LUA, 2, "file", english.file.c_str());
+  labels.remix = field(LUA, 2, "remix", english.remix.c_str());
+  labels.scripts = field(LUA, 2, "scripts", english.scripts.c_str());
+  labels.spawnmenu = field(LUA, 2, "spawnmenu", english.spawnmenu.c_str());
+  labels.files = field(LUA, 2, "files", english.files.c_str());
+  labels.seconds_left = field(LUA, 2, "secondsLeft", english.seconds_left.c_str());
+  labels.minutes_left = field(LUA, 2, "minutesLeft", english.minutes_left.c_str());
+  labels.seconds_rough = field(LUA, 2, "secondsRough", english.seconds_rough.c_str());
+  labels.minutes_rough = field(LUA, 2, "minutesRough", english.minutes_rough.c_str());
+  labels.longer = field(LUA, 2, "longer", english.longer.c_str());
+  labels.learning = field(LUA, 2, "learning", english.learning.c_str());
   nl::engine_guard::overlay::start(text_arg(LUA, 1), labels);
   return 0;
+}
+
+// nlengineguard.LoadExpect(seconds, confidence): the whole wait should last `seconds` from LoadStart; confidence 2
+// good, 1 rough, 0 none (no estimate: the window says the load is timed for the next one). ADR 0215.
+LUA_FUNCTION_STATIC(LoadExpect) {
+  const double seconds = LUA->IsType(1, GarrysMod::Lua::Type::Number) ? LUA->GetNumber(1) : 0.0;
+  const double level = LUA->IsType(2, GarrysMod::Lua::Type::Number) ? LUA->GetNumber(2) : 0.0;
+  using nl::engine_guard::overlay::Confidence;
+  const Confidence confidence = level >= 2 ? Confidence::good : level >= 1 ? Confidence::rough : Confidence::none;
+  nl::engine_guard::overlay::expect(seconds, confidence);
+  return 0;
+}
+
+// nlengineguard.LoadSettling(): the engine's load ended; the window stays until LoadEnd() (ADR 0214).
+LUA_FUNCTION_STATIC(LoadSettling) {
+  nl::engine_guard::overlay::settling();
+  return 0;
+}
+
+// nlengineguard.LoadTimes() -> text or nil: garrysmod/data/nativeloader/load_times.txt (ADR 0215).
+LUA_FUNCTION_STATIC(LoadTimes) {
+  const auto text = nl::engine_guard::overlay::history();
+  if (!text) {
+    LUA->PushNil();
+    return 1;
+  }
+  LUA->PushString(text->data(), static_cast<unsigned>(text->size()));
+  return 1;
+}
+
+// nlengineguard.LoadTimesSave(text) -> saved: replaces that file (at most 64 KiB, no NUL); the menu realm cannot
+// write files itself.
+LUA_FUNCTION_STATIC(LoadTimesSave) {
+  if (!LUA->IsType(1, GarrysMod::Lua::Type::String)) {
+    LUA->PushBool(false);
+    return 1;
+  }
+  unsigned length = 0;
+  const char* text = LUA->GetString(1, &length);
+  LUA->PushBool(text && nl::engine_guard::overlay::save_history(std::string_view(text, length)));
+  return 1;
 }
 
 LUA_FUNCTION_STATIC(LoadHeading) {
@@ -121,12 +179,17 @@ LUA_FUNCTION_STATIC(LoadStatus) {
   return 0;
 }
 
-// nlengineguard.LoadEnd() -> {seconds = n, lua = {{name = "lua/x.lua", seconds = n}, ...}}
+// nlengineguard.LoadEnd() -> {seconds = n, loading = n, lua = {{name = "lua/x.lua", seconds = n}, ...},
+// activity = {remix = n, scripts = n, spawnmenu = n, files = n}}: the whole wait, the engine's load (to
+// LoadSettling), the Lua files seen running longest and the seconds the main thread was seen in each activity.
 LUA_FUNCTION_STATIC(LoadEnd) {
+  using nl::engine_guard::overlay::Activity;
   const auto summary = nl::engine_guard::overlay::finish();
   LUA->CreateTable();
   LUA->PushNumber(summary.seconds);
   LUA->SetField(-2, "seconds");
+  LUA->PushNumber(summary.loading);
+  LUA->SetField(-2, "loading");
   LUA->CreateTable();
   double index = 0;
   for (const auto& [name, seconds] : summary.lua) {
@@ -139,6 +202,14 @@ LUA_FUNCTION_STATIC(LoadEnd) {
     LUA->SetTable(-3);
   }
   LUA->SetField(-2, "lua");
+  LUA->CreateTable();
+  const std::pair<Activity, const char*> activities[] = {
+      {Activity::remix, "remix"}, {Activity::scripts, "scripts"}, {Activity::spawnmenu, "spawnmenu"}, {Activity::files, "files"}};
+  for (const auto& [activity, name] : activities) {
+    LUA->PushNumber(summary.activity[static_cast<std::size_t>(activity)]);
+    LUA->SetField(-2, name);
+  }
+  LUA->SetField(-2, "activity");
   return 1;
 }
 
@@ -190,8 +261,16 @@ GMOD_MODULE_OPEN() {
     LUA->SetField(-2, "LoadHeading");
     LUA->PushCFunction(LoadStatus);
     LUA->SetField(-2, "LoadStatus");
+    LUA->PushCFunction(LoadExpect);
+    LUA->SetField(-2, "LoadExpect");
+    LUA->PushCFunction(LoadSettling);
+    LUA->SetField(-2, "LoadSettling");
     LUA->PushCFunction(LoadEnd);
     LUA->SetField(-2, "LoadEnd");
+    LUA->PushCFunction(LoadTimes);
+    LUA->SetField(-2, "LoadTimes");
+    LUA->PushCFunction(LoadTimesSave);
+    LUA->SetField(-2, "LoadTimesSave");
 #endif
   } else {
     LUA->PushCFunction(StartupDone);

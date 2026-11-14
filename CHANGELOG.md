@@ -6,6 +6,13 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- The RTX Remix runtime follows NVIDIA's dxvk-remix `main` of 2026-11-14, 57 commits past RTX Remix 1.6.1 (runtime
+  patch 0093, [ADR 0218](docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md)): NVIDIA's eye
+  shading fixes (corrupted reflections, dark eye whites, iris parallax and a limbal ring), BLAS refit, bindless,
+  decal, PSR, skinning and particle fixes, RTXDI's compact reservoirs, USDG mesh packages (`usdg.dll` ships beside
+  `d3d9.dll`), a water simulation and an alpha blend dissolve for faded objects. The fork's Remix API becomes
+  0.1000.2: upstream's additions follow the fork's own, so the package's modules built against 0.1000.1 keep working,
+  and `rtx.eye.irisDepth` gives way to upstream's `rtx.eye.irisDepthScale` and `rtx.eye.limbalRingScale`.
 - The RTX flashlight adjusts its brightness to what it lights, on by default: seven traces across the beam find how
   far it lands, near hits counting most, and the light eases to the level that keeps that distance as bright as the
   normal distance (256 units), dimming within a few frames for a wall up close and brightening gently for far ones, up

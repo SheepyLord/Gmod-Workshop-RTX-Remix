@@ -1,5 +1,47 @@
 # runtime/
 
+Patch `0093-Merge-upstream-dxvk-remix-main-of-2026-11-14-remix-1.patch`
+([ADR 0218](../docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md),
+[report](../docs/handover/upstream-runtime-report.md), fork branch `claude/upstream-main-1114`, commit `20e3553e`): NVIDIA's
+`dxvk-remix` `main` of 2026-11-14 (`2b46bed0c`), 57 commits past `remix-1.6.1`, merged onto 0001-0092 with
+`remix-1.6.1` as the merge base (patch 0001 holds the fork's 1.6.1 merge as a snapshot, so the merge took a temporary
+`git replace --graft` of 0001's commit) and squashed into one commit. The next update merges `2b46bed0c..<main>` the
+same way as 0094.
+
+- **RTXDI** is upstream's recorded `dc8eb03` (RemixProjGroup/RTXDI), and
+  [`submodules/rtxdi.patch`](submodules/rtxdi.patch) now holds the fork's Numos volumetrics (`30431e9..3b39a7c`:
+  `volume_composite_helpers`, `volume_integrator`, `volume_lighting`) on it. `evalVolumetricNEE` keeps upstream's fetch
+  in uniform control flow (NVBUGS 7020086) and the fork's consumer gain and edge falloff.
+- **Remix API 0.1000.2.** Upstream's `SetWaterSim` and `AddWaterDisturbance` are slots 42-43 after the fork's 41
+  functions (344 bytes), its struct types are 29-33 and `SLUDGE` is bit 28. `util_remix_api_version.h` writes a
+  0.1000.0 or 0.1000.1 client its 328 bytes; upstream's texture transform fields of the material extensions are read
+  only from 0.1000.2 clients (every 0.1000.x version compares above upstream's 0.6.6 gate). `remixapi_SetConfigVariable`
+  keeps the fork's call without upstream's outer lock: the fork's `readOption` takes the update mutex (patch 0029).
+- **GPU layouts.** The alpha blend dissolve mode is flags0 bits 3-5 (`alphaBlendDissolveShift` 3; the texture flags'
+  bits 19-30 hold the MMD alpha cutoff); the camera material flags are opaque offsets 11 and 12; `GpuParticle` is 64
+  bytes (`timeToLive` float at 44, `emitterObjectPickingValue` at 48); `RaytraceArgs` and `ParticleSystemConstants`
+  (464 bytes) gain a padded row; particle bindings 63 (the fork's spawn statistics), 64 and 65.
+- **Shaders.** Emission is read only for an emissive material, where upstream moved it, with the fork's legacy
+  emissive alpha mask, texture factor blend, sRGB textures, tint and adaptive intensity (gated on the adaptive
+  intensity, so an adaptive material without a fixed one still emits). The spawn kernel keeps the shelter relocation
+  and landing trace with upstream's surface-area triangles and rejected spawns. The eye override takes the EyeRefract
+  flag as a parameter.
+- **USD.** The fork's value reader takes float2 values; texture transforms clamp an infinite authored value to their
+  limit, as upstream's do. `usdg.dll` (upstream's USDG file format and package resolver) is linked by `d3d9.dll` and
+  installed beside it, with `usd/plugins/usdg/resources/plugInfo.json`; the categories and particle schemas carry
+  `sludge` and the particle controls.
+
+Built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0093): **`d3d9.dll` 478,618,112 bytes,
+SHA-256 `3237fe73bfc5a243de9fccb86036dccdb350411bafdc30960c5f47c75c59b0e9`** (70,695,080 bytes xz in Git LFS; the
+1.6.1 build was 418,989,056, the new shader permutations make most of the difference). Imported beside it from the
+same build with `tools\inputs.py import runtime --file`: `usdg.dll` (240,640 bytes, `36e14a05...`), its
+`plugInfo.json`, both plugin DLLs and both schemas. `-Install` stops locally at upstream's new `usdg-converter`
+install step, whose batch helper drops the `!` of this repository's path (the converter is not shipped); GitHub's
+package workflow has no `!` in its paths. The unit suite of the same build passes 57 of 58 tests (upstream's API
+version, camera material and particle picking tests and the fork's MMD alpha test fitted to the merged layouts);
+`test_remix_categories` cannot load `d3d9.dll` in its process, as before. `RtxOptions.md` is regenerated from the
+build.
+
 Patches `0091-Core-fixes-the-pipeline-handle-race-command-list-rec.patch` and
 `0092-Reflex-no-sent-message-is-dispatched-inside-Present.patch`
 ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md),
@@ -531,6 +573,7 @@ NVIDIA's SDKs, is about 3.6 GB and keeps its own history, so this repository hol
 | `0090-Atmosphere-the-Moon-by-day` | The moons by day: a moon's light added to the sky in front of it, its disc hiding only what lies beyond; by day the real Moon's phase law times `rtx.atmosphere.daytimeMoonBrightness`, the night's look kept; no disc below the horizon unless `noHorizon` ([ADR 0207](../docs/decisions/0207-the-moon-by-day.md)) |
 | `0091-Core-fixes-the-pipeline-handle-race-...` | Upstream dxvk-remix `c1a891bf85` (MIT): the pipeline handle read under the pipeline's lock (graphics, and compute too), a finished command list recycled before its waiters wake, frame generation's duplicate acquire-semaphore waits removed ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
 | `0092-Reflex-no-sent-message-is-dispatched-...` | The Reflex latency ping inside Present peeks only while `GetQueueStatus` shows a posted message and no sent one (`PM_REMOVE \| PM_QS_POSTMESSAGE`): no window procedure runs mid-frame ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
+| `0093-Merge-upstream-dxvk-remix-main-...` | NVIDIA's dxvk-remix `main` of 2026-11-14 (`remix-1.6.1..2b46bed0c`, 57 commits): RTXDI `dc8eb03` with the fork's volumetrics, Remix API 0.1000.2 with upstream's additions after the fork's, the fork's GPU bits kept and upstream's moved, `usdg.dll` beside `d3d9.dll` ([ADR 0218](../docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md)) |
 
 - [`build_runtime.ps1`](build_runtime.ps1.md): applies them in a worktree of a fork clone, builds, and
   stores the new `d3d9.dll` in [`packages/runtime`](../packages/README.md).

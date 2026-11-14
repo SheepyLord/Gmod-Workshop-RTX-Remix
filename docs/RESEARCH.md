@@ -8673,3 +8673,45 @@ map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-m
   has 3 brush entities. Not the pack's doing; not checked without RTX.
 - **A GPU device loss** (`VK_ERROR_DEVICE_LOST` at a fence, frame 1783) ended one Abandoned Mall start at its
   first view, with 6.6 of 32 GB of VRAM in use and no dump; the same view drew in three other starts.
+
+## The runtime and upstream dxvk-remix main (2026-11-14, Claude, ADR 0218)
+
+- **Where the runtime stood.** `base.json`'s fork commit is `sambow23/dxvk-remix-gmod` `c6b48ed1` (2026-08-31; the
+  fork has not moved since), and patch 0001 is the user's snapshot of it with NVIDIA's `remix-1.6.1` (tag object
+  `1e6d66c63`, commit `0a6cd5b1`, 2026-10-21) merged in. Upstream `main` was `2b46bed0c` on 2026-11-14: 114 commits,
+  57 without merges, 361 files, +31,660/-4,207 lines past 1.6.1, no binary file, one submodule moved (RTXDI) and the
+  Packman bootstrap at 8.7.0 (no package version changed).
+- **The merge base.** 0001 is a plain commit on `c6b48ed1`, so git sees the fork's merge base with upstream as the
+  older common ancestor and would re-apply 1.6.1. `git replace --graft <0001> c6b48ed1 remix-1.6.1` makes `remix-1.6.1`
+  the merge base for `git merge --squash upstream/main`; the replace ref is deleted right after. 54 paths conflicted
+  (44 both modified, 9 upstream documents placed by directory-rename detection into the fork's `docs/` (the fork
+  renamed `documentation/`), one modify/delete), 90 hunks in diff3 form.
+- **RTXDI.** The fork's `3b39a7c` holds Numos volumetrics on `30431e9`; its uncommitted changes (the old
+  `rtxdi.patch`) were exactly 1.6.1's RTXDI `30431e9..836162053` (three files byte-identical). Upstream `main` records
+  `dc8eb03` (`836162053..dc8eb03`: best light bias, the NVBUGS 7020086 fetch, compact sparse reservoirs). Merging
+  `3b39a7c` into `dc8eb03` conflicts only in `evalVolumetricNEE`'s return.
+- **Where both sides took the same thing.** The Remix API's struct type numbers 25-28 and category bit 27 (the
+  fork's `TEXTURE_INFO` and `LEGACY_EMISSIVE`); the interface's slots after `SetCameraMediumMaterial` (the fork's 18
+  functions, 328 bytes, against upstream's water functions, 192); the surface's texture flags bits 19-21 (upstream's
+  alpha blend dissolve) inside the fork's 12-bit MMD alpha cutoff (bits 19-30); opaque material flag offsets 6 and 7
+  (upstream's camera emission flags) against the fork's sRGB flags; `GpuParticle`'s word at 44 (the fork's float
+  `timeToLive`, upstream's picking value); the particle constants' last pad; binding 63. `flags0` (`data0b.z`) had
+  bits 3-15 free.
+- **A deadlock upstream's change would have caused.** Upstream `da9aeaa35` takes `RtxOptionImpl::getUpdateMutex()`
+  around `option->readOption(...)` in `remixapi_SetConfigVariable`. The fork's `readOption` takes the same
+  `std::mutex` itself (patch 0029, `rtx_option.cpp` `readOption`), so both together lock it twice on the game thread.
+- **Upstream's version gates and the fork's line.** Upstream reads the 0.6.6 texture transform fields when
+  `s_apiVersion >= REMIXAPI_VERSION_MAKE(0, 6, 6)`; every fork version (minor 1000) is larger, so a 0.1000.1 module's
+  material would be read past the end of its `remixapi_MaterialInfoOpaqueEXT`. Upstream's `clientInterfaceSize` likewise
+  returns `sizeof(remixapi_Interface)` for any minor-1000 client. The fork's 0.1000.1 interface is 41 pointers (328
+  bytes), the merged one 43 (344); upstream's API version test, fitted to the fork's line, checks the 0xCD canaries
+  behind a 0.1000.0 and 0.1000.1 client.
+- **Sizes after the merge.** `RtInstance` 800 bytes (776 at 1.6.1, the fork 784, upstream 792);
+  `ParticleSystemConstants` 464 (upstream 448); `GpuParticleSystemDesc` 112; `d3d9.dll` 478,618,112 bytes (1.6.1 build
+  418,989,056). The RTX package grows to 2,147,921,872 bytes, just past 2 GiB; the loader's GMA reader uses
+  `_fseeki64`/`uint64_t` offsets (`loader/core/src/gma.cpp`) and the configured `gmpublish.exe` is x64.
+- **Build notes.** `meson install --tags output` stops at upstream's `usdg-converter` step: `install_file_in_dir.bat`
+  with a `*.*` pattern drops the `!` of `!NVIDIA-RTX-Remix` (delayed expansion). `test_remix_api_version` links
+  `d3d9.dll`, so in the build folder it loads System32's `d3d9.dll` (0xC0000139) unless the built one lies beside it.
+  The fork's `usd_value::toReal` refuses infinities, so upstream's "infinite scroll rate clamps to its limit" needed
+  the texture transform reader to read the authored real itself.

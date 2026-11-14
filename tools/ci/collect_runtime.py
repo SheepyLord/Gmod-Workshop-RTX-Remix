@@ -33,7 +33,8 @@ def source_of(rel: str, base: dict) -> dict:
     vendor or OpenUSD file the same build fetches."""
     name = rel.rsplit('/', 1)[-1].lower()
     fork = {'repository': base['repository'], 'commit': base['commit'], 'patches': 'runtime/patches (this repository)'}
-    if name == 'd3d9.dll' or name.startswith('remix') and rel.startswith('files/usd/plugins/'):
+    # usdg.dll is the fork's USDG plugin (runtime patch 0093), which the build installs beside d3d9.dll.
+    if name in ('d3d9.dll', 'usdg.dll') or name.startswith('remix') and rel.startswith('files/usd/plugins/'):
         return {**fork, 'how': 'compiled: Meson release build of the fork with runtime/patches (runtime/build_runtime.ps1)'}
     return {**fork, 'how': 'fetched by the same build (packman, a submodule or a clone that runtime/base.json names); '
                            'prebuilt by its vendor'}

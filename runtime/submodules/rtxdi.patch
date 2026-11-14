@@ -1,248 +1,248 @@
-diff --git a/rtxdi-sdk/include/rtxdi/ResamplingFunctions.slangh b/rtxdi-sdk/include/rtxdi/ResamplingFunctions.slangh
-index 4014a3c79a4698778e76a70f94a4d493a437e934..351843d2677a8f6c5909c24c33988478d3f58aed 100644
---- a/rtxdi-sdk/include/rtxdi/ResamplingFunctions.slangh
-+++ b/rtxdi-sdk/include/rtxdi/ResamplingFunctions.slangh
-@@ -57,6 +57,7 @@ bool RTXDI_StreamSample(
-     reservoir.portalIdx = uint8_t(portalIndex);
-     reservoir.uv = uv;
-     reservoir.targetPdf = targetPdf;
-+    reservoir.lightIdentity = RAB_UseLightIdentityResolution() ? RAB_GetLightIdentity(uint16_t(lightIndex)) : 0u;
-   }
- 
-   return selectSample;
-@@ -87,6 +88,7 @@ bool RTXDI_CombineReservoirs(
-     reservoir.portalIdx = newReservoir.portalIdx;
-     reservoir.uv = newReservoir.uv;
-     reservoir.targetPdf = targetPdf;
-+    reservoir.lightIdentity = newReservoir.lightIdentity;
-   }
- 
-   return selectSample;
-@@ -330,6 +332,7 @@ RTXDI_Reservoir RTXDI_SampleSingleLight(
-   state.uv = lightUV;
-   state.targetPdf = targetPdf;
-   state.M = 1;
-+  state.lightIdentity = (targetPdf > 0 && RAB_UseLightIdentityResolution()) ? RAB_GetLightIdentity(lightIdx) : 0u;
-   
-   if (testVisibility)
-   {
-@@ -485,6 +488,8 @@ void RTXDI_TemporalResampling(
-   // calculate targetPdf for the old sample
-   bool selectedPreviousSample = false;
-   uint previousM = 0;
-+  bool useStoredTemporalTargetPdf = false;
-+  float storedTemporalTargetPdf = 0.0f;
-   if (prevPixelID.x >= 0)
-   {
-     RTXDI_Reservoir prevReservoir = RAB_LoadReservoir(prevPixelID, tparams.sourceBufferIndex);
-@@ -493,17 +498,25 @@ void RTXDI_TemporalResampling(
- 
-     // Save the light index in the previous frame context
-     const uint16_t originalPrevLightIdx = prevReservoir.lightIdx;
+diff --git a/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_composite_helpers.slangh b/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_composite_helpers.slangh
+index 9638dd95284b75a7e4feae7104c8e8c15dbdd805..1a9ebec28eea78c611988a5ca679680ed33f2ded 100644
+--- a/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_composite_helpers.slangh
++++ b/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_composite_helpers.slangh
+@@ -187,8 +187,14 @@ void integrateVolumetricNEE(
+     const float3 physicalFroxelUVW = virtualFroxelUVWToPhysicalFroxelUVW(virtualFroxelUVW, currentFroxelVolume, volumeArgs.minFilteredRadianceU, volumeArgs.maxFilteredRadianceU, volumeArgs.inverseNumFroxelVolumes);
+     
+     const SphericalHarmonic sh = HarmonicsHelpers::loadFiltered3D<SphericalHarmonic>(volumeFilteredRadianceY, volumeFilteredRadianceCoCg, physicalFroxelUVW);
 -    
--    uint16_t mappedLightID = RAB_TranslateLightIndex(prevReservoir.lightIdx, /* currentToPrevious = */ false);
--    if (mappedLightID == RTXDI_INVALID_LIGHT_INDEX)
+-    const float3 accumulatedRadianceSample = sh.evaluateHenyeyGreenstein(viewDir, volumeArgs.volumetricFogAnisotropy);
 +
-+    // Map the previous reservoir's stored light index to the current frame. 
-+    bool prevReservoirValid;
-+    if (RAB_UseLightIdentityResolution())
++    // Fog-only visibility gain. Volumetric fog needs more energy than the
++    // physical sun contribution gives at normal exposure to read as fog -- this
++    // is an artistic dial, not a unit-conversion fix. Lives here (consumer-side)
++    // so that other consumers of the same SH cache via
++    // volume_lighting.slangh::evalVolumetricNEE (decals/particles/PSR/SAB Path B)
++    // read honest physical values. Knob: rtx.volumetrics.fogSunVisibilityGain.
++    const float3 accumulatedRadianceSample = sh.evaluateHenyeyGreenstein(viewDir, volumeArgs.volumetricFogAnisotropy) * volumeArgs.fogSunVisibilityGain;
+     
+     const float3 inScattering = accumulatedRadianceSample + volumeArgs.multiScatteringEstimate;
+     const float3 outScattering = volumeArgs.scatteringCoefficient * density;
+diff --git a/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_integrator.slangh b/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_integrator.slangh
+index aec43a42d94dab64a59eafba14343f51aa2aa118..5b8b4e93da9ae0553cea68fac466d00b7eea8289 100644
+--- a/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_integrator.slangh
++++ b/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_integrator.slangh
+@@ -23,6 +23,7 @@
+ #include "rtx/algorithm/resolve.slangh"
+ #include "rtx/algorithm/lighting.slangh"
+ #include "rtx/algorithm/rtxdi/rtxdi.slangh"
++#include "rtx/pass/atmosphere/atmosphere_common.slangh"
+ 
+ // Volume Integrate Helper Functions
+ 
+@@ -80,10 +81,36 @@ bool evalNEE(
+   // sanitization is done in the demodulate pass for non-volumetric lighting before feeding data to the
+   // denoisers.
+   radiance += sanitize(attenuatedRadiance, vec3(0.0f, 0.0f, 0.0f));
+-  
++
+   return true;
+ }
+ 
++// Cloud-on-terrain shadow on the atmosphere sun/moons (real Remix distant lights)
++// in the volumetric froxel cache. Mirrors the surface fold in integrator_direct.slangh:
++// fold the voxel-grid cloud transmittance onto the flagged light's sampled radiance so
++// volumetric god-rays keep their cloud shadows. Needed because the sun/moon are now real
++// distant lights sampled by the volume NEE loop below — the bespoke
++// sampleAtmosphereSunLightVolume injection that used to apply cloud shadow here was
++// removed (it double-counted the sun into the cache; issue #35). fork — 2026-06-28.
++void applyAtmosphereCloudShadowVolume(inout RAB_LightSample lightSample, uint lightIdx, vec3 froxelWorldPosition)
++{
++  if (cb.skyMode != 1 || cb.atmosphereArgs.cloudVoxelShadowsEnable == 0u || lightIdx == RTXDI_INVALID_LIGHT_INDEX)
++  {
++    return;
++  }
++
++  const DecodedPolymorphicLight cloudShadowLight = decodePolymorphicLight(lights[lightIdx]);
++  if (!cloudShadowLight.atmosphereCloudShadowed)
++  {
++    return;
++  }
++
++  const vec3 dirToLight = normalize(lightSample.position - froxelWorldPosition);
++  const float cloudT = sampleCloudGroundShadow_OptionB(
++      froxelWorldPosition, dirToLight, cb.atmosphereArgs, cb.isZUp != 0);
++  lightSample.radiance *= pow(cloudT, cb.atmosphereArgs.cloudShadowFactorStrength);
++}
++
+ // Volume Integrate Functions
+ 
+ void integrateVolume(
+@@ -187,6 +214,9 @@ void integrateVolume(
+ 
+     if (lightSampleValid)
      {
--      // Kill the reservoir
--      prevReservoir.weightSum = 0;
--      prevReservoir.lightIdx = RTXDI_INVALID_LIGHT_INDEX;
-+      prevReservoirValid = RAB_ResolveReservoirLightIndex(prevReservoir);
++      // Fold cloud-on-terrain shadow onto the atmosphere sun/moons (flagged distant lights).
++      applyAtmosphereCloudShadowVolume(rabLightSample, currentVolumeReservoir.lightSample.lightIndex, volumeInteraction.position);
++
+       if (evalNEE(
+           radiance,
+           rabLightSample, inverseSelectionPdf, sampledTransportPortalIndex,
+@@ -234,7 +264,10 @@ void integrateVolume(
+         // Note: lightType comes from the loop and is provided as a hint so that the compiler
+         // can effectively unroll the loop and remove the switch from decodedPolymorphicLightSampleArea called within.
+         RAB_LightSample rabLightSample = RAB_GetLightSampleWithTypeHint(offsetLightIndex, risSampleCoordinates, lightType, rabVolumeInteraction);
+-        
++
++        // Fold cloud-on-terrain shadow onto the atmosphere sun/moons (flagged distant lights).
++        applyAtmosphereCloudShadowVolume(rabLightSample, offsetLightIndex, volumeInteraction.position);
++
+         vec3 radiance = vec3(0.0f, 0.0f, 0.0f);
+ 
+         if(evalNEE(
+@@ -257,6 +290,77 @@ void integrateVolume(
      }
-     else
-     {
-+      const uint16_t mappedLightID = RAB_TranslateLightIndex(prevReservoir.lightIdx, /* currentToPrevious = */ false);
-       prevReservoir.lightIdx = mappedLightID;
-+      prevReservoirValid = (mappedLightID != RTXDI_INVALID_LIGHT_INDEX);
+   }
+   
++  // Atmosphere sun/moons are real Remix distant lights (since the directional-light
++  // graduation) and are already sampled by the volume NEE loop above, so the old
++  // bespoke sampleAtmosphereSunLightVolume injection that lived here was removed — it
++  // double-counted the sun into the froxel cache (once via NEE, once here), which made
++  // volumetric fog impossible to balance (issue #35). Cloud-on-terrain shadowing on the
++  // distant sun/moons is preserved via applyAtmosphereCloudShadowVolume, folded onto the
++  // NEE light sample above. fork — 2026-06-28.
++
++  // ----- Fork (2026-05-12): cloud-occluded sky-ambient hemisphere integration -----
++  //
++  // When skyMode == 1 (Numos) and cloudSkyAmbientStrength > 0,
++  // sample the sky-view LUT at a fixed set of upper-hemisphere directions,
++  // attenuate each by the cloud-sky-transmittance LUT, weight by HG phase,
++  // sum, and add to the per-frame radiance. Gives shadowed/overcast fog the
++  // tinted-by-the-rest-of-the-sky look that mere sun NEE cannot provide.
++  //
++  // Fixed direction set per frame (zenith + 5 mid-elevation at 30deg elevation,
++  // 72deg azimuth spacing) so the integrator's temporal EMA at line 302 sees
++  // a deterministic contribution -- no per-frame variance to filter.
++  //
++  // Gated on the RTX_OPTION default (0.0) so the feature ships off and the
++  // baseline volumetric appearance is bit-identical until the user opts in.
++  // See docs/superpowers/specs/2026-05-12-volumetric-sky-ambient-design.md.
++  if (cb.skyMode == 1 && cb.atmosphereArgs.cloudSkyAmbientStrength > 0.0f)
++  {
++    const uint kNumSkyAmbientDirs = 6u;
++    vec3 skyAmbientDirsYUp[kNumSkyAmbientDirs];
++    skyAmbientDirsYUp[0] = vec3( 0.0f,    1.0f,  0.0f   );  // zenith
++    skyAmbientDirsYUp[1] = vec3( 0.866f,  0.5f,  0.0f   );  // 30 elev, azim 0
++    skyAmbientDirsYUp[2] = vec3( 0.268f,  0.5f,  0.823f );  // 30 elev, azim 72
++    skyAmbientDirsYUp[3] = vec3(-0.701f,  0.5f,  0.509f );  // 30 elev, azim 144
++    skyAmbientDirsYUp[4] = vec3(-0.701f,  0.5f, -0.509f );  // 30 elev, azim 216
++    skyAmbientDirsYUp[5] = vec3( 0.268f,  0.5f, -0.823f );  // 30 elev, azim 288
++
++    // Upper hemisphere solid angle = 2*pi; equal-weight per direction.
++    const float kSolidAngleWeightPerDir = (2.0f * 3.14159265f) / float(kNumSkyAmbientDirs);
++    // Match the volumetric HG anisotropy hand-pinned at atmosphere_common.slangh:1108.
++    const float kVolumetricAnisotropy = 0.3f;
++
++    vec3 skyAmbientTotal = vec3(0.0f);
++    for (uint i = 0u; i < kNumSkyAmbientDirs; ++i)
++    {
++      vec3 dirYUp = skyAmbientDirsYUp[i];
++      // Map LUT-space (Y-up) sample direction into the volume's world frame for
++      // the phase-function angle. The LUT itself is always Y-up; the swap only
++      // affects how we relate the sampled direction to ray.direction.
++      vec3 dirWorld = (cb.isZUp != 0u) ? vec3(dirYUp.x, dirYUp.z, dirYUp.y) : dirYUp;
++
++      vec3 inscatter = sampleSkyAmbientForVolume(
++        dirYUp,
++        cb.atmosphereArgs,
++        AtmosphereSkyViewLut,
++        AtmosphereCloudSkyTransmittanceLut,
++        AtmosphereCloudNoise3DSampler);
++
++      float cosTheta = dot(-normalize(ray.direction), dirWorld);
++      float phase = hgPhase(cosTheta, kVolumetricAnisotropy);
++
++      skyAmbientTotal += inscatter * phase * kSolidAngleWeightPerDir;
 +    }
 +
-+    if (!prevReservoirValid)
-+    {
-+      // The light this reservoir referenced no longer exists: kill the reservoir.
-+      prevReservoir.weightSum = 0;
-+      prevReservoir.lightIdx = RTXDI_INVALID_LIGHT_INDEX;
-     }
++    vec3 skyAmbientContribution = skyAmbientTotal * cb.atmosphereArgs.cloudSkyAmbientStrength;
++    // Single SH entry with zenith as the dominant direction. The hemisphere is
++    // an extended source, not a directional one; using zenith preserves the
++    // "up-ish" character of the ambient term in the SH evaluation.
++    const vec3 zenithYUp = vec3(0.0f, 1.0f, 0.0f);
++    const vec3 zenithWorld = (cb.isZUp != 0u) ? vec3(0.0f, 0.0f, 1.0f) : zenithYUp;
++    const vec3 fireflyFilteredAmbient = fireflyFiltering(skyAmbientContribution, volumeArgs.froxelFireflyFilteringLuminanceThreshold);
++    radianceSH.addRadiance(fireflyFilteredAmbient, zenithWorld);
++  }
++
+   // Accumulate the previous reprojected radiance with the current filtered sampled radiance
  
-     float weightAtCurrent = 0;
-@@ -527,7 +540,17 @@ void RTXDI_TemporalResampling(
-     selectedPreviousSample = RTXDI_CombineReservoirs(state, prevReservoir, RAB_GetNextRandom(rng), weightAtCurrent);
-     if (selectedPreviousSample)
+   const SphericalHarmonic newAccumulatedRadianceSH = HarmonicsHelpers::mix(oldRadianceSH, radianceSH, historyAgeWeight);
+diff --git a/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_lighting.slangh b/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_lighting.slangh
+index 689ca891514a51687b1dcd721c0c82dde59e904b..7cb8372c980967c2fe2c1457abaf9bcedd46290f 100644
+--- a/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_lighting.slangh
++++ b/rtxdi-sdk/include/volumetrics/rtx/algorithm/volume_lighting.slangh
+@@ -320,6 +320,7 @@ vec3 evalVolumetricNEE(
+ 
+   bool volumeFound = false;
+   vec3 physicalFroxelUVW;
++  vec3 matchedVirtualFroxelUVW = vec3(0.5f);
+ 
+   for (uint i = 0; i < volumeArgs.numActiveFroxelVolumes; ++i)
+   {
+@@ -339,12 +340,13 @@ vec3 evalVolumetricNEE(
+   #ifndef VOLUME_LIGHTING_NO_JITTER
+     virtualFroxelUVW = calculateJitteredFroxelUvw(volumeArgs, virtualFroxelUVW);
+   #endif
+-    
++
+     if (all(virtualFroxelUVW > 0.0f) && all(virtualFroxelUVW < 1.0f))
      {
--      selectedLightPrevIdx = originalPrevLightIdx;
-+      if (!RAB_UseLightIdentityResolution())
-+      {
-+        selectedLightPrevIdx = originalPrevLightIdx;
-+      }
-+      else
-+      {
-+        // Reuse the reservoir's stored targetPdf as the temporal MIS target
-+        // This is more stable when reservoirs are not updated every frame
-+        useStoredTemporalTargetPdf = true;
-+        storedTemporalTargetPdf = prevReservoir.targetPdf;
-+      }
-     }
+       physicalFroxelUVW = virtualFroxelUVWToPhysicalFroxelUVW(
+         virtualFroxelUVW, froxelVolume,
+         volumeArgs.minFilteredRadianceU, volumeArgs.maxFilteredRadianceU, volumeArgs.inverseNumFroxelVolumes);
++      matchedVirtualFroxelUVW = virtualFroxelUVW;
+       volumeFound = true;
+ 
+       break;
+@@ -358,9 +360,48 @@ vec3 evalVolumetricNEE(
+     physicalFroxelUVW = vec3(0.5f);
    }
  
-@@ -538,44 +561,54 @@ void RTXDI_TemporalResampling(
-     float piSum = state.targetPdf * initialM;
- 
-     if(RTXDI_IsValidReservoir(state) &&
--      selectedLightPrevIdx != RTXDI_INVALID_LIGHT_INDEX &&
-+      (selectedLightPrevIdx != RTXDI_INVALID_LIGHT_INDEX || useStoredTemporalTargetPdf) &&
-       previousM > 0)
-     {
--      float temporalP = 0;
--      RAB_Surface temporalSurface = RAB_GetSurfaceForTemporalBiasCorrection(surface, prevPixelID, prevNormal, tparams.virtualMotionVector);
-+      float temporalP;
- 
--      RAB_Surface virtualTemporalSurface = temporalSurface;
--#if !RTXDI_NO_PORTALS
--      if (state.portalIdx != RTXDI_INVALID_PORTAL_INDEX)
-+      if (useStoredTemporalTargetPdf)
-       {
--        RAB_TransformSurface(virtualTemporalSurface, RAB_GetPortalTransform(state.portalIdx));
-+        // the previous-frame light buffer can't be indexed with its stored index,
-+        // so use the reservoir's stored target as the selected sample's target in the temporal domain.
-+        temporalP = storedTemporalTargetPdf;
-       }
-+      else
-+      {
-+        RAB_Surface temporalSurface = RAB_GetSurfaceForTemporalBiasCorrection(surface, prevPixelID, prevNormal, tparams.virtualMotionVector);
++  // Fork (2026-05-26): smooth falloff at the froxel-grid frustum edge.
++  // Without this, particles/decals/SAB-Path-B/PSR-diffuse that straddle
++  // the grid boundary show a sharp rectangular dark patch where the cache
++  // value cliffs from physical-bright to zero as the camera moves.
++  // Smoothstep over the last 10% of UVW converts the cliff to a soft fade.
++  const vec3 distToEdge = min(matchedVirtualFroxelUVW, vec3(1.0f) - matchedVirtualFroxelUVW);
++  const float edgeFalloff = smoothstep(0.0f, 0.1f, min(min(distToEdge.x, distToEdge.y), distToEdge.z));
 +
-+        RAB_Surface virtualTemporalSurface = temporalSurface;
-+#if !RTXDI_NO_PORTALS
-+        if (state.portalIdx != RTXDI_INVALID_PORTAL_INDEX)
-+        {
-+          RAB_TransformSurface(virtualTemporalSurface, RAB_GetPortalTransform(state.portalIdx));
-+        }
++  // Fork (2026-05-26): disables direct lighting on alpha-blended
++  // surfaces routed through the opacity lighting approximation.
++  //
++  // Background: resolve.slangh:158 routes particles and any surface
++  // flagged resolveModeForceOpacityLightingApprox into a cache-read
++  // shortcut INSTEAD of tracing the full direct light ray. The
++  // shortcut computes `albedo * cache * attenuation` with no BRDF,
++  // no cosine, and no /pi (despite an inline comment claiming a
++  // /4pi normalization that the code never performs).
++  //
++  // Combined with the cache being filled by per-froxel sun visibility
++  // rays cast from positions in the air, the shortcut produces false
++  // glow on alpha-blended decals/particles: air-froxels see the sun
++  // over local terrain that shadows the ground surfaces reading the
++  // cache, so the cache reports physical sun radiance regardless of
++  // actual visibility at the surface position.
++  //
++  // Setting this to 0 disables the shortcut entirely. Alpha-blended
++  // surfaces get their lighting from the regular direct + indirect
++  // passes, which is the correct path for decals that aren't supposed
++  // to receive Lambertian direct light (i.e. anything without a
++  // subsurface scattering material flag).
++  //
++  // Fork (issue #36): the consumer multiplier is now a user-tunable knob
++  // (rtx.volumetrics.volumetricConsumerGain) instead of a hardcoded 0.0, which
++  // left alpha-blended particles/decals unlit by the volumetric cache (black
++  // particles). Default 0.0 preserves the prior behavior; a small value
++  // (~0.008 worked well for GTA IV) restores a little atmospheric tint on
++  // smoke/dust without obvious false glow on shadowed surfaces.
++  const float kConsumerMultiplier = volumeArgs.volumetricConsumerGain;
++
+   SphericalHarmonic sh = HarmonicsHelpers::loadFiltered3D<SphericalHarmonic>(volumeFilteredRadianceY, volumeFilteredRadianceCoCg, physicalFroxelUVW);
+   sh.hanningFilter(0.7f); // This was determined experimentally by looking at scenes with lots of geometry and sharp light shafts and tuning until ringing was minimized
+   const vec3 result = phaseFunction ? sh.evaluateHenyeyGreenstein(direction, anisotropy) : sh.getIrradiance();
+-  return volumeFound ? result : vec3(0.0f);
++  return volumeFound ? result * kConsumerMultiplier * edgeFalloff : vec3(0.0f);
+ }
  #endif
- 
--      RAB_LightSample selectedSampleAtTemporalSurface = RAB_GetLightSample(selectedLightPrevIdx,
--        state.uv, virtualTemporalSurface, /* usePreviousLights = */ true);
-+        RAB_LightSample selectedSampleAtTemporalSurface = RAB_GetLightSample(selectedLightPrevIdx,
-+          state.uv, virtualTemporalSurface, /* usePreviousLights = */ true);
- 
--      temporalP = RAB_GetLightSampleTargetPdfForSurface(selectedSampleAtTemporalSurface, virtualTemporalSurface);
-+        temporalP = RAB_GetLightSampleTargetPdfForSurface(selectedSampleAtTemporalSurface, virtualTemporalSurface);
- 
--      // If we have selected the temporal sample and discard is enabled, we know that the sample was visible
--      // on the previous frame because otherwise it would've been discarded and we couldn't select it.
--      // In practice, temporal samples are selected way more often than new samples, which means this
--      // condition culls the vast majority of visibility rays here.
--      const bool selectedSampleKnownVisible = selectedPreviousSample && tparams.discardInvisibleSamples;
-+        // If we have selected the temporal sample and discard is enabled, we know that the sample was visible
-+        // on the previous frame because otherwise it would've been discarded and we couldn't select it.
-+        // In practice, temporal samples are selected way more often than new samples, which means this
-+        // condition culls the vast majority of visibility rays here.
-+        const bool selectedSampleKnownVisible = selectedPreviousSample && tparams.discardInvisibleSamples;
- 
--      if (temporalP > 0 && tparams.biasCorrectionMode >= RTXDI_BIAS_CORRECTION_RAY_TRACED && !selectedSampleKnownVisible)
--      {
--        float3 attenuation;
-+        if (temporalP > 0 && tparams.biasCorrectionMode >= RTXDI_BIAS_CORRECTION_RAY_TRACED && !selectedSampleKnownVisible)
-+        {
-+          float3 attenuation;
- #if RTXDI_NO_PORTALS
--        bool sampleVisible = RAB_TraceLightSampleVisibility(temporalSurface, selectedSampleAtTemporalSurface,
--          RTXDI_INVALID_PORTAL_INDEX, false, false, true, attenuation);
-+          bool sampleVisible = RAB_TraceLightSampleVisibility(temporalSurface, selectedSampleAtTemporalSurface,
-+            RTXDI_INVALID_PORTAL_INDEX, false, false, true, attenuation);
- #else
--        bool sampleVisible = RAB_TraceLightSampleVisibility(temporalSurface, selectedSampleAtTemporalSurface,
--          state.portalIdx, false, false, true, attenuation);
-+          bool sampleVisible = RAB_TraceLightSampleVisibility(temporalSurface, selectedSampleAtTemporalSurface,
-+            state.portalIdx, false, false, true, attenuation);
- #endif
- 
--        if (!sampleVisible)
--          temporalP = 0;
-+          if (!sampleVisible)
-+            temporalP = 0;
-+        }
-       }
- 
-       pi = selectedPreviousSample ? temporalP : pi;
-@@ -684,6 +717,11 @@ RTXDI_Reservoir RTXDI_SpatialResampling(
- 
-       RTXDI_Reservoir neighborReservoir = RAB_LoadReservoir(neighborID, sparams.sourceBufferIndex);
- 
-+      if (RAB_UseLightIdentityResolution())
-+      {
-+        RAB_ResolveReservoirLightIndex(neighborReservoir);
-+      }
-+
-       float targetPdf = 0;
-       if (RTXDI_IsValidReservoir(neighborReservoir))
-       {
-diff --git a/rtxdi-sdk/include/rtxdi/Reservoir.slangh b/rtxdi-sdk/include/rtxdi/Reservoir.slangh
-index 2d3ff3ba3c2f11303ed048ddeba5960028d7e4f3..e2ccd5856c81cc308ead6056b63264951543b738 100644
---- a/rtxdi-sdk/include/rtxdi/Reservoir.slangh
-+++ b/rtxdi-sdk/include/rtxdi/Reservoir.slangh
-@@ -30,6 +30,7 @@ struct RTXDI_Reservoir
-   float weightSum;
-   float targetPdf;
-   uint16_t M;
-+  uint lightIdentity;
- };
- 
- RTXDI_PackedReservoir RTXDI_PackReservoir(RTXDI_Reservoir reservoir)
-@@ -38,7 +39,8 @@ RTXDI_PackedReservoir RTXDI_PackReservoir(RTXDI_Reservoir reservoir)
-   packedReservoir.data0 = asuint(float4(reservoir.uv, reservoir.weightSum, reservoir.targetPdf));
-   packedReservoir.data1.x = ((uint(reservoir.lightIdx) << 16) | (reservoir.M & 0xffff));
-   packedReservoir.data1.y = uint(reservoir.portalIdx);
--  packedReservoir.data1.zw = 0;
-+  packedReservoir.data1.z = reservoir.lightIdentity;
-+  packedReservoir.data1.w = 0;
-   return packedReservoir;
- }
- 
-@@ -51,6 +53,7 @@ RTXDI_Reservoir RTXDI_EmptyReservoir()
-   s.weightSum = 0.0f;
-   s.M = uint16_t(0);
-   s.portalIdx = RTXDI_INVALID_PORTAL_INDEX;
-+  s.lightIdentity = 0;
-   return s;
- }
- 
-@@ -64,6 +67,7 @@ RTXDI_Reservoir RTXDI_UnpackReservoir(RTXDI_PackedReservoir packedReservoir)
-   reservoir.M = uint16_t(packedReservoir.data1.x & 0xffff);
- 
-   reservoir.portalIdx = uint8_t(packedReservoir.data1.y);
-+  reservoir.lightIdentity = packedReservoir.data1.z;
-   return reservoir;
- }
- 
-diff --git a/rtxdi-sdk/shaders/ResamplingCompileTest.comp.slang b/rtxdi-sdk/shaders/ResamplingCompileTest.comp.slang
-index d9f517b431b8ddb650d29334a5f5228a13095783..843d1b9962c903b854e6b93f41c5c1b86e15c9ea 100644
---- a/rtxdi-sdk/shaders/ResamplingCompileTest.comp.slang
-+++ b/rtxdi-sdk/shaders/ResamplingCompileTest.comp.slang
-@@ -230,6 +230,26 @@ int RAB_TranslateLightIndex(uint lightIndex, bool currentToPrevious)
-     return -1;
- }
- 
-+bool RAB_UseLightIdentityResolution()
-+{
-+    return false;
-+}
-+
-+uint RAB_GetLightIdentity(uint currentLightIdx)
-+{
-+    return 0;
-+}
-+
-+uint16_t RAB_ResolveLightIndexFromIdentity(uint identity)
-+{
-+    return RTXDI_INVALID_LIGHT_INDEX;
-+}
-+
-+bool RAB_ResolveReservoirLightIndex(inout RTXDI_Reservoir reservoir)
-+{
-+    return RTXDI_IsValidReservoir(reservoir);
-+}
-+
- bool RAB_ShouldDiscardEnlargedPixel(inout RAB_RandomSamplerState rng, RAB_Surface surface, float3 virtualMotionVector)
- {
-     return false;

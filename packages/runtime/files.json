@@ -27,10 +27,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "dd580bc21b3ae95666b32cc131c3d8375a2e8041",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
    },
-   "imported": "2026-11-14T08:51:36+00:00"
+   "imported": "2026-11-14T20:03:49+00:00"
   },
   "layers/classic_remix_defaults.conf": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\startup-bounce-defaults.conf",
@@ -43,14 +43,24 @@
    "imported": "2026-10-31T06:02:06+00:00"
   },
   "files/usd/plugins/RemixCategories/RemixCategories.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t4-runtime\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\RemixCategories.dll",
-   "git": null,
-   "imported": "2026-10-31T22:48:47+00:00"
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\RemixCategories.dll",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
+    "dirty": false
+   },
+   "imported": "2026-11-14T20:04:03+00:00"
   },
   "files/usd/plugins/RemixParticleSystem/RemixParticleSystem.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t4-runtime\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixParticleSystem\\RemixParticleSystem.dll",
-   "git": null,
-   "imported": "2026-10-31T22:48:47+00:00"
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixParticleSystem\\RemixParticleSystem.dll",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
+    "dirty": false
+   },
+   "imported": "2026-11-14T20:04:03+00:00"
   },
   "layers/medium.conf": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t6-tiers\\out\\t6-fix-stage\\layers\\medium.conf",
@@ -113,14 +123,44 @@
    "imported": "2026-10-31T23:44:37+00:00"
   },
   "files/usd/plugins/RemixCategories/generatedSchema.usda": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r7-alpha\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\generatedSchema.usda",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\generatedSchema.usda",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r7-alpha/out/runtime-src",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "e9460a14efab77149924ce2f7004028c5f09872a",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
    },
-   "imported": "2026-11-01T11:51:52+00:00"
+   "imported": "2026-11-14T20:04:03+00:00"
+  },
+  "files/usdg.dll": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\usdg\\usdg.dll",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
+    "dirty": false
+   },
+   "imported": "2026-11-14T20:04:03+00:00"
+  },
+  "files/usd/plugins/usdg/resources/plugInfo.json": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\src\\usd-plugins\\usdg\\plugInfo.json",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
+    "dirty": false
+   },
+   "imported": "2026-11-14T20:04:03+00:00"
+  },
+  "files/usd/plugins/RemixParticleSystem/generatedSchema.usda": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixParticleSystem\\generatedSchema.usda",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
+    "dirty": false
+   },
+   "imported": "2026-11-14T20:04:03+00:00"
   }
  },
  "files": {
@@ -227,12 +267,12 @@
    "stored_sha256": "9abbc646f44e7dd8345bb6d33949bd7f8ecbb97b96de9b0e50d785e1b31b6837"
   },
   "files/d3d9.dll": {
-   "size": 418989056,
-   "sha256": "e242dfdb08486fd97012e3af89b2955fc4f9a11e992902e383cbb844cc857531",
-   "mtime_ns": 1794646162506635500,
+   "size": 478618112,
+   "sha256": "3237fe73bfc5a243de9fccb86036dccdb350411bafdc30960c5f47c75c59b0e9",
+   "mtime_ns": 1794686441306242100,
    "stored": "xz",
-   "stored_size": 61736412,
-   "stored_sha256": "9f4c439c1b8adf1381dd19733218b8e62e23f4f5e23c3133733c0271e3e4403b"
+   "stored_size": 70695080,
+   "stored_sha256": "9ee4db1c37fac43aeb60d535e8dc5432090c9be55e26e4eec99893a648e551a3"
   },
   "files/GFSDK_Aftermath_Lib.x64.dll": {
    "size": 9240728,
@@ -767,18 +807,18 @@
    "stored": "plain"
   },
   "files/usd/plugins/RemixCategories/generatedSchema.usda": {
-   "size": 12690,
-   "sha256": "56d12d20d636902299d85ecb0db3ad494a2714f16c82bdb1d6a48149969fc2ac",
-   "mtime_ns": 1793532766719137400,
+   "size": 13022,
+   "sha256": "64dcca6b87d36559925269178ee9ea84c9d4aaf4fbaf93c2cfefe92e7860c411",
+   "mtime_ns": 1794685027641999000,
    "stored": "plain"
   },
   "files/usd/plugins/RemixCategories/RemixCategories.dll": {
    "size": 12800,
-   "sha256": "f6974a716688746e3b09a5628380d246406b13fb6935420317bc0dc127ab8068",
-   "mtime_ns": 1793486444602308200,
+   "sha256": "fec9a4522498e2927f2c6ccad62160a8efb920f681f12996978df54c82344148",
+   "mtime_ns": 1794685492566230000,
    "stored": "xz",
-   "stored_size": 5024,
-   "stored_sha256": "aa20329e0064fd558a5fb557fe22d09f40da9d02329a68046180d315265031b0"
+   "stored_size": 5016,
+   "stored_sha256": "0ee04167ea4e7fb90f13f07c5dcec881b2702bad04945238699e28ed912520f5"
   },
   "files/usd/plugins/RemixCategories/resources/plugInfo.json": {
    "size": 635,
@@ -787,23 +827,29 @@
    "stored": "plain"
   },
   "files/usd/plugins/RemixParticleSystem/generatedSchema.usda": {
-   "size": 54612,
-   "sha256": "9169769b84e0f5fba757434cf0b5bd0be476bf215ffedca944e208c89f795027",
-   "mtime_ns": 1793266354968053900,
+   "size": 57360,
+   "sha256": "f522befd3f83127aed6cbd995bdd34c09baff900ece7993f5bd11f57305d7906",
+   "mtime_ns": 1794683948068266000,
    "stored": "plain"
   },
   "files/usd/plugins/RemixParticleSystem/RemixParticleSystem.dll": {
    "size": 12800,
-   "sha256": "e0315c6a8c48344c31513fb44f08465487d7dbdf275e184f13cda3a2eaa1bb62",
-   "mtime_ns": 1793486443730262500,
+   "sha256": "0d29038a99a438a87f4587460e0cc5779c12a6446a5a4bb903274dbefe7780b8",
+   "mtime_ns": 1794685492518339800,
    "stored": "xz",
    "stored_size": 5016,
-   "stored_sha256": "f137f856420e7a636f06ae170acb5a1c6b917dcd649a010aef754fd6bc79f110"
+   "stored_sha256": "bdf39d4a1e5fc473464e2b46b2bf31340afd6292bf7b0026a5f64b90907b894b"
   },
   "files/usd/plugins/RemixParticleSystem/resources/plugInfo.json": {
    "size": 501,
    "sha256": "6fdd2e0e2f13645c4ea2df5e56d55bf2084532be56b676c446639653eee7e1f6",
    "mtime_ns": 1793266354968555700,
+   "stored": "plain"
+  },
+  "files/usd/plugins/usdg/resources/plugInfo.json": {
+   "size": 1001,
+   "sha256": "62ddb9898c4f215badbf790011282a6cbf861be7541f6ca9c821a2f9bd0133db",
+   "mtime_ns": 1794683948068266000,
    "stored": "plain"
   },
   "files/usd/sdf/resources/plugInfo.json": {
@@ -1415,6 +1461,14 @@
    "stored": "xz",
    "stored_size": 18436,
    "stored_sha256": "f3ff3066b9b64cf0d1a2e64914d16a9f41c57f0c75907485ebc60d09d638f320"
+  },
+  "files/usdg.dll": {
+   "size": 240640,
+   "sha256": "36e14a052a473c90a8e270341891e4a078739c87f0d384e4fbea0c21015acaa2",
+   "mtime_ns": 1794685317221667400,
+   "stored": "xz",
+   "stored_size": 79988,
+   "stored_sha256": "3d2303d3053bd21ffa80e584ee9a52d48ce849e0eacc0e83e198009c0d1f2159"
   },
   "layers/classic_remix_defaults.conf": {
    "size": 159305,

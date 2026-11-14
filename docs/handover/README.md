@@ -90,6 +90,7 @@ of a load's length learned from the loads before): [load-eta-report.md](load-eta
 on the branch `qol-load`, merged into `main` with the round (`qol-1114`) without an in-game check, on the user's "Commit and push"
 ([ADR 0214](../decisions/0214-after-ready-to-play-the-overlay-stays-until-the-game-runs.md),
 [ADR 0215](../decisions/0215-the-loads-estimate-learned-from-the-loads-before.md)).
+Then the user's request of 2026-11-14 ("Make the dxvk-remix up-to-date from upstream. Test in game and post to github and workshop."): NVIDIA's dxvk-remix `main` merged as runtime patch 0093, with the fork's API line kept compatible, tested in the PoC: [upstream-runtime-report.md](upstream-runtime-report.md), by Claude, package only, on the branch `upstream-1114` ([ADR 0218](../decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md)).
 Then the user's request of 2026-11-14 ("Enhance the skybox about the moon, the moon should be visible during the day
 given correct moon phase"): the moon by day, as bright as the real one at its phase, runtime patch 0090 and the
 companion's Moon by day slider: [moon-by-day-report.md](moon-by-day-report.md), by Claude, package only, on the branch

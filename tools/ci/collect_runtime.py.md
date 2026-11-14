@@ -13,9 +13,10 @@ python tools\ci\collect_runtime.py <tree>\_output [--out out\ci\built] [--run-ur
 Writes `<out>\provenance-runtime.json`: `copied`, the indexed files the build did not make (`missing`),
 the files it made that the part does not ship (`built_not_shipped`, without `.pdb`, `.lib`, `.exp`), and
 for every `.dll`/`.exe` (by its SHA-256) its part, path, the fork's repository and commit from
-[`runtime/base.json`](../../runtime/base.json), `runtime/patches`, and `how`: `compiled:` for `d3d9.dll`
-and the Remix USD plugins, `fetched by the same build` for the vendor binaries packman, the submodules and
-the clones bring.
+[`runtime/base.json`](../../runtime/base.json), `runtime/patches`, and `how`: `compiled:` for `d3d9.dll`,
+`usdg.dll` (upstream's USDG plugin, installed beside it since runtime patch 0093) and the Remix USD plugins,
+`fetched by the same build` for the vendor binaries packman, the submodules and the clones bring. The build's
+`usdg-converter.exe`, a packaging tool, is reported as built and not shipped.
 
 **Exit:** 0 collected; 1 when a binary the part ships is missing from the build, or the folder has no
 `d3d9.dll`. The package never takes a local copy in its place. Tested by

@@ -2824,6 +2824,56 @@ msgstr "Понятно, продолжить"
 msgid "Back"
 msgstr "Назад"
 
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:18
+msgid "PBR materials for maps"
+msgstr "PBR-материалы для карт"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:19
+msgid "Maps look their best in RTX Remix with PBR materials. Demo PBR resources are in SheepyLord's RTX Remix collection on the Steam Workshop."
+msgstr "В RTX Remix карты выглядят лучше всего с PBR-материалами. Демонстрационные PBR-ресурсы есть в коллекции RTX Remix от SheepyLord в Steam Workshop."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:20
+msgid "Open the collection"
+msgstr "Открыть коллекцию"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:21
+msgid "Maps without PBR"
+msgstr "Карты без PBR"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:22
+msgid "Hide"
+msgstr "Скрыть"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:23
+msgid "What to expect on a map without PBR"
+msgstr "Чего ожидать на карте без PBR"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:24
+msgid "RTX Remix path traces every map, with or without PBR: sunlight, lamps, shadows, reflections, glass, water and the sky are real on all of them."
+msgstr "RTX Remix трассирует пути света на любой карте, с PBR или без: солнечный свет, лампы, тени, отражения, стекло, вода и небо на всех картах настоящие."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:25
+msgid "A map without PBR materials keeps its original textures, which hold only colour. Without roughness, normal and metal maps its surfaces are lit as if smooth and evenly matte or glossy, so walls and floors can look flat, metal can look like painted plastic, and shine or shadows painted into old textures can look doubled."
+msgstr "Карта без PBR-материалов сохраняет исходные текстуры, в которых есть только цвет. Без карт шероховатости, нормалей и металличности её поверхности освещаются так, будто они гладкие и равномерно матовые или глянцевые, поэтому стены и полы могут выглядеть плоскими, металл — как крашеный пластик, а блики или тени, нарисованные в старых текстурах, — удвоенными."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
+msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "ToPBR (Утилиты, RTX Remix, ToPBR) может создать приблизительные материалы из того, на что уже ссылаются материалы самой карты, например из карт нормалей и масок бликов. Настоящие PBR-пакеты выглядят намного лучше."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
+#, c-format
+msgid "For demo PBR resources, subscribe to the items you want in SheepyLord's RTX Remix collection (Workshop item %s), then restart Garry's Mod: RTX Remix installs them at the next start. Each pack improves the maps or models it was made for."
+msgstr "Чтобы получить демонстрационные PBR-ресурсы, подпишитесь на нужные элементы в коллекции RTX Remix от SheepyLord (элемент Workshop %s) и перезапустите Garry's Mod: RTX Remix установит их при следующем запуске. Каждый пакет улучшает те карты или модели, для которых он сделан."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:28
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
+msgstr "ОК"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:29
+msgid "Don't show the note again"
+msgstr "Больше не показывать эту заметку"
+
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:23
 msgid "RTX Remix is not subscribed on this Steam account"
 msgstr "Этот аккаунт Steam не подписан на RTX Remix"
@@ -2866,7 +2916,3 @@ msgstr "RTX Remix выключен в Steam"
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
 msgstr "Не удалось выключить RTX Remix (%s). Чтобы удалить его, отпишитесь от него."
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
-msgstr "ОК"

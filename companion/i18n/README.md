@@ -120,3 +120,6 @@ ADR 0208 adds six texts to the bundled add-ons' catalogs (`addons/`): the RTX fl
 character motion importer's own catalog (`sh_core.lua` in its part, not here), in all eight of its other languages
 including Arabic and Spanish. Both sets are agent-written by Claude and not yet human-reviewed; the unit K and
 the ranges are kept as they are.
+ADR 0217 adds eleven messages, the main menu's note on PBR for maps and its card (`menu/pbr_note.lua`). Their
+translations in all six catalogs are agent-written by Claude and not yet human-reviewed; "Workshop" stays in English
+as in the other notices, and the spawn menu's Utilities tab takes each catalog's existing word for it.

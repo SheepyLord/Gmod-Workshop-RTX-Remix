@@ -133,6 +133,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0208](0208-the-rtx-flashlights-automatic-brightness.md) | The RTX flashlight's automatic brightness, on by default: seven traces across the beam make one distance, the light eases to (d / 256)^1.6 within 1/64-8, down fast and up gently; the haze is not boosted | Accepted 2026-11-14 (branch `qol-lights`) |
 | [0209](0209-the-dance-lights-uniform-lighting-and-options.md) | The dance light's uniform lighting (off by default): the light follows the inverse square of its distance to where its axis passes the framed or nearest dancing character, set at once across cuts; aim at the character, colour temperature, a rim light and presets | Accepted 2026-11-14 (branch `qol-lights`) |
 | [0210](0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md) | An add-on's notice of the guard's refusal stays off the screen: MineMod's "Default texture pack is not ready" line (GitHub issue 5), shader policy unchanged | Accepted 2026-11-13 (issue 5, approved by the user) |
+| [0217](0217-a-main-menu-note-on-pbr-for-maps.md) | A main-menu note on PBR for maps: the demo resources (Workshop collection 3834474695) and what a map without PBR looks like | Accepted 2026-11-14 |
 
 ## Template
 

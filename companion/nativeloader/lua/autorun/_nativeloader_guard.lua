@@ -663,6 +663,7 @@ lua/nativeloader/i18n.lua
 lua/nativeloader/menu/load_accel.lua
 lua/nativeloader/menu/loading_status.lua
 lua/nativeloader/menu/multiplayer_notice.lua
+lua/nativeloader/menu/pbr_note.lua
 lua/nativeloader/menu/unsubscribed_notice.lua
 lua/nativeloader/notice.lua
 lua/nativeloader/painted_shadows.lua

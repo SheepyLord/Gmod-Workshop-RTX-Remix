@@ -22,6 +22,12 @@ Versions follow the loader's CMake project version once it ships; until then eve
   ([ADR 0209](docs/decisions/0209-the-dance-lights-uniform-lighting-and-options.md)). Both lights share one distance
   maths file, shipped in each part and checked byte-identical.
 
+- **A note on PBR for maps in the main menu** ([ADR 0217](docs/decisions/0217-a-main-menu-note-on-pbr-for-maps.md)).
+  In an RTX start a small panel at the top right of the main menu says that maps look their best with PBR materials
+  and that demo PBR resources are in SheepyLord's RTX Remix collection (Workshop item 3834474695), with buttons to
+  open the collection, to read what a map without PBR looks like (path traced light on colour-only textures: flat
+  walls, plastic-like metal, painted shine that looks doubled) and to hide it. Never over a loading or running game;
+  "Don't show the note again" keeps it away (`nativeloader_pbr_note_reset` brings it back).
 - VR grabbing is precise and hands-on (V8, approved by the user on 2026-11-13): a held object keeps its pose in the
   hand, comes to rest against the palm and follows the hand's movement and wrist turns with the hand's own velocity
   and spin fed forward, so turning the wrist turns it; light objects follow within millimetres while heavy ones still

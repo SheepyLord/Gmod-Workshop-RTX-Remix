@@ -2802,6 +2802,56 @@ msgstr ""
 msgid "Back"
 msgstr ""
 
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:18
+msgid "PBR materials for maps"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:19
+msgid "Maps look their best in RTX Remix with PBR materials. Demo PBR resources are in SheepyLord's RTX Remix collection on the Steam Workshop."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:20
+msgid "Open the collection"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:21
+msgid "Maps without PBR"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:22
+msgid "Hide"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:23
+msgid "What to expect on a map without PBR"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:24
+msgid "RTX Remix path traces every map, with or without PBR: sunlight, lamps, shadows, reflections, glass, water and the sky are real on all of them."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:25
+msgid "A map without PBR materials keeps its original textures, which hold only colour. Without roughness, normal and metal maps its surfaces are lit as if smooth and evenly matte or glossy, so walls and floors can look flat, metal can look like painted plastic, and shine or shadows painted into old textures can look doubled."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
+msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
+#, c-format
+msgid "For demo PBR resources, subscribe to the items you want in SheepyLord's RTX Remix collection (Workshop item %s), then restart Garry's Mod: RTX Remix installs them at the next start. Each pack improves the maps or models it was made for."
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:28
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
+msgstr ""
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:29
+msgid "Don't show the note again"
+msgstr ""
+
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:23
 msgid "RTX Remix is not subscribed on this Steam account"
 msgstr ""
@@ -2843,8 +2893,4 @@ msgstr ""
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:32
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
-msgstr ""
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
 msgstr ""

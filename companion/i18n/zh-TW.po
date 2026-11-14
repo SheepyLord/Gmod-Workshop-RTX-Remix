@@ -2824,6 +2824,56 @@ msgstr "我已了解，繼續"
 msgid "Back"
 msgstr "返回"
 
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:18
+msgid "PBR materials for maps"
+msgstr "地圖的 PBR 材質"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:19
+msgid "Maps look their best in RTX Remix with PBR materials. Demo PBR resources are in SheepyLord's RTX Remix collection on the Steam Workshop."
+msgstr "在 RTX Remix 中，具有 PBR 材質的地圖效果最好。示範用 PBR 資源在 Steam Workshop 上 SheepyLord 的 RTX Remix 收藏集中。"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:20
+msgid "Open the collection"
+msgstr "開啟收藏集"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:21
+msgid "Maps without PBR"
+msgstr "沒有 PBR 的地圖"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:22
+msgid "Hide"
+msgstr "隱藏"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:23
+msgid "What to expect on a map without PBR"
+msgstr "沒有 PBR 的地圖會是什麼樣子"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:24
+msgid "RTX Remix path traces every map, with or without PBR: sunlight, lamps, shadows, reflections, glass, water and the sky are real on all of them."
+msgstr "無論有沒有 PBR，RTX Remix 都會對每張地圖進行路徑追蹤：所有地圖上的陽光、燈光、陰影、反射、玻璃、水與天空都是真實的。"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:25
+msgid "A map without PBR materials keeps its original textures, which hold only colour. Without roughness, normal and metal maps its surfaces are lit as if smooth and evenly matte or glossy, so walls and floors can look flat, metal can look like painted plastic, and shine or shadows painted into old textures can look doubled."
+msgstr "沒有 PBR 材質的地圖會保留原始紋理，而這些紋理只包含顏色。缺少粗糙度、法線與金屬度貼圖時，表面會被當作光滑且均勻霧面或均勻光亮來照明，因此牆壁與地板可能顯得扁平，金屬可能像上漆的塑膠，舊紋理裡畫上去的高光或陰影可能顯得重複。"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
+msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "ToPBR（設定、RTX Remix、ToPBR）可以根據地圖自身材質已經引用的內容（例如法線貼圖與高光遮罩）產生近似材質。真正的 PBR 包效果要好得多。"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
+#, c-format
+msgid "For demo PBR resources, subscribe to the items you want in SheepyLord's RTX Remix collection (Workshop item %s), then restart Garry's Mod: RTX Remix installs them at the next start. Each pack improves the maps or models it was made for."
+msgstr "如需示範用 PBR 資源，請在 SheepyLord 的 RTX Remix 收藏集（Workshop 項目 %s）中訂閱需要的物品，然後重新啟動 Garry's Mod：RTX Remix 會在下次啟動時安裝它們。每個包只改善它所針對的地圖或模型。"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:28
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
+msgstr "確定"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:29
+msgid "Don't show the note again"
+msgstr "不再顯示此提示"
+
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:23
 msgid "RTX Remix is not subscribed on this Steam account"
 msgstr "此 Steam 帳戶未訂閱 RTX Remix"
@@ -2866,7 +2916,3 @@ msgstr "RTX Remix 已在 Steam 中關閉"
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
 msgstr "無法關閉 RTX Remix（%s）。若要移除它，請取消訂閱。"
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
-msgstr "確定"

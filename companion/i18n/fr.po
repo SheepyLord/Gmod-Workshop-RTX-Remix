@@ -2824,6 +2824,56 @@ msgstr "Je comprends, continuer"
 msgid "Back"
 msgstr "Retour"
 
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:18
+msgid "PBR materials for maps"
+msgstr "Matériaux PBR pour les cartes"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:19
+msgid "Maps look their best in RTX Remix with PBR materials. Demo PBR resources are in SheepyLord's RTX Remix collection on the Steam Workshop."
+msgstr "Dans RTX Remix, les cartes sont à leur meilleur avec des matériaux PBR. Des ressources PBR de démonstration se trouvent dans la collection RTX Remix de SheepyLord sur le Steam Workshop."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:20
+msgid "Open the collection"
+msgstr "Ouvrir la collection"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:21
+msgid "Maps without PBR"
+msgstr "Cartes sans PBR"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:22
+msgid "Hide"
+msgstr "Masquer"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:23
+msgid "What to expect on a map without PBR"
+msgstr "À quoi s'attendre sur une carte sans PBR"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:24
+msgid "RTX Remix path traces every map, with or without PBR: sunlight, lamps, shadows, reflections, glass, water and the sky are real on all of them."
+msgstr "RTX Remix trace les chemins de la lumière sur toutes les cartes, avec ou sans PBR : la lumière du soleil, les lampes, les ombres, les reflets, le verre, l'eau et le ciel sont réels sur chacune d'elles."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:25
+msgid "A map without PBR materials keeps its original textures, which hold only colour. Without roughness, normal and metal maps its surfaces are lit as if smooth and evenly matte or glossy, so walls and floors can look flat, metal can look like painted plastic, and shine or shadows painted into old textures can look doubled."
+msgstr "Une carte sans matériaux PBR garde ses textures d'origine, qui ne contiennent que la couleur. Sans cartes de rugosité, de normales et de métal, ses surfaces sont éclairées comme si elles étaient lisses et uniformément mates ou brillantes : les murs et les sols peuvent paraître plats, le métal peut ressembler à du plastique peint, et les reflets ou les ombres peints dans les anciennes textures peuvent sembler doublés."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
+msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "ToPBR (Utilitaires, RTX Remix, ToPBR) peut créer des matériaux approximatifs à partir de ce que les matériaux de la carte référencent déjà, comme les cartes de normales et les masques spéculaires. De vrais packs PBR rendent bien mieux."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
+#, c-format
+msgid "For demo PBR resources, subscribe to the items you want in SheepyLord's RTX Remix collection (Workshop item %s), then restart Garry's Mod: RTX Remix installs them at the next start. Each pack improves the maps or models it was made for."
+msgstr "Pour les ressources PBR de démonstration, abonnez-vous aux objets voulus dans la collection RTX Remix de SheepyLord (objet Workshop %s), puis redémarrez Garry's Mod : RTX Remix les installe au démarrage suivant. Chaque pack améliore les cartes ou les modèles pour lesquels il a été fait."
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:28
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
+msgstr "D'accord"
+
+#: nativeloader/lua/nativeloader/menu/pbr_note.lua:29
+msgid "Don't show the note again"
+msgstr "Ne plus afficher cette note"
+
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:23
 msgid "RTX Remix is not subscribed on this Steam account"
 msgstr "Ce compte Steam n'est pas abonné à RTX Remix"
@@ -2866,7 +2916,3 @@ msgstr "RTX Remix est désactivé dans Steam"
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
 msgstr "RTX Remix n'a pas pu être désactivé (%s). Pour le supprimer, désabonnez-vous-en."
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
-msgstr "D'accord"

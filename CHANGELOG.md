@@ -259,6 +259,19 @@ Versions follow the loader's CMake project version once it ships; until then eve
 - `tools/qa/queued_draws_session.py` with its probe and server script: RTX sessions on the PoC that break props and
   churn props and doors in view, and a still scene for before/after lighting captures.
 
+### Eleven more map packs from other authors' ModDB mods (the user's request of 2026-11-13; skills only, no loader or package change)
+
+- **Packs built, with the authors' permission the user obtained**, not uploaded: Valley View Mall RTX, Funkis RTX,
+  Country Estate RTX, BigCity RTX (skurtyyskirts) and seven maps of HamzaPOPO's Map Pack RTX (Abandoned Mall,
+  Alley Triste, Backrooms, Old Russian Sauna, Dark Forest, Jupiter Underground, Gold Dust), one package per map
+  item ([ADR 0211](docs/decisions/0211-other-authors-map-mods-as-content-packs.md)).
+- **Three of the mods never applied under the RTX package:** made with Remix's default XXH3 texture hash where the
+  package keys by XXH64. Re-keyed (418 of 420, 440 of 448 and 402 of 413 materials) and fitted from 7.9-8.7 GB to
+  one 3.85 GB item each without re-encoding.
+- **workshop-content-pack skill:** "Another author's map mod (ModDB)"; `rekey_mod_hashes.py` (XXH3 to XXH64, and
+  which hash a mod uses), `vtf_hash.py` (both hashes of every VTF in map items, legacy .bin, BSP pakfiles and VPKs),
+  `fit_mod.py` (any mod under one item's budget, by role and upscale factor); tests; pitfalls 29-31.
+
 ### Pool Day and Safehouse ported as content packs (the user's request of 2026-11-12; skills only, no loader or package change)
 
 - **Two map packs built from the classic install's finished Remix mods**, uploaded as hidden Workshop items at the

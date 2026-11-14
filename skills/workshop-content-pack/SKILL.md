@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed; another author's map mod (ModDB, with the author's permission) is matched to its map by texture hashes, re-keyed from Remix's default XXH3 texture hash to the package's XXH64 with rekey_mod_hashes.py when needed, and fitted under one item with fit_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -515,6 +515,41 @@ against Remix's replacements off; no surface went black or missing. The mods' ow
 Pool Day's loungers are solid plaid slabs (its plaid albedo is opaque where the stock texture is see-through),
 Safehouse's table lamps are a marble bust. Evidence: the worktree's `out\pbr-maps\field`.
 
+### Another author's map mod (ModDB)
+
+The same route for a Remix map mod someone else made (ModDB's "RTX Remix" mods for GMod), once the user
+has the author's permission to release it on the Workshop (theirs to get; record it in the description).
+Three things differ from the user's own classic mods.
+
+1. **Get the files and match each folder to its map.** The user's old downloads may sit in
+   `E:\RTX_remix_mods\*` and `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods` under folder names that say
+   little (`Cabin` is the Old Russian Sauna, `Medieval Dust2` is de_gold_dust). ModDB refuses scripts (403 for
+   pages and mirrors); read pages in a browser, and download through one with the user's go-ahead (name, size
+   and MD5 from the file page; the built-in browser saves to `%USERPROFILE%\Downloads`, and each "Your
+   download is starting" page it opens starts its own copy: open each start page once, then check the MD5
+   and remove only the duplicates you caused). Prefer the released archive over an old copy. Match folders to
+   maps by texture hashes: `rekey_mod_hashes.py --dry-run --source <map item>` per candidate (its counts say
+   how many materials the map's textures explain), and a map pack's page lists its maps in the author's
+   comment. Find the map item by its BSP in the installed archives: a map can move (Valley View Mall's
+   3417387329 answers `result 9`; the map lives on as 3624445216) and one item can hold two maps (The
+   Backrooms, de_gold_dust and de_gold_dust2): one pack per item.
+2. **Check the hash function.** The dry run's line `materials N: R re-keyed XXH3 -> XXH64, A already
+   XXH64, U not explained` tells it. A mod with R re-keyed was made with Remix's default XXH3 hash and
+   applies to nothing under the RTX package (classic XXH64) until it is re-keyed: run it without
+   `--dry-run` on the ported copy, with the map item and the VPKs of GMod and of each mounted game it may
+   reuse (`garrysmod\garrysmod_dir.vpk`, `sourceengine\*_dir.vpk`, Half-Life 2's and Counter-Strike:
+   Source's `*_dir.vpk`). Valley View Mall, Funkis and Country Estate (skurtyyskirts, 2025) were XXH3;
+   BigCity's "Gmod Hashes Update" and HamzaPOPO's Map Pack RTX were XXH64.
+3. **Fit it with `fit_mod.py`**, not fit_map_mod.py (that one needs this project's pipeline): over 3.85 GB
+   it leaves out top mips, aux maps first, the biggest upscales of small game textures before others.
+
+Then `port_classic_mods.py --blank-missing --drop-unreferenced` (HamzaPOPO's pack names roughness and
+`metallness` maps for nearly every material and ships none: Remix drew the material's constants, and an
+empty `@@` gives the same result, the runtime returning no texture for both,
+`UsdMod::Impl::getTexture`), `package_content.py`, `check_pack.py`, and the field check under the PoC
+lock. The description credits the map's author, the mod's author and its ModDB page, says the author gave
+permission, and says when the textures were fitted or re-keyed.
+
 ## Scripts
 
 | Script | Route | Does |
@@ -531,6 +566,10 @@ Safehouse's table lamps are a marble bust. Evidence: the worktree's `out\pbr-map
 | `scripts/test_astra_companion.py` | tests | `python -I -m unittest discover -p "test_astra_companion.py"` in `scripts\`: a synthetic companion with real BC7 blocks, the conversion, the BC4 encoder, refusals, the harness |
 | `scripts/port_classic_mods.py` | a classic install's map mod | one mod folder from the mod folders a map was played with, ranked as the runtime ranked them; refuses a merge that would change a hash; blanks references to files the mod never had |
 | `scripts/usd_refs.py` | module | every layer and file a mod references, text and binary crate layers alike (no `pxr`); used by `check_pack.py` and `port_classic_mods.py` |
+| `scripts/rekey_mod_hashes.py` | another author's mod | renames a mod's XXH3-keyed materials to the XXH64 keys the RTX package's runtime uses; its dry run says which hash a mod uses and how many materials a map explains |
+| `scripts/vtf_hash.py` | module | both Remix hashes of every VTF in a map item, legacy .bin, BSP pakfile, VPK or folder, with a cache |
+| `scripts/fit_mod.py` | any mod over 3.85 GB | fits any mod folder under a budget by leaving out top mips (no re-encoding), ordered by role and by upscale factor |
+| `scripts/test_rekey_fit.py` | tests | `python -I -m unittest discover -p "test_rekey_fit.py"` in `scripts\` (needs `xxhash`) |
 | `scripts/test_port_classic_mods.py` | tests | `python -I -m unittest discover -p "test_port_classic_mods.py"` in `scripts\`: the reference reader, the LZ4 and crate decoder, the port's order, overlaps, blanks and refusals |
 | `scripts/model_names.py` | both | the naming rule, imported by the scripts above |
 | `scripts/test_names.py` | tests | `python -I -m unittest -v` in `scripts\`: the naming rule and every refusal |

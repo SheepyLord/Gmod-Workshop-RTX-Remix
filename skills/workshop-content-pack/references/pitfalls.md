@@ -312,6 +312,27 @@ if it is still yours) while the field game runs, one map per hold. Hand-placed c
 in the field (the classic `Poolday`) win every hash under their upper-case name: move them out of
 `rtx-remix\mods` for the check and back after.
 
+### 29. Another author's mod changes nothing in the game (2026-11-12)
+
+The mod was made with Remix's default texture hash, XXH3; the RTX package's runtime keys replacements by
+XXH64 (`rtx.useObsoleteHashOnTextureUpload = True`), so no material matches. `rekey_mod_hashes.py --dry-run`
+shows it (`R re-keyed XXH3 -> XXH64`): re-key the ported copy. Valley View Mall, Funkis and Country Estate
+RTX (skurtyyskirts, 2025) were XXH3; offline, by XXH64, 0 of their 420, 448 and 413 materials matched their maps.
+
+### 30. ModDB refuses the download, or it arrives three times (2026-11-12)
+
+ModDB answers scripts with 403 (pages and mirror links), so curl and fetchers fail. The built-in browser
+works but saves straight to `%USERPROFILE%\Downloads`, and every "Your download is starting" page it opens
+starts a download of its own: opening the start page and then the mirror link gave `mods.rar`, `mods2.rar`
+and `mods3.rar`. Open each start page once, check the MD5 the file page lists, move the file under
+`out\downloads`, and remove only the copies you caused.
+
+### 31. The map item on the mod's page is gone (2026-11-12)
+
+Valley View Mall RTX's page links the map 3417387329, which now answers `result 9` (hidden or removed);
+the map lives on as 3624445216. Find a map by its BSP name in the installed archives' indexes, and name
+the item that exists as the Required item.
+
 ## Diagnosing
 
 | Question | Where to look |

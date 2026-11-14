@@ -30,7 +30,9 @@ scale.
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
 as it is with the workshop-content-pack skill ("A classic install's map mod", `port_classic_mods.py`),
-which keeps what each hash showed when several mod folders become one.
+which keeps what each hash showed when several mod folders become one. So is another author's finished map
+mod (ModDB, with permission: "Another author's map mod"); check first which texture hash it was made with,
+since a mod keyed by Remix's default XXH3 applies to nothing under the RTX package until it is re-keyed.
 
 Read the references when you reach their stage:
 

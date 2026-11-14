@@ -508,7 +508,7 @@ user's to set.
 
 | Package | Map | From | Archive |
 |---|---|---|---|
-| `pool-day-rtx` | New Pool Day 2 (`gm_new_pool_day2`, 3096281917) | `Poolday` (20 materials, 4 lights), `Poolday_mirror_fix`, `gmodrtx_poolday_fix`; 39 dangling references blanked, 5 dead files left out | 347,191,685 bytes, SHA-256 `91ca1d25...` |
+| `pool-day-rtx` | New Pool Day 2 (`gm_new_pool_day2`, 3096281917) | `Poolday` (20 materials, 4 lights), `Poolday_mirror_fix`, `gmodrtx_poolday_fix`; 39 dangling references blanked, 5 dead files left out | 347,191,685 bytes, SHA-256 `91ca1d25...`; since 2026-11-14 the tuned 347,191,703 bytes, `a068526b...` (below) |
 | `safehouse-rtx` | Safehouse (`gm_csgosafehouse`, 944959992) | `SafeHouse`: 60 materials, 23 mesh and 31 light overrides, 13 Poly Haven models (binary `.usd`), ambientCG textures (both CC0) | 2,818,224,776 bytes, SHA-256 `0de8223b...` |
 
 In the field (2026-11-12, loader 0.16.0, the RTX package of that day): Pool Day drew 19 of its 22 texture
@@ -561,8 +561,9 @@ permission, and says when the textures were fitted or re-keyed.
 Built on 2026-11-13 (the worktree `gmod-pbr-maps-packaging-b6de9c`'s `out\packages\<id>`, each with its
 description, port, re-key and fit reports; `out\pbr-maps\build_round2.py` rebuilds them; nothing uploaded).
 The HamzaPOPO archives below are the ones after `tune_displacement.py`; Pool Day RTX was tuned the same way
-(347,191,703 bytes, `a068526b...`), and its hidden item 3838671223 still holds the untuned upload above
-until it is updated:
+(347,191,703 bytes, `a068526b...`) and, at the user's request, went to its hidden item 3838671223 on
+2026-11-14 (`gmpublish update` from the PoC root, 11 s: Steam uploaded only the changed chunks; the build
+folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 
 | Package | Map item | Mod (author) | Hash | Archive |
 |---|---|---|---|---|

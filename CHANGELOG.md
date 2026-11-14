@@ -271,6 +271,8 @@ Versions follow the loader's CMake project version once it ships; until then eve
 - **Map Pack RTX's parallax toned down** (the user saw Abandoned Mall's ground): its materials, props and decals
   included, were 0.05-0.145 deep, which drew floors as stacked blocks and tore props; models and decals now have
   none and world materials at most 0.008, in all eight of its packs (Pool Day RTX's archive rebuilt too).
+- **Pool Day RTX's hidden item 3838671223 updated** with that tuned archive at the user's request (2026-11-14,
+  `gmpublish update`): its floors draw flat under RTX for whoever has the item.
 - **workshop-content-pack skill:** "Another author's map mod (ModDB)"; `rekey_mod_hashes.py` (XXH3 to XXH64, and
   which hash a mod uses), `vtf_hash.py` (both hashes of every VTF in map items, legacy .bin, BSP pakfiles and VPKs),
   `fit_mod.py` (any mod under one item's budget, by role and upscale factor); tests; pitfalls 29-31.

@@ -57,7 +57,8 @@ starts: [mod-load-cache-report.md](mod-load-cache-report.md), by Claude, package
 Then GitHub issue 5 of 2026-11-13 ("Default texture pack is not ready: resource_sampling_unsupported" at the centre
 of the screen on every map): MineMod's line, caused by the render guard keeping its shaders inert; the guard keeps it
 off the screen: [issue5-report.md](issue5-report.md), by Claude, package only, merged on the user's approval without
-an in-game check ([ADR 0210](../decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md)).
+an in-game check and published 2026-11-13
+([ADR 0210](../decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md)).
 
 Beside it, the user's report of 2026-11-10 on the Model Hotloader's imports (a static prop's slow physics, no
 percentage, a crash once the importer showed a new import): [hotloader-import-report.md](hotloader-import-report.md),

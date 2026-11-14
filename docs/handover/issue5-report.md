@@ -12,6 +12,14 @@ loader (`winmm.dll`), runtime or native module change.
 [ADR 0210](../decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md); the facts with file
 and line references are in [RESEARCH.md](../RESEARCH.md) ("GitHub issue 5").
 
+**Merged and published (2026-11-13).** On the user's approval, without the in-game check, squashed into `main` as
+`9aed3bda`. The commit's hook uploaded the package to item 3829070317 as 0.0.0-dev.20261114002807+a24682df
+(2,086,423,720 bytes, content digest a3a9f694; the guard's MineMod entry is in it). Before that commit, the squash
+merge's post-merge hook tried to publish the old head `a897abe9` from the uninstall session's worktree
+(`out\worktrees\orphan`, the other checkout of that commit) and stopped at its uncommitted files; nothing was built or
+uploaded from there. A squash merge runs the post-merge hook before its commit exists, so the next squash merge can
+expect the same harmless refusal.
+
 ## Root cause
 
 1. **The line is MineMod's, not the package's.** Nothing in this repository (any branch or worktree), the fixes fork,

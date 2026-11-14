@@ -2924,8 +2924,8 @@ msgid "A map without PBR materials keeps its original textures, which hold only 
 msgstr "沒有 PBR 材質的地圖會保留原始紋理，而這些紋理只包含顏色。缺少粗糙度、法線與金屬度貼圖時，表面會被當作光滑且均勻霧面或均勻光亮來照明，因此牆壁與地板可能顯得扁平，金屬可能像上漆的塑膠，舊紋理裡畫上去的高光或陰影可能顯得重複。"
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
-msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
-msgstr "ToPBR（設定、RTX Remix、ToPBR）可以根據地圖自身材質已經引用的內容（例如法線貼圖與高光遮罩）產生近似材質。真正的 PBR 包效果要好得多。"
+msgid "Map and prop PBR (ToPBR), off by default under Utilities, RTX Remix, can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "「地圖和道具 PBR（ToPBR）」（設定、RTX Remix，預設關閉）可以根據地圖自身材質已經引用的內容（例如法線貼圖與高光遮罩）產生近似材質。真正的 PBR 包效果要好得多。"
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
 #, c-format

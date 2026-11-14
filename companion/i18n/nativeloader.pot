@@ -2902,7 +2902,7 @@ msgid "A map without PBR materials keeps its original textures, which hold only 
 msgstr ""
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
-msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgid "Map and prop PBR (ToPBR), off by default under Utilities, RTX Remix, can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:27

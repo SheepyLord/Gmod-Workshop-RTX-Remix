@@ -2924,8 +2924,8 @@ msgid "A map without PBR materials keeps its original textures, which hold only 
 msgstr "Une carte sans matériaux PBR garde ses textures d'origine, qui ne contiennent que la couleur. Sans cartes de rugosité, de normales et de métal, ses surfaces sont éclairées comme si elles étaient lisses et uniformément mates ou brillantes : les murs et les sols peuvent paraître plats, le métal peut ressembler à du plastique peint, et les reflets ou les ombres peints dans les anciennes textures peuvent sembler doublés."
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
-msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
-msgstr "ToPBR (Utilitaires, RTX Remix, ToPBR) peut créer des matériaux approximatifs à partir de ce que les matériaux de la carte référencent déjà, comme les cartes de normales et les masques spéculaires. De vrais packs PBR rendent bien mieux."
+msgid "Map and prop PBR (ToPBR), off by default under Utilities, RTX Remix, can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "« PBR des cartes et objets (ToPBR) », désactivé par défaut dans Utilitaires, RTX Remix, peut créer des matériaux approximatifs à partir de ce que les matériaux de la carte référencent déjà, comme les cartes de normales et les masques spéculaires. De vrais packs PBR rendent bien mieux."
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
 #, c-format

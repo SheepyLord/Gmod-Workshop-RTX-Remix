@@ -2924,8 +2924,8 @@ msgid "A map without PBR materials keeps its original textures, which hold only 
 msgstr "Карта без PBR-материалов сохраняет исходные текстуры, в которых есть только цвет. Без карт шероховатости, нормалей и металличности её поверхности освещаются так, будто они гладкие и равномерно матовые или глянцевые, поэтому стены и полы могут выглядеть плоскими, металл — как крашеный пластик, а блики или тени, нарисованные в старых текстурах, — удвоенными."
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
-msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
-msgstr "ToPBR (Утилиты, RTX Remix, ToPBR) может создать приблизительные материалы из того, на что уже ссылаются материалы самой карты, например из карт нормалей и масок бликов. Настоящие PBR-пакеты выглядят намного лучше."
+msgid "Map and prop PBR (ToPBR), off by default under Utilities, RTX Remix, can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "«PBR карт и объектов (ToPBR)» (Утилиты, RTX Remix; по умолчанию выключено) может создать приблизительные материалы из того, на что уже ссылаются материалы самой карты, например из карт нормалей и масок бликов. Настоящие PBR-пакеты выглядят намного лучше."
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
 #, c-format

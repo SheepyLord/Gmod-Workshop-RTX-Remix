@@ -2924,8 +2924,8 @@ msgid "A map without PBR materials keeps its original textures, which hold only 
 msgstr "PBR 머티리얼이 없는 맵은 색상 정보만 담긴 원래 텍스처를 그대로 사용합니다. 러프니스, 노멀, 메탈 맵이 없으면 표면이 매끄럽고 고르게 무광이거나 유광인 것처럼 조명을 받으므로, 벽과 바닥은 평평해 보이고 금속은 칠한 플라스틱처럼 보이며, 오래된 텍스처에 그려 넣은 광택이나 그림자는 이중으로 보일 수 있습니다."
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:26
-msgid "ToPBR (Utilities, RTX Remix, ToPBR) can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
-msgstr "ToPBR(유틸리티, RTX Remix, ToPBR)는 노멀 맵이나 스페큘러 마스크처럼 맵의 머티리얼이 이미 참조하는 것으로 근사한 머티리얼을 만들 수 있습니다. 실제 PBR 팩이 훨씬 보기 좋습니다."
+msgid "Map and prop PBR (ToPBR), off by default under Utilities, RTX Remix, can build approximate materials from what a map's own materials already reference, such as normal maps and specular masks. Real PBR packs look much better."
+msgstr "'맵과 프롭 PBR (ToPBR)'(유틸리티, RTX Remix, 기본값은 꺼짐)은 노멀 맵이나 스페큘러 마스크처럼 맵의 머티리얼이 이미 참조하는 것으로 근사한 머티리얼을 만들 수 있습니다. 실제 PBR 팩이 훨씬 보기 좋습니다."
 
 #: nativeloader/lua/nativeloader/menu/pbr_note.lua:27
 #, c-format

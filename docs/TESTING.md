@@ -3408,3 +3408,15 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
   3. frame generation on for 10 minutes, no device loss;
   4. an RTX session while a second `-multirun` game creates its device: no crash in engine.dll or shaderapidx9.dll
      inside Present (the message itself may still crash GMod in its own loop; see the report's "Open").
+
+## Source eyes and the PBR note (GitHub issue 1, ADR 0219, ADR 0220)
+
+- [`tools/tests/test_eye_texgen.py`](../tools/tests/test_eye_texgen.py.md): the RTX fixes' thirteenth native patch
+  (its complete files, the draw hook writing the eye's request first, its SDK-free regression with MSVC) and
+  `rtx.eye.enable = True` in the shipped defaults layer; [`test_remix_defaults.py`](../tools/tests/test_remix_defaults.py.md)
+  pins it whatever the inputs say.
+- [`tools/tests/test_pbr_note.py`](../tools/tests/test_pbr_note.py.md): the note's thirteen scenarios, including
+  hiding itself after ten seconds, the time held while the pointer is over it, and Don't show again.
+- In the PoC ([report](handover/issue1-eyes-report.md)): HL2 characters and a Workshop model with `EyeRefract` eyes
+  framed on their eyes (both irises; `rtx.gmod.enableInstrumentation` logs one `[GMod Eye] Handoff` origin per
+  eye), the note on the main menu (`--menu-shot` with `nativeloader_pbr_note` sent while the Workshop mounts).

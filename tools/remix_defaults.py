@@ -72,7 +72,12 @@ PLAYER_CATEGORIES = {'rtx.playerModelTextures': '', 'rtx.playerModelBodyTextures
 # whatever the merged files say.
 PATH_BOUNCES = {'rtx.pathMinBounces': '1', 'rtx.pathMaxBounces': '12'}
 
-PINNED = GPU_DEPENDENT | PLAYER_CATEGORIES | PATH_BOUNCES
+# Source eyes get Remix's eye shading (the iris, eyeball normals): the RTX fixes hand each eye's iris projection to
+# the runtime, whose own default leaves the shading off, as the classic install did, so no iris ever showed
+# (GitHub issue 1, ADR 0220).
+EYES = {'rtx.eye.enable': 'True'}
+
+PINNED = GPU_DEPENDENT | PLAYER_CATEGORIES | PATH_BOUNCES | EYES
 
 
 def main(argv=None) -> int:
@@ -92,6 +97,7 @@ def main(argv=None) -> int:
               '# Sources, weakest first: ' + ', '.join(p.name for p in args.inputs) + '.',
               '# Frame generation is left off and at one generated frame: it depends on the GPU (ADR 0037).',
               '# Player texture categories are assigned to private local-body proxies (ADR 0043).',
+              "# Source eyes use Remix's eye shading, so their irises show (ADR 0220).",
               '# The player\'s own rtx.conf and user.conf in the game folder override every value here.']
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text('\n'.join(header + [f'{k} = {v}'.rstrip() for k, v in merged.items()]) + '\n', encoding='utf-8', newline='\n')

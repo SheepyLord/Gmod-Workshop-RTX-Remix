@@ -33,14 +33,14 @@
    "imported": "2026-11-14T20:03:49+00:00"
   },
   "layers/classic_remix_defaults.conf": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\startup-bounce-defaults.conf",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\fx\\out\\layers\\classic_remix_defaults.conf",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/fx",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "e30fd83bdab3becb9362c1e8ed2755aafd84cb75",
+    "commit": "a8c4c8b68c1554364c1fb675a857a5f75bacab26",
     "dirty": false
    },
-   "imported": "2026-10-31T06:02:06+00:00"
+   "imported": "2026-11-14T21:16:43+00:00"
   },
   "files/usd/plugins/RemixCategories/RemixCategories.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\RemixCategories.dll",
@@ -1471,9 +1471,9 @@
    "stored_sha256": "3d2303d3053bd21ffa80e584ee9a52d48ce849e0eacc0e83e198009c0d1f2159"
   },
   "layers/classic_remix_defaults.conf": {
-   "size": 159305,
-   "sha256": "72cc5317ecbc4d77ac63e22683f0075b34eff1674a3e0f39b23ed7ccbeb06f86",
-   "mtime_ns": 1793426525880454500,
+   "size": 159399,
+   "sha256": "37e84ce12e9122e900ec8455e5ba92b8abf89d3145284a1753fddfc4e3e45394",
+   "mtime_ns": 1794691003822763300,
    "stored": "plain"
   },
   "layers/compiler_threads.conf": {

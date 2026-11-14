@@ -14,7 +14,7 @@ cd tools; python -m unittest discover -s tests -p test_player_categories.py -v
   `source/remixapi/material_lua_bindings.cpp` and `tests/player_categories_test.cpp`. `auto_categorisation.cpp` and
   `material_lua_bindings.cpp` are the patch applied to autopbr's copies (lua-paths changed them last); the tracker
   (no earlier copy here: the public base's) has the patch's new side at every hunk; the new files are its added lines.
-  `tools/ci/pins.json` builds the module with the patch, last.
+  `tools/ci/pins.json` builds the module with the patch twelfth, right after topbr-publish (eye-texgen follows it).
 - `test_every_automatic_add_asks_the_players_rtx_conf`: `ApplyToHash` and `ApplyCategoryToHash` filter their bits
   through `PlayerCategories::File::Allowed` before any `AddTextureHash`; `RemixMaterial.SetHashCategory` does when its
   third argument is `true`; the policy reads `rtx.conf` in the game folder and not `user.conf`.

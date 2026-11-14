@@ -27,8 +27,13 @@ ignored its World Geometry switch, scanned a map in one frame and put back categ
 ([ADR 0213](../../docs/decisions/0213-automatic-categorization-hardened.md)). Imported 2026-11-14 on branch
 `qol-topbr` with `inputs.py --file`; every other indexed input is unchanged.
 
-- `modules/gmcl_RTXFixesBinary_win64.dll` (5,597,696 bytes, SHA-256 `45f48990...c778d7c7`): the public base with the
-  twelve patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The eleventh,
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,598,208 bytes, SHA-256 `172e0dd6...926ba34c`, imported 2026-11-14 on
+  `issue1-pbr-note`): the public base with the thirteen patches of `tools/ci/pins.json`, built with
+  `tools/ci/build_modules.ps1 -Only fixes`. The thirteenth,
+  [eye-texgen.patch](licenses/oversized-skinning/eye-texgen/eye-texgen.patch): the eye shaders' camera-space TexGen
+  is written again at the eye's draw, so every Source eye reaches Remix as an eye
+  ([source, tests](licenses/oversized-skinning/eye-texgen/README.md), [ADR 0220](../../docs/decisions/0220-source-eyes-show-their-irises.md)).
+  The eleventh,
   [topbr-publish.patch](licenses/oversized-skinning/topbr-publish/topbr-publish.patch): a partial scan publishes every
   generated material no readable mod names (runtime patch 0020 ranks the generated mod last), at most every 30 s with a
   per-file cache ([source, tests](licenses/oversized-skinning/topbr-publish/README.md)). The twelfth,

@@ -142,6 +142,8 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0216](0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md) | The runtime's pipeline-handle race (upstream dxvk-remix `c1a891bf85` ported, compute too) and the in-Present message dispatch of the Reflex ping fixed: the "Crash detected ... 0xC0000005" clusters A and B | Accepted 2026-11-14 (runtime patches 0091, 0092; in-game checks pending) |
 | [0217](0217-a-main-menu-note-on-pbr-for-maps.md) | A main-menu note on PBR for maps: the demo resources (Workshop collection 3834474695) and what a map without PBR looks like | Accepted 2026-11-14 |
 | [0218](0218-the-runtime-follows-upstream-dxvk-remix-main.md) | The runtime follows upstream dxvk-remix `main`, one patch per update (0093: `remix-1.6.1..2b46bed0c`): RTXDI on upstream's commit with the fork's volumetrics, Remix API 0.1000.2 with upstream's additions after the fork's, the fork's GPU bits kept and upstream's moved, `usdg.dll` shipped | Accepted 2026-11-14 |
+| [0219](0219-the-pbr-note-one-line-three-buttons-ten-seconds.md) | The PBR note: "Obtaining more PBR resources", one line, Open the collection through `gui.OpenURL`, Hide and Don't show again; it hides itself after ten seconds on screen (supersedes 0217's card, text and way of opening the collection) | Accepted 2026-11-14 (the user) |
+| [0220](0220-source-eyes-show-their-irises.md) | Source eyes show their irises: Remix's eye shading on in the package's defaults, and the fixes' thirteenth patch keeps the eye's TexGen to its draw (GitHub issue 1) | Accepted 2026-11-14 (the user) |
 
 ## Template
 

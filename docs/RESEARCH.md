@@ -8674,6 +8674,35 @@ map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-m
 - **A GPU device loss** (`VK_ERROR_DEVICE_LOST` at a fence, frame 1783) ended one Abandoned Mall start at its
   first view, with 6.6 of 32 GB of VRAM in use and no dump; the same view drew in three other starts.
 
+## Source eyes under RTX (2026-11-14, Claude, ADR 0220)
+
+- **Shader DLLs under RTX.** With `d3d9.shaderModel = 0` the hardware's DirectX level is 7: an RTX session loads
+  `stdshader_dbg.dll`, the fixes' `stdshader_dx6.dll` (by the module override) and `stdshader_dx7.dll`, not
+  `stdshader_dx8`/`dx9` (the session's `modules.json`), although `mat_dxlevel` reads 90. Every `Eyes` and
+  `EyeRefract` material resolves to the fixes' `Eyes_dx9` or `EyeRefract_ff` (`GetShader()` says so).
+- **The fixes' eye ports** (disassembly of `stdshader_dx6.dll` 4bf218db, capstone): `Eyes_dx9`'s dynamic state binds
+  the iris on sampler 1, loads the iris projection into `MATERIAL_TEXTURE1` with `[3].z` = 54321.0
+  (`0x47543100`, rva `0xd2c5`) and calls `gmcl_RTXFixesBinary_win64.dll!RTX_SetEyeTexGenState(1)` (looked up with
+  `GetModuleHandleA` at every draw, rva `0xd833`); `EyeRefract_ff` the same with 54322 (rva `0xc4e0`), then
+  `RTX_SetEyeTexGenState(0)` after its `Draw` (rva `0xc5f2`). Their `[Eyes_dx9] Draw` / `[EyeRefract_ff] Draw`
+  diagnostics never print: their `r_hwskin_debug` ConVarRef is made before the fixes' module creates the convar.
+- **The runtime's side.** `d3d9_rtx.cpp` recognizes a tagged stage (camera-space TexGen, flags not disabled, the
+  tag in its texture transform) and logs `[GMod Eye] Handoff` only with `rtx.gmod.enableInstrumentation` (not
+  `rtx.enableInstrumentation`, which the runtime refuses as unknown); `DrawCallState::isEye()` also needs
+  `rtx.eye.enable`, whose default is `False` (`rtx_options.h`, `struct Eye`), a plain runtime constant
+  (`constants.eyeArgs.enableEyes`) that `RemixConfig.SetConfigVariable` switches live.
+- **The software eye path.** With the fixes' defaults (`r_forcehwskin 0`, `r_eyes_hwskin 0`) every eye is drawn by
+  `R_StudioDrawEyeball` with software lighting: a citizen's eyes are meshes 2 and 4 (flexed strip groups,
+  `flags=0x1`), GTA 5 Improved Models' Franklin's meshes 0 and 1 (hardware-skinned groups, `flags=0x2`, 65
+  vertices, 112 triangles each). On Franklin only the second eye reached the runtime as an eye, every frame, until
+  the fixes' draw hook wrote the eye's TexGen again (patch 13).
+- **Not the eye path.** `Entity:SetSubMaterial` does not change the material an eyeball mesh draws with (the
+  handoffs kept the EyeRefract tag after setting an `Eyes` material on both eyes). On the client,
+  `util.IsValidModel` is false for a model the server has not precached; `file.Exists(path, "GAME")` is the test.
+- **Workshop models with `EyeRefract` eyes** among the user's subscriptions (2026-11-14, a scan of the `.gma` files'
+  `.vmt` entries): 3567271959 (GTA 5 Improved Models), 3234456191 and 3243188430 (Touhou player models, painted
+  eyes), 3449437071 (Tsukushi Aria, painted eyes).
+
 ## The runtime and upstream dxvk-remix main (2026-11-14, Claude, ADR 0218)
 
 - **Where the runtime stood.** `base.json`'s fork commit is `sambow23/dxvk-remix-gmod` `c6b48ed1` (2026-08-31; the

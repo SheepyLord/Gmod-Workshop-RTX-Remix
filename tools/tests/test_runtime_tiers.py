@@ -43,8 +43,10 @@ OPTIONS = {
 # patched source (old exposure/localtonemap/bloom options, occluderTextures, finalizeWithACES).
 # Preserve its accepted high-tier bytes instead of pretending those keys are runtime options.
 # Every *.conf is scanned; any other layer must pass OPTIONS, so a new file cannot bypass it.
+# ADR 0220 (2026-11-14) reviewed the classic layer's change: one header line and rtx.eye.enable = True, pinned by
+# tools/remix_defaults.py (EYES); no other option changed.
 BASELINE_HASHES = {
-    'classic_remix_defaults.conf': '72cc5317ecbc4d77ac63e22683f0075b34eff1674a3e0f39b23ed7ccbeb06f86',
+    'classic_remix_defaults.conf': '37e84ce12e9122e900ec8455e5ba92b8abf89d3145284a1753fddfc4e3e45394',
     'compiler_threads.conf': 'fdb168ee65505699c13d8f8396825dc22e38666cf9f2864c5026677ce9f1ebb0',
 }
 

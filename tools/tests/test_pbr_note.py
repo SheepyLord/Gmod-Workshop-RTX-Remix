@@ -1,4 +1,4 @@
-"""ADR 0217: the main menu's note on PBR materials for maps and the demo resources (LuaJIT harness)."""
+"""ADR 0217 and ADR 0219: the main menu's note on more PBR resources for maps (LuaJIT harness)."""
 import os
 from pathlib import Path
 import shutil
@@ -45,13 +45,19 @@ class PbrNoteTests(unittest.TestCase):
     def test_hide_lasts_until_the_next_start(self):
         self.run_case('hide')
 
-    def test_the_card_and_dont_show_again(self):
-        self.run_case('card')
+    def test_it_hides_itself_after_ten_seconds(self):
+        self.run_case('auto-hide')
+
+    def test_the_time_stops_while_the_pointer_is_over_it(self):
+        self.run_case('pointer')
+
+    def test_dont_show_again_is_remembered(self):
+        self.run_case('never')
 
     def test_a_dismissed_note_and_the_console_commands(self):
         self.run_case('dismissed')
 
-    def test_the_collection_opens_in_the_overlay_or_the_browser(self):
+    def test_the_collection_opens_through_gui_openurl(self):
         self.run_case('open')
 
     def test_in_the_players_language(self):

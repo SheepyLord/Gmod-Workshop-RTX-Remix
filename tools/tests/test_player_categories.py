@@ -40,7 +40,7 @@ class PlayerCategoriesTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """auto_categorisation.cpp and material_lua_bindings.cpp are autopbr's copies (lua-paths changed them last)
         with this patch applied; the tracker (no earlier copy: the base's) has the patch's new side at every hunk;
-        the two new files are its added lines. pins.json builds the module with it, last."""
+        the two new files are its added lines. pins.json builds the module with it twelfth, right after topbr-publish."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), FILES)
         for path in (FILES[1], FILES[3]):
@@ -51,7 +51,9 @@ class PlayerCategoriesTests(unittest.TestCase):
         for path in (FILES[2], FILES[4]):
             self.assertEqual(added(patch, path), text(FOLDER / path).rstrip('\n').split('\n'), path)
         pins = json.loads((REPO / 'tools/ci/pins.json').read_text(encoding='utf-8'))['fixes']
-        self.assertEqual(pins['patches'][-1], PATCH.relative_to(REPO).as_posix())
+        patches = pins['patches']
+        self.assertEqual(patches.index(PATCH.relative_to(REPO).as_posix()), 11)
+        self.assertEqual(patches[10], 'packages/fixes/licenses/oversized-skinning/topbr-publish/topbr-publish.patch')
 
     def test_every_automatic_add_asks_the_players_rtx_conf(self):
         """The two native paths that add categories filter their bits first; the Lua binding does when its third

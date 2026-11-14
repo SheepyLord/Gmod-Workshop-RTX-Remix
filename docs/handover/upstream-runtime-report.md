@@ -69,6 +69,13 @@ grows to 2,147,921,872 bytes, just past 2 GiB; the loader's GMA reader uses 64-b
 Not covered: VR (the headset), the field install before the publish, Model Hotloader characters, maps with water or
 sludge, USDG packages (no mod uses them yet).
 
+## Published
+
+`main` fast-forwarded to `a8c4c8b6` after `tools\test.ps1 -Config Release` passed and was pushed with the runtime's
+Git LFS objects. The merge's hook uploaded item 3829070317 as **0.0.0-dev.20261114202835+2055ac88** (2,147,921,872
+bytes, SHA-256 `aa10f395a165592d3a6c07889f755caee0a7302507d3a481180ca4888f6b3260`, content digest `3847905a...`) at
+2026-11-14 20:28 UTC; the push's hook found the same inputs and uploaded nothing.
+
 ## Open
 
 - The glass add-on not loading its module in PoC QA sessions, with the published package too.

@@ -81,6 +81,19 @@ class RemixDefaultsTest(unittest.TestCase):
         self.assertEqual(rd.main([str(empty), '--out', str(out)]), 0)
         self.assertEqual(rd.read_conf(out)['rtx.pathMaxBounces'], '12')
 
+    def test_source_eyes_are_shaded_whatever_the_inputs_say(self):
+        # ADR 0220 (GitHub issue 1): Remix's eye shading is on, so Source eyes show their irises; a file that turns
+        # it off does not decide the package's default (the player's own rtx.conf and user.conf still do, later).
+        classic = self.write('rtx.conf', 'rtx.eye.enable = False\nrtx.eye.irisRadius = 0.2\n')
+        out = self.root / 'defaults.conf'
+        self.assertEqual(rd.main([str(classic), '--out', str(out)]), 0)
+        values = rd.read_conf(out)
+        self.assertEqual(values['rtx.eye.enable'], 'True')
+        self.assertEqual(values['rtx.eye.irisRadius'], '0.2')
+        empty = self.write('dxvk.conf', '# nothing\n')
+        self.assertEqual(rd.main([str(empty), '--out', str(out)]), 0)
+        self.assertEqual(rd.read_conf(out)['rtx.eye.enable'], 'True')
+
     def test_the_packaged_layer_is_what_the_generator_makes_of_it(self):
         # The shipped layer is regenerated from itself (remix_defaults.py.md): byte for byte the same,
         # so no value in it is typed by hand where the generator would put another.

@@ -6,6 +6,16 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- Source eyes show their irises under RTX (GitHub issue 1, [ADR 0220](docs/decisions/0220-source-eyes-show-their-irises.md)):
+  the package's Remix defaults turn the runtime's eye shading on (`rtx.eye.enable = True`), and the RTX fixes'
+  thirteenth native patch, [eye-texgen](packages/fixes/licenses/oversized-skinning/eye-texgen/README.md), keeps the
+  eye shaders' camera-space TexGen to the eye's draw, so the first EyeRefract eye of a model (Workshop player models
+  such as GTA 5 Improved Models) is not left white. `$color2` and render colours, skins and painted anime eyes were
+  checked and work; `$selfillum` glows with Legacy Emissive, still off by default.
+- The main menu's PBR note ([ADR 0219](docs/decisions/0219-the-pbr-note-one-line-three-buttons-ten-seconds.md)):
+  "Obtaining more PBR resources" and one line, with Open the collection (now through `gui.OpenURL`, which opens
+  where Steam's overlay is off; the button did nothing there), Hide and Don't show again; it hides itself after ten
+  seconds on screen. The "Maps without PBR" card is gone.
 - The RTX Remix runtime follows NVIDIA's dxvk-remix `main` of 2026-11-14, 57 commits past RTX Remix 1.6.1 (runtime
   patch 0093, [ADR 0218](docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md)): NVIDIA's eye
   shading fixes (corrupted reflections, dark eye whites, iris parallax and a limbal ring), BLAS refit, bindless,

@@ -79,6 +79,12 @@ class RenderGuardTests(unittest.TestCase):
     def test_known_unsupported_shader_depth_and_mrt_paths(self):
         self.run_case("shaders")
 
+    def test_minemods_not_ready_line_stays_off_screen_only_while_the_guard_refused_its_probe(self):
+        # GitHub issue 5 (ADR 0210): "Default texture pack is not ready: resource_sampling_unsupported:[[0,0,0],...]".
+        for scenario in ("minemod_notice", "minemod_notice_multiplayer"):
+            with self.subTest(scenario=scenario):
+                self.run_case(scenario)
+
     def test_nested_views_are_bounded_but_sequential_views_remain(self):
         self.run_case("views")
 

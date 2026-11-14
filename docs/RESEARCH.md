@@ -8235,3 +8235,50 @@ left, "Loading enhancements" over "Processing Materials (496 processed)"). Fixed
 - **GMod blocks `fps_max` from Lua** (`RunConsoleCommand: Command is blocked! (fps_max)`), so a test cannot cap the
   frame rate from the add-on's realm.
 
+
+## GitHub issue 5: "Default texture pack is not ready: resource_sampling_unsupported" (2026-11-13, Claude)
+
+The player's two screenshots (1920x1080 and 1440x1080, a pool-rooms map and a dev-textured map, the stock HL2 HUD,
+path tracing clearly on) show one white line at the exact centre of the screen in `DermaDefaultBold`:
+`Default texture pack is not ready: resource_sampling_unsupported:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]`.
+Fixed in the render guard ([ADR 0210](decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md),
+[report](handover/issue5-report.md)). Screenshots and the MineMod files read are in the worktree's `out\issue5\`.
+
+- **Not the package's text.** No branch of this repository, no other worktree, the fixes fork
+  (`E:\Modding_Backup\garrys-mod-rtx-remixed`), the runtime fork (`out/worktrees/r17/out/runtime-src`), the content
+  pack staging folders, the unpacked package parts (`out\inputs`, binary-safe), the published `.gma` of 2026-11-13 and
+  the 838 Workshop items on this computer hold either string. GitHub code search finds both in
+  [schweiziske/MineMod](https://github.com/schweiziske/MineMod) (MIT; "MineMod Engine", Minecraft's block worlds in
+  GMod; last push 2026-11-10): `addons/mc_engine/data_static/mc/i18n/texture_pack/mc_engine.en_us.json`
+  (`"loading.default_unavailable": "Default texture pack is not ready: {error}"`) and
+  `addons/mc_engine/lua/mc/resources/cl_sampling.lua` (`reason="resource_sampling_unsupported:"..util.TableToJSON(samples)`).
+  Note for later searches: Git Bash on this machine has no `rg`; a `rg ... 2>/dev/null | head` there fails silently.
+- **MineMod's probe** (`MC.ResourceSampling.Get`, run by `MC.ResourceGeneration.Build` when the atlas has mip levels):
+  six `screenspace_general_8tex` materials `mc_resource_sampling_<pixel shader>_<lod>` with the shader pack's
+  `sampling` program as `$vertexshader`/`$pixshader` and `$c0_x` = lod 0-5; a 64x64 atlas texture with five mip levels
+  of grey 16, 56, 96, 136, 176 (the Lua backend writes it as a VTF under `data/mc/resourcepacks/runtime/` and loads it
+  through an `UnlitGeneric` proxy material, `../data/...`); a 16x16 RGBA8888 target `mc_resource_sampling` (size mode
+  literal, depth none, flags 1|4|8|256|512). For each lod: `render.Clear(0,0,0,255)`, `render.SetMaterial`, a
+  full-screen quad mesh under `render.OverrideBlend(true, BLEND_ONE, BLEND_ZERO, ...)`, `render.CapturePixels()`,
+  `render.ReadPixel(8,8)`. It accepts an offset of 0 or 1 mip per channel (it names "Source's AMD GET1 sampler state"),
+  else fails with the samples as JSON. Six read-backs, within R28's allowance of eight.
+- **Why the samples are black under RTX.** The guard's `CreateMaterial` marks a `screenspace_general*` material with
+  `$pixshader`/`$vertexshader` as incompatible (ADR 0086), and `render.SetMaterial` from
+  `lua/mc/resources/cl_sampling.lua` binds the guard's transparent `UnlitGeneric` (`$alpha 0`) instead: all six
+  samples are the clear colour `[0,0,0]`, as the screenshots show, so nothing of the quad reached the target (not
+  measured in a game here; the probe's own values say so). The guard's own console line is
+  `[nativeloader] RTX guard: render.SetMaterial: unsupported RTX shader draw (lua/mc/resources/cl_sampling.lua:<line>)`.
+- **Why it stays on every map.** `R.RestorePreference()` (MineMod's `PostRender`) starts the default pack's bake once
+  per catalog revision (`R.defaultAttempt`); the failed job keeps `MC.TexturePackPending` set, and MineMod's `HUDPaint`
+  hook `mc_resource_pack_loading` (`lua/mc/cl_resource_packs.lua`) draws the line at `ScrW()/2, ScrH()/2` whenever the
+  default pack is pending and the last job (`R.jobs[R.lastId]`) failed or was cancelled. MineMod reports the fault
+  once in the console (`[MC fault] resource_default_bake: ...`, `sh_fault.lua`, `mc_strict 0`). While the pack is
+  pending its render runtime draws no world (`cl_render_pack_runtime.lua`: `if MC.TexturePackPending then return`).
+- **MineMod draws everything with its own shaders.** Its passes are `screenspace_general_8tex` materials with a shader
+  pack's programs (`cl_render_pack_processing.lua`), and its block materials bind a shader pack program too
+  (`cl_render_pack_resources.lua`, `P.Material` → `R.BoundMaterial(..., node.program, ...)`), so under RTX the guard
+  keeps all of it inert: MineMod does not work in RTX sessions whatever its texture pack does. Its optional native
+  module (`gmcl_minemod_native_win64.dll`) only builds meshes and uploads resources; Workshop clients use the Lua
+  backend.
+- **The owner's first guess** (another HUD or crosshair add-on) was reasonable for a centred line over the HUD; the
+  player's "HL2 customizable hud" was not involved.

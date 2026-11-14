@@ -168,7 +168,8 @@ Early/autorun routes contain selected loading/render/UI callbacks through hook.C
 keep registry identity, object self, arguments and first non-nil/six hook returns. The late multiplayer
 route contains only callbacks from owned private environments; unrelated server callbacks retain
 identity and vanilla errors. The separate capability filter wraps only known effects and depth
-registrations, including existing entries/new hook.Add, timers and cvar callbacks. Thus a cached
+registrations (and, since ADR 0210, the known notices described at the end of this file), including
+existing entries/new hook.Add, timers and cvar callbacks. Thus a cached
 original hook.Call still invokes those policy refusals. This is the narrow ADR 0086 exception to
 ADR 0056's server-callback identity rule; it adds no general server-error containment.
 
@@ -284,3 +285,20 @@ another: its records then name `fn`, a callback the guard leaves out stays left 
 guard stopped after repeated errors stays stopped under it and after it. An entry can only add to what is left out. The `cost_safeguards` scenario of
 [`render_guard_harness.lua`](../../../../tools/tests/render_guard_harness.lua.md) covers each;
 [`nativeloader_lag_report.lua`](nativeloader_lag_report.lua.md) uses the table and prints the records.
+
+GitHub issue 5 ([ADR 0210](../../../../docs/decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md)),
+**notices that only report the guard's refusal.** A known add-on whose own on-screen failure has no other cause than
+this guard keeping its shaders inert has that line kept off the screen, matched by the exact virtual path of the
+callback that draws it, its event and the add-on's own failure code (`notices` and `policy.notice` in the file). One
+entry: MineMod's `HUDPaint` hook in `lua/mc/cl_resource_packs.lua`. MineMod bakes its default texture pack only after
+a probe (`lua/mc/resources/cl_sampling.lua`) draws its own shader (`screenspace_general_8tex` with `$vertexshader` and
+`$pixshader`) into a 16x16 target and reads six pixels back. The guard refuses that binding as before (ADR 0086); the
+samples are the target's clear colour, the bake fails with `resource_sampling_unsupported:[[0,0,0],...]`, and the hook
+wrote "Default texture pack is not ready: ..." in the middle of the screen on every map. While `MC.TexturePackPending`
+is set and MineMod's last apply job (`MC.ResourcePacks.jobs[MC.ResourcePacks.lastId]`) has failed with an error that
+starts with `resource_sampling_unsupported`, the callback is skipped, through the guard's dispatcher and through the
+registration filter (so a cached original `hook.Call` and the late multiplayer route skip it too), with one `adapted`
+record and one console line. The add-on's state is read in `pcall`: anything unexpected shows the line as before.
+MineMod's other failures, its other hooks and messages, other add-ons and `nativeloader_guard 0` are unchanged.
+`skipCallback` reads and normalizes a callback's source once for the effect and notice checks. The scenarios
+`minemod_notice` and `minemod_notice_multiplayer` of the harness cover each.

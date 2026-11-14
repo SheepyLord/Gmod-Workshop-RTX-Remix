@@ -351,21 +351,62 @@ do
         ["lua/postprocess/ssdo.lua"] = true,
         ["lua/postprocess/pp_ssr.lua"] = true,
     }
-    function policy.effect(source)
-        source = source:lower():gsub(":%d+$", "")
-        return sources[source] or source:find("lua/lifemod/render/modules/", 1, true) == 1
-    end
+    local function sourceKey(source) return (source:lower():gsub(":%d+$", "")) end
+    local function effectKey(key) return sources[key] or key:find("lua/lifemod/render/modules/", 1, true) == 1 end
+    function policy.effect(source) return effectKey(sourceKey(source)) end
     function policy.csm(source)
         source = source:lower()
         return source:find("lua/realcsm/", 1, true) == 1 or source:find("lua/entities/edit_csm/", 1, true) == 1
     end
+    -- GitHub issue 5 (ADR 0210): an add-on's own on-screen failure whose only cause is that this guard keeps its
+    -- shaders inert, by the exact virtual path of the callback that draws it, its event and the add-on's own failure
+    -- code. MineMod ("MineMod Engine", github.com/schweiziske/MineMod) bakes its default texture pack only after a
+    -- probe draws its own shader into a 16x16 target and reads six pixels back: that binding is refused like every
+    -- custom shader (ADR 0086), the six samples are the target's clear colour, and its HUDPaint hook then writes
+    -- "Default texture pack is not ready: resource_sampling_unsupported:[[0,0,0],...]" in the middle of the screen
+    -- on every map, while the game is fine. Its blocks draw with its own shaders too (inert as well; it draws none
+    -- while that pack is pending). That one line stays off the screen while that is the failure, with one console
+    -- note; MineMod's other failures and messages, and everything without the guard, stay as they are.
+    local notices = {
+        ["lua/mc/cl_resource_packs.lua"] = {event = "HUDPaint",
+            reason = "MineMod's default texture pack cannot be baked while its shaders are inert under RTX: its "
+                .. "\"Default texture pack is not ready: resource_sampling_unsupported\" line is kept off the screen",
+            hidden = function()
+                local mc = rawget(_G, "MC")
+                if type(mc) ~= "table" or not mc.TexturePackPending then return false end
+                local packs = mc.ResourcePacks
+                local jobs = type(packs) == "table" and packs.jobs
+                local job = type(jobs) == "table" and packs.lastId ~= nil and jobs[packs.lastId]
+                local err = type(job) == "table" and job.state == "failed" and job.error
+                return type(err) == "string" and err:find("resource_sampling_unsupported", 1, true) == 1
+            end},
+    }
+    local function noticeKey(key, event)
+        local entry = notices[key]
+        if entry and entry.event == event then return entry end
+    end
+    function policy.notice(source, event) return noticeKey(sourceKey(source), event) end
     -- Initialization still defines the add-ons' API and receives real engine-backed fallbacks.
     -- Rendering/reconstruction/world-mesh callbacks are inert even through cached hook.Call.
     function policy.skipCallback(fn, event)
         if event == "Initialize" or event == "InitReconstruction" or event == "InitPostReconstruction"
             or event == "OnScreenSizeChanged" or event == "OnReloaded" or event == "ShutDown" then return false end
-        if not policy.effect(functionSource(fn)) then return false end
-        reject("hook." .. tostring(event), "screen-space shader effect is inert under RTX", functionSource(fn))
+        -- Every render callback of every frame comes here: its source is read and normalized once.
+        local source = functionSource(fn)
+        local key = sourceKey(source)
+        local notice = noticeKey(key, event)
+        if notice then
+            -- The add-on's state is read as it is; anything unexpected there shows its line as before.
+            local ok, hidden = pcall(notice.hidden)
+            if not (ok and hidden == true) then return false end
+            if not notice.told then
+                notice.told = true
+                report("adapted", "hook." .. tostring(event), notice.reason, source)
+            end
+            return true
+        end
+        if not effectKey(key) then return false end
+        reject("hook." .. tostring(event), "screen-space shader effect is inert under RTX", source)
         return true
     end
     local wrapperPaths = { ["lua/autorun/!!projected_texture_wrapper.lua"] = true,
@@ -2061,8 +2102,13 @@ do
         OnScreenSizeChanged = true, OnReloaded = true, ShutDown = true}
     local filtered = setmetatable({}, {__mode = "k"})
     local function filter(event, fn)
-        if type(fn) ~= "function" or (event ~= "NeedsDepthPass"
-            and (allowed[event] or not policy.effect(functionSource(fn)))) then return fn end
+        if type(fn) ~= "function" then return fn end
+        if event ~= "NeedsDepthPass" then
+            if allowed[event] then return fn end
+            -- Known effects, and the notices that only report the guard's refusal (ADR 0210).
+            local source = functionSource(fn)
+            if not policy.effect(source) and not policy.notice(source, event) then return fn end
+        end
         local entries = filtered[fn]
         if not entries then entries = {} filtered[fn] = entries end
         if not entries[event] then

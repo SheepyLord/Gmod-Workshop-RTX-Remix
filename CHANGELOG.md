@@ -6,6 +6,13 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+- GitHub issue 5: "Default texture pack is not ready: resource_sampling_unsupported:[[0,0,0],...]" no longer stays in
+  the middle of the screen in RTX sessions. The line is MineMod's (a Minecraft blocks add-on): its texture pack probe
+  draws with its own shader, which the render guard keeps inert under RTX, so its bake failed and the line showed on
+  every map. The guard now skips that one MineMod callback while that is the failure, with one console note
+  (`[nativeloader] RTX guard: hook.HUDPaint: MineMod's default texture pack cannot be baked ...`); the shader policy
+  is unchanged, so MineMod itself still needs a start without RTX. Package only
+  ([ADR 0210](docs/decisions/0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md)).
 - VR true stereo (V7, approved by the user on 2026-11-13): a switch on the VR page path traces each eye with its own
   history instead of warping one centre view to both eyes, at about a quarter more GPU work (1.19 times on the
   Index, 1.28 simulated), with DLSS Ray Reconstruction and the physical sky; the page says which mode runs. Runtime patch 0089 keeps the right eye's view

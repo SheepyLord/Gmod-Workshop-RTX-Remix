@@ -18,6 +18,7 @@ CLIENT, SERVER, MENU_DLL = true, false, false
 if scenario=="realm_server" then CLIENT,SERVER=false,true end
 if scenario=="realm_menu" then CLIENT,MENU_DLL=false,true end
 local multiplayer = scenario=="verified_multiplayer" or scenario=="cached_multiplayer" or scenario:find("^r8_mp_")~=nil
+    or scenario=="minemod_notice_multiplayer"
 __NATIVELOADER_RTX_GUARD_EARLY = not multiplayer and scenario~="no_proof" and scenario~="inherited_proof"
     and scenario~="autorun"
 -- status.json as the loader writes it. Remote vanilla clients have none; an RTX-off start reports
@@ -1266,6 +1267,95 @@ elseif scenario=="callbacks" then
     changes.flaky.fn() changes.flaky.fn() eq(cvarCalls,2,"two failures do not quarantine")
     cv.nativeloader_guard.value="0"
     assert(not pcall(timers.bad)) eq(calls,4,"off bypasses quarantine")
+elseif scenario=="minemod_notice" or scenario=="minemod_notice_multiplayer" then
+    -- GitHub issue 5 (ADR 0210): MineMod bakes its default texture pack only after a probe draws its own shader into a
+    -- small target and reads pixels back. The guard refuses that shader (ADR 0086, unchanged), the samples are the clear
+    -- colour, and MineMod's HUDPaint hook writes "Default texture pack is not ready: resource_sampling_unsupported:..."
+    -- in the middle of the screen on every map. Stand-ins for its hook and its probe, with MineMod's own source labels.
+    eq(guard.installation,multiplayer and "verified multiplayer bootstrap" or "early")
+    if multiplayer then eq(hook.Call,beforeCall,"the remote dispatcher stays unchanged: registration alone filters") end
+    local drawn={}
+    draw={SimpleText=function(text)drawn[#drawn+1]=text end}
+    MINEMOD_HUD_CALLS=0
+    local R={jobs={},lastId=nil}
+    MC={TexturePackPending=true,ResourcePacks=R}
+    assert(loadstring([[
+        local R = MC.ResourcePacks
+        hook.Add("HUDPaint", "mc_resource_pack_loading", function()
+            MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 1
+            if not MC.TexturePackPending then return end
+            local text, job = "Baking the default texture pack", R.lastId and R.jobs[R.lastId]
+            if job and job.state == "failed" then text = "Default texture pack is not ready: " .. tostring(job.error)
+            elseif R.restoreError then text = "Default texture pack is not ready: " .. tostring(R.restoreError) end
+            draw.SimpleText(text, "DermaDefaultBold", ScrW() / 2, ScrH() / 2)
+        end)
+        hook.Add("Think", "mc_resource_pack_think", function() MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 100 end)
+    ]],"@lua/mc/cl_resource_packs.lua"))()
+    local registered=hook.GetTable().HUDPaint.mc_resource_pack_loading
+    local function frame() hook.Call("HUDPaint") end
+    local function noted()
+        local count=0
+        for _,line in ipairs(messages) do if line:find("MineMod's default texture pack",1,true) then count=count+1 end end
+        return count
+    end
+    -- While it bakes, its own line shows.
+    R.jobs[1],R.lastId={state="building"},1
+    frame() eq(#drawn,1) eq(drawn[1],"Baking the default texture pack") eq(MINEMOD_HUD_CALLS,1)
+    -- The probe is refused as before: the transparent material is bound in its place.
+    local blockedBefore=#guard.blocked
+    assert(loadstring([[
+        local m = CreateMaterial("mc_resource_sampling_mc_sampling_ps30_0", "screenspace_general_8tex",
+            {["$vertexshader"] = "mc_sampling_vs30", ["$pixshader"] = "mc_sampling_ps30", ["$c0_x"] = 0})
+        render.SetMaterial(m)
+    ]],"@lua/mc/resources/cl_sampling.lua"))()
+    local probe=guard.blocked[blockedBefore+1]
+    assert(probe and probe.api=="render.SetMaterial" and probe.source:find("lua/mc/resources/cl_sampling.lua",1,true)==1,
+        "the probe's shader stays inert")
+    -- Its failure is that refusal: the line stays off the screen, frame after frame, through either dispatcher.
+    R.jobs[1]={state="failed",error="resource_sampling_unsupported:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]"}
+    for _=1,3 do frame() end
+    beforeCall("HUDPaint")
+    eq(#drawn,1,"not drawn") eq(MINEMOD_HUD_CALLS,1,"its hook is not entered")
+    eq(noted(),1,"one console note")
+    local record=guard.adapted[#guard.adapted]
+    eq(record.api,"hook.HUDPaint") eq(record.source,"lua/mc/cl_resource_packs.lua")
+    assert(record.reason:find("resource_sampling_unsupported",1,true),"the note names the failure")
+    eq(#guard.errors,0)
+    -- MineMod's other events and other add-ons' HUDPaint hooks are untouched.
+    hook.Call("Think") eq(MINEMOD_HUD_CALLS,101,"its other hook runs")
+    local otherCalls=0
+    assert(loadstring('hook.Add("HUDPaint","other_hud",function() OTHER_HUD() end)',"@lua/autorun/client/other_hud.lua"))()
+    OTHER_HUD=function() otherCalls=otherCalls+1 end
+    frame() eq(otherCalls,1) eq(#drawn,1)
+    hook.Remove("HUDPaint","other_hud")
+    -- Any other failure shows, as MineMod wrote it.
+    R.jobs[1].error="resource_sampling_probe:sampling shader descriptor missing"
+    frame() eq(#drawn,2) assert(drawn[2]:find("resource_sampling_probe",1,true))
+    R.jobs[1].error=nil R.jobs[1].state="cancelled" R.restoreError="missing_atlas_default"
+    frame() eq(#drawn,3) eq(drawn[3],"Default texture pack is not ready: missing_atlas_default")
+    R.restoreError=nil
+    -- State the guard cannot read shows the line as before, without an error of the guard's.
+    R.jobs[1]={state="failed",error="resource_sampling_unsupported:[[0,0,0]]"}
+    MC.ResourcePacks=setmetatable({},{__index=function()error("unexpected MineMod state")end})
+    frame() eq(#drawn,4) eq(#guard.errors,0)
+    MC.ResourcePacks=R
+    -- Not pending: MineMod draws nothing of its own, and the guard does not stand in its way.
+    MC.TexturePackPending=false
+    local calls=MINEMOD_HUD_CALLS
+    frame() eq(MINEMOD_HUD_CALLS,calls+1) eq(#drawn,4)
+    MC.TexturePackPending=true
+    frame() eq(#drawn,4,"hidden again")
+    -- With the guard switched off, MineMod is as it is.
+    cv.nativeloader_guard.value="0"
+    frame() eq(#drawn,5) assert(drawn[5]:find("resource_sampling_unsupported",1,true))
+    cv.nativeloader_guard.value="1"
+    frame() eq(#drawn,5) eq(noted(),1,"still one console note")
+    -- A new registration of the hook (an autorefresh) is kept off the screen the same way.
+    assert(loadstring([[hook.Add("HUDPaint", "mc_resource_pack_loading", function() draw.SimpleText("again") end)]],
+        "@lua/mc/cl_resource_packs.lua"))()
+    assert(hook.GetTable().HUDPaint.mc_resource_pack_loading~=registered,"the new function is registered")
+    frame() beforeCall("HUDPaint") eq(#drawn,5)
+    eq(guard.adapted[#guard.adapted],record,"no second record") eq(noted(),1) eq(#guard.errors,0)
 elseif scenario=="off" then
     GetRenderTargetEx("_rt_shadowdepthtexture_0",-99,-99,999,0,0,0,9999)
     CreateMaterial("depth","DepthWrite",{}) render.GetResolvedFullFrameDepth() render.SetRenderTargetEx(2)

@@ -100,3 +100,15 @@ entity's hook are named as such, 32 records at most, and a failing `PreDrawViewM
 function entered in `NativeLoaderRenderGuard.timed` is recorded as the function it times, an effect callback the
 guard leaves out stays left out under it, and a hook stopped after repeated errors stays stopped under its timer
 and after it.
+
+GitHub issue 5 adds `test_minemods_not_ready_line_stays_off_screen_only_while_the_guard_refused_its_probe` (the
+`minemod_notice` and `minemod_notice_multiplayer` scenarios, ADR 0210). While MineMod bakes, its line shows. Its
+probe's custom shader is still refused (a `render.SetMaterial` record from `lua/mc/resources/cl_sampling.lua`). Once
+its last job has failed with `resource_sampling_unsupported:[[0,0,0],...]` and its default pack is pending, its
+`HUDPaint` hook is not entered, frame after frame, through the guard's dispatcher and the harness's original one,
+with one console note and one `adapted` record naming the failure, and no error record. Its `Think` hook and another
+add-on's `HUDPaint` hook still run. Another failure code (`resource_sampling_probe:...`) and a restore error show
+as MineMod wrote them; MineMod state that raises an error when read shows the line, without an error of the guard's;
+with the pack no longer pending its hook is entered again; with `nativeloader_guard 0` the line shows; a new
+registration under the same name and file (an autorefresh) is kept off the same way; the note is never repeated.
+Against the guard before this change the scenario fails at its first hidden frame.

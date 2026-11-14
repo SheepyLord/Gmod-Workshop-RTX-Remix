@@ -126,6 +126,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0200](0200-vr-auto-counts-only-the-gpus-misses.md) | VR's Auto counts only the frames the GPU lost | Accepted 2026-11-13 (VR V6) |
 | [0201](0201-vr-auto-reads-the-gpus-work.md) | VR's Auto reads the GPU's work, not the frame's span | Accepted 2026-11-13 (VR V6) |
 | [0202](0202-true-stereo-shares-the-frames-work.md) | True stereo shares the frame's work and keeps each view's history | Accepted 2026-11-13 (VR V7) |
+| [0210](0210-an-add-ons-notice-of-the-guards-refusal-stays-off-the-screen.md) | An add-on's notice of the guard's refusal stays off the screen: MineMod's "Default texture pack is not ready" line (GitHub issue 5), shader policy unchanged | Accepted 2026-11-13 (issue 5, approved by the user) |
 
 ## Template
 

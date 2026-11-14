@@ -106,3 +106,11 @@ R28: mocks of `render.CapturePixels`, `render.ReadPixel` (the "screen" is a valu
 `surface.CreateFont`, and the `cost_safeguards` scenario (ADR 0143) described in
 [test_render_guard.py](test_render_guard.py.md). The guard now makes two client convars (`nativeloader_guard` and
 `nativeloader_guard_readbacks`), which the install scenarios count.
+
+GitHub issue 5 (ADR 0210): a `draw.SimpleText` mock and the scenarios `minemod_notice` (the early route, the guard's
+dispatcher) and `minemod_notice_multiplayer` (the verified multiplayer route, whose remote dispatcher stays the
+harness's own `hook.Call`: the registration filter alone keeps the line off). Both load small stand-ins written for
+the test under MineMod's own source labels, never MineMod's code: a `HUDPaint` hook in `lua/mc/cl_resource_packs.lua`
+that draws MineMod's texture pack line from `MC.TexturePackPending` and `MC.ResourcePacks`, a `Think` hook in the same
+file, and the probe's `screenspace_general_8tex` material with `$vertexshader`/`$pixshader` bound from
+`lua/mc/resources/cl_sampling.lua`, described in [test_render_guard.py](test_render_guard.py.md).

@@ -8,9 +8,13 @@ creation tab and the Character Motion Importer's builders (`MMDVMDNPC.BuildMotio
 luajit tools\tests\motion_tab_harness.lua <scenario> <tab .lua> <add-on lua\mmd_vmd_npc folder>
 ```
 
-Scenarios: `late`, `unavailable`, `windows`, `shared`, `fallback`, `broken`, `scale`, `guiscaler`, `translations` (what each checks:
-the test's table). The add-on's catalogs and lookups are loaded from `sh_core.lua` (the text between
-`MMDVMDNPC.I18N =` and its `if CLIENT then` block), then its client files run whole. Panels record
+Scenarios: `late`, `unavailable`, `windows`, `shared`, `fallback`, `broken`, `scale`, `guiscaler`, `translations`,
+`quiet`, `tool_list`, `timeline` (what each checks: the test's table). The add-on's catalogs and lookups are loaded
+from `sh_core.lua` (the text between `MMDVMDNPC.I18N =` and its `if CLIENT then` block), then its client files run
+whole; `tool_list` also runs the tool file (`../weapons/gmod_tool/stools/mmd_vmd_npc.lua`) and builds its panel.
+Net messages the add-on receives are delivered to its own handlers with the values they carry, read in order
+(`receive`); what it sends is counted by name. `tool_list` and `timeline` run one-shot named timers (the coalesced
+list refresh, the timeline's request) when the scenario flushes them. Panels record
 what is set on them; layout is checked from their docking, order (ZPos, then creation), visibility,
 enabled state and texts, not from pixels. GMod's hook rule is mocked: a panel identifier is passed
 first and dropped once the panel is removed. Model Hotloader's file access is a mock that records

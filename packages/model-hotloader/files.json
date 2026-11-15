@@ -621,6 +621,16 @@
     "dirty": true
    },
    "imported": "2026-11-10T22:38:43+00:00"
+  },
+  "mmd_hotloader/lua/mmdhl/secondary_collision.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\mmd\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\secondary_collision.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/mmd",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "6cf6e92ac1639949ca22275499216ca8d7f11c5f",
+    "dirty": true
+   },
+   "imported": "2026-11-15T06:51:27+00:00"
   }
  },
  "files": {
@@ -1187,9 +1197,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/secondary_collision.lua": {
-   "size": 9085,
-   "sha256": "8260af718f4fbf41afcf376ba7dbb7732f0ee0365f8cdddfbae31d2c848a1fe4",
-   "mtime_ns": 1792920438703620500,
+   "size": 9443,
+   "sha256": "1bbbda862bf63846fc73ee823919eb573c8738332559b12eb8978622cb644791",
+   "mtime_ns": 1794725076046452000,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/secondary_water.lua": {

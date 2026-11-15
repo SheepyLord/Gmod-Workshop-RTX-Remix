@@ -50,6 +50,16 @@ class MotionTabTests(unittest.TestCase):
     def test_title_and_tooltip_follow_the_language(self):
         self.run_lua('translations')
 
+    def test_a_selection_asks_for_the_built_flags_not_the_details(self):
+        # The user's report of 2026-11-14: every click asked for every motion's details and rebuilt the lists.
+        self.run_lua('quiet')
+
+    def test_the_tools_motion_list_is_rebuilt_only_when_it_changes(self):
+        self.run_lua('tool_list')
+
+    def test_the_debug_windows_timeline(self):
+        self.run_lua('timeline')
+
 
 if __name__ == '__main__':
     unittest.main()

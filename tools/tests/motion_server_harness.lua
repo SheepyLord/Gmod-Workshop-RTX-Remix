@@ -61,7 +61,10 @@ function CurTime() return clock end RealTime=CurTime SysTime=CurTime
 function isnumber(v) return type(v)=='number' end function istable(v) return type(v)=='table' end
 function isstring(v) return type(v)=='string' end function isfunction(v) return type(v)=='function' end
 function isvector(v) return type(v)=='table' and v.isVector==true end function isangle() return false end
-function Vector(x,y,z) return {x=x or 0,y=y or 0,z=z or 0,isVector=true} end
+local V={} V.__index=V
+function V:DistToSqr(o) return (self.x-o.x)^2+(self.y-o.y)^2+(self.z-o.z)^2 end
+function Vector(x,y,z) return setmetatable({x=x or 0,y=y or 0,z=z or 0,isVector=true},V) end
+COLLISION_GROUP_NONE,COLLISION_GROUP_DEBRIS=0,1
 function Angle(p,y,r) return {p=p or 0,y=y or 0,r=r or 0} end
 function FindMetaTable() return nil end
 function math.Clamp(v,a,b) return math.max(a,math.min(b,v)) end
@@ -73,6 +76,7 @@ local hooks,receivers,timers,named={}, {}, {}, {}
 hook={Add=function(event,id,fn) hooks[event]=hooks[event] or {} hooks[event][id]=fn end,Remove=noop,
  Run=function(event,...) for _,fn in pairs(hooks[event] or {}) do fn(...) end end}
 concommand={Add=noop}
+engine={TickInterval=function() return 1/66 end,TickCount=function() return math.floor(clock*66) end}
 function AddOriginToPVS() end
 -- RunConsoleCommand and timers apply at the end of a frame (tick).
 local cvars,commands={}, {}
@@ -99,7 +103,7 @@ file={Read=function(p) return disk[p] end,Write=function(p,v) disk[p]=v end,Exis
  Delete=function(p) disk[p]=nil end,CreateDir=noop,Size=function(p) return disk[p] and #disk[p] or -1 end,Time=function() return 0 end,
  Find=function() return {},{} end}
 util={TableToJSON=function(t) return json.encode(t) end,JSONToTable=function(s) local v=type(s)=='string' and json.decode(s) or nil return type(v)=='table' and v or nil end,
- AddNetworkString=noop}
+ AddNetworkString=noop,IsValidRagdoll=function(...) return util_IsValidRagdoll(...) end}
 local singleplayer=false
 game={SinglePlayer=function() return singleplayer end}
 -- net: what a client sends is queued in `reads`; what the server sends is counted.
@@ -128,22 +132,80 @@ function Entity:EntIndex() return self.index end function Entity:GetClass() retu
 function Entity:IsAdmin() return self.admin==true end function Entity:SteamID64() return self.kind=='player' and ('7656'..self.index) or nil end
 function Entity:Freeze(on) self.frozen=on==true end function Entity:IsFrozen() return self.frozen==true end
 function Entity:SetNoDraw(on) self.noDraw=on==true end function Entity:GetNoDraw() return self.noDraw==true end
-function Entity:GetWeapons() return {} end function Entity:GetPos() return Vector() end function Entity:GetAngles() return Angle() end
+function Entity:GetWeapons() return {} end function Entity:GetPos() return rawget(self,'pos') or Vector() end function Entity:GetAngles() return Angle() end
 function Entity:EyeAngles() return Angle() end
-ents={Create=function() return entity('prop') end}
+-- The player's tool settings (USERINFO cvars).
+function Entity:GetInfoNum(name,default) local info=rawget(self,'info') or {} if info[name]~=nil then return info[name] end return default end
+-- Flexes: weights by controller id.
+function Entity:GetFlexNum() return 8 end
+-- Networked integers (the pose-cut counter).
+function Entity:GetNW2Int(name,default) local nw=rawget(self,'nw') or {} if nw[name]~=nil then return nw[name] end return default end
+function Entity:SetNW2Int(name,value) self.nw=rawget(self,'nw') or {} self.nw[name]=value end
+-- Collision: the box (group, hull physics object), a model's ragdoll bodies and the colliders made of them.
+function Entity:GetCollisionGroup() return rawget(self,'group') or COLLISION_GROUP_NONE end
+function Entity:SetCollisionGroup(g) self.group=g end
+function Entity:GetPhysicsObject()
+ local phys=rawget(self,'phys')
+ if not phys then
+  phys={collides=true,updates=0}
+  function phys:IsCollisionEnabled() return self.collides end function phys:EnableCollisions(on) self.collides=on==true end
+  function phys:UpdateShadow(pos) self.updates=self.updates+1 self.target=pos end function phys:Wake() end
+  self.phys=phys
+ end
+ return phys
+end
+-- The main bones by index; a model whose name has "caped" has three of them and hair after.
+local BONES={'ValveBiped.Bip01_Pelvis','ValveBiped.Bip01_Spine','ValveBiped.Bip01_Spine1','ValveBiped.Bip01_Spine2',
+ 'ValveBiped.Bip01_Spine4','ValveBiped.Bip01_Neck1','ValveBiped.Bip01_Head1','ValveBiped.Bip01_L_Clavicle','ValveBiped.Bip01_R_Clavicle',
+ 'ValveBiped.Bip01_L_UpperArm','ValveBiped.Bip01_R_UpperArm','ValveBiped.Bip01_L_Forearm','ValveBiped.Bip01_R_Forearm','ValveBiped.Bip01_L_Hand',
+ 'ValveBiped.Bip01_R_Hand','ValveBiped.Bip01_L_Thigh','ValveBiped.Bip01_R_Thigh','ValveBiped.Bip01_L_Calf'}
+local BONE_INDEX={} for i,name in ipairs(BONES) do BONE_INDEX[name]=i end
+local function caped(ent) return tostring(rawget(ent,'model') or ''):find('caped',1,true)~=nil end
+function Entity:LookupBone(name) if caped(self) and (BONE_INDEX[name] or 99)>3 then return nil end return BONE_INDEX[name] end
+function Entity:GetBonePosition(bone) return Vector(bone,0,0),Angle() end
+function Entity:SetModel(model) self.model=model end
+function Entity:GetPhysicsObjectCount() if self.kind=='prop_ragdoll' then return caped(self) and 22 or 18 end return 1 end
+function Entity:GetPhysicsObjectNum()
+ return {GetMeshConvexes=function() return {{{pos=Vector(0,0,0)},{pos=Vector(1,0,0)},{pos=Vector(0,1,0)},{pos=Vector(0,0,1)}}} end}
+end
+function Entity:TranslatePhysBoneToBone(i) return i+1 end
+function Entity:GetBoneName(bone) if caped(self) and bone>3 then return 'hair'..bone end return BONES[bone] or ('bone'..bone) end
+function Entity:PhysicsInitMultiConvex(hulls) self.hulls=hulls return true end
+function Entity:MakePhysicsObjectAShadow() self.shadow=true end
+function Entity:SetOwner(owner) self.owner=owner end function Entity:GetOwner() return rawget(self,'owner') end
+function Entity:DeleteOnRemove(other) self.deletes=rawget(self,'deletes') or {} self.deletes[#self.deletes+1]=other end
+function Entity:Remove() self.valid=false end
+local registered,spawned={}, {}
+scripted_ents={Register=function(class,name) registered[name]=class end}
+util_IsValidRagdoll=function() return true end
+ents={Create=function(class) local e=entity(class or 'prop') spawned[#spawned+1]=e
+  if registered[class] then setmetatable(e,{__index=function(t,k) local v=registered[class][k] if v~=nil then return v end return Entity.__index(t,k) end}) end
+  return e end,
+ FindByClass=function() return {} end}
+local function colliders_of(ent)
+ local out={} for _,e in ipairs(spawned) do if e.kind=='mmd_vmd_npc_collider' and rawget(e,'owner')==ent and e.valid~=false then out[#out+1]=e end end return out
+end
 
 -- ---- the add-on's shared code, as far as these paths use it ----
 local loads,chats={}, {}
+local listings=0
 local function fresh()
  hooks,receivers,timers,named={}, {}, {}, {}
  MMDVMDNPC={DataRoot='mmd_vmd_npc',SettingsRoot='mmd_vmd_npc/settings',BuiltRoot='mmd_vmd_npc/built',BuiltFormat='built-test',
+  PoseCutNW2='MMDVMDNPCPoseCut',
   AudioOffsetPath='mmd_vmd_npc/settings/audio_offsets.json',CacheExtension='.json',
   Chat=function(_,text) chats[#chats+1]=tostring(text) end,
   LookupRequiredReferenceSequenceInfo=function() return {seq=0} end,LookupReferenceSequenceInfo=function() return {seq=0} end,
   LookupReferenceSequence=function() return 0 end,NormalizeMotionID=function(id) id=tostring(id or '') return id~='' and id or nil end,
   BuiltPath=function(id,model) id=tostring(id or '') if id=='' then return nil end return 'mmd_vmd_npc/built/'..id..'_'..model:gsub('%W','_')..'.json',id end,
   LoadMotion=function(id) loads[#loads+1]=id return {frameStart=0,frameEnd=10,fps=30,boneTracks={},flexTracks={}} end,
-  ModelFlexList=function() return {} end,SetModelFlexWeight=function() return true end,
+  ModelFlexList=function(ent) local list={} for id=0,3 do list[#list+1]={id=id} end return list end,
+  SetModelFlexWeight=function(ent,id,v) ent.flexes=rawget(ent,'flexes') or {} ent.flexes[id]=v return true end,
+  GetModelFlexWeight=function(ent,id) return (rawget(ent,'flexes') or {})[id] or 0 end,
+  -- As sh_core's: the motions built for a model, from one listing of the built folder.
+  BuiltMotionIDs=function(model) listings=listings+1 local ids={} local tail='_'..model:gsub('%W','_')..'.json'
+   for path in pairs(disk) do local name=path:match('^mmd_vmd_npc/built/(.+)$') if name and name:sub(-#tail)==tail then ids[name:sub(1,#name-#tail)]=true end end
+   return ids end,
   NormalizeTravelSettings=function() return 100,100,0 end,BuiltTravel=function() return false end,BuiltPoseCuts=function() return {} end,
   NoteBuiltHeader=noop,ForgetBuiltHeader=noop,MotionPath=function() return nil end,ListMotions=function() return {} end}
  dofile(source)
@@ -292,6 +354,120 @@ elseif scenario=='build_limits' then
  M().Guard.MaxBuiltFilesPerPlayer=0 M().BuildJobs[admin]={id=98,path='running'} M().BuildQueues[admin]={{path='waiting'}}
  M().DebugTargets[admin]=npc ok=M().BeginBuildForPlayer(admin,'m',{},nil)
  check(ok and #M().BuildQueues[admin]==2,'an admin was limited')
+elseif scenario=='keep_flexes' then
+ -- The user's request of 2026-11-14: flexes the motion does not drive keep their weights.
+ local face=entity('npc')
+ local function set_face() face.flexes={[0]=0.5,[1]=0.7,[2]=0.3,[3]=0} end
+ -- A two-second dance driving flex 1 only: 0 at its first frame, 1 from its second.
+ local frames={} for f=0,60 do frames[#frames+1]={frame=f,bones={},flexes={{1,f==0 and 0 or 1}}} end
+ disk[M().BuiltPath('m',face:GetModel())]=util.TableToJSON({format='built-test',model=face:GetModel(),frame_start=0,frame_end=60,fps=30,
+  flexes={{id=1,name='blink'}},frames=frames})
+ local function dance(ply) M().DebugTargets[ply]=face receive('mmdvmd_play_request',ply,'m') check(M().Playbacks[face]~=nil,'the dance did not start') end
+ local function think(seconds) tick(seconds) hooks.Think.MMDVMDNPCBuiltPlaybackThink() end
+ -- Off (the default): a selection, and a dance's start, zero every flex, as before.
+ set_face() check(M().SelectTargetForPlayer(attacker,face),'the NPC was not selected')
+ check(face.flexes[0]==0 and face.flexes[1]==0 and face.flexes[2]==0,'a selection kept flexes with the option off')
+ set_face() dance(attacker)
+ check(face.flexes[0]==0 and face.flexes[2]==0,'a dance kept flexes with the option off')
+ M().StopPlayback(face,true) check(face.flexes[1]==0,'the stop left a flex with the option off')
+ -- On: the selection leaves the face; the dance drives flex 1 only and gives it back at the stop.
+ attacker.info={mmd_vmd_npc_keep_flexes=1}
+ set_face() M().SelectTargetForPlayer(attacker,face)
+ check(face.flexes[0]==0.5 and face.flexes[1]==0.7 and face.flexes[2]==0.3,'a selection changed the face with keep on')
+ dance(attacker)
+ check(face.flexes[0]==0.5 and face.flexes[2]==0.3 and face.flexes[1]==0.7,'the dance start changed flexes with keep on')
+ think(2.2) think(0.1)
+ check(face.flexes[1]==1,'the dance did not drive its flex: '..tostring(face.flexes[1]))
+ check(face.flexes[0]==0.5 and face.flexes[2]==0.3,'the dance touched flexes it does not drive')
+ M().StopPlayback(face,true)
+ check(face.flexes[1]==0.7 and face.flexes[0]==0.5 and face.flexes[2]==0.3,'the stop did not give the driven flex back, or zeroed the others')
+ -- The debug window: what it previews goes back when it closes; the rest of the face stays.
+ M().DebugTargets[attacker]=face
+ receive('mmdvmd_debug_apply',attacker,face,0,1,2,0.9)
+ check(face.flexes[2]==0.9 and face.flexes[0]==0.5,'the debug preview did not apply, or zeroed the face')
+ receive('mmdvmd_debug_close',attacker)
+ check(face.flexes[2]==0.3 and face.flexes[0]==0.5,'the debug window did not put the face back: '..tostring(face.flexes[2]))
+elseif scenario=='ragdoll_collision' then
+ -- The user's request of 2026-11-14: a dancing NPC collides through its ragdoll's bodies, on by default.
+ local dancer=entity('npc')
+ disk[M().BuiltPath('m',dancer:GetModel())]=util.TableToJSON({format='built-test',model=dancer:GetModel(),frame_start=0,frame_end=1,fps=30,
+  frames={{frame=0,bones={},flexes={}},{frame=1,bones={},flexes={}}}})
+ local function dance(ply,ent) M().DebugTargets[ply]=ent receive('mmdvmd_play_request',ply,'m') check(M().Playbacks[ent]~=nil,'the dance did not start') end
+ dance(attacker,dancer)
+ local state=M().Playbacks[dancer]
+ check(state.collision~=nil,'no ragdoll collision by default')
+ local bodies=colliders_of(dancer)
+ check(#bodies==18,'not the ragdoll\'s 18 bodies: '..#bodies)
+ for _,c in ipairs(bodies) do
+  check(c.shadow==true and #c.hulls==1,'a collider is not a shadow of its body\'s shape')
+  check(c.MMDHLSceneExcluded==true and c.PhysgunDisabled==true,'a collider is left in the hair and clothing physics, or grabbable')
+ end
+ check(#(rawget(dancer,'deletes') or {})==18,'the colliders would outlive their NPC')
+ check(dancer.group==COLLISION_GROUP_DEBRIS and dancer.phys.collides==false,'the box still collides')
+ hooks.Think.MMDVMDNPCBuiltPlaybackThink()
+ for _,c in ipairs(bodies) do check(c.phys.updates==1,'a collider did not follow its bone this tick') end
+ M().StopPlayback(dancer,true)
+ check(#colliders_of(dancer)==0 and dancer.group==COLLISION_GROUP_NONE and dancer.phys.collides==true,'the stop did not give the box back')
+ -- Turned off in the tool: the box, as before.
+ attacker.info={mmd_vmd_npc_ragdoll_collision=0}
+ dance(attacker,dancer)
+ check(M().Playbacks[dancer].collision==nil and #colliders_of(dancer)==0 and dancer.group==COLLISION_GROUP_NONE,'collision bodies with the option off')
+ M().StopPlayback(dancer,true)
+ attacker.info={}
+ -- More ragdoll bodies than 18 (hair): only the ones on main bones.
+ local capedModel='models/caped.mdl'
+ disk[M().BuiltPath('m',capedModel)]=util.TableToJSON({format='built-test',model=capedModel,frame_start=0,frame_end=1,fps=30,
+  frames={{frame=0,bones={},flexes={}},{frame=1,bones={},flexes={}}}})
+ local cape=entity('npc',{model=capedModel})
+ dance(attacker,cape)
+ check(#colliders_of(cape)==3,'the main bodies were not picked: '..#colliders_of(cape))
+ -- The dancer removed mid-dance: its state and colliders go with it.
+ cape.valid=false hooks.Think.MMDVMDNPCBuiltPlaybackThink()
+ check(M().Playbacks[cape]==nil,'a removed dancer kept its state')
+ -- A model without a ragdoll: the box, as before.
+ util_IsValidRagdoll=function() return false end
+ local plain=entity('npc',{model='models/plain.mdl'})
+ disk[M().BuiltPath('m','models/plain.mdl')]=disk[M().BuiltPath('m',capedModel)]:gsub('caped','plain')
+ dance(attacker,plain)
+ check(M().Playbacks[plain].collision==nil and plain.group==nil,'a model without a ragdoll lost its box')
+elseif scenario=='built_flags' then
+ -- A selection asks for the built flags alone: one listing of the built folder, the target's motions.
+ local npcModel=npc:GetModel()
+ disk[M().BuiltPath('a',npcModel)]='{}' disk[M().BuiltPath('c',npcModel)]='{}' disk[M().BuiltPath('b','models/other.mdl')]='{}'
+ M().DebugTargets[attacker]=npc
+ local strings={}
+ net.WriteString=function(s) strings[#strings+1]=s end
+ local before=sentCount('mmdvmd_built_flags')
+ receive('mmdvmd_built_flags_request',attacker,false,false,false,false)
+ check(sentCount('mmdvmd_built_flags')==before+1,'no built flags sent')
+ check(strings[1]==npcModel and strings[2]=='a' and strings[3]=='c' and strings[4]==nil,'wrong flags: '..table.concat(strings,','))
+ -- A burst is answered once now and once with the latest options a quarter second later.
+ receive('mmdvmd_built_flags_request',attacker,false,false,false,false)
+ receive('mmdvmd_built_flags_request',attacker,false,false,false,false)
+ check(sentCount('mmdvmd_built_flags')==before+1,'a burst was not paced')
+ tick(0.3)
+ check(sentCount('mmdvmd_built_flags')==before+2,'the paced request was lost')
+ -- No selected actor: no motion is built for it.
+ M().DebugTargets[attacker]=nil strings={} tick(0.3)
+ receive('mmdvmd_built_flags_request',attacker,false,false,false,false)
+ check(strings[1]=='' and strings[2]==nil,'flags without a selected actor')
+elseif scenario=='details_walk' then
+ -- The details walk reads each motion's metadata once from the index and lists the built folder once
+ -- (it tested every motion's files several times and every built file once: the user's report).
+ local ids={} for i=1,50 do ids[i]='motion'..i end
+ local cached,derived,existsCalls=0,0,0
+ M().ListMotions=function() return ids end
+ M().CachedMotionMetadata=function(id) cached=cached+1 return {id=id,displayName=id,fps=30,frameStart=0,frameEnd=10,frameCount=11,duration=0.3} end
+ M().MotionMetadata=function() derived=derived+1 return nil end
+ M().HasMotionMetadataCached=function() error('HasMotionMetadataCached is not needed') end
+ local exists=file.Exists file.Exists=function(...) existsCalls=existsCalls+1 return exists(...) end
+ M().DebugTargets[attacker]=npc
+ listings=0
+ receive('mmdvmd_motion_details_request',attacker,false,false,false,false)
+ file.Exists=exists
+ check(cached==50 and derived==0,'the walk did not use the cached metadata: '..cached..'/'..derived)
+ check(listings==1 and existsCalls==0,'the walk tested files: '..listings..' listings, '..existsCalls..' tests')
+ check(sentCount('mmdvmd_motion_details_response')>=1,'no details sent')
 else
  error('unknown scenario '..tostring(scenario))
 end

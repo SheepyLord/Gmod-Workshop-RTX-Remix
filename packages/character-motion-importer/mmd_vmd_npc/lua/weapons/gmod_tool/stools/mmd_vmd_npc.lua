@@ -130,6 +130,10 @@ TOOL.ClientConVar = {
     fast_build = "1",
     build_frames_per_batch = "64",
     playback_hz = "240",
+    -- The user's requests of 2026-11-14: keep the flexes a motion does not animate (off: every flex
+    -- starts at 0, as before), and a dancing NPC collides through its ragdoll's bodies (on).
+    keep_flexes = "0",
+    ragdoll_collision = "1",
 }
 
 if CLIENT then
@@ -156,9 +160,15 @@ local function notify_blocked(ply, message, ent)
     end
 end
 
+-- The entity a click means: a dancing NPC's collision body stands for the NPC.
+local function traced_actor(trace)
+    local ent = trace and trace.Entity or nil
+    return MMDVMDNPC.ActorForTraceEntity and MMDVMDNPC.ActorForTraceEntity(ent) or ent
+end
+
 local function assign_target(tool, trace)
     local owner = tool:GetOwner()
-    local ent = trace and trace.Entity or nil
+    local ent = traced_actor(trace)
     if not IsValid(ent) or not (ent.IsNPC and ent:IsNPC()) then
         notify_blocked(owner, L("mmd_vmd_npc.error.left_click_valid_npc"))
         return false
@@ -180,7 +190,7 @@ end
 
 local function open_selected_motion(tool, trace)
     local owner = tool:GetOwner()
-    local ent = trace and trace.Entity or nil
+    local ent = traced_actor(trace)
     if not IsValid(ent) or not ((ent.IsNPC and ent:IsNPC()) or (ent.IsPlayer and ent:IsPlayer())) then
         ent = MMDVMDNPC.DebugTargets and MMDVMDNPC.DebugTargets[owner] or nil
     end
@@ -245,8 +255,9 @@ function TOOL:RightClick(trace)
         end
     end
     if MMDVMDNPC.TogglePlaybackPauseForPlayer then
-        local ok, err = MMDVMDNPC.TogglePlaybackPauseForPlayer(owner, trace and trace.Entity or nil)
-        if not ok and err then notify_blocked(owner, err, trace and trace.Entity or nil) end
+        local ent = traced_actor(trace)
+        local ok, err = MMDVMDNPC.TogglePlaybackPauseForPlayer(owner, ent)
+        if not ok and err then notify_blocked(owner, err, ent) end
         return ok == true
     end
     return false
@@ -754,9 +765,28 @@ function TOOL.BuildCPanel(panel)
         return string.find(haystack, query, 1, true) ~= nil
     end
 
+    -- What the list showed last time: the details and list hooks fire after many actions, and a
+    -- rebuild of every row (hundreds of panels) at each was the add-on's main stall in the user's
+    -- report of 2026-11-14 (the selected actor's built flags, which this list does not show, were the
+    -- only change).
+    local lastListSignature
+
+    local function select_line_quietly(line)
+        if not line or line:IsLineSelected() then return end
+        -- Purely visual re-selection: the motion convar already holds this
+        -- id, so suppress OnRowSelected (it would fire a console command +
+        -- an audio-settings net request per rebuild — i.e. per keystroke).
+        suppressRowSelect = true
+        if motionList.SelectItem then
+            motionList:SelectItem(line)
+        elseif line.SetSelected then
+            line:SetSelected(true)
+        end
+        suppressRowSelect = false
+    end
+
     local function refresh_motion_list_now()
         if not IsValid(motionList) then return end
-        motionList:Clear()
         local current = GetConVar("mmd_vmd_npc_motion")
         local selected = current and current:GetString() or ""
         local selectedLine = nil
@@ -800,36 +830,47 @@ function TOOL.BuildCPanel(panel)
             if a.sortKey ~= b.sortKey then return a.sortKey < b.sortKey end
             return a.id < b.id
         end)
-        for _, row in ipairs(rows) do
-            local line = motionList:AddLine(motion_display_name(row.meta or row.id), english_text(row.meta), stool_category_text(row.meta), duration_text(row.meta))
+        local texts, signature = {}, {}
+        local selectedShown = false
+        for i, row in ipairs(rows) do
+            texts[i] = { motion_display_name(row.meta or row.id), english_text(row.meta), stool_category_text(row.meta), duration_text(row.meta) }
+            signature[i] = row.id .. "\1" .. table.concat(texts[i], "\1")
+            if row.id == selected then selectedShown = true end
+        end
+        -- The selected motion keeps a row even when it is missing from the list (deleted) or hidden by
+        -- the active filters.
+        local extra
+        if selected ~= "" and not selectedShown then
+            extra = { seen[selected] and motion_display_name(selected) or selected, english_text(detailsByID[selected]),
+                stool_category_text(detailsByID[selected]),
+                seen[selected] and duration_text(detailsByID[selected]) or L("mmd_vmd_npc.ui.missing") }
+            signature[#signature + 1] = selected .. "\1" .. table.concat(extra, "\1")
+        end
+        local signatureText = table.concat(signature, "\2")
+        if signatureText == lastListSignature and #motionList:GetLines() == #signature then
+            -- Same rows: point them at the current details and keep the selection.
+            for _, line in ipairs(motionList:GetLines()) do
+                line.Meta = detailsByID[line.MotionID] or line.Meta
+                if line.MotionID == selected then selectedLine = line end
+            end
+            select_line_quietly(selectedLine)
+            return
+        end
+        lastListSignature = signatureText
+
+        motionList:Clear()
+        for i, row in ipairs(rows) do
+            local line = motionList:AddLine(unpack(texts[i]))
             line.MotionID = row.id
             line.Meta = row.meta
             if row.id == selected then selectedLine = line end
         end
-
-        -- Keep the currently selected motion visible even when it is missing
-        -- from the list (deleted) or hidden by the active filters.
-        if selected ~= "" and not selectedLine then
-            local label = seen[selected] and motion_display_name(selected) or selected
-            selectedLine = motionList:AddLine(label, english_text(detailsByID[selected]),
-                stool_category_text(detailsByID[selected]),
-                seen[selected] and duration_text(detailsByID[selected]) or L("mmd_vmd_npc.ui.missing"))
+        if extra then
+            selectedLine = motionList:AddLine(unpack(extra))
             selectedLine.MotionID = selected
             selectedLine.Meta = detailsByID[selected]
         end
-
-        if selectedLine then
-            -- Purely visual re-selection: the motion convar already holds this
-            -- id, so suppress OnRowSelected (it would fire a console command +
-            -- an audio-settings net request per rebuild — i.e. per keystroke).
-            suppressRowSelect = true
-            if motionList.SelectItem then
-                motionList:SelectItem(selectedLine)
-            elseif selectedLine.SetSelected then
-                selectedLine:SetSelected(true)
-            end
-            suppressRowSelect = false
-        end
+        select_line_quietly(selectedLine)
     end
 
     -- The list/details hooks fire in bursts around every action; coalesce the
@@ -1113,6 +1154,8 @@ function TOOL.BuildCPanel(panel)
     add_slider(playbackTab, L("mmd_vmd_npc.ui.pelvis_z_offset"), "mmd_vmd_npc_pelvis_z_offset", -16, 16, 1)
     add_slider(playbackTab, L("mmd_vmd_npc.ui.thirdperson_distance"), "mmd_vmd_npc_thirdperson_distance", 40, 260, 0)
     add_slider(playbackTab, L("mmd_vmd_npc.ui.thirdperson_height"), "mmd_vmd_npc_thirdperson_height", -20, 90, 0)
+    add_checkbox_with_help(playbackTab, L("mmd_vmd_npc.ui.keep_flexes"), "mmd_vmd_npc_keep_flexes", L("mmd_vmd_npc.ui.keep_flexes_help"))
+    add_checkbox_with_help(playbackTab, L("mmd_vmd_npc.ui.ragdoll_collision"), "mmd_vmd_npc_ragdoll_collision", L("mmd_vmd_npc.ui.ragdoll_collision_help"))
 
     section(playbackTab, L("mmd_vmd_npc.ui.stage_movement"), Color(120, 220, 190))
     add_slider(playbackTab, L("mmd_vmd_npc.ui.stage_jumps"), "mmd_vmd_npc_stage_jumps", 0, 100, 0)

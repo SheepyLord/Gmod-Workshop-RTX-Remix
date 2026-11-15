@@ -67,6 +67,13 @@ function M.SetModelFlexWeight(ent,id,value)
  if id>=0 and id<(ent:GetFlexNum() or 0) then ent:SetFlexWeight(id,value) return true end
  return false
 end
+-- The weight SetModelFlexWeight last gave this controller (a dance's start keeps what it does not drive).
+function M.GetModelFlexWeight(ent,id)
+ local morphIndex=overflow(ent,id)
+ if morphIndex then return mmdhl.GetMorphWeight and mmdhl.GetMorphWeight(ent,morphIndex) or 0 end
+ if id>=0 and id<(ent:GetFlexNum() or 0) then return ent:GetFlexWeight(id) or 0 end
+ return 0
+end
 function M.ModelFlexList(ent)
  local list,seen={},{}
  for _,m in ipairs(M.ModelMorphs(ent)) do
@@ -5118,6 +5125,88 @@ MMDVMDNPC.I18N["ar"]["mmd_vmd_npc.camera.mode_dynamic"] = "متحركة"
 MMDVMDNPC.I18N["ar"]["mmd_vmd_npc.camera.mode_static"] = "ثابتة"
 MMDVMDNPC.I18N["ar"]["mmd_vmd_npc.camera.mode_notice"] = "الكاميرا: %s"
 
+-- The user's requests of 2026-11-14: keep expressions, ragdoll collision, the debug window's timeline.
+do
+    local phrases = {
+        en = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "Keep expressions the motion does not animate",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "Off: a dance first sets every flex (expression) of the character to zero. On: a dance sets only the flexes its motion animates and gives them back their earlier values when it stops; selecting a character and the debug window leave its other flexes as they are.",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "Dancing NPCs collide with their ragdoll's body",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "On (default): while an NPC dances, the main bodies of its ragdoll (up to 18) follow the dance, and players, NPCs and props collide with those instead of the NPC's box. The dance and the MMD hair and clothing physics stay as they are.",
+            ["mmd_vmd_npc.debug.progress"] = "Progress",
+            ["mmd_vmd_npc.debug.progress_tip"] = "Drag to preview any frame of the motion on the selected actor.",
+        },
+        zh = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "保留动作未驱动的表情",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "关闭：舞蹈开始时先把角色的所有表情（Flex）归零。开启：舞蹈只设置动作驱动的表情，停止时恢复它们原来的数值；选择角色和调试窗口不会改动其他表情。",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "跳舞的 NPC 使用布娃娃身体碰撞",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "开启（默认）：NPC 跳舞时，其布娃娃的主要身体部件（最多 18 个）跟随舞蹈，玩家、NPC 和道具与这些部件碰撞，而不是与 NPC 的碰撞盒碰撞。舞蹈本身以及 MMD 头发和衣服的物理保持不变。",
+            ["mmd_vmd_npc.debug.progress"] = "进度",
+            ["mmd_vmd_npc.debug.progress_tip"] = "拖动以在所选角色上预览动作的任意一帧。",
+        },
+        ["zh-tw"] = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "保留動作未驅動的表情",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "關閉：舞蹈開始時先把角色的所有表情（Flex）歸零。開啟：舞蹈只設定動作驅動的表情，停止時恢復它們原來的數值；選擇角色和除錯視窗不會改動其他表情。",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "跳舞的 NPC 使用布娃娃身體碰撞",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "開啟（預設）：NPC 跳舞時，其布娃娃的主要身體部件（最多 18 個）跟隨舞蹈，玩家、NPC 和道具與這些部件碰撞，而不是與 NPC 的碰撞盒碰撞。舞蹈本身以及 MMD 頭髮和衣服的物理保持不變。",
+            ["mmd_vmd_npc.debug.progress"] = "進度",
+            ["mmd_vmd_npc.debug.progress_tip"] = "拖曳以在所選角色上預覽動作的任意一格。",
+        },
+        ja = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "モーションが動かさない表情を保持",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "オフ：ダンスの開始時にキャラクターのすべての表情（フレックス）をゼロにします。オン：ダンスはモーションが動かす表情だけを設定し、停止時に元の値へ戻します。キャラクターの選択やデバッグウィンドウも、ほかの表情はそのままにします。",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "ダンス中の NPC はラグドールの体で衝突",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "オン（既定）：NPC がダンスしている間、ラグドールの主要な体のパーツ（最大 18 個）がダンスに追従し、プレイヤー、NPC、プロップは NPC のボックスではなくそれらと衝突します。ダンス自体と MMD の髪や服の物理はそのままです。",
+            ["mmd_vmd_npc.debug.progress"] = "進行",
+            ["mmd_vmd_npc.debug.progress_tip"] = "ドラッグして、選択中のアクターでモーションの任意のフレームをプレビューします。",
+        },
+        ko = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "모션이 움직이지 않는 표정 유지",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "끔: 춤을 시작할 때 캐릭터의 모든 표정(플렉스)을 먼저 0으로 만듭니다. 켬: 춤은 모션이 움직이는 표정만 설정하고, 멈추면 원래 값으로 되돌립니다. 캐릭터 선택과 디버그 창도 다른 표정은 그대로 둡니다.",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "춤추는 NPC는 래그돌 몸으로 충돌",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "켬(기본값): NPC가 춤추는 동안 래그돌의 주요 몸 부위(최대 18개)가 춤을 따라가며, 플레이어와 NPC, 프롭은 NPC의 상자 대신 이 부위들과 충돌합니다. 춤 자체와 MMD 머리카락·옷 물리는 그대로입니다.",
+            ["mmd_vmd_npc.debug.progress"] = "진행",
+            ["mmd_vmd_npc.debug.progress_tip"] = "드래그하면 선택한 액터에서 모션의 아무 프레임이나 미리 볼 수 있습니다.",
+        },
+        fr = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "Garder les expressions que le mouvement n'anime pas",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "Désactivé : une danse remet d'abord à zéro tous les flex (expressions) du personnage. Activé : une danse ne règle que les flex que son mouvement anime et leur rend leurs valeurs précédentes quand elle s'arrête ; la sélection d'un personnage et la fenêtre de débogage laissent ses autres flex tels quels.",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "Les PNJ qui dansent entrent en collision avec le corps de leur ragdoll",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "Activé (par défaut) : pendant qu'un PNJ danse, les parties principales du corps de son ragdoll (18 au plus) suivent la danse, et les joueurs, les PNJ et les props entrent en collision avec elles plutôt qu'avec la boîte du PNJ. La danse et la physique des cheveux et des vêtements MMD restent inchangées.",
+            ["mmd_vmd_npc.debug.progress"] = "Progression",
+            ["mmd_vmd_npc.debug.progress_tip"] = "Faites glisser pour prévisualiser n'importe quelle image du mouvement sur l'acteur sélectionné.",
+        },
+        ru = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "Сохранять мимику, которую движение не анимирует",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "Выкл.: танец сначала обнуляет все флексы (мимику) персонажа. Вкл.: танец задаёт только флексы, которые анимирует его движение, и возвращает им прежние значения после остановки; выбор персонажа и окно отладки оставляют остальные флексы как есть.",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "Танцующие NPC сталкиваются телом своего рэгдолла",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "Вкл. (по умолчанию): пока NPC танцует, основные части тела его рэгдолла (до 18) следуют за танцем, и игроки, NPC и пропы сталкиваются с ними, а не с коробкой NPC. Сам танец и физика волос и одежды MMD не меняются.",
+            ["mmd_vmd_npc.debug.progress"] = "Прогресс",
+            ["mmd_vmd_npc.debug.progress_tip"] = "Перетащите, чтобы просмотреть любой кадр движения на выбранном актёре.",
+        },
+        ar = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "الإبقاء على التعابير التي لا تحركها الحركة",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "معطّل: تبدأ الرقصة بتصفير كل تعابير (فليكس) الشخصية. مفعّل: تضبط الرقصة التعابير التي تحركها الحركة فقط وتعيد لها قيمها السابقة عند توقفها؛ ويترك اختيار الشخصية ونافذة التصحيح باقي التعابير كما هي.",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "تصطدم الشخصيات الراقصة بجسم دمية الراغدول",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "مفعّل (افتراضي): أثناء رقص الشخصية تتبع أجزاء جسم الراغدول الرئيسية (حتى 18) الرقصة، ويصطدم بها اللاعبون والشخصيات والأغراض بدلاً من صندوق الشخصية. لا تتغير الرقصة نفسها ولا فيزياء شعر وملابس MMD.",
+            ["mmd_vmd_npc.debug.progress"] = "التقدم",
+            ["mmd_vmd_npc.debug.progress_tip"] = "اسحب لمعاينة أي إطار من الحركة على الممثل المحدد.",
+        },
+        es = {
+            ["mmd_vmd_npc.ui.keep_flexes"] = "Conservar las expresiones que el movimiento no anima",
+            ["mmd_vmd_npc.ui.keep_flexes_help"] = "Desactivado: un baile pone primero a cero todos los flex (expresiones) del personaje. Activado: un baile solo ajusta los flex que anima su movimiento y les devuelve sus valores anteriores al detenerse; seleccionar un personaje y la ventana de depuración dejan sus otros flex como están.",
+            ["mmd_vmd_npc.ui.ragdoll_collision"] = "Los NPC que bailan chocan con el cuerpo de su ragdoll",
+            ["mmd_vmd_npc.ui.ragdoll_collision_help"] = "Activado (predeterminado): mientras un NPC baila, las partes principales del cuerpo de su ragdoll (hasta 18) siguen el baile, y los jugadores, los NPC y los props chocan con ellas en lugar de con la caja del NPC. El baile y la física del pelo y la ropa MMD no cambian.",
+            ["mmd_vmd_npc.debug.progress"] = "Progreso",
+            ["mmd_vmd_npc.debug.progress_tip"] = "Arrastra para previsualizar cualquier fotograma del movimiento en el actor seleccionado.",
+        },
+    }
+    for language, entries in pairs(phrases) do
+        MMDVMDNPC.I18N[language] = MMDVMDNPC.I18N[language] or {}
+        for key, text in pairs(entries) do MMDVMDNPC.I18N[language][key] = text end
+    end
+end
+
 MMDVMDNPC.LanguageAliases = {
     english = "en",
     en = "en",
@@ -5250,10 +5339,8 @@ function MMDVMDNPC.SafeModelName(modelPath)
     return name
 end
 
-function MMDVMDNPC.BuiltPath(motionID, modelPath, options)
-    local id = MMDVMDNPC.NormalizeMotionID(motionID)
-    if not id then return nil end
-
+-- What follows the motion id in a built-cache file name for this model and these options.
+function MMDVMDNPC.BuiltTail(modelPath, options)
     options = options or {}
     local suffix = string.format(
         "tw%d_ht%d_eye%d_sp%d_fm2",
@@ -5268,7 +5355,38 @@ function MMDVMDNPC.BuiltPath(motionID, modelPath, options)
     -- can sanitize to the same string. Append a CRC of the exact lowercased
     -- model path so different skeletons never share one built-cache file.
     local modelHash = util.CRC(string.lower(trim(modelPath or "")))
-    return MMDVMDNPC.BuiltRoot .. "/" .. id .. "_" .. modelName .. "_" .. modelHash .. "_" .. suffix .. MMDVMDNPC.CacheExtension, id
+    return "_" .. modelName .. "_" .. modelHash .. "_" .. suffix .. MMDVMDNPC.CacheExtension
+end
+
+function MMDVMDNPC.BuiltPath(motionID, modelPath, options)
+    local id = MMDVMDNPC.NormalizeMotionID(motionID)
+    if not id then return nil end
+    return MMDVMDNPC.BuiltRoot .. "/" .. id .. MMDVMDNPC.BuiltTail(modelPath, options), id
+end
+
+-- {[motion id] = true} for every motion built for this model and these options: one directory listing
+-- instead of a file test per motion (the details and the built flags ask after every selection).
+function MMDVMDNPC.BuiltMotionIDs(modelPath, options)
+    local ids = {}
+    if not file or not file.Find then return ids end
+    local tail = MMDVMDNPC.BuiltTail(modelPath, options)
+    for _, name in ipairs(file.Find(MMDVMDNPC.BuiltRoot .. "/*" .. tail, "DATA") or {}) do
+        if #name > #tail and string.sub(name, -#tail) == tail then
+            ids[string.sub(name, 1, #name - #tail)] = true
+        end
+    end
+    return ids
+end
+
+-- A dancing NPC collides through colliders shaped as its ragdoll's bodies (sv_commands.lua,
+-- actor.start_collision; engine bone followers likewise): a trace that hits one of them means the NPC.
+function MMDVMDNPC.ActorForTraceEntity(ent)
+    if IsValid(ent) and (ent.MMDVMDNPCCollider or (ent.GetClass and ent:GetClass() == "phys_bone_follower")) then
+        local owner = ent:GetOwner()
+        if not IsValid(owner) and ent.GetParent then owner = ent:GetParent() end
+        if IsValid(owner) then return owner end
+    end
+    return ent
 end
 
 function MMDVMDNPC.Chat(ply, message)

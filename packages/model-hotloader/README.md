@@ -46,3 +46,8 @@ and import the changed sources, a patch of them and `Source.md` with the four na
     the single hull once (`props/library.lua`, `library.lua`, `ui.lua`, the seven catalogs);
   - the import shows a percentage through every slow stage: CoACD's passes read from its log and its merge estimated,
     a character's Source materials and their package (`source/import-progress.patch`).
+- **2026-11-15, the Animation Player's ragdoll collision**
+  ([ADR 0224](../../docs/decisions/0224-the-animation-player-answers-a-click-with-its-built-flags.md)): the hair and
+  clothing physics' scene capture puts the bodies of an entity flagged `MMDHLSceneExcluded` in its excluded list
+  (`mmd_hotloader/lua/mmdhl/secondary_collision.lua`). The character motion importer's colliders, which follow a
+  dancing NPC's ragdoll bodies, carry the flag, so hair and clothing collide as before.

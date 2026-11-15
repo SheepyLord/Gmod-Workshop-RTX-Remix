@@ -106,6 +106,12 @@ if SERVER then
   local excluded,players,npcs={},{},{} local living=0 local classified={}
   local function classify(ent)
    if classified[ent] then return end classified[ent]=true
+   -- Bodies another add-on moves with a character's bones (the motion importer's dancing NPCs
+   -- collide through bone followers): hair and clothing already collide with the body itself.
+   if ent.MMDHLSceneExcluded then
+    for _,body in pairs(physicsBodies(ent) or {}) do if IsValid(body) then excluded[#excluded+1]=body end end
+    return
+   end
    -- In a listen-server process, VPhysics already publishes exact transforms.
    -- Remote clients also need an entity/bone owner for other moving objects.
    local livingActor=(ent:IsPlayer() and ent:Alive()) or ((ent:IsNPC() or ent:IsNextBot()) and ent:Health()>0)

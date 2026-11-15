@@ -57,6 +57,18 @@ class MotionServerTests(unittest.TestCase):
     def test_build_limits_per_player(self):
         self.run_lua('build_limits')
 
+    def test_keep_expressions_leaves_the_flexes_a_dance_does_not_drive(self):
+        self.run_lua('keep_flexes')
+
+    def test_a_dancing_npc_collides_through_its_ragdolls_bodies(self):
+        self.run_lua('ragdoll_collision')
+
+    def test_a_selection_gets_the_built_flags_alone(self):
+        self.run_lua('built_flags')
+
+    def test_the_details_walk_tests_no_files_per_motion(self):
+        self.run_lua('details_walk')
+
     def test_the_main_chunk_stays_below_luas_local_limit(self):
         # sv_commands.lua's main chunk is near Lua's 200 locals: LuaJIT refuses to load it past that.
         result = subprocess.run([LUAJIT, '-e', f"assert(loadfile([[{ADDON / 'sv_commands.lua'}]]))"],

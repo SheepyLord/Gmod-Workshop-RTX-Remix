@@ -15,6 +15,8 @@ if SERVER then
     util.AddNetworkString("mmdvmd_list_response")
     util.AddNetworkString("mmdvmd_motion_details_request")
     util.AddNetworkString("mmdvmd_motion_details_response")
+    util.AddNetworkString("mmdvmd_built_flags_request")
+    util.AddNetworkString("mmdvmd_built_flags")
     util.AddNetworkString("mmdvmd_pause_status_request")
     util.AddNetworkString("mmdvmd_pause_status_response")
     util.AddNetworkString("mmdvmd_debug_request")

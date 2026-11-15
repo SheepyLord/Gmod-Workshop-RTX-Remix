@@ -254,6 +254,23 @@ function MMDVMDNPC.RequestMotionDetails()
     request_motion_details()
 end
 
+-- Only the built flags (which motions are built for the selected actor): what a selection, an
+-- assignment or a build changes. These asked for the whole details before, whose walk and stream and
+-- the list rebuilds after them stalled the game twice per click (the user's report of 2026-11-14).
+local function request_built_flags()
+    net.Start("mmdvmd_built_flags_request")
+        local options = selected_options and selected_options() or {}
+        net.WriteBool(options.disableArmTwist == true)
+        net.WriteBool(options.disableHandTwist == true)
+        net.WriteBool(options.disableEyes == true)
+        net.WriteBool(options.disableSpinePelvisCorrection == true)
+    net.SendToServer()
+end
+
+function MMDVMDNPC.RequestBuiltFlags()
+    request_built_flags()
+end
+
 function MMDVMDNPC.RequestPauseStatus()
     net.Start("mmdvmd_pause_status_request")
     net.SendToServer()
@@ -485,6 +502,14 @@ function MMDVMDNPC.RequestDeleteSelectedMotion(motionID)
     net.SendToServer()
 end
 
+local function same_list(a, b)
+    if not istable(a) or not istable(b) or #a ~= #b then return false end
+    for i = 1, #a do
+        if a[i] ~= b[i] then return false end
+    end
+    return true
+end
+
 net.Receive("mmdvmd_list_response", function()
     local count = net.ReadUInt(16)
     local list = {}
@@ -492,10 +517,17 @@ net.Receive("mmdvmd_list_response", function()
         list[#list + 1] = net.ReadString()
     end
 
+    local previous = MMDVMDNPC.ClientMotions
     MMDVMDNPC.ClientMotions = list
-    hook.Run("MMDVMDNPCMotionListUpdated", list)
-    request_motion_details()
+    local changed = not same_list(previous, list)
+    if changed then hook.Run("MMDVMDNPCMotionListUpdated", list) end
+    -- The details only when the list changed: the windows that ask for the list ask for the details
+    -- themselves, and a second walk of every motion followed each of those before.
+    if changed or #(MMDVMDNPC.MotionDetailsOrdered or {}) == 0 then request_motion_details() end
 
+    -- Hundreds of lines on every refresh: printed for the console command only.
+    if not MMDVMDNPC.PrintNextMotionList then return end
+    MMDVMDNPC.PrintNextMotionList = nil
     if count == 0 then
         print("[MMD VMD] " .. L("mmd_vmd_npc.console.no_motions"))
     else
@@ -559,6 +591,41 @@ net.Receive("mmdvmd_motion_details_response", function()
     MMDVMDNPC.MotionDetailsOrdered = ordered
     hook.Run("MMDVMDNPCMotionDetailsUpdated", ordered, details)
 end)
+
+-- The built flags for the selected actor (request_built_flags): set on the details already here; the
+-- details hook runs only when one changed, with "built" as its third argument (the lists then update
+-- their Built cells instead of being rebuilt).
+net.Receive("mmdvmd_built_flags", function()
+    local model = net.ReadString()
+    local truncated = net.ReadBool()
+    local count = net.ReadUInt(16)
+    local built = {}
+    for _ = 1, count do built[net.ReadString()] = true end
+    if truncated then
+        request_motion_details()
+        return
+    end
+    MMDVMDNPC.BuiltFlags = { model = model, ids = built }
+    local changed = false
+    for _, meta in ipairs(MMDVMDNPC.MotionDetailsOrdered or {}) do
+        local value = built[tostring(meta.id or "")] == true
+        if meta.built ~= value then
+            meta.built = value
+            changed = true
+        end
+    end
+    if changed then
+        hook.Run("MMDVMDNPCMotionDetailsUpdated", MMDVMDNPC.MotionDetailsOrdered, MMDVMDNPC.MotionDetails, "built")
+    end
+end)
+
+-- The options name the built files: a change asks for the flags again.
+for _, name in ipairs({ "mmd_vmd_npc_disable_armtwist", "mmd_vmd_npc_disable_handtwist", "mmd_vmd_npc_disable_eyes",
+    "mmd_vmd_npc_disable_spine_pelvis_correction" }) do
+    if cvars and cvars.AddChangeCallback then
+        cvars.AddChangeCallback(name, function() request_built_flags() end, "MMDVMDNPCBuiltFlags")
+    end
+end
 
 -- The distinct categories present in the current details, for filter dropdowns:
 -- User Import first, authored addon categories alphabetical, addon-other last.
@@ -3803,6 +3870,12 @@ local function schedule_debug_preview_next(frame, fps)
     end)
 end
 
+-- The debug window's timeline knob is held (dragged, or its number typed into).
+local function timeline_held(frame)
+    local slider = IsValid(frame) and frame.Timeline or nil
+    return IsValid(slider) and isfunction(slider.IsEditing) and slider:IsEditing() == true
+end
+
 local function start_debug_preview_playback(frame)
     if not IsValid(frame) then return end
 
@@ -4362,6 +4435,52 @@ function MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
             MMDVMDNPC.OpenDebugMenu(frame.MotionID, frame.ActiveFrame or 0)
         end
 
+        -- The timeline (the user's request of 2026-11-14): a slider across the window, above the
+        -- buttons, from the motion's first frame to its last; dragging it previews each frame on the
+        -- selected actor. Requests go out at most every 50 ms, the latest frame last; the server
+        -- answers ten a second and always ends on the last frame asked for.
+        local timeline = vgui.Create("DPanel", frame)
+        timeline:Dock(BOTTOM)
+        timeline:SetTall(math.floor(34 * MMDVMDNPC.MenuScale()))
+        timeline:DockPadding(8, 2, 8, 2)
+        timeline:SetPaintBackground(false)
+        frame.Timeline = vgui.Create("DNumSlider", timeline)
+        frame.Timeline:Dock(FILL)
+        frame.Timeline:SetText(L("mmd_vmd_npc.debug.progress"))
+        frame.Timeline:SetTooltip(L("mmd_vmd_npc.debug.progress_tip"))
+        frame.Timeline:SetDecimals(0)
+        frame.Timeline:SetMinMax(0, 1)
+        frame.Timeline:SetValue(0)
+        -- A long bar: the label keeps a fixed width instead of DNumSlider's 40 % of the row.
+        local timelineLabel = math.floor(110 * MMDVMDNPC.MenuScale())
+        local timelineLayout = frame.Timeline.PerformLayout
+        frame.Timeline.PerformLayout = function(slider, w, h)
+            if timelineLayout then timelineLayout(slider, w, h) end
+            if IsValid(slider.Label) then slider.Label:SetWide(timelineLabel) end
+        end
+        frame.Timeline.OnValueChanged = function(_, value)
+            if frame.TimelineSuppress then return end
+            frame.TimelineWanted = math.floor((tonumber(value) or 0) + 0.5)
+            set_debug_preview_playing(frame, false)
+            if timer.Exists("MMDVMDNPCDebugScrub") then return end
+            timer.Create("MMDVMDNPCDebugScrub", 0.05, 1, function()
+                if IsValid(frame) and frame.TimelineWanted and frame.MotionID then
+                    MMDVMDNPC.OpenDebugMenu(frame.MotionID, frame.TimelineWanted)
+                end
+            end)
+        end
+        -- The bone and flex lists are rebuilt once the knob is let go (each rebuild is hundreds of
+        -- rows: ten a second while dragging made the drag itself stutter).
+        local frameThink = frame.Think
+        frame.Think = function(self)
+            if frameThink then frameThink(self) end
+            if self.DebugRowsStale and not timeline_held(self) and self.FillDebugRows then
+                self.DebugRowsStale = nil
+                self.FillDebugRows()
+            end
+        end
+        style_debug_label(frame.Timeline)
+
         -- Light text on the dark body painted above (Derma's default label
         -- colour is near-invisible on it).
         style_debug_label(frame.Summary)
@@ -4490,6 +4609,17 @@ net.Receive("mmdvmd_debug_response", function()
         frame.FrameEntry:SetValue(tostring(activeFrame))
     end
 
+    -- The timeline follows the frame shown, except while its knob is held.
+    if IsValid(frame.Timeline) then
+        frame.TimelineSuppress = true
+        local last = math.max(startFrame + 1, endFrame)
+        if frame.Timeline:GetMin() ~= startFrame or frame.Timeline:GetMax() ~= last then
+            frame.Timeline:SetMinMax(startFrame, last)
+        end
+        if not timeline_held(frame) then frame.Timeline:SetValue(math.max(startFrame, activeFrame)) end
+        frame.TimelineSuppress = false
+    end
+
     rebuild_debug_preview(rows, flexRows, targetEntIndex, true)
 
     local referenceText = ""
@@ -4516,54 +4646,66 @@ net.Receive("mmdvmd_debug_response", function()
         (targetEntIndex > 0 and LF("mmd_vmd_npc.debug.preview_entity_fmt", tostring(targetEntIndex)) or "") .. referenceText
     ))
 
-    frame.Rows:Clear()
-    for _, row in ipairs(rows) do
-        style_debug_list_line(frame.Rows:AddLine(
-            row.mmd,
-            row.source,
-            row.role,
-            fmt_num(row.x),
-            fmt_num(row.y),
-            fmt_num(row.z),
-            fmt_vec(row.px, row.py, row.pz),
-            row.disabled and "disabled"
-                or (row.resolved and fmt_angle(row.p, row.localYaw, row.r) or "unresolved")
-        ))
-    end
-
-    if IsValid(frame.FlexRows) then
-        -- Preserve the scroll position across the rebuild: Clear() snaps the
-        -- list back to the top, so the row a mapping click just changed (often
-        -- deep in the 37-row list) scrolled out of view — making the change
-        -- invisible and the buttons look dead.
-        local flexScrollBar = frame.FlexRows.VBar
-        local flexScroll = IsValid(flexScrollBar) and flexScrollBar:GetScroll() or 0
-        frame.FlexRows:Clear()
-        for _, row in ipairs(flexRows) do
-            local assigned = {}
-            local target = targetEntIndex and Entity(targetEntIndex)
-            for t, id in ipairs(flex_row_ids(row)) do
-                if row.resolved then assigned[#assigned + 1] = MMDVMDNPC.ModelFlexLabel(target, id, row.flexNames and row.flexNames[t] or row.resolvedName) end
-            end
-            local line = frame.FlexRows:AddLine(
+    local function fill_rows()
+        if not IsValid(frame) or not IsValid(frame.Rows) then return end
+        frame.Rows:Clear()
+        for _, row in ipairs(rows) do
+            style_debug_list_line(frame.Rows:AddLine(
                 row.mmd,
-                table.concat(assigned, " + "),
-                fmt_num(row.weight),
-                fmt_num(row.scaledWeight ~= nil and row.scaledWeight or scaled_flex_weight(row)),
-                row.resolved and flex_targets_text(row, targetEntIndex and Entity(targetEntIndex)) or "unresolved"
-            )
-            line.MMDVMDSource = row.source
-            style_debug_list_line(line)
+                row.source,
+                row.role,
+                fmt_num(row.x),
+                fmt_num(row.y),
+                fmt_num(row.z),
+                fmt_vec(row.px, row.py, row.pz),
+                row.disabled and "disabled"
+                    or (row.resolved and fmt_angle(row.p, row.localYaw, row.r) or "unresolved")
+            ))
         end
-        if IsValid(flexScrollBar) and flexScroll > 0 then
-            timer.Simple(0, function()
-                if IsValid(frame) and IsValid(flexScrollBar) then
-                    flexScrollBar:SetScroll(flexScroll)
+
+        if IsValid(frame.FlexRows) then
+            -- Preserve the scroll position across the rebuild: Clear() snaps the
+            -- list back to the top, so the row a mapping click just changed (often
+            -- deep in the 37-row list) scrolled out of view — making the change
+            -- invisible and the buttons look dead.
+            local flexScrollBar = frame.FlexRows.VBar
+            local flexScroll = IsValid(flexScrollBar) and flexScrollBar:GetScroll() or 0
+            frame.FlexRows:Clear()
+            for _, row in ipairs(flexRows) do
+                local assigned = {}
+                local target = targetEntIndex and Entity(targetEntIndex)
+                for t, id in ipairs(flex_row_ids(row)) do
+                    if row.resolved then assigned[#assigned + 1] = MMDVMDNPC.ModelFlexLabel(target, id, row.flexNames and row.flexNames[t] or row.resolvedName) end
                 end
-            end)
+                local line = frame.FlexRows:AddLine(
+                    row.mmd,
+                    table.concat(assigned, " + "),
+                    fmt_num(row.weight),
+                    fmt_num(row.scaledWeight ~= nil and row.scaledWeight or scaled_flex_weight(row)),
+                    row.resolved and flex_targets_text(row, targetEntIndex and Entity(targetEntIndex)) or "unresolved"
+                )
+                line.MMDVMDSource = row.source
+                style_debug_list_line(line)
+            end
+            if IsValid(flexScrollBar) and flexScroll > 0 then
+                timer.Simple(0, function()
+                    if IsValid(frame) and IsValid(flexScrollBar) then
+                        flexScrollBar:SetScroll(flexScroll)
+                    end
+                end)
+            end
         end
+        refresh_flex_override_controls(frame, flexRows, targetEntIndex)
     end
-    refresh_flex_override_controls(frame, flexRows, targetEntIndex)
+    -- While the timeline's knob is held only the pose and the summary follow; the lists catch up when
+    -- it is let go (frame.Think).
+    frame.FillDebugRows = fill_rows
+    if timeline_held(frame) then
+        frame.DebugRowsStale = true
+    else
+        frame.DebugRowsStale = nil
+        fill_rows()
+    end
 
     frame.Prev:SetEnabled(activeFrame > DEBUG_REFERENCE_FRAME)
     frame.Next:SetEnabled(activeFrame < endFrame)
@@ -4927,7 +5069,8 @@ net.Receive("mmdvmd_target_status", function()
         message = message,
     }
     hook.Run("MMDVMDNPCTargetStatusUpdated", MMDVMDNPC.TargetStatus)
-    request_motion_details()
+    -- The selected actor decides which motions are built; nothing else in the details changes.
+    request_built_flags()
 end)
 
 net.Receive("mmdvmd_assignment_status", function()
@@ -4966,8 +5109,8 @@ net.Receive("mmdvmd_assignment_status", function()
         order = order,
         byEnt = byEnt,
     }
+    -- Each row carries its own build status; the motion details do not change with assignments.
     hook.Run("MMDVMDNPCAssignmentStatusUpdated", MMDVMDNPC.AssignedActors)
-    request_motion_details()
 end)
 
 net.Receive("mmdvmd_build_done", function()
@@ -5024,7 +5167,7 @@ net.Receive("mmdvmd_build_done", function()
         message = message,
         progress = ok and 1 or 0,
     })
-    request_motion_details()
+    request_built_flags()
     play_ui_cue(ok and "success" or "blocked")
     print("[MMD VMD] " .. (ok and LF("mmd_vmd_npc.console.build_success_fmt", path) or LF("mmd_vmd_npc.console.build_failed_fmt", message)))
 end)
@@ -5190,7 +5333,7 @@ net.Receive("mmdvmd_clear_built_done", function()
         removed = removed,
     }
     hook.Run("MMDVMDNPCBuildStatusUpdated", MMDVMDNPC.BuildStatus)
-    request_motion_details()
+    request_built_flags()
     play_ui_cue(ok and "success" or "blocked")
     print("[MMD VMD] " .. message)
 end)
@@ -5897,8 +6040,10 @@ function MMDVMDNPC.BuildMotionManager(parent, opts)
                     -- via line.Meta) must be part of the fingerprint, or a
                     -- re-import with unchanged id would never refresh the row.
                     -- meta.modified (file mtime) covers all content changes.
+                    -- The Built cell is left out: it changes with the selected
+                    -- actor and is updated in place below.
                     signature[#signature + 1] = table.concat({
-                        tostring(meta.id), displayName, tostring(meta.built),
+                        tostring(meta.id), displayName,
                         wheelText, tostring(meta.category or ""),
                         tostring(meta.englishName or ""),
                         tostring(meta.modified or ""), tostring(meta.duration or ""),
@@ -5909,7 +6054,27 @@ function MMDVMDNPC.BuildMotionManager(parent, opts)
             end
         end
         local signatureText = table.concat(signature, "\2")
-        if signatureText == lastPopulateSignature then return end
+        if signatureText == lastPopulateSignature then
+            -- Same rows: only the Built cells can differ (a selection, an assignment, a build). A
+            -- rebuild of every row here stalled the game at each click (the user's report of
+            -- 2026-11-14); a cell's text is enough.
+            local builtColumn
+            for index, key in ipairs(columnOrder) do
+                if key == "built" then builtColumn = index end
+            end
+            for _, line in ipairs(list:GetLines()) do
+                -- The details arrive as new tables: rows point at the current ones.
+                local meta = MMDVMDNPC.MotionDetails and MMDVMDNPC.MotionDetails[line.MotionID] or line.Meta
+                if istable(meta) then
+                    line.Meta = meta
+                    if builtColumn then
+                        local text = COLUMNS.built[3]({ meta = meta })
+                        if line:GetColumnText(builtColumn) ~= text then line:SetColumnText(builtColumn, text) end
+                    end
+                end
+            end
+            return
+        end
         lastPopulateSignature = signatureText
 
         local previouslySelected = selectedMotion
@@ -6306,6 +6471,7 @@ concommand.Add("mmdvmd_menu", open_motion_browser)
 MMDVMDNPC.OpenMotionManager = open_motion_browser
 
 concommand.Add("mmdvmd_list", function()
+    MMDVMDNPC.PrintNextMotionList = true
     request_list()
 end)
 

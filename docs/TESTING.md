@@ -3437,6 +3437,39 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
   report, the Workshop item and the repository's address. Seven deliberate breakages of the form (a duplicate id, a
   `None` option beside a default, a renamed lag report file, broken YAML, an unknown attribute, Markdown in a
   checkbox label, a renamed sessions folder) each failed it.
+
+## The Advanced MMD Animation Player's clicks and its three options (2026-11-15, Claude, ADR 0224)
+
+Offline, in the gate (each new scenario fails on the code before the change):
+
+- [test_motion_server.py](../tools/tests/test_motion_server.py.md) under
+  [motion_server_harness.lua](../tools/tests/motion_server_harness.lua.md): `keep_flexes` (off: a selection, a
+  dance's start and stop zero every flex; on: the face is left, the dance drives its own flex and gives it back, the
+  debug preview goes back at close), `ragdoll_collision` (18 shadow colliders by default, flagged for the Model
+  Hotloader, deleted with the NPC, moved every tick, the box out of contact and given back; off, no ragdoll, a
+  removed dancer; hair bodies left out), `built_flags` (one listing, the target's motions, paced) and `details_walk`
+  (no file test per motion).
+- [test_motion_tab.py](../tools/tests/test_motion_tab.py.md) under
+  [motion_tab_harness.lua](../tools/tests/motion_tab_harness.lua.md): `quiet` (no details request after a target
+  status, an assignment status or a build; the Motion Manager's Built cells change in place), `tool_list` (the tool's
+  list kept through unchanged details and flags, rebuilt for a new motion; the two settings' defaults) and
+  `timeline` (its place and width, one request a burst, the lists waiting while the knob is held).
+- `tools/check_addon_i18n.py`: the motion catalog's six new keys in all nine languages (487 keys, 0 problems).
+
+In the PoC with [mmd_player_session.py](../tools/qa/mmd_player_session.py.md) and a copy of the field's motion
+library, before (the package built from `main`) and after, each run in a fresh deployment:
+
+```powershell
+python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package <gma> --label <label> --data out\mmd-player\field-data --workshop [--tab --width 3840 --height 2160] [--features] [--no-steps]
+```
+
+- The timed click-through at 1600x900 with the Workshop mounted and at 3840x2160 with the Motion importer tab: the
+  longest frame and frames over 100 ms per action, and the add-on's own time in both realms (the numbers are in
+  [RESEARCH.md](RESEARCH.md) and [the report](handover/mmd-player-report.md)).
+- `--features`: a test dance built for the imported character; ragdoll collision on and off (colliders, traces, a
+  player hull, a pushed prop, the hotloader's scene, the pose compared); keep expressions on and off (an undriven
+  and a driven flex through selection, start, dance and stop); the debug timeline (one position, a held sweep, the
+  lists after release). All passed in `after4-features` and `after3-ws`.
 - On GitHub: after the push to `main`, each form's file page (`/blob/main/.github/ISSUE_TEMPLATE/<form>.yml`, no
   sign-in needed) shows the form's preview with its name, labels and every field, and no error; `config.yml` shows
   none either. The chooser (`/issues/new/choose`) needs a signed-in account.

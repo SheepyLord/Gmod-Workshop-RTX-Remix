@@ -1028,6 +1028,10 @@ timer.Simple(30, function()
     if MMDVMDNPC.PruneStaleIndexes then MMDVMDNPC.PruneStaleIndexes() end
 end)
 
+-- Where each motion of the last ListMotions lives ("DATA" or "GAME"), so the details walk reads a
+-- listed motion's time and size without first testing both places for it.
+MMDVMDNPC.MotionRealms = MMDVMDNPC.MotionRealms or {}
+
 function MMDVMDNPC.ListMotions()
     local files = file.Find(MMDVMDNPC.MotionRoot .. "/*" .. MMDVMDNPC.CacheExtension, "DATA", "nameasc")
     local addonFiles = file.Find(STATIC_MOTION_ROOT .. "/*" .. MMDVMDNPC.CacheExtension, "GAME", "nameasc")
@@ -1037,7 +1041,7 @@ function MMDVMDNPC.ListMotions()
     for _, name in ipairs(files or {}) do
         local id = MMDVMDNPC.NormalizeMotionID(name)
         if id and not seen[id] then
-            seen[id] = true
+            seen[id] = "DATA"
             list[#list + 1] = id
         end
     end
@@ -1045,13 +1049,39 @@ function MMDVMDNPC.ListMotions()
     for _, name in ipairs(addonFiles or {}) do
         local id = MMDVMDNPC.NormalizeMotionID(name)
         if id and not seen[id] then
-            seen[id] = true
+            seen[id] = "GAME"
             list[#list + 1] = id
         end
     end
 
     table.sort(list)
+    MMDVMDNPC.MotionRealms = seen
     return list
+end
+
+-- A motion's persisted metadata when its file still has the indexed time and size, else nil (then
+-- MotionMetadata derives it). Two file calls for a listed motion: HasMotionMetadataCached followed by
+-- MotionMetadata made six to eight, for every motion, at every details request (the user's report of
+-- 2026-11-14: 1,950 file calls in one tick per selection with 255 motions).
+function MMDVMDNPC.CachedMotionMetadata(motionID)
+    local id = MMDVMDNPC.NormalizeMotionID(motionID)
+    if not id then return nil end
+    local cached = motion_meta_index()[id]
+    if not istable(cached) or not istable(cached.meta) or cached.meta.schema ~= MOTION_META_SCHEMA then return nil end
+    local realm = MMDVMDNPC.MotionRealms[id]
+    local path
+    if realm == "DATA" then
+        path = MMDVMDNPC.MotionRoot .. "/" .. id .. MMDVMDNPC.CacheExtension
+    elseif realm == "GAME" then
+        path = STATIC_MOTION_ROOT .. "/" .. id .. MMDVMDNPC.CacheExtension
+    else
+        local info = motion_file_info(id)
+        if not info then return nil end
+        path, realm = info.path, info.realm
+    end
+    if cached.modified ~= (file.Time(path, realm) or 0) then return nil end
+    if cached.size ~= (file.Size(path, realm) or -1) then return nil end
+    return cached.meta
 end
 
 function MMDVMDNPC.LoadMotion(motionID)

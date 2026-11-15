@@ -1203,14 +1203,12 @@ local function send_motion_details(ply, options)
 
     local function finish()
         -- The per-target "built" flag is resolved at send time so it reflects
-        -- the target as of the freshest data, not walk start.
+        -- the target as of the freshest data, not walk start: one listing of the
+        -- built folder for the target's model (it was a file test per motion).
         local ent = MMDVMDNPC.DebugTargets[ply]
-        local hasTarget = is_usable_actor(ent)
+        local built = is_usable_actor(ent) and MMDVMDNPC.BuiltMotionIDs(ent:GetModel() or "", options) or nil
         for _, entry in ipairs(entries) do
-            if hasTarget then
-                local path = MMDVMDNPC.BuiltPath(entry.meta.id, ent:GetModel() or "", options)
-                entry.built = path ~= nil and (MMDVMDNPC.BuiltCache[path] ~= nil or file.Exists(path, "DATA"))
-            end
+            entry.built = built ~= nil and built[tostring(entry.meta.id or "")] == true
         end
         send_motion_details_chunks(ply, entries)
     end
@@ -1220,11 +1218,12 @@ local function send_motion_details(ply, options)
         local parseBudget = MOTION_DETAILS_PARSES_PER_TICK
         while index <= #list do
             local id = list[index]
-            if not (MMDVMDNPC.HasMotionMetadataCached and MMDVMDNPC.HasMotionMetadataCached(id)) then
+            local meta = MMDVMDNPC.CachedMotionMetadata and MMDVMDNPC.CachedMotionMetadata(id) or nil
+            if not meta then
                 if parseBudget <= 0 then break end
                 parseBudget = parseBudget - 1
+                meta = MMDVMDNPC.MotionMetadata and MMDVMDNPC.MotionMetadata(id) or nil
             end
-            local meta = MMDVMDNPC.MotionMetadata and MMDVMDNPC.MotionMetadata(id) or nil
             if meta then
                 entries[#entries + 1] = { meta = meta, built = false }
             end
@@ -1369,7 +1368,7 @@ function MMDVMDNPC.SelectTargetForPlayer(ply, ent)
 
     MMDVMDNPC.DebugTargets[ply] = ent
     if is_playable_npc(ent) and pose_selected_npc_reference then
-        pose_selected_npc_reference(ent)
+        pose_selected_npc_reference(ent, ply)
     end
     if update_rpe_body_suppression then update_rpe_body_suppression() end
     send_target_status(ply, LF("mmd_vmd_npc.status.selected_actor_fmt", actor_label(ent), tostring(ent:GetClass() or ent:Nick() or "")))
@@ -1591,6 +1590,229 @@ clear_all_flex_weights = function(ent)
     for _, target in ipairs(MMDVMDNPC.ModelFlexList(ent)) do
         MMDVMDNPC.SetModelFlexWeight(ent, target.id, 0)
     end
+end
+
+-- The user's request of 2026-11-14: options a player sets in the tool (USERINFO cvars, read here for the
+-- player who starts the dance). One table: this file's main chunk is at Lua's 200-local limit.
+local actor = {}
+MMDVMDNPC.Actor = actor
+
+-- "Keep expressions the motion does not animate" (mmd_vmd_npc_keep_flexes, off by default). Off: every
+-- flex is zeroed when an actor is selected or a dance starts, as before. On: a selection leaves the face
+-- alone, a dance sets only the flexes it drives and gives them back their earlier weights when it
+-- stops, and the debug window does the same with the flexes it previews.
+function actor.keep_flexes(ply)
+    return IsValid(ply) and ply.GetInfoNum ~= nil and (tonumber((ply:GetInfoNum("mmd_vmd_npc_keep_flexes", 0))) or 0) ~= 0
+end
+
+-- The model flexes a built animation drives: its flex columns ({id, name} each).
+function actor.driven_flexes(built)
+    local ids = {}
+    for _, meta in ipairs(istable(built) and built.flexes or {}) do
+        local id = tonumber(istable(meta) and meta.id or meta)
+        if id and id >= 0 then ids[#ids + 1] = id end
+    end
+    return ids
+end
+
+-- {[flexID] = weight} now, for the flexes listed.
+function actor.read_flexes(ent, ids)
+    local weights = {}
+    if not is_usable_npc(ent) then return weights end
+    for _, id in ipairs(ids or {}) do
+        weights[id] = tonumber(MMDVMDNPC.GetModelFlexWeight and MMDVMDNPC.GetModelFlexWeight(ent, id)) or 0
+    end
+    return weights
+end
+
+function actor.restore_flexes(ent, weights)
+    if not is_usable_npc(ent) or not istable(weights) then return end
+    for id, weight in pairs(weights) do MMDVMDNPC.SetModelFlexWeight(ent, id, weight) end
+end
+
+-- The face before the debug window first previewed a flex on an entity, per flex: the reference frame
+-- and the window's close put it back when the player keeps expressions.
+actor.debugFaces = setmetatable({}, { __mode = "k" })
+function actor.note_debug_face(ent, flexID)
+    local face = actor.debugFaces[ent]
+    if not face then
+        face = {}
+        actor.debugFaces[ent] = face
+    end
+    if face[flexID] == nil then
+        face[flexID] = tonumber(MMDVMDNPC.GetModelFlexWeight and MMDVMDNPC.GetModelFlexWeight(ent, flexID)) or 0
+    end
+end
+function actor.restore_debug_face(ent)
+    local face = actor.debugFaces[ent]
+    actor.debugFaces[ent] = nil
+    actor.restore_flexes(ent, face)
+end
+
+-- Zeroes every flex unless the player keeps expressions; then puts back what the debug window changed.
+function actor.reset_face(ent, ply)
+    if actor.keep_flexes(ply) then
+        actor.restore_debug_face(ent)
+    else
+        actor.debugFaces[ent] = nil
+        clear_all_flex_weights(ent)
+    end
+end
+
+-- "Dancing NPCs collide with their ragdoll's body" (mmd_vmd_npc_ragdoll_collision, on by default): while an
+-- NPC dances it collides through colliders shaped as the bodies of its model's ragdoll (an imported
+-- character's carrier has its 18 main ones), which follow the dance's bones every tick, instead of through
+-- its box. The box still answers traces (the tool gun, bullets) but no longer blocks or pushes players, NPCs
+-- and props. Each collider is a shadow its bone moves, so nothing it touches moves the dance, and the Model
+-- Hotloader's hair and clothing physics leaves them out (MMDHLSceneExcluded, read by its
+-- secondary_collision.lua). The engine's own bone followers need the model to list them (prop_dynamic's
+-- "bone_followers" key values), which character models do not: CreateBoneFollowers makes none for them.
+actor.MainBodies = 18
+-- A model with more ragdoll bodies than that (hair, skirts) keeps the ones on these bones.
+actor.MainBones = { "ValveBiped.Bip01_Pelvis", "ValveBiped.Bip01_Spine", "ValveBiped.Bip01_Spine1", "ValveBiped.Bip01_Spine2",
+    "ValveBiped.Bip01_Spine4", "ValveBiped.Bip01_Neck1", "ValveBiped.Bip01_Head1", "ValveBiped.Bip01_L_Clavicle",
+    "ValveBiped.Bip01_R_Clavicle", "ValveBiped.Bip01_L_UpperArm", "ValveBiped.Bip01_R_UpperArm", "ValveBiped.Bip01_L_Forearm",
+    "ValveBiped.Bip01_R_Forearm", "ValveBiped.Bip01_L_Hand", "ValveBiped.Bip01_R_Hand", "ValveBiped.Bip01_L_Thigh",
+    "ValveBiped.Bip01_R_Thigh", "ValveBiped.Bip01_L_Calf", "ValveBiped.Bip01_R_Calf", "ValveBiped.Bip01_L_Foot",
+    "ValveBiped.Bip01_R_Foot" }
+actor.ColliderClass = "mmd_vmd_npc_collider"
+
+-- One body: on the server only (never sent to a client), not saved or duplicated, not grabbed, only the
+-- Animation Player's tool acts on it; damage goes to its NPC.
+do
+    local ENT = { Type = "anim", Base = "base_anim", Spawnable = false, AdminOnly = true, DisableDuplicator = true,
+        DoNotDuplicate = true, PhysgunDisabled = true, m_tblToolsAllowed = { "mmd_vmd_npc" }, MMDVMDNPCCollider = true,
+        MMDHLSceneExcluded = true }
+    function ENT:Initialize() self:DrawShadow(false) end
+    function ENT:UpdateTransmitState() return TRANSMIT_NEVER end
+    function ENT:OnTakeDamage(info)
+        local owner = self:GetOwner()
+        if IsValid(owner) then owner:TakeDamageInfo(info) end
+    end
+    function ENT:GravGunPickupAllowed() return false end
+    function ENT:GravGunPunt() return false end
+    if scripted_ents and scripted_ents.Register then scripted_ents.Register(ENT, actor.ColliderClass) end
+end
+
+function actor.ragdoll_collision(ply)
+    if not IsValid(ply) or ply.GetInfoNum == nil then return true end
+    return (tonumber((ply:GetInfoNum("mmd_vmd_npc_ragdoll_collision", 1))) or 1) ~= 0
+end
+
+-- Per model: the bodies of its ragdoll as {bone = name, hulls = {convex point lists in the bone's space}},
+-- read once from a ragdoll that exists for an instant (a ragdoll's bodies sit on their bones). false: none.
+actor.Shapes = {}
+function actor.body_shapes(model)
+    local known = actor.Shapes[model]
+    if known ~= nil then return known or nil end
+    actor.Shapes[model] = false
+    if not util.IsValidRagdoll or not util.IsValidRagdoll(model) then return nil end
+    local ragdoll = ents.Create("prop_ragdoll")
+    if not IsValid(ragdoll) then return nil end
+    ragdoll:SetModel(model)
+    ragdoll:Spawn()
+    local shapes = {}
+    for i = 0, (ragdoll:GetPhysicsObjectCount() or 0) - 1 do
+        local phys = ragdoll:GetPhysicsObjectNum(i)
+        local bone = ragdoll:TranslatePhysBoneToBone(i)
+        local name = bone and bone >= 0 and ragdoll:GetBoneName(bone) or nil
+        if IsValid(phys) and name then
+            local hulls = {}
+            local mins, maxs = Vector(math.huge, math.huge, math.huge), Vector(-math.huge, -math.huge, -math.huge)
+            for _, convex in ipairs(phys:GetMeshConvexes() or {}) do
+                local points = {}
+                for _, vertex in ipairs(convex) do
+                    local p = vertex.pos
+                    points[#points + 1] = p
+                    mins.x, mins.y, mins.z = math.min(mins.x, p.x), math.min(mins.y, p.y), math.min(mins.z, p.z)
+                    maxs.x, maxs.y, maxs.z = math.max(maxs.x, p.x), math.max(maxs.y, p.y), math.max(maxs.z, p.z)
+                end
+                if #points >= 4 then hulls[#hulls + 1] = points end
+            end
+            if #hulls > 0 then shapes[#shapes + 1] = { bone = name, hulls = hulls, mins = mins, maxs = maxs } end
+        end
+    end
+    ragdoll:Remove()
+    if #shapes > actor.MainBodies then
+        local main, kept = {}, {}
+        for _, name in ipairs(actor.MainBones) do main[name] = true end
+        for _, shape in ipairs(shapes) do
+            if main[shape.bone] and #kept < actor.MainBodies then kept[#kept + 1] = shape end
+        end
+        shapes = kept
+    end
+    actor.Shapes[model] = #shapes > 0 and shapes or false
+    return actor.Shapes[model] or nil
+end
+
+function actor.start_collision(ent, ply)
+    if not is_playable_npc(ent) or not actor.ragdoll_collision(ply) then return nil end
+    local shapes = actor.body_shapes(ent:GetModel() or "")
+    if not shapes then return nil end
+    setup_bones_now(ent)
+    local colliders = {}
+    for _, shape in ipairs(shapes) do
+        local bone = ent:LookupBone(shape.bone)
+        local pos, ang
+        if bone and bone >= 0 then pos, ang = ent:GetBonePosition(bone) end
+        local collider = pos and ang and ents.Create(actor.ColliderClass) or nil
+        if IsValid(collider) then
+            collider:SetPos(pos)
+            collider:SetAngles(ang)
+            -- An entity does not collide with its owner: the colliders leave their NPC alone.
+            collider:SetOwner(ent)
+            collider:Spawn()
+            if collider:PhysicsInitMultiConvex(shape.hulls) then
+                collider:SetSolid(SOLID_VPHYSICS)
+                collider:SetMoveType(MOVETYPE_VPHYSICS)
+                -- Without a model the entity has no bounds and traces (players walking into it, the
+                -- tool gun, bullets) never test it: its shape's box, and its physics mesh for the test.
+                collider:SetCollisionBounds(shape.mins, shape.maxs)
+                collider:EnableCustomCollisions(true)
+                collider:MakePhysicsObjectAShadow(false, false)
+                local phys = collider:GetPhysicsObject()
+                if IsValid(phys) then phys:Wake() end
+                ent:DeleteOnRemove(collider)
+                colliders[#colliders + 1] = { ent = collider, bone = bone }
+            else
+                collider:Remove()
+            end
+        end
+    end
+    if #colliders == 0 then return nil end
+    local record = { colliders = colliders, group = ent:GetCollisionGroup() }
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) then
+        record.hullCollides = phys:IsCollisionEnabled()
+        phys:EnableCollisions(false)
+    end
+    -- Debris collides with the world and is hit by traces, but not with players or NPCs.
+    ent:SetCollisionGroup(COLLISION_GROUP_DEBRIS)
+    return record
+end
+
+-- Each collider's shadow goes where its bone is after this tick's pose.
+function actor.update_collision(ent, record)
+    if not record or not IsValid(ent) then return end
+    local interval = engine.TickInterval()
+    for _, collider in ipairs(record.colliders) do
+        local phys = IsValid(collider.ent) and collider.ent:GetPhysicsObject() or nil
+        if IsValid(phys) then
+            local pos, ang = ent:GetBonePosition(collider.bone)
+            if pos and ang then phys:UpdateShadow(pos, ang, interval) end
+        end
+    end
+end
+
+function actor.stop_collision(ent, record)
+    if not record then return end
+    for _, collider in ipairs(record.colliders or {}) do
+        if IsValid(collider.ent) then collider.ent:Remove() end
+    end
+    if not IsValid(ent) then return end
+    if record.group then ent:SetCollisionGroup(record.group) end
+    local phys = ent:GetPhysicsObject()
+    if IsValid(phys) and record.hullCollides ~= nil then phys:EnableCollisions(record.hullCollides) end
 end
 
 -- Only a freeze this add-on made is undone by it: Force Reset and every death
@@ -1828,7 +2050,8 @@ local function stop_actor_motion(ent)
     end
 end
 
-pose_selected_npc_reference = function(ent)
+-- ply: the player selecting it (whose keep-expressions choice applies).
+pose_selected_npc_reference = function(ent, ply)
     if not is_playable_npc(ent) then return false end
 
     if MMDVMDNPC.Playbacks and MMDVMDNPC.Playbacks[ent] and MMDVMDNPC.StopPlayback then
@@ -1838,7 +2061,7 @@ pose_selected_npc_reference = function(ent)
 
     MMDVMDNPC.DebugFlexHolds[ent] = nil
     clear_all_bone_manipulations(ent)
-    clear_all_flex_weights(ent)
+    actor.reset_face(ent, ply)
     local ok, info = force_reference_pose(ent)
     stop_actor_motion(ent)
     return ok, info
@@ -2042,7 +2265,7 @@ local function build_pose_rows(ply, motion, activeFrame, noPoseReset, targetOver
         local _, forcedInfo = force_reference_pose(target)
         referenceInfo = forcedInfo or referenceInfo
         clear_all_bone_manipulations(target)
-        clear_all_flex_weights(target)
+        actor.reset_face(target, ply)
     end
 
     for index, track in ipairs(tracks) do
@@ -3274,11 +3497,18 @@ do
         end
 
         if ent.SetFlexWeight then
+            -- A dance that keeps expressions blends from the face it found, not from 0.
+            local base = state and state.flexBase or nil
             for index, flexA in ipairs(frameA.flexes or {}) do
                 local flexB = (frameB.flexes or {})[index] or flexA
                 local flexID = tonumber(flexA[1]) or -1
                 if flexID >= 0 then
-                    MMDVMDNPC.SetModelFlexWeight(ent, flexID, math.Clamp(lerp_value(flexA[2], flexB[2], fraction) * (blend or 1), 0, 1))
+                    local weight = lerp_value(flexA[2], flexB[2], fraction)
+                    if blend then
+                        local from = base and base[flexID] or 0
+                        weight = from + (weight - from) * blend
+                    end
+                    MMDVMDNPC.SetModelFlexWeight(ent, flexID, math.Clamp(weight, 0, 1))
                 end
             end
         end
@@ -3366,11 +3596,14 @@ local function apply_runtime_eye_tracking(ent, state, now)
     end
 end
 
-function MMDVMDNPC.StopPlayback(ent, clearPose)
+-- keepFlexes: with no dance on the entity, leave its flexes alone (a dance about to start for a
+-- player who keeps expressions); a dance's own state decides otherwise.
+function MMDVMDNPC.StopPlayback(ent, clearPose, keepFlexes)
     if not is_usable_npc(ent) then return end
     MMDVMDNPC.DebugFlexHolds[ent] = nil
     local state = MMDVMDNPC.Playbacks[ent]
     MMDVMDNPC.Playbacks[ent] = nil
+    if state and state.collision then actor.stop_collision(ent, state.collision) end
     if update_rpe_body_suppression then update_rpe_body_suppression() end
     if state then send_audio_stop(state) end
     stop_camera_for_state(state)
@@ -3392,7 +3625,12 @@ function MMDVMDNPC.StopPlayback(ent, clearPose)
             ent:SetPos(state.rootBase)
         end
         clear_all_bone_manipulations(ent)
-        clear_all_flex_weights(ent)
+        if state and state.flexBase then
+            -- The dance kept the expression: only the flexes it drove go back.
+            actor.restore_flexes(ent, state.flexBase)
+        elseif state or not keepFlexes then
+            clear_all_flex_weights(ent)
+        end
         force_reference_pose(ent)
         if state then bump_pose_cut(ent) end
     end
@@ -3489,6 +3727,7 @@ local function start_playback_on_entity(ply, ent, motionID, options, playbackSet
 
     local playbackEnt = ent
     local selfProxy = is_playable_player(ent)
+    local keepFlexes = actor.keep_flexes(ply)
     if selfProxy then
         -- Dance on foot: a seated player would leave the proxy performing at
         -- the vehicle while the hidden driver could still throttle it away.
@@ -3504,7 +3743,7 @@ local function start_playback_on_entity(ply, ent, motionID, options, playbackSet
         set_self_player_hidden(ent, true)
         set_self_player_movement_locked(ent, true)
     else
-        MMDVMDNPC.StopPlayback(playbackEnt, true)
+        MMDVMDNPC.StopPlayback(playbackEnt, true, keepFlexes)
     end
 
     force_reference_pose(playbackEnt)
@@ -3515,7 +3754,14 @@ local function start_playback_on_entity(ply, ent, motionID, options, playbackSet
     if IsValid(ply) and ply:GetInfoNum("mmd_vmd_npc_disable_jiggle", 0) == 1 then
         disable_all_bone_jiggle(playbackEnt)
     end
-    clear_all_flex_weights(playbackEnt)
+    -- Keeping expressions: the dance starts from the face it finds and gives back, at its end, the
+    -- weights of the flexes it drives; the others are never touched. Otherwise every flex starts at 0.
+    local flexBase
+    if keepFlexes then
+        flexBase = actor.read_flexes(playbackEnt, actor.driven_flexes(built))
+    else
+        clear_all_flex_weights(playbackEnt)
+    end
     freeze_player_target(playbackEnt, true)
 
     playbackSettings = playbackSettings or playback_settings_from_values(nil, nil)
@@ -3565,7 +3811,10 @@ local function start_playback_on_entity(ply, ent, motionID, options, playbackSet
         cvarSuppression = begin_scoped_cvar_suppression(PLAYBACK_SUPPRESSED_CVARS),
         sentPlaying = false,
         nextTick = 0,
+        flexBase = flexBase,
     }
+    -- A dancing NPC collides through its ragdoll's bodies, not its box (unless the player turned it off).
+    MMDVMDNPC.Playbacks[playbackEnt].collision = not selfProxy and actor.start_collision(playbackEnt, ply) or nil
     if update_rpe_body_suppression then update_rpe_body_suppression() end
 
     -- Stream the motion's camera path (if any) to the initiating player so
@@ -3987,6 +4236,7 @@ end
 local function update_playback_state(ent, state, now)
     if not is_usable_npc(ent) then
         MMDVMDNPC.Playbacks[ent] = nil
+        if state and state.collision then actor.stop_collision(ent, state.collision) end
         if update_rpe_body_suppression then update_rpe_body_suppression() end
         if state and state.cvarSuppression then
             end_scoped_cvar_suppression(state.cvarSuppression)
@@ -4062,6 +4312,7 @@ local function update_playback_state(ent, state, now)
     local frames = built.frames or {}
     if #frames <= 0 then
         MMDVMDNPC.Playbacks[ent] = nil
+        if state.collision then actor.stop_collision(ent, state.collision) end
         if update_rpe_body_suppression then update_rpe_body_suppression() end
         if state.cvarSuppression then
             end_scoped_cvar_suppression(state.cvarSuppression)
@@ -4234,6 +4485,8 @@ hook.Add("Think", "MMDVMDNPCBuiltPlaybackThink", function()
     end
     for ent, state in pairs(MMDVMDNPC.Playbacks) do
         update_playback_state(ent, state, now)
+        -- The ragdoll's bodies follow the pose this tick gave the bones.
+        if state.collision and MMDVMDNPC.Playbacks[ent] == state then actor.update_collision(ent, state.collision) end
     end
     -- Tell clients which entities are dancing. A client that did not build the
     -- dance itself (built in an earlier session, or started by someone else)
@@ -4335,6 +4588,53 @@ net.Receive("mmdvmd_motion_details_request", function(_, ply)
     queue_motion_details(ply, options)
 end)
 
+-- The built flags alone: which motions are built for the player's selected actor (its model, the
+-- player's options). A selection, an assignment, a finished or cleared build change only these, and
+-- the client asked for the whole details instead (a walk of every motion's files and a stream of every
+-- entry, twice per click: the user's report of 2026-11-14).
+actor.FlagsBytes = 60000
+function actor.send_built_flags(ply, options)
+    if not IsValid(ply) then return end
+    local ent = MMDVMDNPC.DebugTargets[ply]
+    local model = is_usable_actor(ent) and tostring(ent:GetModel() or "") or ""
+    local ids = {}
+    if model ~= "" then
+        for id in pairs(MMDVMDNPC.BuiltMotionIDs(model, options)) do ids[#ids + 1] = id end
+        table.sort(ids)
+    end
+    local count, bytes = 0, #model + 8
+    while count < #ids and count < 65535 and bytes + #ids[count + 1] + 1 <= actor.FlagsBytes do
+        count = count + 1
+        bytes = bytes + #ids[count] + 1
+    end
+    net.Start("mmdvmd_built_flags")
+        net.WriteString(model)
+        -- More than one message holds: the client asks for the full details instead.
+        net.WriteBool(count < #ids)
+        net.WriteUInt(count, 16)
+        for i = 1, count do net.WriteString(ids[i]) end
+    net.Send(ply)
+end
+
+-- At most every quarter second per player, with the latest options (a click sends a burst).
+actor.FlagsInterval = 0.25
+net.Receive("mmdvmd_built_flags_request", function(_, ply)
+    if not IsValid(ply) then return end
+    ply.MMDVMDNPCFlagsOptions = normalize_options(net.ReadBool(), net.ReadBool(), net.ReadBool(), net.ReadBool())
+    local now = CurTime()
+    local nextAllowed = tonumber(ply.MMDVMDNPCFlagsNext) or 0
+    if now < nextAllowed then
+        timer.Create("MMDVMDNPCFlags" .. ply:EntIndex(), nextAllowed - now, 1, function()
+            if not IsValid(ply) then return end
+            ply.MMDVMDNPCFlagsNext = CurTime() + actor.FlagsInterval
+            actor.send_built_flags(ply, ply.MMDVMDNPCFlagsOptions)
+        end)
+        return
+    end
+    ply.MMDVMDNPCFlagsNext = now + actor.FlagsInterval
+    actor.send_built_flags(ply, ply.MMDVMDNPCFlagsOptions)
+end)
+
 net.Receive("mmdvmd_pause_status_request", function(_, ply)
     send_pause_status(ply)
 end)
@@ -4401,7 +4701,11 @@ net.Receive("mmdvmd_debug_apply", function(_, ply)
 
     force_reference_pose(ent)
     clear_all_bone_manipulations(ent)
-    clear_all_flex_weights(ent)
+    local keepFlexes = actor.keep_flexes(ply)
+    if not keepFlexes then
+        actor.debugFaces[ent] = nil
+        clear_all_flex_weights(ent)
+    end
 
     local maxBones = ent:GetBoneCount() or 0
     for _ = 1, count do
@@ -4421,6 +4725,8 @@ net.Receive("mmdvmd_debug_apply", function(_, ply)
     for _ = 1, flexCount do
         local flexID = net.ReadInt(32)
         local weight = math.Clamp(net.ReadFloat(), 0, 1)
+        -- Keeping expressions: remember what this flex was before the window first moved it.
+        if keepFlexes then actor.note_debug_face(ent, flexID) end
         if MMDVMDNPC.SetModelFlexWeight(ent, flexID, weight) then
             held[flexID] = weight
         end
@@ -4447,7 +4753,7 @@ net.Receive("mmdvmd_debug_close", function(_, ply)
         -- next tick anyway and a forced reference pose would visibly pop.
         if not MMDVMDNPC.Playbacks[ent] and not is_playable_player(ent) then
             clear_all_bone_manipulations(ent)
-            clear_all_flex_weights(ent)
+            actor.reset_face(ent, ply)
             force_reference_pose(ent)
             setup_bones_now(ent)
         end
@@ -4967,7 +5273,7 @@ function MMDVMDNPC.AssignActorForPlayer(ply, ent, motionID, options, playbackSet
     set.order[#set.order + 1] = ent
     set.byEnt[ent] = assignment
     MMDVMDNPC.DebugTargets[ply] = ent
-    pose_selected_npc_reference(ent)
+    pose_selected_npc_reference(ent, ply)
     send_target_status(ply, LF("mmd_vmd_npc.status.assigned_motion_to_npc_fmt", id, tostring(ent)))
 
     local status = assignment_build_status(ply, assignment)

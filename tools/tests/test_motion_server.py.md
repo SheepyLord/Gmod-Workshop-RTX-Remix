@@ -24,5 +24,9 @@ python -I -m unittest discover -s tools/tests -p test_motion_server.py    # from
 | `test_built_animations_stay_within_a_byte_budget` | M8: the oldest idle built animation goes past the byte budget; a playing one is never dropped |
 | `test_build_limits_per_player` | M8/L-09: the per-player built-file and queue limits, the per-build JSON budget, admins unlimited |
 | `test_the_main_chunk_stays_below_luas_local_limit` | `sv_commands.lua` still loads (its main chunk is near Lua's 200-local limit) |
+| `test_keep_expressions_leaves_the_flexes_a_dance_does_not_drive` | The user's request of 2026-11-14: with `mmd_vmd_npc_keep_flexes` off a selection, a dance's start and its stop zero every flex, as before; on, a selection leaves the face, a dance drives only its own flex and gives it its earlier weight at the stop, and the debug window's preview goes back when it closes |
+| `test_a_dancing_npc_collides_through_its_ragdolls_bodies` | `mmd_vmd_npc_ragdoll_collision` (on by default): a dance gives the NPC one shadow collider per ragdoll body (18), left out of the hair and clothing physics and deleted with the NPC, moved to its bone every tick, the box out of physical contact (debris, hull collisions off); the stop gives the box back; off, a model without a ragdoll or a removed dancer: nothing left; a model with hair bodies keeps only its main ones |
+| `test_a_selection_gets_the_built_flags_alone` | The built flags of the selected actor's model from one listing of the built folder, paced to one answer per quarter second with the latest options; none without a selected actor |
+| `test_the_details_walk_tests_no_files_per_motion` | The user's report of 2026-11-14: the details walk takes each motion's metadata from the index once (`CachedMotionMetadata`, no `HasMotionMetadataCached`) and lists the built folder once, with no file test per motion |
 
 LuaJIT is optional: without it (CI) the tests are skipped. Writes nothing. Exit code 0 on success.

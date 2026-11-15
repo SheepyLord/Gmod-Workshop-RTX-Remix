@@ -6,6 +6,32 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The Advanced MMD Animation Player: no hitch on each click, three new options (the user's report of 2026-11-14)
+
+- **Selecting and assigning in the Advanced MMD Animation Player no longer stalls the game.** Every selection,
+  assignment, finished build or cleared selection made the add-on fetch the details of every motion again: the
+  server re-read each motion file's date and size (about 2,000 file checks for 255 motions, in one frame), sent all
+  of them back, and the tool's motion list (thousands of panels) and the Motion Manager were rebuilt, twice per
+  click, half a second apart. With the user's motion library in the test install a click stalled the game for
+  110 to 185 ms twice at 1600x900, and 170 to 390 ms at 4K with the Motion importer tab open; now a click takes no
+  frame longer than the frames around it (under 35 ms at 1600x900). A click asks only which motions are built for
+  the selected character (one look at the built folder), the lists keep their rows and only update the Built column,
+  and the details are fetched again only when the motion list itself changes
+  ([ADR 0224](docs/decisions/0224-the-animation-player-answers-a-click-with-its-built-flags.md)).
+- **Keep expressions the motion does not animate** (the tool's Build & Playback tab, off by default): a dance then
+  sets only the flexes its motion animates and gives them back their earlier values when it stops; selecting a
+  character and the debug window leave its other flexes as they are. Off, a dance starts from a neutral face, as
+  before.
+- **Dancing NPCs collide with their ragdoll's body** (Build & Playback tab, on by default): while an NPC dances, the
+  main bodies of its ragdoll (an imported character's 18) follow the dance, and players, NPCs and props collide with
+  them instead of the NPC's box. The dance itself and the MMD hair and clothing physics stay as they are (the Model
+  Hotloader leaves these bodies out of what hair and clothing collide with).
+- **The debug window has a timeline**: a slider across the window, above its buttons, from the motion's first frame
+  to its last; drag it to preview any frame on the selected character. The bone and flex lists follow when you let
+  go.
+- The motion list is printed to the console only for `mmdvmd_list` and the Refresh motion list button, not at
+  every refresh.
+
 ### Issue forms on GitHub (the user's request of 2026-11-14)
 
 - **Reporting a problem on GitHub now asks for what it takes to fix it.** A new issue opens a bug report form: what

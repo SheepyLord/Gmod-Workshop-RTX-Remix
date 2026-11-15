@@ -88,8 +88,24 @@ file = { Read = function() return nil end, Exists = function() return false end,
 util = { JSONToTable = function() return nil end, TableToJSON = function() return "{}" end,
     SHA1 = function() return "" end, CRC = function(s) return tostring(#tostring(s)) end }
 local sent = {}
-net = setmetatable({ Start = function(name) sent[#sent + 1] = name end, SendToServer = noop, Receive = noop },
-    { __index = function() return noop end })
+-- What the add-on receives: its handlers, and the values a message carries, read in order.
+local receivers, reads = {}, {}
+net = setmetatable({ Start = function(name) sent[#sent + 1] = name end, SendToServer = noop,
+    Receive = function(name, fn) receivers[name] = fn end },
+    { __index = function(_, key)
+        if type(key) == "string" and key:sub(1, 4) == "Read" then return function() return table.remove(reads, 1) end end
+        return noop
+    end })
+local function receive(name, ...)
+    reads = { ... }
+    assert(receivers[name], "no handler for " .. name)(#reads)
+    reads = {}
+end
+local function sent_count(name)
+    local n = 0
+    for _, s in ipairs(sent) do if s == name then n = n + 1 end end
+    return n
+end
 surface = { CreateFont = noop, SetFont = noop, SetDrawColor = noop, DrawRect = noop, PlaySound = noop,
     GetTextSize = function(text) return #tostring(text or "") * 7, 14 end }
 draw = { RoundedBox = noop, SimpleText = noop }
@@ -243,9 +259,14 @@ function Panel:Clear()
     end
 end
 function Panel:GetLines() return self.lines end
+function Panel:GetColumnText(i) local cell = self.Columns and self.Columns[i] return cell and cell.text or "" end
+function Panel:SetColumnText(i, text) local cell = self.Columns and self.Columns[i] if cell then cell.text = tostring(text) end end
+function Panel:IsLineSelected() return rawget(self, "selected") == true end
 function Panel:GetSelected() return {} end
 function Panel:GetSelectedLine() return nil end
 function Panel:SelectItem(line)
+    for _, other in ipairs(rawget(self, "lines") or {}) do other.selected = false end
+    if line then line.selected = true end
     self.selectedLine = line
     if rawget(self, "OnRowSelected") then self:OnRowSelected(1, line) end
 end
@@ -371,6 +392,30 @@ local function spawnmenu_window()
     local closed = 0
     g_SpawnMenu = setmetatable({ Close = function() closed = closed + 1 end }, Meta)
     return function() return closed end
+end
+
+-- The motion details as the server streams them (one chunk): {id, built} per motion.
+local function details(entries)
+    local args = { true, true, #entries }
+    for _, entry in ipairs(entries) do
+        for _, value in ipairs({ entry[1], entry[1], 30, 0, 29, 30, 1.0, 10, 2, 1700000000, "src.vmd", "", "", false,
+            entry[2] == true, false, false, "", "", "", "", "", "" }) do
+            args[#args + 1] = value
+        end
+    end
+    receive("mmdvmd_motion_details_response", unpack(args))
+end
+
+-- One-shot timers by name (the coalesced list refresh, the timeline's request), run by flush_named.
+local named = {}
+local function named_timers()
+    timer.Create = function(name, _, reps, fn) if reps == 1 then named[name] = fn end end
+    timer.Exists = function(name) return named[name] ~= nil end
+end
+local function flush_named()
+    local due = named
+    named = {}
+    for _, fn in pairs(due) do fn() end
 end
 
 if scenario == "late" then
@@ -649,6 +694,123 @@ elseif scenario == "translations" then
     local tab = spawnmenu.GetCreationTabs()["#nativeloader.motion_importer"]
     assert(tab.Tooltip:find("translated:", 1, true), "tooltip")
     callbacks["gmod_language/nativeloader_motion_tab"]()
+elseif scenario == "quiet" then
+    -- The user's report of 2026-11-14: a selection, an assignment or a build asks for the built flags
+    -- alone (it asked for every motion's details, twice a click), and the Motion Manager updates its
+    -- Built cells instead of rebuilding its rows.
+    load_addon(true)
+    receive("mmdvmd_list_response", 3, "a", "b", "c")
+    details({ { "a" }, { "b" }, { "c" } })
+    commands.mmdvmd_menu()
+    flush_timers()
+    local list = created_of("DListView")[1]
+    equal(#list:GetLines(), 3, "manager rows")
+    local builtColumn
+    for i, column in ipairs(list.Columns) do
+        if column.text == MMDVMDNPC.L("mmd_vmd_npc.manager.column_built") then builtColumn = i end
+    end
+    assert(builtColumn, "the Built column")
+    local rowB
+    for _, line in ipairs(list:GetLines()) do if line.MotionID == "b" then rowB = line end end
+    equal(rowB:GetColumnText(builtColumn), MMDVMDNPC.L("mmd_vmd_npc.ui.missing"), "b not built yet")
+    local detailsBefore, flagsBefore = sent_count("mmdvmd_motion_details_request"), sent_count("mmdvmd_built_flags_request")
+    local npc = { valid = true }
+    receive("mmdvmd_target_status", true, npc, "models/a.mdl", "NPC", "selected NPC")
+    receive("mmdvmd_assignment_status", 1, npc, 1, true, "b", "models/a.mdl", "missing")
+    receive("mmdvmd_build_done", true, "mmd_vmd_npc/built/b.json", "built", 0)
+    flush_timers()
+    equal(sent_count("mmdvmd_motion_details_request"), detailsBefore, "a selection, an assignment or a build asked for the details")
+    equal(sent_count("mmdvmd_built_flags_request"), flagsBefore + 2, "the selection and the build did not ask for the built flags")
+    receive("mmdvmd_built_flags", "models/a.mdl", false, 1, "b")
+    flush_timers()
+    equal(MMDVMDNPC.MotionDetails.b.built, true, "the built flag was not set")
+    equal(list:GetLines()[1].valid, nil, "the manager rebuilt its rows for a built flag")
+    equal(rowB:GetColumnText(builtColumn), MMDVMDNPC.L("mmd_vmd_npc.ui.built"), "the Built cell did not change")
+    -- The same flags again change nothing; too many flags for one message ask for the details.
+    receive("mmdvmd_built_flags", "models/a.mdl", false, 1, "b")
+    equal(sent_count("mmdvmd_motion_details_request"), detailsBefore, "unchanged flags asked for the details")
+    receive("mmdvmd_built_flags", "models/a.mdl", true, 0)
+    equal(sent_count("mmdvmd_motion_details_request"), detailsBefore + 1, "a cut-off flag list did not ask for the details")
+    -- An unchanged list asks for nothing; a changed one asks for the details.
+    receive("mmdvmd_list_response", 3, "a", "b", "c")
+    equal(sent_count("mmdvmd_motion_details_request"), detailsBefore + 1, "an unchanged list asked for the details")
+    receive("mmdvmd_list_response", 4, "a", "b", "c", "d")
+    equal(sent_count("mmdvmd_motion_details_request"), detailsBefore + 2, "a changed list did not ask for the details")
+elseif scenario == "tool_list" then
+    -- The tool's motion list is rebuilt only when what it shows changes.
+    load_addon(true)
+    named_timers()
+    Panel.ComboBox = function(self) return new_panel("DComboBox", self) end
+    input = { LookupBinding = function() return nil end, GetKeyCode = function() return 0 end, GetKeyName = function() return "" end,
+        IsKeyTrapping = function() return false end, IsKeyDown = function() return false end }
+    TOOL = {}
+    dofile(addonDir .. "/../weapons/gmod_tool/stools/mmd_vmd_npc.lua")
+    local cp = new_panel("ControlPanel")
+    TOOL.BuildCPanel(cp)
+    flush_named()
+    local list
+    for _, p in ipairs(created_of("DListView")) do if #p.Columns == 4 then list = p end end
+    assert(list, "the tool's motion list")
+    details({ { "a" }, { "b" }, { "c" } })
+    flush_named()
+    equal(#list:GetLines(), 3, "tool rows")
+    local first = list:GetLines()[1]
+    receive("mmdvmd_built_flags", "models/a.mdl", false, 1, "b")
+    flush_named()
+    details({ { "a" }, { "b", true }, { "c" } })
+    flush_named()
+    equal(list:GetLines()[1], first, "the list was rebuilt with nothing new to show")
+    assert(first.valid ~= false, "a row was removed")
+    details({ { "a" }, { "b", true }, { "c" }, { "d" } })
+    flush_named()
+    equal(#list:GetLines(), 4, "a new motion was not listed")
+    -- The two new settings and their switches in the Build & Playback tab.
+    equal(TOOL.ClientConVar.keep_flexes, "0", "keep expressions is off by default")
+    equal(TOOL.ClientConVar.ragdoll_collision, "1", "ragdoll collision is on by default")
+elseif scenario == "timeline" then
+    -- The debug window's timeline (the user's request of 2026-11-14).
+    load_addon(true)
+    named_timers()
+    -- Only sliders and check boxes have a Label child (the window styles every label it has).
+    Panel.Label = false
+    MMDVMDNPC.OpenDebugMenu("m", -1)
+    local frame = MMDVMDNPC.DebugFrame
+    assert(IsValid(frame) and IsValid(frame.Timeline), "the timeline")
+    local strips = flow(frame, BOTTOM)
+    equal(strips[#strips], frame.Timeline:GetParent(), "the timeline is the strip above the buttons")
+    equal(frame.Timeline.dock, FILL, "the timeline fills its strip")
+    frame.Timeline:PerformLayout(1000, 30)
+    equal(frame.Timeline.Label.wide, 110, "a short label and a long bar")
+    local function frame_payload(active, rows)
+        local args = { true, "m", "", 0, 120, active, active - 1, active + 1, 30, 4.0, 0, 0, "Reference", "reference", "", rows }
+        for i = 1, rows do
+            for _, value in ipairs({ "bone" .. i, "src" .. i, "role", 0, 0, 0, 0, 0, 0, 0, 0, 0, true }) do args[#args + 1] = value end
+        end
+        args[#args + 1] = 0
+        return unpack(args)
+    end
+    receive("mmdvmd_debug_response", frame_payload(10, 2))
+    equal(#frame.Rows:GetLines(), 2, "the rows of the frame shown")
+    local requests = sent_count("mmdvmd_debug_request")
+    -- A drag: the knob held over many positions sends one request a burst, with the latest position.
+    frame.Timeline.IsEditing = function() return true end
+    for value = 20, 60, 5 do frame.Timeline:SetValue(value) end
+    flush_named()
+    equal(sent_count("mmdvmd_debug_request"), requests + 1, "a burst of positions sent more than one request")
+    equal(frame.RequestedFrame, 60, "the latest position was not asked for")
+    -- An answer while it is held: the frame and summary follow, the lists wait.
+    receive("mmdvmd_debug_response", frame_payload(60, 3))
+    equal(frame.ActiveFrame, 60, "the frame shown")
+    equal(#frame.Rows:GetLines(), 2, "the lists were rebuilt while the knob was held")
+    frame.Timeline.IsEditing = nil
+    frame:Think()
+    equal(#frame.Rows:GetLines(), 3, "the lists did not catch up when the knob was let go")
+    -- The window's own buttons move the knob to the frame shown without asking again.
+    requests = sent_count("mmdvmd_debug_request")
+    receive("mmdvmd_debug_response", frame_payload(90, 1))
+    flush_named()
+    equal(sent_count("mmdvmd_debug_request"), requests, "moving the knob to the shown frame asked again")
+    equal(frame.Timeline:GetValue(), 90, "the knob did not follow the frame shown")
 else
     error("unknown scenario " .. tostring(scenario))
 end

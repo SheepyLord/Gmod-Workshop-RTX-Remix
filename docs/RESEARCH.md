@@ -8857,3 +8857,51 @@ Read in the runtime fork at `20e3553e` (0093), measured in the PoC (`out/worktre
 - **What the owner had to ask for in issues 1-8**: the session logs (issue 2, whose reply promised a template), a
   screenshot of the game folder, the antivirus log and the x86-64 branch (4), other HUD add-ons (5), screenshots,
   videos and a clearer description (7), a screenshot and the main menu's system information (8).
+
+## The Advanced MMD Animation Player's clicks (2026-11-15, Claude, ADR 0224)
+
+Measured in the PoC with [mmd_player_session.py](../tools/qa/mmd_player_session.py.md): a copy of the field's
+`data\mmd_vmd_npc` (149 imported motions and one bundled, 1.2 GB; 243 built files, 2.3 GB; its `_meta_index.dat`
+complete and current), the user's Workshop subscriptions mounted (106 more motions in add-ons: 255), RTX on, two of
+the PoC library's imported characters ("Linlong") as `npc_citizen` (58 bones, 687 sequences, 37 flexes; 笑い is
+controller 6, まばたき 0).
+
+- **What a click did** (code before the change): the client's handlers of `mmdvmd_target_status`,
+  `mmdvmd_assignment_status`, `mmdvmd_build_done` and `mmdvmd_clear_built_done` (`cl_menu.lua` 4915-4971, 5027,
+  5193) each called `request_motion_details()`. A selection or assignment sends a target status and an assignment
+  status; the server ran the first request at once and deferred the second to the end of
+  `MOTION_DETAILS_MIN_INTERVAL` (0.5 s). Each walk (`send_motion_details`, `sv_commands.lua` 1193-1239) called
+  `HasMotionMetadataCached` and `MotionMetadata` per motion, each through `motion_file_info` (a file test in DATA,
+  then in GAME, and the time) plus `file.Size`, and a `file.Exists` per motion for the target's built flag: 978
+  `file.Exists`, 510 `file.Size` and 510 `file.Time` per walk for 255 motions, 62-104 ms in one tick. The client
+  then rebuilt the tool's motion list (255 rows, 3,570 `vgui.Create`, 28-277 ms) and the Motion Manager.
+- **Stalls per click before** (the longest frame of the action's window): 113-185 ms at 1600x900 (two frames over
+  100 ms each time, 0.5 s apart); 167-388 ms at 3840x2160 with the Motion importer tab built. After: 29-34 ms at
+  1600x900 with no frame over 100 ms; at 3840x2160 84-117 ms, the same as frames with nothing clicked (the idle
+  window had frames up to 108 ms) and none of them the add-on's.
+- **What the rest of a frame costs at 4K in the PoC** (for the record; not this add-on's): the median frame was
+  20-25 ms with RTX; the Dynamic Toolgun Screen's `HUDPaint` 1.0-1.5 ms a frame while the tool gun is out, the
+  companion's `nativeloader_model_layers` Think 0.6-0.9 ms and `_nativeloader_effect_categories` about 0.3 ms;
+  GUI Scaler's `vgui.GetAll()` 6-9 ms each time it counts panels.
+- **GUI Scaler** (Workshop 3495129511, `lua/autorun/client/cl_guiscaler.lua`): in `PostRenderVGUI` it counts
+  `#vgui.GetAll()` every 0.1 s after a recent change (backing off to 1, 3 and 5 s), and when the count grew it runs
+  `GUIScaler_Update` 0.05 s later, which walks the whole `SpawnMenu` panel tree (`GUIScaler_RecursiveProcess`, capped
+  by `maxRecurse`). Every rebuild of a list in the spawn menu grows the count.
+- **Engine bone followers make none for a character.** On the imported character's NPC (carrier
+  `models/mmd/<key>/linlong.mdl`, 18 ragdoll bodies) `Entity:CreateBoneFollowers()` returned without an error and
+  created no `phys_bone_follower`; `GetBoneFollowers()` returned nil. `server.dll` has the four functions; Source's
+  `prop_dynamic` takes its followers from the model's `bone_followers` key values, which character models lack.
+- **A collider without a model** (`PhysicsInitMultiConvex` on a scripted entity) is not hit by traces until it has
+  collision bounds (`SetCollisionBounds`) and `EnableCustomCollisions(true)`: players walked through it and line
+  traces missed it, although the physics scene had its 18 objects (`sceneDiagnostics.sourceObjects` 51 to 69). With
+  both, traces through the held-out hands hit the hands' colliders, a player hull hit the head's, a gravity-less pop
+  can put at the hand moved 78 units in 0.6 s (0.04 with the option off), the colliders stayed within 0.23 units of
+  their bones, and the pose at frame 45.75 was the same with the option on and off (largest bone difference 0).
+- **The Model Hotloader's scene capture with the colliders**: `excludedLivingObjects` 18 (0 without them), its
+  `objects` 3 against 4 without (the dancer's own box no longer collides).
+- **GMod copies a panel class's methods into each panel**: assigning `nil` to `panel.IsEditing` on a `DNumSlider`
+  removed the method (a Lua error each frame), so a test that replaces a method must put the original back.
+  `DNumSlider:IsEditing()` (`lua/vgui/dnumslider.lua:183`) is true while its scratch, text entry or slider is in use.
+- **`engine_no_focus_sleep` is not a command** in this build ("Unknown command" in the console).
+- **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
+  built files of one model and option set; the tail is fixed, so the motion id is the name without it.

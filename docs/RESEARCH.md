@@ -8673,6 +8673,30 @@ map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-m
   has 3 brush entities. Not the pack's doing; not checked without RTX.
 - **A GPU device loss** (`VK_ERROR_DEVICE_LOST` at a fence, frame 1783) ended one Abandoned Mall start at its
   first view, with 6.6 of 32 GB of VRAM in use and no dump; the same view drew in three other starts.
+- **BigCity RTX's PBR is PBRify's raw output** (2026-11-14, `out\pbr-maps\bigcity_*.py` in the worktree
+  `gmod-pbr-maps-packaging-b6de9c`; [ADR 0221](decisions/0221-bigcity-rtx-roughness-by-material-and-grain-restored.md)):
+  - Measured on 48 of its 356 materials at 256 px, the roughness maps correlate 0.986-0.999 (median 0.995) with
+    PBRify RoughnessV2 run on the mod's albedo, with the same means. They correlate 0.84-0.98 with the albedo's
+    brightness.
+  - Per-material means are 0.45-0.63 (median 0.56): brick 0.42-0.57, concrete 0.52-0.69, building templates
+    0.41-0.72.
+  - The normals look like a fresh NormalV3 run. The albedo keeps the game textures' brightness (median ratio 0.99)
+    and, box-downsampled, correlates with them at 0.955-0.997 (10th-90th percentile).
+  - The albedo kept a median 0.90 of the source's high-pass energy (luminance minus a 2 px blur, at the source's
+    size). Ground textures kept less: cobbles 0.53, concrete 0.69, pavement 0.47, a tar-paper roof 0.36.
+  - 353 of the 356 hashes name a game texture: 279 HL2 (`hl2_textures_dir.vpk`), 65 in the map's .bin, the rest
+    GMod's and CS:S's VPKs.
+  - 48 HL2 textures carry `$basealphaenvmapmask`, an alpha that is 0 on the panes of the painted windows. The map's
+    own `*Z.vmt` copies of the building templates have no envmap.
+- **What the revision did in the field** (five views; the old build, the new one and Remix's replacements off,
+  each in one session):
+  - The cobbles near the camera had a local contrast (std of luminance minus an 8x box-blurred copy) of 0.018
+    (old), 0.018 (roughness only), 0.030 (with the grain back) and 0.029 (stock); their brightness was unchanged
+    (0.559-0.567).
+  - The old build's sidewalk glare by a sunlit wall (view 04) is gone with the new roughness.
+  - Whole-view brightness and saturation stayed within the run-to-run spread of the stock shots (up to 0.023
+    mean absolute difference between two stock runs), so whole-view numbers cannot show the change: measure
+    regions.
 
 ## Source eyes under RTX (2026-11-14, Claude, ADR 0220)
 

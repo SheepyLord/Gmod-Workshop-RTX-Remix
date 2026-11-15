@@ -290,6 +290,13 @@ Versions follow the loader's CMake project version once it ships; until then eve
   none and world materials at most 0.008, in all eight of its packs (Pool Day RTX's archive rebuilt too).
 - **Pool Day RTX's hidden item 3838671223 updated** with that tuned archive at the user's request (2026-11-14,
   `gmpublish update`): its floors draw flat under RTX for whoever has the item.
+- **BigCity RTX no longer looks like plastic** (the user's item 3839835474, updated 2026-11-14,
+  [ADR 0221](docs/decisions/0221-bigcity-rtx-roughness-by-material-and-grain-restored.md)). The mod's PBRFusion
+  roughness was PBRify's raw output, near 0.5 on everything. It is now set by material: brick and plaster
+  0.74-0.95, concrete 0.68-0.94, cobbles 0.60-0.90. The painted windows of 35 facades are glossy glass, and the
+  game textures' grain is back on the 92 albedos whose upscale had smoothed it. New in the
+  workshop-content-pack skill: `retune_roughness.py` with its tests, step 5 of "Another author's map mod",
+  pitfall 34.
 - **workshop-content-pack skill:** "Another author's map mod (ModDB)"; `rekey_mod_hashes.py` (XXH3 to XXH64, and
   which hash a mod uses), `vtf_hash.py` (both hashes of every VTF in map items, legacy .bin, BSP pakfiles and VPKs),
   `fit_mod.py` (any mod under one item's budget, by role and upscale factor); tests; pitfalls 29-31.

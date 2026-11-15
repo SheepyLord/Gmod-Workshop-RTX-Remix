@@ -144,6 +144,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0218](0218-the-runtime-follows-upstream-dxvk-remix-main.md) | The runtime follows upstream dxvk-remix `main`, one patch per update (0093: `remix-1.6.1..2b46bed0c`): RTXDI on upstream's commit with the fork's volumetrics, Remix API 0.1000.2 with upstream's additions after the fork's, the fork's GPU bits kept and upstream's moved, `usdg.dll` shipped | Accepted 2026-11-14 |
 | [0219](0219-the-pbr-note-one-line-three-buttons-ten-seconds.md) | The PBR note: "Obtaining more PBR resources", one line, Open the collection through `gui.OpenURL`, Hide and Don't show again; it hides itself after ten seconds on screen (supersedes 0217's card, text and way of opening the collection) | Accepted 2026-11-14 (the user) |
 | [0220](0220-source-eyes-show-their-irises.md) | Source eyes show their irises: Remix's eye shading on in the package's defaults, and the fixes' thirteenth patch keeps the eye's TexGen to its draw (GitHub issue 1) | Accepted 2026-11-14 (the user) |
+| [0221](0221-bigcity-rtx-roughness-by-material-and-grain-restored.md) | BigCity RTX's roughness set by material and the grain its upscale lost put back: the mod's PBRFusion roughness was PBRify's raw output, near 0.5 on everything ("it makes everything looks plastic"); glossy glass on painted window panes; `retune_roughness.py --restore-grain` in the workshop-content-pack skill | Accepted 2026-11-14 (the user) |
 
 ## Template
 

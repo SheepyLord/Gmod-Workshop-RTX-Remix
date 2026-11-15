@@ -522,7 +522,7 @@ Safehouse's table lamps are a marble bust. Evidence: the worktree's `out\pbr-map
 
 The same route for a Remix map mod someone else made (ModDB's "RTX Remix" mods for GMod), once the user
 has the author's permission to release it on the Workshop (theirs to get; record it in the description).
-Three things differ from the user's own classic mods.
+Five things differ from the user's own classic mods.
 
 1. **Get the files and match each folder to its map.** The user's old downloads may sit in
    `E:\RTX_remix_mods\*` and `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods` under folder names that say
@@ -550,6 +550,14 @@ Three things differ from the user's own classic mods.
    along their UV seams. `tune_displacement.py` sets models and decals to 0 and caps world materials at
    0.008 (the remasters' range); the user pointed at Abandoned Mall's ground on 2026-11-13. Look at the
    ground at a grazing angle in the field shots of every map, not only at whether the textures changed.
+5. **Check its roughness.** A mod made with PBRFusion ships PBRify's raw roughness, which follows the albedo's
+   brightness and sits near 0.5 on brick, concrete and plaster. The path tracer draws that as a plastic
+   sheen: the user rejected BigCity RTX for it on 2026-11-14 (pitfall 34). If the mean roughness of the
+   mod's masonry maps is below about 0.7, run `retune_roughness.py --restore-grain`. It remaps each
+   material's roughness into its class's range and makes facades' window panes glossy. It also puts back
+   the game textures' grain where the upscale smoothed it: BigCity's cobbles had kept half of it, and
+   smooth stone reads as plastic too. Compare a sunlit facade and the ground near the camera with Remix's
+   replacements off in the field shots, and measure the ground's local contrast.
 
 Then `port_classic_mods.py --blank-missing --drop-unreferenced` (HamzaPOPO's pack names roughness and
 `metallness` maps for nearly every material and ships none: Remix drew the material's constants, and an
@@ -570,7 +578,7 @@ folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 | `valley-view-mall-rtx` | 3624445216 gm_vvmall | ValleyViewMallRTX (skurtyyskirts) | re-keyed 418/420 | 3,848,099,905 bytes, fitted from 8.38 GB, `86cedf98...` |
 | `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | 3,849,898,264, from 8.69 GB, `157c65eb...` |
 | `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | 3,848,492,875, from 7.95 GB, `54030f28...` |
-| `bigcity-rtx` | 105982362 gm_bigcity | BigCityRTX (skurtyyskirts) | XXH64 | 3,848,266,155, from 3.99 GB, `97dfbbae...` |
+| `bigcity-rtx` | 105982362 gm_bigcity | BigCityRTX (skurtyyskirts) | XXH64 | 3,848,266,155, from 3.99 GB, `97dfbbae...`; the user uploaded it as item 3839835474, then rejected its plastic look. Since 2026-11-14 the item holds the `retune_roughness.py --restore-grain` build: 3,848,266,837 bytes, `a39206e5...` (pitfall 34). The update before it, `38aad5cd...`, had blotchy gloss on `building_template006b`'s panels |
 | `jupiter-underground-rtx` | 2381557019 | Jupiter (HamzaPOPO) | XXH64 | 3,037,424,854, `8513b8da...` |
 | `abandoned-mall-rtx` | 2878375438 | Abandoned | XXH64 | 1,605,512,947, `5e2768f6...` |
 | `alley-triste-rtx` | 3289201411 | Alley | XXH64 | 1,365,745,403, `7c99fe9f...` |
@@ -598,6 +606,8 @@ folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 | `scripts/rekey_mod_hashes.py` | another author's mod | renames a mod's XXH3-keyed materials to the XXH64 keys the RTX package's runtime uses; its dry run says which hash a mod uses and how many materials a map explains |
 | `scripts/vtf_hash.py` | module | both Remix hashes of every VTF in a map item, legacy .bin, BSP pakfile, VPK or folder, with a cache |
 | `scripts/tune_displacement.py` | another author's mod | no parallax on model and decal textures, world depth capped at 0.008 |
+| `scripts/retune_roughness.py` | another author's mod | roughness remapped into each material class's range (the texture's path picks the class), normal gains, glossy window panes on facades; a new hard-linked mod folder, NVTT-encoded maps |
+| `scripts/test_retune_roughness.py` | tests | `python -I -m unittest discover -p "test_retune_roughness.py"` in `scripts\`: classes, the remap, window masks, octahedral normals, dry run, refusals, a run (with NVTT) |
 | `scripts/fit_mod.py` | any mod over 3.85 GB | fits any mod folder under a budget by leaving out top mips (no re-encoding), ordered by role and by upscale factor |
 | `scripts/test_rekey_fit.py` | tests | `python -I -m unittest discover -p "test_rekey_fit.py"` in `scripts\` (needs `xxhash`) |
 | `scripts/test_port_classic_mods.py` | tests | `python -I -m unittest discover -p "test_port_classic_mods.py"` in `scripts\`: the reference reader, the LZ4 and crate decoder, the port's order, overlaps, blanks and refusals |

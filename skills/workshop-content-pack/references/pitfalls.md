@@ -349,6 +349,24 @@ them, so on the field ToPBR's and Imported game PBR's materials were empty. GitH
 fixed module publishes past unreadable files. A pack still wins over ToPBR (runtime patch 0020). Ship binary
 layers as they are; nothing to convert.
 
+### 34. Walls and streets look like plastic (2026-11-14)
+
+- **Symptom.** BigCity RTX (item 3839835474): brick, concrete, plaster facades and cobbles had a pale,
+  sky-blue sheen and looked washed out next to Remix's replacements off. The user rejected it: "it makes
+  everything looks plastic".
+- **Cause.** The mod was made with PBRFusion, which ships PBRify's raw roughness. It correlates 0.995 with
+  RoughnessV2 run on the mod's albedo, and 0.84-0.98 with the albedo's brightness. Every material sat near
+  0.5: brick at 0.42-0.57, where the remasters use 0.68-0.95. The normals are PBRify's too, and fine. The
+  albedo kept its colour (brightness 0.99 of the game texture's), but its upscale smoothed the ground
+  textures' grain: cobbles kept 0.53 of the source's fine detail and pavement 0.47. In the field the
+  cobbles' local contrast was 0.018 against stock's 0.029, which looks smooth and pale even after the
+  roughness fix.
+- **Fix.** `retune_roughness.py --restore-grain`: roughness by material class, glossy panes on facades
+  with a window mask, and the source's grain back-projected onto the 92 albedos that had lost it. The
+  cobbles' contrast went to 0.030. Before shipping any third-party mod, look at the mean roughness of its
+  brick, concrete and plaster maps (above 0.7 is right), and at a sunlit facade and the near ground in
+  the field shots, next to Remix's replacements off.
+
 ## Diagnosing
 
 | Question | Where to look |

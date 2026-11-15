@@ -130,6 +130,15 @@ closed from 30 to 90):
   [mmd_player_server.lua](../../tools/qa/mmd_player_server.lua.md).
 - Docs: ADR 0224 and its row, CHANGELOG, ROADMAP, RESEARCH, TESTING, this report and its line in the handover index.
 
+## Published
+
+`tools\test.ps1 -Config Release` passed on the branch (35 native tests; 1,996, 29 and 26 Python tests; "All checks
+passed"). `origin/main` had not moved from `6cf6e92a`, so `main` was pushed to `d651d7e7` with nothing to rebase. The
+push's hook uploaded item 3829070317 as **0.0.0-dev.20261115072909+2bbbece3** (2,148,169,590 bytes, SHA-256
+`0898a47764fca1d68bbc141d851af622129742330dde220a0ff906a507979fec`, content digest `0976b401...`; Steam sent 6.0 MB of
+changed content) at 2026-11-15 07:29 UTC, with one change note of 2,983 characters: this round's entry and the issue
+forms' entry, the changelog since the last upload (ADR 0222).
+
 ## Notes and open questions
 
 1. The colliders are never sent to clients, so a player walking into a dancing NPC is corrected by the server rather

@@ -3434,9 +3434,9 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
   the chooser's `config.yml` against the rules GitHub's documentation states for issue forms (skipped without
   PyYAML), and what the bug report names against the code that makes it: the main menu's diagnostics panel and button,
   `loader.log`, the session evidence folders, Remix's log, `nativeloader_lag_report` and its files, the start-up stall
-  report, the Workshop item and the repository's address. Six deliberate breakages of the form (a duplicate id, a
+  report, the Workshop item and the repository's address. Seven deliberate breakages of the form (a duplicate id, a
   `None` option beside a default, a renamed lag report file, broken YAML, an unknown attribute, Markdown in a
-  checkbox label) each failed it.
+  checkbox label, a renamed sessions folder) each failed it.
 - On GitHub: after the push to `main`, each form's file page (`/blob/main/.github/ISSUE_TEMPLATE/<form>.yml`, no
   sign-in needed) shows the form's preview with its name, labels and every field, and no error; `config.yml` shows
   none either. The chooser (`/issues/new/choose`) needs a signed-in account.

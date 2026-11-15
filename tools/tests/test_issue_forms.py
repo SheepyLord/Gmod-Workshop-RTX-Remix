@@ -156,7 +156,8 @@ class FormsTellTheTruth(unittest.TestCase):
         self.assertIn('kSessions = "native-loader/logs/sessions"', text('loader/core/include/nl/evidence.h'))
         self.assertIn('"rtx-remix/logs/remix-dxvk.log"', text('loader/core/src/evidence.cpp'))
         for path in (r'native-loader\logs\loader.log', r'native-loader\logs\sessions', r'rtx-remix\logs\remix-dxvk.log'):
-            self.assertIn(f'`{path}`', self.form)
+            # a code span that ends in the path: from the game folder, or from the Steam library as the owner wrote it
+            self.assertRegex(self.form, r'`(?:[^`\s]*\\)?' + re.escape(path) + '`')
 
     def test_the_lag_report(self):
         lua = text('companion/nativeloader/lua/autorun/nativeloader_lag_report.lua')

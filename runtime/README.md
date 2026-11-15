@@ -1,5 +1,23 @@
 # runtime/
 
+Patch `0098-The-About-tab-takes-the-secret-replacements-whole-no.patch` (the field's crash of 2026-11-15 soon after a
+start, and a PoC crash at a level change; fork branch `claude/secrets-race`, commit `173bdc84` on 0097's `678b28d1`):
+the asset replacer hands its secret replacements to the About tab whole.
+`AssetReplacer::updateSecretReplacements` (`rtx_asset_replacer.cpp:222`) cleared and refilled `m_secretReplacements`
+on DXVK's command thread whenever mods finished loading, changed or reloaded, while `ImGuiAbout::Secrets::update`
+walked it every frame on the thread that presents (the material system's render thread, or the main thread while a
+level loads), with a plain `bool` between them: both crashes read freed nodes at `dxvk_imgui_about.cpp:233`. The
+command thread now builds the map on its own, checks the selected variants against it and publishes it under a lock
+(`SecretHandoff`, `rtx_secret_handoff.h`, self-contained); the About tab takes a copy under the same lock
+(`getSecretReplacementInfo` returns by value; `dxvk_imgui_about.cpp` is unchanged, its `const auto&` binds the copy).
+A load without secret replacements leaves the tab's copy as it was, as before. `tests/rtx/unit/test_secret_handoff.cpp`
+(22 checks) is compiled from the patch by the Release gate ([test_secret_handoff.py](../tools/tests/test_secret_handoff.py.md)).
+Still unguarded upstream: `markVariantStatus` (a ticked secret) writes `m_variantInfos` on the present thread while
+`getReplacementsForMesh` reads it on the command thread. Exported alone (`format-patch -1 --start-number 98
+--zero-commit`) and built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0098): **`d3d9.dll`
+478,662,144 bytes, SHA-256 `7c7291b6852da7f77ca4fef2c8b3cb834f2491e0a29bbfd2968f3f22877e0122`** (70,706,696 bytes xz
+in Git LFS).
+
 Patch `0097-LockImage-a-read-back-resolves-only-a-multisampled-i.patch` (GitHub issue 12, fork branch
 `claude/lockimage-resolve`, commit `678b28d1` on 0096's `7db13a1b`): a read-back resolves only a multisampled
 image. `D3D9DeviceEx::LockImage` chose the image to read back with

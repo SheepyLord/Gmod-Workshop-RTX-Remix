@@ -8976,6 +8976,30 @@ controller 6, まばたき 0).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
 
+## The About tab's secrets race (2026-11-15, Claude, runtime patch 0098)
+
+- **The two threads.** `AssetReplacer::updateSecretReplacements` (`rtx_asset_replacer.cpp:222`) runs on DXVK's
+  command thread from `initialize` (the mods finished loading), `checkForChanges` (a mod's file changed),
+  `applyPendingRebuilds` and `refreshModsAndReloadStage`; it cleared and refilled `m_secretReplacements` and set the
+  plain `bool m_bSecretReplacementsUpdated` when a loaded mod declares secret replacements. `ImGuiAbout::update`
+  calls `Secrets::update` every frame, the menu open or not (`ImGUI::update`, `dxvk_imgui.cpp:851`, from
+  `ImGUI::render` in `D3D9SwapChainEx::PresentImage`), on the thread that presents: the material system's render
+  thread in queued mode, the main thread while a level loads (`AllowThreading(false)`). It walked that same map by
+  reference (`dxvk_imgui_about.cpp:233`).
+- **Seen twice, both in a start that had just deployed a new build of an RTX map pack** (so Remix loaded that mod
+  cold and finished while frames were presented): the field on 2026-11-15 00:06 local, a null read in
+  `Secrets::update` three seconds after Remix loaded its mods (runtime 0094); the PoC on 2026-11-15 12:33Z at a level
+  change (the main checkout's `out/crash-34b9dc/lc-pack2`, runtime 0096, the field's subscribed content packs and its
+  own local add-ons copied in, the Country Estate pack's two builds alternating): on the main thread, `Present` while
+  the next map loaded, reading address -1 with MSVC's FNV-1a string hash in its registers. Eight PoC starts that
+  deployed the pack without the field's other content did not crash.
+- **No PDB of the 0096 build was kept**; the 0097 build's names its code, which lies 0x80 lower from `LockImage`
+  on (the functions matched byte for byte at 96 to 100 %, `out/crash-34b9dc/same_code.py`).
+- **The fix** (`SecretHandoff`, `rtx_secret_handoff.h`): the command thread builds the map on its own, checks the
+  selected variants against it and publishes it under a mutex with an atomic flag; the About tab takes a copy under
+  the same mutex. **Left as it was (upstream):** `markVariantStatus` writes `m_variantInfos` from the About tab (a
+  ticked secret) while `getReplacementsForMesh` reads it on the command thread for every mesh.
+
 ## Radeon crash: every single-sample read-back resolved into itself (2026-11-15, Claude, runtime patch 0097, GitHub issue 12)
 
 - **The reporter's dump** (AMD Radeon RX 9060 XT, Vulkan driver 2.0.416, `amdvlk64.dll` 32.0.32015.16001,

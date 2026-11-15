@@ -3495,3 +3495,15 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package 
   window, `poster 2` and `poster 3` match `poster 1` (the same view at the window's size: a misplaced or swapped tile
   shows as one region far off, a wrong y direction as the rows exchanged), and the step across each overlap's middle
   is no larger than the steps beside it (no seam). Look at a magnified crop for the texture detail the poster gains.
+
+## The About tab's secrets race (runtime patch 0098)
+
+- [`tools/tests/test_secret_handoff.py`](../tools/tests/test_secret_handoff.py.md): patch 0098's handoff unit test
+  compiled from the patch with MSVC (22 checks: a published map taken once, a load without secrets, the newest
+  publish, a copy outliving the next publish, a command thread publishing while a present thread takes), and the
+  patch's wiring: the map built locally and published after the selected variants' check, the About tab's accessors
+  through the handoff, the old member and flag gone, meson lists the header and the test.
+- In the PoC ([report](handover/secrets-race-report.md)): a level change in starts that each deploy a new build of a
+  big RTX map pack, with the field's subscribed content and local add-ons (`tools/qa/level_change_session.py` on the
+  branch `crash-34b9dc`); the race needs a mod that declares secret replacements to finish loading while frames are
+  presented.

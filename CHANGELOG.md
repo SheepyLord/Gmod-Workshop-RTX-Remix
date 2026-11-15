@@ -6,6 +6,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A crash soon after a start or at a level change, after an update of RTX content (2026-11-15)
+
+- **The game no longer closes, rarely, a few seconds into a start or while changing level, right after the RTX
+  package or an RTX map or character pack was updated.** After such an update RTX Remix loads the changed mods again
+  in the background, and when it finished it rebuilt a list (the "Secrets" of the RTX Remix menu's About tab) while
+  the menu's code, which runs every frame even with the menu closed, read that same list, so the game could read it
+  half rebuilt and close. Remix now builds the list on its own and hands it to the menu whole (runtime patch 0098).
+  Seen once in the field and once in a test, each in a start that had just deployed a new build of a map pack.
+
 ### Radeon graphics cards: the crash at the main menu and in maps (GitHub issue 12)
 
 - **On Radeon cards the game no longer crashes ("0xC0000005") at the main menu after a minute or two, a few

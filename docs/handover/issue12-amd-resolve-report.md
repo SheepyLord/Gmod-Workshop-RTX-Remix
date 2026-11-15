@@ -53,6 +53,14 @@ multisampled image, as DXVK meant. Nothing else in the read-back changes.
   `out\issue12\sym0097`): the single-sample branch moves the image pointer (no AddRef) and the resolve's push sits
   behind a real `resourceImage != nullptr` test; in the reporter's 0094 build the branch AddRefs and the push is
   unconditional.
+- The PoC (RTX 5090, the branch's package `0.0.0-dev.20261115123138+bc26e174` with `remix.memory_profile` minimum,
+  `out\qa-poc\issue12`): `01-minimum`, gm_construct for 150 s, released 587 texture copies and quit normally, but
+  nothing locked a released texture again. `02-readback` called `ITexture:Download()` on 16 of the world's textures
+  after their release: no read-back either, since a file texture's `Download` makes a new D3D9 texture. `03-menu`
+  went back to the main menu after the map, the reporter's case: the slideshow's `SetDynamicImage` locked released
+  background textures six times in 150 s (six read-backs of 8,388,608 bytes each), the pictures were drawn, and the
+  game quit normally; the Remix log has no error beyond the shader-model lines every start has. This shows the
+  changed read-back working; it cannot show the crash gone, which needs a Radeon card.
 
 ## What is left
 

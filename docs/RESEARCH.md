@@ -9012,6 +9012,13 @@ controller 6, まばたき 0).
   (`LockImage+0x9d4`, `d3d9_device.cpp:4790`), and `if (resourceImage != nullptr)` compiles to a test that skips the
   resolve's push (`LockImage+0x9f6`, line 4802). In the 0094 build the same branch AddRefs into a temporary and the
   resolve's push (`LockImage+0xadc`) has no test before it.
+- **Reaching the read-back in a test** (PoC, `remix.memory_profile` minimum, `out\qa-poc\issue12`): the runtime
+  releases a copy after 10 idle seconds (`idle seconds: image 60, host copy 10`; 587-623 of gm_construct's textures by
+  pass 30). A map session alone relocked none in 150 s. `ITexture:Download()` from client Lua does not either: a file
+  texture's `Download` makes a new D3D9 texture. The main menu does: after `disconnect`, the slideshow's
+  `SetDynamicImage` read back a released 2048x1024 background (8,388,608 bytes) every 30 s, six in 150 s
+  (`[RTX Managed Textures]` `readbacks`). `IMaterial:SetDynamicImage` and `DynamicMaterial` exist only in
+  `menusystem.dll`.
 
 ## The Remix menu under frame generation (2026-11-15, Claude, runtime patch 0096)
 

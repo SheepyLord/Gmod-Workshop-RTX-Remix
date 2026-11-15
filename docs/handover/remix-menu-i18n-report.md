@@ -73,3 +73,10 @@ saved, so `user.conf` untouched). Evidence in `out\qa-poc\remix-menu-i18n`; both
 
 `tools\test.ps1 -Config Release` on the branch: "All checks passed" (C++ 35 of 35; Python 2,019 tests in `tools`, 1
 skipped, 29 in `gmapack`, 26 in `steam`); `check_repo.py` again after the PoC paragraphs: repo conventions OK.
+
+## Published
+
+`main` was fast-forwarded to `ecfe50f7` (the branch's one commit) and pushed. The merge's hook built the package from
+`packages/` and uploaded item 3829070317 as **0.0.0-dev.20261115223519+c15f69ce** (content digest `85c5fc20...`, the
+same content as the package checked in the PoC), its change note the changelog's entry; the push's hook found the
+inputs unchanged. Not yet seen in the field.

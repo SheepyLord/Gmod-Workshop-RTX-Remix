@@ -17,6 +17,7 @@ python -I -m unittest discover -v -p "test_port_classic_mods.py"
 | Test | Case |
 |---|---|
 | `test_text_references` | `@...@` and `@@@...@@@` found; `@@`, an `@` inside a string and a commented reference skipped |
+| `test_prim_spans` | prim paths and brace spans; braces in layer metadata, property metadata and a doc string skipped; a mesh's material after a material's block outside that material's span |
 | `test_blank_missing_only_files` | only the missing file reference becomes `@@`; a present file, a missing sub-layer and a shader name stay |
 | `test_lz4_literals_and_overlapping_match` | literal-only blocks (short and with length bytes), an overlapping match, two-chunk `TfFastCompression`, a match offset past the output refused |
 | `test_crate_tokens_and_references` | a crate's tokens; its references are the path-like tokens |

@@ -274,15 +274,13 @@ def materials(mod):
         path = os.path.join(mod, layer)
         with open(path, encoding="utf-8", errors="replace") as fh:
             text = fh.read()
-        heads = [(m.start(), m.group(1).upper()) for m in HEAD.finditer(text)]
+        # each input belongs to the material whose braces hold it (a mesh replacement's own material may
+        # follow a material's block: its inputs are not that material's)
+        spans = [(name[4:].upper(), start, end) for name, _path, start, end in usd_refs.prim_spans(text)
+                 if re.fullmatch(r"mat_[0-9A-Fa-f]{16}", name)]
         base = os.path.dirname(layer)
         for m in INPUT.finditer(text):
-            owner = None
-            for start, h in heads:
-                if start < m.start():
-                    owner = h
-                else:
-                    break
+            owner = next((h for h, start, end in spans if start < m.start() < end), None)
             if owner is None or not m.group(2):
                 continue
             rel = os.path.normpath(os.path.join(base, m.group(2)))

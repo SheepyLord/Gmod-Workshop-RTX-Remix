@@ -522,7 +522,7 @@ Safehouse's table lamps are a marble bust. Evidence: the worktree's `out\pbr-map
 
 The same route for a Remix map mod someone else made (ModDB's "RTX Remix" mods for GMod), once the user
 has the author's permission to release it on the Workshop (theirs to get; record it in the description).
-Five things differ from the user's own classic mods.
+Six things differ from the user's own classic mods.
 
 1. **Get the files and match each folder to its map.** The user's old downloads may sit in
    `E:\RTX_remix_mods\*` and `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods` under folder names that say
@@ -558,6 +558,27 @@ Five things differ from the user's own classic mods.
    the game textures' grain where the upscale smoothed it: BigCity's cobbles had kept half of it, and
    smooth stone reads as plastic too. Compare a sunlit facade and the ground near the camera with Remix's
    replacements off in the field shots, and measure the ground's local contrast.
+6. **Check its relief and what the fit cuts.** Measure the normals at the top mip, since any 256 px mip looks
+   flat. PBRify's 1x models run on 4x upscales give nearly flat relief (pitfall 35: Valley View Mall's
+   drywall 0.009, its floor tile 0.027 mean slope). `fit_mod.py` then cuts the most visible textures too,
+   because it orders by size, not by what shows. For such a mod, or when the user wants it to look better,
+   leave out steps 3 and 5 and run `repbr_map_mod.py` on the full-size re-keyed port:
+   - Write a rules file for the map's style (`rules/<map>.json`,
+     [rules/README.md](rules/README.md)).
+   - Read `--plan-only`.
+   - Look at `--preview` for the most important materials: the author's normal and the new one, both lit by
+     a grazing light.
+   - Then build.
+
+   It sizes every texture by where it shows (`map_usage.py`), so the main floors and walls keep 4096 within
+   3.85 GB, and rebuilds a surface the author gave the wrong scan from the game texture.
+   - Run it with rpai's Python, before the field check rather than beside it: the AI step and the game share
+     the GPU.
+   - Check that the layers stay byte-identical to the author's outside the `mat_` blocks.
+   - Field tours wait 15 s per view (`NL_TOUR_WAIT`): at 7 s a 4096 texture can still be streaming in and
+     look blurry.
+   - In the field, check the floors at a grazing angle, a near wall, the trees and every map region,
+     against the build before and Remix's replacements off.
 
 Then `port_classic_mods.py --blank-missing --drop-unreferenced` (HamzaPOPO's pack names roughness and
 `metallness` maps for nearly every material and ships none: Remix drew the material's constants, and an
@@ -575,9 +596,9 @@ folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 
 | Package | Map item | Mod (author) | Hash | Archive |
 |---|---|---|---|---|
-| `valley-view-mall-rtx` | 3624445216 gm_vvmall | ValleyViewMallRTX (skurtyyskirts) | re-keyed 418/420 | 3,848,099,905 bytes, fitted from 8.38 GB, `86cedf98...` |
-| `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | 3,849,898,264, from 8.69 GB, `157c65eb...` |
-| `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | 3,848,492,875, from 7.95 GB, `54030f28...` |
+| `valley-view-mall-rtx` | 3624445216 gm_vvmall | ValleyViewMallRTX (skurtyyskirts) | re-keyed 418/420 | made again by class 2026-11-15 (step 6, `rules/vvmall.json`): 3,849,358,511 bytes, `298bf1ee...`; the round-2 fit (3,848,099,905, `86cedf98...`) kept as `valley-view-mall-rtx.round2.gma` |
+| `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | made again by class 2026-11-15 (`rules/funkis.json`): 3,849,371,569, `0c6d15f0...`; round 2 3,849,898,264, `157c65eb...` |
+| `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | made again by class 2026-11-15 (`rules/estate.json`): 3,849,341,493, `8fe2116a...`; round 2 3,848,492,875, `54030f28...` |
 | `bigcity-rtx` | 105982362 gm_bigcity | BigCityRTX (skurtyyskirts) | XXH64 | 3,848,266,155, from 3.99 GB, `97dfbbae...`; the user uploaded it as item 3839835474, then rejected its plastic look. Since 2026-11-14 the item holds the `retune_roughness.py --restore-grain` build: 3,848,266,837 bytes, `a39206e5...` (pitfall 34). The update before it, `38aad5cd...`, had blotchy gloss on `building_template006b`'s panels |
 | `jupiter-underground-rtx` | 2381557019 | Jupiter (HamzaPOPO) | XXH64 | 3,037,424,854, `8513b8da...` |
 | `abandoned-mall-rtx` | 2878375438 | Abandoned | XXH64 | 1,605,512,947, `5e2768f6...` |
@@ -608,6 +629,11 @@ folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 | `scripts/tune_displacement.py` | another author's mod | no parallax on model and decal textures, world depth capped at 0.008 |
 | `scripts/retune_roughness.py` | another author's mod | roughness remapped into each material class's range (the texture's path picks the class), normal gains, glossy window panes on facades; a new hard-linked mod folder, NVTT-encoded maps |
 | `scripts/test_retune_roughness.py` | tests | `python -I -m unittest discover -p "test_retune_roughness.py"` in `scripts\`: classes, the remap, window masks, octahedral normals, dry run, refusals, a run (with NVTT) |
+| `scripts/repbr_map_mod.py` | another author's mod with AI-made maps | new normal, roughness and height maps per material class from a per-map rules file (`rules/<map>.json`), made at the game texture's scale; every texture sized by where it shows on the map, under one item's budget; the game texture upscaled 4x where the author's albedo is wrong for the surface; runs with rpai's Python |
+| `scripts/test_repbr_map_mod.py` | tests | `python -I -m unittest discover -p "test_repbr_map_mod.py"` in `scripts\`: the size plan, classes, layer edits, the composition, plan-only, refusals, a build (with NVTT; AI maps given) |
+| `scripts/map_usage.py` | module and command | where each texture of a map shows: world area by floor, wall and ceiling, and props (instances times model box), from the BSP, VMTs and MDLs |
+| `scripts/test_map_usage.py` | tests | `python -I -m unittest discover -p "test_map_usage.py"` in `scripts\`: a synthetic BSP, VMTs and a model |
+| `rules/<map>.json` | data | the material classes of a map's style and the rules that pick them ([rules/README.md](rules/README.md)): Valley View Mall, Funkis, Country Estate |
 | `scripts/fit_mod.py` | any mod over 3.85 GB | fits any mod folder under a budget by leaving out top mips (no re-encoding), ordered by role and by upscale factor |
 | `scripts/test_rekey_fit.py` | tests | `python -I -m unittest discover -p "test_rekey_fit.py"` in `scripts\` (needs `xxhash`) |
 | `scripts/test_port_classic_mods.py` | tests | `python -I -m unittest discover -p "test_port_classic_mods.py"` in `scripts\`: the reference reader, the LZ4 and crate decoder, the port's order, overlaps, blanks and refusals |

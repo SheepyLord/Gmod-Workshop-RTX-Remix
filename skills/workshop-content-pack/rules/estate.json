@@ -1,0 +1,417 @@
+{
+  "note": "Country Estate RTX (rp_countryestatev1): a country manor with gardens. Matte lime plaster, stone, cobbled drives, brick, roof tiles; polished wood floors, varnished panelling, marble, carpets and rugs inside; painted iron and steel. The author's CC0 scans stay, except the popcorn ceiling's, a dark rock scan: it is rebuilt from the map's own white popcorn texture. Texture paths are lower case, without materials/ and .vtf.",
+  "skip_flags": [
+    "translucent",
+    "additive",
+    "selfillum"
+  ],
+  "classes": {
+    "plaster_source": {
+      "from_source": true,
+      "rough": [
+        0.82,
+        0.97
+      ],
+      "normal": 0.09,
+      "detail": 0.6
+    },
+    "plaster": {
+      "rough": [
+        0.74,
+        0.93
+      ],
+      "normal": 0.05,
+      "detail": 0.45
+    },
+    "facade": {
+      "rough": [
+        0.66,
+        0.92
+      ],
+      "normal": 0.06,
+      "detail": 0.35
+    },
+    "concrete_wall": {
+      "rough": [
+        0.68,
+        0.93
+      ],
+      "normal": 0.09,
+      "detail": 0.5,
+      "height": 0.002
+    },
+    "stone": {
+      "rough": [
+        0.58,
+        0.9
+      ],
+      "normal": 0.13,
+      "detail": 0.5,
+      "cavity": 0.3,
+      "height": 0.0025
+    },
+    "cobble": {
+      "rough": [
+        0.56,
+        0.9
+      ],
+      "normal": 0.18,
+      "detail": 0.5,
+      "cavity": 0.45,
+      "height": 0.004
+    },
+    "brick": {
+      "rough": [
+        0.72,
+        0.95
+      ],
+      "normal": 0.15,
+      "detail": 0.4,
+      "cavity": 0.35,
+      "height": 0.003
+    },
+    "roof_tile": {
+      "rough": [
+        0.58,
+        0.88
+      ],
+      "normal": 0.14,
+      "detail": 0.4,
+      "cavity": 0.3,
+      "height": 0.003
+    },
+    "ground": {
+      "rough": [
+        0.8,
+        1.0
+      ],
+      "normal": 0.12,
+      "detail": 0.5,
+      "height": 0.003
+    },
+    "foliage": {
+      "rough": [
+        0.5,
+        0.8
+      ],
+      "normal": 0.06,
+      "weight": 0.12,
+      "max_side": 2048,
+      "set_if_present": {
+        "subsurface_measurement_distance": [
+          "float",
+          "0.05"
+        ]
+      },
+      "note": "cards and leaves; the author's subsurface scattering (1.5-3.7) made whole trees glow green in the sun: 0.05 as the remasters' foliage"
+    },
+    "bark": {
+      "rough": [
+        0.72,
+        0.95
+      ],
+      "normal": 0.15,
+      "detail": 0.5,
+      "weight": 0.3
+    },
+    "wood_floor": {
+      "rough": [
+        0.22,
+        0.5
+      ],
+      "normal": 0.05,
+      "detail": 0.35,
+      "smudge": 0.04
+    },
+    "wood_varnished": {
+      "rough": [
+        0.28,
+        0.58
+      ],
+      "normal": 0.05,
+      "detail": 0.4
+    },
+    "wood_paint": {
+      "rough": [
+        0.4,
+        0.7
+      ],
+      "normal": 0.05,
+      "detail": 0.3
+    },
+    "wood_raw": {
+      "rough": [
+        0.66,
+        0.92
+      ],
+      "normal": 0.09,
+      "detail": 0.6
+    },
+    "marble": {
+      "rough": [
+        0.06,
+        0.22
+      ],
+      "normal": 0.015,
+      "smudge": 0.03
+    },
+    "panel_marble": {
+      "rough": [
+        0.15,
+        0.5
+      ],
+      "normal": 0.04,
+      "detail": 0.2
+    },
+    "tile_glazed": {
+      "rough": [
+        0.07,
+        0.3
+      ],
+      "normal": 0.05,
+      "detail": 0.1,
+      "cavity": 0.65,
+      "height": 0.0015
+    },
+    "tile_terracotta": {
+      "rough": [
+        0.45,
+        0.78
+      ],
+      "normal": 0.07,
+      "detail": 0.35,
+      "cavity": 0.4,
+      "height": 0.002
+    },
+    "carpet": {
+      "rough": [
+        0.86,
+        1.0
+      ],
+      "normal": 0.08,
+      "detail": 0.6
+    },
+    "fabric": {
+      "rough": [
+        0.82,
+        0.98
+      ],
+      "normal": 0.06,
+      "detail": 0.5
+    },
+    "metal_painted": {
+      "rough": [
+        0.35,
+        0.65
+      ],
+      "normal": 0.04,
+      "detail": 0.2
+    },
+    "metal_bare": {
+      "rough": [
+        0.22,
+        0.48
+      ],
+      "normal": 0.04,
+      "detail": 0.15,
+      "metal": 0.9
+    },
+    "brass": {
+      "rough": [
+        0.25,
+        0.48
+      ],
+      "normal": 0.03,
+      "detail": 0.1,
+      "metal": 1.0
+    },
+    "print": {
+      "rough": [
+        0.4,
+        0.7
+      ],
+      "normal": 0.012,
+      "grain": false
+    },
+    "print_glazed": {
+      "rough": [
+        0.08,
+        0.25
+      ],
+      "normal": 0.008,
+      "grain": false,
+      "note": "framed under glass"
+    },
+    "paper": {
+      "rough": [
+        0.74,
+        0.93
+      ],
+      "normal": 0.04,
+      "detail": 0.3
+    },
+    "plastic": {
+      "rough": [
+        0.28,
+        0.55
+      ],
+      "normal": 0.02
+    },
+    "ceramic": {
+      "rough": [
+        0.05,
+        0.2
+      ],
+      "normal": 0.02
+    },
+    "roofing": {
+      "rough": [
+        0.7,
+        0.95
+      ],
+      "normal": 0.08,
+      "detail": 0.4
+    },
+    "prop": {
+      "rough": [
+        0.4,
+        0.78
+      ],
+      "normal": 0.05,
+      "detail": 0.25
+    },
+    "generic": {
+      "rough": [
+        0.45,
+        0.82
+      ],
+      "normal": 0.05,
+      "detail": 0.3
+    }
+  },
+  "scan_rules": [
+    [
+      "^plaster/ceiling_popcorn",
+      "plaster_source"
+    ]
+  ],
+  "rules": [
+    [
+      "^tools/|^effects/|^lights/|^skybox/|^nature/infskybox|^models/humans/|eyeball|pupil|_on$|_on01|lightbulb|light_shop|light_inset|glasslens|^glass/|windows/|window_uban_apt_glass|gun_cabinet_glass|elixiroflifeglass|generalglasswindow|trainstation_window|cxwndwht|^de_chateau/bush01a|river01",
+      "skip"
+    ],
+    [
+      "props_foliage/(ah_apple_bark|ah_bark|poplar_bark|rd_bark|urban_trees_barks)|palmtrunk",
+      "bark"
+    ],
+    [
+      "props_foliage/|palmleaves|plant|flower|fronds|waterlily|hydroponic|bush",
+      "foliage"
+    ],
+    [
+      "grass|farmland|ah_dirt|^nature/",
+      "ground"
+    ],
+    [
+      "cobble",
+      "cobble"
+    ],
+    [
+      "roofa|rooftile|roof_template|nukroof|tides_roof|roof10|milroof",
+      "roof_tile"
+    ],
+    [
+      "brick",
+      "brick"
+    ],
+    [
+      "stone|infwll|infflr|outwall|stonework|extcol|stairsf|tidstairs",
+      "stone"
+    ],
+    [
+      "marbelceiling|marble",
+      "marble"
+    ],
+    [
+      "fancywoodandmarbelwall",
+      "panel_marble"
+    ],
+    [
+      "dutile|tilefloor02|redfadedtiles|redandbrowntiles|redblackplastertile",
+      "tile_terracotta"
+    ],
+    [
+      "tile|checker",
+      "tile_glazed"
+    ],
+    [
+      "carpet|rug|weaving|blanket",
+      "carpet"
+    ],
+    [
+      "building_template|plasterwithwindow",
+      "facade"
+    ],
+    [
+      "plaster|wall_white|whitestorewall|cleanpeach|cleanyplaster|lightblueplaster|prodceiling|ceiling_popcorn",
+      "plaster"
+    ],
+    [
+      "concrete|bench_concrete|concretebags|road01",
+      "concrete_wall"
+    ],
+    [
+      "fancywoodenfloor|woodf01|tides_floor_wood|floor_wood|woodfloor",
+      "wood_floor"
+    ],
+    [
+      "pallet|crate|barn01|haybale|fence",
+      "wood_raw"
+    ],
+    [
+      "wooddoor|door_01|siding|woodsiding|column01|woodrail",
+      "wood_paint"
+    ],
+    [
+      "chandelier|clock|globe|phonograph|olgrandfatherclock|fancyschmancy_metal|mirror",
+      "brass"
+    ],
+    [
+      "^art/(cinemaphoto|menu1|pclorephoto|smallchurch|worldmap)|^photos/|lusinpic",
+      "print_glazed"
+    ],
+    [
+      "^art/|^signs/|^cds/|^flag/|^misc/|painting|pictures|poster|corkboard|idophoto|lacaradesol",
+      "print"
+    ],
+    [
+      "books|paper|ingredients",
+      "paper"
+    ],
+    [
+      "wood|cabinet|wall04pnl|framed05|pi_art|woodceiling|tides_ceiling|fancydoor|bookcase|winerack|desk|table|dresser|antiquainted|sutove|bed$|bunkbed|furniture|vanity|counter|chair|cornerstone|discourse|customersfirst|latablelong|tabledebistro|chimeway|bookcase3|fireplace|hat_rack|footlocker|hamradio|radio",
+      "wood_varnished"
+    ],
+    [
+      "sofa|couch|loveseat|floralfantasy|merokken|cushion|clothes|tent|curtain|fabric|bathroom_set|towel",
+      "fabric"
+    ],
+    [
+      "toilet|sink|pottery|claypot|clayoven|shower|cooking|feets",
+      "ceramic"
+    ],
+    [
+      "metalvent|prodvent|metalduct|metalhull|stairsatp|metal_door|metaldoor|door01|metalwall|metaltruss|nuke_ceiling|nuke_metalfloor|train_metalceiling|offelevdrs|lockers|urban_lockers|ironmetal|metal|shelves|file_cabinet|ammo_can|hospital|desk_metal|kitchen|watertower|pipeset|antenna|prison|breen|industrial|shelfunit",
+      "metal_painted"
+    ],
+    [
+      "^models/",
+      "prop"
+    ],
+    [
+      ".",
+      "generic"
+    ]
+  ],
+  "overrides": {}
+}

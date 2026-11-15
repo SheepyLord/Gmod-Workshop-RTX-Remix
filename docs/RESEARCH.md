@@ -8698,6 +8698,76 @@ map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-m
     mean absolute difference between two stock runs), so whole-view numbers cannot show the change: measure
     regions.
 
+## Valley View Mall, Funkis and Country Estate made again by class (2026-11-15, Claude, ADR 0225)
+
+The user's request: "Retune the other three skurtyyskirts packs too, you don't have to trust the original, make the
+materials look better and have more details, which fit the map's structure and style"
+([ADR 0225](decisions/0225-other-authors-map-mods-get-new-maps-by-class-sized-by-the-map.md)). Scratch scripts:
+`out\pbr-maps\survey4.py`, `join4.py`, `sheet4.py`, `views4.py`, `build_round4.py`, `field_round4.py` and
+`tours4.py` in the worktree `gmod-pbr-maps-packaging-b6de9c`.
+
+- **Measure normals at the top mip.** The mean |xy| of the unit normals on a 512 px centre crop, by mip:
+  - Valley View Mall's `whiteplaster1`: 8192 0.098, 4096 0.088, 2048 0.065, 512 0.019.
+  - Its floor tile `valley_view_center_tile001a`: 8192 0.027, 512 0.014.
+  - `drywall01a`: 0.009 at every mip.
+  - The terrazzo `a_rubberflooring`: 4096 0.127, 256 0.045.
+  - Funkis' grass scan `grass_1`: 4096 0.307, 256 0.024.
+
+  A 256 px mip makes every normal map look flat.
+- **Sizes against the game textures.** Valley View Mall is 4x upscales throughout (413 of 418 named). Funkis
+  and Country Estate mix 4x (208 and 172) with 8x-64x: small game textures upscaled, or replaced by the
+  author's 2K-4K CC0 scans. Not on the map (no BSP face, static prop or entity model): 40, 82 and 75
+  materials, 0.32, 1.51 and 1.42 GB.
+- **Where the textures show** (`map_usage.py`, per cent of the world area, floor x1.5, ceiling x0.6):
+  - Valley View Mall: `whiteplaster1` 19.2, the floor tile 17.7, `vvmall_greyplaster` 17.2.
+  - Funkis: `arbre01_sway` 30.7 and `distant_trees` 19.1. Large tree boxes times many instances, so the
+    rules weigh foliage at 0.12. Then `milground002` 15.7.
+  - Country Estate: `grassfloor002a` 14.1, which the mod does not replace.
+- **The author's choices that do not fit:**
+  - Funkis' `milground002` (21 % of the ground) was ShareTextures' `grass_1`: albedo mean 0.20, luminance
+    spread 0.026, roughness 0.88 flat. In the field the forest floor drew pale grey and featureless.
+  - Its `milrock001` was FreePBR's `mossy_mud1`, dark mud on grey cliffs.
+  - Country Estate's `ceiling_popcorn02` was FreePBR's `dark_rough_rock1`.
+  - Funkis' foliage had subsurface measurement distances of 1.5-3.7 (`arbre01` 3.52). Whole trees glowed bright
+    green in the sun; stock trees do not. lestnicha3's foliage uses 0.05.
+- **A parser trap.** Country Estate's `changes.usda` follows the material of `wood/column01` with a mesh
+  replacement (the garden gnome) whose own material has a `diffuse_texture`. Taking each input for the nearest
+  `mat_` prim before it gave the column the gnome's four textures. The column's real albedo is FreePBR's
+  `dark-wood-stain`. Funkis' `plastic_table_set001` had been given a model's `PEPE` texture the same way. One
+  material each; `usd_refs.prim_spans` scopes inputs by braces.
+- **Runs on the RTX 5090:**
+  - The PBRify AI step: Valley View Mall 330 materials in 443 s, while a field game was starting. Funkis 310
+    in 195 s, including two 4x upscales. Country Estate 324 in 117 s.
+  - Compose and encode: 153 s and 742 maps, 69 s and 775 maps, 92 s and 819 maps.
+  - Every pack is 3.849 GB, from the budget of 3.85 GB less 1 MiB.
+  - Albedos at 4096: 44, 9 and 31. Grain put back on 33, 135 and 131 albedos. Height maps on 19, 19 and 38
+    materials.
+- **Field (ten or eleven spots per map, the round-2 build, the new one and Remix's replacements off):**
+  - The map drew 337 of Valley View Mall's 345 re-made materials, 298 of Funkis' 310 and 304 of Country
+    Estate's 323.
+  - A texture looked blurry 7 s after a camera move and was not budget-limited: 636 MB of textures resident
+    against a 14 GB budget, none demoted. The final tours wait 15 s.
+  - Country Estate's terrace floor stayed blurry after 15 s, at 4096 and at 2048 alike, though round 2's
+    build had drawn it sharp.
+    - The author put the same pebble scan (ShareTextures `stonewall_15`) on `stone/stonewall006a` and on a
+      hash no source names.
+    - With no known usage, the second had been planned at 256 px; 150-190 materials per pack had shrunk so,
+      posters and decals among them.
+    - The planner now gives unknown usage half the median importance, and `map_usage.py` counts overlays
+      and `infodecal` entities.
+  - Root-named materials: before `map_usage.py` normalised `/cleancobblestreet_texture`, the drive's
+    PavingStones047 scan was planned at 256 px.
+- **`engine.dll`+0x34b9dc (0xC0000409)** ended 7 of 18 field starts on 2026-11-14/15 (local evening). It
+  is not the packs' doing.
+  - Six crashed at poc_session's level change from gm_construct, just after `[MemoryPatcher] Disabled 0
+    patches` (the RTX fixes' module shutdown); one 3 s after Remix had loaded its 25 mods.
+  - All ran the RTX package `0.0.0-dev.20261115025852+1145e794` (published 2026-11-15 02:58 UTC).
+  - The four BigCity sessions earlier that day, on `0.0.0-dev.20261114214127+c7ab57a1`, had none.
+  - One crash came while no other GPU job ran, so the early guess that the AI step's PyTorch process caused
+    them is wrong.
+  - The field install verified vanilla (2,878 depot files). The dumps' exception context is in
+    `out\pbr-maps\field4\*\crash-receipt*.json` (`tools\vr_crash.py`: classification unknown).
+
 ## Source eyes under RTX (2026-11-14, Claude, ADR 0220)
 
 - **Shader DLLs under RTX.** With `d3d9.shaderModel = 0` the hardware's DirectX level is 7: an RTX session loads

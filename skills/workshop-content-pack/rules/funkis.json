@@ -1,0 +1,406 @@
+{
+  "note": "Funkis RTX (gm_funkis): a mid-century modern house among pines above the sea, a lab underneath. Oiled and lacquered wood, white plaster, board-formed concrete, glazed tiles; a green forest floor and grey rock, as the map has them (the author's scans for the main grass and the rock were dark mud: rebuilt from the game's own textures); painted steel and bare metal in the lab. Texture paths are lower case, without materials/ and .vtf.",
+  "skip_flags": [
+    "translucent",
+    "additive",
+    "selfillum"
+  ],
+  "classes": {
+    "ground_grass": {
+      "from_source": true,
+      "rough": [
+        0.8,
+        1.0
+      ],
+      "normal": 0.12,
+      "detail": 0.5,
+      "height": 0.003,
+      "weight": 0.6,
+      "note": "the main ground, from the game's grass"
+    },
+    "rock_source": {
+      "from_source": true,
+      "rough": [
+        0.58,
+        0.92
+      ],
+      "normal": 0.18,
+      "detail": 0.6,
+      "height": 0.004,
+      "weight": 0.8
+    },
+    "rock": {
+      "rough": [
+        0.58,
+        0.92
+      ],
+      "normal": 0.17,
+      "detail": 0.6,
+      "height": 0.004
+    },
+    "ground": {
+      "rough": [
+        0.8,
+        1.0
+      ],
+      "normal": 0.12,
+      "detail": 0.5,
+      "height": 0.003
+    },
+    "foliage": {
+      "rough": [
+        0.5,
+        0.8
+      ],
+      "normal": 0.06,
+      "weight": 0.12,
+      "max_side": 2048,
+      "set_if_present": {
+        "subsurface_measurement_distance": [
+          "float",
+          "0.05"
+        ]
+      },
+      "note": "cards and leaves; the author's subsurface scattering (1.5-3.7) made whole trees glow green in the sun: 0.05 as the remasters' foliage"
+    },
+    "bark": {
+      "rough": [
+        0.72,
+        0.95
+      ],
+      "normal": 0.15,
+      "detail": 0.5,
+      "weight": 0.3
+    },
+    "plaster_paint": {
+      "rough": [
+        0.72,
+        0.92
+      ],
+      "normal": 0.04,
+      "detail": 0.4
+    },
+    "wallpaper": {
+      "rough": [
+        0.55,
+        0.8
+      ],
+      "normal": 0.03,
+      "detail": 0.2
+    },
+    "concrete_wall": {
+      "rough": [
+        0.66,
+        0.93
+      ],
+      "normal": 0.09,
+      "detail": 0.5,
+      "height": 0.002
+    },
+    "concrete_floor": {
+      "rough": [
+        0.5,
+        0.86
+      ],
+      "normal": 0.05,
+      "detail": 0.45,
+      "cavity": 0.2
+    },
+    "brick": {
+      "rough": [
+        0.72,
+        0.95
+      ],
+      "normal": 0.15,
+      "detail": 0.4,
+      "cavity": 0.35,
+      "height": 0.003
+    },
+    "tile_glazed": {
+      "rough": [
+        0.06,
+        0.28
+      ],
+      "normal": 0.05,
+      "detail": 0.1,
+      "cavity": 0.65,
+      "height": 0.0015
+    },
+    "stone_polished": {
+      "rough": [
+        0.08,
+        0.3
+      ],
+      "normal": 0.02,
+      "smudge": 0.04
+    },
+    "ceiling_tile": {
+      "rough": [
+        0.84,
+        0.98
+      ],
+      "normal": 0.06,
+      "detail": 0.5,
+      "weight": 0.7
+    },
+    "carpet": {
+      "rough": [
+        0.86,
+        1.0
+      ],
+      "normal": 0.08,
+      "detail": 0.6
+    },
+    "roofing": {
+      "rough": [
+        0.7,
+        0.95
+      ],
+      "normal": 0.08,
+      "detail": 0.4
+    },
+    "wood_oiled": {
+      "rough": [
+        0.38,
+        0.68
+      ],
+      "normal": 0.06,
+      "detail": 0.45,
+      "note": "teak and walnut panelling, furniture"
+    },
+    "wood_floor": {
+      "rough": [
+        0.24,
+        0.52
+      ],
+      "normal": 0.05,
+      "detail": 0.35,
+      "smudge": 0.04,
+      "note": "lacquered floors"
+    },
+    "wood_paint": {
+      "rough": [
+        0.4,
+        0.7
+      ],
+      "normal": 0.05,
+      "detail": 0.3
+    },
+    "wood_raw": {
+      "rough": [
+        0.66,
+        0.92
+      ],
+      "normal": 0.09,
+      "detail": 0.6
+    },
+    "metal_painted": {
+      "rough": [
+        0.32,
+        0.62
+      ],
+      "normal": 0.04,
+      "detail": 0.2
+    },
+    "metal_bare": {
+      "rough": [
+        0.22,
+        0.48
+      ],
+      "normal": 0.04,
+      "detail": 0.15,
+      "metal": 0.9
+    },
+    "metal_galvanized": {
+      "rough": [
+        0.35,
+        0.65
+      ],
+      "normal": 0.05,
+      "detail": 0.2,
+      "metal": 0.85
+    },
+    "car_paint": {
+      "rough": [
+        0.12,
+        0.32
+      ],
+      "normal": 0.02
+    },
+    "print": {
+      "rough": [
+        0.4,
+        0.7
+      ],
+      "normal": 0.012,
+      "grain": false
+    },
+    "fabric": {
+      "rough": [
+        0.84,
+        0.98
+      ],
+      "normal": 0.06,
+      "detail": 0.5
+    },
+    "plastic": {
+      "rough": [
+        0.28,
+        0.55
+      ],
+      "normal": 0.02
+    },
+    "ceramic": {
+      "rough": [
+        0.05,
+        0.2
+      ],
+      "normal": 0.02
+    },
+    "prop": {
+      "rough": [
+        0.4,
+        0.78
+      ],
+      "normal": 0.05,
+      "detail": 0.25
+    },
+    "generic": {
+      "rough": [
+        0.45,
+        0.82
+      ],
+      "normal": 0.05,
+      "detail": 0.3
+    }
+  },
+  "scan_rules": [
+    [
+      "^nature/milground002$",
+      "ground_grass"
+    ],
+    [
+      "^nature/milrock001$",
+      "rock_source"
+    ]
+  ],
+  "rules": [
+    [
+      "^tools/|^effects/|^lights/|^glass/|^skybox/|^models/effects/|^nature/(1west|2north|3east|infskybox|scenic|clifftrees_cardboard)|^models/humans/|eyeball|pupil|_on$|_on01|_on02|^dev/dev_measure|comball|window_uban_apt_glass|tank_glass|light_spotlight|lightbulb|lampshade|pendantlamp|travalamp|ceilinglamp|sconce|lights_interior",
+      "skip"
+    ],
+    [
+      "bark|trunk|sawmill_logs|fence_trail",
+      "bark"
+    ],
+    [
+      "props_foliage/|cs_militia/trees|_sway$|largebush|^models/cliffs/ferns|leaves|branches|interiorplant|plant0|flower_barrel|pot_big",
+      "foliage"
+    ],
+    [
+      "rock|cliff|dirtwall|^stone/infflr|stonewall|coastrock|boulder",
+      "rock"
+    ],
+    [
+      "^nature/|gravel|dirt",
+      "ground"
+    ],
+    [
+      "carpet",
+      "carpet"
+    ],
+    [
+      "wallpaper",
+      "wallpaper"
+    ],
+    [
+      "plaster|sheetrock",
+      "plaster_paint"
+    ],
+    [
+      "ceilingtile|ceiling_tile|ceiling_grey",
+      "ceiling_tile"
+    ],
+    [
+      "countertop|marble|1970_tile",
+      "stone_polished"
+    ],
+    [
+      "tile",
+      "tile_glazed"
+    ],
+    [
+      "brick",
+      "brick"
+    ],
+    [
+      "concretefloor|concrete_floor|modular_floor|nukfloor|tides_floor_stone",
+      "concrete_floor"
+    ],
+    [
+      "concrete|barrier",
+      "concrete_wall"
+    ],
+    [
+      "roof|rubberfloor",
+      "roofing"
+    ],
+    [
+      "woodfloor|hardwoodfloor|milflr|woodpanel_002_bottom|wood_int_acoustic",
+      "wood_floor"
+    ],
+    [
+      "woodcrate|woodbeam|cs_office/ladder|pallet|wood_pallet",
+      "wood_raw"
+    ],
+    [
+      "siding|whitegaragedoor|wood/white01|door01a_skin(5|12|14)|wooddoor",
+      "wood_paint"
+    ],
+    [
+      "wood|cabinet|desk0|bookcase|furniture_wood|pictures|turntable|collectible|tides_wooden|lonely|pop$|pooltable|poolcue",
+      "wood_oiled"
+    ],
+    [
+      "4carz|bus01|metaltrain|vehicle",
+      "car_paint"
+    ],
+    [
+      "metalgrate|metalrail|handrail|chainlink|fence_alpha|blkmetal|lantern|sinkwallmounted|towel_rack|soap_dispenser|sink_industrial|bathtub|faucet|doorknob|tank_small|pipeset_metal|pipesystem|valve|teleport|rings_sheet|miniteleport",
+      "metal_bare"
+    ],
+    [
+      "metalduct|metalroof|vent|pipe|substation|utility_poles|transformer|generator|gasmeters|horizontalcoolingtank|laundry_machines|lighthouse_fresnel|controlroom_tables|fence_sheet|pushcart|industrialbell",
+      "metal_galvanized"
+    ],
+    [
+      "metal|^dev/|panel|lockers|file_cabinet|filing_cabinet|toolchest|powerbox|recievers|consolebox|cornerunit|walllight|computer|prison_|radiator|washerdryer|waterheater|fridge|boiler|robotarm|saunaoven|clock|desk_console|wall_console|concrete_barrier",
+      "metal_painted"
+    ],
+    [
+      "toilet|bathroom_set|pottery|coffee_maker|tea_pot|coffee_container",
+      "ceramic"
+    ],
+    [
+      "couch|sofa|bed|chair|curtain|clothing|hospitalcurtain|hotel_chair",
+      "fabric"
+    ],
+    [
+      "plastic|phone|radio|monitor|office_props|office_lamp|lightswitch|paper_tray|table_folding|trash_can|soap_rope",
+      "plastic"
+    ],
+    [
+      "^funkis/|painting|poster|scenery|signs/|offpainting|decal",
+      "print"
+    ],
+    [
+      "^models/",
+      "prop"
+    ],
+    [
+      ".",
+      "generic"
+    ]
+  ],
+  "overrides": {}
+}

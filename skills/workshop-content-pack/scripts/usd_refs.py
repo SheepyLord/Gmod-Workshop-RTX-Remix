@@ -70,6 +70,66 @@ def text_references(text: str):
     return out
 
 
+PRIM_HEAD = re.compile(r'(?:over|def|class)\s+(?:\w+\s+)?"([^"\n]+)"')
+
+
+def prim_spans(text: str):
+    """(name, path, open, close) of every prim in a .usda text: its name, its path of prim names from the
+    layer's root, and the positions of its body's braces. Comments, strings, asset paths and parenthesised
+    metadata (whose dictionaries have braces too) are skipped, so a prim's span is its real scope: inputs
+    that follow a material's block in a sibling prim (a mesh replacement's own material) are not in it."""
+    heads = {m.start(): m for m in PRIM_HEAD.finditer(text)}
+    out, stack = [], []
+    pending, paren = None, 0
+    i, n = 0, len(text)
+    while i < n:
+        m = heads.get(i)
+        if m is not None and paren == 0 and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] == "_")):
+            pending = m.group(1)
+            i = m.end()
+            continue
+        c = text[i]
+        if c == "#":
+            j = text.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if c == '"':
+            if text.startswith('"""', i):
+                j = text.find('"""', i + 3)
+                i = n if j < 0 else j + 3
+            else:
+                j = i + 1
+                while j < n and text[j] != '"' and text[j] != "\n":
+                    j += 2 if text[j] == "\\" else 1
+                i = j + 1
+            continue
+        if c == "@":
+            if text.startswith("@@@", i):
+                j = text.find("@@@", i + 3)
+                i = n if j < 0 else j + 3
+                continue
+            if text.startswith("@@", i):
+                i += 2
+                continue
+            j = text.find("@", i + 1)
+            i = i + 1 if j < 0 or "\n" in text[i + 1:j] else j + 1
+            continue
+        if c == "(":
+            paren += 1
+        elif c == ")":
+            paren = max(0, paren - 1)
+        elif c == "{" and paren == 0:
+            stack.append((pending, i))
+            pending = None
+        elif c == "}" and paren == 0 and stack:
+            name, start = stack.pop()
+            if name is not None:
+                path = "/".join([s[0] for s in stack if s[0] is not None] + [name])
+                out.append((name, path, start, i))
+        i += 1
+    return out
+
+
 def blank_missing(text: str, layer_dir: str, exists=os.path.isfile):
     """(new text, [missing paths]): every relative reference that does not resolve becomes @@.
 

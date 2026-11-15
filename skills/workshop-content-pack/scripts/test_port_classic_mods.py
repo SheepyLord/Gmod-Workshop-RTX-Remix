@@ -69,6 +69,22 @@ class Refs(unittest.TestCase):
         self.assertEqual([r for _, _, r in U.text_references(text)],
                          ["./t/a.dds", "./t/b c.dds", "AperturePBR_Opacity.mdl"])
 
+    def test_prim_spans(self):
+        text = ('#usda 1.0\n(\n    customLayerData = { string x = "}" }\n)\n'
+                'over "RootNode"\n{\n    over "Looks"\n    {\n        over "mat_0123456789ABCDEF" (\n'
+                '            customData = { asset a = @@ }\n        )\n        {\n            over "Shader"\n            {\n'
+                '                asset inputs:diffuse_texture = @./a.dds@ (\n                    doc = """a { brace"""\n'
+                '                )\n            }\n        }\n    }\n'
+                '    over "meshes"\n    {\n        def Material "Material_0"\n        {\n            def Shader "Shader"\n'
+                '            {\n                asset inputs:diffuse_texture = @./gnome.dds@\n            }\n        }\n    }\n}\n')
+        spans = {path: (name, s, e) for name, path, s, e in U.prim_spans(text)}
+        self.assertIn("RootNode/Looks/mat_0123456789ABCDEF/Shader", spans)
+        self.assertIn("RootNode/meshes/Material_0/Shader", spans)
+        _, s, e = spans["RootNode/Looks/mat_0123456789ABCDEF"]
+        self.assertIn("./a.dds", text[s:e])
+        self.assertNotIn("gnome", text[s:e])   # the mesh's material that follows is not in the material's scope
+        self.assertEqual(text[e], "}")
+
     def test_blank_missing_only_files(self):
         with tempfile.TemporaryDirectory() as d:
             write(os.path.join(d, "t", "ok.dds"), b"x")

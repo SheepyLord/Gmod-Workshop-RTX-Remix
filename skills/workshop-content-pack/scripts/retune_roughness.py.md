@@ -26,7 +26,9 @@ finish").
 
 1. Names each material's game texture by its hash in the sources ([vtf_hash.py](vtf_hash.py.md), both hash
    functions). Reads every text layer reached from `mod.usda` ([usd_refs.py](usd_refs.py.md)) for each `mat_<hash>`
-   prim's `diffuse_texture`, `normalmap_texture` and `reflectionroughness_texture`.
+   prim's `diffuse_texture`, `normalmap_texture` and `reflectionroughness_texture`, taken from inside the
+   prim's own braces (`usd_refs.prim_spans`; since 2026-11-15: a mesh replacement's material that follows a
+   material's block had been read as that material's).
 2. Picks a class by the texture's path: ordered regular expressions, the first match wins. The defaults were written
    for HL2's city textures:
 

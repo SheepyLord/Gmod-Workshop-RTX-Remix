@@ -367,6 +367,47 @@ layers as they are; nothing to convert.
   brick, concrete and plaster maps (above 0.7 is right), and at a sunlit facade and the near ground in
   the field shots, next to Remix's replacements off.
 
+### 35. Flat relief, one roughness, and the best surfaces cut by the fit (2026-11-15)
+
+- **Symptom.** Valley View Mall, Funkis and Country Estate RTX (skurtyyskirts, PBRFusion) looked flat and
+  matte: the mall's tile and terrazzo floors had no sheen, walls no relief, and the fitted packs showed the
+  main floors and walls at half resolution. The user asked for the three to look better and have more detail,
+  in each map's style, without trusting the original.
+- **Cause.** PBRify's 1x NormalV3 ran on the 4x-upscaled albedo, where every feature is four times the size
+  the model knows. Measured at full resolution (mean |xy| of the unit normals on a 512 px centre crop), the
+  mall's drywall was 0.009, its main floor tile 0.027, its grey plaster 0.025. The terrazzo was 0.13-0.14,
+  bumpy where polished terrazzo is flush. Roughness sat near 0.5 everywhere (means 0.49, 0.45 and 0.42). A
+  256 px mip hides this, because averaging flattens any normal map; measure at the top mip.
+  `fit_mod.py` then cut the top mip of 160-250 textures by size, not by what shows. Funkis' author also gave
+  the main grass and the cliffs' rock dark mud scans, and the trees showed solid green cards in the field.
+  In Country Estate, a white popcorn ceiling was dark rock.
+- **A parser trap.** A layer can follow a material's block with a mesh replacement whose own material has
+  the same inputs (Country Estate's garden gnome, Funkis' Hunyuan3D models). Taking each input for the
+  nearest `mat_` prim before it gave a column the gnome's textures, and an edit could reach into the mesh's
+  material. `repbr_map_mod.py` takes a material's inputs from its own braces only (`usd_refs.prim_spans`).
+- **A sizing trap.** Hammer can store a map's own materials from the root (`/cleancobblestreet_texture` in
+  Country Estate's BSP). Until `map_usage.py` normalised those names, their VMTs were not found: the drive's
+  cobbles and the terrace floors got no weight and were planned at 256 px, and the field shots were blurry
+  next to the old build. Read `map_usage.py`'s "faces whose material has no VMT" line, and `repbr_map_mod.py`'s
+  warning, before building.
+- **Unknown usage is not no usage.** Overlays (posters, signs), decals, detail textures and materials no
+  source names are not BSP faces. Given almost no weight, 150-190 materials per pack went to 256 px where
+  round 2 had 2048: a terrace floor (the author had put the same scan on a second, unnamed hash) and posters.
+  `map_usage.py` now counts overlays and `infodecal` entities, and `repbr_map_mod.py` gives any material with
+  no known usage half the median importance. Before building, list the materials planned smaller than the
+  build they replace.
+- **Fix.** `repbr_map_mod.py` with a rules file per map (`rules/<map>.json`). It makes new maps at the game
+  texture's scale, by class:
+  - polished stone 0.10-0.30, with rough grout and a height map;
+  - terrazzo 0.18-0.40 and flush;
+  - stucco with real relief;
+  - brick with recessed mortar.
+
+  Every texture is sized by where it shows on the map (`map_usage.py`), so the main floors and walls keep
+  4096 within 3.85 GB. A surface the author gave the wrong scan is rebuilt from the game texture, upscaled
+  4x. In the field, the mall's floors mirror the store windows and lights like a polished floor (stock and
+  the old build: matte), and its stucco walls show more relief.
+
 ## Diagnosing
 
 | Question | Where to look |

@@ -352,6 +352,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
   game textures' grain is back on the 92 albedos whose upscale had smoothed it. New in the
   workshop-content-pack skill: `retune_roughness.py` with its tests, step 5 of "Another author's map mod",
   pitfall 34.
+- **Valley View Mall, Funkis and Country Estate RTX made again by material class** (the user's request of
+  2026-11-15, [ADR 0225](docs/decisions/0225-other-authors-map-mods-get-new-maps-by-class-sized-by-the-map.md);
+  built and checked in the field, not uploaded). The author's PBRify maps had been made on 4x upscales: nearly
+  flat relief (the mall's floor tile 0.027 mean slope) and roughness near 0.5. Every material now has new normal,
+  roughness and, on world tile, brick, stone, cobbles and ground, height maps in its map's style:
+  - the mall's stone tiles, terrazzo and food-court tiles are polished and mirror the store windows and lights;
+  - its stucco and brick walls have relief;
+  - Funkis' forest floor and cliffs use the map's own grass and rock, upscaled 4x, instead of the author's
+    dark mud scans;
+  - the author's tree scattering, which made Funkis' trees glow green, is brought down to the remasters'
+    0.05.
+
+  Every texture is sized by where it shows on the map, so the main floors and walls keep 4096 within one
+  3.85 GB item. New in the workshop-content-pack skill: `repbr_map_mod.py`, `map_usage.py`, per-map rules
+  files (`rules/`), their tests, step 6 of "Another author's map mod" and pitfall 35. `usd_refs.prim_spans`
+  now gives each material only the inputs inside its own braces, which `retune_roughness.py` uses too.
 - **workshop-content-pack skill:** "Another author's map mod (ModDB)"; `rekey_mod_hashes.py` (XXH3 to XXH64, and
   which hash a mod uses), `vtf_hash.py` (both hashes of every VTF in map items, legacy .bin, BSP pakfiles and VPKs),
   `fit_mod.py` (any mod under one item's budget, by role and upscale factor); tests; pitfalls 29-31.

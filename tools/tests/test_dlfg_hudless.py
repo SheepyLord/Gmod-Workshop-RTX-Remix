@@ -1,4 +1,5 @@
-"""DLSS frame generation keeps the UI in place (runtime patch 0094, ADR 0223): it is given the frame before its UI.
+"""DLSS frame generation keeps the UI in place (runtime patch 0094, ADR 0223): it is given the frame before its UI;
+and the Remix menu and the HUD still draw into the presented image (runtime patch 0096).
 
 Compiles and runs the handoff's unit test from the committed patch (MSVC, as the runtime builds it), and checks
 that the patch fills the HUD-less copy at injection, blits it beside the frame generation back buffer with the back
@@ -127,6 +128,31 @@ class HudlessTests(unittest.TestCase):
         self.assertIn('evalParams.pHudless = &ngxHudless;', ngx)
         self.assertIn("'rtx_render/rtx_dlfg_hudless.h',", added_lines(patch, 'src/dxvk/meson.build'))
         self.assertIn("executable('test_dlfg_hudless'", added_lines(patch, 'tests/rtx/unit/meson.build'))
+
+
+MENU_FIX = sorted((REPO / 'runtime' / 'patches').glob('0096-*.patch'))
+
+
+class MenuUnderFrameGenerationTests(unittest.TestCase):
+    """Runtime patch 0096: with frame generation on, Alt+X took the input but drew no Remix menu."""
+
+    def test_the_hud_and_the_menu_draw_into_the_back_buffer(self):
+        # The HUD and the Remix menu (ImGui_ImplDxvk::RenderDrawData) bind no target of their own: they draw into the
+        # one the last blit leaves bound. The HUD-less copy's blit therefore comes before the back buffer's, never
+        # between it and them (0094 had it after: the menu went into the copy, which is never shown).
+        if len(MENU_FIX) != 1:
+            raise AssertionError(f'expected one runtime patch 0096, found {[p.name for p in MENU_FIX]}')
+        block = file_block(MENU_FIX[0].read_text(encoding='utf-8'), 'src/d3d9/d3d9_swapchain.cpp')
+        first, last = block.split('\n@@', 1)[1], block.rsplit('\n@@', 1)[1]
+        self.assertNotEqual(first, last)  # two hunks: the blit leaves its place, and comes back after the copy's
+        # The first hunk takes the back buffer's blit away from before the HUD-less copy's block.
+        self.assertLess(first.index('-        m_imageViews.at(imageIndex), dstRect,'),
+                        first.index('// NV-DXVK start: HUD-less frame generation input (GMod)'))
+        # The last puts it after that block's end and before the HUD and the menu.
+        after = '\n'.join(line[1:] for line in last.splitlines()[1:] if line[:1] in (' ', '+'))
+        self.assertLess(after.index('// NV-DXVK end'), after.index('m_imageViews.at(imageIndex), dstRect,'))
+        self.assertLess(after.index('m_imageViews.at(imageIndex), dstRect,'), after.index('if (m_hud != nullptr)'))
+        self.assertIn('+        m_imageViews.at(imageIndex), dstRect,', last)
 
 
 if __name__ == '__main__':

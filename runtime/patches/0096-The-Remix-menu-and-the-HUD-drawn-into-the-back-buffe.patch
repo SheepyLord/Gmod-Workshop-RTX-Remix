@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Sun, 15 Nov 2026 03:28:55 -0700
+Subject: [PATCH] The Remix menu and the HUD drawn into the back buffer under
+ frame generation
+
+With DLSS frame generation on, Alt+X took the game's input but drew no menu. The swapchain's present
+blits the game's frame into the back buffer, then (patch 0094) the frame before its UI into the HUD-less
+image beside it; the HUD and the Remix menu (ImGui_ImplDxvk::RenderDrawData) bind no target of their
+own and draw into the one the last blit left bound: the HUD-less copy, which is only frame
+generation's input and never shown. The HUD-less blit now comes first and the back buffer's last, so
+the HUD and the menu are drawn into the presented image again, and the HUD-less copy stays without UI
+(DLSS-G keeps the menu in place as UI). Frame generation off: nothing changes.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/d3d9/d3d9_swapchain.cpp | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/src/d3d9/d3d9_swapchain.cpp b/src/d3d9/d3d9_swapchain.cpp
+index d18d18f39..67855c5f3 100644
+--- a/src/d3d9/d3d9_swapchain.cpp
++++ b/src/d3d9/d3d9_swapchain.cpp
+@@ -1362,13 +1362,12 @@ namespace dxvk {
+         { uint32_t(m_dstRect.right - m_dstRect.left), uint32_t(m_dstRect.bottom - m_dstRect.top) } };
+       
+ 
+-      m_blitter->presentImage(m_context.ptr(),
+-        m_imageViews.at(imageIndex), dstRect,
+-        swapImageView, srcRect);
+-
+       // NV-DXVK start: HUD-less frame generation input (GMod)
+       // The frame before its UI goes beside the frame generation back buffer through the same blit, so a pixel no UI
+-      // was drawn over comes out exactly as in the back buffer (rtx_dlfg_hudless.h).
++      // was drawn over comes out exactly as in the back buffer (rtx_dlfg_hudless.h). Before the back buffer's blit:
++      // the HUD and the Remix menu below draw into the render target the last blit leaves bound, which must be the
++      // back buffer. After it, they went into this copy, which is never shown: with frame generation on, Alt+X took
++      // the input and drew nothing.
+       if (m_dlfgPresenter != nullptr && m_dlfgHudlessView != nullptr) {
+         const Rc<DxvkImageView> hudless = m_dlfgPresenter->getHudlessView(imageIndex);
+         if (hudless != nullptr) {
+@@ -1377,6 +1376,10 @@ namespace dxvk {
+       }
+       // NV-DXVK end
+ 
++      m_blitter->presentImage(m_context.ptr(),
++        m_imageViews.at(imageIndex), dstRect,
++        swapImageView, srcRect);
++
+       if (m_hud != nullptr)
+         m_hud->render(m_context, info.format, info.imageExtent);
+ 
+-- 
+2.56.0.windows.1
+

@@ -8976,6 +8976,18 @@ controller 6, まばたき 0).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
 
+## The Remix menu under frame generation (2026-11-15, Claude, runtime patch 0096)
+
+- **The HUD and the Remix menu draw into whatever target is bound.** `D3D9SwapChainEx::PresentImage` blits the game's
+  frame into the presenter's back buffer (`DxvkSwapchainBlitter::presentImage`, which leaves its destination bound),
+  then renders the DXVK HUD (`m_hud->render`) and the Remix menu (`ImGUI::render` ->
+  `ImGui_ImplDxvk::RenderDrawData`, `imgui_impl_dxvk.hpp:285`), neither of which binds a render target of its own.
+  Patch 0094 added a second `presentImage` into the DLSS-G presenter's HUD-less image after the back buffer's, so
+  with frame generation on both went into that image, which `NGX_VK_EVALUATE_DLSSG` only reads as `pHudless`: Alt+X
+  switched `rtx.showUI` and took the input (the menu's input blocking), yet nothing was drawn on screen, in rendered
+  or generated frames (PoC, DLSS-G 3x: `out\qa-poc\altx\01-menu`; frame generation off, the menu was drawn).
+  `rtx.showUI` set through `RemixConfig.SetConfigVariable` reproduces Alt+X's menu without a key press.
+
 ## The poster command under RTX (2026-11-15, Claude, ADR 0226, GitHub issue 3)
 
 - **GMod's `poster` is `client.dll` code** (the PoC's build of 2026-11-15). The static initializer at rva `0x8f80`

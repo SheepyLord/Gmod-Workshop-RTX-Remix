@@ -6,6 +6,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The RTX Remix menu (Alt+X) with frame generation on (the user's report of 2026-11-15)
+
+- **Alt+X shows the RTX Remix menu again with frame generation on.** Since the update that kept the crosshair
+  still under DLSS frame generation (2026-11-15, runtime patch 0094), Alt+X took the mouse and keyboard from the
+  game but drew no menu, and the frame counter was gone too: both were drawn into the copy of the frame that
+  frame generation only reads, never into the picture on screen. They are drawn on screen again, and frame
+  generation still keeps the crosshair, the HUD and now the menu in place (runtime patch 0096). With frame
+  generation off nothing changes.
+
 ### The poster command under RTX (GitHub issue 3, the user's request of 2026-11-15)
 
 - **`poster` works with RTX: a path traced screenshot several times the size of your screen.** Type `poster 2` in

@@ -1,5 +1,18 @@
 # runtime/
 
+Patch `0096-The-Remix-menu-and-the-HUD-drawn-into-the-back-buffe.patch` (the user's report of 2026-11-15, fork
+branch `claude/dlfg-menu`, commit `7db13a1b` on 0095's `9b6e1101`): the Remix menu and the HUD drawn into the
+presented image again with DLSS frame generation on. The swapchain's present blitted the game's frame into the back
+buffer and then (0094) the frame before its UI into the presenter's HUD-less image; the HUD and the Remix menu
+(`ImGui_ImplDxvk::RenderDrawData`) bind no target of their own and draw into the one the last blit leaves bound, so
+they went into the HUD-less copy, which frame generation only reads: Alt+X took the input and nothing was shown. The
+HUD-less blit now comes first and the back buffer's last; the HUD-less copy stays without UI, so DLSS-G keeps the
+menu in place as UI. Checked by [test_dlfg_hudless.py](../tools/tests/test_dlfg_hudless.py.md) (the blits' order) and
+in the PoC (`out\qa-poc\altx`: the basic and the developer menu drawn with DLSS frame generation 3x on, absent
+before). Exported alone (`format-patch -1 --start-number 96 --zero-commit`) and built by `build_runtime.ps1` in
+`out/worktrees/r17/out/runtime-src` (0001-0096): **`d3d9.dll` 478,660,096 bytes, SHA-256
+`d03f09c80abb93ea826b340a1a46a93e64c82ea94bd4f02d7e03a377540e932a`** (70,718,044 bytes xz in Git LFS).
+
 Patch `0095-Poster-GMod-s-poster-command-rendered-in-tiles-of-th.patch`
 ([ADR 0226](../docs/decisions/0226-the-poster-command-rendered-in-tiles-by-the-runtime.md), GitHub issue 3, the user's
 request of 2026-11-15, fork branch `claude/poster`, commit `9b6e1101` on 0094's `81b4d393`): GMod's `poster` command

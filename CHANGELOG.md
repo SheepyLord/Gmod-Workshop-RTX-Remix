@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The night sky editor (the user's request of 2026-11-15)
+
+- **A Night sky editor in the RTX Remix tab, next to Sky and weather, sets how each part of the night sky looks.**
+  The night sky image's stars, the constellations' bright stars, the Milky Way and the nebulae each have a brightness
+  (1 is as drawn, 0 hides it, up to 8) and a colour (0 grey, 1 as drawn, up to 2 stronger), and the whole image has a
+  brightness too. The simulated stars have a brightness, a density and a twinkle; the moon a brightness, a size, a
+  glow and earthshine (a bigger moon does not light the map more: its brightness does); the shooting stars how many
+  come a minute and how bright they are; and the faint glow of the night air between the stars a brightness of its
+  own. "Go to night" and "Time passes" are on the page, so you can look up while you drag; "Reset the night sky" puts
+  everything back. By default the night sky looks as it did.
+- **The constellations' stars are a layer of their own.** They were part of the nebula picture, so they could not be
+  changed apart from the nebulae; now they come out with the first stars at dusk, while the Milky Way and the nebulae
+  still wait for full darkness. A part turned down to 0 also leaves video memory (the nebulae free 89.5 MB). Runtime
+  patch 0099; the package carries the nebula without the constellations and the constellations' own texture.
+
 ### A crash soon after a start or at a level change, after an update of RTX content (2026-11-15)
 
 - **The game no longer closes, rarely, a few seconds into a start or while changing level, right after the RTX

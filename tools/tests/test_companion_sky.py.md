@@ -92,6 +92,24 @@ The harness is written to a scratch folder under `out\tmp`.
   `rtx.atmosphere.daytimeMoonBrightness 1` (as bright as the real Moon); the slider's 2.5 sends `2.5` and the sky
   still follows the map's sun; 9 is held to `4`; 0 sends `0` and the status line says "moon by day 0.00"; the reset
   sends `1` again.
+- **The night sky editor** (ADR 0227, `test_the_night_sky_editor_sets_each_element`): the start of gm_construct sends
+  every element at its default (the image's `0.12`, each layer's brightness and colour `1`, the simulated stars' `0.5`,
+  `0.5` and `1`, the moon's `1`, `1.6` degrees, halo `15` and earthshine `0.005`, `1.2` shooting stars a minute at
+  `1`); the stars' slider at 3 sends that one option and the sky still follows the map's sun; 50 is held to `8` and
+  text gives the default; settings scale their options (image 2 -> `0.24`, earthshine 3 -> `0.015`, glow 0.5 -> `7.5`,
+  6 shooting stars, density `0.75`). At night a moon twice as wide sends `3.2` and a quarter of the ground light, so the
+  night is as light; its eclipse geometry follows its radius (clear of the shadow at (4.8 + 1) x 1.6 + 1 degrees from
+  the antisolar point, half way through a lunar eclipse where `sky_model` puts it). The night glow at 2 doubles the
+  weather's airglow; the status lines name the editor's values; `nativeloader_sky_night_reset` puts every element
+  and the airglow back.
+- **The night sky editor's page** (`test_the_night_sky_editor_page_has_a_control_for_each_element`): both pages of the
+  tab built against a panel that records DForm's calls (`SCRIPT='panel'`): every editor setting has its slider over its
+  own range (two decimals; the shooting stars one), with Go to night, Time passes, the Night sky choice, the section
+  headings and Reset the night sky; the Sky and weather page still builds, with its help line pointing to the editor.
+- **The night sky editor on a map whose add-on sets the sky**
+  (`test_the_night_sky_editor_reaches_a_maps_own_sky_without_taking_it_over`): with every element at its default the
+  start sends nothing; a change sends its option alone and 11 s later still no `rtx.skyMode`; a saved change
+  (`PRESET`) goes out at the start, alone.
 
 Run with the other tool tests: `python -m unittest discover -s tests` from `tools\` (as
 `tools\test.ps1` does). Skipped when LuaJIT is not installed (on `PATH` or in

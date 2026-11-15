@@ -10,15 +10,17 @@ moon_albedo.dds, moon_normal.dds
   linear luminance is 0.25, BC7 (sRGB) with mipmaps; the relief as a tangent-space normal map (x east,
   y north) from the elevation's slopes, BC5 with mipmaps. Simple cylindrical projection, north up.
 
-stars.dds, galaxy.dds, nebula.dds
-stars_4096.dds, galaxy_4096.dds, nebula_4096.dds
+stars.dds, galaxy.dds, nebula.dds, nebula_constellations.dds
+stars_4096.dds, galaxy_4096.dds, nebula_4096.dds, nebula_4096_constellations.dds
   The night sky, from Night Sky HD LE by PraedythXVI
   (https://www.nexusmods.com/skyrim/mods/107102): the star sphere ("Thorn Shaped option 3",
-  textures\sky\skystars.dds) and the galaxy (textures\sky\skyrimgalaxy.dds) as they are, and the
-  "FullNebula" option 1 sphere with the mod's constellations (textures\sky\skyrimconstellations.dds,
-  remapped from its mesh) added in. Stars, galaxy and constellations: made by PraedythXVI. The
-  FullNebula textures are PraedythXVI's edit of nebula images by Era-7 on Cubebrush, which Era-7
-  provides as free, open assets; this project's maintainer has permission to use them.
+  textures\sky\skystars.dds) and the galaxy (textures\sky\skyrimgalaxy.dds) as they are, the
+  "FullNebula" option 1 sphere (nebula.dds), and the mod's constellations
+  (textures\sky\skyrimconstellations.dds, remapped from its mesh into the nebula's mapping) in a layer
+  of their own (nebula_constellations.dds), so the runtime can show each part on its own. Stars,
+  galaxy and constellations: made by PraedythXVI. The FullNebula textures are PraedythXVI's edit of
+  nebula images by Era-7 on Cubebrush, which Era-7 provides as free, open assets; this project's
+  maintainer has permission to use them.
   The mod's permissions allow converting it for other games and using its assets with credit to its
   creator, not in anything sold.
   Each _4096 copy is its corresponding source with mip 0 removed by tools/sky/drop_top_mip.py,

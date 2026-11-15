@@ -438,6 +438,99 @@ if SCRIPT == "moonday" then
   report("moonday_reset", "rtx.atmosphere.daytimeMoonBrightness")
   return
 end
+if SCRIPT == "panel" then
+  -- ADR 0227: both pages of the tab built against a panel that records each control (DForm's methods).
+  local function recorder(tag)
+    return setmetatable({}, { __index = function(_, kind)
+      return function(_, ...)
+        local parts = { tag, kind }
+        for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
+        print("panel " .. table.concat(parts, "|"))
+        return setmetatable({}, { __index = function() return function() end end })
+      end
+    end })
+  end
+  vgui = { Create = function() return setmetatable({ GetChildren = function() return {} end },
+    { __index = function() return function() end end }) end }
+  NATIVELOADER_SKY.buildPanel(recorder("sky"))
+  NATIVELOADER_SKY.buildNightPanel(recorder("night"))
+  return
+end
+if SCRIPT == "editor" or SCRIPT == "editor_owned" then
+  -- ADR 0227: the night sky editor's options, as Remix was last given them.
+  local EDITOR = { "rtx.atmosphere.starMapBrightness", "rtx.atmosphere.starMapStarBrightness",
+    "rtx.atmosphere.starMapStarSaturation", "rtx.atmosphere.starMapConstellationBrightness",
+    "rtx.atmosphere.starMapConstellationSaturation", "rtx.atmosphere.starMapGalaxyBrightness",
+    "rtx.atmosphere.starMapGalaxySaturation", "rtx.atmosphere.starMapNebulaBrightness",
+    "rtx.atmosphere.starMapNebulaSaturation", "rtx.atmosphere.starBrightness", "rtx.atmosphere.starDensity",
+    "rtx.atmosphere.starTwinkleSpeed", "rtx.atmosphere.moon0.brightness", "rtx.atmosphere.moon0.angularRadius",
+    "rtx.atmosphere.haloMoonBrightness", "rtx.atmosphere.moon0.darkSideBrightness",
+    "rtx.atmosphere.shootingStarsPerMinute", "rtx.atmosphere.shootingStarBrightness" }
+  if SCRIPT == "editor_owned" then
+    -- A map whose add-on owns the sky: the start sends only what is off its default; a change sends its
+    -- option alone, without taking that sky over (no skyMode, nothing more on the 10 s timer).
+    local options, seen = {}, {}
+    for _, call in ipairs(calls) do
+      if not seen[call[1]] then seen[call[1]] = true options[#options + 1] = call[1] end
+    end
+    print("owned_start_options " .. (#options > 0 and table.concat(options, ",") or "none"))
+    local before = #calls
+    cmd("nativeloader_sky_constellations_brightness", "0")
+    print("owned_calls " .. (#calls - before) .. " " .. tostring(value("rtx.skyMode")) .. " "
+      .. tostring(value("rtx.atmosphere.starMapConstellationBrightness")))
+    tick(11)
+    report("owned_after", "rtx.skyMode")
+    return
+  end
+  report("editor_start", unpack(EDITOR))
+  local before = #calls
+  cmd("nativeloader_sky_stars_brightness", "3")
+  print("editor_calls " .. (#calls - before) .. " " .. convars.nativeloader_sky_follow_map.value)
+  report("editor_stars", "rtx.atmosphere.starMapStarBrightness")
+  cmd("nativeloader_sky_stars_brightness", "50")
+  report("editor_high", "rtx.atmosphere.starMapStarBrightness")
+  cmd("nativeloader_sky_stars_brightness", "x")
+  report("editor_text", "rtx.atmosphere.starMapStarBrightness")
+  cmd("nativeloader_sky_night_image", "2")
+  cmd("nativeloader_sky_earthshine", "3")
+  cmd("nativeloader_sky_moon_glow", "0.5")
+  cmd("nativeloader_sky_shooting_stars", "6")
+  cmd("nativeloader_sky_simulated_density", "0.75")
+  report("editor_scaled", "rtx.atmosphere.starMapBrightness", "rtx.atmosphere.moon0.darkSideBrightness",
+    "rtx.atmosphere.haloMoonBrightness", "rtx.atmosphere.shootingStarsPerMinute", "rtx.atmosphere.starDensity")
+  -- The moon's size: the disc, the same moonlight on the ground, and the eclipse geometry by its radius.
+  cmd("nativeloader_sky_time", "night")
+  report("editor_moon16", "rtx.atmosphere.surfaceMoonBrightness")
+  cmd("nativeloader_sky_moon_size", "3.2")
+  report("editor_moon32", "rtx.atmosphere.moon0.angularRadius", "rtx.atmosphere.surfaceMoonBrightness")
+  local function dir(e, b) e, b = math.rad(e), math.rad(b) return { math.cos(e) * math.sin(b), math.sin(e), math.cos(e) * math.cos(b) } end
+  local function angle(a, b) return math.deg(math.acos(math.max(-1, math.min(1, a[1] * b[1] + a[2] * b[2] + a[3] * b[3])))) end
+  local function antisolar()
+    local sun = dir(tonumber(value("rtx.atmosphere.sunElevation")), tonumber(value("rtx.atmosphere.sunRotation")))
+    local moon = dir(tonumber(value("rtx.atmosphere.moon0.elevation")), tonumber(value("rtx.atmosphere.moon0.rotation")))
+    return angle(moon, { -sun[1], -sun[2], -sun[3] })
+  end
+  print(string.format("editor_clear %.3f", antisolar()))
+  cmd("nativeloader_sky_eclipse_amount", "50")
+  cmd("nativeloader_sky_eclipse", "lunar")
+  print(string.format("editor_lunar50 %.3f %.3f", antisolar(), M.eclipseSeparation("lunar", 0.5, 1.6)))
+  cmd("nativeloader_sky_eclipse", "")
+  -- The night glow scales the weather's airglow (5 % of it under the night sky image).
+  local airglow = tonumber(value("rtx.atmosphere.nightSkyBrightness"))
+  cmd("nativeloader_sky_night_glow", "2")
+  print(string.format("editor_glow %.6g %.6g", airglow, tonumber(value("rtx.atmosphere.nightSkyBrightness"))))
+  local lines, realPrint = {}, print
+  print = function(text) lines[#lines + 1] = text end
+  cmd("nativeloader_sky_status")
+  print = realPrint
+  local status = {}
+  for _, line in ipairs(lines) do if line:find("night sky editor", 1, true) then status[#status + 1] = line end end
+  print("editor_status " .. table.concat(status, " | "))
+  cmd("nativeloader_sky_night_reset")
+  report("editor_reset", unpack(EDITOR))
+  print(string.format("editor_reset_glow %.6g", tonumber(value("rtx.atmosphere.nightSkyBrightness"))))
+  return
+end
 if SCRIPT == "fog" then
   -- (Colours hold spaces, so they are printed apart from report's option=value pairs.)
   cmd("nativeloader_remix_fog", "heavyFog")
@@ -780,6 +873,110 @@ class SkyTests(unittest.TestCase):
         self.assertEqual(self.settings(out['moonday_off'])['rtx.atmosphere.daytimeMoonBrightness'], '0')
         self.assertIn('moon by day 0.00', out['moonday_status'])
         self.assertEqual(self.settings(out['moonday_reset'])['rtx.atmosphere.daytimeMoonBrightness'], '1')
+
+    # The night sky editor's options at their defaults: Remix's own values (the image's 0.12, the runtime's star,
+    # halo and earthshine defaults) and the moon's 1.6 degrees.
+    EDITOR_DEFAULTS = {
+        'rtx.atmosphere.starMapBrightness': '0.12', 'rtx.atmosphere.starMapStarBrightness': '1',
+        'rtx.atmosphere.starMapStarSaturation': '1', 'rtx.atmosphere.starMapConstellationBrightness': '1',
+        'rtx.atmosphere.starMapConstellationSaturation': '1', 'rtx.atmosphere.starMapGalaxyBrightness': '1',
+        'rtx.atmosphere.starMapGalaxySaturation': '1', 'rtx.atmosphere.starMapNebulaBrightness': '1',
+        'rtx.atmosphere.starMapNebulaSaturation': '1', 'rtx.atmosphere.starBrightness': '0.5',
+        'rtx.atmosphere.starDensity': '0.5', 'rtx.atmosphere.starTwinkleSpeed': '1', 'rtx.atmosphere.moon0.brightness': '1',
+        'rtx.atmosphere.moon0.angularRadius': '1.6', 'rtx.atmosphere.haloMoonBrightness': '15',
+        'rtx.atmosphere.moon0.darkSideBrightness': '0.005', 'rtx.atmosphere.shootingStarsPerMinute': '1.2',
+        'rtx.atmosphere.shootingStarBrightness': '1'}
+
+    def test_the_night_sky_editor_sets_each_element(self):
+        # ADR 0227: every element of the night sky with the companion's sky from the map's start; a slider sends
+        # its option at once and leaves the map's sun followed; values are held to their ranges.
+        out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='editor')
+        self.assertEqual(self.settings(out['editor_start']), self.EDITOR_DEFAULTS)
+        self.assertEqual(out['editor_calls'].split(), ['1', '1'])
+        self.assertEqual(self.settings(out['editor_stars'])['rtx.atmosphere.starMapStarBrightness'], '3')
+        self.assertEqual(self.settings(out['editor_high'])['rtx.atmosphere.starMapStarBrightness'], '8')
+        self.assertEqual(self.settings(out['editor_text'])['rtx.atmosphere.starMapStarBrightness'], '1')
+        self.assertEqual(self.settings(out['editor_scaled']), {
+            'rtx.atmosphere.starMapBrightness': '0.24', 'rtx.atmosphere.moon0.darkSideBrightness': '0.015',
+            'rtx.atmosphere.haloMoonBrightness': '7.5', 'rtx.atmosphere.shootingStarsPerMinute': '6',
+            'rtx.atmosphere.starDensity': '0.75'})
+        # Twice as wide: the disc's option, and a quarter of the ground light per area, so the night is as light.
+        moon16 = float(self.settings(out['editor_moon16'])['rtx.atmosphere.surfaceMoonBrightness'])
+        moon32 = self.settings(out['editor_moon32'])
+        self.assertGreater(moon16, 100)
+        self.assertEqual(moon32['rtx.atmosphere.moon0.angularRadius'], '3.2')
+        self.assertAlmostEqual(float(moon32['rtx.atmosphere.surfaceMoonBrightness']), moon16 / 4, delta=0.1)
+        # The eclipse geometry by the bigger moon's radius: clear of its larger shadow without an eclipse
+        # ((4.8 + 1) x 1.6 + 1 degrees), and half way through a lunar eclipse where the model puts it.
+        self.assertAlmostEqual(float(out['editor_clear']), (4.8 + 1) * 1.6 + 1, delta=0.01)
+        lunar, expected = self.numbers(out['editor_lunar50'])
+        self.assertAlmostEqual(lunar, expected, delta=0.01)
+        # The night glow doubles the weather's airglow.
+        glow, doubled = self.numbers(out['editor_glow'])
+        self.assertGreater(glow, 0)
+        self.assertAlmostEqual(doubled, 2 * glow, delta=1e-9)
+        self.assertIn('night sky editor: image 2.00; stars 1.00 (colour 1.00)', out['editor_status'])
+        self.assertIn('moon 1.00, 3.20 deg, glow 0.50, earthshine 3.00; shooting stars 6.0 a minute', out['editor_status'])
+        # The editor's reset puts every element back, the night glow too.
+        self.assertEqual(self.settings(out['editor_reset']), self.EDITOR_DEFAULTS)
+        self.assertAlmostEqual(float(out['editor_reset_glow']), glow, delta=1e-9)
+
+    def run_lines(self, body: str, **globals_) -> list:
+        """The harness's whole output, line by line (run_lua keeps only the first line of each key)."""
+        with tempfile.TemporaryDirectory(dir=REPO / 'out' / 'tmp') as scratch:
+            script = Path(scratch) / 'harness.lua'
+            prelude = f'LUA = {json.dumps(str(LUA))}\nCONSTRUCT = {json.dumps(CONSTRUCT)}\nCONF = {{}}\n'
+            for name, value in globals_.items():
+                prelude += f'{name} = {lua_string(value) if isinstance(value, bytes) else json.dumps(value)}\n'
+            script.write_text(prelude + body, encoding='utf-8')
+            done = subprocess.run([LUAJIT, str(script)], capture_output=True, text=True, timeout=60, cwd=scratch)
+        self.assertEqual(done.returncode, 0, done.stderr + done.stdout)
+        return done.stdout.splitlines()
+
+    def test_the_night_sky_editor_page_has_a_control_for_each_element(self):
+        # ADR 0227: the Night sky editor page builds, every editor setting has its slider over its own range (the
+        # moon's size from 0.5, the shooting stars to 15 with one decimal), the page has Go to night, Time passes, the
+        # Night sky choice and its reset; the Sky and weather page still builds and points to it.
+        lines = [line.split(' ', 1)[1].split('|') for line in self.run_lines(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT),
+                                                                                SCRIPT='panel') if line.startswith('panel ')]
+        night = [parts[1:] for parts in lines if parts[0] == 'night']
+        sky = [parts[1:] for parts in lines if parts[0] == 'sky']
+        sliders = {parts[2]: (parts[1], float(parts[3]), float(parts[4]), int(parts[5])) for parts in night
+                   if parts[0] == 'NumSlider'}
+        ranges = {'night_image': (0, 4), 'stars_brightness': (0, 8), 'stars_colour': (0, 2),
+                  'constellations_brightness': (0, 8), 'constellations_colour': (0, 2), 'milky_way_brightness': (0, 8),
+                  'milky_way_colour': (0, 2), 'nebulae_brightness': (0, 8), 'nebulae_colour': (0, 2),
+                  'simulated_brightness': (0, 4), 'simulated_density': (0, 1), 'simulated_twinkle': (0, 4),
+                  'moon_brightness': (0, 4), 'moon_size': (0.5, 5), 'moon_glow': (0, 4), 'earthshine': (0, 8),
+                  'shooting_stars': (0, 15), 'shooting_star_brightness': (0, 8), 'night_glow': (0, 4)}
+        self.assertEqual(set(sliders), {'nativeloader_sky_' + name for name in ranges})
+        for name, (low, high) in ranges.items():
+            label, got_low, got_high, decimals = sliders['nativeloader_sky_' + name]
+            self.assertEqual((got_low, got_high), (low, high), name)
+            self.assertEqual(decimals, 1 if name == 'shooting_stars' else 2, name)
+            self.assertTrue(label, name)
+        self.assertEqual(sliders['nativeloader_sky_constellations_brightness'][0], 'Constellations')
+        self.assertIn(['Button', 'Go to night', 'nativeloader_sky_time', 'night'], night)
+        self.assertIn(['CheckBox', 'Time passes', 'nativeloader_sky_time_passes'], night)
+        self.assertIn(['ComboBox', 'Night sky', 'nativeloader_sky_stars'], night)
+        self.assertIn(['Button', 'Reset the night sky', 'nativeloader_sky_night_reset'], night)
+        for heading in ('Night sky image', 'Simulated stars', 'Moon', 'Shooting stars', 'Night glow'):
+            self.assertIn(['Help', heading], night)
+        self.assertIn(['ControlHelp', 'The Night sky editor, next to this page, sets how each part of the night sky looks.'],
+                      sky)
+        self.assertIn(['Button', 'Reset the sky and weather', 'nativeloader_sky_reset'], sky)
+
+    def test_the_night_sky_editor_reaches_a_maps_own_sky_without_taking_it_over(self):
+        # On a map whose add-on owns the sky: nothing at the start while every element is at its default; a
+        # change goes out alone; a saved change goes out at the start; the sky stays the add-on's.
+        out = self.run_lua('MHRTX_Config = {}\n' + SESSION, MAP='modern_house', BSP=bsp(CONSTRUCT), SCRIPT='editor_owned')
+        self.assertEqual(out['owned_start_options'], 'none')
+        self.assertEqual(out['owned_calls'].split(), ['1', 'nil', '0'])
+        self.assertEqual(out['owned_after'].split(), ['1', 'rtx.skyMode=nil'])
+        out = self.run_lua('MHRTX_Config = {}\nPRESET = { nativeloader_sky_nebulae_colour = "0.25" }\n' + SESSION,
+                           MAP='modern_house', BSP=bsp(CONSTRUCT), SCRIPT='editor_owned')
+        self.assertEqual(out['owned_start_options'], 'rtx.atmosphere.starMapNebulaSaturation')
+        self.assertEqual(self.settings(out['start']).get('rtx.skyMode'), 'nil')
 
     def test_a_fog_preset_sets_remix_fog_and_the_weather_leaves_it_alone(self):
         out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='fog', MENU=True)

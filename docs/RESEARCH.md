@@ -8976,6 +8976,71 @@ controller 6, まばたき 0).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
 
+## The night sky editor (2026-11-15, Claude, runtime patch 0099, ADR 0227)
+
+**What the night sky is made of** (the user asked first whether it was one picture). `evalNightSky`
+(`atmosphere_sky.slangh`, the fork at `173bdc84`) draws, for a sky pixel: the night sky image (`evalStarMap`) or the
+procedural field (`evalStarField`, with its own Milky Way glow from `milkyWay*` options), then the shooting stars (one
+hashed slot of 4 s in 12.5: `slotHash > 0.92`, a streak of radiance 2), then the airglow (`nightSkyColor *
+nightSkyBrightness`, brighter towards the horizon); the moons, their halos and the sun disc come after
+(`evalSkyRadiance`). The image is three textures sampled apart through the Skyrim mod's mesh mappings (stars, galaxy
+band, nebula: ADR 0032, section 29), but summed in gamma space, `pow(min(layers, 1), 2.2) * starMapBrightness`, so only
+the whole image had a brightness. `bake_nightsky.py` had **added the mod's constellations into the nebula's map**, so
+they could not be told apart from the nebulae; within the star layer single stars cannot be told apart either.
+
+**The constellation layer**, baked apart from the same sources (`out\sky\nightsky-split`, the mod in
+`out\downloads\nightsky8k`):
+
+- 3,713,459 texels fall inside the 58 triangles; 71,905 of the map's 67,108,864 carry light above 2/255 (0.107 %):
+  clusters of point-like stars, blue, cyan and violet (gamma maximum 0.47, 0.73, 0.77; mean over the lit texels 0.031,
+  0.049, 0.079), about 5 to 20 texels across.
+- **BC1 against the source PNG**: mean error 0.0058 over the lit texels, p99 0.031, max 0.10; elsewhere at most 0.055
+  (block bleed beside a star). The previews of PNG and BC1 side by side cannot be told apart.
+- **The default look**: the shader's sum `min(nebula + constellations, 1)` against the old combined `nebula.dds`, both
+  decoded: mean difference 1e-5 (gamma), p99.99 0.0118, max 0.11 (a few texels on bright constellation stars, BC1
+  against BC7); decoded to linear, mean 2e-6, max 0.138. The nebula alone differs from the old map by at most 0.043
+  away from the constellations (BC7 blocks beside them, encoded again).
+- Sizes: `nebula.dds` 89,478,660 bytes (BC7, as before), `nebula_constellations.dds` 44,739,404 (BC1, 8192 with 14
+  mips), `nebula_4096.dds` 22,369,796, `nebula_4096_constellations.dds` 11,184,972; stored with xz 36,514,180,
+  80,788, 10,651,100 and 26,656 bytes. Video memory of the image at its defaults: 268.4 MB at 8192 (223.7 before), 67.1
+  MB in the low tier (55.9). nvtt_export's BC7 at `-q production` took about ten minutes for the 8192 nebula.
+
+**Why the constellations' texture is found by name, not by an option.** The RTX fixes' Lua path policy refuses Lua
+the Remix options that name files (`RemixPathOption`, `packages/fixes/licenses/oversized-skinning/autopbr/source/
+lua_path_policy.h:88-96`, an explicit list with the three night sky textures); a new path option would have needed that
+native module rebuilt to refuse it too. A file beside the nebula's (`<name>_constellations.dds`) follows a refused
+option and needs nothing.
+
+**Binding 222.** No pass binds 222 to 239 (every `binding_indices.h`: the atmosphere range ends at 221,
+`INTEGRATE_INSTRUMENTATION` is 220, the sparse-rendering passes use 240 to 251 and assert no overlap with the
+atmosphere range).
+
+**The fork's string catalogs were already behind.** `i18n/tools/update_strings.py --check` fails at patch 0099's tree;
+regenerated, `remix.pot` has 3,452 messages and every catalog 98 untranslated and 16 or 18 obsolete ones, and the
+references of most entries move (`dxvk_imgui.cpp` by six lines). Patch 0099 adds no menu text (its options are bound
+to no ImGui widget, which is what the extractor takes), so these come from earlier sources, most likely the upstream
+merge of patch 0093. Left as they were.
+
+**The runtime build** (0001-0099): `d3d9.dll` 479,795,712 bytes, SHA-256 `52a8a3d2...2537`; the build's
+`test_night_sky_layers.exe` passes 860 checks.
+
+**In the PoC** (RTX 5090, 1280x720, gm_construct, a clear midnight; `tools/qa/night_sky_editor_probe.lua`,
+`out\qa-poc\night-sky`):
+
+- A layer turned up from 0 loads in about 20 ms (the Remix log's timestamps, the file in the OS cache): the stars,
+  galaxy, nebula and constellations at 11:11:06.612, .627, .659 and .674.
+- The default night against the published package (`0.0.0-dev.20261115130101+9f7a7c85`, the same probe): mean
+  difference 0.0014-0.0017 per view, 0.10-0.66 % of pixels by more than 4/255, as much as two frames of one run with the
+  same settings (0.0015-0.0017, 0.19-0.76 %); the frames' means agree to four decimals.
+- At 1280x720 a pixel of a 90-110 degree view spans 14-17 texels across of the star layer (about 200 a degree): the
+  mips average its stars into a faint haze, so the stars' brightness barely changes such a view. Through 35 degrees
+  (about 5 texels a pixel) point sources counted in the frame (brighter than every neighbour within 2 pixels by 8/255):
+  830 by default, 2,118 with the stars at 4, 97 at 0, 1,399 at 2 in grey.
+- With the sun 10 degrees down the galaxy and the nebulae are at about a tenth (`deepNight`) and the constellations
+  whole; their clusters show over the twilight, plainly at 6.
+- GMod's sliders write back what they show (`DNumberScratch:SetValue` calls `UpdateConVar`, a `RunConsoleCommand` of
+  the formatted value): a page built in the same tick as a console change writes the old value after it.
+
 ## The About tab's secrets race (2026-11-15, Claude, runtime patch 0098)
 
 - **The two threads.** `AssetReplacer::updateSecretReplacements` (`rtx_asset_replacer.cpp:222`) runs on DXVK's

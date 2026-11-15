@@ -3507,3 +3507,18 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package 
   big RTX map pack, with the field's subscribed content and local add-ons (`tools/qa/level_change_session.py` on the
   branch `crash-34b9dc`); the race needs a mod that declares secret replacements to finish loading while frames are
   presented.
+
+## The night sky editor (runtime patch 0099, ADR 0227)
+
+- [`tools/tests/test_runtime_night_sky_editor.py`](../tools/tests/test_runtime_night_sky_editor.py.md): patch 0099's
+  layers unit test compiled from the patch with MSVC (860 checks: the weights, the clamp, the ranges, the shooting
+  stars' chance, the constellations' file beside the nebula's), the options and their ranges, the arguments zeroed in
+  the LUT key, binding 222 and the texture beside the nebula's, the sky's per-layer weights and colours,
+  `RtxOptions.md`, and the package's split layers in both tiers.
+- [`tools/tests/test_companion_sky.py`](../tools/tests/test_companion_sky.py.md): the editor's settings reach Remix
+  (every element at the start, a change at once without taking the map's sun, the ranges, the moon's size keeping the
+  night's light and moving the eclipse geometry, the night glow, the reset), and a map whose add-on owns the sky.
+- In the PoC: [`tools/qa/night_sky_editor_probe.lua`](../tools/qa/night_sky_editor_probe.lua.md) (`poc_session.py run
+  --lua ... --lua-shots 420` on gm_construct): a clear midnight, each element changed on its own, three views of the
+  sky after each step and the moon's own view; the Remix log names each layer loaded and freed
+  ([report](handover/night-sky-editor-report.md)).

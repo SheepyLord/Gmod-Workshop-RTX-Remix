@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "7c7291b6852da7f77ca4fef2c8b3cb834f2491e0a29bbfd2968f3f22877e0122",
-  "built_from": "HEAD -> claude/secrets-race 173bdc846 (with what the rest of this record names)",
+  "d3d9.dll": "52a8a3d27fe097b0959669a4aa0829512ed1f84eee5162ebed6e1206f3322537",
+  "built_from": "HEAD -> claude/night-sky-editor 1dd38dbfc (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -148,6 +148,7 @@
    "patches/0096-The-Remix-menu-and-the-HUD-drawn-into-the-back-buffe.patch": "db2a7d442975066e82f035a075c7acf56f8198897794ba58f26cf9ac26246dc9",
    "patches/0097-LockImage-a-read-back-resolves-only-a-multisampled-i.patch": "7db7736bb23bcb97e8bc2990ee7d4425c4c4ea39b78e1ced148f69be25e32266",
    "patches/0098-The-About-tab-takes-the-secret-replacements-whole-no.patch": "8cf59ec1fea725148897af24ef83ae217a7b2c78c7f48c2c3421e6d00dab21cf",
+   "patches/0099-Atmosphere-the-night-sky-editor-each-layer-on-its-ow.patch": "179c7f87c8dbe19f6a1ee3f5618aad12ecc3614b6438ed7607b4e627c8678548",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

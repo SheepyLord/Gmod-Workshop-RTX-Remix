@@ -27,10 +27,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "173bdc846626b4da9a9dd363ba43ff32d158b0bf",
+    "commit": "1dd38dbfc0d2fccab5c030486658b56dade0db54",
     "dirty": false
    },
-   "imported": "2026-11-15T12:53:11+00:00"
+   "imported": "2026-11-15T18:05:30+00:00"
   },
   "layers/classic_remix_defaults.conf": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\fx\\out\\layers\\classic_remix_defaults.conf",
@@ -103,24 +103,24 @@
    "imported": "2026-10-31T22:25:32+00:00"
   },
   "files/atmosphere/nebula_4096.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t6-tiers\\out\\t6-stage\\atmosphere\\nebula_4096.dds",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula_4096.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r6-t6-tiers",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "7759c433e4c96d5a284d2fcc7c9d55755d2b2a65",
+    "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
    },
-   "imported": "2026-10-31T22:25:32+00:00"
+   "imported": "2026-11-15T17:58:23+00:00"
   },
   "files/atmosphere/CREDITS.txt": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t6-tiers\\out\\t6-fix-stage\\atmosphere\\CREDITS.txt",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\CREDITS.txt",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r6-t6-tiers",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "84e0f1a809454d30b436baf47727c6353ba306f8",
+    "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
    },
-   "imported": "2026-10-31T23:44:37+00:00"
+   "imported": "2026-11-15T18:08:04+00:00"
   },
   "files/usd/plugins/RemixCategories/generatedSchema.usda": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\generatedSchema.usda",
@@ -161,6 +161,36 @@
     "dirty": false
    },
    "imported": "2026-11-14T20:04:03+00:00"
+  },
+  "files/atmosphere/nebula.dds": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula.dds",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
+    "dirty": false
+   },
+   "imported": "2026-11-15T17:58:23+00:00"
+  },
+  "files/atmosphere/nebula_constellations.dds": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula_constellations.dds",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
+    "dirty": false
+   },
+   "imported": "2026-11-15T17:58:23+00:00"
+  },
+  "files/atmosphere/nebula_4096_constellations.dds": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula_4096_constellations.dds",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
+    "dirty": false
+   },
+   "imported": "2026-11-15T17:58:23+00:00"
   }
  },
  "files": {
@@ -173,9 +203,9 @@
    "stored_sha256": "e31fcab4f48296f2c5290bf422224a822d4fa259fea84372286ce02b957e7147"
   },
   "files/atmosphere/CREDITS.txt": {
-   "size": 1810,
-   "sha256": "b0833600962f381b2d4a7c7da1add7fad932eac1f794f2952b5b3f5106e51b4a",
-   "mtime_ns": 1793490196604674700,
+   "size": 1997,
+   "sha256": "c4761909635c659db2674300163ff4ca49aad07fcbffd64c4dd707457ee48fcc",
+   "mtime_ns": 1794765816979683300,
    "stored": "plain"
   },
   "files/atmosphere/galaxy.dds": {
@@ -212,19 +242,35 @@
   },
   "files/atmosphere/nebula.dds": {
    "size": 89478660,
-   "sha256": "ec3b034621cc1188e843df8d1a308796344ac5b6071d0f8cc39199c85f74998d",
-   "mtime_ns": 1793313177160635100,
+   "sha256": "7b7d8da3d9c2a0dbdb1d7532b9d15e945f3b7c5ae75ab9bb2e484fb261763ee4",
+   "mtime_ns": 1794765355526771600,
    "stored": "xz",
-   "stored_size": 36617144,
-   "stored_sha256": "a187706e6aa5d6ec08bbdb5a1a3c3244311c98b476ed4b93ba5a51ed3d97601d"
+   "stored_size": 36514180,
+   "stored_sha256": "122dfb78eb425292b319a2ef9acf193acf85898555b2b7d1f64108e4db7c0ff5"
   },
   "files/atmosphere/nebula_4096.dds": {
    "size": 22369796,
-   "sha256": "08c763d0032408455f68602643082c20e64e8dbe7e1aebe6477bd26b99dd9222",
-   "mtime_ns": 1793485460997232200,
+   "sha256": "77279498416c226e608cfcd968e8601ccc113ff5b6f6620224e75b9862d64809",
+   "mtime_ns": 1794765467002629900,
    "stored": "xz",
-   "stored_size": 10673456,
-   "stored_sha256": "69361337508fd111c8514eb6e2e53f774d001a2734e57502c3113d1aa4536591"
+   "stored_size": 10651100,
+   "stored_sha256": "7808699b223a6ec50f519cb89fbad0eff2a06f3f075bdf71d07a8beded0a16b1"
+  },
+  "files/atmosphere/nebula_4096_constellations.dds": {
+   "size": 11184972,
+   "sha256": "361415be4e828f03f669d1a7fd1658777aafb4a91810df661f27f03db3806691",
+   "mtime_ns": 1794765467124229600,
+   "stored": "xz",
+   "stored_size": 26656,
+   "stored_sha256": "52f217bc8f19d51e27c78dc0a1403706c8ae53f02b9a4b58fc806a141d01b957"
+  },
+  "files/atmosphere/nebula_constellations.dds": {
+   "size": 44739404,
+   "sha256": "d51814277de1ac5111543f5699e7db386cfcd0cfdb722838f5d25b672d14e7c7",
+   "mtime_ns": 1794765358202490100,
+   "stored": "xz",
+   "stored_size": 80788,
+   "stored_sha256": "9246de8d853b602926f1ff29a21269d6b233fbbf89d90d4a571bc93105c8008e"
   },
   "files/atmosphere/stars.dds": {
    "size": 89478640,
@@ -267,12 +313,12 @@
    "stored_sha256": "9abbc646f44e7dd8345bb6d33949bd7f8ecbb97b96de9b0e50d785e1b31b6837"
   },
   "files/d3d9.dll": {
-   "size": 478662144,
-   "sha256": "7c7291b6852da7f77ca4fef2c8b3cb834f2491e0a29bbfd2968f3f22877e0122",
-   "mtime_ns": 1794745748346702800,
+   "size": 479795712,
+   "sha256": "52a8a3d27fe097b0959669a4aa0829512ed1f84eee5162ebed6e1206f3322537",
+   "mtime_ns": 1794765794832580300,
    "stored": "xz",
-   "stored_size": 70706696,
-   "stored_sha256": "c6d9dbfb19b5f1df64334ae02d6a84e3daf1b2f11ce6261b6ac2201b34f4957d"
+   "stored_size": 70832400,
+   "stored_sha256": "89cced666eed1cb892032f727049c55428c48f2996b135cac56a762b9e7e1c20"
   },
   "files/GFSDK_Aftermath_Lib.x64.dll": {
    "size": 9240728,

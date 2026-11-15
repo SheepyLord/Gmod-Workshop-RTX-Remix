@@ -1,5 +1,13 @@
 # nativeloader_sky.lua
 
+ADR 0227: **the Night sky editor**, a page of its own beside "Sky and weather" in the RTX Remix tab, sets how each
+element of the night sky looks: the night sky image's four layers (stars, the constellations' bright stars, the Milky
+Way, the nebulae), each a brightness and a colour; the simulated stars; the moon's brightness, size, glow and
+earthshine; the shooting stars; the night's glow between the stars. They send the runtime's options of patch 0099
+([ADR 0227](../../../../docs/decisions/0227-the-night-sky-editor.md)) and some older ones (see "The night sky editor").
+Like No horizon they are how the player sees whichever physical sky is shown: changing one does not take a map's sky
+over.
+
 ADR 0207: **Moon by day** (`nativeloader_sky_moon_day`, 1 by default, 0-4), a slider under Moon. It sends
 `rtx.atmosphere.daytimeMoonBrightness`, the runtime's option of patch 0090
 ([ADR 0207](../../../../docs/decisions/0207-the-moon-by-day.md)): while the sun is up the moon's light is added to the
@@ -68,6 +76,27 @@ Saved client settings, shown in the RTX Remix tab under "Sky and weather":
 | `nativeloader_weather_seconds` | `30` | How long a change of weather takes |
 | `nativeloader_sky_interval` | `0.02` | Seconds between updates of the sun, moon, stars and weather, 0-1: 0.02 is 50 a second, 0 every frame. Changing it does not take a map's sky over (R3-015) |
 
+The Night sky editor's settings (ADR 0227), on its own page beside "Sky and weather". Each is held to its range (text
+that is not a number counts as the default), and none takes a map's sky over:
+
+| Setting | Default | Range | Sends | At 1 (or the default) |
+|---|---|---|---|---|
+| `nativeloader_sky_night_image` | `1` | 0-4 | `rtx.atmosphere.starMapBrightness` | 0.12: the whole image |
+| `nativeloader_sky_stars_brightness`, `_colour` | `1` | 0-8, 0-2 | `starMapStarBrightness`, `starMapStarSaturation` | the image's stars |
+| `nativeloader_sky_constellations_brightness`, `_colour` | `1` | 0-8, 0-2 | `starMapConstellationBrightness`, `...Saturation` | the constellations' bright stars |
+| `nativeloader_sky_milky_way_brightness`, `_colour` | `1` | 0-8, 0-2 | `starMapGalaxyBrightness`, `...Saturation` | the galaxy band |
+| `nativeloader_sky_nebulae_brightness`, `_colour` | `1` | 0-8, 0-2 | `starMapNebulaBrightness`, `...Saturation` | the nebulae |
+| `nativeloader_sky_simulated_brightness` | `1` | 0-4 | `rtx.atmosphere.starBrightness` | 0.5, the runtime's |
+| `nativeloader_sky_simulated_density` | `0.5` | 0-1 | `rtx.atmosphere.starDensity` | the value itself |
+| `nativeloader_sky_simulated_twinkle` | `1` | 0-4 | `rtx.atmosphere.starTwinkleSpeed` | 1, the runtime's |
+| `nativeloader_sky_moon_brightness` | `1` | 0-4 | `rtx.atmosphere.moon0.brightness` | the disc and its light on the map |
+| `nativeloader_sky_moon_size` | `1.6` | 0.5-5 | `rtx.atmosphere.moon0.angularRadius` (degrees across) | see "The night sky editor" |
+| `nativeloader_sky_moon_glow` | `1` | 0-4 | `rtx.atmosphere.haloMoonBrightness` | 15, the runtime's |
+| `nativeloader_sky_earthshine` | `1` | 0-8 | `rtx.atmosphere.moon0.darkSideBrightness` | 0.005, the runtime's |
+| `nativeloader_sky_shooting_stars` | `1.2` | 0-15 | `rtx.atmosphere.shootingStarsPerMinute` | the value itself |
+| `nativeloader_sky_shooting_star_brightness` | `1` | 0-8 | `rtx.atmosphere.shootingStarBrightness` | the runtime's |
+| `nativeloader_sky_night_glow` | `1` | 0-4 | the weather's `nightSkyBrightness` times this | the weather's airglow |
+
 Moving the time or the direction turns `nativeloader_sky_follow_map` off. The other one keeps the
 map's value, which the panel shows.
 
@@ -91,9 +120,10 @@ With the physical sky on (`nativeloader_sky 1`):
   in this mode the atmosphere makes the sun.
 - `rtx.atmosphere.timeCycleEnable False`: the runtime's own clock moves only the sun.
 - The look (`LOOK`):
-  - moon 0 on, 1.6 degrees across instead of 3.5, a touch cool. The moonlight scales with the disc's
-    area, so the ground light (`surfaceMoonBrightness`) is raised from 50 to 240 to make up for the
-    smaller disc. It fades in with the twilight, from none with the sun 4 degrees down to all of it at
+  - moon 0 on, a touch cool, by default 1.6 degrees across instead of 3.5 (the Night sky editor's moon size). The
+    moonlight scales with the disc's area, so the ground light (`surfaceMoonBrightness`) is raised from 50 to 240 to
+    make up for the smaller disc, and for another size by (1.6 / size)^2, so the size changes how the moon looks, not
+    how light the night is. It fades in with the twilight, from none with the sun 4 degrees down to all of it at
     12. The runtime lights the ground fully as soon as the sun is down, which lit the towers orange
     from a rising moon at dusk;
   - the cumulus-shaped cloud shadows on the ground (`cloudVoxelShadowsEnable`), which the classic
@@ -155,7 +185,8 @@ An unchanged value is not sent again.
 **The moon off the ecliptic.** The runtime draws an eclipse wherever the geometry has one, so the
 moon is never quite on the ecliptic:
 
-- **No eclipse:** it passes 5.64 degrees north of it, just clear of Earth's penumbra for its size.
+- **No eclipse:** it passes 5.64 degrees north of it, just clear of Earth's penumbra for its size
+  ((4.8 + 1) moon radii + 1 degree, so a larger moon from the Night sky editor passes further off).
   The real Moon passes up to 5.1 degrees off, and so mostly misses the shadow.
 - **An eclipse:** the moon is full (lunar) or new (solar), and its distance from the shadow's centre
   or the sun's comes from `nativeloader_sky_eclipse_amount`, by stages. The model's
@@ -174,6 +205,28 @@ lit part of a first-quarter moon at 16:00 is about 40 % brighter than the sky, a
 As the sun sinks to 5 degrees below the horizon the runtime hands the moon over to the night's look, which this setting
 does not change; the moon's ground light (`surfaceMoonBrightness`, above) stays a night light. The runtime also hides a
 moon below the horizon now (it showed through the ground's haze), except with No horizon.
+
+### The night sky editor
+
+The Night sky editor's page (ADR 0227) is built by `buildNightPanel` beside the Sky and weather panel, in the same
+category. From the top: Go to night (`nativeloader_sky_time night`), Time passes (to hold the night while editing),
+the Night sky choice, then the night sky image's layers (all of them, then each layer's brightness and colour), the
+simulated stars, the moon, the shooting stars, the night glow, and Reset the night sky. Its help lines say what 1 and
+0 mean, that the constellations come out with the first stars while the Milky Way and the nebulae wait for full
+darkness, and that a layer at 0 leaves video memory.
+
+What goes to Remix (the table under "Settings"): each setting times the option's value at 1. With the companion in
+charge of a physical sky every one goes out with the sky, at a map's start and with everything again; on a map whose
+add-on owns the sky only those off their defaults, and the one being changed, so a player who changed nothing sends
+such a map nothing (as with No horizon). A change goes out at once and takes no sky over. Two settings do more:
+
+- **The moon's size** also moves the eclipse geometry, which scales with the moon's radius (`sky_model.moonLatitude`,
+  `eclipseSeparation`), and keeps the night's moonlight (`surfaceMoonBrightness` times (1.6 / size)^2).
+- **The night glow** scales the weather's airglow (`nightSkyBrightness`, after the image's 5 %); with the weather left
+  to Remix there is none to scale.
+
+The runtime (patch 0099) draws each image layer with its weight and colour, frees a layer's texture at 0 and loads it
+again when it is turned up, and with every layer at 0 shows a night without stars, not the simulated ones.
 
 ### Following the map
 
@@ -275,8 +328,10 @@ it back 3, 23, 43 and 63 s after the map starts.
   `golden`, `sunset`, `dusk`, `night` (23:00) or `midnight`. Named times are sun heights on the
   season's day.
 - `nativeloader_sky_status`: prints the sky, the time, the sun and moon (or the eclipse and its
-  progress), the night sky and the horizon, the map's own sun and sky name, and the weather.
-- `nativeloader_sky_reset`: all of these settings back to their defaults.
+  progress), the night sky and the horizon, the Night sky editor's values (two lines), the map's own sun and sky name,
+  and the weather.
+- `nativeloader_sky_reset`: all of these settings back to their defaults, the Night sky editor's too.
+- `nativeloader_sky_night_reset`: only the Night sky editor's settings back to their defaults (its Reset button).
 
 ## Timing
 
@@ -288,8 +343,8 @@ it back 3, 23, 43 and 63 s after the map starts.
   GitHub issue 3). While the engine guard's `nlengineguard.PosterStatus()` (taken when the file loads; read only)
   says `starting` or `rendering`, a tick sends nothing and its time is dropped: the runtime's own clock stands still
   for a poster's tiles, and the sun, the moon and the weather wait with it, then go on from where they stood.
-- **The panel.** `NATIVELOADER_SKY` holds the panel builder and the clock for the panel (and
-  tests).
+- **The panel.** `NATIVELOADER_SKY` holds the panel builders (`buildPanel`, `buildNightPanel`) and the clock for the
+  panel (and tests).
 
 Tested by [`tools/tests/test_companion_sky.py`](../../../../tools/tests/test_companion_sky.py.md).
 

@@ -30,6 +30,37 @@ local DEFAULTS = {
     nativeloader_sky_eclipse = "", nativeloader_sky_eclipse_amount = "100", nativeloader_sky_stars = "map",
     nativeloader_weather = "partlyCloudy", nativeloader_weather_seconds = "30", nativeloader_sky_interval = "0.02",
 }
+
+-- The night sky editor (ADR 0227): each element of the night sky on its own, on the RTX Remix tab's Night sky
+-- editor page. A setting, its default, its range, the Remix option it sets and the option's value at 1 (the
+-- setting is a multiple of it): the night sky image's four layers (each a brightness and a colour), the simulated
+-- stars, the moon, the shooting stars. The moon's size is in degrees across and the shooting stars a minute.
+local NIGHT = {
+    { "nativeloader_sky_night_image", 1, 0, 4, "rtx.atmosphere.starMapBrightness", 0.12 },
+    { "nativeloader_sky_stars_brightness", 1, 0, 8, "rtx.atmosphere.starMapStarBrightness", 1 },
+    { "nativeloader_sky_stars_colour", 1, 0, 2, "rtx.atmosphere.starMapStarSaturation", 1 },
+    { "nativeloader_sky_constellations_brightness", 1, 0, 8, "rtx.atmosphere.starMapConstellationBrightness", 1 },
+    { "nativeloader_sky_constellations_colour", 1, 0, 2, "rtx.atmosphere.starMapConstellationSaturation", 1 },
+    { "nativeloader_sky_milky_way_brightness", 1, 0, 8, "rtx.atmosphere.starMapGalaxyBrightness", 1 },
+    { "nativeloader_sky_milky_way_colour", 1, 0, 2, "rtx.atmosphere.starMapGalaxySaturation", 1 },
+    { "nativeloader_sky_nebulae_brightness", 1, 0, 8, "rtx.atmosphere.starMapNebulaBrightness", 1 },
+    { "nativeloader_sky_nebulae_colour", 1, 0, 2, "rtx.atmosphere.starMapNebulaSaturation", 1 },
+    { "nativeloader_sky_simulated_brightness", 1, 0, 4, "rtx.atmosphere.starBrightness", 0.5 },
+    { "nativeloader_sky_simulated_density", 0.5, 0, 1, "rtx.atmosphere.starDensity", 1 },
+    { "nativeloader_sky_simulated_twinkle", 1, 0, 4, "rtx.atmosphere.starTwinkleSpeed", 1 },
+    { "nativeloader_sky_moon_brightness", 1, 0, 4, "rtx.atmosphere.moon0.brightness", 1 },
+    { "nativeloader_sky_moon_size", 1.6, 0.5, 5, "rtx.atmosphere.moon0.angularRadius", 1 },
+    { "nativeloader_sky_moon_glow", 1, 0, 4, "rtx.atmosphere.haloMoonBrightness", 15 },
+    { "nativeloader_sky_earthshine", 1, 0, 8, "rtx.atmosphere.moon0.darkSideBrightness", 0.005 },
+    { "nativeloader_sky_shooting_stars", 1.2, 0, 15, "rtx.atmosphere.shootingStarsPerMinute", 1 },
+    { "nativeloader_sky_shooting_star_brightness", 1, 0, 8, "rtx.atmosphere.shootingStarBrightness", 1 },
+}
+-- The night's glow between the stars, a multiple of the weather's airglow (pushWeather).
+local NIGHT_GLOW = { "nativeloader_sky_night_glow", 1, 0, 4 }
+local NIGHT_SETTINGS = {}
+for _, entry in ipairs(NIGHT) do NIGHT_SETTINGS[entry[1]] = entry end
+NIGHT_SETTINGS[NIGHT_GLOW[1]] = NIGHT_GLOW
+for name, entry in pairs(NIGHT_SETTINGS) do DEFAULTS[name] = tostring(entry[2]) end
 local HELP = {
     nativeloader_sky = "Sky in RTX sessions: 1 the physical sky (sun, clouds, stars, moon), 0 the map's own skybox",
     nativeloader_sky_no_horizon = "1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and "
@@ -52,6 +83,27 @@ local HELP = {
     nativeloader_weather_seconds = "Seconds a change of weather takes",
     nativeloader_sky_interval = "Seconds between updates of the sun, moon, stars and weather, 0-1: 0.02 is 50 a second, "
         .. "0 every frame",
+    -- The night sky editor (ADR 0227).
+    nativeloader_sky_night_image = "Night sky image: brightness of all its layers, 0-4 (1 as drawn)",
+    nativeloader_sky_stars_brightness = "Night sky image: brightness of the stars, 0-8 (1 as drawn, 0 hides them)",
+    nativeloader_sky_stars_colour = "Night sky image: colour of the stars, 0-2 (0 grey, 1 as drawn, 2 stronger)",
+    nativeloader_sky_constellations_brightness = "Night sky image: brightness of the constellations' bright stars, 0-8",
+    nativeloader_sky_constellations_colour = "Night sky image: colour of the constellations' bright stars, 0-2 (0 white)",
+    nativeloader_sky_milky_way_brightness = "Night sky image: brightness of the Milky Way, 0-8",
+    nativeloader_sky_milky_way_colour = "Night sky image: colour of the Milky Way, 0-2",
+    nativeloader_sky_nebulae_brightness = "Night sky image: brightness of the nebulae, 0-8",
+    nativeloader_sky_nebulae_colour = "Night sky image: colour of the nebulae, 0-2",
+    nativeloader_sky_simulated_brightness = "Simulated stars: brightness, 0-4 (1 as drawn)",
+    nativeloader_sky_simulated_density = "Simulated stars: how many, 0-1 (0.5 as drawn)",
+    nativeloader_sky_simulated_twinkle = "Simulated stars: how fast they twinkle, 0-4 (0 still)",
+    nativeloader_sky_moon_brightness = "The moon's brightness, its disc and its light on the map, 0-4",
+    nativeloader_sky_moon_size = "The moon's size in degrees across, 0.5-5 (the real Moon is about 0.5); its light on the "
+        .. "map stays the same",
+    nativeloader_sky_moon_glow = "The glow around the moon, 0-4",
+    nativeloader_sky_earthshine = "Earthshine, the faint light on the moon's dark side, 0-8",
+    nativeloader_sky_shooting_stars = "Shooting stars a minute, 0-15 (0 none)",
+    nativeloader_sky_shooting_star_brightness = "Brightness of the shooting stars, 0-8",
+    nativeloader_sky_night_glow = "The night's glow between the stars (airglow), a multiple of the weather's, 0-4",
 }
 local cv = {}
 for name, value in pairs(DEFAULTS) do cv[name] = CreateClientConVar(name, value, true, false, HELP[name]) end
@@ -73,9 +125,8 @@ local LOOK = {
     -- Cumulus-shaped cloud shadows drifting over the ground (the runtime's default; the classic
     -- install's settings, which the package's defaults carry, turned them off).
     ["rtx.atmosphere.cloudVoxelShadowsEnable"] = "True",
-    -- A moon about three times the real one's 0.52 degrees (the runtime's 3.5 is a stylised giant),
-    -- a touch cool. Its ground light is MOONLIGHT below. The option holds the diameter.
-    ["rtx.atmosphere.moon0.angularRadius"] = "1.6",
+    -- A moon a touch cool. Its size (by default 1.6 degrees, about three times the real one's 0.52; the
+    -- runtime's 3.5 is a stylised giant) is the night sky editor's (NIGHT); its ground light is MOONLIGHT below.
     ["rtx.atmosphere.moon0.color"] = "0.11, 0.12, 0.135",
     -- The real Moon's face (the runtime's moon textures; on by default there too), its relief at 0.6:
     -- at the full 1 the terminator broke into dark notches when zoomed in (RESEARCH.md section 29).
@@ -87,16 +138,30 @@ local LOOK = {
     ["rtx.atmosphere.eclipsePenumbraScale"] = tostring(model.ECLIPSE.penumbra),
     ["rtx.atmosphere.eclipseSunScale"] = tostring(model.ECLIPSE.sun),
 }
-local MOON_RADIUS = tonumber(LOOK["rtx.atmosphere.moon0.angularRadius"]) / 2
+-- A night sky editor setting now, held to its range (its default for anything that is not a number).
+local function nightValue(name)
+    local entry = NIGHT_SETTINGS[name]
+    local v = tonumber(cv[name]:GetString())
+    if not v or v ~= v then return entry[2] end
+    return math.Clamp(v, entry[3], entry[4])
+end
+
+-- The moon's size: the option holds the diameter in degrees; the eclipse geometry takes its radius.
+local function moonRadius()
+    return nightValue("nativeloader_sky_moon_size") / 2
+end
+
 -- The moon's light on the ground (rtx.atmosphere.surfaceMoonBrightness, 50 in the runtime). It falls
 -- with the disc's area (moonSolidAngleSr), so (3.5 / 1.6)^2 times as much keeps a full moon's night as
--- light as the runtime's default one. The runtime gives it full strength as soon as the sun is below
--- the horizon, so a rising full moon lit the towers orange at dusk; it fades in with the twilight
--- instead, from none with the sun 4 degrees down to all of it at 12 (nautical twilight), when real
--- moonlight starts to matter.
-local MOONLIGHT = 240
+-- light as the runtime's default one; for another size the area's change is taken out again, so the
+-- moon's size changes how it looks, not how light the night is (the editor's moon brightness does). The
+-- runtime gives it full strength as soon as the sun is below the horizon, so a rising full moon lit the
+-- towers orange at dusk; it fades in with the twilight instead, from none with the sun 4 degrees down to
+-- all of it at 12 (nautical twilight), when real moonlight starts to matter.
+local MOONLIGHT, MOONLIGHT_SIZE = 240, 1.6
 local function moonlight(sunElevation)
-    return MOONLIGHT * model.ease((-sunElevation - 4) / 8)
+    local size = nightValue("nativeloader_sky_moon_size")
+    return MOONLIGHT * (MOONLIGHT_SIZE / size) ^ 2 * model.ease((-sunElevation - 4) / 8)
 end
 
 -- The moon by day (ADR 0207). While the sun is up the runtime adds the moon's light to the sky in front of
@@ -217,7 +282,7 @@ local function moonPhase()
     local phase = model.eclipsePhase(kind)
     if not phase then phase = model.MOON_PHASES[cv.nativeloader_sky_moon:GetString()] or model.MOON_PHASES.full end
     local amount = math.Clamp(cv.nativeloader_sky_eclipse_amount:GetFloat() / 100, 0, 1)
-    return phase, model.moonLatitude(kind, amount, MOON_RADIUS)
+    return phase, model.moonLatitude(kind, amount, moonRadius())
 end
 
 local function skyAt(hours, north)
@@ -369,7 +434,10 @@ local function pushWeather(values)
     for _, field in ipairs(presets.fields) do
         local v = values[field.name]
         if field.name == "precipitationIntensity" and v then v = v * outdoors end
-        if field.name == "nightSkyBrightness" and v and nightSkyImage() then v = v * IMAGE_AIRGLOW end
+        if field.name == "nightSkyBrightness" and v then
+            -- The night sky editor's night glow scales what the weather gives (ADR 0227).
+            v = v * (nightSkyImage() and IMAGE_AIRGLOW or 1) * nightValue("nativeloader_sky_night_glow")
+        end
         if ownFog and string.find(field.option, "rtx.volumetrics.", 1, true) == 1 then
             -- Forget what was sent, so the weather's fog comes back once the preset is cleared.
             sent[field.option] = nil
@@ -501,8 +569,25 @@ local function pushHorizon(changing)
     end
 end
 
+-- The night sky editor (ADR 0227): how each element of the night sky looks. Like the horizon, how the player
+-- sees whichever physical sky is shown, not whose sky it is: a change goes out also where a map's add-on owns the
+-- sky, without taking that sky over. With the companion in charge of a physical sky every setting goes with it;
+-- where an add-on is in charge only the settings off their defaults (and the one changing), so a player who
+-- changed nothing still sends that map nothing.
+local function pushNightSky(changing)
+    if not ready() then return end
+    local all = inCharge() and cv.nativeloader_sky:GetBool()
+    for _, entry in ipairs(NIGHT) do
+        local v = nightValue(entry[1])
+        if all or changing == entry[1] or math.abs(v - entry[2]) > 1e-4 then
+            set(entry[5], model.optionText(v * entry[6]))
+        end
+    end
+end
+
 local function apply()
     pushHorizon(false)
+    pushNightSky(nil)
     if not inCharge() then return end
     pushSky()
     if physical then pushCelestial() end
@@ -600,6 +685,16 @@ local function changed(name, _, value)
         pushHorizon(true)
         return
     end
+    if NIGHT_SETTINGS[name] then
+        -- The night sky editor (ADR 0227): how the night sky looks, not whose it is (pushNightSky). The moon's size
+        -- also moves the eclipse geometry and the moonlight on the ground, the night glow the weather's airglow.
+        pushNightSky(name)
+        if inCharge() then
+            if physical and name == "nativeloader_sky_moon_size" then pushCelestial() end
+            if weather.name and name == "nativeloader_sky_night_glow" and weather.values then pushWeather(weather.values) end
+        end
+        return
+    end
     if ours(name, value) or not clock then return end
     takenOver = true
     if name == "nativeloader_sky_hour" or name == "nativeloader_sky_direction" then
@@ -691,6 +786,11 @@ concommand.Add("nativeloader_sky_reset", function()
     print("[nativeloader] Sky and weather settings back to their defaults.")
 end)
 
+concommand.Add("nativeloader_sky_night_reset", function()
+    for name in pairs(NIGHT_SETTINGS) do RunConsoleCommand(name, DEFAULTS[name]) end
+    print("[nativeloader] Night sky editor settings back to their defaults.")
+end)
+
 concommand.Add("nativeloader_sky_status", function()
     local sky = now()
     local who = owner()
@@ -704,6 +804,15 @@ concommand.Add("nativeloader_sky_status", function()
             or cv.nativeloader_sky_moon:GetString()))
     print(string.format("[nativeloader] night sky %s; %s; moon by day %.2f", nightSkyImage() and "image" or "procedural",
         noHorizon() and "no horizon (the sky in every direction)" or "horizon", moonByDay()))
+    local function v(name) return nightValue("nativeloader_sky_" .. name) end
+    print(string.format("[nativeloader] night sky editor: image %.2f; stars %.2f (colour %.2f), constellations %.2f (%.2f), "
+        .. "milky way %.2f (%.2f), nebulae %.2f (%.2f); simulated stars %.2f, density %.2f, twinkle %.2f",
+        v("night_image"), v("stars_brightness"), v("stars_colour"), v("constellations_brightness"),
+        v("constellations_colour"), v("milky_way_brightness"), v("milky_way_colour"), v("nebulae_brightness"),
+        v("nebulae_colour"), v("simulated_brightness"), v("simulated_density"), v("simulated_twinkle")))
+    print(string.format("[nativeloader] night sky editor: moon %.2f, %.2f deg, glow %.2f, earthshine %.2f; "
+        .. "shooting stars %.1f a minute at %.2f; night glow %.2f", v("moon_brightness"), v("moon_size"), v("moon_glow"),
+        v("earthshine"), v("shooting_stars"), v("shooting_star_brightness"), v("night_glow")))
     local info = mapInfo or {}
     print(string.format("[nativeloader] map sky %q%s; map sun %s", info.skyname or "", info.mood and (" (" .. info.mood .. ")") or "",
         info.sun and string.format("%.1f deg high at bearing %.1f", info.sun.elevation, info.sun.bearing) or "none"))
@@ -800,6 +909,7 @@ local function buildPanel(panel)
     panel:ControlHelp(L("From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."))
     combo(panel, N("Night sky"), "nativeloader_sky_stars", STARS)
     panel:ControlHelp(L("Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."))
+    panel:ControlHelp(L("The Night sky editor, next to this page, sets how each part of the night sky looks."))
     local box = panel:ComboBox(L("Weather"), "nativeloader_weather")
     box:AddChoice(L("(leave to Remix)"), "")
     for _, choice in ipairs(WEATHERS) do box:AddChoice(L(choice[1]), choice[2]) end
@@ -809,8 +919,67 @@ local function buildPanel(panel)
     panel:Button(L("Reset the sky and weather"), "nativeloader_sky_reset")
 end
 
+-- The night sky editor (ADR 0227): each element of the night sky on its own. The image's four layers, the
+-- simulated stars, the moon, the shooting stars and the night's glow; brightness and colour as multiples of how
+-- each is drawn.
+local function slider(panel, label, name, decimals)
+    local entry = NIGHT_SETTINGS[name]
+    return panel:NumSlider(L(label), name, entry[3], entry[4], decimals or 2)
+end
+
+local function buildNightPanel(panel)
+    if not ready() then
+        panel:Help(L("The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."))
+    end
+    panel:Help(L("How each part of the night sky looks. Brightness: 1 is as drawn, 0 hides it. Colour: 0 is grey, 1 as drawn, 2 stronger. Look up at the night sky while you drag."))
+    panel:Button(L("Go to night"), "nativeloader_sky_time", "night")
+    panel:CheckBox(L("Time passes"), "nativeloader_sky_time_passes")
+    panel:ControlHelp(L("Untick Time passes to keep the night while you edit."))
+    combo(panel, N("Night sky"), "nativeloader_sky_stars", STARS)
+
+    panel:Help(L("Night sky image"))
+    slider(panel, N("All layers"), "nativeloader_sky_night_image")
+    slider(panel, N("Stars"), "nativeloader_sky_stars_brightness")
+    slider(panel, N("Star colour"), "nativeloader_sky_stars_colour")
+    slider(panel, N("Constellations"), "nativeloader_sky_constellations_brightness")
+    slider(panel, N("Constellation colour"), "nativeloader_sky_constellations_colour")
+    panel:ControlHelp(L("The constellations' bright blue and violet stars. They come out with the first stars at dusk; the Milky Way and the nebulae wait for full darkness."))
+    slider(panel, N("Milky Way"), "nativeloader_sky_milky_way_brightness")
+    slider(panel, N("Milky Way colour"), "nativeloader_sky_milky_way_colour")
+    slider(panel, N("Nebulae"), "nativeloader_sky_nebulae_brightness")
+    slider(panel, N("Nebula colour"), "nativeloader_sky_nebulae_colour")
+    panel:ControlHelp(L("A part at 0 is hidden, and its texture leaves video memory."))
+
+    panel:Help(L("Simulated stars"))
+    panel:ControlHelp(L("Used when Night sky is set to Simulated stars."))
+    slider(panel, N("Brightness"), "nativeloader_sky_simulated_brightness")
+    slider(panel, N("Density"), "nativeloader_sky_simulated_density")
+    slider(panel, N("Twinkle"), "nativeloader_sky_simulated_twinkle")
+
+    panel:Help(L("Moon"))
+    slider(panel, N("Brightness"), "nativeloader_sky_moon_brightness")
+    panel:ControlHelp(L("The moon's disc and its light on the map."))
+    slider(panel, N("Size (degrees)"), "nativeloader_sky_moon_size")
+    panel:ControlHelp(L("How wide the moon looks: the real Moon is about 0.5 degrees. Its light on the map stays the same. A larger moon passes further from Earth's shadow, so it moves a little in the sky; eclipses follow its size."))
+    slider(panel, N("Glow"), "nativeloader_sky_moon_glow")
+    slider(panel, N("Earthshine"), "nativeloader_sky_earthshine")
+    panel:ControlHelp(L("Glow: the halo around the moon. Earthshine: the faint light on its dark side, clearest at a crescent."))
+
+    panel:Help(L("Shooting stars"))
+    slider(panel, N("Per minute"), "nativeloader_sky_shooting_stars", 1)
+    slider(panel, N("Brightness"), "nativeloader_sky_shooting_star_brightness")
+
+    panel:Help(L("Night glow"))
+    slider(panel, N("Brightness"), "nativeloader_sky_night_glow")
+    panel:ControlHelp(L("The faint glow of the night air between the stars, from the weather. At 0 the space between the stars is black."))
+    panel:Button(L("Reset the night sky"), "nativeloader_sky_night_reset")
+end
+
 NATIVELOADER_SKY.buildPanel = buildPanel
+NATIVELOADER_SKY.buildNightPanel = buildNightPanel
 
 hook.Add("PopulateToolMenu", "nativeloader_sky", function()
     spawnmenu.AddToolMenuOption("RTX Remix", N("Sky and weather"), "nativeloader_sky", L("Sky and weather"), "", "", buildPanel)
+    spawnmenu.AddToolMenuOption("RTX Remix", N("Sky and weather"), "nativeloader_sky_night", L("Night sky editor"), "", "",
+        buildNightPanel)
 end)

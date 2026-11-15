@@ -1,8 +1,9 @@
 """The runtime's night-sky textures from NightSky HD LE (PraedythXVI; FullNebula
 from Era-7's nebula images). The star sphere and the galaxy band keep the mod's own DDS (the shader
-maps them as the mod's stars.nif does). The constellations (58 triangles of their own atlas) are baked
-into the nebula's longitude/latitude map, added as Skyrim adds sky layers: colour times alpha, in
-gamma space. Usage:
+maps them as the mod's stars.nif does). The nebula sphere and the constellations (58 triangles of
+their own atlas) are baked into two longitude/latitude maps of the same size, nebula.dds and
+nebula_constellations.dds, so each has its own brightness and colour in the runtime, which adds all
+four layers as Skyrim adds sky layers: colour times alpha, in gamma space. Usage:
   python -I tools/sky/bake_nightsky.py <mod folder> <stars_nif.json> <out folder> <nebula option 1-4> <stars option>
 See bake_nightsky.py.md.
 """
@@ -39,7 +40,8 @@ tris = np.array(block['t']).reshape(-1, 3)
 
 nebula = load_rgba(mod / f'00Data/tex/FullNebula{nebula_option}/textures/sky/FullNebula.dds')
 H, W, _ = nebula.shape
-result = nebula[..., :3] * nebula[..., 3:4]
+nebula = nebula[..., :3] * nebula[..., 3:4]
+constellations = np.zeros_like(nebula)
 
 atlas = load_rgba(mod / '00Data/tex/Textures/Sky/skyrimconstellations.dds')
 # The atlas is drawn about 110 texels a degree and the map holds 23-45: pre-filter it once (premultiplied).
@@ -99,19 +101,28 @@ for tri in tris:
     uv = w0[inside, None] * ta + w1[inside, None] * tb + w2[inside, None] * tc
     s = sample(uv[:, 0], uv[:, 1])
     rows, cols = gy[inside], np.mod(gx[inside], W)
-    result[rows, cols] += s[:, :3]
+    constellations[rows, cols] += s[:, :3]
     covered += inside.sum()
 print('constellation texels baked', covered)
 
-png = work / f'nebula{nebula_option}_constellations.png'
-Image.fromarray((np.clip(result, 0, 1) * 255 + 0.5).astype(np.uint8)).save(png)
-# Gamma-space values, sampled raw and turned linear in the shader after the layers are added (as
-# Skyrim composites its sky): UNORM, and mips without gamma correction.
-cmd = [NVTT, str(png), '-o', str(out / 'nebula.dds'), '--dx10', '-f', 'bc7', '--export-transfer-function', 'linear',
-       '-q', 'production', '--mip-filter', 'box', '--no-mip-gamma-correct']
-print(' '.join(cmd))
-subprocess.run(cmd, check=True)
+
+def export(pixels, png_name, dds_name, fmt):
+    """Gamma-space values, sampled raw and turned linear in the shader after the layers are added (as
+    Skyrim composites its sky): UNORM, and mips without gamma correction."""
+    png = work / png_name
+    Image.fromarray((np.clip(pixels, 0, 1) * 255 + 0.5).astype(np.uint8)).save(png)
+    cmd = [NVTT, str(png), '-o', str(out / dds_name), '--dx10', '-f', fmt, '--export-transfer-function', 'linear',
+           '-q', 'production', '--mip-filter', 'box', '--no-mip-gamma-correct']
+    print(' '.join(cmd))
+    subprocess.run(cmd, check=True)
+
+
+export(nebula, f'nebula{nebula_option}.png', 'nebula.dds', 'bc7')
+del nebula
+# Mostly black: point-like coloured stars and their glow, which BC1's two colours a block hold well
+# (half BC7's size; RESEARCH.md "The night sky editor").
+export(constellations, f'nebula{nebula_option}_constellations.png', 'nebula_constellations.dds', 'bc1')
 shutil.copyfile(mod / f'00Data/tex/{stars_option}/textures/sky/skystars.dds', out / 'stars.dds')
 shutil.copyfile(mod / '00Data/tex/Textures/Sky/skyrimgalaxy.dds', out / 'galaxy.dds')
-for name in ('stars.dds', 'galaxy.dds', 'nebula.dds'):
+for name in ('stars.dds', 'galaxy.dds', 'nebula.dds', 'nebula_constellations.dds'):
     print(name, (out / name).stat().st_size)

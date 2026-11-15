@@ -139,3 +139,8 @@ ADR 0207 adds two messages, the Sky and weather panel's Moon by day slider and i
 six catalogs are agent-written by Claude and not yet human-reviewed; the phase names reuse the catalogs' own (First
 quarter, Waxing crescent). The runtime's two new menu entries (Daytime Brightness and the option's description, patch
 0090) are likewise agent-written in the runtime's catalogs.
+ADR 0227 adds 31 messages, the Night sky editor's page (its title, the layer and moon labels, the help lines, Go to
+night and Reset the night sky) and one help line on the Sky and weather panel that points to it. Their translations in
+all six catalogs are agent-written by Claude and not yet human-reviewed; they reuse the catalogs' own words for the
+night sky, the night sky image, the simulated stars, the moon and Time passes. French keeps "Constellations" (in the
+script's `UNCHANGED` table).

@@ -1,5 +1,26 @@
 # runtime/
 
+Patch `0099-Atmosphere-the-night-sky-editor-each-layer-on-its-ow.patch` (the user's request of 2026-11-15 for a sky
+editor, [ADR 0227](../docs/decisions/0227-the-night-sky-editor.md); fork branch `claude/night-sky-editor`, commit
+`1dd38dbf` on 0098's `173bdc84`): each layer of the night sky image on its own. The four layers the sky adds in gamma
+space (the stars, the constellations' bright stars, the galaxy band, the nebulae) each have a brightness
+(`rtx.atmosphere.starMap{Star,Constellation,Galaxy,Nebula}Brightness`, 1, 0-8), turned into the gamma-space weight
+brightness^(1/2.2), and a colour (`...Saturation`, 1, 0-2); the sum is held at 1, or at the largest weight above it
+(`rtx_night_sky_layers.h`, self-contained). The constellations, until now baked into the nebula texture, are a layer
+of their own beside it: `<nebula name>_constellations.dds`, bound at 222 (`AtmosphereStarMapConstellations`), with no
+new path option for Lua to reach. A layer at 0 is neither drawn nor kept (its texture freed, loaded again when turned
+up), and the image's night has its own flag, so every layer off is a night without stars, not the procedural field.
+The shooting stars' fixed 8 % of slots becomes `shootingStarsPerMinute` (1.2) and their brightness
+`shootingStarBrightness` (1). Three new 16-byte rows of `AtmosphereArgs`, zeroed in `normalizeForSkyLutCache`;
+`RtxOptions.md` rows; `tests/rtx/unit/test_night_sky_layers.cpp` (860 checks), compiled from the patch by the
+Release gate ([test_runtime_night_sky_editor.py](../tools/tests/test_runtime_night_sky_editor.py.md)). The patch adds
+no Remix menu text; the fork's catalogs were already behind its sources (`update_strings.py --check` fails: 98 menu
+texts of the sources are not in them, since before this patch). Exported alone (`format-patch -1 --start-number 99
+--zero-commit`) and built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0099): **`d3d9.dll`
+479,795,712 bytes, SHA-256 `52a8a3d27fe097b0959669a4aa0829512ed1f84eee5162ebed6e1206f3322537`** (70,832,400 bytes xz
+in Git LFS). The package's `atmosphere` folder has the nebula without the constellations and the constellations'
+layer at 8192 and, for the low tier, 4096 ([`bake_nightsky.py`](../tools/sky/bake_nightsky.py.md)).
+
 Patch `0098-The-About-tab-takes-the-secret-replacements-whole-no.patch` (the field's crash of 2026-11-15 soon after a
 start, and a PoC crash at a level change; fork branch `claude/secrets-race`, commit `173bdc84` on 0097's `678b28d1`):
 the asset replacer hands its secret replacements to the About tab whole.

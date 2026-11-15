@@ -20,6 +20,11 @@ overlapping region queries are dropped before any engine call.
 
 R14 (the user's item 41): a player in noclip or spectating (`MOVETYPE_NOCLIP`, `MOVETYPE_OBSERVER`)
 counts as neither living nor solid, so broken glass neither meets nor moves for a player flying through it.
+The user's report of 2026-11-14 (noclipping players still moved the pieces): what such a player carries
+goes through with it. Its weapons had counted as props of their own once their owner stopped counting as
+living, and pushed the pieces under it (the default mask keeps objects). A player's weapon is never an
+object now, whatever the player's state, and an entity parented to a flying or spectating player is not a
+body; one parented to a walking player still follows the objects bit, as before.
 Every idle worker boundary refreshes at most 96 nearby bodies. Living players/NPCs/
 NextBots use collision hulls, dead players are excluded, ragdolls use up to 24 physics bones (or bone
 hitboxes without client physics), props use physics convexes or an oriented box. Invalid/oversized
@@ -51,4 +56,4 @@ R8-G Capture(api, dt, flags) defaults to mask 3: objects=1, ragdolls=2, living p
 
 Flag changes also invalidate the Lua shape cache: the native side removes mirrors, so retained categories must resend cold shapes under the existing two-shape limit instead of falsely assuming a convex still exists.
 
-Living actors' equipped weapons and phys_bone_follower attachments are excluded as duplicate contacts, even when they expose physics. The selected owner hull supplies living contact. Dropped weapon pickups and unrelated physics objects still follow the objects bit; an attachment cannot bypass living-off defaults.
+Living actors' equipped weapons and phys_bone_follower attachments are excluded as duplicate contacts, even when they expose physics. The selected owner hull supplies living contact. Dropped weapon pickups and unrelated physics objects still follow the objects bit; an attachment cannot bypass living-off defaults. A weapon owned by or parented to any player, living, dead, flying or spectating, is excluded the same way (2026-11-14; the harness's `scene_ghost_carries`).

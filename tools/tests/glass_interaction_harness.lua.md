@@ -3,8 +3,13 @@
 MIT LuaJIT harness for the actual `debris_scene.lua` and `debris_bullets.lua`. Run through
 `test_glass_interaction.py`, or `luajit tools/tests/glass_interaction_harness.lua glass/addon/lua CASE`.
 R14: `scene_kinds` adds a player in noclip and a spectating player, which get no hull in the scene.
+`scene_ghost_carries` (the user's report of 2026-11-14): with the default mask (3) and all bodies (15), a flying
+player's weapons (with a physics object, or only an owner), a spectator's (only a parent) and a prop parented to
+the flying player are no bodies; a dropped weapon and a prop on a walking player are objects; only the walking
+player has a hull. Landed, the player's hull returns and the prop on it is an object again. It fails on the
+code before the fix (the weapons were props).
 
-Cases: `scene_kinds`, `scene_caps`, `scene_fallback`, `bullets_filter`, `bullets_rate`, `bullets_client`.
+Cases: `scene_kinds`, `scene_ghost_carries`, `scene_caps`, `scene_fallback`, `bullets_filter`, `bullets_rate`, `bullets_client`.
 
 `scene_sweep_bounds` verifies approaching/away/distant bodies, the 192-unit lookahead cap,
 immediate fast boxes, later convex upgrade, stable identities and resettable fast counters.

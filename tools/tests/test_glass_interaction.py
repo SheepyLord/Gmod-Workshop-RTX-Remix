@@ -23,6 +23,10 @@ class GlassInteractionTests(unittest.TestCase):
     def test_living_hulls_ragdoll_bones_prop_shapes_and_physics_replacement(self):
         self.run_case('scene_kinds')
 
+    def test_what_a_flying_or_spectating_player_carries_passes_through_broken_glass(self):
+        # The user's report of 2026-11-14: a noclipping player's weapons pushed the pieces as props.
+        self.run_case('scene_ghost_carries')
+
     def test_scene_candidate_body_shape_region_and_cleanup_bounds(self):
         self.run_case('scene_caps')
 

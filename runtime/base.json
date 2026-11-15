@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "3237fe73bfc5a243de9fccb86036dccdb350411bafdc30960c5f47c75c59b0e9",
-  "built_from": "HEAD -> claude/upstream-main-1114 20e3553eb (with what the rest of this record names)",
+  "d3d9.dll": "55b30956085671e3d1d970a6da65e8d52c402b51f15304c50d1c5836a575b27d",
+  "built_from": "HEAD -> claude/dlfg-hudless 81b4d3931 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -143,6 +143,7 @@
    "patches/0091-Core-fixes-the-pipeline-handle-race-command-list-rec.patch": "4206d449736b4211c7a0537a42ad1c9f672e78522d503ec58feb9d73e545a1d7",
    "patches/0092-Reflex-no-sent-message-is-dispatched-inside-Present.patch": "0ed81e2e660c0454efe72566d29c94ae1e2c8b4b3286459328f9491b92313437",
    "patches/0093-Merge-upstream-dxvk-remix-main-of-2026-11-14-remix-1.patch": "8a233267dbdc69dcbd365419e95bb428fe2d449bbb1f654d263ffb0d48273ae5",
+   "patches/0094-DLSS-frame-generation-keeps-the-UI-in-place-a-HUD-le.patch": "e49ff39337f09f05742136d30ed7adc05d99b2d19340264238beb2cea121ef36",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

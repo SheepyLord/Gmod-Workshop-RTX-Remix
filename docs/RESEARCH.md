@@ -8768,3 +8768,54 @@ map, with the authors' permission ([ADR 0211](decisions/0211-other-authors-map-m
   `d3d9.dll`, so in the build folder it loads System32's `d3d9.dll` (0xC0000139) unless the built one lies beside it.
   The fork's `usd_value::toReal` refuses infinities, so upstream's "infinite scroll rate clamps to its limit" needed
   the texture transform reader to read the authored real itself.
+
+## The crosshair under frame generation, noclip and broken glass, the Workshop's change notes (2026-11-14)
+
+Read in the runtime fork at `20e3553e` (0093), measured in the PoC (`out/worktrees/gx/out/gx-qa`, scratch drivers
+`fg_probe.lua`, `fg_capture.py`, `fg_compare.py`, `glass_noclip_probe.lua`).
+
+- **The crosshair is UI to Remix.** `D3D9Rtx::isRenderingUI()` (`src/d3d9/d3d9_rtx.cpp:589`) takes a fixed-function
+  draw with an orthographic projection for UI while `rtx.orthographicIsUI` is on (default true, `d3d9_rtx.h:41`; the
+  package's layers leave it). GMod's default crosshair is a HUD font glyph drawn through vgui in 2D, so it is
+  rasterized after injection with the rest of the HUD; `rtx.uiTextures` in the classic layer lists 19 HUD textures
+  besides.
+- **What DLSS-G was given.** `NGXDLFGContext::evaluate` (`rtx_ngx_wrapper.cpp`) set only `pBackbuffer` (the D3D9
+  back buffer after the swapchain's present blit, HUD and ImGui), `pMVecs`, `pDepth` and `pOutputInterpFrame`.
+  `NVSDK_NGX_VK_DLSSG_Eval_Params` (`submodules/dlss/include/nvsdk_ngx_helpers_dlssg_vk.h:31-43`) also has `pHudless`,
+  `pUI` and `pUIAlpha`; `nvsdk_ngx_defs_dlssg.h:76-88`: HUD-less is "the scene color before any UI or HUD elements are
+  drawn. Its content for non-UI pixels should be identical to the backbuffer"; UI recomposition needs HUD-less and
+  UI or UIAlpha plus a create-time flag. A resource not in the create-time always/never masks may be given on some
+  frames only. FSR frame generation already got the final output as `HUDLessColor`
+  (`fork_hooks::dispatchFsrFrameGeneration(*this, srcImage)`, `rtx_context.cpp:941`).
+- **The present path.** `D3D9SwapChainEx::PresentImage` flushes the device first, then `m_blitter->presentImage`
+  draws the back buffer into the presenter's image (a fragment shader with the gamma ramp), the DXVK HUD and ImGui
+  draw over it, and `SubmitPresent` submits after the frame's command lists. With DLSS-G the presenter's images are
+  `DxvkDLFGPresenter`'s back buffers (`info.layout = PRESENT_SRC_KHR`), which its present thread moves to shader read
+  for `evaluate` and on to transfer for the real frame's copy. Frame interpolation data reaches it through the
+  submission queue (`setupFrameInterpolation`, stashed until the next present, then reset).
+- **Measured.** At 1280x720 (about 560 rendered frames a second, one generated frame each) a test bar and the
+  crosshair dot were intact in every frame sampled with either runtime (1,145 and 1,140 samples). At 3840x2160 with
+  three generated frames per rendered one, the view turning 180 degrees a second: the published runtime showed faint
+  copies of the crosshair dot along the turn in 16 of 290 samples and a damaged bar in 22; runtime patch 0094 none in
+  305 samples, and a one-pixel test cross's darkest pixel had a median of 207 against 173.
+- **Sampling a game's presented frames.** `PrintWindow(hwnd, dc, PW_CLIENTONLY | PW_RENDERFULLCONTENT)` returns the
+  window's latest composed content, generated frames included, even while another window covers it: about 95
+  distinct samples a second at 1280x720 and 25 at 3840x2160 on this machine. Desktop Duplication (ffmpeg's `ddagrab`)
+  sees only what is on top of the screen, and ffmpeg 6.1.1's `ddagrab` has no `dup_frames` option (an unknown option
+  fails the input). GMod is DPI aware: a `-w 1280 -h 720` window has a 1280x720 client on a 200 % display.
+- **A multiplier changed while frame generation runs.** With `rtx.frameGenerationType = 1` already on (the PoC's
+  `user.conf`), `rtx.dlfg.maxInterpolatedFrames` 1 to 3 through the Remix API recreated the swapchain with four images,
+  then the published runtime logged `DxvkDLFGCommandListArray::nextCmdList: vkWaitForFences failed` and drew nothing
+  more while its window still answered (the session had to be ended). Off, changed, on again worked in both runtimes.
+- **`fps_max` cannot be set from Lua**: `RunConsoleCommand("fps_max", ...)` prints "Command is blocked!".
+- **Noclip and broken glass.** Since R14 `debris_scene.lua`'s `living()` is false for a player in noclip, so its
+  equipped weapon fell through to kind 1 (an object), which the default mask (3) mirrors: a box at the player's feet
+  moved through the pieces. PoC, gm_construct, a settled pile of 232 pieces, flying through it with the physgun out:
+  up to 318 pieces moving, 404 pieces after splits (published package); 0 moving and no split with the fix (288
+  pieces). Walking through with living players on (mask 15) still moved up to 294 and 298. A flying player crossed
+  about 500 units a second whether its forwardmove was 6 or 24 (sv_noclipspeed 5). The glass module loaded
+  (`backend jolt`) in these `poc_session.py run --addons` sessions.
+- **Steam's change notes.** `k_cchPublishedDocumentChangeDescriptionMax` is 8000 in the Steamworks SDK.
+  `gmpublish.exe` (the PoC's) imports `GetCommandLineA` and `GetCommandLineW` and both conversion functions, so a
+  narrow `main` sees the command line in the ANSI code page (CP936 on this machine). Its upload of the 2 GB package
+  sent 16.3 MB of changed chunks and took 25 s from start to finish (2026-11-14 21:41 UTC).

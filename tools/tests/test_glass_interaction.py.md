@@ -19,6 +19,8 @@ then Debug, and skips only when neither executable is built; the full gate build
 No game launches, install writes, network or package imports. Exit status follows unittest.
 
 R8-G adds scene_flags and collision_settings LuaJIT scenarios; uses no game or installs.
+2026-11-14 adds `scene_ghost_carries`: what a player in noclip or spectating carries (its weapons, a prop parented
+to it) is no body of the broken glass's scene (the user's report: a noclipping player moved the pieces).
 
 R8-G adds bullets_interest, bullets_client_interest, melee_stock and melee_swep scenarios. Together they check delayed two-client routing, lease expiry/renewal and real observed melee without modifying weapons.
 

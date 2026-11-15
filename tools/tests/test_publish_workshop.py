@@ -239,13 +239,16 @@ class PublishTests(unittest.TestCase):
         self.config = {'item': '123', 'gmpublish': str(self.root / 'gmpublish.exe'),
                        'package': {'id': 'test-item', 'title': 'Test', 'type': 'tool', 'tags': ['build']},
                        'parts': [{'name': 'mods', 'package': str(self.mods)}, {'name': 'module', 'package': str(self.module)}]}
-        self.saved_state, self.saved_upload = pub.STATE, pub.upload
+        self.saved_state, self.saved_upload, self.saved_entries = pub.STATE, pub.upload, pub.update_entries
         pub.STATE = self.root / 'state'
         self.uploads = []
         pub.upload = lambda config, gma, changes, log: self.uploads.append((Path(gma).name, changes)) or 'Success!'
+        # The change notes' changelog (ADR 0222) is ChangeNoteTests'; here it is fixed, not this checkout's.
+        self.entries = []
+        pub.update_entries = lambda *args, **kwargs: self.entries
 
     def tearDown(self):
-        pub.STATE, pub.upload = self.saved_state, self.saved_upload
+        pub.STATE, pub.upload, pub.update_entries = self.saved_state, self.saved_upload, self.saved_entries
         shutil.rmtree(self.root, ignore_errors=True)
 
     def run_publish(self, **flags):
@@ -297,6 +300,53 @@ class PublishTests(unittest.TestCase):
         self.run_publish()
         self.run_publish(force=True)
         self.assertEqual(len(list(pub.STATE.glob('test-item-*.gma'))), 1)
+
+    def test_the_change_note_carries_the_changelog(self):
+        # ADR 0222: the update's changelog entries follow the version line, in full.
+        self.entries = [{'heading': 'Round', 'lines': ['- The crosshair stays put', '  under frame generation.']}]
+        result = self.run_publish()
+        self.assertEqual((result['result'], result['notes'], len(self.uploads)), ('uploaded', 1, 1))
+        note = self.uploads[0][1]
+        self.assertTrue(note.startswith(result['version'] + ' from '), note)
+        self.assertIn('[b]Round[/b]\n- The crosshair stays put under frame generation.', note)
+        self.assertEqual(json.loads((pub.STATE / 'published.json').read_text(encoding='utf-8'))['notes'], 1)
+
+    def test_a_long_changelog_goes_up_in_several_notes(self):
+        # Steam keeps 8000 characters of a note: the rest goes up with the same archive, one note per update.
+        self.entries = [{'heading': None, 'lines': [f'- Entry {i}: ' + 'word ' * 900 + 'end.']} for i in range(3)]
+        result = self.run_publish()
+        self.assertEqual((result['result'], result['notes']), ('uploaded', 3))
+        self.assertEqual(len(self.uploads), 3)
+        self.assertEqual({name for name, _ in self.uploads}, {self.uploads[0][0]})  # the same archive each time
+        for index, (_, note) in enumerate(self.uploads, 1):
+            self.assertLessEqual(len(note), pub.NOTE_LIMIT)
+            self.assertIn(f'(changelog, part {index} of 3)', note.split('\n', 1)[0])
+            self.assertIn(f'Entry {index - 1}: ', note)
+        record = json.loads((pub.STATE / 'published.json').read_text(encoding='utf-8'))
+        self.assertEqual((record['notes'], record['notes_posted']), (3, 3))
+
+    def test_a_further_note_that_fails_keeps_the_upload(self):
+        self.entries = [{'heading': None, 'lines': [f'- Entry {i}: ' + 'word ' * 900 + 'end.']} for i in range(3)]
+
+        def upload(config, gma, changes, log):
+            self.uploads.append((Path(gma).name, changes))
+            if len(self.uploads) == 2:
+                raise pub.PublishError('gmpublish failed (exit 1)')
+            return 'Success!'
+        pub.upload = upload
+        result = self.run_publish()
+        self.assertEqual(result['result'], 'uploaded')  # the item holds the new content
+        self.assertEqual(len(self.uploads), 2)  # the third note is not tried after a failure
+        record = json.loads((pub.STATE / 'published.json').read_text(encoding='utf-8'))
+        self.assertEqual((record['digest'], record['notes'], record['notes_posted']), (result['digest'], 3, 1))
+
+    def test_a_dry_run_shows_the_notes_and_posts_none(self):
+        self.entries = [{'heading': None, 'lines': ['- One entry.']}]
+        logs = []
+        args = argparse.Namespace(dry_run=True, force=False, allow_dirty=True, reason='test')
+        result = pub.publish(self.config, args, logs.append)
+        self.assertEqual((result['result'], result['notes'], self.uploads), ('dry-run', 1, []))
+        self.assertTrue(any('- One entry.' in line for line in logs), logs)
 
     def test_config_errors(self):
         path = self.root / 'bad.json'
@@ -371,11 +421,13 @@ class GitHubFakes:
                       'html_url': 'https://github.com/o/r/actions/runs/77'}]
         self.artifacts = [{'name': name, 'expired': False, 'expires_at': '2026-11-08T00:00:00Z'}
                           for name in pub.PACKAGE_ARTIFACTS]
-        self.calls, self.uploads = [], []
+        self.calls, self.uploads, self.entries = [], [], []
         self.patches = [mock.patch.object(pub, 'STATE', self.root / 'state'),
                         mock.patch.object(pub, 'gh', side_effect=self.fake_gh),
                         mock.patch.object(pub, 'upload', side_effect=lambda c, gma, changes, log:
-                                          self.uploads.append((Path(gma).read_bytes(), changes)) or 'Success!')]
+                                          self.uploads.append((Path(gma).read_bytes(), changes)) or 'Success!'),
+                        # The change notes' changelog (ADR 0222) is ChangeNoteTests'; fixed here.
+                        mock.patch.object(pub, 'update_entries', side_effect=lambda *args, **kwargs: self.entries)]
         for patch in self.patches:
             patch.start()
 
@@ -469,6 +521,16 @@ class FromCiTests(GitHubFakes, unittest.TestCase):
         self.assertEqual(result['result'], 'dry-run')
         self.assertEqual(self.uploads, [])
         self.assertTrue(any(call[:2] == ('run', 'download') for call in self.calls))
+
+    def test_a_releases_note_carries_its_changelog(self):
+        # ADR 0222: a release, like a development build, posts the changelog since the item's last upload.
+        self.entries = [{'heading': '0.17.0', 'lines': ['- Broken glass ignores players in noclip.']}]
+        result = self.publish()
+        self.assertEqual((result['result'], result['notes']), ('uploaded', 1))
+        changes = self.uploads[0][1]
+        self.assertIn(self.report['gma']['sha256'], changes.split('\n', 1)[0])
+        self.assertIn('[b]0.17.0[/b]\n- Broken glass ignores players in noclip.', changes)
+        self.assertEqual(json.loads((pub.STATE / 'published.json').read_text(encoding='utf-8'))['notes'], 1)
 
     def test_an_expired_or_deleted_package_is_named_and_the_last_download_kept(self):
         # ADR 0113: artifacts expire two days after their run, and a newer run deletes the older packages.
@@ -830,6 +892,106 @@ class HookTests(unittest.TestCase):
         self.assertEqual(Path(state), pub.STATE)
         self.assertEqual(Path(top).resolve(), REPO.resolve())
         self.assertEqual(left, [])
+
+
+class ChangeNoteTests(unittest.TestCase):
+    """ADR 0222 (the user's standard of 2026-11-14): an upload's change notes carry the update's changelog in full,
+    every CHANGELOG.md entry since the item's last upload, in Steam's markup, ASCII and within Steam's limit."""
+    OLD = ('# Changelog\n\nIntro text.\n\n## [Unreleased]\n\n### Round A\n- Old entry one, wrapped\n  onto a second line.\n'
+           '- Old entry two.\n\n## [0.1.0]\n\n- Released entry.\n')
+    NEW = ('# Changelog\n\nIntro text.\n\n## [Unreleased]\n\n### Round B (the user\'s report)\n'
+           '- **New entry** with a [repo link](docs/decisions/0222-x.md), a [web link](https://example.com/a) and `code`,\n'
+           '  wrapped – with “quotes” → arrows, 45° and café.\n'
+           '  - A nested point.\n  - Another nested point.\n\n'
+           '### Round A\n- Old entry one, wrapped\n  onto a second line.\n- Old entry two, reworded.\n\n'
+           '## [0.1.0]\n\n- Released entry.\n- A released entry is not the update\'s.\n')
+
+    def test_the_entries_the_update_added_or_reworded(self):
+        entries = pub.new_entries(self.OLD, self.NEW)
+        self.assertEqual([(entry['heading'], pub.entry_key(entry)[:22]) for entry in entries],
+                         [("Round B (the user's report)", '- **New entry** with a'), ('Round A', '- Old entry two, rewor')])
+        self.assertEqual(pub.new_entries(self.NEW, self.NEW), [])
+        self.assertEqual(len(pub.new_entries('', self.NEW)), 3)  # without the old changelog: every entry
+
+    def test_steam_markup_in_ascii(self):
+        entry = pub.new_entries(self.OLD, self.NEW)[0]
+        self.assertEqual(pub.entry_markup(entry),
+                         '- [b]New entry[/b] with a repo link, a [url=https://example.com/a]web link[/url] and code, '
+                         'wrapped - with "quotes" -> arrows, 45 deg and cafe.\n'
+                         '    - A nested point.\n'
+                         '    - Another nested point.')
+        notes = pub.change_notes('1.0 from abc1234 Subject — done (commit abc1234)', pub.new_entries(self.OLD, self.NEW))
+        self.assertEqual(len(notes), 1)
+        self.assertTrue(notes[0].startswith('1.0 from abc1234 Subject  -  done (commit abc1234)\n\n'
+                                            "[b]Round B (the user's report)[/b]\n- [b]New entry[/b]"), notes[0])
+        self.assertIn('\n\n[b]Round A[/b]\n- Old entry two, reworded.', notes[0])
+        notes[0].encode('ascii')  # gmpublish reads its command line in the ANSI code page
+        self.assertEqual(pub.change_notes('1.0 from abc', []), ['1.0 from abc'])
+
+    def test_a_long_changelog_is_split_within_the_limit_and_kept_whole(self):
+        entries = [{'heading': 'H' if i < 6 else 'K', 'lines': [f'- Entry {i}: ' + 'word ' * 280 + 'end.']}
+                   for i in range(12)]
+        notes = pub.change_notes('2.0 from def5678 Many changes (merge def5678)', entries)
+        self.assertGreater(len(notes), 1)
+        joined = '\n'.join(notes)
+        for index, note in enumerate(notes, 1):
+            self.assertLessEqual(len(note), pub.NOTE_LIMIT)
+            first = note.split('\n', 1)[0]
+            self.assertTrue(first.endswith(f'(changelog, part {index} of {len(notes)})'), first)
+            self.assertTrue(first.startswith('2.0 from def5678' if index == 1 else '2.0 ('), first)
+        for i in range(12):
+            self.assertEqual(joined.count(f'- Entry {i}: '), 1)  # every entry, once, whole
+        self.assertEqual(joined.count('[b]H[/b]'), 1)
+        self.assertEqual(joined.count('[b]K[/b]'), 1)
+        self.assertIn('[b]K[/b]\n- Entry 6: ', joined)  # a heading stays with its first entry
+
+    def test_an_entry_longer_than_a_note_is_cut_after_sentences(self):
+        sentences = [f'Sentence {i} ' + 'x' * 380 + '.' for i in range(40)]
+        notes = pub.change_notes('3.0 from abc', [{'heading': None, 'lines': ['- ' + ' '.join(sentences)]}])
+        self.assertGreater(len(notes), 1)
+        self.assertTrue(all(len(note) <= pub.NOTE_LIMIT for note in notes))
+        joined = ' '.join(note.split('\n\n', 1)[1] for note in notes)
+        for sentence in sentences:
+            self.assertIn(sentence, joined)
+
+    def test_too_many_notes_end_with_the_rest_on_github(self):
+        entries = [{'heading': None, 'lines': [f'- Entry {i}: ' + 'word ' * 60]} for i in range(40)]
+        notes = pub.change_notes('4.0 from abc', entries, limit=900, max_notes=3)
+        self.assertEqual(len(notes), 3)
+        self.assertIn(pub.CHANGELOG_URL, notes[-1])
+        self.assertIn('more notes', notes[-1])
+
+    def test_the_changelog_since_the_last_upload(self):
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        repo = Path(tempfile.mkdtemp(prefix='test-publish-notes-', dir=SCRATCH))
+        self.addCleanup(shutil.rmtree, repo, True)
+
+        def git(*args):
+            return subprocess.run(['git', *args], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+
+        def commit(entries):
+            text = '# Changelog\n\n## [Unreleased]\n\n' + ''.join(f'- {entry}\n' for entry in entries)
+            (repo / 'CHANGELOG.md').write_text(text, encoding='utf-8', newline='\n')
+            git('add', '-A')
+            git('commit', '-q', '-m', 'c')
+            return git('rev-parse', 'HEAD')
+
+        git('init', '-q')
+        git('config', 'user.email', 't@example.invalid')
+        git('config', 'user.name', 't')
+        uploaded = commit(['a'])
+        commit(['b', 'a'])
+        head = commit(['c', 'b', 'a'])
+        config = {'item': '9'}
+        keys = lambda published: [pub.entry_key(e) for e in pub.update_entries(published, config, head, repo)]
+        # Every entry since the item's last upload, not only the last commit's.
+        self.assertEqual(keys({'item': '9', 'commit_sha': uploaded}), ['- c', '- b'])
+        # No usable record (none, another item's, a commit this clone lacks): what the commit added.
+        logs = []
+        self.assertEqual([pub.entry_key(e) for e in pub.update_entries({}, config, head, repo, logs.append)], ['- c'])
+        self.assertEqual(keys({'item': '8', 'commit_sha': uploaded}), ['- c'])
+        self.assertEqual(keys({'item': '9', 'commit_sha': 'f' * 40}), ['- c'])
+        self.assertTrue(logs and 'over its parent' in logs[0], logs)
 
 
 if __name__ == '__main__':

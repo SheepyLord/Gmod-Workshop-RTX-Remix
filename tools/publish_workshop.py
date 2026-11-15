@@ -10,7 +10,11 @@ For a release a person starts GitHub's package workflow, which builds the packag
 binary (ADR 0106, 0107); --from-ci then waits for that run of a commit, checks its .gma against the run's
 hash report and uploads exactly that file. While the item holds that release, a hook run whose commit
 has the release commit's packaging inputs uploads nothing (review R19, M1); the part folders' own READMEs
-are not among them (ADR 0127). See publish_workshop.py.md.
+are not among them (ADR 0127).
+
+Every upload's change note carries the update's changelog in full (ADR 0222): each CHANGELOG.md entry the
+uploaded commit has that the item's last upload lacked, in Steam's markup and ASCII; what one note (8000
+characters) cannot hold goes up in further notes with the same archive. See publish_workshop.py.md.
 """
 from __future__ import annotations
 
@@ -20,11 +24,13 @@ import hashlib
 import json
 import msvcrt
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -408,6 +414,180 @@ def holds_this_release(published: dict, config: dict, log, repo: Path = REPO) ->
         return False
 
 
+# ---------------------------------------------------------------- change notes (ADR 0222)
+
+CHANGELOG_IN_REPO = 'CHANGELOG.md'
+CHANGELOG_URL = 'https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/blob/main/CHANGELOG.md'
+# Steam keeps an update's change note to 8000 characters (k_cchPublishedDocumentChangeDescriptionMax in the
+# Steamworks SDK). The notes are ASCII, so characters are bytes; the margin is for Steam's own escaping.
+NOTE_LIMIT = 7800
+# An update whose changelog needs more notes than this posts that many and points to the rest on GitHub: a record
+# that went missing (a diff against a commit from long ago) must not post dozens of updates.
+MAX_NOTES = 8
+# gmpublish reads its command line in the system's ANSI code page (GetCommandLineA), so anything else would arrive
+# as question marks or mojibake: the notes are ASCII, these characters as their nearest ASCII spelling.
+ASCII_FOR = {'–': '-', '—': ' - ', '−': '-', '‐': '-', '‑': '-', '‘': "'", '’': "'",
+             '“': '"', '”': '"', '…': '...', '→': '->', '←': '<-', '↔': '<->',
+             '⇒': '=>', '×': 'x', '°': ' deg', '≈': '~', '≤': '<=', '≥': '>=',
+             '≠': '!=', '±': '+/-', 'µ': 'u', 'μ': 'u', ' ': ' ', ' ': ' ', ' ': ' ',
+             '•': '-', '·': '-', '′': "'", '″': '"', '½': '1/2', '¼': '1/4',
+             '¾': '3/4', '²': '2', '³': '3', '™': '(TM)', '©': '(c)', '®': '(R)',
+             '✓': 'yes', '✗': 'no', 'ß': 'ss'}
+MARKDOWN_LINK = re.compile(r'\[([^\]\n]+)\]\(([^)\s]+)\)')
+LIST_MARKER = re.compile(r'([-*+]|\d+\.)\s+')
+
+
+def changelog_entries(text: str) -> list[dict]:
+    """The entries of a CHANGELOG.md's [Unreleased] section, in order: each top-level bullet (or paragraph) with its
+    wrapped and nested lines, and the ### heading it stands under (None above the first)."""
+    entries, heading, current, inside = [], None, None, False
+    for line in text.splitlines():
+        if line.startswith('## '):
+            if inside:
+                break
+            inside = line[3:].strip().lower().startswith('[unreleased]')
+            continue
+        if not inside:
+            continue
+        if line.startswith('#'):
+            heading, current = line.lstrip('#').strip(), None
+        elif not line.strip():
+            current = None
+        elif line[0] in ' \t' and current is not None:
+            current['lines'].append(line)
+        else:
+            current = {'heading': heading, 'lines': [line]}
+            entries.append(current)
+    return entries
+
+
+def entry_key(entry: dict) -> str:
+    return ' '.join(line.strip() for line in entry['lines'])
+
+
+def new_entries(old: str, new: str) -> list[dict]:
+    """The entries of `new`'s [Unreleased] section that `old`'s lacks word for word: added or reworded ones."""
+    seen = {entry_key(entry) for entry in changelog_entries(old)}
+    return [entry for entry in changelog_entries(new) if entry_key(entry) not in seen]
+
+
+def ascii_text(text: str) -> str:
+    text = ''.join(ASCII_FOR.get(char, char) for char in text)
+    return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+
+
+def steam_text(text: str) -> str:
+    """One line of the changelog's Markdown in Steam's markup: links to the web keep their address ([url]), links
+    into the repository their text, bold stays bold, code marks go; then ASCII."""
+    def link(match):
+        label, target = match.group(1), match.group(2)
+        return f'[url={target}]{label}[/url]' if re.match(r'https?://', target) else label
+    text = MARKDOWN_LINK.sub(link, text)
+    text = re.sub(r'\*\*(.+?)\*\*', r'[b]\1[/b]', text)
+    return ascii_text(text.replace('`', ''))
+
+
+def entry_markup(entry: dict) -> str:
+    """An entry in full: its bullet's wrapped lines as one line, each nested bullet on a line of its own."""
+    lines = []
+    for raw in entry['lines']:
+        text, indented = raw.strip(), raw[:1] in ' \t'
+        marker = LIST_MARKER.match(text)
+        if not lines or not indented:
+            lines.append('- ' + text[marker.end():] if marker and marker.group(1) in '-*+' else text)
+        elif marker:
+            lines.append('    ' + ('- ' + text[marker.end():] if marker.group(1) in '-*+' else text))
+        else:
+            lines[-1] += ' ' + text
+    return '\n'.join(steam_text(line) for line in lines)
+
+
+def split_block(block: str, budget: int) -> list[str]:
+    """A block longer than one note, cut after sentences (or, failing that, anywhere) into pieces of at most `budget`."""
+    pieces, current = [], ''
+    for sentence in re.split(r'(?<=[.;:!?])\s+', block):
+        while len(sentence) > budget:
+            if current:
+                pieces.append(current)
+                current = ''
+            pieces.append(sentence[:budget])
+            sentence = sentence[budget:]
+        if current and len(current) + 1 + len(sentence) > budget:
+            pieces.append(current)
+            current = ''
+        current = f'{current} {sentence}' if current else sentence
+    if current:
+        pieces.append(current)
+    return pieces
+
+
+def change_notes(header: str, entries: list[dict], limit: int = NOTE_LIMIT, max_notes: int = MAX_NOTES) -> list[str]:
+    """The change notes of one upload (ADR 0222): the header, then every changelog entry of the update in full, in
+    Steam's markup and ASCII. What one note cannot hold goes on in the next ('part 2 of 3'), each within `limit`; an
+    entry's ### heading stays with it. More than `max_notes` notes end with a pointer to the rest on GitHub."""
+    header = ascii_text(header)
+    if not entries:
+        return [header]
+    tag = header.split(' ', 1)[0]
+    # The first note opens with the header, the others with the version; either may take the part label.
+    reserve = len(header) + len(f' (changelog, part {max_notes} of {max_notes})') + 2
+    budget = max(200, limit - reserve)
+    blocks, heading = [], None
+    for entry in entries:
+        block = entry_markup(entry)
+        if entry['heading'] and entry['heading'] != heading:
+            block = f'[b]{steam_text(entry["heading"])}[/b]\n{block}'
+        heading = entry['heading']
+        blocks.extend(split_block(block, budget) if len(block) > budget else [block])
+    bodies, current = [], ''
+    for block in blocks:
+        if current and len(current) + 2 + len(block) > budget:
+            bodies.append(current)
+            current = ''
+        current = f'{current}\n\n{block}' if current else block
+    bodies.append(current)
+    if len(bodies) > max_notes:
+        rest = len(bodies) - (max_notes - 1)
+        bodies = bodies[:max_notes - 1] + [f'The changelog of this update goes on for {rest} more notes: '
+                                           f'[url={CHANGELOG_URL}]CHANGELOG.md[/url]']
+    if len(bodies) == 1:
+        return [f'{header}\n\n{bodies[0]}']
+    return [f'{header if index == 0 else tag} (changelog, part {index + 1} of {len(bodies)})\n\n{body}'
+            for index, body in enumerate(bodies)]
+
+
+def changelog_at(commit: str, repo: Path = REPO) -> str | None:
+    done = subprocess.run(['git', 'show', f'{commit}:{CHANGELOG_IN_REPO}'], cwd=repo, capture_output=True,
+                          text=True, encoding='utf-8', errors='replace')
+    return done.stdout if done.returncode == 0 else None
+
+
+def update_entries(published: dict, config: dict, commit: str, repo: Path = REPO, log=lambda text: None) -> list[dict]:
+    """The changelog of an update (ADR 0222): the entries `commit`'s CHANGELOG.md has that the commit of the item's
+    last upload lacked. Without a usable record (another item, a commit this clone lacks), the entries `commit` added
+    over its first parent."""
+    new = changelog_at(commit, repo) or ''
+    base = published.get('commit_sha') if published.get('item') == str(config['item']) else None
+    old = changelog_at(base, repo) if base else None
+    if old is None:
+        log(f'no changelog of the last upload{" (" + base[:8] + ")" if base else ""}: the change notes hold what '
+            f'{commit[:8]} added over its parent')
+        old = changelog_at(f'{commit}^', repo) or ''
+    return new_entries(old, new)
+
+
+def post_further_notes(config: dict, gma: Path, notes: list[str], log) -> int:
+    """Steam keeps one note per update, so each note after the first goes up with the same archive again; Steam
+    uploads only changed chunks, so that costs the time to read the archive. Returns the notes posted in all."""
+    for index, note in enumerate(notes[1:], 2):
+        try:
+            upload(config, gma, note, log)
+        except PublishError as error:
+            log(f'change note {index} of {len(notes)} not posted: {error}')
+            return index - 1
+    return len(notes)
+
+
 def publish(config: dict, args, log, repo: Path = REPO) -> dict:
     """The development build (ADR 0108). `repo` is the checkout whose packaging inputs are compared and
     fingerprinted: this one, except in tests."""
@@ -461,13 +641,23 @@ def publish(config: dict, args, log, repo: Path = REPO) -> dict:
         published['fingerprint'] = current
         published_file.write_text(json.dumps(published, indent=1), encoding='utf-8')
         return {**print_state, 'result': 'unchanged-content', 'version': published.get('version'), 'digest': summary['digest']}
+    # ADR 0222: the change notes carry the update's changelog in full, every entry since the last upload.
+    notes = change_notes(f'{version} from {head}' + (f' ({args.reason})' if args.reason else ''),
+                         update_entries(published, config, head_sha, repo, log))
     if args.dry_run:
-        log(f'dry run: {gma} ({summary["gma_bytes"]} bytes) would be uploaded')
-        return {**print_state, 'result': 'dry-run', 'version': version, 'digest': summary['digest'], 'gma': str(gma)}
-    changes = f'{version} from {head}' + (f' ({args.reason})' if args.reason else '')
-    upload(config, gma, changes, log)
+        log(f'dry run: {gma} ({summary["gma_bytes"]} bytes) would be uploaded with {len(notes)} change note(s)')
+        for index, note in enumerate(notes, 1):
+            log(f'change note {index} of {len(notes)} ({len(note)} characters):\n{note}')
+        return {**print_state, 'result': 'dry-run', 'version': version, 'digest': summary['digest'], 'gma': str(gma),
+                'notes': len(notes)}
+    upload(config, gma, notes[0], log)
+    record['notes'] = len(notes)
     published_file.write_text(json.dumps(record, indent=1), encoding='utf-8')
-    return {**print_state, 'result': 'uploaded', 'version': version, 'digest': summary['digest'], 'gma': str(gma)}
+    if len(notes) > 1:
+        record['notes_posted'] = post_further_notes(config, gma, notes, log)
+        published_file.write_text(json.dumps(record, indent=1), encoding='utf-8')
+    return {**print_state, 'result': 'uploaded', 'version': version, 'digest': summary['digest'], 'gma': str(gma),
+            'notes': len(notes)}
 
 
 # ---------------------------------------------------------------- the package GitHub built (ADR 0106)
@@ -588,21 +778,31 @@ def publish_from_ci(config: dict, args, log, repo: Path = REPO) -> dict:
     gma, report, summary = download_package(run['id'], STATE / 'ci', log)
     version = summary.get('version') or gma.stem
     state.update(version=version, gma=str(gma), gma_sha256=report['gma']['sha256'])
-    if args.dry_run:
-        log(f'dry run: {gma.name} ({report["gma"]["bytes"]:,} bytes, SHA-256 {report["gma"]["sha256"]}) would be uploaded')
-        return {**state, 'result': 'dry-run'}
     subject = git('log', '-1', '--format=%h %s', sha, cwd=repo)
     changes = (f'{version} built on GitHub from {subject} ({run.get("html_url")}); .gma SHA-256 {report["gma"]["sha256"]}'
                + (f' ({args.reason})' if args.reason else ''))
-    upload(config, gma, changes, log)
+    # ADR 0222: the release's changelog in full, every entry since the item's last upload.
+    notes = change_notes(changes, update_entries(published, config, sha, repo, log))
+    state['notes'] = len(notes)
+    if args.dry_run:
+        log(f'dry run: {gma.name} ({report["gma"]["bytes"]:,} bytes, SHA-256 {report["gma"]["sha256"]}) would be uploaded '
+            f'with {len(notes)} change note(s)')
+        for index, note in enumerate(notes, 1):
+            log(f'change note {index} of {len(notes)} ({len(note)} characters):\n{note}')
+        return {**state, 'result': 'dry-run'}
+    upload(config, gma, notes[0], log)
     # commit_sha, the release commit in full: the hook runs compare HEAD's packaging inputs with it
     # (holds_this_release; review R19, M1).
     record = {'item': str(config['item']), 'version': version, 'digest': summary.get('digest'), 'gma': str(gma),
               'gma_bytes': report['gma']['bytes'], 'gma_sha256': report['gma']['sha256'], 'commit': subject,
               'commit_sha': sha, 'source': 'github', 'run_id': run['id'], 'run_url': run.get('html_url'),
               'native_binaries': {key: report.get(key) for key in ('binaries', 'compiled', 'fetched', 'from_packages')},
-              'reason': args.reason, 'utc': _dt.datetime.now(_dt.timezone.utc).isoformat(timespec='seconds')}
+              'reason': args.reason, 'utc': _dt.datetime.now(_dt.timezone.utc).isoformat(timespec='seconds'),
+              'notes': len(notes)}
     published_file.write_text(json.dumps(record, indent=1), encoding='utf-8')
+    if len(notes) > 1:
+        record['notes_posted'] = post_further_notes(config, gma, notes, log)
+        published_file.write_text(json.dumps(record, indent=1), encoding='utf-8')
     return {**state, 'result': 'uploaded'}
 
 
@@ -708,6 +908,8 @@ def main(argv=None) -> int:
     parser.add_argument('--from-ci', action='store_true',
                         help="a release: upload the package a person's run of the package workflow built for the commit, "
                              "after checking it against the run's report (ADR 0106, 0108)")
+    parser.add_argument('--show-notes', action='store_true',
+                        help="print the change notes the next upload of this checkout's HEAD would post (ADR 0222), then stop")
     parser.add_argument('--background', action='store_true', help='run detached, logging to out/workshop/logs (what the hooks use)')
     parser.add_argument('--install-hooks', action='store_true', help='install the post-commit and pre-push hooks, then stop')
     parser.add_argument('--uninstall-hooks', action='store_true', help='remove this script\'s hooks, then stop')
@@ -726,6 +928,15 @@ def main(argv=None) -> int:
             for source in args.uninstall_source_hooks:
                 removed = uninstall_hooks(source, [(name, None) for name in SOURCE_HOOK_NAMES])
                 print('\n'.join(removed) or f'no hooks of ours in {source}')
+            return 0
+        if args.show_notes:
+            config = load_config(args.config)
+            published = read_json(STATE / 'published.json') or {}
+            head = git('log', '-1', '--format=%h %s')
+            notes = change_notes(f'<version> from {head}', update_entries(published, config, git('rev-parse', 'HEAD'), REPO,
+                                                                          lambda text: print(text, file=sys.stderr)))
+            for index, note in enumerate(notes, 1):
+                print(f'--- change note {index} of {len(notes)} ({len(note)} characters) ---\n{note}')
             return 0
         logs = STATE / 'logs'
         logs.mkdir(parents=True, exist_ok=True)

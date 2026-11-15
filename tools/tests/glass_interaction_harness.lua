@@ -174,6 +174,45 @@ elseif scenario:match("^scene") then
         actor.alive=false;npc.alive=false;bot.alive=false
         now=now+.11;rows=capture(S,n,.016,15)
         for _,row in ipairs(rows)do check(row[8]~=4 and row[8]~=8,"dead actors cannot keep living mirrors")end
+    elseif scenario=="scene_ghost_carries" then
+        -- The user's report of 2026-11-14: a player in noclip moved broken glass. R14 let the player through,
+        -- but its weapons then counted as props of their own (their owner no longer counted as living) and
+        -- pushed the pieces under it. What a flying or spectating player carries goes through with it.
+        local walker,flying,spectator=entity("player"),entity("player"),entity("player")
+        flying.movetype,spectator.movetype=MOVETYPE_NOCLIP,MOVETYPE_OBSERVER
+        local function weapon(owner,parent,bodies)
+            local w=entity("weapon_physgun",nil,bodies)
+            w.IsWeapon=function()return true end
+            w.GetOwner=function()return owner end
+            w.GetParent=function()return parent end
+            return w
+        end
+        local flyingGun=weapon(flying,flying,{phys()})  -- with a physics object on this client
+        local flyingTool=weapon(flying,nil)             -- owner only: the box fallback
+        local spectatorGun=weapon(nil,spectator)        -- parent only
+        local walkerGun=weapon(walker,walker,{phys()})
+        local dropped=weapon(nil,nil,{phys()})          -- on the floor: an object like any prop
+        local rider=entity("prop_physics",nil,{phys()});rider.GetParent=function()return flying end
+        local walkerRider=entity("prop_physics",nil,{phys()});walkerRider.GetParent=function()return walker end
+        nearby={walker,flying,spectator,flyingGun,flyingTool,spectatorGun,walkerGun,dropped,rider,walkerRider}
+        player={GetAll=function()return {walker,flying,spectator}end}
+        local function counts(flags)
+            S.Reset();now=now+.11
+            local rows,byKind=capture(S,n,.016,flags) or {},{}
+            for _,row in ipairs(rows)do byKind[row[8]]=(byKind[row[8]] or 0)+1 end
+            return #rows,byKind[1] or 0,byKind[4] or 0
+        end
+        for _,flags in ipairs({3,15})do
+            local total,objects,hulls=counts(flags)
+            check(objects==2,"flags "..flags..": the dropped weapon and the prop on a walking player are objects; "..
+                "nothing a flying or spectating player carries ("..objects..")")
+            check(hulls==(flags==15 and 1 or 0),"flags "..flags..": only the walking player's hull, and only with living bodies on")
+            check(total==objects+hulls,"flags "..flags..": no other mirror")
+        end
+        -- Back on foot: the player's hull is the contact again, its weapon still none of its own.
+        flying.movetype=MOVETYPE_WALK
+        local total,objects,hulls=counts(15)
+        check(hulls==2 and objects==3 and total==5,"landed: two hulls, and the prop on the landed player is an object again")
     elseif scenario=="scene_kinds" then
         local player=entity("player",nil,{phys()})
         local npc=entity("npc_citizen",nil,{phys()})

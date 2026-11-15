@@ -3420,3 +3420,10 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
 - In the PoC ([report](handover/issue1-eyes-report.md)): HL2 characters and a Workshop model with `EyeRefract` eyes
   framed on their eyes (both irises; `rtx.gmod.enableInstrumentation` logs one `[GMod Eye] Handoff` origin per
   eye), the note on the main menu (`--menu-shot` with `nativeloader_pbr_note` sent while the Workshop mounts).
+
+## The crosshair under frame generation, noclip and broken glass, the Workshop change notes (ADR 0222, ADR 0223)
+
+- [`tools/tests/test_dlfg_hudless.py`](../tools/tests/test_dlfg_hudless.py.md): runtime patch 0094's handoff unit test compiled from the patch with MSVC (38 checks), and the patch's wiring: the copy filled after the game's target at injection, the present's blit beside each frame generation back buffer, `pHudless` only for a marked frame, the barriers.
+- [`tools/tests/test_glass_interaction.py`](../tools/tests/test_glass_interaction.py.md) `scene_ghost_carries`: what a flying or spectating player carries is no body of the broken glass's scene; it fails on the code before the fix.
+- [`tools/tests/test_publish_workshop.py`](../tools/tests/test_publish_workshop.py.md): the change notes' changelog (added and reworded entries since the record's commit, Steam's markup in ASCII, the split within 8000 characters, several uploads of one archive, a failed further note).
+- In the PoC ([report](handover/glass-crosshair-report.md)): a settled pile flown through in noclip with the physgun out (moving pieces counted), a walking control with living players on, before and after; DLSS Frame Generation at 3840x2160 with three generated frames, the view turning 180 degrees a second, the window sampled through `PrintWindow` (ghosts of the crosshair dot, a test bar and a one-pixel cross), before and after.

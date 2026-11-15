@@ -1,5 +1,21 @@
 # runtime/
 
+Patch `0094-DLSS-frame-generation-keeps-the-UI-in-place-a-HUD-le.patch`
+([ADR 0223](../docs/decisions/0223-frame-generation-gets-the-frame-before-its-ui.md), the user's request of 2026-11-14,
+fork branch `claude/dlfg-hudless`, commit `81b4d393` on 0093's `20e3553e`): DLSS Frame Generation gets the frame
+before its UI (NGX's HUD-less colour, `pHudless`), so the crosshair and the HUD stay in place in the generated frames
+instead of moving with the scene. The D3D9 swapchain keeps a copy of its back buffer while the frame generation
+presenter runs; `injectRTX` blits the final output into it after the game's target and marks the frame
+(`DlfgHudlessHandoff`, the self-contained `rtx_dlfg_hudless.h`); the present blits the copy beside each frame
+generation back buffer with the back buffer's own blitter call; the present thread passes it to
+`NGX_VK_EVALUATE_DLSSG` only for a marked frame, with barriers like the back buffer's, and logs `[DLFG] frame
+generation gets each frame before its UI (HUD-less input), from frame N` once. No option; frame generation off, nothing
+changes. `tests/rtx/unit/test_dlfg_hudless.cpp` (38 checks) is compiled from the patch by the Release gate
+([test_dlfg_hudless.py](../tools/tests/test_dlfg_hudless.py.md)). Exported alone (`format-patch -1 --start-number 94
+--zero-commit`) and built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0094): **`d3d9.dll`
+478,622,720 bytes, SHA-256 `55b30956085671e3d1d970a6da65e8d52c402b51f15304c50d1c5836a575b27d`** (70,698,152 bytes xz
+in Git LFS).
+
 Patch `0093-Merge-upstream-dxvk-remix-main-of-2026-11-14-remix-1.patch`
 ([ADR 0218](../docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md),
 [report](../docs/handover/upstream-runtime-report.md), fork branch `claude/upstream-main-1114`, commit `20e3553e`): NVIDIA's
@@ -574,6 +590,7 @@ NVIDIA's SDKs, is about 3.6 GB and keeps its own history, so this repository hol
 | `0091-Core-fixes-the-pipeline-handle-race-...` | Upstream dxvk-remix `c1a891bf85` (MIT): the pipeline handle read under the pipeline's lock (graphics, and compute too), a finished command list recycled before its waiters wake, frame generation's duplicate acquire-semaphore waits removed ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
 | `0092-Reflex-no-sent-message-is-dispatched-...` | The Reflex latency ping inside Present peeks only while `GetQueueStatus` shows a posted message and no sent one (`PM_REMOVE \| PM_QS_POSTMESSAGE`): no window procedure runs mid-frame ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
 | `0093-Merge-upstream-dxvk-remix-main-...` | NVIDIA's dxvk-remix `main` of 2026-11-14 (`remix-1.6.1..2b46bed0c`, 57 commits): RTXDI `dc8eb03` with the fork's volumetrics, Remix API 0.1000.2 with upstream's additions after the fork's, the fork's GPU bits kept and upstream's moved, `usdg.dll` beside `d3d9.dll` ([ADR 0218](../docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md)) |
+| `0094-DLSS-frame-generation-keeps-the-UI-...` | DLSS Frame Generation gets the frame before its UI (NGX's HUD-less colour): a copy of the back buffer filled at injection, blitted beside each frame generation back buffer with the back buffer's own blit, passed for each frame that filled it, so the crosshair and the HUD stay in place in the generated frames ([ADR 0223](../docs/decisions/0223-frame-generation-gets-the-frame-before-its-ui.md)) |
 
 - [`build_runtime.ps1`](build_runtime.ps1.md): applies them in a worktree of a fork clone, builds, and
   stores the new `d3d9.dll` in [`packages/runtime`](../packages/README.md).

@@ -6,6 +6,26 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The crosshair under frame generation, noclip and broken glass, the changelog on the Workshop (the user's requests of 2026-11-14)
+
+- **The crosshair and the HUD stay still under DLSS Frame Generation.** In the generated frames they smeared or
+  doubled while the view turned: frame generation was given only the finished frame, and it moved every pixel with
+  the scene, the UI's too. The runtime now also gives it the frame as it was before any UI was drawn (NGX's
+  HUD-less input), and DLSS Frame Generation keeps the crosshair, the HUD and menus where they are. Runtime patch
+  0094 ([ADR 0223](docs/decisions/0223-frame-generation-gets-the-frame-before-its-ui.md)); with frame generation off
+  nothing changes.
+- **Flying through broken glass in noclip no longer moves it.** Since R14 the player passed through the pieces, but
+  the weapon in the player's hands counted as a loose object and kicked them around. A player's weapon is never an
+  object of its own now, and whatever rides on a player in noclip or spectating passes through with it
+  ([debris_scene.lua](glass/addon/lua/nlglass/debris_scene.lua.md)).
+- **The Workshop change notes carry the changelog.** Each update of the RTX package now lists, in full, every
+  changelog entry since the previous update on the item's change notes page (the user's standard,
+  [ADR 0222](docs/decisions/0222-the-workshop-change-notes-carry-the-changelog.md)). `tools/publish_workshop.py`
+  posts them in Steam's markup; what one note (8000 characters) cannot hold goes up in further notes with the same
+  package, and `--show-notes` previews them.
+
+### Earlier on 2026-11-14
+
 - Source eyes show their irises under RTX (GitHub issue 1, [ADR 0220](docs/decisions/0220-source-eyes-show-their-irises.md)):
   the package's Remix defaults turn the runtime's eye shading on (`rtx.eye.enable = True`), and the RTX fixes'
   thirteenth native patch, [eye-texgen](packages/fixes/licenses/oversized-skinning/eye-texgen/README.md), keeps the

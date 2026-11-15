@@ -22,6 +22,7 @@ python tools\publish_workshop.py --force             # build and upload even if 
 python tools\publish_workshop.py --commit <sha>      # publish that commit, from the checkout that has it out
 python tools\publish_workshop.py --from-ci --commit <sha> --dry-run   # a release: download and check its run's package
 python tools\publish_workshop.py --from-ci --commit <sha>             # a release: upload that run's package
+python tools\publish_workshop.py --show-notes        # print the change notes the next upload of HEAD would post
 python tools\publish_workshop.py --uninstall-hooks   # remove this script's hooks
 python tools\publish_workshop.py --uninstall-source-hooks <add-on repo>  # remove ADR 0024's hooks there
 ```
@@ -83,7 +84,8 @@ A person has started the package workflow on GitHub for the commit (no push star
    `out\workshop\ci` (the folder is emptied first: only the newest download is kept). The `.gma`'s
    name, size and SHA-256 must be the report's, or it stops before uploading.
 4. **Upload.** `gmpublish update` with that file; the change note names the version, the commit, the
-   run's URL and the `.gma`'s SHA-256. `--dry-run` stops before this step.
+   run's URL and the `.gma`'s SHA-256, then carries the release's changelog in full (see "Change notes"
+   below). `--dry-run` stops before this step and logs the notes.
 5. **Record.** `published.json`: item, version, digest, the `.gma`'s size and SHA-256, commit (short SHA
    and subject) and `commit_sha` (the full SHA), `source: github`, the run's id and URL, the counts of
    compiled, fetched and `packages/` binaries, reason and time. It has no fingerprint: the hook runs
@@ -164,13 +166,41 @@ Needs `gh` signed in with read access to this repository, and Steam (as below).
    refuses the package: manifest: unknown key "reshade"" until it was rebuilt.
 5. **Digest.** If the build's content digest matches the last upload's, it uploads nothing:
    **unchanged content**. It records the new fingerprint, so the next run stops at step 3.
-6. **Upload.** It runs `gmpublish update -id <item> -addon <archive> -changes "<version> from <commit>
-   (<reason>)"`. Steam must be running and logged in to the item's owner.
-   If the reviewed publisher incorrectly rejects Steam's process-presence check, the guarded fallback
-   below retries with an isolated copy. Real Steam initialization and authorization still run normally.
+6. **Upload.** It runs `gmpublish update -id <item> -addon <archive> -changes "<note>"`, the note
+   starting with `<version> from <commit> (<reason>)` and carrying the update's changelog in full (see
+   "Change notes" below; `--dry-run` logs the notes). Steam must be running and logged in to the item's
+   owner. If the reviewed publisher incorrectly rejects Steam's process-presence check, the guarded
+   fallback below retries with an isolated copy. Real Steam initialization and authorization still run
+   normally.
 7. **Record.** It writes `out\workshop\published.json`: item, fingerprint, digest, version, the
-   archive's SHA-256, commit, `commit_sha` (the full SHA), reason and time. `build.json` records the last
-   build, uploaded or not.
+   archive's SHA-256, commit, `commit_sha` (the full SHA), reason, time and `notes` (how many change
+   notes the update has). An update with more than one note then posts the others (step 6 again with
+   the same archive) and records `notes_posted`. `build.json` records the last build, uploaded or not.
+
+## Change notes (ADR 0222)
+
+The user's standard of 2026-11-14: "the changelog should also be posted fully to the Steam workshop update
+log" ([ADR 0222](../docs/decisions/0222-the-workshop-change-notes-carry-the-changelog.md)).
+
+- **What goes in.** The entries of `CHANGELOG.md`'s `[Unreleased]` section that the uploaded commit has and
+  the commit of the item's last upload (`commit_sha` in `published.json`) lacked, word for word: added or
+  reworded entries, in the changelog's order, each under its `###` heading. An entry is a top-level
+  bullet (or paragraph) with its wrapped and nested lines. Without a usable record (another item, a
+  commit this clone does not have), the entries the uploaded commit added over its first parent.
+- **How it reads.** Steam's markup: a bullet's wrapped lines become one line (`- ...`), nested bullets
+  stay nested, `**bold**` becomes `[b]`, a link to the web `[url=...]`, a link into the repository its
+  text; code marks go. Everything is ASCII (`ASCII_FOR` spells dashes, quotes, arrows, degrees and the
+  like; accents lose their marks): `gmpublish.exe` reads its command line in the system's ANSI code page
+  (it imports `GetCommandLineA`), which would garble the rest.
+- **How long.** Steam keeps 8000 characters of an update's note
+  (`k_cchPublishedDocumentChangeDescriptionMax`); a note is held to `NOTE_LIMIT` (7800). What does not
+  fit goes on in further notes (`<version> (changelog, part 2 of 3)`), each posted by uploading the same
+  archive again: Steam uploads only changed chunks, so a repeat costs the time it takes to read the
+  archive (the 2 GB package's last upload sent 16.3 MB and took 25 seconds, 2026-11-14). An entry longer
+  than a note is cut after a sentence. More than `MAX_NOTES` (8) notes end with a pointer to the rest of
+  the changelog on GitHub, so a lost record cannot post dozens of updates. A note that fails after the
+  first is logged; the item already holds the new content.
+- `--show-notes` prints the notes the next upload of this checkout's `HEAD` would post, without building.
 
 ### Stale Steam process detection
 
@@ -249,9 +279,10 @@ repositories. `--uninstall-source-hooks REPO` removes them from another clone; i
 
 ## Side effects and exit codes
 
-- **Outward-facing:** it updates the Workshop item. AGENTS.md rule 5 allows that for this item
-  without asking (the user's instruction, 2026-10-28). It never changes the item's visibility,
-  title or description; those stay on the item's page.
+- **Outward-facing:** it updates the Workshop item and posts its change notes (the changelog, public on
+  the item's change notes page). AGENTS.md rule 5 allows that for this item without asking (the user's
+  instruction, 2026-10-28). It never changes the item's visibility, title or description; those stay on
+  the item's page.
 - **Writes:** `out\workshop\` (the archive, state files, logs, a scratch build folder), `out\inputs\`,
   the packagers' own scratch in `out\tmp`, and the hooks.
 - **Exit codes:** 0 on success or when there is nothing to do (the JSON result says which:

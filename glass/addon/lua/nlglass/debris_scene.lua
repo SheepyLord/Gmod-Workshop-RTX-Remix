@@ -16,16 +16,22 @@ local function living(e)
     return IsValid(e) and ((e:IsPlayer() and e:Alive() and not ghost(e)) or
         ((e:IsNPC() or (e.IsNextBot and e:IsNextBot())) and e:Health()>0))
 end
+local function isPlayer(e) return IsValid(e) and e:IsPlayer() end
 local function kind(e)
     if e:IsPlayer() then return (e:Alive() and not ghost(e)) and 4 or 0 end
     if (e:IsNPC() or (e.IsNextBot and e:IsNextBot())) and e:Health() > 0 then return 8 end
     local class = e:GetClass()
+    local owner=e.GetOwner and e:GetOwner()
+    local parent=e.GetParent and e:GetParent()
+    -- What rides on a player in noclip or spectating goes through the world with it (R14's rule for the
+    -- player itself): broken glass neither meets nor moves for it.
+    if isPlayer(parent) and ghost(parent) then return 0 end
     -- Equipped weapons/followers are not independent Source objects. The owner's hull supplies
     -- living contact when selected; otherwise an attachment must not bypass the living-off mask.
+    -- A player's weapon is never an object of its own: since R14 a flying player is not living, and
+    -- its weapons pushed the broken glass under it as props (the user's report of 2026-11-14).
     if (e.IsWeapon and e:IsWeapon()) or class=="phys_bone_follower" then
-        local owner=e.GetOwner and e:GetOwner()
-        local parent=e.GetParent and e:GetParent()
-        if living(owner) or living(parent) then return 0 end
+        if living(owner) or living(parent) or isPlayer(owner) or isPlayer(parent) then return 0 end
     end
     return ((e.IsRagdoll and e:IsRagdoll()) or class == "prop_ragdoll" or class == "class C_ClientRagdoll" or
         class == "class C_HL2MPRagdoll" or class == "client_ragdoll") and 2 or 1

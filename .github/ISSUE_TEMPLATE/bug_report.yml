@@ -108,9 +108,9 @@ body:
     attributes:
       label: Logs
       description: |
-        The paths start in your Garry's Mod folder, the one with `gmod.exe`. GitHub takes files up to 25 MB: zip a folder before you attach it, and share a bigger one through a file host with a link.
+        The paths start in your Garry's Mod folder, the one with `gmod.exe`. GitHub takes files up to 25 MB: please zip a folder before you attach it, and share a bigger one through a file host with a link.
 
-        - **The game crashed or closed:** the message after the crash names its folder in `native-loader\logs\sessions`, the newest one there. Zip it and attach it: it holds Remix's log and the crash dump.
+        - **The game crashed or closed:** the message after the crash names its folder in `SteamLibrary\steamapps\common\GarrysMod\native-loader\logs\sessions`. Zip the newest one there and attach it: it holds Remix's log and the crash dump.
         - **Anything else:** `native-loader\logs\loader.log` and `rtx-remix\logs\remix-dxvk.log`, before you start the game again (the next start replaces them).
         - **Lag or stutter:** while it lags, type `nativeloader_lag_report` in the console, wait ten seconds, then attach `garrysmod\data\nativeloader\lag_report_client.txt` and `lag_report_server.txt`.
         - **Stuck at "Starting Lua":** after 90 seconds the game shows a message that names an add-on file. Attach `garrysmod\data\native-loader\startup-stall.json`.

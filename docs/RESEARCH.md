@@ -8976,6 +8976,44 @@ controller 6, まばたき 0).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
 
+## The Remix menu's catalogs after the upstream merge (2026-11-15, Claude, runtime patch 0100)
+
+- **The catalogs fell behind at the upstream merge** (runtime patch 0093, fork commit `20e3553eb`): it brought 98 menu
+  texts the catalogs did not have. 56 are the water simulation (`rtx_water_sim.cpp`/`.h`, the header "Water Simulation
+  [Experimental]" in `dxvk_imgui.cpp:4144`, the sludge texture category and its option `rtx.sludgeTextures`), 14
+  RTXDI's best-light jitter and sparse neighbour candidates (`rtx_rtxdi_rayquery.cpp:438-456`, `.h`), 10 the post
+  effects' colour inversion (`rtx_postFx.cpp:119-122`, `.h`), 5 the eye (iris depth scale, limbal ring, roughness), 5
+  the dissolve of alpha-blended draws (`rtx.enableAlphaBlendDissolve` and its pattern combo), 4 the particles' spawn
+  distribution, 2 the world-space skinned bones checkbox and 2 the displacement's silhouettes behind translucency.
+- **Why the build passed.** Meson runs `i18n/tools/embed.py` (`src/dxvk/meson.build:612`), which checks the `.po`
+  files against `i18n/remix.pot` only. Nothing in the build regenerates `remix.pot`, so new menu text in the sources
+  stays English in every language without an error; `python i18n/tools/update_strings.py --check` (exit 1 while
+  `remix.pot` is stale) is the only check, and `RTX_GUI_LOG_UNTRANSLATED_TEXT=1` shows the untranslated texts in a
+  game (`remix-dxvk.log`, `[i18n] untranslated (<language>)`).
+- **Regenerated** at patches 0001-0099: 3,452 messages; 98 untranslated in every language; 16 obsolete entries (18 in
+  zh-CN), moved to the end as `#~`: upstream's rewordings (Iris Depth became Iris Depth Scale, Post Effect Enabled
+  became Motion / Lens Effects Enabled, the RTXDI spatial and disocclusion samples' descriptions) and texts of earlier
+  patches whose English changed (the layer-2 cloud options, the sun size's description, the `%+d.0 EV`-style and
+  hash formats). Most of the patch's 3,428,631 bytes are reference lines (`#:`) moved to the sources' current lines.
+- **The fonts already had every character.** `embed.py` checks each translation's characters against
+  `i18n/fonts/NotoSans{SC,TC,JP,KR}.otf` (and NVIDIA Sans for French and Russian); the 98 translations needed no font
+  rebuild (`subset_fonts.py`), including 汙, 漣漪 and 湧 in zh-TW.
+- **The DLL holds the catalogs as plain UTF-8.** `embed.py` writes the English as NUL-terminated strings in pot
+  order (`kEnglish[]`) and each language as back-to-back records (`kRecords<n>[]`): the message's index in
+  `kEnglish[]` (2 bytes, little-endian), a format flag (1 when the printf conversions match the English) and the
+  NUL-terminated UTF-8 translation (`embed.py:129`). So a built `d3d9.dll` can be searched for a translation's record.
+  Patch 0100's `d3d9.dll` holds all 98 new texts in English and in each of the six languages, each under its index.
+- `i18n/tools/po.py` writes LF line ends; the fork's index holds the catalogs with LF (`git ls-files --eol`: `i/lf`),
+  so the clone's `core.autocrlf=true` warnings on `git diff` are harmless.
+- **The untranslated-text log works from Lua.** `updateUiLanguage` reads `rtx.gui.logUntranslatedText` every frame
+  (`rtx_fork_i18n.cpp:339`), so `RemixConfig.SetConfigVariable` switches it on mid-session; it skips formatted values
+  (ImGui's temp buffer), language names and texts with fewer than two letters, and logs each text once
+  (`rtx_fork_i18n.cpp:274-311`). It also logs header labels below the visible part of a window, which ImGui measures
+  every frame: in the PoC the published package logged "Water Simulation [Experimental]" from the developer menu's
+  Rendering tab in all six languages (3,360 translated texts each), patch 0100's package nothing (3,452 each). The
+  font atlas a language change rebuilds: zh-CN 1024x2048 with 4,032 glyphs, zh-TW 4,038, ja 1024x1024 with 3,342, ko
+  2,679, fr and ru 512x512 with 450 and 546, English 366.
+
 ## The night sky editor (2026-11-15, Claude, runtime patch 0099, ADR 0227)
 
 **What the night sky is made of** (the user asked first whether it was one picture). `evalNightSky`

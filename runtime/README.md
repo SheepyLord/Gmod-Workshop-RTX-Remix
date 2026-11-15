@@ -1,5 +1,21 @@
 # runtime/
 
+Patch `0100-Translate-the-Remix-menus-98-new-texts-zh-CN-zh-TW-j.patch` (the user's go-ahead of 2026-11-15; fork
+branch `claude/remix-menu-i18n`, commit `25c85588` on 0099's `1dd38dbf`): the Remix menus' (Alt+X) texts that came
+with the upstream merge of patch 0093, translated into the six languages. That merge brought 98 menu texts the
+catalogs did not have: the water simulation and its sludge, the dissolve of alpha-blended draws, colour inversion,
+the eye's iris depth scale and limbal ring, the particles' spawn distribution and RTXDI's sparse neighbour
+candidates. The build's `i18n/tools/embed.py` checks the `.po` files only against `remix.pot`, which had not been
+regenerated, so it passed and the six languages showed those texts in English. `i18n/tools/update_strings.py`
+regenerated `remix.pot` (3,452 messages) and merged it into every catalog: the 98 are translated (agent-written,
+keeping to each `i18n/glossary/<language>.md`, which gains the terms this batch settled), the 16 to 18 entries whose English left the sources stay at the end
+as obsolete `#~` entries, and the other entries' references move to their current lines, which is most of the
+patch's 3.4 MB. No code changes. `update_strings.py --check` passes, `embed.py` reports 3,452 of 3,452 in every
+language (the fonts have every character used) and `test_embed.py` passes. Exported alone (`format-patch -1
+--start-number 100 --zero-commit`) and built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src`
+(0001-0100): **`d3d9.dll` 479,855,616 bytes, SHA-256 `2c157ebe717182bb4bd2b8305fe0fbed29a09c0d36b84f78be6d7415e54290ab`**
+(70,817,488 bytes xz in Git LFS); it holds all 98 new texts in each language (searched for in the DLL).
+
 Patch `0099-Atmosphere-the-night-sky-editor-each-layer-on-its-ow.patch` (the user's request of 2026-11-15 for a sky
 editor, [ADR 0227](../docs/decisions/0227-the-night-sky-editor.md); fork branch `claude/night-sky-editor`, commit
 `1dd38dbf` on 0098's `173bdc84`): each layer of the night sky image on its own. The four layers the sky adds in gamma

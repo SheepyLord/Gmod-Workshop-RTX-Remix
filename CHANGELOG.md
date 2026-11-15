@@ -6,6 +6,14 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The RTX Remix menu's newest texts translated (2026-11-15)
+
+- **The RTX Remix menu (Alt+X) is fully translated again in Simplified and Traditional Chinese, Japanese, Korean,
+  French and Russian.** The runtime update of 2026-11-14 brought 98 new menu texts that showed in English in those
+  languages: the water simulation and its sludge, the dissolve of fading objects, colour inversion, the eyes' iris
+  depth and limbal ring, the particles' spawn distribution and the direct lighting's sparse sampling. All 98 are
+  translated now (by an agent, following each language's glossary). Runtime patch 0100; nothing else changes.
+
 ### The night sky editor (the user's request of 2026-11-15)
 
 - **A Night sky editor in the RTX Remix tab, next to Sky and weather, sets how each part of the night sky looks.**

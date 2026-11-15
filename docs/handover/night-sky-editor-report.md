@@ -110,7 +110,8 @@ exited 0 and quit normally.
   pixel at 720p; the shader's change is checked in the patch and the unit test), a 4K screen, a Radeon card.
 - Within the star layer the stars are one picture: no control for a single star or a range of magnitudes.
 - The fork's string catalogs were already behind its sources before this patch (98 menu texts untranslated after a
-  regeneration, most likely since the upstream merge of patch 0093); left as they were.
+  regeneration, most likely since the upstream merge of patch 0093); left as they were. Translated since in runtime
+  patch 0100 ([remix-menu-i18n-report.md](remix-menu-i18n-report.md)).
 
 ## Gate
 

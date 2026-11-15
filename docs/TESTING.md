@@ -3522,3 +3522,20 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package 
   --lua ... --lua-shots 420` on gm_construct): a clear midnight, each element changed on its own, three views of the
   sky after each step and the moon's own view; the Remix log names each layer loaded and freed
   ([report](handover/night-sky-editor-report.md)).
+
+## The Remix menu's translations (runtime patch 0100)
+
+- In the fork's tree (`out/worktrees/r17/out/runtime-src`, branch `claude/remix-menu-i18n`):
+  `python i18n/tools/update_strings.py --check` (exit 0: `remix.pot` matches the sources), `i18n/tools/embed.py` with
+  the arguments in the fork's `i18n/README.md` (3,452 of 3,452 messages in each language, every character checked
+  against the fonts) and `python -m unittest discover -s i18n/tools -p test_embed.py` (5 tests). The runtime build runs
+  `embed.py` again. After an upstream merge, run `update_strings.py --check` first: the build does not notice new menu
+  text ([RESEARCH.md](RESEARCH.md), "The Remix menu's catalogs after the upstream merge").
+- The built `d3d9.dll` searched for each new text: the English as a NUL-terminated string and each translation as
+  its record (the message's 2-byte index, a format flag, the NUL-terminated UTF-8 text), 588 of 588 found.
+- In a game: start with `RTX_GUI_LOG_UNTRANSLATED_TEXT=1` (or set `rtx.gui.logUntranslatedText` from Lua with
+  `RemixConfig.SetConfigVariable`, read every frame), choose a language (`rtx.gui.language`, or the graphics settings
+  window's General tab) and open the menus (`rtx.showUI` 1 or 2); `rtx-remix\logs\remix-dxvk.log` lists each text
+  still shown in English as `[i18n] untranslated (<language>)`, header labels below the visible part included. In
+  the PoC (2026-11-15) the published package logged "Water Simulation [Experimental]" in all six languages and patch
+  0100's package nothing ([report](handover/remix-menu-i18n-report.md)).

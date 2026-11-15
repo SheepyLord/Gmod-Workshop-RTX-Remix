@@ -116,3 +116,10 @@ exited 0 and quit normally.
 
 `tools\test.ps1 -Config Release` on the branch: "All checks passed" (C++ 35 of 35; Python 2,018 tests in `tools`, 1
 skipped, 29 in `gmapack`, 26 in `steam`).
+
+## Published
+
+`main` was fast-forwarded to `3aea28c0` (the branch's one commit) and pushed. The merge's hook built the package from
+`packages/` and uploaded item 3829070317 as **0.0.0-dev.20261115182304+8aafd13e** (content digest `a2d9da00...`), its
+change note the changelog's night sky editor entry; the push's hook found the inputs unchanged. Not yet seen in the
+field.

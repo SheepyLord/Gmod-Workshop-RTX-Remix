@@ -8840,6 +8840,10 @@ Read in the runtime fork at `20e3553e` (0093), measured in the PoC (`out/worktre
   `render` puts the answer into a code block and no longer takes attachments.
 - **`blank_issues_enabled: false`** leaves "Blank issue" to people with write, maintain or admin access (shown as
   "Maintainers only"); everyone else sees the forms and the contact links only.
+- **GitHub's preview of a form** (its file page on github.com, which needs no sign-in, unlike `/issues/new/choose`)
+  renders the Markdown of `markdown` elements and of descriptions, but showed the checkbox labels' bold and links as
+  raw text (`**x86-64**`, `[RTX Remix Workshop item](https://...)`; 2026-11-14). The forms keep checkbox labels plain
+  and put the links into the checkboxes' description.
 - **Attachments** on a free plan: images and videos up to 10 MB, other files up to 25 MB; `.log`, `.txt`, `.json`,
   `.csv`, `.zip` and `.dmp` are among the types issue comments take.
 - **Which session leaves an evidence folder.** Only an abnormal exit leaves a folder in `native-loader\logs\sessions`:

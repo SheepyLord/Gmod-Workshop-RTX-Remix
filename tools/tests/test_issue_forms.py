@@ -29,6 +29,7 @@ ELEMENTS = {
     'checkboxes': ({'label', 'options'}, {'description'}, {'required'}),
 }
 ID = re.compile(r'[A-Za-z0-9_-]+')
+MARKUP = re.compile(r'\*\*|__|`|\[[^\]]*\]\(')  # bold, code and links: shown raw in a checkbox label
 
 
 def forms() -> list[Path]:
@@ -116,6 +117,9 @@ class FormRules(unittest.TestCase):
                 self.assertLessEqual(set(option), {'label', 'required'}, where)
                 self.assertIsInstance(option.get('label'), str, where)
                 self.assertTrue(option['label'].strip(), where)
+                self.assertNotRegex(option['label'], MARKUP,
+                                    f"{where}: GitHub's preview shows a checkbox label's Markdown as it is; links go "
+                                    'into the description')
                 self.assertIsInstance(option.get('required', False), bool, where)
 
     def test_the_chooser(self):

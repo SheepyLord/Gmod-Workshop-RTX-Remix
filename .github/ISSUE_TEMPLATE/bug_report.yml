@@ -12,19 +12,17 @@ body:
     id: checks
     attributes:
       label: Before you report
+      description: >-
+        The RTX package is the [RTX Remix Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3829070317),
+        the loader's newest `winmm.dll` is on the
+        [latest release](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/releases/latest) page, and earlier reports
+        are in the [open and closed issues](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues?q=is%3Aissue).
       options:
-        - label: Garry's Mod is on the **x86-64** beta branch (in Steam, Garry's Mod > Properties > Betas).
+        - label: Garry's Mod is on the x86-64 beta branch (in Steam, Garry's Mod > Properties > Betas).
           required: true
-        - label: >-
-            I'm subscribed to the
-            [RTX Remix Workshop item](https://steamcommunity.com/sharedfiles/filedetails/?id=3829070317), and my
-            `bin\win64\winmm.dll` is from the
-            [latest release](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/releases/latest).
+        - label: I'm subscribed to the RTX Remix Workshop item, and my bin\win64\winmm.dll is from the latest release.
           required: true
-        - label: >-
-            I searched the
-            [open and closed issues](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues?q=is%3Aissue), and
-            this problem is not reported yet.
+        - label: I searched the open and closed issues, and this problem is not reported yet.
           required: true
   - type: dropdown
     id: kind

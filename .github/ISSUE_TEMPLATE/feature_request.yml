@@ -9,11 +9,11 @@ body:
     id: checks
     attributes:
       label: Before you ask
+      description: >-
+        Earlier requests are in the
+        [open and closed issues](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues?q=is%3Aissue).
       options:
-        - label: >-
-            I searched the
-            [open and closed issues](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues?q=is%3Aissue), and
-            this has not been asked yet.
+        - label: I searched the open and closed issues, and this has not been asked yet.
           required: true
   - type: textarea
     id: request

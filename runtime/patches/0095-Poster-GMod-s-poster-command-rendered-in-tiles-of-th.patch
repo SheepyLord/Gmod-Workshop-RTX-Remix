@@ -1,0 +1,1775 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Sun, 15 Nov 2026 01:22:25 -0700
+Subject: [PATCH] Poster: GMod's poster command rendered in tiles of the
+ window's size
+
+GMod's `poster` renders a picture several times the window's size by drawing tiles through sheared
+(off-centre) projections and reading back the raster image. The camera manager rejects a shear above
+0.01, so under RTX none of the tiles was path traced. The runtime now renders the poster itself.
+
+- rtxposter_Start/Cancel/GetStatus (d3d9.dll exports, rtx_poster_api.h): a multiplier of 1 to 16,
+  frames per tile, the PNG's path, and an optional copy of each tile.
+  They reach the device's poster through the poster's own instance (rtx_poster_instance.h): GMod never
+  registers its D3D9 device with the Remix API, so the API's device pointer stays empty.
+- While a poster renders, the main, view model and sky cameras' projections are narrowed to one
+  tile's window of the game's own view (rtx_poster_math.h). Their field of view and aspect stay the
+  game's, so the culling frustum and the view model's detection keep the whole view. Every tile has
+  the window's size: no upscaler, denoiser or render target changes size. Neighbouring tiles overlap by
+  a sixteenth of the window's short side (16 to 256 pixels) and are blended over it.
+- A tile's first frame resets the history; its last frame (64 by default), the picture before its UI,
+  is blitted to RGBA8 and read back through the exporter. The tiles are composed in reading order into
+  8-bit BGR and written on a thread of their own with Windows' PNG encoder (WIC through ole32 at run
+  time; nothing new is linked), as <path>.part and then renamed.
+- Meanwhile the runtime's clock stands still (GlobalTime), exposure keeps its value, and motion blur
+  and the lens effects (vignette, chromatic aberration) are left out. The physical sky's cloud layer
+  and aerial perspective, both screen-aligned, are fitted to the tile's window; the sky matte's
+  viewport is stretched so the tile's window covers it, its jitter shrunk to stay a pixel; textures
+  and the sky are sampled for the poster's pixel size.
+- It stops when the view moves, the window changes size, VR starts or it is cancelled. 16384 x 16384
+  at most (the stretched matte viewport stays within every GPU's limit).
+
+tests/rtx/unit/test_poster_math.cpp (764 checks) covers the layout, the narrowed projections and
+direction bases, and the composer.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/d3d9/d3d9.def                          |   5 +
+ src/d3d9/d3d9_rtx_shim.cpp                 |  14 +
+ src/dxvk/dxvk_device.cpp                   |   6 +
+ src/dxvk/dxvk_objects.h                    |   9 +
+ src/dxvk/meson.build                       |   8 +
+ src/dxvk/rtx_render/rtx_atmosphere.cpp     |  24 ++
+ src/dxvk/rtx_render/rtx_camera_manager.cpp |   9 +
+ src/dxvk/rtx_render/rtx_context.cpp        |  55 ++-
+ src/dxvk/rtx_render/rtx_poster.cpp         | 430 +++++++++++++++++++++
+ src/dxvk/rtx_render/rtx_poster.h           |  99 +++++
+ src/dxvk/rtx_render/rtx_poster_api.h       |  55 +++
+ src/dxvk/rtx_render/rtx_poster_exports.h   |  14 +
+ src/dxvk/rtx_render/rtx_poster_instance.h  |  15 +
+ src/dxvk/rtx_render/rtx_poster_math.h      | 233 +++++++++++
+ src/dxvk/rtx_render/rtx_poster_png.cpp     |  99 +++++
+ src/dxvk/rtx_render/rtx_poster_png.h       |  17 +
+ src/dxvk/rtx_render/rtx_remix_api.cpp      |  13 +
+ tests/rtx/unit/meson.build                 |   5 +
+ tests/rtx/unit/test_poster_math.cpp        | 314 +++++++++++++++
+ 19 files changed, 1421 insertions(+), 3 deletions(-)
+ create mode 100644 src/dxvk/rtx_render/rtx_poster.cpp
+ create mode 100644 src/dxvk/rtx_render/rtx_poster.h
+ create mode 100644 src/dxvk/rtx_render/rtx_poster_api.h
+ create mode 100644 src/dxvk/rtx_render/rtx_poster_exports.h
+ create mode 100644 src/dxvk/rtx_render/rtx_poster_instance.h
+ create mode 100644 src/dxvk/rtx_render/rtx_poster_math.h
+ create mode 100644 src/dxvk/rtx_render/rtx_poster_png.cpp
+ create mode 100644 src/dxvk/rtx_render/rtx_poster_png.h
+ create mode 100644 tests/rtx/unit/test_poster_math.cpp
+
+diff --git a/src/d3d9/d3d9.def b/src/d3d9/d3d9.def
+index 84d52971f..56317f448 100644
+--- a/src/d3d9/d3d9.def
++++ b/src/d3d9/d3d9.def
+@@ -31,3 +31,8 @@ EXPORTS
+   rtxvr_SetOverlayWindow
+   rtxvr_Capture
+   rtxvr_GetStatus
++
++  rtxposter_GetApiVersion
++  rtxposter_Start
++  rtxposter_Cancel
++  rtxposter_GetStatus
+diff --git a/src/d3d9/d3d9_rtx_shim.cpp b/src/d3d9/d3d9_rtx_shim.cpp
+index 5d73acb5d..fb3f3d208 100644
+--- a/src/d3d9/d3d9_rtx_shim.cpp
++++ b/src/d3d9/d3d9_rtx_shim.cpp
+@@ -26,6 +26,8 @@
+ 
+ #include "../dxvk/rtx_render/rtx_vr_exports.h"
+ #include "../dxvk/rtx_render/rtx_vr_api.h"
++#include "../dxvk/rtx_render/rtx_poster_exports.h"
++#include "../dxvk/rtx_render/rtx_poster_api.h"
+ #include <filesystem>
+ #include <mutex>
+ 
+@@ -84,6 +86,10 @@ namespace {
+     decltype(&::rtxvr_SetOverlayWindow) rtxvr_SetOverlayWindow = nullptr;
+     decltype(&::rtxvr_Capture) rtxvr_Capture = nullptr;
+     decltype(&::rtxvr_GetStatus) rtxvr_GetStatus = nullptr;
++    decltype(&::rtxposter_GetApiVersion) rtxposter_GetApiVersion = nullptr;
++    decltype(&::rtxposter_Start) rtxposter_Start = nullptr;
++    decltype(&::rtxposter_Cancel) rtxposter_Cancel = nullptr;
++    decltype(&::rtxposter_GetStatus) rtxposter_GetStatus = nullptr;
+ 
+     PFN_D3DPERF_BeginEvent                       D3DPERF_BeginEvent = nullptr;
+     PFN_D3DPERF_EndEvent                         D3DPERF_EndEvent = nullptr;
+@@ -206,6 +212,10 @@ namespace {
+     LOAD_SHIM_EXPORT(rtxvr_SetOverlayWindow);
+     LOAD_SHIM_EXPORT(rtxvr_Capture);
+     LOAD_SHIM_EXPORT(rtxvr_GetStatus);
++    LOAD_SHIM_EXPORT(rtxposter_GetApiVersion);
++    LOAD_SHIM_EXPORT(rtxposter_Start);
++    LOAD_SHIM_EXPORT(rtxposter_Cancel);
++    LOAD_SHIM_EXPORT(rtxposter_GetStatus);
+     g_shimExports.remixinternal_SetAovRequests = reinterpret_cast<PFN_remixinternal_SetAovRequests>(
+       GetProcAddress(g_shimModule, "remixinternal_SetAovRequests"));
+     g_shimExports.remixinternal_QueueAovCopy = reinterpret_cast<PFN_remixapi_dxvk_CopyRenderingOutput>(
+@@ -312,6 +322,10 @@ extern "C" {
+   REMIXAPI int REMIXAPI_CALL rtxvr_SetOverlayWindow(uint64_t handle,uint32_t flags) { return shim().rtxvr_SetOverlayWindow ? shim().rtxvr_SetOverlayWindow(handle,flags) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_Capture(const wchar_t* folder, uint32_t what) { return shim().rtxvr_Capture ? shim().rtxvr_Capture(folder,what) : RTXVR_E_INTERFACE; }
+   REMIXAPI int REMIXAPI_CALL rtxvr_GetStatus(rtxvr_Status* status) { return shim().rtxvr_GetStatus ? shim().rtxvr_GetStatus(status) : RTXVR_E_INTERFACE; }
++  REMIXAPI uint32_t REMIXAPI_CALL rtxposter_GetApiVersion(void) { return shim().rtxposter_GetApiVersion ? shim().rtxposter_GetApiVersion() : 0; }
++  REMIXAPI int REMIXAPI_CALL rtxposter_Start(const rtxposter_Request* request) { return shim().rtxposter_Start ? shim().rtxposter_Start(request) : RTXPOSTER_E_NO_DEVICE; }
++  REMIXAPI void REMIXAPI_CALL rtxposter_Cancel(void) { if (shim().rtxposter_Cancel) { shim().rtxposter_Cancel(); } }
++  REMIXAPI int REMIXAPI_CALL rtxposter_GetStatus(rtxposter_Status* status) { return shim().rtxposter_GetStatus ? shim().rtxposter_GetStatus(status) : RTXPOSTER_E_NO_DEVICE; }
+ 
+   REMIXAPI uint64_t REMIXAPI_CALL QueryFeatureVersion(version::Feature feat) {
+     return shim().QueryFeatureVersion ? shim().QueryFeatureVersion(feat) : 0ull;
+diff --git a/src/dxvk/dxvk_device.cpp b/src/dxvk/dxvk_device.cpp
+index 66373bd95..aab2ab3d5 100644
+--- a/src/dxvk/dxvk_device.cpp
++++ b/src/dxvk/dxvk_device.cpp
+@@ -541,6 +541,9 @@ namespace dxvk {
+     // NV-DXVK start: On-demand VR output
+     m_vr(device),
+     // NV-DXVK end
++    // NV-DXVK start: poster (GMod)
++    m_poster(device),
++    // NV-DXVK end
+     m_memoryManager(device),
+     // NV-DXVK start: Local memory diagnostics
+     m_memoryDiagnostics(device),
+@@ -643,6 +646,9 @@ namespace dxvk {
+     // NV-DXVK start: Retire VR before common query/image allocators are destroyed
+     metaVr().onDestroy();
+     // NV-DXVK end
++    // NV-DXVK start: poster (GMod)
++    metaPoster().onDestroy();
++    // NV-DXVK end
+     getRtxInitializer().onDestroy();
+ 
+     metaGeometryUtils().onDestroy();
+diff --git a/src/dxvk/dxvk_objects.h b/src/dxvk/dxvk_objects.h
+index 31695152f..88dd96a95 100644
+--- a/src/dxvk/dxvk_objects.h
++++ b/src/dxvk/dxvk_objects.h
+@@ -25,6 +25,9 @@
+ #include "rtx_render/rtx_vr.h"
+ #include "rtx_render/rtx_vr_eye.h"
+ // NV-DXVK end
++// NV-DXVK start: poster (GMod)
++#include "rtx_render/rtx_poster.h"
++// NV-DXVK end
+ #include "dxvk_gpu_event.h"
+ #include "dxvk_gpu_query.h"
+ #include "dxvk_memory.h"
+@@ -113,6 +116,9 @@ namespace dxvk {
+ 
+     // NV-DXVK start: On-demand VR output
+     RtxVr& metaVr() { return m_vr.get(); }
++    // NV-DXVK start: poster (GMod)
++    RtxPoster& metaPoster() { return m_poster.get(); }
++    // NV-DXVK end
+     // VR true stereo: the right eye's view state, its ray-tracing outputs and the passes that keep per-pixel
+     // history. The left eye keeps the default state. Made on the render thread when true stereo starts, and
+     // selected while that thread traces the right eye (rtx_vr_eye.h).
+@@ -418,6 +424,9 @@ namespace dxvk {
+     // NV-DXVK start: On-demand VR output
+     Active<RtxVr>                      m_vr;
+     // NV-DXVK end
++    // NV-DXVK start: poster (GMod)
++    Active<RtxPoster>                  m_poster;
++    // NV-DXVK end
+     DxvkMemoryAllocator               m_memoryManager;
+ 
+     // NV-DXVK start: Local memory diagnostics
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index 475f97b1b..a095511c5 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -408,6 +408,14 @@ dxvk_src = files([
+   'rtx_render/rtx_vr_png.h',
+   'rtx_render/rtx_vr_policy.h',
+   'rtx_render/rtx_vr_timing.h',
++  'rtx_render/rtx_poster.cpp',
++  'rtx_render/rtx_poster.h',
++  'rtx_render/rtx_poster_api.h',
++  'rtx_render/rtx_poster_exports.h',
++  'rtx_render/rtx_poster_instance.h',
++  'rtx_render/rtx_poster_math.h',
++  'rtx_render/rtx_poster_png.cpp',
++  'rtx_render/rtx_poster_png.h',
+   'rtx_render/rtx_weather.cpp',
+   'rtx_render/rtx_weather.h',
+   'rtx_render/rtx_water_sim.cpp',
+diff --git a/src/dxvk/rtx_render/rtx_atmosphere.cpp b/src/dxvk/rtx_render/rtx_atmosphere.cpp
+index 7083252be..7456b1729 100644
+--- a/src/dxvk/rtx_render/rtx_atmosphere.cpp
++++ b/src/dxvk/rtx_render/rtx_atmosphere.cpp
+@@ -3075,6 +3075,27 @@ AtmosphereArgs RtxAtmosphere::updateFrame(RtxContext& ctx,
+   // Aerial perspective is fitted to this frame's frustum; push before any getAtmosphereArgs read.
+   setAerialPerspectiveCamera(camera);
+ 
++  // NV-DXVK start: poster (GMod): a poster's tile is a window of the view (rtx_poster.h); the cloud layer and the
++  // aerial perspective, both built from screen-aligned directions, follow the window.
++  poster::Window posterWindow;
++  if (ctx.getCommonObjects()->metaPoster().window(posterWindow)) {
++    const double cf[3] = { forwardYUp.x, forwardYUp.y, forwardYUp.z }, cr[3] = { rightYUp.x, rightYUp.y, rightYUp.z };
++    const double cu[3] = { upYUp.x, upYUp.y, upYUp.z };
++    const poster::Basis clouds = poster::windowBasis(cf, cr, cu, tanHalfFovX, tanHalfFovY, posterWindow);
++    setCloudRenderCameraBasis(
++      Vector3(float(clouds.forward[0]), float(clouds.forward[1]), float(clouds.forward[2])),
++      Vector3(float(clouds.right[0]), float(clouds.right[1]), float(clouds.right[2])),
++      Vector3(float(clouds.up[0]), float(clouds.up[1]), float(clouds.up[2])),
++      static_cast<uint32_t>(ctx.getDevice()->getCurrentFrameId()));
++    const double af[3] = { forward.x, forward.y, forward.z }, ar[3] = { right.x, right.y, right.z };
++    const double au[3] = { up.x, up.y, up.z };
++    const poster::Basis aerial = poster::windowBasis(af, ar, au, tanHalfFovX, tanHalfFovY, posterWindow);
++    m_apCameraForward = Vector3(float(aerial.forward[0]), float(aerial.forward[1]), float(aerial.forward[2]));
++    m_apCameraRight = Vector3(float(aerial.right[0]), float(aerial.right[1]), float(aerial.right[2]));
++    m_apCameraUp = Vector3(float(aerial.up[0]), float(aerial.up[1]), float(aerial.up[2]));
++  }
++  // NV-DXVK end
++
+   // Placement uses this frame's camera position and the active weather snapshot.
+   advanceLightning(deltaTimeSeconds);
+ 
+@@ -3086,6 +3107,9 @@ AtmosphereArgs RtxAtmosphere::updateFrame(RtxContext& ctx,
+   loadSkyTextures(&ctx);
+   const float skyMipBias = std::clamp(ctx.getSceneManager().getTotalMipBias(), -3.0f, 3.0f);
+   m_skyPixelAngle = 2.0f * tanHalfFovY / float(std::max(downscaledExtent3D.height, 1u)) * std::exp2(skyMipBias);
++  // NV-DXVK start: poster (GMod): a poster's pixel is its scale smaller (rtx_poster.h)
++  m_skyPixelAngle /= ctx.getCommonObjects()->metaPoster().pixelScale();
++  // NV-DXVK end
+ 
+   computeLuts(&ctx);
+   args = getAtmosphereArgs();
+diff --git a/src/dxvk/rtx_render/rtx_camera_manager.cpp b/src/dxvk/rtx_render/rtx_camera_manager.cpp
+index 89e633930..1e43c53c4 100644
+--- a/src/dxvk/rtx_render/rtx_camera_manager.cpp
++++ b/src/dxvk/rtx_render/rtx_camera_manager.cpp
+@@ -151,6 +151,15 @@ namespace dxvk {
+         }
+       }
+     } else {
++      // NV-DXVK start: poster (GMod)
++      // A poster's tile is a window of the game's view (rtx_poster.h): the main, view model and sky cameras look
++      // through it. Their field of view and aspect stay the game's, so the culling frustum and what is compared on
++      // them (the view model's detection) keep the whole view.
++      if (m_device->getCommon()->metaPoster().active()
++       && (cameraType == CameraType::Main || cameraType == CameraType::ViewModel || cameraType == CameraType::Sky)) {
++        m_device->getCommon()->metaPoster().narrow(viewToProjection);
++      }
++      // NV-DXVK end
+       isCameraCut = camera.update(
+         frameId,
+         worldToView,
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index 8625df05b..234056e5e 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -740,6 +740,11 @@ namespace dxvk {
+       
+       // If we really don't have any RT to do, just bail early (could be UI/menus rendering)
+       if (getSceneManager().getSurfaceBuffer() != nullptr) {
++        // NV-DXVK start: poster (GMod): a requested poster starts here, and a tile's first frame starts its history
++        // afresh (rtx_poster.h).
++        RtxPoster& poster = m_common->metaPoster();
++        if (poster.beginFrame(*this, outputExtent)) { m_resetHistory = true; }
++        // NV-DXVK end
+         // NV-DXVK start: VR true stereo
+         // One view's passes, from its frame begin to its debug view. The flat game and the warp trace the centre
+         // (eye -1). True stereo traces each eye with its own view state (rtx_vr_eye.h); the frame's shared work
+@@ -876,7 +881,8 @@ namespace dxvk {
+         dispatchPostFxMotionBlur(rtOutput);
+ 
+         // NV-DXVK start: VR true stereo: both eyes share one exposure, which the left eye adapts.
+-        dispatchToneMapping(rtOutput, !dlssNrEnabled && eye != 1);
++        // A poster's tiles keep the exposure they started with (rtx_poster.h).
++        dispatchToneMapping(rtOutput, !dlssNrEnabled && eye != 1 && !poster.holdsEffects());
+         // NV-DXVK end
+ 
+         // Lens effects (chromatic aberration, vignette) run AFTER tonemapping. They are
+@@ -934,6 +940,9 @@ namespace dxvk {
+         Rc<DxvkImageView> linearViewZ;
+         Rc<DxvkImage> srcImage = traceView(-1, linearViewZ);
+         // NV-DXVK end
++        // NV-DXVK start: poster (GMod): a tile's last frame, before its UI, is kept.
++        poster.endFrame(*this, srcImage);
++        // NV-DXVK end
+ 
+         dispatchDLFG();
+ 
+@@ -1554,6 +1563,9 @@ namespace dxvk {
+ 
+     // Note: Use half of the vertical FoV for the main camera in radians divided by the vertical resolution to get the effective half angle of a single pixel.
+     constants.screenSpacePixelSpreadHalfAngle = getSceneManager().getCamera().getFov() / 2.0f / constants.camera.resolution.y;
++    // NV-DXVK start: poster (GMod): a poster's pixel spans a window pixel's angle over its scale (rtx_poster.h)
++    constants.screenSpacePixelSpreadHalfAngle /= m_common->metaPoster().pixelScale();
++    // NV-DXVK end
+ 
+     // Note: This value is assumed to be positive (specifically not have the sign bit set) as otherwise it will break Ray Interaction encoding.
+     assert(std::signbit(constants.screenSpacePixelSpreadHalfAngle) == false);
+@@ -2259,6 +2271,11 @@ namespace dxvk {
+ 
+   void RtxContext::dispatchPostFxMotionBlur(Resources::RaytracingOutput& rtOutput) {
+     ScopedCpuProfileZone();
++    // NV-DXVK start: poster (GMod): no motion blur on a poster's tiles (rtx_poster.h)
++    if (m_common->metaPoster().holdsEffects()) {
++      return;
++    }
++    // NV-DXVK end
+     DxvkPostFx& postFx = m_common->metaPostFx();
+     const RtCamera& mainCamera = getSceneManager().getCamera();
+     if (!postFx.enable()) {
+@@ -2276,6 +2293,11 @@ namespace dxvk {
+ 
+   void RtxContext::dispatchPostFxLensEffects(Resources::RaytracingOutput& rtOutput) {
+     ScopedCpuProfileZone();
++    // NV-DXVK start: poster (GMod): no vignette or chromatic aberration on a poster's tiles (rtx_poster.h)
++    if (m_common->metaPoster().holdsEffects()) {
++      return;
++    }
++    // NV-DXVK end
+     DxvkPostFx& postFx = m_common->metaPostFx();
+     const RtCamera& mainCamera = getSceneManager().getCamera();
+     if (!postFx.enable()) {
+@@ -2764,6 +2786,14 @@ namespace dxvk {
+ 
+     auto skyMatteView = getResourceManager().getSkyMatte(this, m_skyColorFormat).view;
+     const auto skyMatteExt = skyMatteView->mipLevelExtent(0);
++    // NV-DXVK start: poster (GMod): the game draws its sky for the whole view, a poster's tile sees a window of
++    // it (rtx_poster.h): the matte's viewport is stretched until the window covers the matte, and the jitter is
++    // shrunk by as much, so it stays a pixel of the matte.
++    poster::Window posterWindow;
++    const bool posterMatte = m_common->metaPoster().window(posterWindow);
++    const float posterScaleX = posterMatte ? float(2.0 / (posterWindow.x1 - posterWindow.x0)) : 1.0f;
++    const float posterScaleY = posterMatte ? float(2.0 / (posterWindow.y1 - posterWindow.y0)) : 1.0f;
++    // NV-DXVK end
+ 
+     // Update spec constants
+     int prevClipSpaceJitterEnabled = -1;
+@@ -2785,6 +2815,14 @@ namespace dxvk {
+        drawCallState.minZ,
+        drawCallState.maxZ
+       };
++      // NV-DXVK start: poster (GMod)
++      if (posterMatte) {
++        viewport.width = static_cast<float>(skyMatteExt.width) * posterScaleX;
++        viewport.x = 0.5f - float((posterWindow.x0 + 1.0) / 2.0) * viewport.width;
++        viewport.height = -static_cast<float>(skyMatteExt.height) * posterScaleY;
++        viewport.y = 0.5f + float((posterWindow.y1 + 1.0) / 2.0) * static_cast<float>(skyMatteExt.height) * posterScaleY;
++      }
++      // NV-DXVK end
+       VkRect2D scissor {
+         { 0, 0 },
+         { skyMatteExt.width, skyMatteExt.height }
+@@ -2802,8 +2840,10 @@ namespace dxvk {
+         float ratioX = Sign(drawCallState.getTransformData().viewToProjection[2][3]);
+         float ratioY = -Sign(drawCallState.getTransformData().viewToProjection[2][3]);
+         Vector2 clipSpaceJitter = camera.calcClipSpaceJitter(camera.calcPixelJitter(m_device->getCurrentFrameId()), ratioX, ratioY);
+-        modified.jitterX = clipSpaceJitter.x;
+-        modified.jitterY = clipSpaceJitter.y;
++        // NV-DXVK start: poster (GMod)
++        modified.jitterX = clipSpaceJitter.x / posterScaleX;
++        modified.jitterY = clipSpaceJitter.y / posterScaleY;
++        // NV-DXVK end
+       }
+ 
+       // Ensure that memcpy can be used for fewer memory interactions
+@@ -2813,8 +2853,17 @@ namespace dxvk {
+       D3D9FixedFunctionVS modified = prevCB.fixedFunction;
+       {
+         // Jittered projection for DLSS
++        // NV-DXVK start: poster (GMod)
++        if (posterMatte) {
++          const float ratioX = Sign(modified.Projection[2][3]), ratioY = -Sign(modified.Projection[2][3]);
++          const Vector2 jitter = camera.calcClipSpaceJitter(camera.calcPixelJitter(m_device->getCurrentFrameId()), ratioX, ratioY);
++          modified.Projection[2][0] += jitter.x / posterScaleX;
++          modified.Projection[2][1] += jitter.y / posterScaleY;
++        } else {
+         camera.applyJitterTo(modified.Projection,
+                              m_device->getCurrentFrameId());
++        }
++        // NV-DXVK end
+       }
+       // Ensure that memcpy can be used for fewer memory interactions
+       static_assert(std::is_trivially_copyable_v<D3D9FixedFunctionVS>);
+diff --git a/src/dxvk/rtx_render/rtx_poster.cpp b/src/dxvk/rtx_render/rtx_poster.cpp
+new file mode 100644
+index 000000000..f9f21434f
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster.cpp
+@@ -0,0 +1,430 @@
++// SPDX-License-Identifier: MIT
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster (ADR 0226 of the GMod native loader project); see rtx_poster.h.
++#include <algorithm>
++#include <cmath>
++#include <cstdio>
++#include <cstring>
++#include <filesystem>
++#include <thread>
++#include "rtx_poster.h"
++#include "rtx_poster_instance.h"
++#include "rtx_poster_png.h"
++#include "rtx_context.h"
++#include "rtx_camera.h"
++#include "rtx_options.h"
++#include "../dxvk_device.h"
++#include "../../util/util_global_time.h"
++
++namespace dxvk {
++  // What a poster's readbacks and its writer share with the render thread.
++  struct RtxPoster::Job {
++    poster::Layout layout;
++    std::wstring path;
++    uint32_t flags = 0;
++    std::mutex mutex;                                  // guards everything below
++    poster::Composer composer;
++    std::map<uint32_t, std::vector<uint8_t>> early;    // tiles read back before the one the composer needs next
++    uint32_t tilesDone = 0;                            // tiles read back
++    uint32_t state = RTXPOSTER_STATE_RENDERING;
++    int32_t error = RTXPOSTER_OK;
++    std::string why;
++  };
++
++  namespace {
++    constexpr uint32_t kMinFrames = 4, kMaxFrames = 4096;
++    // The view counts as moved past one Source unit (about 2 cm) or about a fifth of a degree.
++    constexpr float kMoveDistance = 1.0f, kMoveCosine = 0.999994f;
++
++    std::string utf8(const std::wstring& text) { return str::fromws(text.c_str()); }
++
++    std::wstring tilePath(const std::wstring& path, uint32_t column, uint32_t row) {
++      const std::filesystem::path p(path);
++      const std::wstring name = p.stem().wstring() + L"_tile_" + std::to_wstring(column) + L"_" + std::to_wstring(row) + L".png";
++      return (p.parent_path() / name).wstring();
++    }
++  }
++
++  // The exports' way to the device's poster (rtx_poster_instance.h): GMod never registers its device with the Remix
++  // API, so the API's device pointer stays empty. The lock is held across an export's call, so the poster it reaches
++  // is not torn down meanwhile; the render thread never takes it.
++  namespace {
++    std::mutex g_instanceMutex;
++    RtxPoster* g_instance = nullptr;
++  }
++
++  RtxPoster::RtxPoster(DxvkDevice* device) : CommonDeviceObject(device) {
++    std::lock_guard lock(g_instanceMutex);
++    g_instance = this;
++  }
++
++  RtxPoster::~RtxPoster() {
++    std::lock_guard lock(g_instanceMutex);
++    if (g_instance == this) { g_instance = nullptr; }
++  }
++
++  void RtxPoster::onDestroy() {
++    {
++      std::lock_guard lock(g_instanceMutex);
++      if (g_instance == this) { g_instance = nullptr; }
++    }
++    // A poster being traced stops; one whose tiles are all traced is still read back and written (its readbacks
++    // and its writer hold the job, never the device's objects).
++    if (m_narrowing) { fail(RTXPOSTER_E_CANCELLED, "the device was destroyed"); }
++    m_captureImage = nullptr;
++  }
++
++  namespace poster {
++    int apiStart(const rtxposter_Request* request) {
++      std::lock_guard lock(g_instanceMutex);
++      return g_instance ? g_instance->start(request) : RTXPOSTER_E_NO_DEVICE;
++    }
++
++    void apiCancel() {
++      std::lock_guard lock(g_instanceMutex);
++      if (g_instance) { g_instance->cancel(); }
++    }
++
++    int apiStatus(rtxposter_Status* status) {
++      if (!status || status->structSize != sizeof(*status)) { return RTXPOSTER_E_ARGUMENT; }
++      std::lock_guard lock(g_instanceMutex);
++      if (!g_instance) {
++        *status = {};
++        status->structSize = sizeof(*status);
++        return RTXPOSTER_OK;
++      }
++      return g_instance->status(status);
++    }
++  }
++
++  int RtxPoster::start(const rtxposter_Request* request) {
++    if (!request || request->structSize != sizeof(rtxposter_Request)) { return RTXPOSTER_E_VERSION; }
++    if (request->multiplier < 1 || request->multiplier > poster::kMaxMultiplier
++     || (request->framesPerTile != 0 && (request->framesPerTile < kMinFrames || request->framesPerTile > kMaxFrames))
++     || (request->flags & ~RTXPOSTER_SAVE_TILES) != 0) {
++      return RTXPOSTER_E_ARGUMENT;
++    }
++    const size_t length = wcsnlen(request->path, RTXPOSTER_PATH_CHARS);
++    if (length == 0 || length + 16 > RTXPOSTER_PATH_CHARS) { return RTXPOSTER_E_ARGUMENT; }  // room for ".part"
++    if (m_device->getCommon()->metaVr().hasWork()) { return RTXPOSTER_E_VR; }
++    std::lock_guard lock(m_mutex);
++    if (m_requested) { return RTXPOSTER_E_BUSY; }
++    if (m_job) {
++      std::lock_guard jobLock(m_job->mutex);
++      if (m_job->state == RTXPOSTER_STATE_RENDERING || m_job->state == RTXPOSTER_STATE_WRITING) { return RTXPOSTER_E_BUSY; }
++    }
++    m_request.multiplier = request->multiplier;
++    m_request.framesPerTile = request->framesPerTile ? request->framesPerTile : RTXPOSTER_DEFAULT_FRAMES;
++    m_request.flags = request->flags;
++    m_request.path.assign(request->path, length);
++    m_requested = true;
++    m_cancel.store(false);
++    ++m_generation;
++    m_lastError = RTXPOSTER_OK;
++    m_lastErrorText.clear();
++    m_path = m_request.path;
++    m_statusTile.store(0);
++    m_statusFrame.store(0);
++    return RTXPOSTER_OK;
++  }
++
++  void RtxPoster::cancel() {
++    std::lock_guard lock(m_mutex);
++    if (m_requested) {
++      m_requested = false;
++      m_lastError = RTXPOSTER_E_CANCELLED;
++      m_lastErrorText = "cancelled";
++      return;
++    }
++    m_cancel.store(true);
++  }
++
++  int RtxPoster::status(rtxposter_Status* out) {
++    if (!out || out->structSize != sizeof(rtxposter_Status)) { return RTXPOSTER_E_ARGUMENT; }
++    rtxposter_Status status {};
++    status.structSize = sizeof(status);
++    std::string why;
++    {
++      std::lock_guard lock(m_mutex);
++      status.generation = m_generation;
++      status.framesPerTile = m_request.framesPerTile;
++      const size_t count = std::min<size_t>(m_path.size(), RTXPOSTER_PATH_CHARS - 1);
++      std::memcpy(status.path, m_path.data(), count * sizeof(wchar_t));
++      if (m_requested) {
++        status.state = RTXPOSTER_STATE_STARTING;
++      } else if (m_lastError != RTXPOSTER_OK) {
++        status.state = RTXPOSTER_STATE_FAILED;
++        status.lastError = m_lastError;
++        why = m_lastErrorText;
++      } else if (m_job) {
++        std::lock_guard jobLock(m_job->mutex);
++        status.state = m_job->state;
++        status.lastError = m_job->error;
++        why = m_job->why;
++        status.width = m_job->layout.width;
++        status.height = m_job->layout.height;
++        status.columns = m_job->layout.columns;
++        status.rows = m_job->layout.rows;
++        status.tilesDone = m_job->tilesDone;
++      }
++    }
++    if (status.state == RTXPOSTER_STATE_RENDERING) {
++      status.frame = m_statusFrame.load();
++      status.tilesDone = std::max(status.tilesDone, std::min(m_statusTile.load(), status.columns * status.rows));
++    }
++    std::snprintf(status.lastErrorText, sizeof(status.lastErrorText), "%s", why.c_str());
++    *out = status;
++    return RTXPOSTER_OK;
++  }
++
++  bool RtxPoster::jobFailed() {
++    std::lock_guard lock(m_job->mutex);
++    return m_job->state == RTXPOSTER_STATE_FAILED;
++  }
++
++  bool RtxPoster::beginFrame(RtxContext& ctx, VkExtent3D outputExtent) {
++    if (!m_narrowing) {
++      bool requested = false;
++      {
++        std::lock_guard lock(m_mutex);
++        requested = m_requested;
++      }
++      // A poster's tiles start with the next frame: this frame's views were already taken whole.
++      if (requested) { startJob(ctx, outputExtent); }
++      return false;
++    }
++    if (m_cancel.exchange(false)) {
++      fail(RTXPOSTER_E_CANCELLED, "cancelled");
++      return false;
++    }
++    if (jobFailed()) {  // a readback failed
++      stopNarrowing();
++      return false;
++    }
++    if (m_device->getCommon()->metaVr().hasWork()) {
++      fail(RTXPOSTER_E_VR, "VR started");
++      return false;
++    }
++    if (outputExtent.width != m_job->layout.tileWidth || outputExtent.height != m_job->layout.tileHeight) {
++      fail(RTXPOSTER_E_RESIZED, "the window changed size");
++      return false;
++    }
++    const RtCamera& camera = ctx.getSceneManager().getCamera();
++    const Vector3 position = camera.getPosition(false), direction = camera.getDirection(false);
++    if (length(position - m_startPosition) > kMoveDistance || dot(direction, m_startDirection) < kMoveCosine) {
++      fail(RTXPOSTER_E_MOVED, "the view moved; hold still while a poster renders");
++      return false;
++    }
++    return m_frame == 0;
++  }
++
++  void RtxPoster::startJob(RtxContext& ctx, VkExtent3D extent) {
++    Request request;
++    {
++      std::lock_guard lock(m_mutex);
++      request = m_request;
++    }
++    auto job = std::make_shared<Job>();
++    std::string why;
++    int error = RTXPOSTER_OK;
++    if (!poster::makeLayout(extent.width, extent.height, request.multiplier,
++                            poster::defaultOverlap(extent.width, extent.height), job->layout, why)) {
++      error = RTXPOSTER_E_SIZE;
++    } else if (!job->composer.begin(job->layout, why)) {
++      error = RTXPOSTER_E_MEMORY;
++    }
++    job->path = request.path;
++    job->flags = request.flags;
++    {
++      std::lock_guard lock(m_mutex);
++      m_requested = false;
++      if (error != RTXPOSTER_OK) {
++        m_lastError = error;
++        m_lastErrorText = why;
++        m_job = nullptr;
++      } else {
++        m_job = job;
++      }
++    }
++    if (error != RTXPOSTER_OK) {
++      Logger::warn(str::format("[Poster] not started: ", why));
++      return;
++    }
++    m_framesPerTile = request.framesPerTile;
++    m_tile = 0;
++    m_frame = 0;
++    m_window = poster::tileWindow(job->layout, 0);
++    m_pixelScale = float(poster::pixelScale(job->layout));
++    const RtCamera& camera = ctx.getSceneManager().getCamera();
++    m_startPosition = camera.getPosition(false);
++    m_startDirection = camera.getDirection(false);
++    m_narrowing = true;
++    m_cancel.store(false);
++    // The clock stands still: the sky, the clouds, animated materials and particles stay as they are.
++    GlobalTime::get().setAdvanceTime(false);
++    Logger::info(str::format("[Poster] ", job->layout.width, "x", job->layout.height, " in ", job->layout.columns, "x",
++                             job->layout.rows, " tiles of ", job->layout.tileWidth, "x", job->layout.tileHeight,
++                             " (overlap ", job->layout.overlap, "), ", m_framesPerTile, " frames each: ", utf8(job->path)));
++  }
++
++  void RtxPoster::endFrame(RtxContext& ctx, const Rc<DxvkImage>& picture) {
++    if (!m_narrowing || picture == nullptr) { return; }
++    ++m_frame;
++    m_statusFrame.store(m_frame);
++    if (m_frame < m_framesPerTile) { return; }
++    capture(ctx, picture, m_tile);
++    if (!m_narrowing) { return; }  // the capture failed
++    const uint32_t tiles = m_job->layout.tiles();
++    ++m_tile;
++    m_frame = 0;
++    m_statusTile.store(m_tile);
++    m_statusFrame.store(0);
++    if (m_tile < tiles) {
++      m_window = poster::tileWindow(m_job->layout, m_tile);
++      return;
++    }
++    // Every tile is traced; its readbacks and the writer finish the poster.
++    stopNarrowing();
++    Logger::info(str::format("[Poster] all ", tiles, " tiles traced"));
++  }
++
++  void RtxPoster::capture(RtxContext& ctx, const Rc<DxvkImage>& picture, uint32_t tile) {
++    const auto& layout = m_job->layout;
++    const VkExtent3D size { layout.tileWidth, layout.tileHeight, 1 };
++    try {
++      if (m_captureImage == nullptr || m_captureImage->info().extent != size) {
++        DxvkImageCreateInfo desc {};
++        desc.type = VK_IMAGE_TYPE_2D;
++        desc.format = VK_FORMAT_R8G8B8A8_UNORM;
++        desc.sampleCount = VK_SAMPLE_COUNT_1_BIT;
++        desc.extent = size;
++        desc.numLayers = 1;
++        desc.mipLevels = 1;
++        desc.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
++        desc.stages = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
++        desc.access = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
++        desc.tiling = VK_IMAGE_TILING_OPTIMAL;
++        desc.layout = VK_IMAGE_LAYOUT_UNDEFINED;
++        m_captureImage = m_device->createImage(desc, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
++                                               DxvkMemoryStats::Category::RTXRenderTarget, "poster tile");
++        ctx.changeImageLayout(m_captureImage, VK_IMAGE_LAYOUT_GENERAL);
++      }
++      // The picture is 16-bit float, already in display (sRGB) values; the blit rounds it to the bytes shown.
++      RtxContext::blitImageHelper(&ctx, picture, m_captureImage, VK_FILTER_NEAREST);
++      const VkDeviceSize bytes = VkDeviceSize(size.width) * size.height * 4;
++      DxvkBufferCreateInfo desc {};
++      desc.size = bytes;
++      desc.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
++      desc.stages = VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_HOST_BIT;
++      desc.access = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT | VK_ACCESS_HOST_READ_BIT;
++      auto buffer = m_device->createBuffer(desc, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
++                                           DxvkMemoryStats::Category::RTXBuffer, "poster tile readback");
++      ctx.copyImageToBuffer(buffer, 0, 1, 1, m_captureImage, { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 }, { 0, 0, 0 }, size);
++      std::shared_ptr<Job> job = m_job;
++      ctx.getCommonObjects()->metaExporter().copyBufferFromGPU(&ctx, DxvkBufferSlice(buffer, 0, bytes),
++        [job, tile](Rc<DxvkBuffer> readback) { onReadback(job, tile, readback); });
++    } catch (const DxvkError& error) {
++      fail(RTXPOSTER_E_CAPTURE, str::format("a tile could not be read back: ", error.message()));
++    }
++  }
++
++  // The exporter's thread, one readback after another in the order they were recorded.
++  void RtxPoster::onReadback(const std::shared_ptr<Job>& job, uint32_t tile, const Rc<DxvkBuffer>& buffer) {
++    const auto& layout = job->layout;
++    const auto* data = buffer != nullptr ? static_cast<const uint8_t*>(buffer->mapPtr(0)) : nullptr;
++    const size_t pitch = size_t(layout.tileWidth) * 4;
++    {
++      std::lock_guard lock(job->mutex);
++      if (job->state != RTXPOSTER_STATE_RENDERING) { return; }  // stopped, or the readback of a stopped poster
++    }
++    if (data && (job->flags & RTXPOSTER_SAVE_TILES)) {
++      std::vector<uint8_t> bgr(size_t(layout.tileWidth) * layout.tileHeight * 3);
++      for (size_t i = 0, n = size_t(layout.tileWidth) * layout.tileHeight; i < n; ++i) {
++        bgr[i * 3] = data[i * 4 + 2]; bgr[i * 3 + 1] = data[i * 4 + 1]; bgr[i * 3 + 2] = data[i * 4];
++      }
++      std::string why;
++      const std::wstring path = tilePath(job->path, tile % layout.columns, tile / layout.columns);
++      if (!poster::writePng(path, layout.tileWidth, layout.tileHeight, bgr.data(), size_t(layout.tileWidth) * 3, why)) {
++        Logger::warn(str::format("[Poster] tile ", tile, " not saved: ", why));
++      }
++    }
++    bool complete = false;
++    {
++      std::lock_guard lock(job->mutex);
++      if (job->state != RTXPOSTER_STATE_RENDERING) { return; }
++      if (!data) {
++        job->state = RTXPOSTER_STATE_FAILED;
++        job->error = RTXPOSTER_E_CAPTURE;
++        job->why = "a tile's readback could not be mapped";
++        job->composer.release();
++        job->early.clear();
++        return;
++      }
++      if (tile == job->composer.nextTile()) {
++        job->composer.addTile(tile, data, pitch);
++        for (auto next = job->early.find(job->composer.nextTile()); next != job->early.end();
++             next = job->early.find(job->composer.nextTile())) {
++          job->composer.addTile(next->first, next->second.data(), pitch);
++          job->early.erase(next);
++        }
++      } else {
++        job->early.emplace(tile, std::vector<uint8_t>(data, data + pitch * layout.tileHeight));
++      }
++      ++job->tilesDone;
++      complete = job->composer.complete();
++      if (complete) { job->state = RTXPOSTER_STATE_WRITING; }
++    }
++    // The writer holds the job and nothing of the device's, so it may outlive both the exporter's readback and the
++    // device; it is not joined. A game that quits while a poster is written leaves only its ".part" file.
++    if (complete) { std::thread(writePoster, job).detach(); }
++  }
++
++  void RtxPoster::writePoster(std::shared_ptr<Job> job) {
++    const auto& layout = job->layout;
++    const std::wstring part = job->path + L".part";
++    std::string why;
++    // The composer is complete, and nothing changes it while the state is WRITING.
++    bool written = poster::writePng(part, layout.width, layout.height, job->composer.pixels(), size_t(layout.width) * 3, why);
++    std::error_code error;
++    if (written) {
++      std::filesystem::rename(part, job->path, error);
++      if (error) { written = false; why = "the finished file could not be renamed: " + error.message(); }
++    }
++    if (!written) { std::filesystem::remove(part, error); }
++    {
++      std::lock_guard lock(job->mutex);
++      job->composer.release();
++      job->state = written ? RTXPOSTER_STATE_DONE : RTXPOSTER_STATE_FAILED;
++      job->error = written ? RTXPOSTER_OK : RTXPOSTER_E_WRITE;
++      job->why = written ? std::string() : why;
++    }
++    if (written) {
++      Logger::info(str::format("[Poster] saved ", layout.width, "x", layout.height, ": ", utf8(job->path)));
++    } else {
++      Logger::err(str::format("[Poster] not saved: ", why));
++    }
++  }
++
++  void RtxPoster::fail(int error, const std::string& why) {
++    if (m_job) {
++      std::lock_guard lock(m_job->mutex);
++      if (m_job->state == RTXPOSTER_STATE_RENDERING) {
++        m_job->state = RTXPOSTER_STATE_FAILED;
++        m_job->error = error;
++        m_job->why = why;
++        m_job->composer.release();
++        m_job->early.clear();
++      }
++    }
++    if (m_narrowing) { stopNarrowing(); }
++    Logger::warn(str::format("[Poster] stopped: ", why));
++  }
++
++  void RtxPoster::stopNarrowing() {
++    m_narrowing = false;
++    m_frame = 0;
++    GlobalTime::get().setAdvanceTime(RtxOptions::advanceTime());
++  }
++}
+diff --git a/src/dxvk/rtx_render/rtx_poster.h b/src/dxvk/rtx_render/rtx_poster.h
+new file mode 100644
+index 000000000..c47ca08cc
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster.h
+@@ -0,0 +1,99 @@
++// SPDX-License-Identifier: MIT
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster (ADR 0226 of the GMod native loader project): GMod's `poster` command under RTX. The game's own poster
++// renders tiles through sheared projections, which Remix's camera manager rejects, and reads back the raster image.
++// Here the runtime renders the poster itself: the game keeps drawing its ordinary view, and while a poster is made
++// the main, view model and sky cameras' projections are narrowed to one tile's window of that view (a tile has the
++// window's size, so no upscaler, denoiser or render target changes size). Each tile is traced for a number of
++// frames with its history reset at its first, its last frame is read back, and the tiles are blended over their
++// overlaps into one picture, written as a PNG on a thread of its own. Meanwhile the runtime's clock stands still,
++// exposure keeps its value and the lens effects and motion blur are left out, so neighbouring tiles match.
++#pragma once
++#include <atomic>
++#include <map>
++#include <memory>
++#include <mutex>
++#include <string>
++#include <vector>
++#include "rtx_common_object.h"
++#include "rtx_poster_api.h"
++#include "rtx_poster_exports.h"
++#include "rtx_poster_math.h"
++#include "../dxvk_buffer.h"
++#include "../dxvk_image.h"
++#include "../../util/util_matrix.h"
++#include "../../util/util_vector.h"
++
++namespace dxvk {
++  class RtxContext;
++
++  class RtxPoster : public CommonDeviceObject {
++  public:
++    explicit RtxPoster(DxvkDevice* device);
++    ~RtxPoster();
++    void onDestroy() override;
++
++    // Any thread: d3d9.dll's rtxposter_* exports.
++    int start(const rtxposter_Request* request);
++    void cancel();
++    int status(rtxposter_Status* out);
++
++    // The render thread.
++    // True while this frame's views belong to a tile: the camera manager narrows the main, view model and sky
++    // cameras' projections to the tile's window. Their field of view and the culling frustum stay the game's.
++    bool active() const { return m_narrowing; }
++    void narrow(Matrix4& viewToProjection) const { poster::narrowProjection(viewToProjection, m_window); }
++    // The tile's window, for the passes that build their own screen-aligned directions (the physical sky's
++    // clouds and aerial perspective).
++    bool window(poster::Window& out) const {
++      if (!m_narrowing) { return false; }
++      out = m_window;
++      return true;
++    }
++    // How many poster pixels a window pixel spans, so textures and the sky are sampled for the poster's size.
++    float pixelScale() const { return m_narrowing ? m_pixelScale : 1.0f; }
++    // While a poster renders, exposure adaptation, motion blur and the lens effects hold: every tile is lit and
++    // finished like its neighbours, and a vignette belongs to a whole picture, not to each of its tiles.
++    bool holdsEffects() const { return m_narrowing; }
++    // A ray traced frame begins (before its frame setup): starts a requested poster, checks that the view and the
++    // window stay as they were. True when this frame begins a tile, whose history must start afresh.
++    bool beginFrame(RtxContext& ctx, VkExtent3D outputExtent);
++    // The traced frame's picture before its UI (what is blitted to the game's target): a tile's last frame is kept.
++    void endFrame(RtxContext& ctx, const Rc<DxvkImage>& picture);
++
++  private:
++    struct Job;
++    struct Request { uint32_t multiplier = 0, framesPerTile = RTXPOSTER_DEFAULT_FRAMES, flags = 0; std::wstring path; };
++
++    void startJob(RtxContext& ctx, VkExtent3D extent);
++    void capture(RtxContext& ctx, const Rc<DxvkImage>& picture, uint32_t tile);
++    void fail(int error, const std::string& why);
++    void stopNarrowing();
++    bool jobFailed();
++    static void onReadback(const std::shared_ptr<Job>& job, uint32_t tile, const Rc<DxvkBuffer>& buffer);
++    static void writePoster(std::shared_ptr<Job> job);
++
++    std::mutex m_mutex;                     // the request, the status fields and m_job's pointer
++    bool m_requested = false;
++    Request m_request;
++    std::atomic<bool> m_cancel { false };
++    uint32_t m_generation = 0;
++    int32_t m_lastError = RTXPOSTER_OK;     // a poster that failed before it had a job (its size, its memory)
++    std::string m_lastErrorText;
++    std::wstring m_path;
++    // The poster rendering or being written, or the last one. Only the render thread replaces it (under m_mutex);
++    // its readbacks and its writer hold their own references.
++    std::shared_ptr<Job> m_job;
++
++    // The render thread only.
++    bool m_narrowing = false;
++    poster::Window m_window;
++    float m_pixelScale = 1.0f;
++    uint32_t m_tile = 0, m_frame = 0, m_framesPerTile = RTXPOSTER_DEFAULT_FRAMES;
++    std::atomic<uint32_t> m_statusTile { 0 }, m_statusFrame { 0 };
++    Vector3 m_startPosition, m_startDirection;
++    Rc<DxvkImage> m_captureImage;
++  };
++}
+diff --git a/src/dxvk/rtx_render/rtx_poster_api.h b/src/dxvk/rtx_render/rtx_poster_api.h
+new file mode 100644
+index 000000000..cac56995d
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster_api.h
+@@ -0,0 +1,55 @@
++/* SPDX-License-Identifier: MIT */
++/* The poster (ADR 0226 of the GMod native loader project): d3d9.dll's rtxposter_* exports. A picture several times
++   the window's size, path traced in tiles of the window's own size and written as one PNG. Plain C; the loader
++   project keeps a byte-identical copy as engine_guard/rtxposter_api.h for the module that calls it. */
++#ifndef RTXPOSTER_API_H
++#define RTXPOSTER_API_H
++#include <stdint.h>
++#include <wchar.h>
++
++#define RTXPOSTER_API_VERSION 1u
++#define RTXPOSTER_PATH_CHARS 520u
++#define RTXPOSTER_DEFAULT_FRAMES 64u   /* frames a tile is traced before it is kept, when framesPerTile is 0 */
++
++#define RTXPOSTER_SAVE_TILES 0x1u      /* also write each tile beside the poster: <name>_tile_<column>_<row>.png */
++
++typedef struct rtxposter_Request {
++  uint32_t structSize;                    /* sizeof(rtxposter_Request) */
++  uint32_t multiplier;                    /* 1 to 16: the poster is the window's size times this */
++  uint32_t framesPerTile;                 /* 4 to 4096 frames per tile; 0 for RTXPOSTER_DEFAULT_FRAMES */
++  uint32_t flags;                         /* RTXPOSTER_* */
++  wchar_t  path[RTXPOSTER_PATH_CHARS];    /* the PNG to write: an absolute path, written as <path>.part and renamed */
++} rtxposter_Request;
++
++enum { RTXPOSTER_STATE_IDLE = 0, RTXPOSTER_STATE_STARTING = 1, RTXPOSTER_STATE_RENDERING = 2, RTXPOSTER_STATE_WRITING = 3,
++       RTXPOSTER_STATE_DONE = 4, RTXPOSTER_STATE_FAILED = 5 };
++
++enum { RTXPOSTER_OK = 0, RTXPOSTER_E_VERSION = 1, RTXPOSTER_E_ARGUMENT = 2, RTXPOSTER_E_NO_DEVICE = 3,
++       RTXPOSTER_E_BUSY = 4, RTXPOSTER_E_VR = 5, RTXPOSTER_E_SIZE = 6, RTXPOSTER_E_MEMORY = 7, RTXPOSTER_E_MOVED = 8,
++       RTXPOSTER_E_RESIZED = 9, RTXPOSTER_E_CAPTURE = 10, RTXPOSTER_E_WRITE = 11, RTXPOSTER_E_CANCELLED = 12 };
++
++typedef struct rtxposter_Status {
++  uint32_t structSize;                    /* sizeof(rtxposter_Status) */
++  uint32_t state;                         /* RTXPOSTER_STATE_* */
++  uint32_t generation;                    /* how many posters were started; 0 before the first */
++  int32_t  lastError;                     /* RTXPOSTER_E_* of the last poster that failed; 0 when it did not */
++  uint32_t width, height;                 /* the poster's size */
++  uint32_t columns, rows;                 /* its tiles across and down */
++  uint32_t tilesDone;                     /* tiles traced and kept */
++  uint32_t frame, framesPerTile;          /* the current tile's frames so far, and how many it gets */
++  uint32_t reserved;
++  char     lastErrorText[256];            /* why it failed, in English */
++  wchar_t  path[RTXPOSTER_PATH_CHARS];    /* the poster; a file there once the state is DONE */
++} rtxposter_Status;
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++typedef uint32_t (*rtxposter_GetApiVersionFn)(void);
++typedef int (*rtxposter_StartFn)(const rtxposter_Request*);      /* RTXPOSTER_OK, or why it cannot start */
++typedef void (*rtxposter_CancelFn)(void);                         /* ends the poster at its next frame */
++typedef int (*rtxposter_GetStatusFn)(rtxposter_Status*);         /* RTXPOSTER_OK or RTXPOSTER_E_ARGUMENT */
++#ifdef __cplusplus
++}
++#endif
++#endif
+diff --git a/src/dxvk/rtx_render/rtx_poster_exports.h b/src/dxvk/rtx_render/rtx_poster_exports.h
+new file mode 100644
+index 000000000..0a4abf5ca
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster_exports.h
+@@ -0,0 +1,14 @@
++// SPDX-License-Identifier: MIT
++// The poster's exports (ADR 0226 of the GMod native loader project); the types are in rtx_poster_api.h.
++#pragma once
++#include <stdint.h>
++#include "../../util/util_export_macros.h"
++
++struct rtxposter_Request;
++struct rtxposter_Status;
++extern "C" {
++  REMIXAPI uint32_t REMIXAPI_CALL rtxposter_GetApiVersion(void);
++  REMIXAPI int REMIXAPI_CALL rtxposter_Start(const rtxposter_Request*);
++  REMIXAPI void REMIXAPI_CALL rtxposter_Cancel(void);
++  REMIXAPI int REMIXAPI_CALL rtxposter_GetStatus(rtxposter_Status*);
++}
+diff --git a/src/dxvk/rtx_render/rtx_poster_instance.h b/src/dxvk/rtx_render/rtx_poster_instance.h
+new file mode 100644
+index 000000000..9f81eb262
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster_instance.h
+@@ -0,0 +1,15 @@
++// SPDX-License-Identifier: MIT
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster's exports reach the device's poster through the poster itself (ADR 0226 of the GMod native loader
++// project): GMod never registers its D3D9 device with the Remix API, so the API's device is not there to ask.
++#pragma once
++#include "rtx_poster_api.h"
++
++namespace dxvk::poster {
++  // The live poster, under a lock its construction and teardown also take; without one, as if no device.
++  int apiStart(const rtxposter_Request* request);
++  void apiCancel();
++  int apiStatus(rtxposter_Status* status);
++}
+diff --git a/src/dxvk/rtx_render/rtx_poster_math.h b/src/dxvk/rtx_render/rtx_poster_math.h
+new file mode 100644
+index 000000000..667a4b5b1
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster_math.h
+@@ -0,0 +1,233 @@
++// SPDX-License-Identifier: MIT
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster (ADR 0226 of the GMod native loader project): a picture several times the window's size, path traced
++// as tiles of the window's own size, so no upscaler, denoiser or render target ever changes size. Each tile is the
++// game's view narrowed to a window of it, neighbouring tiles overlap and are blended over the overlap.
++// Everything here is plain arithmetic, testable without a device (tests/rtx/unit/test_poster_math.cpp).
++#pragma once
++#include <algorithm>
++#include <cmath>
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++#include <new>
++#include <string>
++#include <type_traits>
++#include <vector>
++
++namespace dxvk::poster {
++  constexpr uint32_t kMaxMultiplier = 16;
++  // 16384 x 16384: the composed picture is held as 8-bit BGR (at most 768 MiB) while it is written, and the sky
++  // matte's viewport, stretched to the whole poster for a tile, stays within the 16384 every GPU allows.
++  constexpr uint64_t kMaxPixels = 16384ull * 16384ull;
++  constexpr uint32_t kMaxSide = 16384;
++  constexpr uint32_t kMinWindowSide = 64;
++
++  struct Layout {
++    uint32_t tileWidth = 0, tileHeight = 0;  // the window: every tile is rendered at its size
++    uint32_t width = 0, height = 0;          // the poster: the multiplier times the window
++    uint32_t columns = 0, rows = 0;          // tiles across and down
++    uint32_t overlap = 0;                    // the least overlap of neighbouring tiles, in pixels
++    uint32_t tiles() const { return columns * rows; }
++  };
++
++  // The overlap a poster's tiles get: a sixteenth of the window's short side, from 16 to 256 pixels. Enough for the
++  // upscaler's and the denoiser's edge pixels and most of the bloom; well under half a tile.
++  inline uint32_t defaultOverlap(uint32_t windowWidth, uint32_t windowHeight) {
++    return std::clamp(std::min(windowWidth, windowHeight) / 16u, 16u, 256u);
++  }
++
++  // How many tiles of `tile` pixels cover `total` with at least `overlap` pixels shared by neighbours.
++  inline uint32_t tileCount(uint32_t total, uint32_t tile, uint32_t overlap) {
++    if (tile == 0) { return 0; }
++    if (total <= tile) { return 1; }
++    const uint32_t stride = tile - std::min(overlap, tile - 1);
++    return 1 + (total - tile + stride - 1) / stride;
++  }
++
++  // The first pixel of tile `index` of `count`: the tiles spread evenly from 0 to total - tile, so the last one ends
++  // on the poster's edge and no neighbours share fewer pixels than the overlap tileCount was given.
++  inline uint32_t tileOrigin(uint32_t index, uint32_t count, uint32_t total, uint32_t tile) {
++    if (count <= 1 || total <= tile) { return 0; }
++    const uint64_t span = uint64_t(total) - tile;
++    return uint32_t((span * index + (count - 1) / 2) / (count - 1));
++  }
++
++  inline bool makeLayout(uint32_t windowWidth, uint32_t windowHeight, uint32_t multiplier, uint32_t overlap,
++                         Layout& out, std::string& why) {
++    out = {};
++    if (multiplier < 1 || multiplier > kMaxMultiplier) {
++      why = "the multiplier must be 1 to " + std::to_string(kMaxMultiplier);
++      return false;
++    }
++    if (windowWidth < kMinWindowSide || windowHeight < kMinWindowSide) {
++      why = "the window is too small";
++      return false;
++    }
++    const uint64_t width = uint64_t(windowWidth) * multiplier, height = uint64_t(windowHeight) * multiplier;
++    if (width > kMaxSide || height > kMaxSide || width * height > kMaxPixels) {
++      why = "a poster of " + std::to_string(width) + " x " + std::to_string(height) + " is larger than 16384 x 16384";
++      return false;
++    }
++    out.tileWidth = windowWidth;
++    out.tileHeight = windowHeight;
++    out.width = uint32_t(width);
++    out.height = uint32_t(height);
++    out.overlap = multiplier == 1 ? 0 : std::min(overlap, std::min(windowWidth, windowHeight) / 4);
++    out.columns = tileCount(out.width, out.tileWidth, out.overlap);
++    out.rows = tileCount(out.height, out.tileHeight, out.overlap);
++    return true;
++  }
++
++  struct Origin { uint32_t x = 0, y = 0; };
++
++  // Tiles go in reading order: left to right, then the next row down.
++  inline Origin tileOrigin(const Layout& layout, uint32_t index) {
++    const uint32_t column = index % layout.columns, row = index / layout.columns;
++    return { tileOrigin(column, layout.columns, layout.width, layout.tileWidth),
++             tileOrigin(row, layout.rows, layout.height, layout.tileHeight) };
++  }
++
++  // A tile's window into the poster's normalized device coordinates: x to the right and y up, each -1 to 1, the
++  // poster's top row of pixels at y = 1.
++  struct Window { double x0 = -1, x1 = 1, y0 = -1, y1 = 1; };
++
++  inline Window tileWindow(const Layout& layout, uint32_t index) {
++    const Origin origin = tileOrigin(layout, index);
++    Window window;
++    window.x0 = -1.0 + 2.0 * origin.x / layout.width;
++    window.x1 = -1.0 + 2.0 * (double(origin.x) + layout.tileWidth) / layout.width;
++    window.y1 = 1.0 - 2.0 * origin.y / layout.height;
++    window.y0 = 1.0 - 2.0 * (double(origin.y) + layout.tileHeight) / layout.height;
++    return window;
++  }
++
++  // Narrows a projection matrix to a window: what the matrix put at the window's centre lands at the tile's, and
++  // the window's edges on the tile's. Column-major (m[column][row], clip = m * view), as the runtime's matrices are;
++  // only the clip x and y rows change, so depth, w and anything compared on them (the view model's planes) stay.
++  template<typename Matrix>
++  inline void narrowProjection(Matrix& m, const Window& window) {
++    using T = std::decay_t<decltype(m[0][0])>;
++    const double sx = 2.0 / (window.x1 - window.x0), sy = 2.0 / (window.y1 - window.y0);
++    const double cx = (window.x0 + window.x1) / 2, cy = (window.y0 + window.y1) / 2;
++    for (int column = 0; column < 4; ++column) {
++      const double w = double(m[column][3]);
++      m[column][0] = T(sx * (double(m[column][0]) - cx * w));
++      m[column][1] = T(sy * (double(m[column][1]) - cy * w));
++    }
++  }
++
++  // The direction basis of a screen-aligned pass for a window of the view: a pixel at the tile's ndc (x, y) looks
++  // along forward + right * x + up * y. The inputs are the camera's unit vectors and the whole view's tangents of
++  // its half angles; the forward component along the optical axis stays one, as those passes' slices need.
++  struct Basis { double forward[3], right[3], up[3]; };
++
++  inline Basis windowBasis(const double forward[3], const double right[3], const double up[3],
++                           double tanHalfX, double tanHalfY, const Window& window) {
++    const double cx = (window.x0 + window.x1) / 2 * tanHalfX, cy = (window.y0 + window.y1) / 2 * tanHalfY;
++    const double hx = (window.x1 - window.x0) / 2 * tanHalfX, hy = (window.y1 - window.y0) / 2 * tanHalfY;
++    Basis basis {};
++    for (int i = 0; i < 3; ++i) {
++      basis.forward[i] = forward[i] + right[i] * cx + up[i] * cy;
++      basis.right[i] = right[i] * hx;
++      basis.up[i] = up[i] * hy;
++    }
++    return basis;
++  }
++
++  // How many poster pixels one window pixel spans across and down: what a pixel's angle is divided by for texture
++  // and sky detail, so the poster gets the detail of its own size.
++  inline double pixelScale(const Layout& layout) {
++    return layout.tileHeight ? double(layout.height) / layout.tileHeight : 1.0;
++  }
++
++  // Composes the tiles into the poster, given in reading order. A row of tiles is first joined across, each tile
++  // fading in over its overlap with the one on its left; the row then fades in over its overlap with the row above.
++  // Every pixel of an overlap is therefore a bilinear mix of the tiles that cover it, and a pixel only one tile
++  // covers is that tile's. The poster is 8-bit BGR, rows top-down, as Windows' PNG encoder takes it.
++  class Composer {
++  public:
++    bool begin(const Layout& layout, std::string& why) {
++      m_layout = layout;
++      m_next = 0;
++      try {
++        m_poster.assign(size_t(layout.width) * layout.height * 3, 0);
++        m_strip.assign(size_t(layout.width) * layout.tileHeight * 3, 0);
++      } catch (const std::bad_alloc&) {
++        m_poster.clear(); m_poster.shrink_to_fit();
++        m_strip.clear(); m_strip.shrink_to_fit();
++        why = "not enough memory for a poster of " + std::to_string(layout.width) + " x " + std::to_string(layout.height);
++        return false;
++      }
++      return true;
++    }
++
++    // The next tile, RGBA8 rows top-down `rowPitch` bytes apart. False when it is not the tile expected next.
++    bool addTile(uint32_t index, const uint8_t* rgba, size_t rowPitch) {
++      if (index != m_next || index >= m_layout.tiles() || m_poster.empty()) { return false; }
++      const uint32_t columns = m_layout.columns, column = index % columns, row = index / columns;
++      const uint32_t w = m_layout.tileWidth, h = m_layout.tileHeight, width = m_layout.width;
++      const Origin origin = tileOrigin(m_layout, index);
++      // Across: the overlap with the tile on the left, in this tile's pixels.
++      const uint32_t fade = column == 0 ? 0
++        : tileOrigin(column - 1, columns, width, w) + w - origin.x;
++      for (uint32_t y = 0; y < h; ++y) {
++        const uint8_t* source = rgba + size_t(y) * rowPitch;
++        uint8_t* target = m_strip.data() + (size_t(y) * width + origin.x) * 3;
++        for (uint32_t x = 0; x < w; ++x, source += 4, target += 3) {
++          if (x < fade) {
++            const uint32_t a = weight(x, fade);
++            target[0] = mix(target[0], source[2], a);
++            target[1] = mix(target[1], source[1], a);
++            target[2] = mix(target[2], source[0], a);
++          } else {
++            target[0] = source[2]; target[1] = source[1]; target[2] = source[0];
++          }
++        }
++      }
++      if (column + 1 == columns) { addStrip(row, origin.y); }
++      ++m_next;
++      return true;
++    }
++
++    bool complete() const { return !m_poster.empty() && m_next == m_layout.tiles(); }
++    uint32_t nextTile() const { return m_next; }
++    const Layout& layout() const { return m_layout; }
++    const uint8_t* pixels() const { return m_poster.data(); }
++    void release() {
++      m_poster.clear(); m_poster.shrink_to_fit();
++      m_strip.clear(); m_strip.shrink_to_fit();
++      m_next = 0;
++    }
++
++    // The weight, out of 256, of pixel i of an overlap n pixels wide: from just over 0 to just under 256 across it.
++    static uint32_t weight(uint32_t i, uint32_t n) { return uint32_t((uint64_t(2 * i + 1) * 256) / (2ull * n)); }
++    static uint8_t mix(uint8_t from, uint8_t to, uint32_t a) {
++      return uint8_t((uint32_t(from) * (256 - a) + uint32_t(to) * a + 128) >> 8);
++    }
++
++  private:
++    void addStrip(uint32_t row, uint32_t top) {
++      const uint32_t h = m_layout.tileHeight, width = m_layout.width;
++      const uint32_t fade = row == 0 ? 0
++        : tileOrigin(row - 1, m_layout.rows, m_layout.height, h) + h - top;
++      const size_t rowBytes = size_t(width) * 3;
++      for (uint32_t y = 0; y < h; ++y) {
++        const uint8_t* source = m_strip.data() + size_t(y) * rowBytes;
++        uint8_t* target = m_poster.data() + size_t(top + y) * rowBytes;
++        if (y < fade) {
++          const uint32_t a = weight(y, fade);
++          for (size_t i = 0; i < rowBytes; ++i) { target[i] = mix(target[i], source[i], a); }
++        } else {
++          std::memcpy(target, source, rowBytes);
++        }
++      }
++    }
++
++    Layout m_layout {};
++    uint32_t m_next = 0;
++    std::vector<uint8_t> m_poster, m_strip;
++  };
++}
+diff --git a/src/dxvk/rtx_render/rtx_poster_png.cpp b/src/dxvk/rtx_render/rtx_poster_png.cpp
+new file mode 100644
+index 000000000..2f06142fd
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster_png.cpp
+@@ -0,0 +1,99 @@
++// SPDX-License-Identifier: MIT
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster's PNG writer (ADR 0226 of the GMod native loader project): Windows Imaging Component's PNG encoder.
++// COM and WIC are reached through ole32.dll at run time, so d3d9.dll links nothing new; the GUIDs are spelled out
++// here for the same reason.
++#include "rtx_poster_png.h"
++
++#ifndef NOMINMAX
++#define NOMINMAX
++#endif
++#include <windows.h>
++#include <wincodec.h>
++#include <algorithm>
++#include <cstdio>
++
++namespace dxvk::poster {
++  namespace {
++    // CLSID_WICImagingFactory1, GUID_ContainerFormatPng and GUID_WICPixelFormat24bppBGR (wincodec.h).
++    const GUID kImagingFactory = { 0xcacaf262, 0x9370, 0x4615, { 0xa1, 0x3b, 0x9f, 0x55, 0x39, 0xda, 0x4c, 0x0a } };
++    const GUID kPngContainer = { 0x1b7cfaf4, 0x713f, 0x473c, { 0xbb, 0xcd, 0x61, 0x37, 0x42, 0x5f, 0xae, 0xaf } };
++    const GUID kBgr24 = { 0x6fddc324, 0x4e03, 0x4bfe, { 0xb1, 0x85, 0x3d, 0x77, 0x76, 0x8d, 0xc9, 0x0c } };
++
++    template<typename T> struct Released {
++      T* p = nullptr;
++      ~Released() { if (p) { p->Release(); } }
++      T** operator&() { return &p; }
++      T* operator->() const { return p; }
++    };
++
++    std::string failed(const char* what, HRESULT result) {
++      char text[96];
++      std::snprintf(text, sizeof(text), "%s failed (0x%08lX)", what, static_cast<unsigned long>(result));
++      return text;
++    }
++  }
++
++  bool writePng(const std::wstring& path, uint32_t width, uint32_t height, const uint8_t* pixels, size_t stride,
++                std::string& why) {
++    using CoInitializeExFn = HRESULT(WINAPI*)(LPVOID, DWORD);
++    using CoUninitializeFn = void(WINAPI*)();
++    using CoCreateInstanceFn = HRESULT(WINAPI*)(REFCLSID, LPUNKNOWN, DWORD, REFIID, LPVOID*);
++    HMODULE ole = LoadLibraryW(L"ole32.dll");
++    if (!ole) { why = "ole32.dll could not be loaded"; return false; }
++    const auto coInitialize = reinterpret_cast<CoInitializeExFn>(GetProcAddress(ole, "CoInitializeEx"));
++    const auto coUninitialize = reinterpret_cast<CoUninitializeFn>(GetProcAddress(ole, "CoUninitialize"));
++    const auto coCreate = reinterpret_cast<CoCreateInstanceFn>(GetProcAddress(ole, "CoCreateInstance"));
++    if (!coInitialize || !coUninitialize || !coCreate) { FreeLibrary(ole); why = "COM is not available"; return false; }
++    // This thread is the poster's own; another apartment already set on it (RPC_E_CHANGED_MODE) still serves WIC.
++    const HRESULT apartment = coInitialize(nullptr, COINIT_MULTITHREADED);
++    bool written = false;
++    {
++      Released<IWICImagingFactory> factory;
++      Released<IWICStream> stream;
++      Released<IWICBitmapEncoder> encoder;
++      Released<IWICBitmapFrameEncode> frame;
++      Released<IPropertyBag2> options;
++      HRESULT result = coCreate(kImagingFactory, nullptr, CLSCTX_INPROC_SERVER, __uuidof(IWICImagingFactory),
++                                reinterpret_cast<void**>(&factory));
++      if (FAILED(result)) { why = failed("creating the imaging factory", result); }
++      else if (FAILED(result = factory->CreateStream(&stream))) { why = failed("creating a stream", result); }
++      else if (FAILED(result = stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE))) {
++        why = failed("opening the file", result);
++      }
++      else if (FAILED(result = factory->CreateEncoder(kPngContainer, nullptr, &encoder))) { why = failed("creating the PNG encoder", result); }
++      else if (FAILED(result = encoder->Initialize(stream.p, WICBitmapEncoderNoCache))) { why = failed("starting the PNG", result); }
++      else if (FAILED(result = encoder->CreateNewFrame(&frame, &options))) { why = failed("adding the picture", result); }
++      else if (FAILED(result = frame->Initialize(options.p))) { why = failed("setting up the picture", result); }
++      else if (FAILED(result = frame->SetSize(width, height))) { why = failed("setting the size", result); }
++      else {
++        WICPixelFormatGUID format = kBgr24;
++        result = frame->SetPixelFormat(&format);
++        if (FAILED(result) || format != kBgr24) {
++          why = FAILED(result) ? failed("setting the pixel format", result) : "the PNG encoder does not take 24-bit BGR";
++        } else {
++          // At most 64 MiB a call, whole rows.
++          const uint32_t block = uint32_t(std::max<size_t>(1, (size_t(64) << 20) / std::max<size_t>(stride, 1)));
++          bool rows = true;
++          for (uint32_t y = 0; y < height && rows; y += block) {
++            const uint32_t count = std::min(block, height - y);
++            result = frame->WritePixels(count, UINT(stride), UINT(stride * count),
++                                        const_cast<BYTE*>(pixels + size_t(y) * stride));
++            if (FAILED(result)) { why = failed("writing rows", result); rows = false; }
++          }
++          if (rows) {
++            if (FAILED(result = frame->Commit())) { why = failed("finishing the picture", result); }
++            else if (FAILED(result = encoder->Commit())) { why = failed("finishing the PNG", result); }
++            else if (FAILED(result = stream->Commit(STGC_DEFAULT))) { why = failed("writing the file", result); }
++            else { written = true; }
++          }
++        }
++      }
++    }
++    if (SUCCEEDED(apartment)) { coUninitialize(); }
++    FreeLibrary(ole);
++    return written;
++  }
++}
+diff --git a/src/dxvk/rtx_render/rtx_poster_png.h b/src/dxvk/rtx_render/rtx_poster_png.h
+new file mode 100644
+index 000000000..77a4d031d
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_poster_png.h
+@@ -0,0 +1,17 @@
++// SPDX-License-Identifier: MIT
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster's PNG writer (ADR 0226 of the GMod native loader project): Windows' own PNG encoder (WIC), fed rows of
++// 8-bit BGR a block at a time, so a poster of hundreds of megapixels is compressed as it goes.
++#pragma once
++#include <cstddef>
++#include <cstdint>
++#include <string>
++
++namespace dxvk::poster {
++  // Writes `pixels` (8-bit BGR, rows top-down, `stride` bytes apart) as a PNG at `path`. False with `why` set when
++  // it could not; the file may then be incomplete, and the caller removes it.
++  bool writePng(const std::wstring& path, uint32_t width, uint32_t height, const uint8_t* pixels, size_t stride,
++                std::string& why);
++}
+diff --git a/src/dxvk/rtx_render/rtx_remix_api.cpp b/src/dxvk/rtx_render/rtx_remix_api.cpp
+index 6227443fb..145b1e2db 100644
+--- a/src/dxvk/rtx_render/rtx_remix_api.cpp
++++ b/src/dxvk/rtx_render/rtx_remix_api.cpp
+@@ -35,6 +35,10 @@
+ #include "rtx_fork_game_state.h"
+ #include "rtx_weather.h"
+ #include "rtx_vr.h"
++// NV-DXVK start: poster (GMod)
++#include "rtx_poster.h"
++#include "rtx_poster_instance.h"
++// NV-DXVK end
+ 
+ #include "../dxvk_device.h"
+ #include "../dxvk_objects.h"
+@@ -3006,6 +3010,15 @@ extern "C"
+     return s_dxvkDevice->GetDXVKDevice()->getCommon()->metaVr().status(status);
+   }
+ 
++  // NV-DXVK start: poster (GMod): a picture several times the window's size, traced in tiles (rtx_poster.h)
++  REMIXAPI uint32_t REMIXAPI_CALL rtxposter_GetApiVersion(void) { return RTXPOSTER_API_VERSION; }
++  // GMod never registers its D3D9 device with the Remix API (s_dxvkDevice stays empty), so the exports reach the
++  // device's poster through the poster itself (rtx_poster_instance.h).
++  REMIXAPI int REMIXAPI_CALL rtxposter_Start(const rtxposter_Request* request) { return dxvk::poster::apiStart(request); }
++  REMIXAPI void REMIXAPI_CALL rtxposter_Cancel(void) { dxvk::poster::apiCancel(); }
++  REMIXAPI int REMIXAPI_CALL rtxposter_GetStatus(rtxposter_Status* status) { return dxvk::poster::apiStatus(status); }
++  // NV-DXVK end
++
+   remixapi_ErrorCode REMIXAPI_CALL remixapi_GetGameValue(
+     const char* key,
+     char*       out_buffer,
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index 6da24d22a..4cba40aa0 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -349,6 +349,11 @@ exe = executable('test_dlfg_hudless', files('test_dlfg_hudless.cpp'),
+ test('test_dlfg_hudless', exe)
+ tests += exe
+ 
++exe = executable('test_poster_math', files('test_poster_math.cpp'),
++  win_subsystem: 'console', override_options: ['cpp_std='+dxvk_cpp_std])
++test('test_poster_math', exe)
++tests += exe
++
+ # NV-DXVK start: Raytraced camera material packing coverage.
+ exe = executable('test_attenuation', files('test_attenuation.cpp'),
+   include_directories : test_include_path, dependencies : test_unit_deps, win_subsystem : 'console', override_options : ['cpp_std='+dxvk_cpp_std])
+diff --git a/tests/rtx/unit/test_poster_math.cpp b/tests/rtx/unit/test_poster_math.cpp
+new file mode 100644
+index 000000000..4f0583f1f
+--- /dev/null
++++ b/tests/rtx/unit/test_poster_math.cpp
+@@ -0,0 +1,314 @@
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// The poster's arithmetic (ADR 0226 of the GMod native loader project): tiles that cover the poster with their
++// overlap, each tile's narrowed projection and direction basis, and the composer that blends them.
++// Standalone: cl /EHsc /std:c++17 /W4 /WX test_poster_math.cpp
++
++#include "../../../src/dxvk/rtx_render/rtx_poster_math.h"
++
++#include <cstdio>
++#include <random>
++
++using namespace dxvk::poster;
++
++namespace {
++  int g_checks = 0;
++  int g_failures = 0;
++
++  void check(bool condition, const char* what, int line) {
++    ++g_checks;
++    if (!condition) {
++      ++g_failures;
++      if (g_failures < 40) { std::printf("FAIL line %d: %s\n", line, what); }
++    }
++  }
++#define CHECK(condition) check((condition), #condition, __LINE__)
++
++  bool near(double a, double b, double tolerance = 1e-9) { return std::abs(a - b) <= tolerance; }
++
++  // A column-major matrix as the runtime's: m[column][row], clip = m * view.
++  struct Matrix { double m[4][4] {}; double* operator[](int i) { return m[i]; } const double* operator[](int i) const { return m[i]; } };
++
++  // Direct3D's PerspectiveFovLH (w = z) or PerspectiveFovRH (w = -z), column-major.
++  Matrix perspective(double tanHalfY, double aspect, double nearZ, double farZ, bool leftHanded) {
++    Matrix p;
++    p[0][0] = 1 / (tanHalfY * aspect);
++    p[1][1] = 1 / tanHalfY;
++    const double range = farZ / (farZ - nearZ);
++    if (leftHanded) {
++      p[2][2] = range; p[2][3] = 1; p[3][2] = -nearZ * range;
++    } else {
++      p[2][2] = -range; p[2][3] = -1; p[3][2] = -nearZ * range;
++    }
++    return p;
++  }
++
++  void apply(const Matrix& m, const double v[4], double out[4]) {
++    for (int row = 0; row < 4; ++row) {
++      out[row] = 0;
++      for (int column = 0; column < 4; ++column) { out[row] += m[column][row] * v[column]; }
++    }
++  }
++
++  void testTileCounts() {
++    CHECK(tileCount(100, 100, 10) == 1);
++    CHECK(tileCount(50, 100, 10) == 1);
++    CHECK(tileCount(200, 100, 0) == 2);
++    CHECK(tileCount(200, 100, 1) == 3);   // two tiles cannot share a pixel and still cover twice the width
++    CHECK(tileCount(400, 100, 0) == 4);
++    CHECK(tileCount(400, 100, 20) == 5);
++    CHECK(tileCount(100, 0, 0) == 0);
++    // Every layout: the first tile starts at 0, the last ends on the edge, neighbours share at least the overlap
++    // and never a whole tile, so every pixel is covered.
++    const uint32_t tiles[] = { 64, 100, 641, 1280, 1920, 2560, 3840 };
++    for (uint32_t tile : tiles) {
++      for (uint32_t multiplier = 1; multiplier <= 16; ++multiplier) {
++        for (uint32_t overlap : { 0u, 1u, 16u, tile / 16, tile / 4 }) {
++          const uint32_t total = tile * multiplier;
++          const uint32_t count = tileCount(total, tile, overlap);
++          bool ok = tileOrigin(0, count, total, tile) == 0 && tileOrigin(count - 1, count, total, tile) + tile == total;
++          for (uint32_t i = 0; i + 1 < count; ++i) {
++            const uint32_t a = tileOrigin(i, count, total, tile), b = tileOrigin(i + 1, count, total, tile);
++            ok = ok && b > a && a + tile >= b + overlap && a + tile >= b;
++          }
++          if (multiplier > 1 && overlap == 0) { ok = ok && count == multiplier; }
++          CHECK(ok);
++        }
++      }
++    }
++  }
++
++  void testLayouts() {
++    Layout layout;
++    std::string why;
++    CHECK(!makeLayout(1920, 1080, 0, 64, layout, why) && !why.empty());
++    CHECK(!makeLayout(1920, 1080, 17, 64, layout, why));
++    CHECK(!makeLayout(63, 1080, 2, 64, layout, why));
++    CHECK(makeLayout(1920, 1080, 1, 64, layout, why));
++    CHECK(layout.columns == 1 && layout.rows == 1 && layout.overlap == 0 && layout.width == 1920 && layout.height == 1080);
++    CHECK(makeLayout(1920, 1080, 2, defaultOverlap(1920, 1080), layout, why));
++    CHECK(layout.width == 3840 && layout.height == 2160 && layout.columns == 3 && layout.rows == 3);
++    CHECK(layout.overlap == 67 && layout.tiles() == 9);
++    CHECK(makeLayout(3840, 2160, 4, defaultOverlap(3840, 2160), layout, why));
++    CHECK(layout.width == 15360 && layout.height == 8640 && layout.columns == 5 && layout.rows == 5);
++    // 16384 across and down at most: 4 x 4K is 15360 x 8640, 5 x 4K is 19200 across.
++    CHECK(makeLayout(3840, 2160, 4, 135, layout, why) && layout.width == 15360);
++    CHECK(!makeLayout(3840, 2160, 5, 135, layout, why) && why.find("16384") != std::string::npos);
++    CHECK(makeLayout(1920, 1080, 8, 67, layout, why) && layout.width == 15360 && layout.height == 8640);
++    CHECK(!makeLayout(1920, 1080, 9, 67, layout, why));
++    CHECK(makeLayout(1024, 576, 16, 36, layout, why) && layout.width == 16384 && layout.height == 9216);
++    CHECK(!makeLayout(1280, 720, 16, 45, layout, why));   // 20480 across: wider than the sky matte's viewport
++    CHECK(!makeLayout(2048, 256, 16, 16, layout, why));   // 32768 x 4096: few pixels, but too wide
++    // The overlap never exceeds a quarter of the window's short side.
++    CHECK(makeLayout(640, 360, 3, 1000, layout, why) && layout.overlap == 90);
++    CHECK(defaultOverlap(640, 360) == 22 && defaultOverlap(200, 100) == 16 && defaultOverlap(16000, 9000) == 256);
++    CHECK(near(pixelScale(layout), 3.0));
++  }
++
++  // A poster pixel's centre in the poster's ndc, and the same point's ndc in a tile holding it.
++  void pixelNdc(uint32_t x, uint32_t y, uint32_t width, uint32_t height, double& nx, double& ny) {
++    nx = -1.0 + 2.0 * (x + 0.5) / width;
++    ny = 1.0 - 2.0 * (y + 0.5) / height;
++  }
++
++  void testWindowsAndProjections() {
++    Layout layout;
++    std::string why;
++    CHECK(makeLayout(1280, 720, 3, 45, layout, why));
++    // The windows of a 1 x 1 layout are the whole view.
++    Layout single;
++    CHECK(makeLayout(1280, 720, 1, 45, single, why));
++    const Window whole = tileWindow(single, 0);
++    CHECK(whole.x0 == -1 && whole.x1 == 1 && whole.y0 == -1 && whole.y1 == 1);
++
++    std::mt19937 random(7);
++    std::uniform_real_distribution<double> unit(0.0, 1.0);
++    for (bool leftHanded : { true, false }) {
++      const Matrix full = perspective(std::tan(0.5 * 1.3), 16.0 / 9.0, 4.0, 30000.0, leftHanded);
++      for (uint32_t index = 0; index < layout.tiles(); ++index) {
++        Matrix tile = full;
++        const Window window = tileWindow(layout, index);
++        narrowProjection(tile, window);
++        const Origin origin = tileOrigin(layout, index);
++        // Depth and w rows untouched.
++        bool depth = true;
++        for (int column = 0; column < 4; ++column) {
++          depth = depth && tile[column][2] == full[column][2] && tile[column][3] == full[column][3];
++        }
++        CHECK(depth);
++        // A point the full view puts at a poster pixel the tile holds lands on the tile's own pixel.
++        bool pixels = true, inside = true;
++        for (int sample = 0; sample < 200; ++sample) {
++          const uint32_t tx = uint32_t(unit(random) * layout.tileWidth) % layout.tileWidth;
++          const uint32_t ty = uint32_t(unit(random) * layout.tileHeight) % layout.tileHeight;
++          double px, py;
++          pixelNdc(origin.x + tx, origin.y + ty, layout.width, layout.height, px, py);
++          // The view-space point at depth z that the full projection puts at (px, py).
++          const double z = 10.0 + unit(random) * 1000.0;
++          // In front of the camera: view z is +z left-handed, -z right-handed, and the clip w is z for both.
++          double v[4] = { px * z / full[0][0], py * z / full[1][1], leftHanded ? z : -z, 1 };
++          double clip[4];
++          apply(tile, v, clip);
++          double expectX, expectY;
++          pixelNdc(tx, ty, layout.tileWidth, layout.tileHeight, expectX, expectY);
++          pixels = pixels && near(clip[0] / clip[3], expectX, 1e-7) && near(clip[1] / clip[3], expectY, 1e-7);
++          inside = inside && clip[0] / clip[3] > -1 && clip[0] / clip[3] < 1;
++        }
++        CHECK(pixels);
++        CHECK(inside);
++      }
++    }
++    // The windows together cover the poster: each poster pixel lies in at least one window.
++    bool covered = true;
++    for (uint32_t y = 0; y < layout.height; y += 37) {
++      for (uint32_t x = 0; x < layout.width; x += 41) {
++        double nx, ny;
++        pixelNdc(x, y, layout.width, layout.height, nx, ny);
++        bool any = false;
++        for (uint32_t index = 0; index < layout.tiles() && !any; ++index) {
++          const Window window = tileWindow(layout, index);
++          any = nx >= window.x0 && nx <= window.x1 && ny >= window.y0 && ny <= window.y1;
++        }
++        covered = covered && any;
++      }
++    }
++    CHECK(covered);
++  }
++
++  void testBasis() {
++    const double forward[3] = { 0, 0, 1 }, right[3] = { 1, 0, 0 }, up[3] = { 0, 1, 0 };
++    const double tanX = std::tan(0.5 * 1.6), tanY = std::tan(0.5 * 1.0);
++    Layout layout;
++    std::string why;
++    CHECK(makeLayout(1920, 1080, 4, 67, layout, why));
++    bool same = true, unitForward = true;
++    for (uint32_t index = 0; index < layout.tiles(); ++index) {
++      const Window window = tileWindow(layout, index);
++      const Basis basis = windowBasis(forward, right, up, tanX, tanY, window);
++      unitForward = unitForward && near(basis.forward[2], 1.0);
++      for (double x : { -1.0, -0.3, 0.0, 0.8, 1.0 }) {
++        for (double y : { -1.0, 0.25, 1.0 }) {
++          // The full view's direction at the poster ndc this tile ndc stands for.
++          const double fx = (window.x0 + window.x1) / 2 + x * (window.x1 - window.x0) / 2;
++          const double fy = (window.y0 + window.y1) / 2 + y * (window.y1 - window.y0) / 2;
++          for (int i = 0; i < 3; ++i) {
++            const double tileDirection = basis.forward[i] + basis.right[i] * x + basis.up[i] * y;
++            const double fullDirection = forward[i] + right[i] * fx * tanX + up[i] * fy * tanY;
++            same = same && near(tileDirection, fullDirection, 1e-12);
++          }
++        }
++      }
++    }
++    CHECK(same);
++    CHECK(unitForward);
++    // A 1 x 1 layout's basis is the whole view's.
++    const Basis whole = windowBasis(forward, right, up, tanX, tanY, Window {});
++    CHECK(near(whole.right[0], tanX) && near(whole.up[1], tanY) && near(whole.forward[0], 0) && near(whole.forward[1], 0));
++  }
++
++  void testWeights() {
++    bool rising = true, bounded = true;
++    for (uint32_t n : { 1u, 2u, 3u, 67u, 256u, 1000u }) {
++      uint32_t previous = 0;
++      for (uint32_t i = 0; i < n; ++i) {
++        const uint32_t a = Composer::weight(i, n);
++        bounded = bounded && a <= 256 && (n == 1 ? a == 128 : true);
++        rising = rising && (i == 0 || a >= previous);
++        previous = a;
++      }
++      CHECK(Composer::weight(0, n) <= 128 && Composer::weight(n - 1, n) >= 128);
++    }
++    CHECK(rising);
++    CHECK(bounded);
++    for (int value : { 0, 1, 127, 128, 254, 255 }) {
++      bool exact = true;
++      for (uint32_t a = 0; a <= 256; ++a) { exact = exact && Composer::mix(uint8_t(value), uint8_t(value), a) == value; }
++      CHECK(exact);  // mixing a pixel with itself leaves it as it is
++    }
++    CHECK(Composer::mix(0, 255, 0) == 0 && Composer::mix(0, 255, 256) == 255 && Composer::mix(0, 200, 128) == 100);
++  }
++
++  // Tiles cut out of one picture compose back into exactly that picture, whatever the overlaps.
++  void testComposerReassemblesAPicture() {
++    for (uint32_t multiplier : { 1u, 2u, 3u }) {
++      Layout layout;
++      std::string why;
++      CHECK(makeLayout(97, 71, multiplier, 9, layout, why));
++      std::vector<uint8_t> picture(size_t(layout.width) * layout.height * 4);
++      std::mt19937 random(multiplier);
++      for (auto& byte : picture) { byte = uint8_t(random()); }
++      Composer composer;
++      CHECK(composer.begin(layout, why));
++      const size_t pitch = size_t(layout.tileWidth) * 4 + 12;  // rows further apart than a row, as a readback may be
++      std::vector<uint8_t> tile(pitch * layout.tileHeight);
++      for (uint32_t index = 0; index < layout.tiles(); ++index) {
++        const Origin origin = tileOrigin(layout, index);
++        for (uint32_t y = 0; y < layout.tileHeight; ++y) {
++          std::memcpy(tile.data() + y * pitch, picture.data() + (size_t(origin.y + y) * layout.width + origin.x) * 4,
++                      size_t(layout.tileWidth) * 4);
++        }
++        CHECK(composer.addTile(index, tile.data(), pitch));
++      }
++      CHECK(composer.complete());
++      bool same = true;
++      for (size_t i = 0; i < size_t(layout.width) * layout.height; ++i) {
++        // BGR out of RGBA.
++        same = same && composer.pixels()[i * 3] == picture[i * 4 + 2] && composer.pixels()[i * 3 + 1] == picture[i * 4 + 1]
++          && composer.pixels()[i * 3 + 2] == picture[i * 4];
++      }
++      CHECK(same);
++    }
++  }
++
++  // Flat tiles of different values: a pixel only one tile covers is that tile's value, an overlap pixel lies
++  // between its tiles' values, and across an overlap the value moves steadily from one tile's to the next.
++  void testComposerBlendsOverlaps() {
++    Layout layout;
++    std::string why;
++    CHECK(makeLayout(200, 100, 2, 40, layout, why));
++    CHECK(layout.columns == 3 && layout.rows == 3);
++    Composer composer;
++    CHECK(composer.begin(layout, why));
++    CHECK(!composer.addTile(1, nullptr, 0));  // out of order
++    std::vector<uint8_t> tile(size_t(layout.tileWidth) * layout.tileHeight * 4);
++    auto value = [](uint32_t index) { return uint8_t(20 + index * 25); };
++    for (uint32_t index = 0; index < layout.tiles(); ++index) {
++      for (size_t i = 0; i < tile.size(); i += 4) { tile[i] = tile[i + 1] = tile[i + 2] = value(index); tile[i + 3] = 255; }
++      CHECK(composer.addTile(index, tile.data(), size_t(layout.tileWidth) * 4));
++    }
++    CHECK(!composer.addTile(layout.tiles(), tile.data(), 0));
++    const uint8_t* pixels = composer.pixels();
++    auto at = [&](uint32_t x, uint32_t y) { return pixels[(size_t(y) * layout.width + x) * 3]; };
++    // Tile origins across: 0, 100, 200 (tile 200 wide, poster 400): neighbours share 100 pixels.
++    CHECK(tileOrigin(1, 3, 400, 200) == 100 && tileOrigin(2, 3, 400, 200) == 200);
++    CHECK(at(10, 10) == value(0) && at(390, 10) == value(2) && at(10, 190) == value(6) && at(390, 190) == value(8));
++    bool steady = true;
++    for (uint32_t x = 100; x + 1 < 200; ++x) { steady = steady && at(x + 1, 10) >= at(x, 10); }
++    CHECK(steady);
++    CHECK(at(100, 10) <= value(0) + 2 && at(199, 10) >= value(1) - 2);
++    bool between = true;
++    for (uint32_t y = 0; y < layout.height; y += 3) {
++      for (uint32_t x = 0; x < layout.width; x += 3) { between = between && at(x, y) >= value(0) && at(x, y) <= value(8); }
++    }
++    CHECK(between);
++    composer.release();
++    CHECK(!composer.complete() && composer.pixels() == nullptr);
++  }
++}
++
++int main() {
++  testTileCounts();
++  testLayouts();
++  testWindowsAndProjections();
++  testBasis();
++  testWeights();
++  testComposerReassemblesAPicture();
++  testComposerBlendsOverlaps();
++  if (g_failures) {
++    std::printf("FAIL poster math: %d of %d checks\n", g_failures, g_checks);
++    return 1;
++  }
++  std::printf("PASS poster math: %d checks\n", g_checks);
++  return 0;
++}
+-- 
+2.56.0.windows.1
+

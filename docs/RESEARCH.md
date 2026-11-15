@@ -8975,3 +8975,49 @@ controller 6, まばたき 0).
 - **`engine_no_focus_sleep` is not a command** in this build ("Unknown command" in the console).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
+
+## The poster command under RTX (2026-11-15, Claude, ADR 0226, GitHub issue 3)
+
+- **GMod's `poster` is `client.dll` code** (the PoC's build of 2026-11-15). The static initializer at rva `0x8f80`
+  calls `ConCommand::ConCommand(&object, "poster", callback, help, 0, 0)` (rcx = the object at rva `0x8f2690` in
+  `.data`, rdx = `"poster"` at `0x640c7c`, r8 = the callback at `0x68900`, r9 = the help text at `0x640c00`). The
+  callback (`cmp dword [rcx],2` ... `mov rcx,[rcx+410h]` ... `cvttsd2si` ... `cmp byte [rax],'1'`) stores
+  `(int)atof(argv[1])` and `argv[2][0] == '1'` in two globals, or jumps to `Msg` with "Usage: poster [multiplier]
+  [bSaveEach], For example - poster 2" when `argc < 2`; the view renderer does the rest. Its other strings: "Cannot
+  create a poster with silly size of %i.", "Allocating %s for poster", "Couldn't allocate memory for poster.",
+  `screenshots/poster` + `-%y-%m-%d %H-%M-%S` + `.png` (in `DEFAULT_WRITE_PATH`, so `garrysmod\screenshots`), "Saving
+  poster to '%s'" and, for `bSaveEach`, "Saved poster part to '%s'" with `%s %i`.
+- **`ConCommand` in GMod's x64 `client.dll` is Source SDK 2013's.** `ConCommand::ConCommand` (rva `0x519420`):
+  `mov [rcx+30h],r8` (the callback at 48), vtable at 0, `mov qword [rcx+8],0` (next), `mov byte [rbx+10h],0`
+  (registered), the completion callback at `38h` (56), `mov [rbx+18h],rdx` (the name at 24), the help text or `""` at
+  `20h` (32), the flags at `28h` (40), and the byte at `40h` (64) with bit 0 for a completion callback, bit 1 set (a
+  callback taking the `CCommand`) and bit 2 cleared (no interface). A `CCommand` keeps its count at 0 and its
+  argument pointers from 1032 (`argv[1]` at `0x410`), into its own buffers from 8.
+- **Nothing registers GMod's device with the Remix API.** The fork's exports that take `s_dxvkDevice`
+  (`rtx_remix_api.cpp`) get it only from `remixapi_dxvk_RegisterD3D9Device` (or the API's own `CreateD3D9`). In a PoC
+  RTX start on gm_construct it was still empty 18 s after the map loaded: the first `rtxposter_Start` answered
+  `RTXPOSTER_E_NO_DEVICE` (2026-11-15, `out\qa-poc\issue3-poster\01-posters`). The poster's exports therefore reach
+  the poster through its own instance (`rtx_poster_instance.h`), under a lock its construction and teardown take.
+- **Remix drops a sheared camera.** `CameraManager::processCameraData` returns `Unknown` (or `Sky`) for a decomposed
+  `shearX` above 0.01 ("[RTX] CameraManager: rejected an invalid camera"), which is every off-centre poster tile; and
+  a read-back before injection is the raster image. Nothing in the package blocked the command.
+- **What follows the projection matrix and what the field of view.** The primary rays, NRD, DLSS and DLSS-RR take the
+  camera's matrices (jitter is added to the narrowed matrix's `[2][0]`/`[2][1]` after it, so it stays a tile pixel),
+  and so do the froxel volumetrics (`translatedWorldPositionToFroxelUVW`, `utility/froxel.slangh:146`). The culling and
+  anti-culling frustum (`RtCamera::updateAntiCulling`), the light anti-culling, the dust's spawn volume and the view
+  model detection (`isViewModel` compares field-of-view values) use the field of view and aspect; the view model's
+  perspective correction is `mainProjectionToView * viewModelProjection` (`rtx_instance_manager.cpp`), unchanged when
+  both projections are narrowed alike. The physical sky's two screen-aligned passes build their directions from the
+  field of view and aspect (`setCloudRenderCameraBasis`, `setAerialPerspectiveCamera`; the cloud render reconstructs
+  each pixel's ray as forward + right x + up y, `cloud_render.comp.slang:160`), as do the texture LOD's pixel spread
+  (`screenSpacePixelSpreadHalfAngle`) and the sky's mip pixel angle.
+- **The picture a tile keeps.** `RtxContext::injectRTX`'s `traceView` returns the final output, RGBA16F holding display
+  (sRGB) values after `dispatchSRGBDither` (`rtx_resources.cpp:1669`), which is blitted to the game's target before any
+  UI; a blit to RGBA8 rounds it to the bytes shown. The exporter's `copyBufferFromGPU` calls back on its one thread,
+  "rtx-asset-exporter", in the order recorded. `GlobalTime::setAdvanceTime(false)` freezes the runtime's clock
+  (`frozenTimeSource`); the cloud motion integrates `dt` and stands still at 0.
+- **Measured** (PoC, RTX 5090, 1280 x 720, gm_construct, `out\qa-poc\issue3-poster`): `poster 1` 0.6 s, `poster 2`
+  (3 x 3 tiles) 5.0 s, `poster 3` (4 x 4) 9.1 s; the 3840 x 2160 PNG (9.1 MB) written by WIC 0.38 s after its last
+  tile. Scaled down to the window, `poster 2` and `poster 3` match `poster 1` within 34.8-40.6 dB overall and
+  31-54 dB in every ninth; the step across each overlap's middle is no larger than beside it. A single-player game
+  does not pause with the console open (`showconsole`): `CurTime` ran 1.006 s in a second.

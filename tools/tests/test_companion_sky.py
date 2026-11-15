@@ -190,6 +190,8 @@ print = print
 SortedPairs = pairs
 MsgN = function() end
 
+-- The engine guard's read-only poster status (ADR 0226), as the client realm of an RTX start has it.
+if POSTER_SIM then nlengineguard = { PosterStatus = function() return POSTER_STATE and { state = POSTER_STATE } or nil end } end
 local M = dofile(LUA .. "/nativeloader/sky_model.lua")
 dofile(LUA .. "/autorun/nativeloader_defaults.lua")
 dofile(LUA .. "/autorun/nativeloader_sky.lua")
@@ -227,6 +229,22 @@ if SCRIPT == "defaults" then
   for _ = 1, 3000 do tick(0.02) end
   print("elapsed " .. tostring((NATIVELOADER_SKY.clock() - before) % 24))
   report("afterminute")
+  return
+end
+if SCRIPT == "poster" then
+  -- A second of the clock, a minute of a poster rendering, then a second again.
+  cmd("nativeloader_sky_time_passes", "1")
+  local before = NATIVELOADER_SKY.clock()
+  for _ = 1, 50 do tick(0.02) end
+  local ran = (NATIVELOADER_SKY.clock() - before) % 24
+  POSTER_STATE = "rendering"
+  local held, sent = NATIVELOADER_SKY.clock(), #calls
+  for _ = 1, 3000 do tick(0.02) end
+  print("held " .. string.format("%.9f", (NATIVELOADER_SKY.clock() - held) % 24) .. " " .. (#calls - sent))
+  POSTER_STATE = "done"
+  local resumed = NATIVELOADER_SKY.clock()
+  for _ = 1, 50 do tick(0.02) end
+  print("ran " .. string.format("%.9f %.9f", ran, (NATIVELOADER_SKY.clock() - resumed) % 24))
   return
 end
 if SCRIPT == "ownership" then
@@ -559,6 +577,17 @@ class SkyTests(unittest.TestCase):
         # The moon's ecliptic latitude is its distance from the shadow's centre (or the sun's).
         for i, expected in enumerate([2.12, 5.64, 0.71], 1):
             self.assertAlmostEqual(self.numbers(out[f'offset{i}'])[0], expected, delta=0.01)
+
+    def test_a_poster_holds_the_clock_and_the_weather(self):
+        # GitHub issue 3 (ADR 0226): while the runtime renders a poster, the sky sends nothing and its clock waits;
+        # afterwards it goes on from where it stood, without the poster's minute.
+        out = self.run_lua('POSTER_SIM = true\n' + SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='poster')
+        held, sent = out['held'].split()
+        self.assertEqual(float(held), 0.0)
+        self.assertEqual(sent, '0')
+        ran, resumed = self.numbers(out['ran'])
+        self.assertGreater(ran, 0.019)  # the clock ran before the poster
+        self.assertAlmostEqual(resumed, 24 / (20 * 60), places=6)  # a second of a 20-minute day, not the minute
 
     def test_a_map_start_turns_on_the_physical_sky_at_the_maps_sun(self):
         out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='weather')

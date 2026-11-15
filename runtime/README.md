@@ -1,5 +1,27 @@
 # runtime/
 
+Patch `0095-Poster-GMod-s-poster-command-rendered-in-tiles-of-th.patch`
+([ADR 0226](../docs/decisions/0226-the-poster-command-rendered-in-tiles-by-the-runtime.md), GitHub issue 3, the user's
+request of 2026-11-15, fork branch `claude/poster`, commit `9b6e1101` on 0094's `81b4d393`): GMod's `poster` command
+rendered by the runtime. `d3d9.dll` exports `rtxposter_Start`, `rtxposter_Cancel` and `rtxposter_GetStatus`
+(`rtx_poster_api.h`, version 1; the engine guard keeps a byte-identical copy). They reach the poster through its own
+instance (`rtx_poster_instance.h`), not the Remix API's registered device, which GMod never registers (the first PoC
+run's `rtxposter_Start` answered `RTXPOSTER_E_NO_DEVICE` that way). While a poster renders, the camera
+manager narrows the main, view model and sky cameras' projections to one tile's window of the game's view
+(`rtx_poster_math.h`: only the clip x and y rows change; the camera keeps the game's field of view and aspect), each
+tile the window's own size, overlapping its neighbours by a sixteenth of the window's short side (16 to 256 pixels);
+a tile's first frame resets the history, its last (64 by default) is read back before its UI and the tiles are
+blended over their overlaps into 8-bit BGR, written as a PNG by Windows' encoder (WIC through `ole32.dll` at run time)
+on a thread of its own, as `<path>.part` and renamed (`rtx_poster.cpp`, `rtx_poster_png.cpp`). The runtime's clock
+stands still, exposure keeps its value, motion blur and the lens effects are left out; the physical sky's cloud layer
+and aerial perspective are fitted to the tile's window, the sky matte's viewport stretched to it (its jitter shrunk to
+a pixel), textures and the sky sampled for the poster's pixel. It stops when the view moves, the window changes size,
+VR starts or it is cancelled; at most 16 times the window and 16384 x 16384. `tests/rtx/unit/test_poster_math.cpp`
+(764 checks) is compiled from the patch by the Release gate ([test_runtime_poster.py](../tools/tests/test_runtime_poster.py.md)).
+Exported alone (`format-patch -1 --start-number 95 --zero-commit`) and built by `build_runtime.ps1` in
+`out/worktrees/r17/out/runtime-src` (0001-0095): **`d3d9.dll` 478,660,096 bytes, SHA-256
+`4b1b0b1817e9448848d7307bbc43863569a8f44f1d53e037b1e509fcb4a3c99a`** (70,712,160 bytes xz in Git LFS).
+
 Patch `0094-DLSS-frame-generation-keeps-the-UI-in-place-a-HUD-le.patch`
 ([ADR 0223](../docs/decisions/0223-frame-generation-gets-the-frame-before-its-ui.md), the user's request of 2026-11-14,
 fork branch `claude/dlfg-hudless`, commit `81b4d393` on 0093's `20e3553e`): DLSS Frame Generation gets the frame

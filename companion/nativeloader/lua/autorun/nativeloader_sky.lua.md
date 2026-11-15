@@ -284,6 +284,10 @@ it back 3, 23, 43 and 63 s after the map starts.
   settings.
 - **Ticks.** A timer every `nativeloader_sky_interval` seconds (0.02 by default; `timer.Adjust` when the
   setting changes) runs the clock, the weather blend, the variation and the cover check.
+- **A poster** ([ADR 0226](../../../../docs/decisions/0226-the-poster-command-rendered-in-tiles-by-the-runtime.md),
+  GitHub issue 3). While the engine guard's `nlengineguard.PosterStatus()` (taken when the file loads; read only)
+  says `starting` or `rendering`, a tick sends nothing and its time is dropped: the runtime's own clock stands still
+  for a poster's tiles, and the sun, the moon and the weather wait with it, then go on from where they stood.
 - **The panel.** `NATIVELOADER_SKY` holds the panel builder and the clock for the panel (and
   tests).
 

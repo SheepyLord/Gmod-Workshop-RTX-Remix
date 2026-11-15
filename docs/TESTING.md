@@ -3473,3 +3473,25 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package 
 - On GitHub: after the push to `main`, each form's file page (`/blob/main/.github/ISSUE_TEMPLATE/<form>.yml`, no
   sign-in needed) shows the form's preview with its name, labels and every field, and no error; `config.yml` shows
   none either. The chooser (`/issues/new/choose`) needs a signed-in account.
+
+## The poster under RTX (GitHub issue 3, ADR 0226)
+
+- **Offline.** [`test_runtime_poster.py`](../tools/tests/test_runtime_poster.py.md) compiles patch 0095's
+  `test_poster_math.cpp` (the tile layout and its limits, the narrowed projections against a full projection's pixels
+  for left- and right-handed matrices, the direction bases, the composer reassembling a picture exactly from tiles
+  cut out of it and blending flat tiles over their overlaps) and checks the patch's wiring and the engine guard's copy
+  of the API header. `nl_engine_guard_tests` covers the command found in a module as `client.dll` builds it, the
+  callback swapped and given back, a `CCommand`'s arguments, the engine's reading of them and its file names.
+  [`test_companion_sky.py`](../tools/tests/test_companion_sky.py.md) holds the sky's clock while a poster renders.
+- **In the PoC.** Hold `out\r10\poc.lock`, install a package built from the branch (`build_package.py --out
+  out\dist-poster`), and run a session on gm_construct with `--addons` (without it GMod loads none of the package's
+  add-ons, the RTX fixes and the companion included, and no frame is path traced: a poster then stays `starting`; the
+  engine guard still loads, from the loader's early view), a pinned camera (`--camera 823,-657,-79,0,0,0`) and a
+  client Lua probe that types `poster 1`, `poster 2` and `poster 3` through `LocalPlayer():ConCommand` one after the
+  other and waits on `nlengineguard.PosterStatus()` (`--lua-manual`, the probe prints `NL_SHOT_DONE`). Keep the new
+  `garrysmod\screenshots\poster-*.png`.
+- **What to check.** The console says the poster's size and tiles and "Saved poster to ..."; `remix-dxvk.log` has
+  `[Poster]` lines with the layout and "saved"; each PNG has the multiplier times the window's size. Scaled down to the
+  window, `poster 2` and `poster 3` match `poster 1` (the same view at the window's size: a misplaced or swapped tile
+  shows as one region far off, a wrong y direction as the rows exchanged), and the step across each overlap's middle
+  is no larger than the steps beside it (no seam). Look at a magnified crop for the texture detail the poster gains.

@@ -6,6 +6,20 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The poster command under RTX (GitHub issue 3, the user's request of 2026-11-15)
+
+- **`poster` works with RTX: a path traced screenshot several times the size of your screen.** Type `poster 2` in
+  the console (or `poster 4`) and the picture is saved in `garrysmod/screenshots` as before, now path traced. It was
+  broken under RTX: GMod draws a poster in tiles through off-centre views, which Remix refused, and saved the raster
+  picture. RTX now renders the poster itself in tiles of the window's own size, so DLSS and the denoisers never change
+  size: each tile is traced until it is clean (64 frames), the tiles overlap and are blended where they meet, and
+  the console says the poster's size, then "Saved poster to ...". Hold still while it renders (the screen shows each
+  tile magnified): the runtime's clock, the sky's time of day and the weather wait meanwhile, every tile keeps the
+  same exposure, and vignette and motion blur are left out. At most 16 times the window and 16384 x 16384 (4 times
+  a 4K screen); `poster 2 1` also keeps each tile. Moving the view, resizing the window or starting VR stops it
+  ([ADR 0226](docs/decisions/0226-the-poster-command-rendered-in-tiles-by-the-runtime.md), runtime patch 0095,
+  the engine guard).
+
 ### The Advanced MMD Animation Player: no hitch on each click, three new options (the user's report of 2026-11-14)
 
 - **Selecting and assigning in the Advanced MMD Animation Player no longer stalls the game.** Every selection,

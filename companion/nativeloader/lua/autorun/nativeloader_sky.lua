@@ -537,6 +537,16 @@ local function followMapAddon()
     MHRTX.ApplySettings = MHRTX.nativeLoaderApply
 end
 
+-- GMod's poster command under RTX (GitHub issue 3, ADR 0226): while the runtime renders a poster's tiles its own
+-- clock stands still, and the sky waits with it, so the sun, the moon and the weather are the same in every tile. The
+-- engine guard's read-only status, taken now: what a later script puts in the table changes nothing here.
+local posterStatus = istable(nlengineguard) and nlengineguard.PosterStatus or nil
+local function posterRendering()
+    if not isfunction(posterStatus) then return false end
+    local ok, status = pcall(posterStatus)
+    return ok and istable(status) and (status.state == "starting" or status.state == "rendering")
+end
+
 -- The clock and the weather, every nativeloader_sky_interval seconds; what has not changed is not
 -- sent again (set).
 local lastTick
@@ -548,6 +558,8 @@ timer.Create("nativeloader_sky", interval(), 0, function()
     local t = RealTime()
     local dt = lastTick and math.max(t - lastTick, 0) or 0
     lastTick = t
+    -- The time a poster takes is left out: the clock goes on from where it stood.
+    if posterRendering() then return end
     if cv.nativeloader_sky_time_passes:GetBool() then
         local minutes = math.max(cv.nativeloader_sky_day_minutes:GetFloat(), 0.1)
         clock = (clock + dt / (minutes * 60) * 24) % 24

@@ -19,10 +19,15 @@
 // engine's load until the game runs steadily, LoadExpect(seconds, confidence) gives it the estimated end of the wait,
 // LoadTimes() -> text and LoadTimesSave(text) -> saved read and replace the history the estimate is learned from
 // (garrysmod/data/nativeloader/load_times.txt). LoadStart's labels gain the activity line's and the estimate's words.
+// ADR 0226 (GitHub issue 3; the gmcl_ copy, in an RTX start): the client realm's load takes GMod's `poster` command
+// over for the process, and RTX renders the poster in tiles of the window's size (poster.h); nlengineguard.poster says
+// how that went, nlengineguard.PosterStatus() -> {state=, ...} or nil reads the runtime's poster (read only), and a
+// Think hook (nlengineguard_poster) prints the poster's console lines from the main thread.
 #include "colour_cap.h"
 #include "crash_report.h"
 #include "guard.h"
 #include "load_overlay.h"
+#include "poster.h"
 #include "watchdog.h"
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/Lua/LuaInterface.h>
@@ -224,6 +229,62 @@ bool menu_realm(GarrysMod::Lua::ILuaBase* LUA) {
 }
 #else
 bool menu_realm(GarrysMod::Lua::ILuaBase*) { return false; }  // gmcl_: never the menu's
+
+// nlengineguard.PosterStatus() -> {state = "idle"|"starting"|"rendering"|"writing"|"done"|"failed", generation =,
+// error =, why =, width =, height =, columns =, rows =, done =, frame =, frames =, path =}, or nil without the
+// runtime's poster (ADR 0226). Read only: the companion's sky holds its clock while a poster renders.
+LUA_FUNCTION_STATIC(PosterStatus) {
+  namespace poster = nl::engine_guard::poster;
+  const auto runtime = poster::runtime();
+  rtxposter_Status status{};
+  status.structSize = sizeof(status);
+  if (!runtime.ready() || runtime.status(&status) != RTXPOSTER_OK) {
+    LUA->PushNil();
+    return 1;
+  }
+  status.lastErrorText[sizeof(status.lastErrorText) - 1] = '\0';
+  status.path[RTXPOSTER_PATH_CHARS - 1] = L'\0';
+  LUA->CreateTable();
+  LUA->PushString(poster::state_name(status.state));
+  LUA->SetField(-2, "state");
+  const std::pair<const char*, double> numbers[] = {
+      {"generation", status.generation}, {"error", status.lastError}, {"width", status.width}, {"height", status.height},
+      {"columns", status.columns}, {"rows", status.rows}, {"done", status.tilesDone}, {"frame", status.frame},
+      {"frames", status.framesPerTile}};
+  for (const auto& [name, value] : numbers) {
+    LUA->PushNumber(value);
+    LUA->SetField(-2, name);
+  }
+  LUA->PushString(status.lastErrorText);
+  LUA->SetField(-2, "why");
+  LUA->PushString(poster::utf8(status.path).c_str());
+  LUA->SetField(-2, "path");
+  return 1;
+}
+
+// The client realm's Think hook "nlengineguard_poster": the console's lines about the poster the command started, from
+// the main thread (poster.h's poll).
+LUA_FUNCTION_STATIC(PosterThink) {
+  nl::engine_guard::poster::poll();
+  return 0;
+}
+
+void add_poster_hook(GarrysMod::Lua::ILuaBase* LUA) {
+  LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
+  LUA->GetField(-1, "hook");
+  if (LUA->IsType(-1, GarrysMod::Lua::Type::Table)) {
+    LUA->GetField(-1, "Add");
+    if (LUA->IsType(-1, GarrysMod::Lua::Type::Function)) {
+      LUA->PushString("Think");
+      LUA->PushString("nlengineguard_poster");
+      LUA->PushCFunction(PosterThink);
+      if (LUA->PCall(3, 0, 0) != 0) LUA->Pop();  // the error message
+    } else {
+      LUA->Pop();
+    }
+  }
+  LUA->Pop(2);
+}
 #endif
 }  // namespace
 
@@ -237,6 +298,9 @@ GMOD_MODULE_OPEN() {
   const auto colours = nl::engine_guard::colour_cap::install();
   const bool menu = menu_realm(LUA);
   if (!menu) nl::engine_guard::watchdog::start(NL_ENGINE_GUARD_REALM);
+#if !NL_ENGINE_GUARD_MENU
+  nl::engine_guard::poster::Status poster;
+#endif
   LUA->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
   LUA->CreateTable();
   LUA->PushBool(status.installed);
@@ -277,9 +341,20 @@ GMOD_MODULE_OPEN() {
     LUA->SetField(-2, "StartupDone");
     LUA->PushCFunction(SetMessage);
     LUA->SetField(-2, "SetMessage");
+#if !NL_ENGINE_GUARD_MENU
+    // The client realm (ADR 0226): GMod's poster command, when this start's runtime renders posters.
+    poster = nl::engine_guard::poster::take_command();
+    LUA->PushString(poster.reason.c_str());
+    LUA->SetField(-2, "poster");
+    LUA->PushCFunction(PosterStatus);
+    LUA->SetField(-2, "PosterStatus");
+#endif
   }
   LUA->SetField(-2, "nlengineguard");
   LUA->Pop();
+#if !NL_ENGINE_GUARD_MENU
+  if (poster.installed) add_poster_hook(LUA);
+#endif
   return 0;
 }
 

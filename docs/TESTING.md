@@ -3427,3 +3427,14 @@ The RTX fixes' eleventh and twelfth native patches and three of their Lua files
 - [`tools/tests/test_glass_interaction.py`](../tools/tests/test_glass_interaction.py.md) `scene_ghost_carries`: what a flying or spectating player carries is no body of the broken glass's scene; it fails on the code before the fix.
 - [`tools/tests/test_publish_workshop.py`](../tools/tests/test_publish_workshop.py.md): the change notes' changelog (added and reworded entries since the record's commit, Steam's markup in ASCII, the split within 8000 characters, several uploads of one archive, a failed further note).
 - In the PoC ([report](handover/glass-crosshair-report.md)): a settled pile flown through in noclip with the physgun out (moving pieces counted), a walking control with living players on, before and after; DLSS Frame Generation at 3840x2160 with three generated frames, the view turning 180 degrees a second, the window sampled through `PrintWindow` (ghosts of the crosshair dot, a test bar and a one-pixel cross), before and after.
+
+## The issue forms on GitHub
+
+- [`tools/tests/test_issue_forms.py`](../tools/tests/test_issue_forms.py.md): the bug report, the feature request and
+  the chooser's `config.yml` against the rules GitHub's documentation states for issue forms (skipped without
+  PyYAML), and what the bug report names against the code that makes it: the main menu's diagnostics panel and button,
+  `loader.log`, the session evidence folders, Remix's log, `nativeloader_lag_report` and its files, the start-up stall
+  report, the Workshop item and the repository's address. Five deliberate breakages of the form (a duplicate id, a
+  `None` option beside a default, a renamed lag report file, broken YAML, an unknown attribute) each failed it.
+- On GitHub: after the push to `main`, the chooser (`/issues/new/choose`) lists both forms and the three links, and
+  each form opens with its fields (a form GitHub cannot read is left out of the chooser).

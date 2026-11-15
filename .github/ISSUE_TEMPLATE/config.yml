@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Setup guide and troubleshooting
+    url: https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix#readme
+    about: How to install, update and remove the loader, and answers to common start-up and performance problems.
+  - name: Latest loader release
+    url: https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/releases/latest
+    about: The newest bin\win64\winmm.dll. The Workshop package updates by itself; the loader does not.
+  - name: RTX Remix on the Steam Workshop
+    url: https://steamcommunity.com/sharedfiles/filedetails/?id=3829070317
+    about: The RTX package. Subscribe to it to get RTX Remix in Garry's Mod.

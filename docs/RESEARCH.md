@@ -8829,3 +8829,27 @@ Read in the runtime fork at `20e3553e` (0093), measured in the PoC (`out/worktre
   `CreatePresenter`, neither the CS thread nor the GPU (upstream DXVK calls `waitForIdle()` there), and
   `vk::Presenter::recreateSwapChain` destroys the old swapchain, its views and semaphores at once; the one permanent
   stop on runtime 0093 may have been that. The user accepts a lag that recovers, so neither was changed.
+
+## GitHub issue forms (2026-11-14)
+
+- **GitHub's rules** (docs.github.com, "Syntax for issue forms", "Syntax for GitHub's form schema" and "Configuring
+  issue templates for your repository", read 2026-11-14): a form needs `name`, `description` and `body`; a template
+  whose `name` has 3 characters or fewer is not shown; a label the repository lacks is not added. An `id` holds only
+  letters, digits, `-` and `_` and is unique in the form. `validations.required` works only in public repositories.
+  Dropdown options are distinct and not empty, and beside a `default` none may be `None` or `n/a`. A textarea with
+  `render` puts the answer into a code block and no longer takes attachments.
+- **`blank_issues_enabled: false`** leaves "Blank issue" to people with write, maintain or admin access (shown as
+  "Maintainers only"); everyone else sees the forms and the contact links only.
+- **Attachments** on a free plan: images and videos up to 10 MB, other files up to 25 MB; `.log`, `.txt`, `.json`,
+  `.csv`, `.zip` and `.dmp` are among the types issue comments take.
+- **Which session leaves an evidence folder.** Only an abnormal exit leaves a folder in `native-loader\logs\sessions`:
+  the exit observer collects it at once, and a clean end writes only an end marker
+  ([ADR 0083](decisions/0083-external-exit-observer-from-the-proxy.md)); the PoC's folder holds two (`-crash`,
+  `-unknown`) after dozens of sessions. A crash's folder held its Remix log, the dump and its text, the memory history,
+  `memory.json`, `exit-report.json` and `evidence.json`: 2.5 MB. The README's earlier "include the newest folder"
+  fits a crash; for anything else that folder may be an old crash's, so the form asks for that session's
+  `native-loader\logs\loader.log` and `rtx-remix\logs\remix-dxvk.log` (the next start rotates the first and replaces
+  the second).
+- **What the owner had to ask for in issues 1-8**: the session logs (issue 2, whose reply promised a template), a
+  screenshot of the game folder, the antivirus log and the x86-64 branch (4), other HUD add-ons (5), screenshots,
+  videos and a clearer description (7), a screenshot and the main menu's system information (8).

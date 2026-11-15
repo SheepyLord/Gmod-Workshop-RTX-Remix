@@ -6,6 +6,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Issue forms on GitHub (the user's request of 2026-11-14)
+
+- **Reporting a problem on GitHub now asks for what it takes to fix it.** A new issue opens a bug report form: what
+  happened, the steps, whether other add-ons are part of it, a screenshot or video, the RTX Remix diagnostics from
+  the main menu (the Copy diagnostics button at the bottom right) and, for each kind of problem, which logs to
+  attach. A feature request form sits beside it, and blank issues are left to maintainers.
+  [test_issue_forms.py](tools/tests/test_issue_forms.py.md) keeps the forms valid for GitHub and the files and
+  buttons they name true.
+
 ### The crosshair under frame generation, noclip and broken glass, the changelog on the Workshop (the user's requests of 2026-11-14)
 
 - **The crosshair and the HUD stay still under DLSS Frame Generation.** In the generated frames they smeared or

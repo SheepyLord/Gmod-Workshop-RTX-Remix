@@ -181,8 +181,11 @@ Remix. To play without RTX, set `"remix": { "enabled": false }` in `native-loade
 | My ReShade presets don't appear with RTX | RTX Remix draws through Vulkan, so a Direct3D 9 ReShade has nothing to work on. The package brings its own ReShade for RTX sessions and copies your settings on the first RTX start. Press **Home** to open it. |
 | A package from the Workshop doesn't load | Content packages (Remix mods and Lua add-ons) load from any item that you subscribed to. Since loader 0.14.0 they never load from an item that only a server made the game download. A package that contains native code is skipped until you add its Workshop ID to `"allow"`. Only do that for authors you trust. |
 
-**Reporting a problem:** include the newest folder in `native-loader\logs\sessions`,
-`native-loader\logs\loader.log`, your graphics card, and the steps that lead to the problem.
+**Reporting a problem:** open a
+[bug report](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues/new?template=bug_report.yml). The form
+asks for the steps, a screenshot or video, the **RTX Remix diagnostics** from the main menu (the **Copy diagnostics**
+button at the bottom right) and the logs: after a crash, the folder in `native-loader\logs\sessions` that the message
+names; otherwise `native-loader\logs\loader.log` and `rtx-remix\logs\remix-dxvk.log`.
 
 ## FAQ
 

@@ -1,0 +1,34 @@
+name: Feature request
+description: A new feature or an improvement for the RTX Remix loader or the Workshop package.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: One request per issue, please. If something is broken, use the bug report instead.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you ask
+      options:
+        - label: >-
+            I searched the
+            [open and closed issues](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/issues?q=is%3Aissue), and
+            this has not been asked yet.
+          required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: What would you like?
+      description: What the game, the RTX Remix tab or the package should do that it does not do now.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: What would it help with?
+      description: When you would use it. If it is about another add-on, a map or a model, link it.
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples
+      description: Screenshots, videos or links that show what you mean. Drag files into this box.

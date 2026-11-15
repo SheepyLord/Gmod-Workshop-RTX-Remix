@@ -76,6 +76,16 @@ manifest. Evidence: `out/worktrees/gx/out/gx-qa` (`poc/` sessions 01-13, `fg-old
 Not covered: the field install; VR (frame generation is off there, ADR 0205); FSR frame generation (it already had
 the final output as its HUD-less colour).
 
+## Published
+
+`main` fast-forwarded to `72ce57aa` after `tools\test.ps1 -Config Release` passed (with `NL_FIXES_CLONE`; 35 native
+and 2,037 Python tests), pushed with the runtime's Git LFS object (71 MB). The merge's hook uploaded item 3829070317
+as **0.0.0-dev.20261115025852+1145e794** (2,148,128,889 bytes, SHA-256
+`ba82e7bf3d487ef220dcf7ec73987e181641059d04c75f016661c716a716d5a2`, content digest `b1ac5486...`; Steam sent 29.2 MB of
+changed chunks) at 2026-11-15 02:59 UTC, with the first change note under ADR 0222: one note, 2,210 characters, this
+round's three entries and BigCity RTX's entry, the changelog since the last upload. The item's change notes page shows
+it with its headings in bold. The push's hook found the same inputs and uploaded nothing.
+
 ## Open
 
 - The multiplier change while frame generation runs (above).

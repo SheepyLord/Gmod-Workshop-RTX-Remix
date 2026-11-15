@@ -8819,3 +8819,13 @@ Read in the runtime fork at `20e3553e` (0093), measured in the PoC (`out/worktre
   `gmpublish.exe` (the PoC's) imports `GetCommandLineA` and `GetCommandLineW` and both conversion functions, so a
   narrow `main` sees the command line in the ANSI code page (CP936 on this machine). Its upload of the 2 GB package
   sent 16.3 MB of changed chunks and took 25 s from start to finish (2026-11-14 21:41 UTC).
+- **The live multiplier change, followed up (2026-11-15).** On runtime 0094 nine live changes of
+  `rtx.dlfg.maxInterpolatedFrames` from 1 to 3 while frame generation ran (each recreating the swapchain with four
+  images) all recovered: the next second ran 68-80 frames instead of about 200, `nextCmdList: vkWaitForFences failed`
+  was logged once, then the game ran on. The cause of the second: the present thread drops the job whose
+  `interpolatedFrameCount + 1` exceeds the swapchain's images (`VK_ERROR_OUT_OF_DATE_KHR`) with `commandList->reset()`,
+  so the ring slot `nextCmdList()` reset is never submitted and its fence waits out the 1 s timeout when the ring comes
+  round (`rtx_dlfg.cpp`). D3D9's `RecreateSwapChain` synchronizes the frame generation presenter's threads but, unlike
+  `CreatePresenter`, neither the CS thread nor the GPU (upstream DXVK calls `waitForIdle()` there), and
+  `vk::Presenter::recreateSwapChain` destroys the old swapchain, its views and semaphores at once; the one permanent
+  stop on runtime 0093 may have been that. The user accepts a lag that recovers, so neither was changed.

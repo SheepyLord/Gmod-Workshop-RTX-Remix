@@ -67,9 +67,18 @@ manifest. Evidence: `out/worktrees/gx/out/gx-qa` (`poc/` sessions 01-13, `fg-old
 
 ## Found on the way
 
-- Changing `rtx.dlfg.maxInterpolatedFrames` while frame generation runs stopped the published runtime's presenter
-  (`DxvkDLFGCommandListArray::nextCmdList: vkWaitForFences failed`; the window kept answering, nothing more was drawn).
-  Off, change, on again works. Not fixed here; open.
+- Changing `rtx.dlfg.maxInterpolatedFrames` while frame generation runs stopped the published runtime 0093's presenter
+  once (`DxvkDLFGCommandListArray::nextCmdList: vkWaitForFences failed`; the window kept answering, nothing more was
+  drawn for over ten minutes). Off, change, on again works.
+- **Followed up (2026-11-15, the user's "Fix it here"):** with runtime 0094 the live change, 2x to 4x, was repeated nine
+  times (`out/gx-qa/multiplier_probe.lua`, eight cycles, a heartbeat every second; `hang_watch.py` would have dumped
+  every thread's stack had it stopped). Every time the game recovered by itself: about one second at 68-80 frames
+  instead of about 200, the `vkWaitForFences failed` line once, then normal; the stop did not recur. The user: "if
+  the game still react and recover after some time, then this is not an issue to fix. A small lag is acceptable." So
+  the runtime is unchanged. What the code does there, for whoever looks again: the present thread drops the job whose
+  multiplier needs a new swapchain without submitting the command list it took (its ring slot's fence then times out a
+  second later), and D3D9's `RecreateSwapChain`, unlike `CreatePresenter`, does not wait for the GPU before the
+  presenter destroys the old swapchain and its semaphores ([RESEARCH.md](../RESEARCH.md)).
 - `fps_max` cannot be set from Lua, and ffmpeg 6.1.1's Desktop Duplication source has no `dup_frames`
   ([RESEARCH.md](../RESEARCH.md)).
 
@@ -88,4 +97,5 @@ it with its headings in bold. The push's hook found the same inputs and uploaded
 
 ## Open
 
-- The multiplier change while frame generation runs (above).
+- Nothing. The multiplier change while frame generation runs recovers by itself on runtime 0094 (above), which the
+  user accepts.

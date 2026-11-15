@@ -6,6 +6,16 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Radeon graphics cards: the crash at the main menu and in maps (GitHub issue 12)
+
+- **On Radeon cards the game no longer crashes ("0xC0000005") at the main menu after a minute or two, a few
+  seconds into a map, or as soon as a map without RTX content starts.** To save memory on computers with less than
+  32 GB of RAM or 16 GB of video memory, the RTX runtime lets go of its copy of textures the game is not using.
+  When the game changed such a texture again (the main menu's background pictures every 30 seconds, text and
+  pictures in a map), the runtime read it back from the graphics card with a request to resolve the texture into
+  itself: invalid, ignored by NVIDIA's driver, a crash in AMD's. It now reads such a texture back directly
+  (runtime patch 0097). Nothing changes on NVIDIA cards.
+
 ### The RTX Remix menu (Alt+X) with frame generation on (the user's report of 2026-11-15)
 
 - **Alt+X shows the RTX Remix menu again with frame generation on.** Since the update that kept the crosshair

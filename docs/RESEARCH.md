@@ -8976,6 +8976,43 @@ controller 6, まばたき 0).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
 
+## Radeon crash: every single-sample read-back resolved into itself (2026-11-15, Claude, runtime patch 0097, GitHub issue 12)
+
+- **The reporter's dump** (AMD Radeon RX 9060 XT, Vulkan driver 2.0.416, `amdvlk64.dll` 32.0.32015.16001,
+  Windows 10 19045, 15.8 GiB RAM; runtime `remix-main+81b4d393`, patch 0094, package
+  `0.0.0-dev.20261115025852+1145e794`): an access violation reading `0x318` at `amdvlk64+0x3f798a` on the `dxvk-cs`
+  thread, inside `vkCmdResolveImage` from `DxvkContext::resolveImageHw` (`dxvk_context.cpp:4107`) <- `resolveImage`
+  <- the CS command `lambda_e15e090d1d3ad9f018391a1a75426d66`, the resolve `D3D9DeviceEx::LockImage` pushes
+  (`LockImage+0xadc`, `DxvkCsChunk::push<lambda_e15e...>`). The main thread waited in `LockImage` ->
+  `WaitForResource` for a `D3DPOOL_MANAGED` texture (locals: `managed = true`, `alloced = true`: its released CPU
+  copy made again; `Flags = 0x800`, `D3DLOCK_NOSYSLOCK`), called from `shaderapidx9` <- `materialsystem`
+  (`ITexture::Download`, vtable +0x68) <- `menusystem`'s `IMaterial:SetDynamicImage` (rva 0x381c0, named by its
+  `luaL_Reg` entry at 0x2684f0) <- `lua/menu/background.lua`'s `CreateBackgroundMaterial`. Symbols: the 0094 build's
+  PDB and DLL kept in `out\crash-34b9dc\sym0094`; GMod's own DLLs of 2026-11-12 unwind the game's frames; analysis
+  in `out\issue12`.
+- **The cause.** `LockImage` chose the image to read back with
+  `mappedImage = sampleCount != 1 ? pResource->GetResolveImage() : std::move(resourceImage)` and resolved
+  `if (resourceImage != nullptr)`. `GetResolveImage()` returns `const Rc<DxvkImage>&`; MSVC binds the conditional to
+  that const lvalue and copies `resourceImage` instead of moving it, under `/std:c++17`, `c++20` and `c++latest` alike
+  (`out\tmp\issue12\cond_move.cpp`; the runtime builds with `vc++latest`, `meson.build:160`). The 0094 binary shows
+  it: the single-sample branch AddRefs `resourceImage` into a temporary, and the `!= nullptr` test is gone because
+  the pointer was already dereferenced for `sampleCount`. So every read-back of a GPU-written single-sample image
+  recorded `vkCmdResolveImage` from the image into itself with one sample: invalid usage (the source must be
+  multisampled), ignored by NVIDIA's driver, a null dereference in AMDVLK.
+- **Why it became common.** R13's managed-texture release (`d3d9.releaseManagedHostCopies`, on in the `minimum`
+  memory profile: below 15360 MiB VRAM or 28672 MiB RAM, `loader/core/src/memory_profile.cpp:64`, since loader 0.13.0
+  of 2026-11-03) marks a released texture written by the GPU (`d3d9_device.cpp:6102-6103`), so its next lock reads
+  the image back. GMod's main-menu slideshow changes pictures every 30 s and from the third one reuses a freed
+  material through `SetDynamicImage`, whose `Download` write-locks the texture: about 60-90 s after the menu appears
+  (the reporter's crash came 83 s after it). In a map, font pages and other managed textures are relocked whenever
+  they change. NVIDIA cards never crashed. In the `recommended` and `high` profiles (no released copies) the read-back
+  is rare: a locked render target, or a texture the GPU itself wrote (a `StretchRect` or `UpdateTexture` target).
+- **The fix in the built code** (patch 0097, `d3d9.dll` SHA-256 `c60ef71c...`, PDB kept in `out\issue12\sym0097`):
+  the single-sample branch stores the image pointer into `mappedImage` and zeroes `resourceImage` without an AddRef
+  (`LockImage+0x9d4`, `d3d9_device.cpp:4790`), and `if (resourceImage != nullptr)` compiles to a test that skips the
+  resolve's push (`LockImage+0x9f6`, line 4802). In the 0094 build the same branch AddRefs into a temporary and the
+  resolve's push (`LockImage+0xadc`) has no test before it.
+
 ## The Remix menu under frame generation (2026-11-15, Claude, runtime patch 0096)
 
 - **The HUD and the Remix menu draw into whatever target is bound.** `D3D9SwapChainEx::PresentImage` blits the game's

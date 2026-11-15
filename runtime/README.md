@@ -1,5 +1,20 @@
 # runtime/
 
+Patch `0097-LockImage-a-read-back-resolves-only-a-multisampled-i.patch` (GitHub issue 12, fork branch
+`claude/lockimage-resolve`, commit `678b28d1` on 0096's `7db13a1b`): a read-back resolves only a multisampled
+image. `D3D9DeviceEx::LockImage` chose the image to read back with
+`sampleCount != 1 ? pResource->GetResolveImage() : std::move(resourceImage)` and resolved while `resourceImage` was
+still set; MSVC never moves there (the conditional binds the resolve image's const reference), so every read-back of
+a GPU-written single-sample image also resolved the image into itself, which AMD's driver crashes on (a null read at
+`amdvlk64+0x3f798a`). R13's released texture copies (the `minimum` memory profile) made such read-backs common: the
+main menu's slideshow, fonts and textures in a map. An explicit branch now moves `resourceImage` for a single-sample
+image. Checked by [test_runtime_lockimage_resolve.py](../tools/tests/test_runtime_lockimage_resolve.py.md) (the
+removed and added lines compiled with MSVC `/std:c++latest`) and in the built code (the single-sample branch takes
+the pointer without an AddRef, and `if (resourceImage != nullptr)` is a real test again, `LockImage+0x9f6`). Exported
+alone (`format-patch -1 --start-number 97 --zero-commit`) and built by `build_runtime.ps1` in
+`out/worktrees/r17/out/runtime-src` (0001-0097): **`d3d9.dll` 478,660,096 bytes, SHA-256
+`c60ef71c9894ab87da9e5f51e1f5a483f34194c60168c8106c5bb06d93beb253`** (70,705,108 bytes xz in Git LFS).
+
 Patch `0096-The-Remix-menu-and-the-HUD-drawn-into-the-back-buffe.patch` (the user's report of 2026-11-15, fork
 branch `claude/dlfg-menu`, commit `7db13a1b` on 0095's `9b6e1101`): the Remix menu and the HUD drawn into the
 presented image again with DLSS frame generation on. The swapchain's present blitted the game's frame into the back

@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "d03f09c80abb93ea826b340a1a46a93e64c82ea94bd4f02d7e03a377540e932a",
-  "built_from": "HEAD -> claude/dlfg-menu 7db13a1bc (with what the rest of this record names)",
+  "d3d9.dll": "c60ef71c9894ab87da9e5f51e1f5a483f34194c60168c8106c5bb06d93beb253",
+  "built_from": "HEAD -> claude/lockimage-resolve 678b28d15 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -146,6 +146,7 @@
    "patches/0094-DLSS-frame-generation-keeps-the-UI-in-place-a-HUD-le.patch": "e49ff39337f09f05742136d30ed7adc05d99b2d19340264238beb2cea121ef36",
    "patches/0095-Poster-GMod-s-poster-command-rendered-in-tiles-of-th.patch": "da4e626dbd25f7a8064c94c2fc9340757465896dae1cda69e387a26ad7e0b27d",
    "patches/0096-The-Remix-menu-and-the-HUD-drawn-into-the-back-buffe.patch": "db2a7d442975066e82f035a075c7acf56f8198897794ba58f26cf9ac26246dc9",
+   "patches/0097-LockImage-a-read-back-resolves-only-a-multisampled-i.patch": "7db7736bb23bcb97e8bc2990ee7d4425c4c4ea39b78e1ced148f69be25e32266",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

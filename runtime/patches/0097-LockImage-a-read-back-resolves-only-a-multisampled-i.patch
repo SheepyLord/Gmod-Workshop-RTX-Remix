@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Sun, 15 Nov 2026 05:18:52 -0700
+Subject: [PATCH] LockImage: a read-back resolves only a multisampled image
+
+GitHub issue 12: on an AMD Radeon RX 9060 XT the game crashed with 0xC0000005 at the main menu, a few
+seconds into a map and at once in a map without RTX content: a null read at 0x318 in amdvlk64.dll,
+inside vkCmdResolveImage on the dxvk-cs thread, called from D3D9DeviceEx::LockImage's resolve.
+
+LockImage reads back an image the GPU wrote, resolving it first when it is multisampled. It chose the
+image with `sampleCount != 1 ? pResource->GetResolveImage() : std::move(resourceImage)` and resolved
+while resourceImage was still set, relying on the move to empty it for a single-sample image. MSVC
+never moves there: the conditional binds the resolve image's const reference (checked with /std:c++17,
+c++20 and c++latest; the shipped build AddRefs and drops the null check). So every read-back of a
+single-sample image also resolved the image into itself, vkCmdResolveImage with one sample and the same
+image on both sides: invalid, ignored by NVIDIA's driver, a crash in AMD's. A managed texture whose
+CPU copy the memory profile released (SetWrittenByGPU on release) takes this read-back at its next lock:
+the main menu's background slideshow does that every 30 s (IMaterial:SetDynamicImage), fonts and
+textures in a map do it often. An explicit branch now moves resourceImage for a single-sample image,
+so only a multisampled image is resolved.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/d3d9/d3d9_device.cpp | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/src/d3d9/d3d9_device.cpp b/src/d3d9/d3d9_device.cpp
+index ecf7b5c7d..00eb4eab4 100644
+--- a/src/d3d9/d3d9_device.cpp
++++ b/src/d3d9/d3d9_device.cpp
+@@ -4778,9 +4778,17 @@ namespace dxvk {
+         if (unlikely(wasWrittenByGPU)) {
+           Rc<DxvkImage> resourceImage = pResource->GetImage();
+ 
+-          Rc<DxvkImage> mappedImage = resourceImage->info().sampleCount != 1
+-            ? pResource->GetResolveImage()
+-            : std::move(resourceImage);
++          // NV-DXVK start: only a multisampled image is resolved (GMod issue 12)
++          // `sampleCount != 1 ? pResource->GetResolveImage() : std::move(resourceImage)` never moved under MSVC: the
++          // conditional binds the resolve image's const reference, so resourceImage stayed set and the resolve below
++          // also ran for every single-sample image, into itself (vkCmdResolveImage with one sample and the same image
++          // on both sides), which AMD's driver crashes on. An explicit branch moves it, as the check below expects.
++          Rc<DxvkImage> mappedImage;
++          if (resourceImage->info().sampleCount != VK_SAMPLE_COUNT_1_BIT)
++            mappedImage = pResource->GetResolveImage();
++          else
++            mappedImage = std::move(resourceImage);
++          // NV-DXVK end
+ 
+           // When using any map mode which requires the image contents
+           // to be preserved, and if the GPU has write access to the
+-- 
+2.56.0.windows.1
+

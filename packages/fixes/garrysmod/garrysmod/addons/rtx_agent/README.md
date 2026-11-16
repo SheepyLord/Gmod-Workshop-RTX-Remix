@@ -18,7 +18,7 @@ A client-side addon that makes a running GMod RTX session measurable from outsid
 
 ## Harness
 
-`C:\Users\matt-peng\.rpai\work\_probe\session_run.py` launches the game unattended, loads a save, waits for RTX Lua setup and the skybox mesh build, measures frame time, GPU busy % and per-thread CPU, and quits. It declines the post-crash "RTX Remix Crash Report" prompt and stops early if the game exits. Options:
+`session_run.py`, a harness kept with the maintainer's local tools (not shipped with this addon), launches the game unattended, loads a save, waits for RTX Lua setup and the skybox mesh build, measures frame time, GPU busy % and per-thread CPU, and quits. It declines the post-crash "RTX Remix Crash Report" prompt and stops early if the game exits. Options:
 
 | Option | Effect |
 |---|---|

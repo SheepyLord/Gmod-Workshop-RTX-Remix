@@ -30,8 +30,9 @@ function ENT:UnlinkPortal()
 	setDupeLink(self:GetCreator(), self, {Sors = false, Dest = false})
 end
 
--- custom size for portal
+-- custom size for portal, within the limits every reader applies (sh_init.lua)
 function ENT:SetSize(n)
+	n = SeamlessPortals.LimitSize(n)
 	self:SetSizeInternal(n)
 	self:UpdatePhysmesh(n)
 end
@@ -52,6 +53,12 @@ local outputs = {
 }
 
 function ENT:PostEntityPaste(ply, ent, cre)
+	-- The duplicator restores the dupe's network vars once more after the portal spawned: store the side
+	-- count and size within the limits every reader applies (sh_init.lua, review finding 5) and rebuild the
+	-- physics hull from them.
+	self:SetSidesInternal(self:GetSides())
+	self:SetSize(self:GetSize())
+
 	if not IsValid(ply) then return end
 	for key, ent in pairs(cre) do
 		-- Validate dupe data table
@@ -101,7 +108,8 @@ function ENT:Initialize()
 	self:SetCollisionGroup(COLLISION_GROUP_WORLD)
 	self:DrawShadow(false)
 
-	if self:GetSize() == Vector() then
+	-- A portal nobody sized yet (its stored size is still zero) gets the default size.
+	if self:GetSizeInternal() == Vector() then
 		self:SetSize(Vector(50, 50, 8))
 	else
 		self:SetSize(self:GetSize())

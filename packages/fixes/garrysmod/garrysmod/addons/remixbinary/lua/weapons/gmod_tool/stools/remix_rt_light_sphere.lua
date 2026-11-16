@@ -39,49 +39,44 @@ local function computeRadianceVector(r, g, b, brightness)
     return Vector((r/12)*scale, (g/12)*scale, (b/12)*scale)
 end
 
+-- The light's settings from this tool's convars. A client can put anything in its convars, so they go
+-- through RemixRTLight.Apply (remix_rt_light), which keeps each within the light's limits.
+local function lightValues(tool)
+    return {
+        rtx_light_type = "sphere",
+        rtx_light_radius = tool:GetClientNumber("radius", 20),
+        rtx_light_brightness = tool:GetClientNumber("brightness", 1),
+        rtx_light_volumetric = tool:GetClientNumber("volumetric", 1),
+        rtx_light_shape_enabled = tool:GetClientNumber("shape_enabled", 0) ~= 0,
+        rtx_light_shape_cone = tool:GetClientNumber("cone", 90),
+        rtx_light_shape_softness = tool:GetClientNumber("softness", 0.1),
+        rtx_light_shape_focus = tool:GetClientNumber("focus", 1),
+        rtx_light_dir_yaw = tool:GetClientNumber("yaw", 0),
+        rtx_light_dir_pitch = tool:GetClientNumber("pitch", -90),
+        rtx_light_color_r = tool:GetClientNumber("color_r", 255),
+        rtx_light_color_g = tool:GetClientNumber("color_g", 220),
+        rtx_light_color_b = tool:GetClientNumber("color_b", 180),
+    }
+end
+
 function TOOL:LeftClick(trace)
     if CLIENT then return true end
     local ply = self:GetOwner()
     if not IsValid(ply) then return false end
-    if not trace.HitPos then return false end
+    if not trace.HitPos or not RemixRTLight then return false end
 
     local pos = trace.HitPos + (trace.HitNormal or Vector(0,0,1)) * 16
     local ang = Angle(0, ply:EyeAngles().y, 0)
 
-    local ent = ents.Create("remix_rt_light")
+    -- sbox_maxsents, creator, prop-protection owner, cleanup and undo, as the spawn menu gives a SENT.
+    local ent = RemixRTLight.Spawn(ply, pos, ang, "Remix Sphere Light")
     if not IsValid(ent) then return false end
-    ent:SetPos(pos)
-    ent:SetAngles(ang)
-    ent:Spawn()
-    ent:Activate()
-
-    ent:SetNWString("rtx_light_type", "sphere")
-    ent:SetNWFloat("rtx_light_radius", self:GetClientNumber("radius") or 20)
-    ent:SetNWFloat("rtx_light_brightness", self:GetClientNumber("brightness") or 1)
-    ent:SetNWFloat("rtx_light_volumetric", self:GetClientNumber("volumetric") or 1)
-    ent:SetNWBool("rtx_light_shape_enabled", (self:GetClientNumber("shape_enabled") or 0) ~= 0)
-    ent:SetNWFloat("rtx_light_shape_cone", self:GetClientNumber("cone") or 90)
-    ent:SetNWFloat("rtx_light_shape_softness", self:GetClientNumber("softness") or 0.1)
-    ent:SetNWFloat("rtx_light_shape_focus", self:GetClientNumber("focus") or 1.0)
-    ent:SetNWFloat("rtx_light_dir_yaw", self:GetClientNumber("yaw") or 0)
-    ent:SetNWFloat("rtx_light_dir_pitch", self:GetClientNumber("pitch") or -90)
-
-    local r = self:GetClientNumber("color_r") or 255
-    local g = self:GetClientNumber("color_g") or 220
-    local b = self:GetClientNumber("color_b") or 180
-    ent:SetNWFloat("rtx_light_color_r", r)
-    ent:SetNWFloat("rtx_light_color_g", g)
-    ent:SetNWFloat("rtx_light_color_b", b)
+    RemixRTLight.Apply(ent, lightValues(self))
 
     if self:GetClientNumber("freeze") ~= 0 then
         local phys = ent:GetPhysicsObject()
         if IsValid(phys) then phys:EnableMotion(false) end
     end
-
-    undo.Create("Remix Sphere Light")
-        undo.AddEntity(ent)
-        undo.SetPlayer(ply)
-    undo.Finish()
 
     return true
 end
@@ -90,25 +85,9 @@ function TOOL:RightClick(trace)
     if CLIENT then return true end
     if not IsValid(trace.Entity) then return false end
     local ent = trace.Entity
-    if ent:GetClass() ~= "remix_rt_light" then return false end
+    if ent:GetClass() ~= "remix_rt_light" or not RemixRTLight then return false end
 
-    ent:SetNWString("rtx_light_type", "sphere")
-    ent:SetNWFloat("rtx_light_radius", self:GetClientNumber("radius") or 20)
-    ent:SetNWFloat("rtx_light_brightness", self:GetClientNumber("brightness") or 1)
-    ent:SetNWFloat("rtx_light_volumetric", self:GetClientNumber("volumetric") or 1)
-    ent:SetNWBool("rtx_light_shape_enabled", (self:GetClientNumber("shape_enabled") or 0) ~= 0)
-    ent:SetNWFloat("rtx_light_shape_cone", self:GetClientNumber("cone") or 90)
-    ent:SetNWFloat("rtx_light_shape_softness", self:GetClientNumber("softness") or 0.1)
-    ent:SetNWFloat("rtx_light_shape_focus", self:GetClientNumber("focus") or 1.0)
-    ent:SetNWFloat("rtx_light_dir_yaw", self:GetClientNumber("yaw") or 0)
-    ent:SetNWFloat("rtx_light_dir_pitch", self:GetClientNumber("pitch") or -90)
-
-    local r = self:GetClientNumber("color_r") or 255
-    local g = self:GetClientNumber("color_g") or 220
-    local b = self:GetClientNumber("color_b") or 180
-    ent:SetNWFloat("rtx_light_color_r", r)
-    ent:SetNWFloat("rtx_light_color_g", g)
-    ent:SetNWFloat("rtx_light_color_b", b)
+    RemixRTLight.Apply(ent, lightValues(self))
 
     return true
 end

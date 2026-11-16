@@ -88,10 +88,13 @@ local function getNWTable(ent)
     return t
 end
 
-local function applyNWTable(ent, t)
-    if not istable(t) then return end
+-- Writes the values in `t` that are finite numbers, each within the sky's limits (shared.lua); anything
+-- else is left as it is. The editor's apply message (autorun/sv_rtx.lua) and dupes come through here.
+function RemixSkyEditor.Apply(ent, t)
+    if not IsValid(ent) or not istable(t) then return end
     for _, k in ipairs(NW_KEYS_FLOAT) do
-        if t[k] ~= nil then ent:SetNWFloat(k, t[k]) end
+        local v = RemixSkyEditor.Limit(k, t[k])
+        if v then ent:SetNWFloat(k, v) end
     end
     for _, k in ipairs(NW_KEYS_BOOL) do
         if t[k] ~= nil then ent:SetNWBool(k, t[k] and true or false) end
@@ -103,8 +106,14 @@ function ENT:PreEntityCopy()
 end
 
 function ENT:PostEntityPaste(ply, ent, createdEntities)
+    -- Only an admin places a sky editor, by pasting too: another duplicator may not check AdminOnly.
+    if IsValid(ply) and ply:IsPlayer() and not ply:IsAdmin() then
+        self:Remove()
+        return
+    end
+
     local mod = ent.EntityMods and ent.EntityMods["RemixSkyEditorData"]
-    if mod then applyNWTable(self, mod) end
+    if mod then RemixSkyEditor.Apply(self, mod) end
 
     local phys = self:GetPhysicsObject()
     if IsValid(phys) then

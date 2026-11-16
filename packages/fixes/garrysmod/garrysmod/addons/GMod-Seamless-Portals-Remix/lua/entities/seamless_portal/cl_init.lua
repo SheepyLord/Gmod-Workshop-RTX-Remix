@@ -33,7 +33,7 @@ local drawMat = Material("models/dav0r/hoverball")
 -- access violation at studiorender.dll+0x6603b: R4's glass shards, the Model Hotloader's
 -- static props, ADR 0152 and 0153). The meshes are built once per number of sides and kept.
 function ENT:DrawModelMesh(portalSize)
-	local draw_mesh = SeamlessPortals.GetRenderMesh(self:GetSidesInternal())
+	local draw_mesh = SeamlessPortals.GetRenderMesh(self:GetSides())
 	local render_matrix = self:GetWorldTransformMatrix()
 	render_matrix:SetScale(portalSize)
 	cam.PushModelMatrix(render_matrix)
@@ -107,7 +107,7 @@ end
 function ENT:Think()
 	-- kinda hacky but whatever
 	local size = self:GetSize()
-	local sides = self:GetSidesInternal()
+	local sides = self:GetSides()
 	local size_same = sides == self.SEAMLESS_PORTALS_PREV_SIDES and self.SEAMLESS_PORTALS_PREV_SIZE == size
 	self.SEAMLESS_PORTALS_PREV_SIZE = size
 	self.SEAMLESS_PORTALS_PREV_SIDES = sides
@@ -147,6 +147,8 @@ end
 -- They can have a dynamic amount of sides
 SeamlessPortals.PortalMeshes = {}
 SeamlessPortals.GetRenderMesh = function(sides)
+	-- Within the portal's limits (sh_init.lua): at most 98 meshes, of at most 900 vertices each.
+	sides = SeamlessPortals.LimitSides(sides)
 	if !SeamlessPortals.PortalMeshes[sides] then
 		SeamlessPortals.PortalMeshes[sides] = Mesh()
 

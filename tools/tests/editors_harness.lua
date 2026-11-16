@@ -385,6 +385,102 @@ function scenarios.adv_hello()
 	equal(counts.compress, 6, "a new revision is encoded once")
 end
 
+-- ADV-03 (review finding 23): with advmat_adminonly 0, an entity rule needs a target the saving player may edit,
+-- whichever way it arrives (a save naming an entity index, the tool's paste): another player's prop only where
+-- CanTool allows this tool on it, another player only for an admin, the player's own model always. Model rules,
+-- server-side clears and refusals of players who may not save at all are as before.
+function scenarios.adv_entity_owner()
+	AdvMat = nil
+	load(AME .. "/lua/advmat/sh_00_config.lua")         -- the real AdvMat.IsAllowed and AdvMat.CanEditEntity
+	AdvMat.TableCount = function(t) return table.Count(t or {}) end
+	AdvMat.GetMaterialLimit = function() return 32 end
+	AdvMat.NormalizeMaterial = function(value) return string.lower(tostring(value or "")) end
+	AdvMat.NormalizeModel = AdvMat.NormalizeMaterial
+	AdvMat.SanitizeParams = function(params) return istable(params) and params or {} end
+	AdvMat.Gen = { SanitizeAll = function() return nil end }
+	AdvMat.RuleIsEmpty = function(rule) return next(rule.params or {}) == nil end
+	AdvMat.RuleToken = function() return "" end
+	AdvMat.RuleID = function(scope, key, index) return scope .. ":" .. tostring(key) .. ":" .. tostring(index or 0) end
+	local entities = {}
+	function Entity(index) return entities[index] or NULL end
+	load(AME .. "/lua/advmat/sh_20_net.lua")
+	load(AME .. "/lua/advmat/sv_30_store.lua")
+	local Store = AdvMat.Store
+	check(type(AdvMat.CanEditEntity) == "function", "AdvMat.CanEditEntity decides about a target")
+	local queue = {}
+	AdvMat.Net.ReadTable = function() return table.remove(queue, 1) end
+	convars.advmat_adminonly.value = "0"
+
+	local function player_(name, admin, index)
+		local ply = newPlayer(name, admin, index)
+		function ply:GetEyeTrace() return { Hit = true, HitPos = Vector(), Entity = NULL } end
+		entities[index] = ply
+		return ply
+	end
+	local owner, other, admin = player_("owner", false, 1), player_("other", false, 2), player_("admin", true, 3)
+	local ownProp, theirProp = newEntity("models/own.mdl", 20), newEntity("models/theirs.mdl", 21)
+	ownProp.owner, theirProp.owner = owner, other
+	entities[20], entities[21] = ownProp, theirProp
+	-- Prop protection: a player may use a tool on what they own; an admin on anything.
+	local asked = {}
+	hook.Add("CanTool", "PropProtectionStandIn", function(ply, trace, mode)
+		asked[#asked + 1] = { ply = ply, ent = trace.Entity, mode = mode }
+		if trace.Entity.owner and trace.Entity.owner ~= ply and not ply:IsAdmin() then return false end
+	end)
+
+	-- What became of one save: "applied", or "rejected" with the notice the player saw.
+	local function save(ply, key, remove, scope)
+		sent, asked = {}, {}
+		queue[1] = { scope = scope or AdvMat.SCOPE.ENTITY, key = key, index = 0, mat = "models/x",
+			params = { ["$alpha"] = "0" } }
+		advance(1)
+		receive(remove and "AdvMat.RuleClear" or "AdvMat.RuleSet", ply)
+		local outcome, notice = nil, nil
+		for _, message in ipairs(sent) do
+			if message.to == ply and message.name == "AdvMat.RuleApplied" then outcome = "applied" end
+			if message.to == ply and message.name == "AdvMat.RuleRejected" then outcome = outcome or "rejected" end
+			if message.to == ply and message.name == "AdvMat.Notify" then notice = message.data[1] end
+		end
+		return outcome, notice
+	end
+	local NOT_ALLOWED = "You are not allowed to save material overrides here."
+
+	local outcome, notice = save(owner, ownProp:EntIndex())
+	equal(outcome, "applied", "the owner restyles their own prop")
+	check(#asked == 1 and asked[1].ent == ownProp and asked[1].mode == "advmateditor" and asked[1].ply == owner,
+		"CanTool is asked about the prop, for this tool")
+	outcome, notice = save(owner, theirProp:EntIndex())
+	equal(outcome, "rejected", "another player's prop is refused where CanTool refuses")
+	equal(notice, NOT_ALLOWED, "the player hears the translated refusal")
+	equal(Store.EntityRules[21], nil, "nothing is stored for another player's prop")
+	equal(save(owner, theirProp:EntIndex(), true), "rejected", "clearing another player's prop is refused too")
+	outcome, notice = save(owner, other:EntIndex())
+	equal(outcome, "rejected", "another player is refused to a player who is not an admin, whatever CanTool says")
+	equal(notice, NOT_ALLOWED, "with the same notice")
+	equal(save(owner, owner:EntIndex()), "applied", "a player restyles their own model")
+	equal(save(admin, other:EntIndex()), "applied", "an admin restyles another player")
+	equal(save(admin, theirProp:EntIndex()), "applied", "an admin restyles a prop CanTool lets them use")
+	equal(save(owner, "models/theirs.mdl", false, AdvMat.SCOPE.MODEL), "applied",
+		"a model rule is not about one entity: advmat_adminonly 0 lets everyone save it, as before")
+	outcome, notice = save(owner, 99)
+	check(outcome == "rejected" and notice ~= NOT_ALLOWED, "a target that is gone keeps its own reason")
+
+	-- The tool's paste goes through Store.Set with the player: the same rule.
+	check(Store.Set(AdvMat.SCOPE.ENTITY, theirProp, 1, "models/x", nil, { ["$alpha"] = "0" }, owner) == nil,
+		"the tool's paste onto another player's prop is refused")
+	check(Store.Set(AdvMat.SCOPE.ENTITY, other, 1, "models/x", nil, { ["$alpha"] = "0" }, owner) == nil,
+		"the tool's paste onto another player is refused")
+	check(Store.Set(AdvMat.SCOPE.ENTITY, ownProp, 1, "models/x", nil, { ["$alpha"] = "0" }, owner) ~= nil,
+		"the tool's paste onto the player's own prop is stored")
+	check(Store.Clear(AdvMat.SCOPE.ENTITY, theirProp, 0) ~= nil, "the server itself still clears any entity's rules")
+
+	-- Players who may not save at all are refused before any of this, as before.
+	convars.advmat_adminonly.value = "1"
+	outcome, notice = save(owner, ownProp:EntIndex())
+	check(outcome == nil and notice == NOT_ALLOWED and #asked == 0, "with advmat_adminonly 1 a player is refused first")
+	equal(save(admin, theirProp:EntIndex()), "applied", "with advmat_adminonly 1 an admin still saves")
+end
+
 -- ABT-01: a crafted dupe never raises an error and costs no more than a genuine one.
 function scenarios.abt_dupe()
 	local modifiers = {}

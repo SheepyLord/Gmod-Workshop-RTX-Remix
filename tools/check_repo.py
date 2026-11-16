@@ -13,6 +13,8 @@ Rules (AGENTS.md explains why):
 8. tools/ci/pins.json "repository_builds": each native module this repository compiles and stores in
    packages/ has a "packaged" record, its sources match it, and packages/ holds the recorded file
    (tools/ci/repo_builds.py; ADR 0126).
+9. No text file under packages/ names a Windows account's folder (C:\\Users\\<account>\\...): every part is
+   published with the repository and the package (a maintainer's path shipped once, review finding 19).
 """
 
 import argparse
@@ -35,6 +37,13 @@ SKIP_TOP = {'packages'}
 COMPONENT_ROOTS = ('loader', 'tools')
 
 LINK_RE = re.compile(r'\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)')
+# A Windows account's folder, with one or two backslashes (as JSON writes them) or slashes; the account
+# name starts with a letter or digit, so placeholders such as <account> or %USERNAME% do not match.
+USER_FOLDER_RE = re.compile(r'(?<![A-Za-z])[A-Za-z]:(?:\\{1,2}|/)Users(?:\\{1,2}|/)([A-Za-z0-9][^\\/\s"\'<>|*?:`]*)',
+                            re.I)
+# Names that stand for any account in an example: an 8.3 short name, a word.
+PLACEHOLDER_ACCOUNTS = {'name~1', 'me', 'name', 'user', 'username', 'yourname', 'you', 'example', 'public',
+                        'default'}
 FENCE_RE = re.compile(r'^(```|~~~).*?^\1', re.S | re.M)
 INLINE_CODE_RE = re.compile(r'`[^`\n]*`')
 
@@ -177,6 +186,30 @@ def check_runtime_record(root):
     return problems
 
 
+def check_package_user_paths(root):
+    """packages/ is published twice, with the repository and in the package every player installs: no text
+    file there may name a Windows account's folder (rtx_agent's README carried a maintainer's
+    C:\\Users\\<account>\\ harness path, review finding 19). Binary files (a NUL byte) and the xz-compressed
+    inputs are not text."""
+    base = root / 'packages'
+    if not base.is_dir():
+        return []
+    problems = []
+    for path in _files(base):
+        if path.suffix.lower() == '.xz':
+            continue
+        data = path.read_bytes()
+        if b'\0' in data:
+            continue
+        text = data.decode('utf-8', errors='replace')
+        for match in USER_FOLDER_RE.finditer(text):
+            if match.group(1).lower() not in PLACEHOLDER_ACCOUNTS:
+                line = text.count('\n', 0, match.start()) + 1
+                problems.append(f'{_rel(path, root)}:{line}: names a Windows account folder ({match.group(0)}); '
+                                'packages/ is published, write a placeholder or leave the path out')
+    return problems
+
+
 def check_repository_builds(root):
     """tools/ci/pins.json "repository_builds" "packaged" says what each module this repository compiles and
     stores in packages/ was built from: the SHA-256 of the stored file and of each of its sources. While a
@@ -190,7 +223,7 @@ def check(root):
     files = list(_files(root))
     return (check_script_docs(root, files) + check_module_readmes(root, files) + check_markdown_links(root, files)
             + check_changelog(root) + check_components(root) + check_claude_md(root) + check_runtime_record(root)
-            + check_repository_builds(root))
+            + check_repository_builds(root) + check_package_user_paths(root))
 
 
 def main(argv=None):

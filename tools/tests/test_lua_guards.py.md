@@ -24,7 +24,9 @@ cd tools; python -m unittest discover -s tests -p test_lua_guards.py -v
   `fast_unordered_set` or `std::vector<XXH64_hash_t>` declared on a line a runtime patch (`runtime/patches`) adds has a
   verdict in `kRuntimeOptions` of `tests/remix_option_policy_test.cpp`, which checks the policy gives it. A runtime
   update that adds such an option fails here until it is reviewed. Options the fork's base commit declares and no
-  patch touches are in the table from a scan of the packaged runtime tree (25c85588b).
+  patch touches are in the table from a scan of the packaged runtime tree (25c85588b). Declarations in the runtime's
+  own unit tests (a patch's files under `tests/`, such as patch 0101's `rtx.modLayerTestHashes`) are not options of
+  the shipped `d3d9.dll` and are left out.
 - `test_the_shipped_options_are_found`: the option names the package's Lua and data set are collected (no compiler
   needed): the quoted names in every Lua file under `packages/`, `companion/nativeloader/`, `vr/addon/`,
   `glass/addon/` and `fs_accel/addon/` that calls `SetConfigVariable` (with a `sh_config.lua` beside it), the weather

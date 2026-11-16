@@ -85,11 +85,17 @@ def folders():
 
 
 def runtime_declarations():
-    """Every text, key-binding or hash-list option a runtime patch declares: name -> types."""
+    """Every text, key-binding or hash-list option a runtime patch declares in the runtime itself: name -> types. The
+    runtime's own unit tests (files under tests/) declare options of their own that the shipped d3d9.dll does not have
+    (patch 0101's mod layer test), so they are left out."""
     found = {}
     for patch in sorted((REPO / 'runtime/patches').glob('*.patch')):
+        current = ''
         for line in patch.read_text(encoding='utf-8', errors='replace').splitlines():
-            if line.startswith('+') and not line.startswith('+++'):
+            if line.startswith('+++ '):
+                current = line[4:].strip()
+                current = current[2:] if current.startswith('b/') else current
+            elif line.startswith('+') and not current.startswith('tests/'):
                 for m in DECLARATION.finditer(line):
                     found.setdefault(f'{m[1]}.{m[3]}', set()).add(m[2])
     return found
@@ -167,7 +173,8 @@ class LuaGuardTests(unittest.TestCase):
         """Every option of text, key-binding or hash-list type a runtime patch declares has a verdict in the option
         regression's table (which checks the policy gives it), so a merge that adds one cannot slip past."""
         declared = runtime_declarations()
-        self.assertGreaterEqual(len(declared), 27)
+        # 23 in the shipped runtime as of patch 0103 (the unit tests' own options, rtx.test.* and the like, are left out).
+        self.assertGreaterEqual(len(declared), 23)
         for name in ('rtx.waterSim.rings.texture', 'rtx.gmod.eyeWhiteAliases', 'rtx.gmod.particleTexturesForSession'):
             self.assertIn(name, declared)
         table = dict(TABLE.findall(text(OPTION_TEST)))

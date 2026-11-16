@@ -41,9 +41,10 @@ LINK_RE = re.compile(r'\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)')
 # name starts with a letter or digit, so placeholders such as <account> or %USERNAME% do not match.
 USER_FOLDER_RE = re.compile(r'(?<![A-Za-z])[A-Za-z]:(?:\\{1,2}|/)Users(?:\\{1,2}|/)([A-Za-z0-9][^\\/\s"\'<>|*?:`]*)',
                             re.I)
-# Names that stand for any account in an example: an 8.3 short name, a word.
+# Names that stand for any account in an example: an 8.3 short name, a word (the Model Hotloader's installation
+# tests use C:\Users\Someone).
 PLACEHOLDER_ACCOUNTS = {'name~1', 'me', 'name', 'user', 'username', 'yourname', 'you', 'example', 'public',
-                        'default'}
+                        'default', 'someone'}
 FENCE_RE = re.compile(r'^(```|~~~).*?^\1', re.S | re.M)
 INLINE_CODE_RE = re.compile(r'`[^`\n]*`')
 

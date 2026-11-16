@@ -106,3 +106,11 @@ in `out\qa-poc\backface-twins`; every run exited 0 and quit normally.
 `tools\test.ps1 -Config Release` on the branch: "All checks passed" (repo conventions OK; C++ 35 of 35; Python 2,019
 tests in `tools`, 2 skipped, 29 in `gmapack`, 26 in `steam`). The Hotloader's own C++ tests are not part of it; they
 ran as above.
+
+## Published
+
+`main` was fast-forwarded to `bf30f89c` (the branch's one commit) and pushed (`b77e3191..bf30f89c`, four LFS objects,
+6.2 MB). The merge's hook built the package from `packages/` and uploaded item 3829070317 as
+**0.0.0-dev.20261116082002+3143b18b** (content digest `dbc71b59...`, the same content as the package checked in the
+PoC), its change note the changelog's entry; the push's hook found the inputs unchanged. Not yet seen in the field: the
+user's running session still has the previous natives until the game restarts.

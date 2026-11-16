@@ -5,7 +5,7 @@
 -- finite values only; the sky editor is admin-only, its dupes are refused to other players and clamped, and its
 -- client clamps what reaches the atmosphere API.
 -- Usage: luajit remix_light_limits_harness.lua <scenario> <folder>
--- Scenarios: stools, apply, sky, client. The folder holds the shipped files converted to plain Lua under the short
+-- Scenarios: stools, apply, sky, client, distant_sun. The folder holds the shipped files converted to plain Lua under the short
 -- names test_remix_light_limits.py gives them (rt_shared.lua, stool_sphere.lua, sv_rtx.lua, ...).
 local scenario, folder = arg[1], arg[2]
 assert(scenario and folder, 'usage: remix_light_limits_harness.lua <scenario> <folder>')
@@ -713,6 +713,54 @@ function scenarios.client()
 	call = lastCall()
 	check(call.info.radius == 1500 and call.info.volumetricRadianceScale == 2 and near(call.base.radiance.x, 120)
 		and near(call.base.radiance.y, 60), 'a valid light is passed through unchanged')
+end
+
+-- A distant RT light stands in for the map's sun: the map lights are muted for the session through
+-- Light2RTX.SetEnvMuted while one exists, and the player's saved Brightness for them (an archived ConVar, which a crash
+-- with a distant light out had left at 0 for good) is never written. Two distant lights keep it muted until both go;
+-- a light switched to another type lifts it; nothing waits for ShutDown to put a setting back.
+function scenarios.distant_sun()
+	CLIENT, SERVER = true, false
+	RemixLight = setmetatable({}, { __index = function(t, name)
+		local fn = function() return 1 end
+		rawset(t, name, fn)
+		return fn
+	end })
+	local mutes = {}
+	Light2RTX = { SetEnvMuted = function(key, muted) mutes[#mutes + 1] = { key = key, muted = muted } end }
+	local saved = GetConVar('rtx_api_map_lights_env_brightness_mult')
+	saved:SetString('1.7')
+	loadEntity('remix_rt_light', 'rt_shared.lua', 'rt_cl_init.lua')
+	check(not (hooks.ShutDown and hooks.ShutDown.RemixRTLightRestoreEnvBrightness),
+		'a ShutDown hook still puts a saved setting back')
+	local function last() return mutes[#mutes] end
+
+	local first = newEntity('remix_rt_light')
+	first.nw.rtx_light_type = 'distant'
+	first:Think()
+	check(#mutes == 1 and last().key == 'remix_rt_light' and last().muted == true, 'a distant light mutes the map\'s sun')
+	check(saved:GetString() == '1.7', 'the saved Brightness was written: ' .. saved:GetString())
+	first:Think()
+	check(#mutes == 1, 'the mute is asked again every frame')
+
+	local second = newEntity('remix_rt_light')
+	second.nw.rtx_light_type = 'distant'
+	second:Think()
+	check(last().muted == true, 'a second distant light lifted the mute')
+	first:OnRemove()
+	check(last().muted == true, 'the mute was lifted while a distant light remains')
+	second.nw.rtx_light_type = 'sphere'
+	second:Think()
+	check(last().muted == false, 'the last distant light, switched to a sphere, keeps the sun muted')
+	check(saved:GetString() == '1.7', 'the saved Brightness changed: ' .. saved:GetString())
+
+	-- Without the map lights' API (map lights off), a distant light changes nothing at all.
+	Light2RTX = nil
+	local third = newEntity('remix_rt_light')
+	third.nw.rtx_light_type = 'distant'
+	third:Think()
+	third:OnRemove()
+	check(saved:GetString() == '1.7', 'without Light2RTX the saved Brightness changed: ' .. saved:GetString())
 end
 
 local run = scenarios[scenario]

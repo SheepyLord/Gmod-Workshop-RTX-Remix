@@ -566,47 +566,22 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
     end
 end)
 
--- A distant RT light stands in for the map's sun, so map environment lights are
--- muted while at least one exists. The multiplier it replaced comes back when the
--- last one goes away: removed, switched to another type, or the game shutting down
--- (the ConVar is archived, so a leftover 0 would outlive the session).
-local ENV_BRIGHTNESS_CVAR = "rtx_api_map_lights_env_brightness_mult"
+-- A distant RT light stands in for the map's sun, so the map's environment lights are muted while at least one
+-- exists: a mute of the map lights for this session only (Light2RTX.SetEnvMuted), lifted when the last one goes away
+-- (removed, or switched to another type). The player's saved Brightness for those lights
+-- (rtx_api_map_lights_env_brightness_mult, archived) is never written: this light used to set it to 0 and put it back
+-- afterwards, and a crash in between left the map's sun dark in every later session.
+local ENV_MUTE_KEY = "remix_rt_light"
 local distantLights = {}
-local savedEnvBrightness = nil
 
 local function setDistantLight(ent, isDistant)
     local id = ent:EntIndex()
     if (distantLights[id] == true) == isDistant then return end
-
-    if isDistant then
-        if next(distantLights) == nil then
-            local cv = GetConVar(ENV_BRIGHTNESS_CVAR)
-            if cv then
-                savedEnvBrightness = cv:GetString()
-                RunConsoleCommand(ENV_BRIGHTNESS_CVAR, "0")
-            end
-        end
-        distantLights[id] = true
-    else
-        distantLights[id] = nil
-        if next(distantLights) == nil and savedEnvBrightness then
-            RunConsoleCommand(ENV_BRIGHTNESS_CVAR, savedEnvBrightness)
-            savedEnvBrightness = nil
-        end
+    distantLights[id] = isDistant or nil
+    if Light2RTX and Light2RTX.SetEnvMuted then
+        Light2RTX.SetEnvMuted(ENV_MUTE_KEY, next(distantLights) ~= nil)
     end
 end
-
-hook.Add("ShutDown", "RemixRTLightRestoreEnvBrightness", function()
-    if not savedEnvBrightness then return end
-    local cv = GetConVar(ENV_BRIGHTNESS_CVAR)
-    if cv and cv.SetString then
-        cv:SetString(savedEnvBrightness)
-    else
-        RunConsoleCommand(ENV_BRIGHTNESS_CVAR, savedEnvBrightness)
-    end
-    savedEnvBrightness = nil
-    distantLights = {}
-end)
 
 local function ensure_light(ent)
     -- Add defensive checks to prevent multiple creation attempts

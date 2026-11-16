@@ -138,14 +138,14 @@
    "imported": "2026-10-30T11:10:22+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/entities/remix_rt_light/cl_init.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-lu\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\entities\\remix_rt_light\\cl_init.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\entities\\remix_rt_light\\cl_init.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-lu",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "e8455e32124de9a1168c37fb10945a3c746b150b",
     "dirty": true
    },
-   "imported": "2026-11-16T13:08:43+00:00"
+   "imported": "2026-11-16T17:34:13+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/entities/remix_rt_light/shared.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-lu\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\entities\\remix_rt_light\\shared.lua",
@@ -268,14 +268,14 @@
    "imported": "2026-11-14T08:39:45+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/wrappers/cl_remix_api_map_lights.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\translation-review\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\wrappers\\cl_remix_api_map_lights.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\wrappers\\cl_remix_api_map_lights.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/translation-review",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "7d79c12606d8def4ca08e009008e4ac3524f8aa7",
+    "commit": "e8455e32124de9a1168c37fb10945a3c746b150b",
     "dirty": true
    },
-   "imported": "2026-10-30T11:10:22+00:00"
+   "imported": "2026-11-16T17:34:13+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/wrappers/cl_remix_api_map_lights_menu.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\translation-review\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\wrappers\\cl_remix_api_map_lights_menu.lua",
@@ -1548,9 +1548,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/entities/remix_rt_light/cl_init.lua": {
-   "size": 70801,
-   "sha256": "9189593ae45d0d0fd8b1d18933ce2361739e7f6704d5ccaca697674849a158ca",
-   "mtime_ns": 1794833251051351700,
+   "size": 70162,
+   "sha256": "c93e45be6d152f0e099d79ca128f2eaa84286555eedc8d9e53fa23c7e2af68a4",
+   "mtime_ns": 1794850397772923000,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/entities/remix_rt_light/init.lua": {
@@ -1866,9 +1866,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/wrappers/cl_remix_api_map_lights.lua": {
-   "size": 123497,
-   "sha256": "29bac93e12f86a9fed15d1e93d97031a724fd275a37c2e47a1addb6d7e28c40c",
-   "mtime_ns": 1793349770456656800,
+   "size": 124688,
+   "sha256": "21b9b5d7e952913144f6db195a0656744c24aa6316f9626ab24925544141f585",
+   "mtime_ns": 1794850397772923000,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/wrappers/cl_remix_api_map_lights_menu.lua": {

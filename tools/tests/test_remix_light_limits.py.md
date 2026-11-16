@@ -24,6 +24,13 @@ LuaJIT):
 - `test_dupes_the_editor_and_the_spawn_message_keep_the_limits`: scenario `apply`.
 - `test_sky_editor_is_admin_only_and_clamped`: scenario `sky`.
 - `test_clients_hand_the_remix_api_finite_values`: scenario `client`.
+- `test_a_distant_light_mutes_the_sun_for_the_session_only`: scenario `distant_sun` (the follow-up of 2026-11-16: a
+  distant RT light had written 0 into every RTX client's archived `rtx_api_map_lights_env_brightness_mult` and put it
+  back afterwards, so a crash in between left the map's sun dark for good).
+- `test_the_map_lights_read_the_sun_brightness_through_the_mute`: in `cl_remix_api_map_lights.lua` only
+  `envBrightnessMult()` reads that setting (0 while `Light2RTX.SetEnvMuted` holds a mute), `SetEnvMuted` updates the
+  sun lights when the first mute comes or the last goes and runs no command, and the RT light writes the setting
+  nowhere.
 
 Run from `tools\`: `python -m unittest tests.test_remix_light_limits -v` (or `tools\test.ps1`). No game, network,
 Workshop upload or profile change; scratch in `out\tmp`. Exit follows unittest.

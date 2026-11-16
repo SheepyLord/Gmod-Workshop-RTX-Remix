@@ -23,6 +23,15 @@ local env_angular_mult = CreateClientConVar("rtx_api_map_lights_env_angular_mult
 local point_brightness_mult = CreateClientConVar("rtx_api_map_lights_point_brightness_mult", "1.0", true, false, "Brightness multiplier for point lights")
 local spot_brightness_mult = CreateClientConVar("rtx_api_map_lights_spot_brightness_mult", "1.0", true, false, "Brightness multiplier for spot lights")
 local env_brightness_mult = CreateClientConVar("rtx_api_map_lights_env_brightness_mult", "1.0", true, false, "Brightness multiplier for directional lights")
+-- Session-only mutes of the map's environment (sun) lights, by who asks (Light2RTX.SetEnvMuted): a distant RT light
+-- stands in for the sun while it exists. They never reach the player's saved Brightness above, which is archived: the
+-- RT light used to write 0 there and put the old value back afterwards, and a crash in between left the map's sun dark
+-- in every later session.
+local envMuters = {}
+local function envBrightnessMult()
+    if next(envMuters) ~= nil then return 0 end
+    return env_brightness_mult:GetFloat()
+end
 
 local point_volumetric_mult = CreateClientConVar("rtx_api_map_lights_point_volumetric_mult", "1.0", true, false, "Volumetric scale multiplier for point lights")
 local spot_volumetric_mult = CreateClientConVar("rtx_api_map_lights_spot_volumetric_mult", "1.0", true, false, "Volumetric scale multiplier for spot lights")
@@ -1376,7 +1385,7 @@ local function createRemixLight(pos, color, brightness, size, lightType, lightPr
     -- Per-type brightness multiplier
     local kind = (classname == "light_environment") and "env"
         or ((classname == "light_spot" or classname == "env_projectedtexture") and "spot" or "point")
-    local typeBrightnessMult = (kind == "env") and env_brightness_mult:GetFloat()
+    local typeBrightnessMult = (kind == "env") and envBrightnessMult()
         or ((kind == "spot") and spot_brightness_mult:GetFloat() or point_brightness_mult:GetFloat())
     
     -- Compute radiance based on light kind
@@ -1784,7 +1793,7 @@ local function updateEntryRuntime(entry)
     local baseBright = tonumber(entry.baseBrightness) or 255
     local bmult = 1.0
     if kind == "env" then
-        bmult = env_brightness_mult:GetFloat()
+        bmult = envBrightnessMult()
     elseif kind == "spot" then
         bmult = spot_brightness_mult:GetFloat()
     else
@@ -2191,12 +2200,13 @@ concommand.Add("rtx_api_map_lights_debug_env", function()
             
             -- Final Remix radiance with current settings
             local vradScale = env_vrad_scale:GetFloat()
-            local envBMult = env_brightness_mult:GetFloat()
+            local envBMult = envBrightnessMult()
             local remix_r = math.pow(color.r / 255.0, 2.2) * brightness * hdrScale * vradScale * envBMult
             local remix_g = math.pow(color.g / 255.0, 2.2) * brightness * hdrScale * vradScale * envBMult
             local remix_b = math.pow(color.b / 255.0, 2.2) * brightness * hdrScale * vradScale * envBMult
             print(string.format("    Remix radiance (current): R=%.6f G=%.6f B=%.6f", remix_r, remix_g, remix_b))
-            print(string.format("    Settings: env_vrad_scale=%.6f, env_brightness_mult=%.2f", vradScale, envBMult))
+            print(string.format("    Settings: env_vrad_scale=%.6f, env_brightness_mult=%.2f%s", vradScale, envBMult,
+                next(envMuters) ~= nil and " (muted this session: a distant RT light stands in for the sun)" or ""))
             
             -- Ambient analysis
             print("\n  Ambient sky analysis:")
@@ -2529,6 +2539,19 @@ function Light2RTX.GetEntriesByTargetName(name)
         if entry then table.insert(result, entry) end
     end
     return result
+end
+
+-- A session-only mute of the map's environment lights (envMuters): `key` names who asks, `muted` true or false. The
+-- lights are updated when the first mute comes or the last one goes; the saved Brightness is never written.
+function Light2RTX.SetEnvMuted(key, muted)
+    if not isstring(key) or key == "" then return end
+    local was = next(envMuters) ~= nil
+    envMuters[key] = muted and true or nil
+    if (next(envMuters) ~= nil) ~= was then updateAllOfKind("env") end
+end
+
+function Light2RTX.EnvMuted()
+    return next(envMuters) ~= nil
 end
 
 function Light2RTX.UpdateEntry(entry)

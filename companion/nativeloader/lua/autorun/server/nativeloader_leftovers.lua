@@ -21,7 +21,27 @@ local function N(text) return text end
 local TEXT = {
     removed = N"RTX Remix was removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod to finish.",
     partly = N"RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed.",
+    -- The short window after a removal (ADR 0235).
+    title = N"RTX Remix was removed from this game",
+    windowRemoved = N"The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game. Restart Garry's Mod to finish.",
+    windowPartly = N"The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game, but some files stayed; the console lists them. Restart Garry's Mod.",
+    again = N"To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and subscribe to RTX Remix on the Workshop.",
+    ok = N"OK",
 }
+
+-- What this start did, for the client's window (nativeloader_leftovers_popup.lua, ADR 0235): the server and the
+-- player's client realm of a local game share this machine's data folder.
+local STATE = "nativeloader_companion/leftovers_state.json"
+local function record(outcome, why)
+    pcall(function()
+        file.CreateDir("nativeloader_companion")
+        file.Write(STATE, util.TableToJSON({ outcome = outcome, error = why and tostring(why) or nil, at = os.time() }))
+    end)
+end
+
+-- The window's source, read now: the removal takes this add-on's files, the client's copy with them, so the short
+-- window goes to the player as Lua (ADR 0235).
+local WINDOW = file.Read("nativeloader/leftovers_window.lua", "LUA")
 
 -- The player's language, read now: the removal takes this add-on's files, its translations with them.
 local phrases
@@ -48,11 +68,30 @@ end
 
 local function say(text) MsgN("[nativeloader] " .. text) end
 
+-- The short window on the player's screen. Garry's Mod sends at most 254 characters of Lua at a time
+-- (Player:SendLua), so the window's source and its text go as hexadecimal in pieces, and a last line runs them.
+local function sendWindow(ply, spec)
+    if not isstring(WINDOW) or WINDOW == "" then return false end
+    local payload = util.TableToJSON({ source = WINDOW, spec = spec })
+    if not isstring(payload) then return false end
+    local hex = payload:gsub(".", function(c) return string.format("%02x", string.byte(c)) end)
+    ply:SendLua("NLLW={}")
+    for i = 1, #hex, 200 do ply:SendLua("NLLW[#NLLW+1]='" .. hex:sub(i, i + 199) .. "'") end
+    ply:SendLua("local d=util.JSONToTable((table.concat(NLLW):gsub('..',function(h)return string.char(tonumber(h,16))end)))" ..
+        "NLLW=nil local f=d and CompileString(d.source,'nativeloader_leftovers_window',false)" ..
+        " if isfunction(f) then f().Show(d.spec) end")
+    return true
+end
+
 -- In the chat once the player is in the game (their first own move, as the RTX fixes tell a full load), in a single
 -- player game or to a listen server's host; Garry's Mod's own chat shows it, so no Lua of this add-on is needed there.
-local function tell(text)
+-- With `window`, the short window too.
+local function tell(text, window)
     local function show(ply)
-        if IsValid(ply) and (game.SinglePlayer() or ply:IsListenServerHost()) then ply:ChatPrint(text) end
+        if IsValid(ply) and (game.SinglePlayer() or ply:IsListenServerHost()) then
+            ply:ChatPrint(text)
+            if window then sendWindow(ply, window) end
+        end
     end
     hook.Add("PlayerInitialSpawn", "nativeloader_leftovers", function(ply)
         hook.Add("SetupMove", ply, function(self, mover, _, cmd)
@@ -67,15 +106,27 @@ hook.Add("Initialize", "nativeloader_leftovers", function()
     hook.Remove("Initialize", "nativeloader_leftovers")
     local loaded = pcall(require, "nlrtxclient")
     local api = loaded and rawget(_G, "NativeLoaderLeftovers")
-    if not istable(api) or not isfunction(api.Remove) then return end
+    if not istable(api) or not isfunction(api.Remove) then
+        record("no module", "the RTX client module (garrysmod/lua/bin/gmsv_nlrtxclient_win64.dll) did not load")
+        return
+    end
     local ok, result = pcall(api.Remove)
-    if not ok or not istable(result) or result.outcome == "not needed" then return end
+    if not ok or not istable(result) then
+        record("failed", ok and "no answer" or result)
+        return
+    end
+    if result.outcome == "not needed" then
+        record("not needed", result.error)
+        return
+    end
     local outcome = tostring(result.outcome)
     if outcome ~= "removed" and outcome ~= "partly removed" then
+        record(outcome, result.error)
         say("The native loader (bin/win64/winmm.dll) is gone, but RTX Remix's files were not removed now: " ..
             tostring(result.error) .. ". The next local game tries again.")
         return
     end
+    record(outcome)
     say(string.format("The native loader (bin/win64/winmm.dll) is gone: RTX Remix %s. %d files deleted, %d of yours put back.",
         outcome, tonumber(result.deleted) or 0, tonumber(result.restored) or 0))
     if (tonumber(result.former) or 0) > 0 then
@@ -98,5 +149,9 @@ hook.Add("Initialize", "nativeloader_leftovers", function()
         end
     end
     if #restored > 0 then say("Console settings put back: " .. table.concat(restored, ", ")) end
-    tell(L(outcome == "removed" and TEXT.removed or TEXT.partly))
+    tell(L(outcome == "removed" and TEXT.removed or TEXT.partly), {
+        title = L(TEXT.title),
+        paragraphs = { L(outcome == "removed" and TEXT.windowRemoved or TEXT.windowPartly), L(TEXT.again) },
+        buttons = { { text = L(TEXT.ok), close = true } },
+    })
 end)

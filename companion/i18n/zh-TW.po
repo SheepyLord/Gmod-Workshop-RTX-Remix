@@ -8,12 +8,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:123
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:137
 #, c-format
 msgid "%s, in the add-on %s"
 msgstr "%s（附加元件 %s）"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:126
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:140
 #, c-format
 msgid ""
 "The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
@@ -704,6 +704,95 @@ msgstr "目錄"
 msgid "RTX Remix guide"
 msgstr "RTX Remix 指南"
 
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:31
+msgid "RTX Remix is still in this game, but its loader is gone"
+msgstr "RTX Remix 仍在此遊戲中，但其載入器已不存在"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:32
+msgid "The native loader (bin\\win64\\winmm.dll) was removed while RTX Remix's files stayed in this game. Without the loader, RTX Remix can neither start nor remove itself, so parts of it may still show or look wrong."
+msgstr "原生載入器 (bin\\win64\\winmm.dll) 已被刪除，但 RTX Remix 的檔案仍留在此遊戲中。沒有載入器，RTX Remix 既無法啟動，也無法自行移除，因此它的部分內容可能仍會顯示或顯示異常。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:33
+#, c-format
+msgid "It could not remove itself now: %s."
+msgstr "這次未能自行移除：%s。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:34
+msgid "Recommended: put the native loader back"
+msgstr "建議：放回原生載入器"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:35
+msgid "1. Download winmm.dll from the latest release (Open the release page) and put it in GarrysMod\\bin\\win64."
+msgstr "1. 從最新版本下載 winmm.dll（開啟發佈頁面），並放入 GarrysMod\\bin\\win64。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:36
+msgid "2. To keep RTX Remix: stay subscribed to it on the Workshop and start Garry's Mod. RTX works again."
+msgstr "2. 若要保留 RTX Remix：在 Workshop 上保持訂閱並啟動 Garry's Mod，RTX 即可恢復運作。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:37
+msgid "3. To remove RTX Remix: unsubscribe from it, start Garry's Mod once and quit. The loader removes everything it installed and puts your own files back. Then delete GarrysMod\\bin\\win64\\winmm.dll."
+msgstr "3. 若要移除 RTX Remix：取消訂閱，啟動一次 Garry's Mod 後退出。載入器會刪除它安裝的所有內容，並放回你自己的檔案。然後刪除 GarrysMod\\bin\\win64\\winmm.dll。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:38
+msgid "Or remove it by hand, with Garry's Mod closed"
+msgstr "或在關閉 Garry's Mod 後手動移除"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:39
+#, c-format
+msgid "Delete these folders from GarrysMod\\garrysmod\\addons: %s"
+msgstr "從 GarrysMod\\garrysmod\\addons 刪除這些資料夾：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:40
+#, c-format
+msgid "Delete these files from GarrysMod\\garrysmod\\lua\\bin: %s"
+msgstr "從 GarrysMod\\garrysmod\\lua\\bin 刪除這些檔案：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:41
+#, c-format
+msgid "Delete these folders from GarrysMod\\rtx-remix\\mods: %s"
+msgstr "從 GarrysMod\\rtx-remix\\mods 刪除這些資料夾：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:42
+#, c-format
+msgid "Delete these folders from GarrysMod\\garrysmod\\data: %s"
+msgstr "從 GarrysMod\\garrysmod\\data 刪除這些資料夾：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:43
+#, c-format
+msgid "The loader's record of what it installed is gone. Delete the RTX Remix folders from GarrysMod\\garrysmod\\addons (nativeloader, remixbinary and the others it added), its files from GarrysMod\\garrysmod\\lua\\bin and its mods from GarrysMod\\rtx-remix\\mods; the uninstall steps on GitHub list them: %s"
+msgstr "載入器記錄其安裝內容的檔案已不存在。請刪除 GarrysMod\\garrysmod\\addons 中的 RTX Remix 資料夾（nativeloader、remixbinary 及它新增的其他資料夾）、GarrysMod\\garrysmod\\lua\\bin 中它的檔案，以及 GarrysMod\\rtx-remix\\mods 中它的 mod；GitHub 上的解除安裝步驟列出了它們：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:44
+msgid "Last, delete GarrysMod\\native-loader. Your own files the loader had moved aside are in its backup folder: take back what you need first."
+msgstr "最後，刪除 GarrysMod\\native-loader。載入器移到一旁的你自己的檔案在它的 backup 資料夾中：請先取回需要的檔案。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:45
+msgid "If something still looks different after a restart (no 3D skybox, flat lighting), run r_3dsky 1 and mat_specular 1 in the console."
+msgstr "如果重新啟動後仍有異樣（沒有 3D 天空盒、光照平淡），請在主控台中執行 r_3dsky 1 和 mat_specular 1。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:46
+msgid "Open the release page"
+msgstr "開啟發佈頁面"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:47
+msgid "Copy these steps"
+msgstr "複製這些步驟"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:48
+msgid "Copied"
+msgstr "已複製"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:49
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
+msgid "Don't show this again"
+msgstr "不再顯示此提示"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:50
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+msgid "Close"
+msgstr "關閉"
+
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:21
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:149
@@ -1329,10 +1418,6 @@ msgid "Enter"
 msgstr "輸入"
 
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
-msgid "Close"
-msgstr "關閉"
-
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Tab"
 msgstr "跳格"
 
@@ -1760,6 +1845,27 @@ msgstr "由於 RTX Remix 的載入器（bin/win64/winmm.dll）已不存在，RTX
 #: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:23
 msgid "RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed."
 msgstr "由於 RTX Remix 的載入器（bin/win64/winmm.dll）已不存在，RTX Remix 已從此遊戲中部分移除。請重新啟動 Garry's Mod；主控台列出了保留下來的內容。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:25
+msgid "RTX Remix was removed from this game"
+msgstr "RTX Remix 已從此遊戲中移除"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:26
+msgid "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game. Restart Garry's Mod to finish."
+msgstr "原生載入器 (bin\\win64\\winmm.dll) 已不存在，因此 RTX Remix 已從此遊戲中自行移除。請重新啟動 Garry's Mod 以完成移除。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:27
+msgid "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game, but some files stayed; the console lists them. Restart Garry's Mod."
+msgstr "原生載入器 (bin\\win64\\winmm.dll) 已不存在，因此 RTX Remix 已從此遊戲中自行移除，但有些檔案仍留下；主控台列出了它們。請重新啟動 Garry's Mod。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:28
+msgid "To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and subscribe to RTX Remix on the Workshop."
+msgstr "若要再次使用 RTX Remix，請將 winmm.dll 放回 GarrysMod\\bin\\win64，並在 Workshop 上訂閱 RTX Remix。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:29
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
+msgstr "確定"
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
 msgid "Garry's Mod is not finishing its start"
@@ -3020,11 +3126,6 @@ msgstr "線上遊戲的效能和穩定性無法保證，尤其是在未安裝伺
 msgid "You use this add-on on servers at your own risk: its developers take no responsibility for any consequences."
 msgstr "在伺服器上使用本附加元件的風險由你自行承擔，開發者不對任何後果負責。"
 
-#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
-msgid "Don't show this again"
-msgstr "不再顯示此提示"
-
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:17
 msgid "I understand, continue"
 msgstr "我已了解，繼續"
@@ -3095,7 +3196,3 @@ msgstr "RTX Remix 已在 Steam 中關閉"
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
 msgstr "無法關閉 RTX Remix（%s）。若要移除它，請取消訂閱。"
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
-msgstr "確定"

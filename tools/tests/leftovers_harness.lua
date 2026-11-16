@@ -34,6 +34,12 @@ end
 
 local scenario = a
 local SCRIPT = root .. "/companion/nativeloader/lua/autorun/server/nativeloader_leftovers.lua"
+local WINDOW_FILE = root .. "/companion/nativeloader/lua/nativeloader/leftovers_window.lua"
+local STATE = "nativeloader_companion/leftovers_state.json"
+local lib = dofile(root .. "/tools/tests/leftovers_test_lib.lua")
+local function readAll(path) local f = assert(io.open(path, "rb")) local s = f:read("*a") f:close() return s end
+local WINDOW_SOURCE = readAll(WINDOW_FILE)
+local written, sent = {}, {}
 local REMOVED = "RTX Remix was removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod to finish."
 local PARTLY = "RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed."
 
@@ -74,10 +80,18 @@ env.file = { Exists = function(path, where)
     end
     if path == "nativeloader/i18n_data.lua" then return where == "LUA" end
     error("unexpected file.Exists " .. tostring(path))
-end }
+end, Read = function(path, where)
+    -- ADR 0235: the window's source, read at load, before a removal takes it.
+    eq(path, "nativeloader/leftovers_window.lua", "file.Read")
+    eq(where, "LUA", "the window's search path")
+    return WINDOW_SOURCE
+end, Write = function(path, data)
+    written[path] = data
+end, CreateDir = function() end }
+env.util = { TableToJSON = lib.encode }
 env.include = function(path)
     eq(path, "nativeloader/i18n_data.lua", "include")
-    return { fr = { [REMOVED] = "FR retiré", [PARTLY] = "FR en partie" } }
+    return { fr = { [REMOVED] = "FR retiré", [PARTLY] = "FR en partie", ["RTX Remix was removed from this game"] = "FR titre" } }
 end
 env.GetConVar = function(name)
     if name == "gmod_language" then return { GetString = function() return scenario == "french" and "fr" or "en" end } end
@@ -106,10 +120,61 @@ end
 local function initialize()
     for _, fn in pairs(hooks.Initialize or {}) do fn() end
 end
+-- What the server left for the client's window (ADR 0235).
+local function state()
+    local data = written[STATE]
+    return data and lib.decode(data)
+end
+local function stateIs(outcome, why)
+    local s = state()
+    assert(s, "no state written for the client")
+    eq(s.outcome, outcome, "the state's outcome")
+    eq(s.error, why, "the state's reason")
+    assert(type(s.at) == "number" and math.abs(s.at - os.time()) <= 2, "the state's time")
+end
+-- The Lua the server sent, run in a client realm with a VGUI stand-in: what the short window shows.
+local function shortWindow()
+    eq(sent[1], "NLLW={}", "the first line sent")
+    for i, line in ipairs(sent) do
+        assert(#line <= 254, "line " .. i .. " is " .. #line .. " bytes; Player:SendLua takes at most 254")
+    end
+    local vgui, record = lib.fakeVgui()
+    local client = setmetatable({}, { __index = _G })
+    client.util = { JSONToTable = lib.decode }
+    client.isfunction = function(v) return type(v) == "function" end
+    client.istable = function(v) return type(v) == "table" end
+    client.isstring = function(v) return type(v) == "string" end
+    client.IsValid = function(v) return type(v) == "table" and v.valid ~= false end
+    client.vgui = vgui
+    client.Color = function(r, g, bl, al) return { r = r, g = g, b = bl, a = al or 255 } end
+    client.ScrW = function() return 1920 end
+    client.ScrH = function() return 1080 end
+    client.surface = { CreateFont = function() end, SetDrawColor = function() end, DrawRect = function() end }
+    client.draw = { RoundedBox = function() end }
+    local compiled
+    client.CompileString = function(code, name)
+        compiled = code
+        local f, err = loadstring(code, name)
+        if not f then return err end
+        setfenv(f, client)
+        return f
+    end
+    for _, line in ipairs(sent) do
+        local f = assert(loadstring(line))
+        setfenv(f, client)
+        f()
+    end
+    eq(compiled, WINDOW_SOURCE, "the window's source as the client received it")
+    eq(rawget(client, "NLLW"), nil, "the pieces are let go")
+    eq(#record.frames, 1, "windows shown")
+    return record.texts(record.frames[1]), record.buttons(record.frames[1])
+end
+
 -- The player arrives: their first own move, after a forced one, is when the chat shows the notice.
 local function arrive()
     local ply = { valid = true, IsListenServerHost = function() return true end,
-                  ChatPrint = function(_, text) chat[#chat + 1] = text end }
+                  ChatPrint = function(_, text) chat[#chat + 1] = text end,
+                  SendLua = function(_, code) sent[#sent + 1] = code end }
     for _, fn in pairs(hooks.PlayerInitialSpawn or {}) do fn(ply) end
     local move = (hooks.SetupMove or {})[ply]
     if move then
@@ -122,23 +187,33 @@ end
 if scenario == "rtx-start" or scenario == "dedicated" or scenario == "loader-installed" then
     eq(hooks.Initialize, nil, "the Initialize hook")
     eq(#required, 0, "modules loaded")
+    eq(next(written), nil, "files written")
 elseif scenario == "no-module" then
     initialize()
     eq(#required, 1, "modules loaded")
     eq(required[1], "nlrtxclient", "module")
     eq(#said, 0, "console lines")
     eq(hooks.PlayerInitialSpawn, nil, "the arrival hook")
+    stateIs("no module", "the RTX client module (garrysmod/lua/bin/gmsv_nlrtxclient_win64.dll) did not load")
 elseif scenario == "not-needed" or scenario == "module-error" then
     initialize()
     eq(removes, 1, "removal calls")
     eq(#said, 0, "console lines")
     eq(#commands, 0, "console commands")
     eq(hooks.PlayerInitialSpawn, nil, "the arrival hook")
+    if scenario == "not-needed" then
+        stateIs("not needed", "the native loader is installed (bin/win64/winmm.dll)")
+    else
+        local s = state()
+        eq(s and s.outcome, "failed", "the state's outcome")
+        assert(tostring(s.error):find("boom", 1, true), "the state's reason")
+    end
 elseif scenario == "refused" then
     initialize()
     assert(said_with("were not removed now: another Garry's Mod runs from this folder. The next local game tries again."), table.concat(said, "\n"))
     eq(#commands, 0, "console commands")
     eq(hooks.PlayerInitialSpawn, nil, "the arrival hook")
+    stateIs("refused", "another Garry's Mod runs from this folder")
 elseif scenario == "removed" or scenario == "french" then
     initialize()
     eq(hooks.Initialize and next(hooks.Initialize), nil, "the Initialize hook removes itself")
@@ -148,15 +223,27 @@ elseif scenario == "removed" or scenario == "french" then
     assert(said_with("Console settings put back: r_3dsky 1"))
     eq(#commands, 1, "console commands")
     eq(commands[1], "r_3dsky 1", "the restored setting")
+    stateIs("removed", nil)
+    eq(#sent, 0, "Lua sent before the player is in")
     arrive()
     eq(#chat, 1, "chat lines")
     eq(chat[1], scenario == "french" and "FR retiré" or REMOVED, "the notice")
+    -- ADR 0235: the short window, sent as Lua because this add-on's client files are gone.
+    local texts, buttons = shortWindow()
+    eq(texts[1], scenario == "french" and "FR titre" or "RTX Remix was removed from this game", "the window's title")
+    eq(texts[2], "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game. Restart Garry's Mod to finish.", "the window's text")
+    eq(texts[3], "To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and subscribe to RTX Remix on the Workshop.", "the way back")
+    eq(#buttons, 1, "the window's buttons")
+    eq(buttons[1].text, "OK", "the button")
 elseif scenario == "partly" then
     initialize()
     assert(said_with("RTX Remix partly removed."))
     assert(said_with("  garrysmod/lua/bin/x.dll: could not be deleted yet"))
+    stateIs("partly removed", nil)
     arrive()
     eq(chat[1], PARTLY, "the notice")
+    local texts = shortWindow()
+    eq(texts[2], "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game, but some files stayed; the console lists them. Restart Garry's Mod.", "the window's text")
 else
     error("unknown scenario " .. tostring(scenario))
 end

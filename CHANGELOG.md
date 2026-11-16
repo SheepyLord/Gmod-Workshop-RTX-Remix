@@ -6,6 +6,18 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A window when RTX Remix is left in the game without its loader (2026-11-16)
+
+- **If you delete the native loader (`bin\win64\winmm.dll`) while RTX Remix is still installed, a window now says
+  what happened and what to do** the first time you load a map: put `winmm.dll` back (to keep RTX, or to let the loader
+  remove it properly), or delete RTX Remix's folders and files by hand; it lists them from the loader's record, and
+  **Copy these steps** puts them on the clipboard. Close it, or choose **Don't show this again**. Garry's Mod runs no
+  add-on in its main menu without the loader, so the first map is the first place it can appear. It never appears
+  while `winmm.dll` is in place ([ADR 0235](docs/decisions/0235-a-window-when-rtx-is-left-without-its-loader.md)).
+- **When RTX Remix removes itself because its loader is gone, a short window now says so** (restart to finish; how to
+  get RTX back), besides the chat line.
+- The README's "Uninstalling" says what to do when `winmm.dll` is already gone.
+
 ### A distant RT light no longer changes your saved map-light setting (2026-11-16)
 
 - **A distant RT light now mutes the map's sun for the session only.** It used to set the map lights' Brightness for

@@ -25,7 +25,20 @@ loader deployed stays and Garry's Mod runs the package's add-ons without the run
   `nativeloader_language` if set, else `gmod_language`).
 - **A refusal** (another Garry's Mod of the folder runs, another deployment holds `native-loader/lock`, the journal
   cannot be read) is only logged; nothing changed, and the next local game tries again.
+- **What the client's window learns** ([ADR 0235](../../../../../docs/decisions/0235-a-window-when-rtx-is-left-without-its-loader.md)).
+  Every outcome of such a start is written to `data/nativeloader_companion/leftovers_state.json` as
+  `{outcome, error, at}` (`removed`, `partly removed`, `refused`, `not needed`, `no module` when the module did not
+  load, `failed` when its call raised): the client autorun
+  [`nativeloader_leftovers_popup.lua`](../client/nativeloader_leftovers_popup.lua.md) shows its long window unless the
+  outcome is a removal. After a removal the player also gets the short window ("RTX Remix was removed from this game":
+  restart to finish; to use RTX again, put `winmm.dll` back and subscribe; OK), at the same moment as the chat line.
+  The removal took the client's copy of the add-on, so the window's source
+  ([`nativeloader/leftovers_window.lua`](../../nativeloader/leftovers_window.lua.md), read when this file loads) and its
+  text go to the player as Lua: `Player:SendLua` takes at most 254 characters, so the JSON of both is sent as
+  hexadecimal in lines of 200 digits (`NLLW={}`, then `NLLW[#NLLW+1]='...'`), and a last line decodes it, compiles the
+  source (`CompileString`) and calls `Show`.
 
 Side effects: loads one native module in such a start; through it, deletes and moves the files the loader deployed
-(never one the player changed) and rewrites `native-loader/session_cvars.json`; sets console variables. Tests:
+(never one the player changed) and rewrites `native-loader/session_cvars.json`; sets console variables; writes
+`data/nativeloader_companion/leftovers_state.json`; sends the short window's Lua to the local player. Tests:
 [`tools/tests/test_leftovers_lua.py`](../../../../../tools/tests/test_leftovers_lua.py.md).

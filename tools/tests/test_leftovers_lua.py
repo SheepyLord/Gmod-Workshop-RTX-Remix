@@ -15,9 +15,10 @@ COMPANION = REPO / 'companion/nativeloader/lua/autorun'
 FIXES = REPO / 'packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/autorun'
 COMPANION_GATE = 'if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end'
 FIXES_GATE = 'if not (NATIVELOADER_VERIFIED_MULTIPLAYER or NativeLoaderRTXStart and NativeLoaderRTXStart()) then return end'
-# The file that answers, the two render-guard files that were RTX-only already, and the clean-up itself.
+# The file that answers, the two render-guard files that were RTX-only already, the clean-up itself and the window that
+# says RTX was left in the game without its loader (ADR 0235; test_leftovers_popup.py checks its own gate).
 UNGATED = {'!!!!nativeloader_engine_guard.lua', '_nativeloader_guard.lua', '_nativeloader_effect_categories.lua',
-           'nativeloader_leftovers.lua'}
+           'nativeloader_leftovers.lua', 'nativeloader_leftovers_popup.lua'}
 
 
 def first_code_line(path):

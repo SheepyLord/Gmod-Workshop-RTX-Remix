@@ -167,6 +167,31 @@ folder. They win over the package's files. The player guide in the release,
 3. If you like, delete the `native-loader` folder too. It holds your settings, logs and backups,
    including copies of package files that you had edited (`native-loader\backup\edits`).
 
+**If you already deleted `winmm.dll`** while RTX Remix was installed, its files stay in the game: without the loader
+it can neither start nor remove itself. In a single-player game it usually removes itself at the first map and tells
+you to restart; when it cannot, a window at the first map says what to do. Either:
+
+- **Put the loader back (recommended):** download `winmm.dll` from the
+  [latest release](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/releases/latest) into `GarrysMod\bin\win64`,
+  then follow steps 1 and 2 above (unsubscribe, start once, quit, delete `winmm.dll`). Or stay subscribed and RTX
+  works again.
+- **Or remove it by hand**, with Garry's Mod closed (the window lists exactly what your game has):
+  - from `GarrysMod\garrysmod\addons`: `!advanced_material_editor`, `!gmod_bullet_break_simulator`,
+    `advanced_bodygroup_tool`, `gm_poolrooms_rtx`, `GMod-Seamless-Portals-Remix`, `mmd_hotloader`, `mmd_vmd_npc`,
+    `mount-hl2rtx`, `nativeloader`, `niknaks`, `nlblood`, `nldynamic_toolgun_screen`, `nlglass`, `nlloadaccel`, `nlvr`,
+    `remixbinary`, `Remove_halo`, `rtx_agent`, `rtx_debug`, `rtx_water`;
+  - from `GarrysMod\garrysmod\lua\bin`: `gmcl_advmat_rtx_bridge_win64.dll`, `gmcl_mmdhl_win64.dll`,
+    `gmcl_nlengineguard_win64.dll`, `gmcl_nlfsaccel_win64.dll`, `gmcl_nlglass_win64.dll`, `gmcl_nlvr_win64.dll`,
+    `gmcl_rtxdebug_win64.dll`, `gmcl_RTXFixesBinary_win64.dll`, `gmcl_rtxwater_win64.dll`, `gmsv_mmdhl_win64.dll`,
+    `gmsv_nlengineguard_win64.dll`, `gmsv_nlfsaccel_win64.dll`, `gmsv_nlrtxclient_win64.dll`, `lib_coacd.dll`,
+    `mmdhl_runtime_win64.dll`, `mmdhl_worker.exe`, `mmdhl-native-release.json`, `openvr_api.dll`;
+  - from `GarrysMod\rtx-remix\mods`: `~gmod_topbr`, `base_mod`, `Emissives`, `gm_poolrooms_rtx`, `mmdhl_pbr_linlong`,
+    `nativeloader_ui`, `nl_blood_overhaul_rtx`, `rtx_water`; and `GarrysMod\garrysmod\data\remix_map_configs`;
+  - last, `GarrysMod\native-loader`. Its `backup` folder holds your own files the loader had moved aside: take back
+    what you need first.
+  - If something still looks different after a restart (no 3D skybox, flat lighting), run `r_3dsky 1` and
+    `mat_specular 1` in the console.
+
 To skip the loader for one session without uninstalling, add `-nonativeloader` to the game's launch
 options. That option is for troubleshooting: the package's add-ons stay in the game and run without
 Remix. To play without RTX, set `"remix": { "enabled": false }` in `native-loader\config.json`.

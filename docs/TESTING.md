@@ -3676,3 +3676,18 @@ separator now has 57 texts in each catalog.
   light tool at `sbox_maxsents 2` makes two lights and the third gets the stock limit notice. The same two-slot game again (`review-mp-03`): the sky editor spawns for the listen host (an administrator) and the cleanup takes it. The Mesh Separator's editor flow (`out/msep/poc_editor.py`, `review-editor-01`): a left click opens the editor on the ragdoll, a 224-triangle piece detaches and is placed in place (within the new 64-unit rule). A simulated VR session (`tools/vr_session.py --simulate`, `out/vr/q/review-sim-02`): its start passes the native single-player gate, 2,317 frames rendered at the simulated 90 Hz, none submitted, OpenVR never loaded, no Lua error, a normal quit.
 
 - The follow-up of 2026-11-16, a distant RT light: `test_remix_light_limits.py`'s `distant_sun` scenario and its map-lights source check; in the PoC the saved map-light Brightness stays as it was while `Light2RTX.EnvMuted()` turns on and off with the light ([report](handover/review-fixes-report.md)).
+
+## A window when RTX is left without its loader (Claude, ADR 0235)
+
+- [`test_leftovers_popup.py`](../tools/tests/test_leftovers_popup.py.md) with
+  [`leftovers_popup_harness.lua`](../tools/tests/leftovers_popup_harness.lua.md): the client window's gates (RTX start,
+  the loader present, another machine's server, the server's removal, Don't show this again), its text, the journal's
+  lists, the buttons, without a journal, and the window's limits on files and pages.
+- [`test_leftovers_lua.py`](../tools/tests/test_leftovers_lua.py.md): the state the server writes in each of the
+  clean-up's scenarios, and the short window it sends after a removal, run in a mocked client realm (lines of at most
+  254 bytes, the window's exact source); the helpers in [`leftovers_test_lib.lua`](../tools/tests/leftovers_test_lib.lua.md).
+- In the PoC: `out\msep\poc_leftovers.py` (scratch) showed both windows in gm_construct at 1920 × 1080: the long one after
+  `winmm.dll` and the RTX client module were deleted (760 × 624 px, every line visible, the journal's lists), the short
+  one after `winmm.dll` alone was deleted (the package removed, 1,910 files; 560 × 198 px, sent by the server to a
+  client realm in which the companion never ran); in a two-slot listen game (`out\msep\poc_leftovers_listen.py`) the
+  host saw both, by screenshot ([report](handover/leftovers-popup-report.md)).

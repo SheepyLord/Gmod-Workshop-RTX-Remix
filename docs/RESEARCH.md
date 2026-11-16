@@ -9403,3 +9403,31 @@ merge of patch 0093. Left as they were.
   `out\crash-34b9dc`, read only):
   the bounded welding (at most 16 coincident triangles, 2 pairs a triangle, 4,096 part pairs) gives results identical
   to the unbounded one; 2 x 16,384 copies of one triangle take 1.4 ms and 0.5 MB instead of 1.4 s and 1.2 GB.
+
+## A window when RTX is left without its loader (2026-11-16, Claude; [ADR 0235](decisions/0235-a-window-when-rtx-is-left-without-its-loader.md))
+
+- **After the companion's own removal a single-player client realm runs none of its client files**: the server realm
+  removes the package at `Initialize`, before the player's client realm starts, and that realm then found
+  `NativeLoaderRTXStart` nil (the companion's first autorun never ran there; PoC, gm_construct, single-player). So a
+  window after the removal has to come from the server: `Player:SendLua` lines, which Garry's Mod limits to 254
+  characters; the window's source and text as hexadecimal JSON, 200 digits a line, then one line of 233 characters
+  that decodes, compiles (`CompileString`) and shows it.
+- **A listen game's host differs** (PoC, gm_construct, `+maxplayers 2`): with the package still in place, the host's
+  client included `nativeloader/leftovers_window.lua`, which nothing sent with `AddCSLuaFile`, and showed the long
+  window. After a removal at `Initialize`, the host's client still ran the deleted add-ons' client autoruns that the
+  server had listed, and their own includes failed: "Couldn't include file" for `advmat\cl_05_i18n.lua`,
+  `bullet_break_simulator\cl_40_damage.lua` and `mmd_vmd_npc\sh_core.lua`, and the Model Hotloader's notice showed its
+  raw key `mmdhl.install.notice_binary`. That is ADR 0206's removal in a listen game, once, in the start that asks for
+  a restart; the short window came through as in single-player. The probe could not run there: `lua_run_cl` needs
+  `sv_allowcslua 1` in a listen game, which would also let the client read files the server never sent.
+- **Client Lua reads the loader's journal**: `file.Read("native-loader/state.json", "BASE_PATH")` gave the whole
+  journal (about 1 MB, 1,909 files of the package in `current.files`) in a start without the loader, and
+  `util.JSONToTable` parsed it; the package's places: 20 add-on folders, 18 files in `garrysmod/lua/bin`, 8 Remix
+  mods, `garrysmod/data/remix_map_configs`.
+- **A wrapped `DLabel` has its height only after its own layout**: a window fitted to its labels at `timer.Simple(0)`
+  and again at 0.15 s came out 160 px tall with its second paragraph cut off; fitting on every frame of the window's
+  first second (after DFrame's own `Think`) gives the right height.
+- **Garry's Mod's `DermaDefault` is made with `extended = true`** (`lua/derma/init.lua:8-44`), but at a fixed size:
+  the companion's windows use their own `extended` Tahoma fonts scaled by `ScrH() / 1080`.
+- **The menu realm can delete a data file**: `file.Delete` worked there (the multiplayer cheats request of the review's
+  finding 16 was carried out once per session); only `file.Write` fails in the menu realm.

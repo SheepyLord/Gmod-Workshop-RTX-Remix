@@ -13,9 +13,14 @@ luajit leftovers_harness.lua <repo> gate <file> yes|no
   client module whose `NativeLoaderLeftovers.Remove()` answers per scenario: `rtx-start`, `dedicated`,
   `loader-installed` (no hook, no module), `no-module`, `not-needed`, `module-error` (nothing visible), `refused`
   (a console line only), `removed` and `french` (the settings set back, console lines, the chat notice after the
-  player's first own move, in French), `partly` (what stayed listed).
+  player's first own move, in French), `partly` (what stayed listed). Since ADR 0235 each also checks the state the
+  server writes for the client's window (`data/nativeloader_companion/leftovers_state.json`: the outcome, the reason,
+  the time; nothing in the first three), and after a removal the short window it sends: every `SendLua` line is at
+  most 254 bytes, they run in a mocked client realm (JSON and a VGUI stand-in from
+  [`leftovers_test_lib.lua`](leftovers_test_lib.lua.md)), the source the client compiles is the window file exactly,
+  and the window shows the title (French in `french`), the text for a full or partial removal, the way back and OK.
 - **gate**: loads an autorun file in an environment that fails on any global other than `NativeLoaderRTXStart` and
   `NATIVELOADER_VERIFIED_MULTIPLAYER`. With `no` (a start without RTX) the file must return without touching
   anything; with `yes` it must go on past its gate (and then fail on the empty environment).
 
-Prints `PASS ...` and exits 0, or fails with the reason. Reads only; writes nothing.
+Prints `PASS ...` and exits 0, or fails with the reason. Reads only (the window file among them); writes nothing.

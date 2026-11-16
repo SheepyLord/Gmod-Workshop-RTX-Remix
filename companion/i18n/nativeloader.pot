@@ -8,12 +8,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:123
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:137
 #, c-format
 msgid "%s, in the add-on %s"
 msgstr ""
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:126
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:140
 #, c-format
 msgid ""
 "The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
@@ -702,6 +702,95 @@ msgstr ""
 msgid "RTX Remix guide"
 msgstr ""
 
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:31
+msgid "RTX Remix is still in this game, but its loader is gone"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:32
+msgid "The native loader (bin\\win64\\winmm.dll) was removed while RTX Remix's files stayed in this game. Without the loader, RTX Remix can neither start nor remove itself, so parts of it may still show or look wrong."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:33
+#, c-format
+msgid "It could not remove itself now: %s."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:34
+msgid "Recommended: put the native loader back"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:35
+msgid "1. Download winmm.dll from the latest release (Open the release page) and put it in GarrysMod\\bin\\win64."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:36
+msgid "2. To keep RTX Remix: stay subscribed to it on the Workshop and start Garry's Mod. RTX works again."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:37
+msgid "3. To remove RTX Remix: unsubscribe from it, start Garry's Mod once and quit. The loader removes everything it installed and puts your own files back. Then delete GarrysMod\\bin\\win64\\winmm.dll."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:38
+msgid "Or remove it by hand, with Garry's Mod closed"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:39
+#, c-format
+msgid "Delete these folders from GarrysMod\\garrysmod\\addons: %s"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:40
+#, c-format
+msgid "Delete these files from GarrysMod\\garrysmod\\lua\\bin: %s"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:41
+#, c-format
+msgid "Delete these folders from GarrysMod\\rtx-remix\\mods: %s"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:42
+#, c-format
+msgid "Delete these folders from GarrysMod\\garrysmod\\data: %s"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:43
+#, c-format
+msgid "The loader's record of what it installed is gone. Delete the RTX Remix folders from GarrysMod\\garrysmod\\addons (nativeloader, remixbinary and the others it added), its files from GarrysMod\\garrysmod\\lua\\bin and its mods from GarrysMod\\rtx-remix\\mods; the uninstall steps on GitHub list them: %s"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:44
+msgid "Last, delete GarrysMod\\native-loader. Your own files the loader had moved aside are in its backup folder: take back what you need first."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:45
+msgid "If something still looks different after a restart (no 3D skybox, flat lighting), run r_3dsky 1 and mat_specular 1 in the console."
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:46
+msgid "Open the release page"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:47
+msgid "Copy these steps"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:48
+msgid "Copied"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:49
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
+msgid "Don't show this again"
+msgstr ""
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:50
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+msgid "Close"
+msgstr ""
+
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:21
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:149
@@ -1312,10 +1401,6 @@ msgid "Enter"
 msgstr ""
 
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
-msgid "Close"
-msgstr ""
-
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Tab"
 msgstr ""
 
@@ -1742,6 +1827,27 @@ msgstr ""
 
 #: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:23
 msgid "RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed."
+msgstr ""
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:25
+msgid "RTX Remix was removed from this game"
+msgstr ""
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:26
+msgid "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game. Restart Garry's Mod to finish."
+msgstr ""
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:27
+msgid "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game, but some files stayed; the console lists them. Restart Garry's Mod."
+msgstr ""
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:28
+msgid "To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and subscribe to RTX Remix on the Workshop."
+msgstr ""
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:29
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
 msgstr ""
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
@@ -2998,11 +3104,6 @@ msgstr ""
 msgid "You use this add-on on servers at your own risk: its developers take no responsibility for any consequences."
 msgstr ""
 
-#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
-msgid "Don't show this again"
-msgstr ""
-
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:17
 msgid "I understand, continue"
 msgstr ""
@@ -3072,8 +3173,4 @@ msgstr ""
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:32
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
-msgstr ""
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
 msgstr ""

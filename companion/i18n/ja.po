@@ -8,12 +8,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:123
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:137
 #, c-format
 msgid "%s, in the add-on %s"
 msgstr "%s（アドオン %s）"
 
-#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:126
+#: nativeloader/lua/autorun/!!!!nativeloader_engine_guard.lua:140
 #, c-format
 msgid ""
 "The last start of Garry's Mod did not get past starting Lua. It stopped in %s.\n"
@@ -704,6 +704,95 @@ msgstr "目次"
 msgid "RTX Remix guide"
 msgstr "RTX Remix ガイド"
 
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:31
+msgid "RTX Remix is still in this game, but its loader is gone"
+msgstr "RTX Remix はまだこのゲームにありますが、ローダーがありません"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:32
+msgid "The native loader (bin\\win64\\winmm.dll) was removed while RTX Remix's files stayed in this game. Without the loader, RTX Remix can neither start nor remove itself, so parts of it may still show or look wrong."
+msgstr "RTX Remix のファイルがこのゲームに残ったまま、ネイティブローダー（bin\\win64\\winmm.dll）が削除されました。ローダーがないと RTX Remix は起動することも自身を削除することもできないため、その一部がまだ表示されたり、正しく表示されなかったりすることがあります。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:33
+#, c-format
+msgid "It could not remove itself now: %s."
+msgstr "今回は自身を削除できませんでした：%s。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:34
+msgid "Recommended: put the native loader back"
+msgstr "推奨：ネイティブローダーを元に戻す"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:35
+msgid "1. Download winmm.dll from the latest release (Open the release page) and put it in GarrysMod\\bin\\win64."
+msgstr "1. 最新リリースから winmm.dll をダウンロードし（リリースページを開く）、GarrysMod\\bin\\win64 に置きます。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:36
+msgid "2. To keep RTX Remix: stay subscribed to it on the Workshop and start Garry's Mod. RTX works again."
+msgstr "2. RTX Remix を使い続ける場合：Workshop でサブスクライブしたまま Garry's Mod を起動します。RTX が再び動作します。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:37
+msgid "3. To remove RTX Remix: unsubscribe from it, start Garry's Mod once and quit. The loader removes everything it installed and puts your own files back. Then delete GarrysMod\\bin\\win64\\winmm.dll."
+msgstr "3. RTX Remix を削除する場合：サブスクライブを解除し、Garry's Mod を一度起動して終了します。ローダーがインストールしたものをすべて削除し、あなた自身のファイルを元に戻します。その後 GarrysMod\\bin\\win64\\winmm.dll を削除します。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:38
+msgid "Or remove it by hand, with Garry's Mod closed"
+msgstr "または Garry's Mod を閉じて手動で削除する"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:39
+#, c-format
+msgid "Delete these folders from GarrysMod\\garrysmod\\addons: %s"
+msgstr "GarrysMod\\garrysmod\\addons から次のフォルダーを削除します：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:40
+#, c-format
+msgid "Delete these files from GarrysMod\\garrysmod\\lua\\bin: %s"
+msgstr "GarrysMod\\garrysmod\\lua\\bin から次のファイルを削除します：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:41
+#, c-format
+msgid "Delete these folders from GarrysMod\\rtx-remix\\mods: %s"
+msgstr "GarrysMod\\rtx-remix\\mods から次のフォルダーを削除します：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:42
+#, c-format
+msgid "Delete these folders from GarrysMod\\garrysmod\\data: %s"
+msgstr "GarrysMod\\garrysmod\\data から次のフォルダーを削除します：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:43
+#, c-format
+msgid "The loader's record of what it installed is gone. Delete the RTX Remix folders from GarrysMod\\garrysmod\\addons (nativeloader, remixbinary and the others it added), its files from GarrysMod\\garrysmod\\lua\\bin and its mods from GarrysMod\\rtx-remix\\mods; the uninstall steps on GitHub list them: %s"
+msgstr "ローダーがインストールしたものの記録がなくなっています。GarrysMod\\garrysmod\\addons にある RTX Remix のフォルダー（nativeloader、remixbinary、その他追加されたもの）、GarrysMod\\garrysmod\\lua\\bin にあるそのファイル、GarrysMod\\rtx-remix\\mods にあるその mod を削除してください。GitHub のアンインストール手順に一覧があります：%s"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:44
+msgid "Last, delete GarrysMod\\native-loader. Your own files the loader had moved aside are in its backup folder: take back what you need first."
+msgstr "最後に GarrysMod\\native-loader を削除します。ローダーが退避させたあなた自身のファイルはその backup フォルダーにあります。必要なものを先に取り出してください。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:45
+msgid "If something still looks different after a restart (no 3D skybox, flat lighting), run r_3dsky 1 and mat_specular 1 in the console."
+msgstr "再起動後もまだ見た目が違う場合（3D スカイボックスがない、ライティングが平坦）は、コンソールで r_3dsky 1 と mat_specular 1 を実行してください。"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:46
+msgid "Open the release page"
+msgstr "リリースページを開く"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:47
+msgid "Copy these steps"
+msgstr "この手順をコピー"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:48
+msgid "Copied"
+msgstr "コピーしました"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:49
+#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
+msgid "Don't show this again"
+msgstr "今後表示しない"
+
+#: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:50
+#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
+msgid "Close"
+msgstr "閉じる"
+
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:21
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:149
@@ -1329,10 +1418,6 @@ msgid "Enter"
 msgstr "確定"
 
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
-msgid "Close"
-msgstr "閉じる"
-
-#: nativeloader/lua/autorun/client/nativeloader_vr.lua:271
 msgid "Tab"
 msgstr "タブ"
 
@@ -1760,6 +1845,27 @@ msgstr "ローダー（bin/win64/winmm.dll）が見つからないため、RTX R
 #: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:23
 msgid "RTX Remix was partly removed from this game because its loader (bin/win64/winmm.dll) is gone. Restart Garry's Mod; the console lists what stayed."
 msgstr "ローダー（bin/win64/winmm.dll）が見つからないため、RTX Remix をこのゲームから一部削除しました。Garry's Mod を再起動してください。残ったものはコンソールに表示されています。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:25
+msgid "RTX Remix was removed from this game"
+msgstr "RTX Remix をこのゲームから削除しました"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:26
+msgid "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game. Restart Garry's Mod to finish."
+msgstr "ネイティブローダー（bin\\win64\\winmm.dll）がないため、RTX Remix はこのゲームから自身を削除しました。完了するには Garry's Mod を再起動してください。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:27
+msgid "The native loader (bin\\win64\\winmm.dll) is gone, so RTX Remix removed itself from this game, but some files stayed; the console lists them. Restart Garry's Mod."
+msgstr "ネイティブローダー（bin\\win64\\winmm.dll）がないため、RTX Remix はこのゲームから自身を削除しましたが、一部のファイルが残りました。コンソールに一覧があります。Garry's Mod を再起動してください。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:28
+msgid "To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and subscribe to RTX Remix on the Workshop."
+msgstr "RTX Remix を再び使うには、winmm.dll を GarrysMod\\bin\\win64 に戻し、Workshop で RTX Remix をサブスクライブしてください。"
+
+#: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:29
+#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
+msgid "OK"
+msgstr "了解"
 
 #: nativeloader/lua/nativeloader/engine_guard_words.lua:8
 msgid "Garry's Mod is not finishing its start"
@@ -3020,11 +3126,6 @@ msgstr "オンラインでの性能と安定性は保証されません。特に
 msgid "You use this add-on on servers at your own risk: its developers take no responsibility for any consequences."
 msgstr "サーバー上での本アドオンの使用は自己責任です。開発者は、それによって生じたいかなる結果にも責任を負いません。"
 
-#: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
-msgid "Don't show this again"
-msgstr "今後表示しない"
-
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:17
 msgid "I understand, continue"
 msgstr "理解して続行"
@@ -3095,7 +3196,3 @@ msgstr "RTX Remix は Steam でオフになっています"
 #, c-format
 msgid "RTX Remix could not be turned off (%s). To remove it, unsubscribe from it."
 msgstr "RTX Remix をオフにできませんでした（%s）。削除するには、サブスクライブを解除してください。"
-
-#: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
-msgid "OK"
-msgstr "了解"

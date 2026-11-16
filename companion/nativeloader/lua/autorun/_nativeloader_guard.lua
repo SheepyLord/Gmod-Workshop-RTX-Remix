@@ -519,6 +519,7 @@ lua/autorun/client/nativeloader_eye_whites.lua
 lua/autorun/client/nativeloader_guide.lua
 lua/autorun/client/nativeloader_imported_normals.lua
 lua/autorun/client/nativeloader_imported_parts.lua
+lua/autorun/client/nativeloader_leftovers_popup.lua
 lua/autorun/client/nativeloader_menu.lua
 lua/autorun/client/nativeloader_mmd_alpha.lua
 lua/autorun/client/nativeloader_model_layers.lua
@@ -665,6 +666,7 @@ lua/nativeloader/eye_white_names.lua
 lua/nativeloader/eye_white_vtf.lua
 lua/nativeloader/guide_pages.lua
 lua/nativeloader/i18n.lua
+lua/nativeloader/leftovers_window.lua
 lua/nativeloader/menu/load_accel.lua
 lua/nativeloader/menu/loading_status.lua
 lua/nativeloader/menu/multiplayer_cheats.lua

@@ -165,3 +165,12 @@ Checks:
     drum cleared the target;
   - with the tool out, the editor closed and all of Character A selected, frames averaged 15.5 ms over 300 (65.7 ms with
     the overlay); the screenshot shows nothing drawn on the model.
+
+The gate on the branch (`a61de90f`): "All checks passed" (repo conventions OK; C++ 35 of 35; Python 2,029 tests in
+`tools`, 1 skipped, 29 in `gmapack`, 26 in `steam`).
+
+Published: `main` was fast-forwarded to `a61de90f` and pushed (`db1c67e4..a61de90f`, no LFS objects). The merge's hook
+built the package from `packages/` and uploaded item 3829070317 as **0.0.0-dev.20261116112616+970cbb80** (2,301,129,327
+bytes, content digest `0df73bef...`, the same content as the package checked in the PoC), its change note the
+changelog's new entry; the push's hook found the inputs unchanged. Not yet seen in the field: a running game keeps the
+previous separator until it restarts.

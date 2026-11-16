@@ -176,8 +176,12 @@ left out of the fixes repo.
 Tests: [tests/test_package_fixes.py](tests/test_package_fixes.py.md).
 
 When the companion is included, companion/presentation startup text is copied under
-garrysmod/data/nativeloader_ui with create-only policy, preserving user edits.
-These are plain localized runtime input files, not executable menu modifications.
+`rtx-remix/mods/nativeloader_ui` (`STARTUP_TEXT`) with create-only policy, preserving user edits. The runtime reads
+it there (`StartupMessage::folder`, runtime patch 0103). Until the review of 2026-11-16 (finding 17) it went to
+`garrysmod/data/nativeloader_ui`, where any server's client Lua can write `.txt` files; neither GMod's Lua nor another
+Workshop item's package can write the new folder, which holds no mod file, so Remix's mod manager passes it by. A fixes
+tree with a Remix mod of that name is refused. These are plain localized runtime input files, not executable menu
+modifications.
 
 The generated companion table includes the bundled-interface catalogs in `companion/i18n/addons`.
 The newest `.po` timestamp is found recursively, so an add-on translation update participates in

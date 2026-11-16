@@ -222,7 +222,12 @@ int wmain(int argc,wchar_t** argv){try{
   check(granted.value("state","")=="denied"&&logged(log).size()==asked+1,"another script with the same label used the remembered folder: "+granted.dump());
   granted=wait(*fa,fa->request({{"requester","Keyed"},{"path",local+"\\allowed\\a.json"}}));
   check(granted.value("state","")=="denied"&&logged(log).size()==asked+2,"a script the module could not name used the remembered folder: "+granted.dump());
-  auto listed=fa->grants();for(auto& g:listed["grants"])if(g.value("requester","")=="Keyed")check(fa->revoke(g["id"].get<std::string>()),"revoking the keyed grant");}
+  // The grants list hands out no key a script could reuse (review finding 27): no label, script or path.
+  auto listed=fa->grants();bool keyless=!listed["grants"].empty();
+  for(auto& g:listed["grants"]){keyless&=g.size()==4&&g.contains("id")&&g.contains("place")&&g.contains("created")&&g.contains("used");
+   keyless&=g.dump().find("Keyed")==std::string::npos&&g.dump().find("real.lua")==std::string::npos&&g["place"].get<std::string>()=="\xE2\x80\xA6\\allowed";}
+  check(keyless,"the grants list carries a requester, a script or a path: "+listed.dump());
+  auto stored=readJson(config.store);for(auto& g:stored["grants"])if(g.value("requester","")=="Keyed")check(fa->revoke(g["id"].get<std::string>()),"revoking the keyed grant");}
  // Missing, linked and denied targets still show a dialog: Lua cannot probe silently.
  answer(L"once");granted=wait(*fa,fa->request({{"requester","Prober"},{"path",local+"\\allowed\\missing.json"}}));
  check(granted.value("state","")=="denied"&&logged(log).back().value("problem","")=="not_found","a missing file: "+granted.dump());
@@ -259,9 +264,8 @@ int wmain(int argc,wchar_t** argv){try{
  answer(L"yes");on=fa->setEnabled(true,"en");check(wait(*fa,on["request"]).value("state","")=="granted"&&fa->info().value("enabled",false)&&readJson(config.store).value("enabled",false),"turning on");
  // Revoking: the grant is gone and so are the items it answered.
  granted=wait(*fa,fa->request({{"requester","Test Addon"},{"path",local+"\\allowed\\a.json"}}));check(granted["items"][0].value("remembered",false),"the remembered grant after re-enabling");
- // The user's folder shows as "~" (when the test's folder lies in it: TEMP may be elsewhere).
- bool inProfile=false;{PWSTR p=nullptr;SHGetKnownFolderPath(FOLDERID_Profile,0,nullptr,&p);inProfile=insideFolder(root,resolveFile(p).path);CoTaskMemFree(p);}
- auto grants=fa->grants();check(grants["grants"].size()==1&&grants["grants"][0]["folder"].get<std::string>().starts_with("~")==inProfile,"the grants list: "+grants.dump());
+ // The list names a folder by its own name only, never by a path (review finding 27).
+ auto grants=fa->grants();check(grants["grants"].size()==1&&grants["grants"][0].size()==4&&grants["grants"][0]["place"]=="\xE2\x80\xA6\\allowed"&&!grants["grants"][0].contains("folder"),"the grants list: "+grants.dump());
  check(fa->revoke(grants["grants"][0]["id"])&&fa->grants()["grants"].empty()&&readJson(config.store)["grants"].empty(),"revoke");
  check(refusal([&]{fa->read(granted["items"][0]["handle"],Json::object());})=="released","an item outlived its revoked grant");
  // The store: a corrupt file means no grants; entries that fail the rules are dropped.
@@ -271,7 +275,7 @@ int wmain(int argc,wchar_t** argv){try{
   {{"id","0123456789abcde2"},{"requester","Denied"},{"folder",local+"\\outside\\denied"}},{{"id","BAD"},{"requester","Bad id"},{"folder",local+"\\allowed"}},
   {{"id","0123456789abcde3"},{"requester","Bad\nname"},{"folder",local+"\\allowed"}}}}}.dump());
  fa=std::make_unique<FileAccess>(config);grants=fa->grants();
- check(grants["grants"].size()==1&&grants["grants"][0]["requester"]=="Kept"&&!grants.value("enabled",true),"store validation: "+grants.dump());
+ check(grants["grants"].size()==1&&grants["grants"][0]["id"]=="0123456789abcdef"&&grants["grants"][0]["used"]==2&&!grants.value("enabled",true),"store validation: "+grants.dump());
  // Closing a picker is not a refusal of the addon, and an allowed request clears its refusals.
  fa=std::make_unique<FileAccess>(FileAccessConfig{config.worker,root/L"store2"/L"file-access.json",config.temp,policy});
  answer(L"cancelled");for(int i=0;i<4;i++)check(wait(*fa,fa->pick({{"requester","Picker"}})).value("state","")=="denied","closing the picker "+std::to_string(i+1)+" times");
@@ -379,7 +383,8 @@ int wmain(int argc,wchar_t** argv){try{
   check(twoInner["items"][0].value("remembered",false)&&logged(log).size()==dialogs,"the other process did not use the smaller folder: "+twoInner.dump());
   auto oneItem=inner["items"][0]["handle"].get<std::string>(),twoItem=twoInner["items"][0]["handle"].get<std::string>();
   auto wider=wait(one,one.request({{"requester","Grow"},{"path",local+"\\allowed\\a.json"}}));auto grants=one.grants()["grants"];
-  check(wider.value("state","")=="granted"&&grants.size()==1&&grants[0]["folder"].get<std::string>()==displayPath(root/L"allowed"),"the larger folder did not replace the smaller one: "+grants.dump());
+  auto storedFolders=readJson(shared.store)["grants"];
+  check(wider.value("state","")=="granted"&&grants.size()==1&&grants[0]["place"]=="\xE2\x80\xA6\\allowed"&&storedFolders.size()==1&&storedFolders[0]["folder"]==u8(root/L"allowed"),"the larger folder did not replace the smaller one: "+grants.dump()+" "+storedFolders.dump());
   check(readNow(one,oneItem,{{"length",16}}).data==blob.substr(0,16),"a file the larger folder covers was released when it replaced the smaller one");
   check(readNow(two,twoItem,{{"length",16}}).data==blob.substr(0,16)&&two.grants()["grants"].size()==1,"the other process released a file the larger folder covers");
   auto running=one.read(oneItem,{{"length",16}}),twoRunning=two.read(twoItem,{{"length",16}});settle();

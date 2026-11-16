@@ -422,6 +422,8 @@ void installSourceShadows(){
 void registerSourceShadow(int entity,uint64_t instance,const std::vector<std::string>& names,float alpha,void* corpsePhysics){
     if(!std::isfinite(alpha)||alpha<0||alpha>1)throw std::runtime_error("Invalid shadow alpha");
     auto& owner=world().get(instance);if(!owner.sourceRig||names.size()!=owner.model->materials.size())throw std::runtime_error("Source shadow mapping does not match model");
+    // Only an index inside the engine's entity list reaches GetClientEntity (renderer.hpp sourceEntityIndex).
+    if(!corpsePhysics&&(entity<0||entity>=SourceEntitySlots))throw std::runtime_error("Invalid Source entity index");
     auto entities=sourceEntityList();
     // Client-only corpses have EntIndex -1. Source CRagdoll::Init stores its
     // C_BaseEntity in every IPhysicsObject's game data. Use that supported

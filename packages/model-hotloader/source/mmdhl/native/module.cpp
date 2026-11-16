@@ -1,4 +1,5 @@
 #include "runtime.hpp"
+#include "assets.hpp"
 #include "installation.hpp"
 #include "compatibility.hpp"
 #include "renderer.hpp"
@@ -44,11 +45,12 @@ constexpr bool ServerRealm=true;
 #else
 constexpr bool ServerRealm=false;
 #endif
+// registry: a Reload or PropReload, whose source came from Reload's registry (assets.hpp sourceRegistryPath).
 #ifdef _WIN32
-struct Job{HANDLE process=nullptr,group=nullptr;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false;};
+struct Job{HANDLE process=nullptr,group=nullptr;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false,registry=false;};
 #else
 // The worker process (posix::Child: its own process group, killed with this thread).
-struct Job{posix::Child child;bool process=false;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false;};
+struct Job{posix::Child child;bool process=false;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false,registry=false;};
 static uint64_t GetTickCount64(){return posix::tickMs();}
 static unsigned long GetCurrentProcessId(){return static_cast<unsigned long>(getpid());}
 #endif
@@ -80,6 +82,16 @@ void requireServer(){
 throw std::runtime_error("Server realm owns simulation");
 #endif
 }
+// ---- absolute paths and another server's scripts (review finding 18; installation.hpp) ----
+// In single player and on a server this game hosts every script is the player's own, and gets paths as
+// they are. Connected to any other server, every client script comes from that server: this process runs
+// no server module then (localServerRealm counts the server realms in this process, which a remote
+// server's scripts cannot change), and no absolute path (the Windows account name, the folders) goes to
+// Lua: a path inside the game folder becomes relative to it, anything else its file name.
+bool ownScripts(){return ServerRealm||localServerRealm();}
+std::string fileName(const std::string& path){try{return utf8(fs::path(wide(path)).filename().wstring());}catch(...){return {};}}
+std::string gameRelative(const std::string& text,bool marked){return gameRelativePath(context->root,text,marked);}
+bool namesPath(const std::string& s){return namesAbsolutePath(s);}
 // A job's folder (request and status) is only needed until its result reaches
 // Lua; the newest results stay in memory for late polls. Never follow a junction.
 #ifdef _WIN32
@@ -167,7 +179,10 @@ FUNCTION(GetInstallationInfo) {
 #endif
  reinterpret_cast<const void*>(&GetInstallationInfo));
  own["release"]=MMDHL_RELEASE;own["build"]=MMDHL_BUILD_ID;
- push(LUA,{{"module",own},{"runtime",runtimeIdentity()}});return 1;
+ auto runtime=runtimeIdentity();
+ // Another server's scripts get the files relative to the game folder (ownScripts); the check still compares them.
+ if(!ownScripts()){own=gameRelativeIdentity(context->root,own);runtime=gameRelativeIdentity(context->root,runtime);}
+ push(LUA,{{"module",own},{"runtime",runtime}});return 1;
 } END_FUNCTION
 FUNCTION(ConfigureCompatibility) {push(LUA,configureCompatibility(json(LUA,1)));return 1;} END_FUNCTION
 FUNCTION(CheckCompatibility) {push(LUA,checkCompatibility(
@@ -185,23 +200,49 @@ FUNCTION(StartInstallationProbe) {
 FUNCTION(PollInstallationProbe) {
  if(!installationProbe.valid()){LUA->PushNil();return 1;}
  if(installationProbe.wait_for(std::chrono::seconds(0))!=std::future_status::ready){push(LUA,{{"pending",true}});return 1;}
- push(LUA,installationProbe.get());return 1;
+ // Another server's scripts: the worker's runtime relative to the game folder, and no message naming a path.
+ Json result;try{result=installationProbe.get();}catch(const std::exception& e){if(ownScripts()||!namesPath(e.what()))throw;throw std::runtime_error("Worker self-test failed: its report could not be read");}
+ if(!ownScripts()&&result.is_object()&&result.contains("runtime"))result["runtime"]=gameRelativeIdentity(context->root,result["runtime"]);
+ push(LUA,result);return 1;
 } END_FUNCTION
 FUNCTION(GetCapabilities) {push(LUA,{{"api",ApiVersion},{"version",MMDHL_RELEASE},{"build",MMDHL_BUILD_ID},{"installApi",MMDHL_INSTALL_API},{"rigVersion",RigVersion},{"rigGenerator",RigGenerator},{"rigGeneratorMin",RigGeneratorMinLoadable},{"physicsEditor",PhysicsSchema},{"sharingVersion",2},{"workers",workerCount()},{"presentationClock","fixed60-interpolated"},{"bulletApiSIMD",false},{"secondaryBroadphaseDefault",secondaryBroadphaseDefault()},{"platform",MMDHL_PLATFORM},{"parser","nanoem"},{"physics","Bullet 3.25"},{"sharedProcessSnapshots",false},{"skinning",{"BDEF1","BDEF2","BDEF4","SDEF","QDEF"}},{"characterImport",{{"version",1},{"probeVersion",1},{"requestVersion",1},{"formats",{"fbx","glb","gltf","dae"}}}},{"boneMap",{{"version",1},{"fit",true}}},{"fullTextures",FullTextureEdge},{"propFullTextures",props::fullTextureLimits().textureDimension},{"secondaryGravity",Secondary::MaxGravityScale},{"secondaryBuoyancy",1}});return 1;} END_FUNCTION
 FUNCTION(Browse) {auto kind=LUA->IsType(1,GarrysMod::Lua::Type::String)?stringArg(LUA,1):std::string();if(!kind.empty()&&kind!="static")throw std::runtime_error("Unknown import kind");LUA->PushNumber(double(launch(true,"",kind.empty()?Json::object():Json{{"kind",kind}})));return 1;} END_FUNCTION
 // Save a part preset of a cached static prop (materials and/or region cut).
 FUNCTION(PropDerive) {auto id=stringArg(LUA,1);if(!validId(id))throw std::runtime_error("Invalid prop ID");if(!fs::exists(context->cache/L"static"/L"assets"/wide(id+".gmdl")))throw std::runtime_error("The original prop is not in the local cache");auto options=json(LUA,2);options["kind"]="derive";options["parent"]=id;LUA->PushNumber(double(launch(false,"",options)));return 1;} END_FUNCTION
+// An entry ({"source","options"}) of Reload's registry (outside the cache: assets.hpp sourceRegistryPath),
+// or null. Nothing about the registry's own file reaches Lua: it is in the player's profile.
+Json sourceEntry(SourceRegistry which,const std::string& id){
+ Json registry;
+ try{auto path=sourceRegistryPath(context->cache,which);std::error_code error;if(fs::is_regular_file(ioPath(path),error))registry=readJson(path);}catch(...){}
+ if(!validId(id)||!registry.is_object()||!registry.contains(id))return Json();
+ auto& entry=registry[id];if(!entry.is_object()||!entry.contains("source")||!entry["source"].is_string())return Json();
+ return entry;
+}
+#ifndef MMDHL_SERVER
+// Reload's source paths for the library's lists, {"<id>":{"source":...}} (characters or static props): the
+// paths for the player's own scripts, only the file names for another server's (ownScripts).
+FUNCTION(GetSourcePaths) {
+ auto kind=stringArg(LUA,1);if(kind!="character"&&kind!="static")throw std::runtime_error("Unknown source kind");
+ Json out=Json::object(),registry;
+ try{auto path=sourceRegistryPath(context->cache,kind=="character"?SourceRegistry::Characters:SourceRegistry::Props);std::error_code error;if(fs::is_regular_file(ioPath(path),error))registry=readJson(path);}catch(...){}
+ if(registry.is_object())for(auto& [id,entry]:registry.items()){
+  if(!validId(id)||!entry.is_object()||!entry.contains("source")||!entry["source"].is_string())continue;
+  auto source=entry["source"].get<std::string>();out[id]={{"source",ownScripts()?source:fileName(source)}};
+ }
+ push(LUA,out);return 1;
+} END_FUNCTION
+#endif
 // Reimport a static prop from its recorded local source with new import options.
-FUNCTION(PropReload) {auto id=stringArg(LUA,1);if(!validId(id))throw std::runtime_error("Invalid prop ID");auto path=context->cache/L"static"/L"sources.local.json";if(!fs::exists(path))throw std::runtime_error("Source path unavailable; import the file again");auto registry=readJson(path);if(!registry.contains(id))throw std::runtime_error("Source path unavailable; import the file again");auto options=json(LUA,2);options["kind"]="static";
+FUNCTION(PropReload) {auto id=stringArg(LUA,1);if(!validId(id))throw std::runtime_error("Invalid prop ID");auto entry=sourceEntry(SourceRegistry::Props,id);if(entry.is_null())throw std::runtime_error("Source path unavailable; import the file again");auto options=json(LUA,2);options["kind"]="static";
     // A .blend reimport keeps the objects chosen at import.
-    auto previous=registry[id].value("options",Json::object());if(!options.contains("objects")&&previous.contains("objects"))options["objects"]=previous["objects"];
-    LUA->PushNumber(double(launch(false,registry[id].at("source"),options)));return 1;} END_FUNCTION
+    auto previous=entry.value("options",Json::object());if(!options.contains("objects")&&previous.is_object()&&previous.contains("objects"))options["objects"]=previous["objects"];
+    auto job=launch(false,entry.at("source"),options);context->jobs.at(job).registry=true;LUA->PushNumber(double(job));return 1;} END_FUNCTION
 FUNCTION(BeginImport) {LUA->PushNumber(double(launch(false,stringArg(LUA,1),json(LUA,2))));return 1;} END_FUNCTION
 // Reload replays the recorded options; the player's current import settings (optional
 // JSON, argument 2) replace the recorded ones: textures at full size.
-FUNCTION(Reload) {auto id=stringArg(LUA,1);auto registry=readJson(context->cache/L"sources.local.json");if(!registry.contains(id))throw std::runtime_error("Source path unavailable; select the model again");auto entry=registry[id];auto options=entry.value("options",Json::object());
+FUNCTION(Reload) {auto id=stringArg(LUA,1);auto entry=sourceEntry(SourceRegistry::Characters,id);if(entry.is_null())throw std::runtime_error("Source path unavailable; select the model again");auto options=entry.value("options",Json::object());
     if(LUA->IsType(2,GarrysMod::Lua::Type::String)){auto settings=json(LUA,2);auto full=settings.find("fullTextures");if(full!=settings.end()&&*full==true)options["fullTextures"]=true;else if(options.is_object())options.erase("fullTextures");}
-    LUA->PushNumber(double(launch(false,entry.at("source"),options)));return 1;} END_FUNCTION
+    auto job=launch(false,entry.at("source"),options);context->jobs.at(job).registry=true;LUA->PushNumber(double(job));return 1;} END_FUNCTION
 // The end of the worker's crash log (worker.cpp), read before the job folder goes.
 std::string workerLog(const fs::path& dir){
  std::ifstream f(ioPath(dir/L"worker.log"),std::ios::binary|std::ios::ate);if(!f)return {};auto size=std::streamoff(f.tellg());auto start=std::max<std::streamoff>(0,size-4096);
@@ -219,7 +260,14 @@ Json finishedJob(Job& j,Json last,const std::string& readError){
  if(result.value("state","")=="failed"&&!result.contains("elapsed_ms"))result["elapsed_ms"]=GetTickCount64()-j.started;
  return result;
 }
-FUNCTION(PollJob) {auto it=context->jobs.find(number(LUA,1));if(it==context->jobs.end())throw std::runtime_error("Unknown job");auto& j=it->second;if(!j.result.is_null()){push(LUA,j.result);return 1;}
+// What a poll shows the calling scripts: as it is to the player's own, without folders to another server's
+// (withoutFolders; a picker's choice keeps its path, the server's import of it needs it).
+Json jobForScripts(const Job& j,const Json& result){
+ if(ownScripts())return result;
+ std::vector<fs::path> folders{j.dir};if(j.registry)try{folders.push_back(fs::path(wide(j.source)).parent_path());}catch(...){}
+ return withoutFolders(result,folders);
+}
+FUNCTION(PollJob) {auto it=context->jobs.find(number(LUA,1));if(it==context->jobs.end())throw std::runtime_error("Unknown job");auto& j=it->second;if(!j.result.is_null()){push(LUA,jobForScripts(j,j.result));return 1;}
     bool finished=workerFinished(j);Json result;std::string readError;try{result=readJson(j.dir/L"status.json");}catch(const std::exception& e){if(finished)readError=e.what();else result={{"state","running"},{"stage","Waiting for worker status"},{"progress",0}};}
     if(!finished&&GetTickCount64()-j.started>300000)result["warning"]="Import is taking longer than five minutes. You can keep waiting or cancel.";
 #ifdef _WIN32
@@ -233,7 +281,7 @@ FUNCTION(PollJob) {auto it=context->jobs.find(number(LUA,1));if(it==context->job
 #endif
     }
     else if(result.value("state","")!="running")result={{"state","running"},{"stage","Committing asset"},{"progress",.99}};
-    push(LUA,result);return 1;} END_FUNCTION
+    push(LUA,jobForScripts(j,result));return 1;} END_FUNCTION
 #ifdef _WIN32
 FUNCTION(CancelJob) {auto it=context->jobs.find(number(LUA,1));if(it!=context->jobs.end()){auto& j=it->second;if(j.group){TerminateJobObject(j.group,1);CloseHandle(j.group);j.group=nullptr;}if(j.process){CloseHandle(j.process);j.process=nullptr;}
 #else
@@ -385,6 +433,14 @@ FUNCTION(PollPackageExport) {
   if(job.future.wait_for(std::chrono::seconds(0))!=std::future_status::ready){std::lock_guard lock(job.progress->lock);push(LUA,{{"state","running"},{"progress",job.progress->fraction.load()},{"stage",job.progress->stage}});return 1;}
   try{job.result=job.future.get();job.result["state"]="complete";}catch(const std::exception& e){job.result={{"state",job.progress->cancel?"cancelled":"failed"},{"error",e.what()}};}
   job.finished=true;
+ }
+ // Another server's scripts: the export's files relative to the game folder (the gmpublish command then
+ // runs from there), and no message naming a path.
+ if(!ownScripts()){
+  auto result=job.result;
+  for(auto key:{"path","folder","gmpublish"})if(result.contains(key)&&result[key].is_string())result[key]=gameRelative(result[key].get<std::string>(),false);
+  if(result.contains("error")&&result["error"].is_string()&&namesPath(result["error"].get<std::string>()))result["error"]="The export failed";
+  push(LUA,result);return 1;
  }
  push(LUA,job.result);return 1;
 } END_FUNCTION
@@ -759,7 +815,7 @@ FUNCTION(RegisterSourceShadow) {
  if(LUA->IsType(1,GarrysMod::Lua::Type::PhysObj)){
   physics=LUA->GetUserType<void>(1,GarrysMod::Lua::Type::PhysObj);
   if(!physics||instance>1000000000)throw std::runtime_error("Source shadow physics object not available");key=int(1048576+instance);
- }else key=int(number(LUA,1));
+ }else key=sourceEntityIndex(number(LUA,1));
  registerSourceShadow(key,instance,json(LUA,3).get<std::vector<std::string>>(),float(LUA->GetNumber(4)),physics);LUA->PushBool(true);return 1;
 } END_FUNCTION
 FUNCTION(RemoveSourceShadow) {removeSourceShadow(int(number(LUA,1)));return 0;} END_FUNCTION
@@ -871,12 +927,14 @@ GMOD_MODULE_OPEN(){
         context->root=root;context->bin=root/L"garrysmod"/L"lua"/L"bin";context->cache=ioPath(root/L"garrysmod"/L"data"/L"mmd_hotloader");fs::create_directories(context->cache);
 #ifndef MMDHL_SERVER
         sweepJobFolders(context->cache,std::chrono::hours(24));try{sweepPrivateFolders(L"job-",std::chrono::hours(24),importJobsFolder());}catch(...){}
+        // Reload's registries from before leave garrysmod/data, which any server's scripts read (review finding 18).
+        try{moveSourceRegistries(context->cache);}catch(...){}
 #endif
         LUA->CreateTable();
 #define REGISTER(name) LUA->PushCFunction(name);LUA->SetField(-2,#name)
         REGISTER(GetInstallationInfo);REGISTER(ConfigureCompatibility);REGISTER(CheckCompatibility);
 #ifndef MMDHL_SERVER
-        REGISTER(StartInstallationProbe);REGISTER(PollInstallationProbe);REGISTER(StartPackageExport);REGISTER(PollPackageExport);REGISTER(CancelPackageExport);REGISTER(RevealPackageExport);REGISTER(InspectModelNotes);
+        REGISTER(StartInstallationProbe);REGISTER(PollInstallationProbe);REGISTER(StartPackageExport);REGISTER(PollPackageExport);REGISTER(CancelPackageExport);REGISTER(RevealPackageExport);REGISTER(InspectModelNotes);REGISTER(GetSourcePaths);
 #endif
         REGISTER(GetMountablePackage);REGISTER(StartAddonPackageScan);REGISTER(PollAddonPackageScan);
         REGISTER(ExportSecondaryScene);REGISTER(ReadSceneChunk);REGISTER(AcceptSceneGeometry);REGISTER(PublishRemoteScene);REGISTER(ClearRemoteScene);REGISTER(StartSharedMaterialBuild);REGISTER(StartSharedExport);REGISTER(GetSharedExportSize);REGISTER(ReadSharedExport);REGISTER(ReleaseSharedExport);REGISTER(PollSharedCommit);REGISTER(GetSharedManifest);REGISTER(SharedFileMatches);REGISTER(ReadSharedChunk);REGISTER(BeginSharedFile);REGISTER(AppendSharedChunk);REGISTER(CommitSharedFile);REGISTER(CancelSharedFile);REGISTER(ForgetAssets);REGISTER(GetCapabilities);REGISTER(Browse);REGISTER(BeginImport);REGISTER(Reload);REGISTER(PollJob);REGISTER(CancelJob);REGISTER(RequestAsset);REGISTER(StartAssetCheck);REGISTER(PollAssetCheck);REGISTER(AssetInfo);REGISTER(InspectBoneMap);REGISTER(GetBoneMapProposal);REGISTER(PreviewCarrierFit);REGISTER(CreateInstance);REGISTER(DestroyInstance);REGISTER(GetDiagnostics);REGISTER(SetMaterialVisibility);REGISTER(SetSecondaryCollisionMode);REGISTER(SetSecondaryCollisionFlags);REGISTER(GetSecondaryCapabilities);REGISTER(GetSecondaryBackend);REGISTER(SetSecondaryBackend);REGISTER(SetVulkanSolverOrdering);REGISTER(Step);REGISTER(ResetPhysics);REGISTER(SetFrozen);REGISTER(SetMorph);REGISTER(SetBonePose);REGISTER(SetMirror);REGISTER(RemoveMirror);REGISTER(TakeImpulses);REGISTER(Raycast);REGISTER(BeginPhysgun);REGISTER(UpdatePhysgun);REGISTER(GetBoneTransform);REGISTER(GetMorphWeights);REGISTER(BeginGrab);REGISTER(UpdateGrab);REGISTER(EndGrab);REGISTER(Clear);

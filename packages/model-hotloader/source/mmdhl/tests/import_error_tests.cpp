@@ -3,6 +3,7 @@
 // the format sniffer; file errors; worker exit codes; and the worker's status.json
 // and crash log (argv[1] = mmdhl_worker.exe). No GPU, game, network or user models.
 #include "runtime.hpp"
+#include "assets.hpp"
 #include "import_error.hpp"
 #include "dependency_scope.hpp"
 #include "release.hpp"
@@ -124,6 +125,13 @@ int main(int argc,char** argv){try{
  SetConsoleOutputCP(CP_UTF8);
 #endif
  auto temp=fs::temp_directory_path()/(L"mmdhl-import-errors-"+std::to_wstring(processId()));fs::remove_all(temp);fs::create_directories(temp);
+ // Reload's registries (assets.hpp sourceRegistryPath) stay in the test's folder, never in %LOCALAPPDATA% (CTest
+ // names one for every test; the worker this test starts inherits it).
+#ifdef _WIN32
+ if(!GetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",nullptr,0))SetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",(temp/L"sources").c_str());
+#else
+ setenv("MMDHL_SOURCES_DIR",(temp/"sources").c_str(),0);
+#endif
 
  // ---- PMX: nanoem's failures name the section, the element, the last good one and the byte ----
  {auto raw=readFile("tests/fixtures/truncated.pmx");auto e=failure([&]{parse(raw);},"truncated PMX");
@@ -257,7 +265,7 @@ int main(int argc,char** argv){try{
   auto rollback=temp/L"cache-rollback";fs::create_directories(rollback/L"textures");writeAtomic(rollback/L"textures"/wide(base+".vtf"),bytes("not a vtf"));
   e=failure([&]{importAsset(folder/L"model.pmx",rollback,Json::object(),{});},"import over a damaged derivative");
   check(e.code=="texture.derivative"&&!fs::exists(rollback/L"assets"/wide(id)/L"manifest.json")&&!fs::exists(rollback/L"assets"/wide(id)),"a failed import leaves no catalog entry and removes the model data it wrote");
-  auto registry=rollback/L"sources.local.json";check(!fs::exists(registry)||!readJson(registry).contains(id),"a failed import records no source to reload");}
+  auto registry=sourceRegistryPath(rollback,SourceRegistry::Characters);check(!fs::exists(registry)||!readJson(registry).contains(id),"a failed import records no source to reload");}
 
  // ---- textures past 4096: scaled down by default, kept at full size with fullTextures ----
  {auto folder=temp/L"large";fs::create_directories(folder);
@@ -279,7 +287,7 @@ int main(int argc,char** argv){try{
   check(noted(full["info"],"Large texture wide.tga (4100 x 8) was kept at full size; memory use and loading time are higher.")&&!noted(full["info"],"Large texture wide.tga (4100 x 8) was scaled down to 4096 x 8; the game shows no more detail than that."),"a texture kept at full size is noted as such");
   auto derivative=cache/L"textures"/wide(fullTexture+".full.vtf"),package=cache/L"assets"/wide(fullId)/L"materials-v5.gma";
   check(vtfWidth(derivative)==4100&&!fs::exists(cache/L"textures"/wide(fullTexture+".vtf"))&&packageHas(package,"materials/mmd/tf/"+fullTexture.substr(0,16)+".vtf"),"the full-size texture has its own Source derivative and engine path");
-  check(readJson(cache/L"sources.local.json")[fullId]["options"]==Json{{"fullTextures",true}},"Reload replays the full-size import");
+  check(readJson(sourceRegistryPath(cache,SourceRegistry::Characters))[fullId]["options"]==Json{{"fullTextures",true}},"Reload replays the full-size import");
   // Peers build the package from the manifest and the image: the same bytes.
   auto built=readFile(package);fs::remove(package);fs::remove(derivative);prepareSourceMaterials(cache,fullId);check(readFile(package)==built,"the full-size package builds again byte for byte");
   check(loadAsset(cache,fullId)->id==fullId,"an asset with full-size textures loads");
@@ -296,6 +304,65 @@ int main(int argc,char** argv){try{
   // Deleting the asset removes the full-size derivative with its image; the scaled one stays with its asset.
   deleteAssets(cache,{fullId,forged});
   check(!fs::exists(derivative)&&!fs::exists(cache/L"textures"/wide(fullTexture+".png"))&&fs::exists(cache/L"textures"/wide(plainTexture+".vtf")),"deletion removes the full-size derivative of an unused texture");}
+
+ // ---- what a script can write into the cache (review findings 6 and 9) ----
+ // A manifest that is the content address of its own text, as a script can make one (any source hash).
+ {auto cache=temp/L"cache-crafted";
+  auto forge=[&](Json manifest){manifest["version"]=2;if(!manifest.contains("sourceHash"))manifest["sourceHash"]=std::string(64,'0');manifest["id"]=manifest["sourceHash"];
+   auto encoded=manifest.dump();auto id=hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()));manifest["id"]=id;
+   writeJson(cache/L"assets"/wide(id)/L"manifest.json",manifest);return id;};
+  // A cached "PNG" that is an 18-byte TGA header: stb's TGA loader left the rows it could not read uninitialised, and
+  // the Source texture made from them carried the game's old heap to any server's file.Read. Only a PNG is decoded.
+  {std::string texture(64,'7');Bytes tga(18,0);tga[2]=2;tga[12]=128;tga[14]=128;tga[16]=32;tga[17]=8;
+   writeAtomic(cache/L"textures"/wide(texture+".png"),tga);
+   auto id=forge({{"materials",Json::array({{{"name","m"}}})},{"textures",Json::array({{{"base",texture},{"alpha",false}}})}});
+   auto e=failure([&]{prepareSourceMaterials(cache,id);},"a TGA cached as a PNG");
+   check(e.code=="texture.derivative"&&!fs::exists(cache/L"textures"/wide(texture+".vtf"))&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma"),"a TGA cached as a PNG is refused, and no Source texture is written");}
+  // Material lists of different lengths, a missing one or entries that are not objects: read through nlohmann's
+  // const operator[], they read past the manifest's arrays (a crash). Refused before anything is written.
+  for(auto lists:{Json{{"materials",Json::array({{{"name","x"}}})},{"textures",Json::array()}},Json{{"materials",Json::array({{{"name","x"}}})}},Json{{"materials",Json::array({1})},{"textures",Json::array({2})}}}){
+   auto id=forge(lists);bool refused=false;try{prepareSourceMaterials(cache,id);}catch(const std::exception&){refused=true;}
+   check(refused&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma")&&!fs::exists(cache/L"names"/L"assets"/wide(id.substr(0,16)+".json")),"a manifest whose material lists do not match was built: "+lists.dump());}
+  // A manifest that is not its own content address (StartSharedMaterialBuild on what a script wrote) builds nothing.
+  {std::string id(64,'a');writeJson(cache/L"assets"/wide(id)/L"manifest.json",Json{{"version",2},{"id",id},{"sourceHash",std::string(64,'b')},{"materials",Json::array()},{"textures",Json::array()}});
+   bool refused=false;try{prepareSourceMaterials(cache,id);}catch(const std::exception& e){refused=has(e.what(),"checksum");}
+   check(refused&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma"),"Source materials were built from a manifest that is not its own content address");}
+  // loadAsset: a manifest naming one material more than its model has is refused before the materials are built.
+  {auto folder=temp/L"crafted";fs::create_directories(folder);writeAtomic(folder/L"model.pmx",pmx(PmxSpec{}));
+   auto good=importAsset(folder/L"model.pmx",cache,Json::object(),{});auto goodId=good["asset"].get<std::string>();
+   auto manifest=readJson(cache/L"assets"/wide(goodId)/L"manifest.json");manifest["materials"].push_back({{"name","extra"}});
+   manifest["id"]=manifest["sourceHash"];auto encoded=manifest.dump();auto id=hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()));manifest["id"]=id;
+   writeJson(cache/L"assets"/wide(id)/L"manifest.json",manifest);fs::copy_file(cache/L"assets"/wide(goodId)/L"model.bin",cache/L"assets"/wide(id)/L"model.bin");
+   bool refused=false;try{loadAsset(cache,id);}catch(const std::exception& e){refused=has(e.what(),"material");}
+   check(refused&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma"),"a manifest naming more materials than its model has was loaded");
+   check(loadAsset(cache,goodId)->id==goodId,"the model the crafted manifest copied still loads");}}
+
+ // ---- Reload's source registry, outside the cache (review finding 18) ----
+ // Any server's scripts read garrysmod/data: the source paths (the Windows account name, the folders) live in the
+ // cache's folder under %LOCALAPPDATA%\ModelHotloader\sources. A registry from before moves there on first use.
+ {auto cache=temp/L"cache-registry";auto folder=temp/L"registry";fs::create_directories(folder);writeAtomic(folder/L"model.pmx",pmx(PmxSpec{}));
+  std::string older(64,'c');
+  writeJson(cache/L"sources.local.json",Json{{older,{{"source","C:\\old\\model.pmx"},{"options",Json::object()}}}});
+  writeAtomic(cache/L"sources.local.json.damaged-20260101-000000",bytes("{broken"));
+  writeJson(cache/L"static"/L"sources.local.json",Json{{older,{{"source","C:\\old\\prop.obj"},{"options",Json::object()}}}});
+  auto result=importAsset(folder/L"model.pmx",cache,Json::object(),{});auto id=result["asset"].get<std::string>();
+  auto registry=sourceRegistryPath(cache,SourceRegistry::Characters);auto entries=readJson(registry);
+  auto inside=registry.lexically_relative(cache);
+  check(registry.parent_path()==sourceRegistryFolder(cache)&&sourceRegistryFolder(cache)!=sourceRegistryFolder(temp/L"cache")&&(inside.empty()||*inside.begin()==L".."),"the registry is not in a folder of its own per cache, outside it: "+utf8(registry.wstring()));
+  check(!fs::exists(cache/L"sources.local.json")&&!fs::exists(cache/L"sources.local.json.damaged-20260101-000000"),"the registry from before stayed in the cache, where any server reads it");
+  check(entries.contains(id)&&entries[id]["source"]==utf8(fs::absolute(folder/L"model.pmx").wstring())&&entries.contains(older),"the registry lost the import or the entries from before: "+entries.dump());
+  check(fs::exists(registry.parent_path()/L"characters.json.damaged-20260101-000000"),"the copy set aside before was not kept");
+  auto props=sourceRegistryPath(cache,SourceRegistry::Props);
+  check(!fs::exists(cache/L"static"/L"sources.local.json")&&readJson(props).contains(older),"the props' registry from before did not move");
+  bool inCache=false;for(auto& e:fs::recursive_directory_iterator(cache))inCache|=e.path().filename().wstring().starts_with(L"sources.local.json");
+  check(!inCache,"a source registry is still in the cache");
+  auto display=sourceRegistryDisplay(registry.parent_path()/L"characters.json.damaged-20260101-000000");
+  check(display.starts_with("%LOCALAPPDATA%\\ModelHotloader\\sources\\")&&display.ends_with("characters.json.damaged-20260101-000000")&&!has(display,":\\"),"the registry's place in messages names a drive: "+display);
+  // A damaged registry is set aside there, and the import names it in that form; deletion takes the asset's entry.
+  writeAtomic(registry,bytes("[damaged"));auto again=importAsset(folder/L"model.pmx",cache,Json{{"fullTextures",true}},{});
+  auto backup=again.value("registryBackup",std::string());
+  check(backup.starts_with("%LOCALAPPDATA%\\ModelHotloader\\sources\\")&&has(backup,"characters.json.damaged-")&&readJson(registry).contains(again["asset"].get<std::string>()),"a damaged registry was not set aside or named: "+backup);
+  deleteAssets(cache,{id});check(!readJson(registry).contains(id),"deleting a model kept its source path");}
 
  // ---- a PMX character's textures (dependency_scope.hpp, Reach::Local) ----
  // A texture is read only inside the model's import root (R19, review MH-01): its folder, the

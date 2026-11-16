@@ -92,3 +92,9 @@ both back.
 **Not checked in the game:** the field install, 4K (the sizes scale by `ScrH() / 1080` as the companion's other
 windows do), the other languages (French in the harness), and the buttons' clicks (in the harness: the clipboard text,
 the dismissal file, `https://` only).
+
+## Published
+
+Merged into `main` as `3799e784` and pushed (`ed9410a7..3799e784`). The merge's hook built the package here and
+uploaded item 3829070317 as **`0.0.0-dev.20261116190105+ad9ad1a9`** (content digest `12e8c2a9...`), its change note
+the changelog's new section; the push's hook found the inputs unchanged.

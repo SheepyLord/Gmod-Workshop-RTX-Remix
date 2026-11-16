@@ -44,6 +44,9 @@ class EditorsLuaTests(unittest.TestCase):
     def test_rtx_hello_never_resets_the_limit(self):
         self.run_lua('adv_hello')
 
+    def test_material_entity_edits_need_a_target_the_player_may_edit(self):
+        self.run_lua('adv_entity_owner')
+
     def test_crafted_bodygroup_dupe_raises_nothing(self):
         self.run_lua('abt_dupe')
 

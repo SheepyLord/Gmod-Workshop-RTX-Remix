@@ -95,11 +95,9 @@ if (SERVER) then
 end
 
 if SERVER then
-    -- NaN slips through math.Clamp, so every networked number must be finite first.
-    local function isfinite(v)
-        return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
-    end
-
+    -- The light's and the sky editor's limits, and the light's spawn policy, live with the entities
+    -- (remix_rt_light/shared.lua and init.lua, remix_sky_editor/shared.lua and init.lua): the tools, dupes
+    -- and every client's light and sky use the same ones (review findings 13, 14 and 22).
     local RT_LIGHT_SPAWN_COOLDOWN = 0.25
 
     -- The client only asks for a light; the server traces from the player's eyes and
@@ -115,8 +113,9 @@ if SERVER then
             return
         end
 
-        -- Gamemodes without sandbox's spawn policy: admins only.
-        if not ply:IsAdmin() then return end
+        -- Gamemodes without sandbox's spawn policy: admins only, and the light is theirs as a tool's light
+        -- is (RemixRTLight: the limit where the gamemode has one, creator, owner and cleanup).
+        if not ply:IsAdmin() or not RemixRTLight or not RemixRTLight.CanSpawn(ply) then return end
         local start = ply:EyePos()
         local tr = util.TraceLine({ start = start, endpos = start + ply:GetAimVector() * 4096, filter = ply })
         local stored = scripted_ents.GetStored("remix_rt_light")
@@ -125,12 +124,11 @@ if SERVER then
 
         local ent = spawnFunction(stored.t, ply, tr, "remix_rt_light")
         if not IsValid(ent) then return end
-        ent:SetCreator(ply)
+        RemixRTLight.Claim(ply, ent)
         undo.Create("SENT")
             undo.SetPlayer(ply)
             undo.AddEntity(ent)
         undo.Finish("Remix RT Light")
-        cleanup.Add(ply, "sents", ent)
     end)
 
     util.AddNetworkString("remix_rt_light_apply")
@@ -139,50 +137,11 @@ if SERVER then
         local ent = net.ReadEntity()
         if not IsValid(ent) or ent:GetClass() ~= "remix_rt_light" then return end
         local t = net.ReadTable()
-        if not istable(t) then return end
+        if not istable(t) or not RemixRTLight then return end
 
-        local function clampf(v, minv, maxv)
-            if not isfinite(v) then return nil end
-            return math.Clamp(v, minv, maxv)
-        end
-        local function clampb(v) return v and true or false end
-        local function clampstr(s)
-            if type(s) ~= "string" then return "" end
-            return string.sub(s, 1, 256)
-        end
-        local function clampvec(tbl, minv, maxv)
-            if not istable(tbl) then return nil end
-            local x, y, z = tonumber(tbl.x), tonumber(tbl.y), tonumber(tbl.z)
-            if not (isfinite(x) and isfinite(y) and isfinite(z)) then return nil end
-            return Vector(math.Clamp(x, minv, maxv), math.Clamp(y, minv, maxv), math.Clamp(z, minv, maxv))
-        end
-
-        if isstring(t.rtx_light_type) then
-            local lt = string.lower(t.rtx_light_type)
-            if lt == "sphere" or lt == "rect" or lt == "disk" or lt == "cylinder" or lt == "distant" or lt == "dome" then
-                ent:SetNWString("rtx_light_type", lt)
-            end
-        end
-
-        local v
-        v = clampf(t.rtx_light_radius, 1, 200);        if v then ent:SetNWFloat("rtx_light_radius", v) end
-        v = clampf(t.rtx_light_volumetric, 0, 5);      if v then ent:SetNWFloat("rtx_light_volumetric", v) end
-        if t.rtx_light_shape_enabled ~= nil then ent:SetNWBool("rtx_light_shape_enabled", clampb(t.rtx_light_shape_enabled)) end
-        v = clampf(t.rtx_light_shape_cone, 0, 180);    if v then ent:SetNWFloat("rtx_light_shape_cone", v) end
-        v = clampf(t.rtx_light_shape_softness, 0, 1);  if v then ent:SetNWFloat("rtx_light_shape_softness", v) end
-        v = clampf(t.rtx_light_shape_focus, 0, 10);    if v then ent:SetNWFloat("rtx_light_shape_focus", v) end
-        v = clampf(t.rtx_light_xsize, 1, 400);         if v then ent:SetNWFloat("rtx_light_xsize", v) end
-        v = clampf(t.rtx_light_ysize, 1, 400);         if v then ent:SetNWFloat("rtx_light_ysize", v) end
-        v = clampf(t.rtx_light_xradius, 1, 200);       if v then ent:SetNWFloat("rtx_light_xradius", v) end
-        v = clampf(t.rtx_light_yradius, 1, 200);       if v then ent:SetNWFloat("rtx_light_yradius", v) end
-        v = clampf(t.rtx_light_axis_len, 1, 400);      if v then ent:SetNWFloat("rtx_light_axis_len", v) end
-        v = clampf(t.rtx_light_distant_angle, 0, 10);  if v then ent:SetNWFloat("rtx_light_distant_angle", v) end
-        local s = clampstr(t.rtx_light_dome_tex);       if s and s ~= "" then ent:SetNWString("rtx_light_dome_tex", s) end
-        local col = clampvec(t.rtx_light_col, 0, 10000); if col then ent:SetNWVector("rtx_light_col", col) end
-        v = clampf(t.rtx_light_color_r, 0, 255);       if v then ent:SetNWFloat("rtx_light_color_r", v) end
-        v = clampf(t.rtx_light_color_g, 0, 255);       if v then ent:SetNWFloat("rtx_light_color_g", v) end
-        v = clampf(t.rtx_light_color_b, 0, 255);       if v then ent:SetNWFloat("rtx_light_color_b", v) end
-        v = clampf(t.rtx_light_brightness, 0, 10000);  if v then ent:SetNWFloat("rtx_light_brightness", v) end
+        -- The editor's settings, each within the light's limits; the editor changes the settings it
+        -- always could (RemixRTLight.EDITOR_KEYS).
+        RemixRTLight.Apply(ent, t, RemixRTLight.EDITOR_KEYS)
     end)
 
     -- Sky Editor entity net receiver
@@ -192,37 +151,9 @@ if SERVER then
         local ent = net.ReadEntity()
         if not IsValid(ent) or ent:GetClass() ~= "remix_sky_editor" then return end
         local t = net.ReadTable()
-        if not istable(t) then return end
+        if not istable(t) or not RemixSkyEditor then return end
 
-        local function cf(v, lo, hi)
-            if not isfinite(v) then return nil end
-            return math.Clamp(v, lo, hi)
-        end
-
-        local v
-        v = cf(t.sky_sun_intensity, 0, 100);     if v then ent:SetNWFloat("sky_sun_intensity", v) end
-        v = cf(t.sky_sun_size, 0, 10);           if v then ent:SetNWFloat("sky_sun_size", v) end
-        if t.sky_sun_disc ~= nil then ent:SetNWBool("sky_sun_disc", t.sky_sun_disc and true or false) end
-        v = cf(t.sky_illum_r, 0, 100);           if v then ent:SetNWFloat("sky_illum_r", v) end
-        v = cf(t.sky_illum_g, 0, 100);           if v then ent:SetNWFloat("sky_illum_g", v) end
-        v = cf(t.sky_illum_b, 0, 100);           if v then ent:SetNWFloat("sky_illum_b", v) end
-        v = cf(t.sky_air_density, 0, 100);       if v then ent:SetNWFloat("sky_air_density", v) end
-        v = cf(t.sky_dust_density, 0, 100);      if v then ent:SetNWFloat("sky_dust_density", v) end
-        v = cf(t.sky_ozone_density, 0, 100);     if v then ent:SetNWFloat("sky_ozone_density", v) end
-        v = cf(t.sky_altitude, 0, 100000);       if v then ent:SetNWFloat("sky_altitude", v) end
-        v = cf(t.sky_planet_radius, 1000, 10000); if v then ent:SetNWFloat("sky_planet_radius", v) end
-        v = cf(t.sky_atmo_thickness, 10, 500);   if v then ent:SetNWFloat("sky_atmo_thickness", v) end
-        v = cf(t.sky_mie_anisotropy, -1, 1);     if v then ent:SetNWFloat("sky_mie_anisotropy", v) end
-        v = cf(t.sky_rayleigh_r, 0, 0.1);        if v then ent:SetNWFloat("sky_rayleigh_r", v) end
-        v = cf(t.sky_rayleigh_g, 0, 0.1);        if v then ent:SetNWFloat("sky_rayleigh_g", v) end
-        v = cf(t.sky_rayleigh_b, 0, 0.1);        if v then ent:SetNWFloat("sky_rayleigh_b", v) end
-        v = cf(t.sky_mie_r, 0, 0.1);             if v then ent:SetNWFloat("sky_mie_r", v) end
-        v = cf(t.sky_mie_g, 0, 0.1);             if v then ent:SetNWFloat("sky_mie_g", v) end
-        v = cf(t.sky_mie_b, 0, 0.1);             if v then ent:SetNWFloat("sky_mie_b", v) end
-        v = cf(t.sky_ozone_r, 0, 0.01);          if v then ent:SetNWFloat("sky_ozone_r", v) end
-        v = cf(t.sky_ozone_g, 0, 0.01);          if v then ent:SetNWFloat("sky_ozone_g", v) end
-        v = cf(t.sky_ozone_b, 0, 0.01);          if v then ent:SetNWFloat("sky_ozone_b", v) end
-        v = cf(t.sky_ozone_alt, 0, 50);          if v then ent:SetNWFloat("sky_ozone_alt", v) end
-        v = cf(t.sky_ozone_width, 1, 30);        if v then ent:SetNWFloat("sky_ozone_width", v) end
+        -- Each value within the sky's limits.
+        RemixSkyEditor.Apply(ent, t)
     end)
 end

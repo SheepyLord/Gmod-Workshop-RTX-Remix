@@ -29,6 +29,24 @@ local function IsWrapperActive()
     return cv_enabled:GetBool() and not (lightUpdater and lightUpdater:GetBool())
 end
 
+-- A projected texture holds whatever the Lua that made it set, often from another player's networked
+-- entity, so each number is limited before it reaches the Remix API (review finding 13). NaN passes
+-- math.Clamp and every comparison, so a value must be a finite number first.
+local function finite(value)
+    return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+local function limited(value, low, high, fallback)
+    if not finite(value) then return fallback end
+    if value < low then return low end
+    if value > high then return high end
+    return value
+end
+
+-- Brightness up to 100 (the stock lamp's tops out at 8), a cone short of a half sphere, and a reach no
+-- longer than a map is wide.
+local MAX_BRIGHTNESS, MIN_FOV, MAX_FOV, MAX_FARZ = 100, 1, 179, 32768
+
 -- Store original ProjectedTexture function
 local OriginalProjectedTexture = ProjectedTexture
 
@@ -38,14 +56,14 @@ local function UpdateRTXFromProjectedTexture(projTex, textureId)
     if not istable(RemixLight) then return end
     if not projTex then return end
     
-    -- Get all properties from the projected texture
+    -- Get all properties from the projected texture, each number within the limits above
     local pos = projTex:GetPos()
     local angles = projTex:GetAngles()
     local color = projTex:GetColor()
-    local brightness = projTex:GetBrightness()
-    local fov = projTex:GetHorizontalFOV()
-    local farZ = projTex:GetFarZ()
-    
+    local brightness = limited(projTex:GetBrightness(), 0, MAX_BRIGHTNESS, 0)
+    local fov = limited(projTex:GetHorizontalFOV(), MIN_FOV, MAX_FOV, 90)
+    local farZ = limited(projTex:GetFarZ(), 0, MAX_FARZ, 1500)
+
     -- Check if valid
     if not pos or not angles or not color then return end
     
@@ -67,25 +85,28 @@ local function UpdateRTXFromProjectedTexture(projTex, textureId)
     local brightnessScale = cv_brightness_scale:GetFloat()
     local radiusScale = 0.001
     
-    -- Calculate radiance
+    -- Calculate radiance (each channel a byte, as Color holds it)
     local scale = (brightness * brightnessScale) / 100.0
     local base = {
         hash = tonumber(util.CRC(string.format("projected_texture_%d", textureId))) or (textureId + 200000),
         radiance = vec3(
-            color.r * scale,
-            color.g * scale,
-            color.b * scale
+            limited(tonumber(color.r), 0, 255, 0) * scale,
+            limited(tonumber(color.g), 0, 255, 0) * scale,
+            limited(tonumber(color.b), 0, 255, 0) * scale
         ),
         isDynamic = true,
     }
-    
+
     -- ProjectedTexture uses FOV (full cone angle)
     -- RTX uses half-angle from center to edge
-    local coneAngle = fov and (fov / 2) or 45
-    
-    -- Use FarZ as radius if available, otherwise default
-    local radius = (farZ or 1500) * radiusScale
-    
+    local coneAngle = fov / 2
+
+    -- Use FarZ as radius
+    local radius = farZ * radiusScale
+
+    -- The brightness scale is this player's own setting; a light it makes non-finite is left out.
+    if not (finite(base.radiance.x) and finite(base.radiance.y) and finite(base.radiance.z)) then return end
+
     local forward = angles:Forward()
     local sphere = {
         position = vec3(pos.x, pos.y, pos.z),

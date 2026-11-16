@@ -33,6 +33,27 @@ local function vec3(x, y, z)
     return { x = x, y = y, z = z }
 end
 
+-- A light's values are networked by whoever set them (Edit Properties, a dupe, a tool), so each number
+-- taken from the entity is limited to what the entity's own controls give before it reaches the Remix API
+-- (review finding 13): a brightness of 1e39 arrives as infinity, "nan" as NaN, and NaN passes math.Clamp,
+-- math.max and every comparison.
+local function finite(value)
+    return type(value) == "number" and value == value and value ~= math.huge and value ~= -math.huge
+end
+
+local function limited(value, low, high, fallback)
+    if not finite(value) then return fallback end
+    if value < low then return low end
+    if value > high then return high end
+    return value
+end
+
+-- The radiance of a colour at a brightness scale, each channel a byte as Color holds it.
+local function radiance(color, scale)
+    return vec3(limited(tonumber(color.r), 0, 255, 0) * scale, limited(tonumber(color.g), 0, 255, 0) * scale,
+        limited(tonumber(color.b), 0, 255, 0) * scale)
+end
+
 -- Extract light properties from entity
 local function GetEntityLightProps(ent)
     if GetConVar("rtx_lightupdater"):GetBool() then return nil end -- Disabled when lightupdaters are enabled
@@ -60,21 +81,21 @@ local function GetEntityLightProps(ent)
         
         DebugPrint("gmod_light", ent:EntIndex(), "- GetOn():", isOn, "NoDraw:", ent:GetNoDraw(), "Final enabled:", props.enabled)
         
-        -- Get brightness (gmod_light uses -10 to 20 scale)
+        -- Get brightness (gmod_light uses -10 to 20 scale: the light tool keeps it there)
         if ent.GetBrightness then
-            local brightness = ent:GetBrightness()
+            local brightness = limited(ent:GetBrightness(), -10, 20, 2)
             -- Convert from gmod_light scale to a reasonable radiance value
             -- Scale: brightness 2 = normal, so we use that as baseline
             props.brightness = math.max(0, brightness * 50) -- Adjust multiplier as needed
         else
             props.brightness = 100 -- Default
         end
-        
-        -- Get radius/size
+
+        -- Get radius/size (0 to 1024, the size Edit Properties offers)
         if ent.GetLightSize then
-            props.radius = ent:GetLightSize()
+            props.radius = limited(ent:GetLightSize(), 0, 1024, 256)
         elseif ent.Size then
-            props.radius = ent.Size
+            props.radius = limited(ent.Size, 0, 1024, 256)
         else
             props.radius = 256 -- Default gmod_light size
         end
@@ -94,30 +115,30 @@ local function GetEntityLightProps(ent)
         
         -- Get brightness (gmod_lamp uses 0-8 scale, 4 is default)
         if ent.GetBrightness then
-            local brightness = ent:GetBrightness()
+            local brightness = limited(ent:GetBrightness(), 0, 8, 4)
             -- Convert from gmod_lamp scale to radiance
             -- Scale: brightness 4 = normal
             props.brightness = math.max(0, brightness * 25)
         else
             props.brightness = 100 -- Default
         end
-        
-        -- Get distance/radius
+
+        -- Get distance/radius (64 to 2048, as the lamp's controls offer)
         if ent.GetDistance then
-            props.radius = ent:GetDistance()
+            props.radius = limited(ent:GetDistance(), 64, 2048, 1024)
         elseif ent.distance then
-            props.radius = ent.distance
+            props.radius = limited(ent.distance, 64, 2048, 1024)
         else
             props.radius = 1024 -- Default gmod_lamp distance
         end
-        
-        -- Get FOV for cone angle
+
+        -- Get FOV for cone angle (10 to 170 degrees, as the lamp's controls offer)
         if ent.GetLightFOV then
-            local fov = ent:GetLightFOV()
+            local fov = limited(ent:GetLightFOV(), 10, 170, 90)
             -- FOV is full cone angle, convert to half angle
             props.coneAngle = fov / 2
         elseif ent.fov then
-            props.coneAngle = ent.fov / 2
+            props.coneAngle = limited(ent.fov, 10, 170, 90) / 2
         else
             props.coneAngle = 45 -- Default (90 FOV / 2)
         end
@@ -133,35 +154,36 @@ local function GetEntityLightProps(ent)
             if col then props.color = col end
         end
         
+        -- Classes other add-ons register: their ranges are unknown, so only broad bounds
         if ent.GetBrightness then
-            props.brightness = ent:GetBrightness()
+            props.brightness = limited(ent:GetBrightness(), 0, 10000, 100)
         else
             -- Estimate from color intensity
             local c = props.color
-            props.brightness = (c.r + c.g + c.b) / 3
+            props.brightness = limited((tonumber(c.r) or 0) + (tonumber(c.g) or 0) + (tonumber(c.b) or 0), 0, 765, 0) / 3
         end
-        
+
         if ent.GetDistance then
-            props.radius = ent:GetDistance()
+            props.radius = limited(ent:GetDistance(), 0, 16384, 200)
         elseif ent.GetRadius then
-            props.radius = ent:GetRadius()
+            props.radius = limited(ent:GetRadius(), 0, 16384, 200)
         else
             props.radius = 200 -- Default
         end
-        
+
         -- Spotlight properties
         if ent.GetConeAngle then
-            props.coneAngle = ent:GetConeAngle()
+            props.coneAngle = limited(ent:GetConeAngle(), 0, 180, 45)
         elseif ent.GetHorizontalFOV then
-            props.coneAngle = ent:GetHorizontalFOV()
+            props.coneAngle = limited(ent:GetHorizontalFOV(), 0, 180, 45)
         end
-        
+
         if ent.GetConeSoftness then
-            props.coneSoftness = ent:GetConeSoftness()
+            props.coneSoftness = limited(ent:GetConeSoftness(), 0, 1, 0.2)
         end
-        
+
     end
-    
+
     -- Apply brightness scaling to all entities
     props.brightness = props.brightness * cv_brightness_scale:GetFloat()
     
@@ -180,7 +202,12 @@ local function GetEntityLightProps(ent)
         -- This is a point light
         props.radius = props.radius * cv_radius_scale_point:GetFloat()
     end
-    
+
+    -- The scaling settings above are this player's own; a light they make non-finite is left out as well.
+    if not (finite(props.brightness) and finite(props.radius)) then return nil end
+    props.brightness = math.max(0, props.brightness)
+    props.radius = math.max(0, props.radius)
+
     return props
 end
 
@@ -253,20 +280,16 @@ local function CreateRTXLightFromEntity(ent)
     local scale = props.enabled and (props.brightness / 100.0) or 0
     local base = {
         hash = tonumber(util.CRC(string.format("wrapped_light_%d", ent:EntIndex()))) or ent:EntIndex(),
-        radiance = vec3(
-            props.color.r * scale,
-            props.color.g * scale,
-            props.color.b * scale
-        ),
+        radiance = radiance(props.color, scale),
         isDynamic = true,
     }
-    
+
     local sphere = {
         position = vec3(pos.x, pos.y, pos.z),
         radius = props.radius,
         volumetricRadianceScale = 1.0,
     }
-    
+
     -- Add shaping for spotlights
     if props.coneAngle then
         local forward = props.angles:Forward()
@@ -277,7 +300,7 @@ local function CreateRTXLightFromEntity(ent)
             focusExponent = 1.0,
         }
     end
-    
+
     -- Create the light
     local lightId = nil
     if RemixLight.CreateSphere then
@@ -333,20 +356,16 @@ local function UpdateRTXLightFromEntity(ent, lightId, oldProps)
     
     local base = {
         hash = tonumber(util.CRC(string.format("wrapped_light_%d", ent:EntIndex()))) or ent:EntIndex(),
-        radiance = vec3(
-            props.color.r * scale,
-            props.color.g * scale,
-            props.color.b * scale
-        ),
+        radiance = radiance(props.color, scale),
         isDynamic = true,
     }
-    
+
     local sphere = {
         position = vec3(pos.x, pos.y, pos.z),
         radius = props.radius,
         volumetricRadianceScale = 1.0,
     }
-    
+
     -- Add shaping for spotlights
     if props.coneAngle then
         local forward = props.angles:Forward()
@@ -357,7 +376,7 @@ local function UpdateRTXLightFromEntity(ent, lightId, oldProps)
             focusExponent = 1.0,
         }
     end
-    
+
     -- Update the light
     if RemixLight.UpdateSphere then
         RemixLight.UpdateSphere(base, sphere, lightId)

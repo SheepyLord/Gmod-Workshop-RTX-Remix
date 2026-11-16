@@ -184,13 +184,14 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
         
         local x, y = screenPos.x, screenPos.y
         local lt = ent:GetNWString("rtx_light_type", "sphere")
-        local radius = ent:GetNWFloat("rtx_light_radius", 20)
-        local brightness = ent:GetNWFloat("rtx_light_brightness", 1)
-        
+        -- The same limited values the Remix light gets (shared.lua)
+        local radius = RemixRTLight.Get(ent, "rtx_light_radius")
+        local brightness = RemixRTLight.Get(ent, "rtx_light_brightness")
+
         -- Get the light's RGB color directly
-        local r = ent:GetNWFloat("rtx_light_color_r", 255)
-        local g = ent:GetNWFloat("rtx_light_color_g", 220)
-        local b = ent:GetNWFloat("rtx_light_color_b", 180)
+        local r = RemixRTLight.Get(ent, "rtx_light_color_r")
+        local g = RemixRTLight.Get(ent, "rtx_light_color_g")
+        local b = RemixRTLight.Get(ent, "rtx_light_color_b")
         local col = Color(r, g, b)
         
         -- Alpha fade based on distance
@@ -273,8 +274,8 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
         
         -- Draw shaping cone indicator for sphere lights (spotlight style)
         if lt == "sphere" and ent:GetNWBool("rtx_light_shape_enabled", false) then
-            local coneAngle = ent:GetNWFloat("rtx_light_shape_cone", 90)
-            local coneSoftness = ent:GetNWFloat("rtx_light_shape_softness", 0.1)
+            local coneAngle = RemixRTLight.Get(ent, "rtx_light_shape_cone")
+            local coneSoftness = RemixRTLight.Get(ent, "rtx_light_shape_softness")
             local ang = ent:GetAngles()
             local dir = ang:Forward()
             
@@ -338,8 +339,8 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
         local ang = ent:GetAngles()
         
         if lt == "rect" then
-            local xsize = ent:GetNWFloat("rtx_light_xsize", 40) * vizScale
-            local ysize = ent:GetNWFloat("rtx_light_ysize", 40) * vizScale
+            local xsize = RemixRTLight.Get(ent, "rtx_light_xsize") * vizScale
+            local ysize = RemixRTLight.Get(ent, "rtx_light_ysize") * vizScale
             
             -- Calculate rectangle corners in world space
             local right = ang:Right()
@@ -375,8 +376,8 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
             draw.SimpleTextOutlined(string.format("%.0f×%.0f", xsize / vizScale, ysize / vizScale), "DermaDefault", x, y + 50, dimTextCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, subtleOutline)
             
         elseif lt == "disk" then
-            local xrad = ent:GetNWFloat("rtx_light_xradius", 20) * vizScale
-            local yrad = ent:GetNWFloat("rtx_light_yradius", 20) * vizScale
+            local xrad = RemixRTLight.Get(ent, "rtx_light_xradius") * vizScale
+            local yrad = RemixRTLight.Get(ent, "rtx_light_yradius") * vizScale
             
             -- Draw ellipse outline (24 segments)
             local right = ang:Right()
@@ -419,7 +420,7 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
             draw.SimpleTextOutlined(string.format("R:%.0f,%.0f", xrad / vizScale, yrad / vizScale), "DermaDefault", x, y + 50, radiiTextCol, TEXT_ALIGN_CENTER, TEXT_ALIGN_TOP, 1, subtleOutline)
             
         elseif lt == "cylinder" then
-            local axisLen = ent:GetNWFloat("rtx_light_axis_len", 40) * vizScale
+            local axisLen = RemixRTLight.Get(ent, "rtx_light_axis_len") * vizScale
             local cylRadius = radius * vizScale
             
             -- Draw cylinder outline
@@ -556,7 +557,7 @@ hook.Add("HUDPaint", "RemixRTLight_Visualize", function()
             end
             
         elseif lt == "distant" then
-            local angDiam = ent:GetNWFloat("rtx_light_distant_angle", 0.5)
+            local angDiam = RemixRTLight.Get(ent, "rtx_light_distant_angle")
             -- Draw angular diameter text with subtle outline
             local angTextCol = Color(col.r, col.g, col.b, alpha * 0.8)
             local subtleOutline = Color(outlineR, outlineG, outlineB, alpha * 0.3)
@@ -618,9 +619,12 @@ local function ensure_light(ent)
     local ang = ent:GetAngles()
     local dir = ang:Forward()
     local lt = ent:GetNWString("rtx_light_type", "sphere")
-    local col = ent:GetNWVector("rtx_light_col", Vector(15,15,15))
-    local radius = ent:GetNWFloat("rtx_light_radius", 20)
-    local volScale = ent:GetNWFloat("rtx_light_volumetric", 1.0)
+    -- Every networked number reaches the Remix API within the light's limits (shared.lua; review
+    -- finding 13): whoever set it, a tool, the editor or a dupe.
+    local Get = RemixRTLight.Get
+    local col = RemixRTLight.GetVector(ent, "rtx_light_col", 15)
+    local radius = Get(ent, "rtx_light_radius")
+    local volScale = Get(ent, "rtx_light_volumetric")
 
     local base = {
         -- Use decimal CRC to avoid nil from base-16 conversion; ensures unique, stable hash per entity
@@ -640,7 +644,7 @@ local function ensure_light(ent)
         }
         local shapingEnabled = ent:GetNWBool("rtx_light_shape_enabled", false)
         if shapingEnabled then
-            sphere.shaping = { direction = { x = dir.x, y = dir.y, z = dir.z }, coneAngleDegrees = ent:GetNWFloat("rtx_light_shape_cone", 90), coneSoftness = ent:GetNWFloat("rtx_light_shape_softness", 0.1), focusExponent = ent:GetNWFloat("rtx_light_shape_focus", 1.0) }
+            sphere.shaping = { direction = { x = dir.x, y = dir.y, z = dir.z }, coneAngleDegrees = Get(ent, "rtx_light_shape_cone"), coneSoftness = Get(ent, "rtx_light_shape_softness"), focusExponent = Get(ent, "rtx_light_shape_focus") }
         end
         if RemixLightQueue and RemixLightQueue.CreateSphere then
             createdId = RemixLightQueue.CreateSphere(base, sphere, ent:EntIndex())
@@ -652,7 +656,7 @@ local function ensure_light(ent)
             position = vec_to_table(pos),
             radius = radius,
             axis = { x = ang:Up().x, y = ang:Up().y, z = ang:Up().z },
-            axisLength = ent:GetNWFloat("rtx_light_axis_len", radius*2),
+            axisLength = Get(ent, "rtx_light_axis_len"),
             volumetricRadianceScale = volScale,
         }
         if RemixLightQueue and RemixLightQueue.CreateCylinder then
@@ -663,8 +667,8 @@ local function ensure_light(ent)
     elseif lt == "disk" then
         local disk = {
             position = vec_to_table(pos),
-            xAxis = { x = ang:Right().x, y = ang:Right().y, z = ang:Right().z }, xRadius = ent:GetNWFloat("rtx_light_xradius", radius),
-            yAxis = { x = ang:Up().x, y = ang:Up().y, z = ang:Up().z }, yRadius = ent:GetNWFloat("rtx_light_yradius", radius),
+            xAxis = { x = ang:Right().x, y = ang:Right().y, z = ang:Right().z }, xRadius = Get(ent, "rtx_light_xradius"),
+            yAxis = { x = ang:Up().x, y = ang:Up().y, z = ang:Up().z }, yRadius = Get(ent, "rtx_light_yradius"),
             direction = { x = dir.x, y = dir.y, z = dir.z },
             volumetricRadianceScale = volScale,
         }
@@ -676,8 +680,8 @@ local function ensure_light(ent)
     elseif lt == "rect" then
         local rect = {
             position = vec_to_table(pos),
-            xAxis = { x = ang:Right().x, y = ang:Right().y, z = ang:Right().z }, xSize = ent:GetNWFloat("rtx_light_xsize", radius*2),
-            yAxis = { x = ang:Up().x, y = ang:Up().y, z = ang:Up().z }, ySize = ent:GetNWFloat("rtx_light_ysize", radius*2),
+            xAxis = { x = ang:Right().x, y = ang:Right().y, z = ang:Right().z }, xSize = Get(ent, "rtx_light_xsize"),
+            yAxis = { x = ang:Up().x, y = ang:Up().y, z = ang:Up().z }, ySize = Get(ent, "rtx_light_ysize"),
             direction = { x = dir.x, y = dir.y, z = dir.z },
             volumetricRadianceScale = volScale,
         }
@@ -687,7 +691,7 @@ local function ensure_light(ent)
             createdId = RemixLight.CreateRect(base, rect, ent:EntIndex())
         end
     elseif lt == "distant" then
-        local distant = { direction = { x = dir.x, y = dir.y, z = dir.z }, angularDiameterDegrees = ent:GetNWFloat("rtx_light_distant_angle", 0.5), volumetricRadianceScale = volScale }
+        local distant = { direction = { x = dir.x, y = dir.y, z = dir.z }, angularDiameterDegrees = Get(ent, "rtx_light_distant_angle"), volumetricRadianceScale = volScale }
         if RemixLightQueue and RemixLightQueue.CreateDistant then
             createdId = RemixLightQueue.CreateDistant(base, distant, ent:EntIndex())
         elseif RemixLight.CreateDistant then
@@ -707,29 +711,30 @@ local function updateLight(self)
     local pos = self:GetPos()
     local ang = self:GetAngles()
     
-    -- Read all properties
+    -- Read all properties, each within the light's limits (shared.lua; review finding 13)
+    local Get = RemixRTLight.Get
     local lt = self:GetNWString("rtx_light_type", "sphere")
-    local colorR = self:GetNWFloat("rtx_light_color_r", 255)
-    local colorG = self:GetNWFloat("rtx_light_color_g", 220)
-    local colorB = self:GetNWFloat("rtx_light_color_b", 180)
-    local brightness = self:GetNWFloat("rtx_light_brightness", 1)
-    
+    local colorR = Get(self, "rtx_light_color_r")
+    local colorG = Get(self, "rtx_light_color_g")
+    local colorB = Get(self, "rtx_light_color_b")
+    local brightness = Get(self, "rtx_light_brightness")
+
     -- Calculate radiance from RGB color and brightness
     local scale = math.max(0, brightness)
     local col = Vector((colorR/12)*scale, (colorG/12)*scale, (colorB/12)*scale)
-    
-    local radius = self:GetNWFloat("rtx_light_radius", 20)
+
+    local radius = Get(self, "rtx_light_radius")
     local shapingEnabled = self:GetNWBool("rtx_light_shape_enabled", false)
-    local cone = self:GetNWFloat("rtx_light_shape_cone", 90)
-    local softness = self:GetNWFloat("rtx_light_shape_softness", 0.1)
-    local focus = self:GetNWFloat("rtx_light_shape_focus", 1.0)
-    local volScale = self:GetNWFloat("rtx_light_volumetric", 1.0)
-    local xsize = self:GetNWFloat("rtx_light_xsize", 40)
-    local ysize = self:GetNWFloat("rtx_light_ysize", 40)
-    local xradius = self:GetNWFloat("rtx_light_xradius", 20)
-    local yradius = self:GetNWFloat("rtx_light_yradius", 20)
-    local axislen = self:GetNWFloat("rtx_light_axis_len", 40)
-    local distantang = self:GetNWFloat("rtx_light_distant_angle", 0.5)
+    local cone = Get(self, "rtx_light_shape_cone")
+    local softness = Get(self, "rtx_light_shape_softness")
+    local focus = Get(self, "rtx_light_shape_focus")
+    local volScale = Get(self, "rtx_light_volumetric")
+    local xsize = Get(self, "rtx_light_xsize")
+    local ysize = Get(self, "rtx_light_ysize")
+    local xradius = Get(self, "rtx_light_xradius")
+    local yradius = Get(self, "rtx_light_yradius")
+    local axislen = Get(self, "rtx_light_axis_len")
+    local distantang = Get(self, "rtx_light_distant_angle")
     
     -- Initialize cache on first run
     if not self.LastUpdateCache then
@@ -913,8 +918,9 @@ local function updateBonemergedPosition(self)
     end
     
     local boneID = self:GetNWInt("rtx_light_bone_id", -1)
-    local offsetPos = self:GetNWVector("rtx_light_offset_pos", Vector(0, 0, 0))
-    local offsetAng = self:GetNWAngle("rtx_light_offset_ang", Angle(0, 0, 0))
+    -- Offsets within the light's limits: a NaN here would put the light, and its Remix light, nowhere.
+    local offsetPos = RemixRTLight.GetVector(self, "rtx_light_offset_pos", 0)
+    local offsetAng = RemixRTLight.GetAngle(self, "rtx_light_offset_ang")
     
     -- Get bone matrix if valid bone, otherwise use entity position
     local boneMatrix = nil

@@ -74,11 +74,79 @@ function ENT:CreateRemixLight()
     -- This function is kept as a no-op for backward compatibility.
 end
 
-function ENT:Think()
-    -- Client reads position directly from entity for smooth movement
-    -- Only light properties need to be networked, not position/angles
-    self:NextThink(CurTime())
-    return true
+-- No server Think: it only scheduled itself for every tick. The client reads the light's position from the
+-- entity itself and its settings from the networked values below.
+
+-- The policy the spawn menu applies to a SENT, for every light a player makes outside it (review finding
+-- 14): the six light tools and the spawn message's fallback (autorun/sv_rtx.lua). Each light is a Remix
+-- light on every RTX client, so it counts against sbox_maxsents, and its creator, prop-protection owner,
+-- cleanup and undo name the player.
+function RemixRTLight.CanSpawn(ply)
+    if not IsValid(ply) then return false end
+    -- CheckLimit is sandbox's (it tells the player when the limit is reached); other gamemodes have none.
+    return not ply.CheckLimit or ply:CheckLimit("sents")
+end
+
+function RemixRTLight.Claim(ply, ent, undoText)
+    if not IsValid(ply) or not IsValid(ent) then return end
+    if ply.AddCount then ply:AddCount("sents", ent) end
+    ent:SetCreator(ply)
+    if ent.CPPISetOwner then ent:CPPISetOwner(ply) end
+    cleanup.Add(ply, "sents", ent)
+    if undoText then
+        undo.Create(undoText)
+            undo.AddEntity(ent)
+            undo.SetPlayer(ply)
+        undo.Finish()
+    end
+end
+
+-- A light for a player at a place, or nil when the limit refuses it.
+function RemixRTLight.Spawn(ply, pos, ang, undoText)
+    if not RemixRTLight.CanSpawn(ply) then return nil end
+    local ent = ents.Create("remix_rt_light")
+    if not IsValid(ent) then return nil end
+    ent:SetPos(pos)
+    ent:SetAngles(ang)
+    ent:Spawn()
+    ent:Activate()
+    RemixRTLight.Claim(ply, ent, undoText)
+    return ent
+end
+
+-- Writes the settings in `values` that are valid, each within its limits (shared.lua); a setting that is
+-- missing, of the wrong kind or not a finite number is left as it is. `keys`, when given, names the only
+-- settings this path may change.
+function RemixRTLight.Apply(ent, values, keys)
+    if not IsValid(ent) or not istable(values) then return end
+    local function given(key) return values[key] ~= nil and (keys == nil or keys[key]) end
+
+    if given("rtx_light_type") and isstring(values.rtx_light_type) then
+        local lt = string.lower(values.rtx_light_type)
+        if RemixRTLight.TYPES[lt] then ent:SetNWString("rtx_light_type", lt) end
+    end
+    for key in pairs(RemixRTLight.LIMITS) do
+        local v = given(key) and RemixRTLight.Limit(key, values[key])
+        if v then ent:SetNWFloat(key, v) end
+    end
+    for _, key in ipairs({ "rtx_light_shape_enabled", "rtx_light_is_bonemerged" }) do
+        if given(key) then ent:SetNWBool(key, values[key] and true or false) end
+    end
+    for key in pairs(RemixRTLight.INT_LIMITS) do
+        local v = given(key) and RemixRTLight.LimitInt(key, values[key])
+        if v then ent:SetNWInt(key, v) end
+    end
+    for key in pairs(RemixRTLight.VECTOR_LIMITS) do
+        local v = given(key) and RemixRTLight.LimitVector(key, values[key])
+        if v then ent:SetNWVector(key, v) end
+    end
+    for key in pairs(RemixRTLight.ANGLE_LIMITS) do
+        local v = given(key) and RemixRTLight.LimitAngle(key, values[key])
+        if v then ent:SetNWAngle(key, v) end
+    end
+    if given("rtx_light_dome_tex") and isstring(values.rtx_light_dome_tex) and values.rtx_light_dome_tex ~= "" then
+        ent:SetNWString("rtx_light_dome_tex", string.sub(values.rtx_light_dome_tex, 1, 256))
+    end
 end
 
 -- Duplicator support: persist NWVar configuration
@@ -111,43 +179,16 @@ local function getNWTable(ent)
     }
 end
 
-local function applyNWTable(ent, t)
-    if not istable(t) then return end
-    if t.rtx_light_type ~= nil then ent:SetNWString("rtx_light_type", t.rtx_light_type) end
-    if t.rtx_light_radius ~= nil then ent:SetNWFloat("rtx_light_radius", t.rtx_light_radius) end
-    if t.rtx_light_brightness ~= nil then ent:SetNWFloat("rtx_light_brightness", t.rtx_light_brightness) end
-    if t.rtx_light_volumetric ~= nil then ent:SetNWFloat("rtx_light_volumetric", t.rtx_light_volumetric) end
-    if t.rtx_light_shape_enabled ~= nil then ent:SetNWBool("rtx_light_shape_enabled", t.rtx_light_shape_enabled and true or false) end
-    if t.rtx_light_shape_cone ~= nil then ent:SetNWFloat("rtx_light_shape_cone", t.rtx_light_shape_cone) end
-    if t.rtx_light_shape_softness ~= nil then ent:SetNWFloat("rtx_light_shape_softness", t.rtx_light_shape_softness) end
-    if t.rtx_light_shape_focus ~= nil then ent:SetNWFloat("rtx_light_shape_focus", t.rtx_light_shape_focus) end
-    if t.rtx_light_dir_yaw ~= nil then ent:SetNWFloat("rtx_light_dir_yaw", t.rtx_light_dir_yaw) end
-    if t.rtx_light_dir_pitch ~= nil then ent:SetNWFloat("rtx_light_dir_pitch", t.rtx_light_dir_pitch) end
-    if t.rtx_light_xsize ~= nil then ent:SetNWFloat("rtx_light_xsize", t.rtx_light_xsize) end
-    if t.rtx_light_ysize ~= nil then ent:SetNWFloat("rtx_light_ysize", t.rtx_light_ysize) end
-    if t.rtx_light_xradius ~= nil then ent:SetNWFloat("rtx_light_xradius", t.rtx_light_xradius) end
-    if t.rtx_light_yradius ~= nil then ent:SetNWFloat("rtx_light_yradius", t.rtx_light_yradius) end
-    if t.rtx_light_axis_len ~= nil then ent:SetNWFloat("rtx_light_axis_len", t.rtx_light_axis_len) end
-    if t.rtx_light_distant_angle ~= nil then ent:SetNWFloat("rtx_light_distant_angle", t.rtx_light_distant_angle) end
-    if t.rtx_light_color_r ~= nil then ent:SetNWFloat("rtx_light_color_r", t.rtx_light_color_r) end
-    if t.rtx_light_color_g ~= nil then ent:SetNWFloat("rtx_light_color_g", t.rtx_light_color_g) end
-    if t.rtx_light_color_b ~= nil then ent:SetNWFloat("rtx_light_color_b", t.rtx_light_color_b) end
-    if t.rtx_light_is_bonemerged ~= nil then ent:SetNWBool("rtx_light_is_bonemerged", t.rtx_light_is_bonemerged) end
-    if t.rtx_light_parent_id ~= nil then ent:SetNWInt("rtx_light_parent_id", t.rtx_light_parent_id) end
-    if t.rtx_light_bone_id ~= nil then ent:SetNWInt("rtx_light_bone_id", t.rtx_light_bone_id) end
-    if t.rtx_light_offset_pos ~= nil then ent:SetNWVector("rtx_light_offset_pos", t.rtx_light_offset_pos) end
-    if t.rtx_light_offset_ang ~= nil then ent:SetNWAngle("rtx_light_offset_ang", t.rtx_light_offset_ang) end
-end
-
 function ENT:PreEntityCopy()
     local t = getNWTable(self)
     duplicator.StoreEntityModifier(self, "RemixRTLightData", t)
 end
 
 function ENT:PostEntityPaste(ply, ent, createdEntities)
+    -- A dupe file holds whatever its author wrote: each setting within the light's limits.
     local mod = ent.EntityMods and ent.EntityMods["RemixRTLightData"]
     if mod then
-        applyNWTable(self, mod)
+        RemixRTLight.Apply(self, mod)
     end
     
     -- Ensure pasted entities also have physics configured correctly

@@ -131,6 +131,26 @@
     "dirty": false
    },
    "imported": "2026-11-05T23:02:32+00:00"
+  },
+  "!advanced_material_editor/lua/advmat/sh_00_config.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-lu\\packages\\advanced-material-editor\\!advanced_material_editor\\lua\\advmat\\sh_00_config.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-lu",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "dirty": true
+   },
+   "imported": "2026-11-16T13:08:47+00:00"
+  },
+  "!advanced_material_editor/lua/advmat/sv_30_store.lua": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-lu\\packages\\advanced-material-editor\\!advanced_material_editor\\lua\\advmat\\sv_30_store.lua",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-lu",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "dirty": true
+   },
+   "imported": "2026-11-16T13:08:48+00:00"
   }
  },
  "files": {
@@ -351,9 +371,9 @@
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/sh_00_config.lua": {
-   "size": 5859,
-   "sha256": "ae5f0858639d6fc1c138224266d6f416b579a2768dc9ef5f2df6f2d077b144ec",
-   "mtime_ns": 1787675062194560500,
+   "size": 6825,
+   "sha256": "92f389d009b68ebbb49f8f47e151506fe44a4e7f7a020a1381f541c48a2c3957",
+   "mtime_ns": 1794833336541797100,
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/sh_10_util.lua": {
@@ -459,9 +479,9 @@
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/sv_30_store.lua": {
-   "size": 40754,
-   "sha256": "297a8171ed8d132b92cf5e81e05a7f368a4f9b114961437cc80302320a570bf9",
-   "mtime_ns": 1793916200170212400,
+   "size": 41714,
+   "sha256": "5254d58b419a3cefc1b2db8a1f2da9ad2dd654b9c52793d85eb0bbc514b99075",
+   "mtime_ns": 1794833396260823700,
    "stored": "plain"
   },
   "!advanced_material_editor/lua/advmat/sv_31_rtx_store.lua": {

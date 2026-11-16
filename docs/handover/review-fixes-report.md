@@ -122,3 +122,9 @@ local) listed 30 findings in descending severity, each with evidence and a small
   map with Seamless Portals, prop protection (CPPI) owning the RT lights.
 - **`inputs.py import --file` with a relative source** records a modified file as not dirty (absolute sources were
   used here).
+
+## Published
+
+Merged into `main` as `8b46432e` and pushed (`51ab2ecf..8b46432e`, ten LFS objects). The merge's hook built the package
+here and uploaded item 3829070317 as **`0.0.0-dev.20261116141607+791d3f2f`** (content digest `6746d885...`), its change
+note the changelog's new section; the push's hook found the inputs unchanged.

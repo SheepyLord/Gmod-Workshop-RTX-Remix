@@ -1,5 +1,6 @@
 #include "prop_bindings.hpp"
 #include "props/core.hpp"
+#include "assets.hpp"
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -166,7 +167,11 @@ LUA_FUNCTION(PropCatalog){try{
     pushJson(LUA,out);return 1;
 }catch(const std::exception& e){return failure(LUA,e);}}
 }
-std::string deleteProps(const std::vector<std::string>& ids){return props::deleteBundles(state->root,ids).dump();}
+// The props' entries in Reload's source registry go too (outside the cache: assets.hpp sourceRegistryPath).
+std::string deleteProps(const std::vector<std::string>& ids){
+    fs::path registry;try{registry=sourceRegistryPath(state->cache,SourceRegistry::Props);}catch(...){}
+    return props::deleteBundles(state->root,ids,registry).dump();
+}
 void registerPropFunctions(Lua* LUA,const fs::path& cache){
     state=std::make_unique<State>();state->cache=cache;state->root=cache/L"static";
     fs::create_directories(state->root/L"assets");fs::create_directories(state->root/L"textures");

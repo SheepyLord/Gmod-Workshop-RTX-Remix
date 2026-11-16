@@ -941,9 +941,18 @@ std::optional<Json> FileAccess::pollList(uint64_t id){
  refresh();auto task=collect(tasks,dropped,id,true);if(!task)return std::nullopt;return std::move(task->list);
 }
 void FileAccess::release(const std::string& handle){items.erase(handle);}
+// A remembered folder as the manager window names it: "…\" and its own name, not a path a request could name.
+static std::string folderPlace(const fs::path& folder){
+ auto name=folder.filename();if(name.empty())name=folder.parent_path().filename();
+ return "\xE2\x80\xA6"+std::string(1,char(fs::path::preferred_separator))+utf8(name.wstring());
+}
+// The remembered folders for the player's manager window. Every script in this Lua state can call it, so it
+// carries nothing a request could reuse to be answered without a dialog (review finding 27: the requester
+// label, the script and the folder were the very key covering() matches): only the opaque id Revoke takes,
+// the folder's own name and when it was remembered and last used.
 Json FileAccess::grants(){
  localOnly();refresh();
- Json list=Json::array();for(auto& g:store.grants)list.push_back({{"id",g.id},{"requester",g.requester},{"script",g.script},{"folder",displayPath(g.folder)},{"created",g.created},{"used",g.used}});
+ Json list=Json::array();for(auto& g:store.grants)list.push_back({{"id",g.id},{"place",folderPlace(g.folder)},{"created",g.created},{"used",g.used}});
  return {{"enabled",store.enabled},{"grants",list}};
 }
 bool FileAccess::revoke(const std::string& id){

@@ -1,0 +1,1378 @@
+diff --git a/mmdhl/CMakeLists.txt b/mmdhl/CMakeLists.txt
+--- a/mmdhl/CMakeLists.txt
++++ b/mmdhl/CMakeLists.txt
+@@ -96,7 +96,7 @@ add_library(nanoem_physics STATIC native/nanoem_backend.cpp)
+ target_include_directories(nanoem_physics PRIVATE vendor/glm vendor/bullet/src vendor/json/single_include)
+ target_compile_definitions(nanoem_physics PRIVATE NANOEM_ENABLE_BULLET)
+ target_link_libraries(nanoem_physics PUBLIC nanoem_core BulletSoftBody BulletDynamics BulletCollision LinearMath)
+-add_library(mmd_runtime SHARED native/installation.cpp native/compatibility.cpp native/compute_probe.cpp native/compute_solver.cpp vendor/bullet/src/clew/clew.c native/broadphase.cpp native/jobs.cpp native/naming.cpp native/model.cpp native/physics.cpp native/assets.cpp native/rig.cpp native/rig_animation.cpp native/rig_geometry.cpp native/sharing.cpp native/packages.cpp native/model_notes.cpp native/scene_share.cpp native/fitter.cpp native/secondary.cpp native/secondary_quality.cpp native/scene.cpp native/spring_bones.cpp native/vrm.cpp native/pmx_writer.cpp native/humanoid_map.cpp native/import_error.cpp native/physics_profile.cpp native/file_access.cpp native/picked_models.cpp native/dependency_scope.cpp)
++add_library(mmd_runtime SHARED native/installation.cpp native/compatibility.cpp native/compute_probe.cpp native/compute_solver.cpp vendor/bullet/src/clew/clew.c native/broadphase.cpp native/jobs.cpp native/naming.cpp native/model.cpp native/physics.cpp native/assets.cpp native/rig.cpp native/rig_animation.cpp native/rig_geometry.cpp native/sharing.cpp native/packages.cpp native/model_notes.cpp native/scene_share.cpp native/fitter.cpp native/secondary.cpp native/secondary_quality.cpp native/scene.cpp native/spring_bones.cpp native/vrm.cpp native/pmx_writer.cpp native/humanoid_map.cpp native/import_error.cpp native/physics_profile.cpp native/file_access.cpp native/picked_models.cpp native/dependency_scope.cpp native/cache_png.cpp)
+ set_target_properties(mmd_runtime PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON OUTPUT_NAME mmdhl_runtime_${MMDHL_PLATFORM})
+ target_include_directories(mmd_runtime PUBLIC native vendor/bullet/src vendor/nanoem/nanoem vendor/json/single_include PRIVATE vendor/stb vendor/glm)
+ target_link_libraries(mmd_runtime PUBLIC nanoem_core nanoem_physics BulletSoftBody BulletDynamics BulletCollision LinearMath)
+@@ -458,3 +458,22 @@ set_tests_properties(character_import PROPERTIES WORKING_DIRECTORY "${CMAKE_SOUR
+ # The worker's status.json contract for the bone window, on models the tests generate.
+ add_test(NAME character_import_worker COMMAND ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/scripts/test-character-import.py" "$<TARGET_FILE:mmdhl_worker>" "$<TARGET_FILE:mmdhl_character_import_tests>" "$<TARGET_FILE:mmdhl_vrm_tests>")
+ set_tests_properties(character_import_worker PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
++
++# nlohmann::json's own precondition checks (JSON_ASSERT) throw in every build of this project's
++# targets, release builds included: native/json_assert.hpp is included first in each of their C++
++# files (review finding 9). The vendored libraries' targets live in their own folders and are left alone.
++get_property(MMDHL_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
++foreach(target IN LISTS MMDHL_TARGETS)
++  get_target_property(type ${target} TYPE)
++  if(type MATCHES "^(STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|EXECUTABLE|OBJECT_LIBRARY)$")
++    if(MSVC)
++      target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:/FI${CMAKE_SOURCE_DIR}/native/json_assert.hpp>")
++    else()
++      target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_SOURCE_DIR}/native/json_assert.hpp>")
++    endif()
++  endif()
++endforeach()
++# Tests keep Reload's source registries (native/assets.hpp sourceRegistryPath) in the build folder,
++# never in the player's %LOCALAPPDATA%\ModelHotloader.
++get_property(MMDHL_TESTS DIRECTORY PROPERTY TESTS)
++set_property(TEST ${MMDHL_TESTS} APPEND PROPERTY ENVIRONMENT "MMDHL_SOURCES_DIR=${CMAKE_BINARY_DIR}/test-sources")
+diff --git a/mmdhl/native/assets.cpp b/mmdhl/native/assets.cpp
+--- a/mmdhl/native/assets.cpp
++++ b/mmdhl/native/assets.cpp
+@@ -7,6 +7,8 @@
+ #include "cutout.hpp"
+ #include "import_error.hpp"
+ #include "dependency_scope.hpp"
++#include "cache_png.hpp"
++#include "file_access.hpp"
+ #ifdef _WIN32
+ #include <windows.h>
+ #include <bcrypt.h>
+@@ -32,6 +34,13 @@
+ #include <map>
+ #include <stdexcept>
+ #include <sstream>
++#include <cstdlib>
++// Every format, for the importer (normalizeTexture, vrm.cpp); the game reads cache files with the
++// PNG-only copy (cache_png.cpp). Zero-filled buffers here too: a truncated TGA in a model the player
++// imports must not carry the worker's old heap into a cached PNG that shares send on (review finding 6).
++#define STBI_MALLOC(size) std::calloc(1,size)
++#define STBI_REALLOC(pointer,size) std::realloc(pointer,size)
++#define STBI_FREE(pointer) std::free(pointer)
+ #define STB_IMAGE_IMPLEMENTATION
+ #include <stb_image.h>
+ #define STB_IMAGE_WRITE_IMPLEMENTATION
+@@ -219,21 +228,44 @@ static bool pngSize(const fs::path& path,int& width,int& height){
+ }
+ // An asset imported with fullTextures that kept a texture past 4096 (importAsset).
+ static bool fullTextures(const Json& manifest){auto it=manifest.find("fullTextures");return it!=manifest.end()&&*it==true;}
++// A cached manifest as loadAsset trusts it: version 1 or 2, its own id, the content address over the
++// rest (the id replaced by sourceHash), a valid texture size option. StartSharedMaterialBuild builds
++// from it too, so a manifest a script wrote into the cache is refused there (review finding 9).
++static void checkManifestIdentity(const Json& manifest,const std::string& id){
++ if(!validId(id))throw std::runtime_error("Invalid asset ID");
++ if(!manifest.is_object()||(manifest.value("version",0)!=1&&manifest.value("version",0)!=2)||manifest.value("id",std::string())!=id)throw std::runtime_error("Cache version or ID mismatch");
++ auto identity=manifest;identity["id"]=manifest.at("sourceHash");auto encoded=identity.dump();if(hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()))!=id)throw std::runtime_error("Cached manifest checksum mismatch");
++ if(manifest.contains("fullTextures")&&manifest.at("fullTextures")!=true)throw std::runtime_error("Cached texture size option is invalid");
++}
++// The manifest's per-material lists, "materials" and "textures": arrays of objects of one length. Read
++// through nlohmann's const operator[], a missing key or an index past the end was undefined (a read out
++// of bounds: review finding 9), so both are checked before either is indexed.
++static std::pair<const Json&,const Json&> materialLists(const Json& manifest){
++ const auto& materials=manifest.at("materials");const auto& textures=manifest.at("textures");
++ if(!materials.is_array()||!textures.is_array()||materials.size()!=textures.size())throw std::runtime_error("Cached material list mismatch");
++ for(auto& m:materials)if(!m.is_object())throw std::runtime_error("Cached material list mismatch");
++ for(auto& t:textures)if(!t.is_object())throw std::runtime_error("Cached material list mismatch");
++ return {materials,textures};
++}
+ // Source-readable derivatives allow normal IMaterial/VMT editor workflows.
+-void prepareSourceMaterials(const fs::path& cache,const std::string& id){prepareSourceMaterials(cache,id,readJson(cache/L"assets"/wide(id)/L"manifest.json"));}
++void prepareSourceMaterials(const fs::path& cache,const std::string& id){
++ if(!validId(id))throw std::runtime_error("Invalid asset ID");
++ auto manifest=readJson(cache/L"assets"/wide(id)/L"manifest.json");checkManifestIdentity(manifest,id);prepareSourceMaterials(cache,id,manifest);
++}
+ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Json& manifest,const std::function<void(double,size_t,size_t)>& progress){
+  auto directory=cache/L"assets"/wide(id),package=directory/L"materials-v5.gma";
++ const auto lists=materialLists(manifest);const Json& materials=lists.first;const Json& textures=lists.second;
+  registerShortName(cache,"assets",id);
+  std::vector<fs::path> retained={fs::path(L"assets")/wide(id)};
+- for(auto& t:manifest["textures"])for(auto kind:{"base","sphere","toon"}){auto h=t.value(kind,"");if(validId(h))for(auto ext:{".png",".vtf",".full.vtf"})retained.push_back(fs::path(L"textures")/wide(h+ext));}
++ for(auto& t:textures)for(auto kind:{"base","sphere","toon"}){auto h=t.value(kind,"");if(validId(h))for(auto ext:{".png",".vtf",".full.vtf"})retained.push_back(fs::path(L"textures")/wide(h+ext));}
+  retainCacheFiles(cache,retained);if(fs::is_regular_file(package))return;
+  const bool keepFull=fullTextures(manifest);
+  // Textures stay on disk until the package streams them: a model with dozens of
+  // 4096 textures never holds them all, plus a packed copy, in memory.
+  std::map<std::string,GmaEntry> files;
+- for(size_t i=0;i<manifest["materials"].size();i++){
+-  if(progress)progress(.45*double(i)/double(manifest["materials"].size()),i,manifest["materials"].size());
+-  auto& material=manifest["materials"][i];auto& texture=manifest["textures"][i];std::string base=texture.value("base","");auto at=place("material",int64_t(i),material.value("name",""));
++ for(size_t i=0;i<materials.size();i++){
++  if(progress)progress(.45*double(i)/double(materials.size()),i,materials.size());
++  auto& material=materials.at(i);auto& texture=textures.at(i);std::string base=texture.value("base","");auto at=place("material",int64_t(i),material.value("name",""));
+   std::string texturePath="models/debug/debugwhite";
+   if(validId(base)){
+    // A texture an asset keeps past 4096 has its own derivative and engine path: a cache
+@@ -241,11 +273,13 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
+    int pngWidth=0,pngHeight=0;const bool full=keepFull&&pngSize(cache/L"textures"/wide(base+".png"),pngWidth,pngHeight)&&std::max(pngWidth,pngHeight)>MaxTextureEdge;
+    registerShortName(cache,"textures",base);texturePath=(full?"mmd/tf/":"mmd/t/")+base.substr(0,16);auto derivative=cache/L"textures"/wide(base+(full?".full.vtf":".vtf"));
+    if(!fs::is_regular_file(derivative)){
+-    int width,height,channels;std::unique_ptr<unsigned char,decltype(&stbi_image_free)> decoded(nullptr,stbi_image_free);
+-    {auto png=readFile(cache/L"textures"/wide(base+".png"));decoded.reset(stbi_load_from_memory(png.data(),int(png.size()),&width,&height,&channels,4));}
+-    if(!decoded)importFail("texture.derivative","Cannot create the Source texture of "+placeText(at)+": its cached image "+base.substr(0,16)+".png cannot be decoded",{{"where",Json::array({at})},{"texture",base},{"path",utf8((cache/L"textures"/wide(base+".png")).wstring())}});
++    // Only a PNG, through the PNG-only decoder (cache_png.hpp, review finding 6).
++    int width=0,height=0;DecodedPng decoded;
++    try{auto png=readFile(cache/L"textures"/wide(base+".png"));decoded=decodeCachedPng(png,base.substr(0,16)+".png");width=decoded.width;height=decoded.height;}
++    catch(const ImportError&){throw;}catch(const std::exception&){decoded=DecodedPng();}
++    if(!decoded.pixels)importFail("texture.derivative","Cannot create the Source texture of "+placeText(at)+": its cached image "+base.substr(0,16)+".png cannot be decoded",{{"where",Json::array({at})},{"texture",base},{"path",utf8((cache/L"textures"/wide(base+".png")).wstring())}});
+     // Caches from before 2.2 hold textures larger than 4096.
+-    Bytes scaled;const unsigned char* pixels=decoded.get();if(fitTexture(pixels,width,height,scaled,full?FullTextureEdge:MaxTextureEdge))pixels=scaled.data();
++    Bytes scaled;const unsigned char* pixels=decoded.pixels.get();if(fitTexture(pixels,width,height,scaled,full?FullTextureEdge:MaxTextureEdge))pixels=scaled.data();
+     if(width>65535||height>65535)importFail("texture.derivative","Cannot create the Source texture of "+placeText(at)+": its image is "+std::to_string(width)+" x "+std::to_string(height)+" pixels, more than the VTF format holds",{{"where",Json::array({at})},{"texture",base}});
+     // Mip levels follow the 80-byte header smallest first; each level is a 2x2
+     // box filter of the one above, built in place.
+@@ -253,7 +287,7 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
+     std::vector<size_t> offsets(levels.size());size_t size=80;for(size_t k=levels.size();k-->0;){offsets[k]=size;size+=size_t(levels[k].first)*levels[k].second*4;}
+     Bytes vtf(size,0);auto put=[&]<class T>(size_t at,T value){std::memcpy(vtf.data()+at,&value,sizeof(T));};
+     std::memcpy(vtf.data(),"VTF",3);put(4,uint32_t(7));put(8,uint32_t(2));put(12,uint32_t(80));put(16,uint16_t(width));put(18,uint16_t(height));put(20,uint32_t(texture.value("alpha",false)?0x2000:0));put(24,uint16_t(1));put(32,.5f);put(36,.5f);put(40,.5f);put(48,1.f);put(52,uint32_t(0));put(57,int32_t(-1));put(63,uint16_t(1));
+-    vtf[56]=uint8_t(levels.size());std::memcpy(vtf.data()+offsets[0],pixels,size_t(width)*height*4);decoded.reset();scaled=Bytes();
++    vtf[56]=uint8_t(levels.size());std::memcpy(vtf.data()+offsets[0],pixels,size_t(width)*height*4);decoded.pixels.reset();scaled=Bytes();
+     for(size_t k=1;k<levels.size();k++){auto [w,h]=levels[k-1];auto [nw,nh]=levels[k];const unsigned char* prior=vtf.data()+offsets[k-1];unsigned char* next=vtf.data()+offsets[k];
+      for(int y=0;y<nh;y++)for(int x=0;x<nw;x++)for(int c=0;c<4;c++){unsigned sum=0;for(int yy=0;yy<2;yy++)for(int xx=0;xx<2;xx++)sum+=prior[(size_t(std::min(h-1,y*2+yy))*w+std::min(w-1,x*2+xx))*4+c];next[(size_t(y)*nw+x)*4+c]=uint8_t(sum/4);}}
+     writeAtomic(derivative,vtf);
+@@ -275,10 +309,10 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
+   value("$bumpmap","mmdhl/scmi/normal");value("$lightwarptexture","mmdhl/scmi/lightwarptexture");value("$halflambert","0");value("$phong","1");value("$phongboost","24");value("$phongalbedotint","1");value("$phongexponenttexture","mmdhl/scmi/phong_exp");value("$phongfresnelranges","[0 0 1]");value("$rimlight","1");value("$rimlightexponent","2");value("$rimlightboost","2");vmt<<"}\n";
+   auto text=vmt.str();files["materials/"+materialPath(id,i,material.value("name",""))+".vmt"].data=Bytes(text.begin(),text.end());
+  }
+- const size_t materials=manifest["materials"].size();
++ const size_t count=materials.size();
+  if(!progress){writeGma(package,files,"Model Hotloader materials "+id);return;}
+- progress(.45,materials,materials);
+- writeGma(package,files,"Model Hotloader materials "+id,[&](uint64_t done,uint64_t total){progress(.45+.55*double(done)/double(std::max<uint64_t>(1,total)),materials,materials);});
++ progress(.45,count,count);
++ writeGma(package,files,"Model Hotloader materials "+id,[&](uint64_t done,uint64_t total){progress(.45+.55*double(done)/double(std::max<uint64_t>(1,total)),count,count);});
+ }
+ Json openSourceRegistry(const fs::path& path,std::string& setAside){
+     setAside.clear();std::error_code ec;if(!fs::exists(ioPath(path),ec))return Json::object();
+@@ -302,6 +336,92 @@ Json openSourceRegistry(const fs::path& path,std::string& setAside){
+     }
+ #endif
+ }
++// ---- where Reload's source registries live (assets.hpp sourceRegistryPath; review finding 18) ----
++namespace {
++fs::path sourcesRoot(){
++#ifdef _WIN32
++ wchar_t value[32768];auto n=GetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",value,32768);
++ if(n>0&&n<32768)return fs::path(std::wstring(value,n));
++#else
++ if(auto value=std::getenv("MMDHL_SOURCES_DIR");value&&*value)return fs::path(value);
++#endif
++ return fileAccessStore().parent_path()/L"sources";
++}
++const wchar_t* registryName(SourceRegistry which){return which==SourceRegistry::Characters?L"characters.json":L"props.json";}
++// A file of `folder` named `name`, or name-1, name-2... when that is taken.
++fs::path freeName(const fs::path& folder,const std::wstring& name){
++ std::error_code error;for(int n=0;;n++){auto path=folder/(n?name+L"-"+std::to_wstring(n):name);if(!fs::exists(ioPath(path),error)||n>=999)return path;}
++}
++// The registry `old` (in the cache, from before) into `target`: entries `target` lacks join it, an
++// unreadable one is kept beside it as <target>.damaged-<old's name>, and so are the copies set aside
++// beside `old` (<old>.damaged-<time>); then the old files go.
++void moveRegistry(const fs::path& old,const fs::path& target){
++ std::error_code error;auto folder=old.parent_path();const auto prefix=old.filename().wstring()+L".damaged-";
++ std::vector<fs::path> aside;
++ for(auto& entry:fs::directory_iterator(ioPath(folder),error)){std::error_code e;auto name=entry.path().filename().wstring();if(name.starts_with(prefix)&&entry.is_regular_file(e))aside.push_back(folder/name);}
++ const bool present=fs::is_regular_file(ioPath(old),error);
++ if(!present&&aside.empty())return;
++ fs::create_directories(ioPath(target.parent_path()));
++ if(present){
++  auto bytes=readFile(old);Json moved;bool readable=false;
++  try{moved=Json::parse(bytes.begin(),bytes.end());readable=moved.is_object();}catch(const Json::exception&){}
++  if(readable){
++   // What the registry there holds wins: it is newer. A damaged one is set aside first.
++   std::string setAside;auto merged=openSourceRegistry(target,setAside);
++   for(auto& [id,entry]:moved.items())if(!merged.contains(id))merged[id]=entry;
++   writeJson(target,merged);
++  }else writeAtomic(freeName(target.parent_path(),target.filename().wstring()+L".damaged-moved"),bytes);
++  fs::remove(ioPath(old));
++ }
++ for(auto& copy:aside){
++  auto bytes=readFile(copy);writeAtomic(freeName(target.parent_path(),target.filename().wstring()+L".damaged-"+copy.filename().wstring().substr(prefix.size())),bytes);
++  fs::remove(ioPath(copy));
++ }
++}
++}
++fs::path sourceRegistryFolder(const fs::path& cache){
++ auto path=ioPath(cache).wstring();
++#ifdef _WIN32
++ // One spelling for the module and the worker: no \\?\ prefix, no trailing separator, lowercase.
++ if(path.starts_with(L"\\\\?\\UNC\\"))path=L"\\\\"+path.substr(8);else if(path.starts_with(L"\\\\?\\"))path=path.substr(4);
++ while(path.size()>3&&(path.back()==L'\\'||path.back()==L'/'))path.pop_back();
++ if(!path.empty())CharLowerBuffW(path.data(),DWORD(path.size()));
++#else
++ while(path.size()>1&&path.back()==L'/')path.pop_back();
++#endif
++ auto text=utf8(path);auto digest=hash(std::span(reinterpret_cast<const unsigned char*>(text.data()),text.size()));
++ return sourcesRoot()/wide(digest.substr(0,16));
++}
++void moveSourceRegistries(const fs::path& cache){
++ auto folder=sourceRegistryFolder(cache);
++ moveRegistry(cache/L"sources.local.json",folder/registryName(SourceRegistry::Characters));
++ moveRegistry(cache/L"static"/L"sources.local.json",folder/registryName(SourceRegistry::Props));
++}
++fs::path sourceRegistryPath(const fs::path& cache,SourceRegistry which){
++ auto folder=sourceRegistryFolder(cache);auto file=folder/registryName(which);
++ // Best effort: a registry from before that cannot move now is read again (and moved) next time.
++ try{moveRegistry(which==SourceRegistry::Characters?cache/L"sources.local.json":cache/L"static"/L"sources.local.json",file);}catch(...){}
++ return file;
++}
++std::string sourceRegistryDisplay(const fs::path& file){
++ auto relative=file.lexically_relative(sourcesRoot());
++ if(relative.empty()||*relative.begin()==L"..")return utf8(file.filename().wstring());
++#ifdef _WIN32
++ return "%LOCALAPPDATA%\\ModelHotloader\\sources\\"+utf8(relative.wstring());
++#else
++ return "~/.local/share/ModelHotloader/sources/"+utf8(relative.generic_wstring());
++#endif
++}
++std::string recordSource(const fs::path& cache,SourceRegistry which,const std::string& id,const Json& entry){
++ std::string setAside;
++ try{
++  auto path=sourceRegistryPath(cache,which);auto registry=openSourceRegistry(path,setAside);registry[id]=entry;writeJson(path,registry);
++  return setAside.empty()?std::string():sourceRegistryDisplay(path.parent_path()/wide(setAside));
++ }catch(const std::exception&){
++  // The registry is in the player's profile: its path stays out of the message a script reads.
++  importFail("io.write","Cannot save the list of the files your models came from (for Reload)",{{"why","Model Hotloader's list in its application data folder cannot be written"}});
++ }
++}
+ Json importAsset(const fs::path& source,const fs::path& cache,const Json& options,const fs::path& progress,CharacterConversion* character){
+     // Every step has a code (stageCode) the addon names in the player's language; the
+     // texture step also says which material it is on, for a failure or a crash report.
+@@ -372,8 +492,7 @@ Json importAsset(const fs::path& source,const fs::path& cache,const Json& option
+      prepareSourceMaterials(cache,id,manifest,[&](double fraction,size_t done,size_t total){
+       report("Preparing Source materials","materials",.62f+.32f*float(fraction),done<total?"Material "+std::to_string(done+1)+" of "+std::to_string(total):std::string("Writing the materials package"),done,total);});
+      // A damaged registry (Reload's source paths) must not block every import: it is set aside and a new one starts.
+-     auto registryPath=cache/L"sources.local.json";Json registry=openSourceRegistry(registryPath,setAside);
+-     registry[id]={{"source",utf8(fs::absolute(source).wstring())},{"options",options}};writeJson(registryPath,registry);
++     setAside=recordSource(cache,SourceRegistry::Characters,id,{{"source",utf8(fs::absolute(source).wstring())},{"options",options}});
+      report("Fitting native collision anatomy","fit",.94f);fit=prepareModelFit(*model,cache);
+      writeJson(directory/L"manifest.json",manifest);
+     }catch(...){
+@@ -415,9 +534,7 @@ std::shared_ptr<Model> loadAsset(const fs::path& cache,const std::string& id,con
+     // The module is closing (a map change, the game quitting): the load ends at its next
+     // step, so the close waits only for the step already running (R19, review MH-06).
+     auto stopped=[stop]{if(stop&&stop->load())throw std::runtime_error("Model loading stopped: the map is changing");};
+-    if(!validId(id))throw std::runtime_error("Invalid asset ID");auto directory=cache/L"assets"/wide(id);auto manifest=readJson(directory/L"manifest.json");if((manifest.value("version",0)!=1&&manifest.value("version",0)!=2)||manifest.value("id",std::string())!=id)throw std::runtime_error("Cache version or ID mismatch");
+-    auto identity=manifest;identity["id"]=manifest.at("sourceHash");auto encoded=identity.dump();if(hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()))!=id)throw std::runtime_error("Cached manifest checksum mismatch");
+-    if(manifest.contains("fullTextures")&&manifest["fullTextures"]!=true)throw std::runtime_error("Cached texture size option is invalid");
++    if(!validId(id))throw std::runtime_error("Invalid asset ID");auto directory=cache/L"assets"/wide(id);auto manifest=readJson(directory/L"manifest.json");checkManifestIdentity(manifest,id);
+     stopped();
+     // The file, nanoem's objects and the model's own copies are all held at once: checked before any of it is read.
+     LoadBudget budget(times(fileBytes(directory/L"model.bin"),LoadBudget::LoadExpansion),"This model");
+@@ -429,10 +546,13 @@ std::shared_ptr<Model> loadAsset(const fs::path& cache,const std::string& id,con
+         auto map=conversion.value("boneMap",Json::object());if(!map.is_object())throw std::runtime_error("Cached conversion map is invalid");
+         for(auto& [key,value]:map.items()){if(!mappedSlotKey(key)||!value.is_number_integer()||value.get<int64_t>()<-1||value.get<int64_t>()>=int64_t(model->bones.size()))throw std::runtime_error("Cached conversion map is invalid");model->conversionBoneMap[key]=value.get<int>();}
+     }
+-    if(manifest.at("textures").size()!=model->materials.size())throw std::runtime_error("Cached material count mismatch");
++    // One entry per material of the model in both lists (review finding 9: a model with no materials and
++    // a manifest naming one made the Source materials read past an empty list).
++    const auto lists=materialLists(manifest);const Json& textures=lists.second;
++    if(textures.size()!=model->materials.size()||lists.first.size()!=model->materials.size())throw std::runtime_error("Cached material count mismatch");
+     std::set<std::string> verified;
+     std::map<std::string,std::vector<size_t>> alphaParts;
+-    for(size_t i=0;i<model->materials.size();i++){auto& t=manifest["textures"][i];auto& m=model->materials[i];auto resolve=[&](const char* key){std::string h=t.value(key,std::string());if(h.empty())return h;if(!validId(h))throw std::runtime_error("Invalid cached texture reference");if(verified.insert(h).second){auto p=cache/L"textures"/wide(h+".png");stopped();LoadBudget file(fileBytes(p),"A texture of this model");if(hash(readFile(p))!=h)throw std::runtime_error("Cached texture checksum mismatch");}return h;};m.base=resolve("base");m.sphere=resolve("sphere");m.toon=resolve("toon");m.alphaTexture=t.value("alpha",false);}
++    for(size_t i=0;i<model->materials.size();i++){auto& t=textures.at(i);auto& m=model->materials[i];auto resolve=[&](const char* key){std::string h=t.value(key,std::string());if(h.empty())return h;if(!validId(h))throw std::runtime_error("Invalid cached texture reference");if(verified.insert(h).second){auto p=cache/L"textures"/wide(h+".png");stopped();LoadBudget file(fileBytes(p),"A texture of this model");if(hash(readFile(p))!=h)throw std::runtime_error("Cached texture checksum mismatch");}return h;};m.base=resolve("base");m.sphere=resolve("sphere");m.toon=resolve("toon");m.alphaTexture=t.value("alpha",false);}
+     // Cached manifests remain immutable. Classify their decoded base alpha at
+     // load time so cutout hair writes depth, while authored sheer fabric/glass
+     // still blends. Count meaningful coverage rather than empty atlas space.
+@@ -472,12 +592,13 @@ std::shared_ptr<Model> loadAsset(const fs::path& cache,const std::string& id,con
+     std::vector<std::array<float,2>> offset;
+     for(auto& [base,parts]:alphaParts){
+         stopped();auto pngPath=cache/L"textures"/wide(base+".png");LoadBudget file(fileBytes(pngPath),"A texture of this model");
+-        auto png=readFile(pngPath);int w=0,h=0,c=0;
+-        if(png.size()>INT_MAX||!stbi_info_from_memory(png.data(),int(png.size()),&w,&h,&c)||w<1||h<1)throw std::runtime_error("Cannot inspect cached texture alpha");
++        auto png=readFile(pngPath);int w=0,h=0;
++        // A PNG only, through the PNG-only decoder (cache_png.hpp, review finding 6); its checksum held above.
++        if(!pngHeader(png,w,h))throw std::runtime_error("Cannot inspect cached texture alpha");
+         // The decoded pixels and the masks made from them.
+         LoadBudget decoded(times(uint64_t(w)*uint64_t(h),8),"A texture of this model");
+-        std::unique_ptr<unsigned char,decltype(&stbi_image_free)> pixels(stbi_load_from_memory(png.data(),int(png.size()),&w,&h,&c,4),stbi_image_free);
+-        if(!pixels||w<1||h<1)throw std::runtime_error("Cannot inspect cached texture alpha");
++        DecodedPng image;try{image=decodeCachedPng(png,base.substr(0,16)+".png");}catch(const std::exception&){throw std::runtime_error("Cannot inspect cached texture alpha");}
++        auto& pixels=image.pixels;
+         size_t visible=0,soft=0;for(size_t k=3;k<size_t(w)*h*4;k+=4){auto a=pixels.get()[k];visible+=a>8;soft+=a>8&&a<247;}
+         auto mask=std::make_shared<const AlphaPassMask>(pixels.get(),w,h);
+         std::optional<SoftMask> softMask;if(soft)softMask.emplace(pixels.get(),w,h);
+@@ -567,8 +688,10 @@ Json deleteAssets(const fs::path& cache,const std::vector<std::string>& ids){
+   auto path=entry.is_directory()?entry.path()/(std::wstring(dir)==L"rigs"?L"rig.json":L"status.json"):entry.path();if(path.extension()!=L".json"||!fs::exists(path))continue;
+   Json metadata;try{metadata=readJson(path);}catch(...){continue;}auto asset=metadata.contains("fit")?metadata["fit"].value("asset",""):metadata.value("asset","");if(selected.contains(asset)){collect(fs::path(dir)/entry.path().filename());if(std::wstring(dir)==L"rigs"){collect(fs::path(L"names/rigs")/wide(metadata.value("key","").substr(0,16)+".json"));collect(fs::path(L"names/rigs")/wide(metadata.value("key","").substr(0,16)+"-carrier.gma"));}}
+  }
+- auto registryPath=cache/L"sources.local.json";
+- if(!selected.empty()&&fs::exists(registryPath)){auto registry=readJson(registryPath);for(auto& id:selected)registry.erase(id);writeJson(registryPath,registry);}
++ // Their source paths go from Reload's registry (outside the cache, sourceRegistryPath). One that cannot be
++ // read or written blocks no deletion, and its error, which would name a folder of the player's profile, stays here.
++ if(!selected.empty())try{auto registryPath=sourceRegistryPath(cache,SourceRegistry::Characters);std::error_code exists;
++  if(fs::is_regular_file(ioPath(registryPath),exists)){auto registry=readJson(registryPath);if(registry.is_object()){for(auto& id:selected)registry.erase(id);writeJson(registryPath,registry);}}}catch(const std::exception&){}
+  // Persist intent before touching mounted files. Windows may hold an archive
+  // open until game exit; the next client startup finishes these exact paths.
+  auto save=[&](const auto& entries){Json list=Json::array();for(auto& relative:entries)list.push_back(utf8(relative.generic_wstring()));writeJson(queue,list);};
+diff --git a/mmdhl/native/assets.hpp b/mmdhl/native/assets.hpp
+--- a/mmdhl/native/assets.hpp
++++ b/mmdhl/native/assets.hpp
+@@ -13,10 +13,32 @@ struct CharacterConversion {
+ };
+ // importAsset for a converted character: the same identity, cache, registry and fit.
+ Json importConverted(const fs::path& source,const fs::path& cache,const Json& options,const fs::path& progress,CharacterConversion&& converted);
+-// A sources.local.json (Reload's source paths: the characters' or the static props')
+-// for adding an entry. One that does not read as a JSON object must not block every
+-// import, nor be overwritten: it is renamed to <name>.damaged-<UTC time> beside it, its
+-// file name goes to `setAside` (the import result reports it as registryBackup), and a
+-// new registry starts. A file that cannot be read or renamed fails the import instead.
++// A source registry (Reload's source paths: the characters' or the static props', see
++// sourceRegistryPath) for adding an entry. One that does not read as a JSON object must not
++// block every import, nor be overwritten: it is renamed to <name>.damaged-<UTC time> beside it,
++// its file name goes to `setAside` (the import result reports it as registryBackup, in the form
++// sourceRegistryDisplay gives), and a new registry starts. A file that cannot be read or renamed
++// fails the import instead.
+ Json openSourceRegistry(const fs::path& path,std::string& setAside);
++// Reload's source registries: the absolute path of the file each character (Characters) or
++// static prop (Props) was imported from, with its import options, by asset id. They are kept
++// outside the game folder, whose files any server's scripts read (review finding 18: they were
++// garrysmod/data/mmd_hotloader/sources.local.json and static/sources.local.json), in the
++// folder of their cache under %LOCALAPPDATA%\ModelHotloader\sources (sourceRegistryFolder),
++// beside the picked-models list and the file-access store. A registry still in the cache from
++// before, and the copies set aside beside it, move there on the first call for that cache: its
++// entries join those already there (which win), and the old files go.
++enum class SourceRegistry {Characters,Props};
++fs::path sourceRegistryPath(const fs::path& cache,SourceRegistry which);
++// <root>\<16 hex digits of SHA-256 of the cache's full path (lowercase on Windows)>: one per game
++// install. <root> is %LOCALAPPDATA%\ModelHotloader\sources ($XDG_DATA_HOME/ModelHotloader/sources),
++// or the folder MMDHL_SOURCES_DIR names (the tests).
++fs::path sourceRegistryFolder(const fs::path& cache);
++// A file there as messages name it, without the account name: %LOCALAPPDATA%\ModelHotloader\sources\...
++std::string sourceRegistryDisplay(const fs::path& file);
++// Moves both registries of a cache from before (see above); what cannot move now stays for the next call.
++void moveSourceRegistries(const fs::path& cache);
++// Adds or replaces one entry ({"source","options"}) of a registry; returns where a damaged registry
++// was set aside (sourceRegistryDisplay), or nothing. A failure is an ImportError naming no path.
++std::string recordSource(const fs::path& cache,SourceRegistry which,const std::string& id,const Json& entry);
+ }
+diff --git a/mmdhl/native/backface_twins.hpp b/mmdhl/native/backface_twins.hpp
+--- a/mmdhl/native/backface_twins.hpp
++++ b/mmdhl/native/backface_twins.hpp
+@@ -28,6 +28,12 @@ namespace mmd {
+ using MorphOffsets=std::vector<std::pair<unsigned,btVector3>>;
+ 
+ namespace twins_detail {
++// A lining layer puts two triangles (a few where layers stack) on the same three points. A point set
++// shared by more is a stack of duplicates, not a copy, and is left out; a mesh whose point sets still
++// pair more twin triangles than MaxPairsPerTriangle per triangle, or more part pairs than MaxPartPairs,
++// is left as it is. So the work stays linear in the model's size: before (review finding 11) every
++// pair of a crafted stack was kept, and 16,384 copies of one triangle took 1.2 GB and 1.4 s.
++constexpr size_t MaxCoincidentTriangles=16,MaxPairsPerTriangle=2,MaxPartPairs=4096;
+ template<class T,size_t N> struct ArrayHash {
+  size_t operator()(const std::array<T,N>& a)const{size_t h=0;for(auto v:a)h^=std::hash<T>{}(v)+0x9e3779b9+(h<<6)+(h>>2);return h;}
+ };
+@@ -129,7 +135,8 @@ inline bool namedCopy(const std::string& name){
+ // Finds the back-face copies, decides each pair's outside layer and gives every copy vertex the
+ // skinning (type, bones, weights, SDEF parameters) of its twin on that layer. Sets Model::twinLeads
+ // (follower, lead), ascending, and returns what it found (TwinReport::skins: the followers whose own
+-// skinning deformed differently); the rest geometry is not changed.
++// skinning deformed differently; stacked and limited: twins_detail::MaxCoincidentTriangles and the
++// limits beside it); the rest geometry is not changed.
+ inline Model::TwinReport weldBackfaceTwins(Model& m){
+  Model::TwinReport report;m.twinLeads.clear();
+  const size_t triangles=m.indices.size()/3;
+@@ -150,14 +157,20 @@ inline Model::TwinReport weldBackfaceTwins(Model& m){
+  }
+  std::sort(keys.begin(),keys.end());
+  // Twin triangles per pair of parts (first part < second), in triangle order, so every load votes alike.
++ // Point sets of more than MaxCoincidentTriangles are left out; past the other limits nothing is welded.
+  std::map<std::pair<unsigned,unsigned>,std::vector<std::pair<unsigned,unsigned>>> pairs;
++ const size_t maxListed=triangles*twins_detail::MaxPairsPerTriangle;size_t listed=0;
++ auto limited=[&]{report=Model::TwinReport{};report.limited=true;m.twinLeads.clear();return report;};
+  for(size_t begin=0,end=0;begin<keys.size();begin=end){
+   end=begin+1;while(end<keys.size()&&keys[end].first==keys[begin].first)end++;
++  if(end-begin>twins_detail::MaxCoincidentTriangles){report.stacked++;continue;}
+   for(size_t i=begin;i<end;i++)for(size_t j=i+1;j<end;j++){
+    unsigned s=keys[i].second,t=keys[j].second;
+    if(clockwise[s]==clockwise[t]||partOf[s]==partOf[t])continue;
+    if(partOf[s]>partOf[t])std::swap(s,t);
+-   pairs[{partOf[s],partOf[t]}].push_back({s,t});
++   if(++listed>maxListed)return limited();
++   auto& list=pairs[{partOf[s],partOf[t]}];if(list.empty()&&pairs.size()>twins_detail::MaxPartPairs)return limited();
++   list.push_back({s,t});
+   }
+  }
+  report.pairs=unsigned(pairs.size());
+diff --git a/mmdhl/native/cache_png.cpp b/mmdhl/native/cache_png.cpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/native/cache_png.cpp
+@@ -0,0 +1,34 @@
++// The game modules' decoder of cache textures (cache_png.hpp): stb_image with PNG alone, static in
++// this file, so the runtime's other copy (assets.cpp, every format, for the importer) is never what
++// reads a cache file in the game.
++#include "cache_png.hpp"
++#include <climits>
++#include <cstdint>
++#include <cstdlib>
++#include <cstring>
++#include <stdexcept>
++#define STB_IMAGE_STATIC
++#define STB_IMAGE_IMPLEMENTATION
++#define STBI_ONLY_PNG
++#define STBI_NO_STDIO
++// Zero-filled buffers: whatever a damaged image leaves undecoded reads as black, never as old heap.
++#define STBI_MALLOC(size) std::calloc(1,size)
++#define STBI_REALLOC(pointer,size) std::realloc(pointer,size)
++#define STBI_FREE(pointer) std::free(pointer)
++#include <stb_image.h>
++namespace mmd {
++bool pngHeader(std::span<const unsigned char> b,int& width,int& height){
++ if(b.size()<24||std::memcmp(b.data(),"\x89PNG\r\n\x1a\n",8)||std::memcmp(b.data()+12,"IHDR",4))return false;
++ auto be=[&](size_t at){return uint32_t(b[at])<<24|uint32_t(b[at+1])<<16|uint32_t(b[at+2])<<8|uint32_t(b[at+3]);};
++ uint32_t w=be(16),h=be(20);if(!w||!h||w>INT_MAX||h>INT_MAX)return false;
++ width=int(w);height=int(h);return true;
++}
++DecodedPng decodeCachedPng(std::span<const unsigned char> b,const std::string& what){
++ int headerWidth=0,headerHeight=0;
++ if(b.size()>INT_MAX||!pngHeader(b,headerWidth,headerHeight))throw std::runtime_error(what+" is not a PNG");
++ DecodedPng out;int width=0,height=0,channels=0;
++ out.pixels={stbi_load_from_memory(b.data(),int(b.size()),&width,&height,&channels,4),stbi_image_free};
++ if(!out.pixels||width!=headerWidth||height!=headerHeight)throw std::runtime_error(what+" cannot be decoded");
++ out.width=width;out.height=height;return out;
++}
++}
+diff --git a/mmdhl/native/cache_png.hpp b/mmdhl/native/cache_png.hpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/native/cache_png.hpp
+@@ -0,0 +1,20 @@
++#pragma once
++// Cache textures (textures/<sha256>.png) as the game modules read them. The importer writes them
++// with stb_image_write, so anything that is not a PNG is refused before it is decoded (the
++// signature and the IHDR chunk), and the decoder is stb_image built with PNG alone
++// (STBI_ONLY_PNG, cache_png.cpp) into zero-filled buffers. A script can write any bytes to such a
++// file (the share protocol, file.Write of a .png): decoded as a TGA, an 18-byte header made
++// "pixels" of the game's old heap (stb's short reads, CVE-2023-45663), which went into the Source
++// texture made from it and back to any server's file.Read (review finding 6).
++#include <memory>
++#include <span>
++#include <string>
++namespace mmd {
++// The size in a PNG's header: false unless the bytes start with the PNG signature and an IHDR
++// chunk whose width and height are positive.
++bool pngHeader(std::span<const unsigned char> bytes,int& width,int& height);
++struct DecodedPng {std::unique_ptr<unsigned char,void(*)(void*)> pixels{nullptr,nullptr};int width=0,height=0;};
++// RGBA pixels of a cached PNG, of the size its header gives; throws std::runtime_error for
++// anything else (`what` names the file in the message).
++DecodedPng decodeCachedPng(std::span<const unsigned char> bytes,const std::string& what);
++}
+diff --git a/mmdhl/native/file_access.cpp b/mmdhl/native/file_access.cpp
+--- a/mmdhl/native/file_access.cpp
++++ b/mmdhl/native/file_access.cpp
+@@ -941,9 +941,18 @@ std::optional<Json> FileAccess::pollList(uint64_t id){
+  refresh();auto task=collect(tasks,dropped,id,true);if(!task)return std::nullopt;return std::move(task->list);
+ }
+ void FileAccess::release(const std::string& handle){items.erase(handle);}
++// A remembered folder as the manager window names it: "…\" and its own name, not a path a request could name.
++static std::string folderPlace(const fs::path& folder){
++ auto name=folder.filename();if(name.empty())name=folder.parent_path().filename();
++ return "\xE2\x80\xA6"+std::string(1,char(fs::path::preferred_separator))+utf8(name.wstring());
++}
++// The remembered folders for the player's manager window. Every script in this Lua state can call it, so it
++// carries nothing a request could reuse to be answered without a dialog (review finding 27: the requester
++// label, the script and the folder were the very key covering() matches): only the opaque id Revoke takes,
++// the folder's own name and when it was remembered and last used.
+ Json FileAccess::grants(){
+  localOnly();refresh();
+- Json list=Json::array();for(auto& g:store.grants)list.push_back({{"id",g.id},{"requester",g.requester},{"script",g.script},{"folder",displayPath(g.folder)},{"created",g.created},{"used",g.used}});
++ Json list=Json::array();for(auto& g:store.grants)list.push_back({{"id",g.id},{"place",folderPlace(g.folder)},{"created",g.created},{"used",g.used}});
+  return {{"enabled",store.enabled},{"grants",list}};
+ }
+ bool FileAccess::revoke(const std::string& id){
+diff --git a/mmdhl/native/installation.cpp b/mmdhl/native/installation.cpp
+--- a/mmdhl/native/installation.cpp
++++ b/mmdhl/native/installation.cpp
+@@ -6,9 +6,54 @@
+ #include <dlfcn.h>
+ #include <unistd.h>
+ #endif
++#include <algorithm>
++#include <cwctype>
++#include <functional>
+ #include <stdexcept>
+ 
+ namespace mmd {
++// ---- paths for another server's scripts (installation.hpp; review finding 18) ----
++namespace {
++std::wstring plainPath(std::wstring s){
++ if(s.starts_with(L"\\\\?\\UNC\\"))s=L"\\\\"+s.substr(8);else if(s.starts_with(L"\\\\?\\"))s=s.substr(4);
++ while(s.size()>1&&(s.back()==L'\\'||s.back()==L'/'))s.pop_back();
++ return s;
++}
++std::wstring folded(std::wstring s){
++#ifdef _WIN32
++ for(auto& c:s)c=wchar_t(std::towlower(c));
++#endif
++ return s;
++}
++std::string fileNameOf(const std::string& path){try{return utf8(fs::path(wide(path)).filename().wstring());}catch(...){return {};}}
++}
++std::string gameRelativePath(const fs::path& gameRoot,const std::string& text,bool marked){
++ if(text.empty())return text;
++ std::wstring path,root;
++ try{path=plainPath(fs::path(wide(text)).lexically_normal().wstring());root=plainPath(gameRoot.lexically_normal().wstring());}catch(...){return {};}
++ auto p=folded(path),r=folded(root);
++ if(!r.empty()&&p.size()>r.size()+1&&p.compare(0,r.size(),r)==0&&(p[r.size()]==L'\\'||p[r.size()]==L'/'))
++  return marked?"<game>"+utf8(path.substr(r.size())):utf8(path.substr(r.size()+1));
++ return fileNameOf(text);
++}
++Json gameRelativeIdentity(const fs::path& gameRoot,Json identity){
++ if(identity.is_object())for(auto key:{"path","expectedPath"})if(identity.contains(key)&&identity[key].is_string())identity[key]=gameRelativePath(gameRoot,identity[key].get<std::string>(),true);
++ return identity;
++}
++Json withoutFolders(Json value,const std::vector<fs::path>& folders){
++ std::vector<std::string> prefixes;
++ for(auto& folder:folders)try{
++  if(folder.empty())continue;
++  for(auto& f:{utf8(folder.wstring()),utf8(plainPath(folder.wstring())),utf8(plainPath(folder.lexically_normal().wstring())),utf8(folder.generic_wstring())})if(!f.empty()){prefixes.push_back(f+"\\");prefixes.push_back(f+"/");}
++ }catch(...){}
++ // Longer spellings first: a \\?\ form would otherwise keep its prefix.
++ std::sort(prefixes.begin(),prefixes.end(),[](const std::string& a,const std::string& b){return a.size()>b.size();});
++ std::function<void(Json&)> walk=[&](Json& j){
++  if(j.is_string()){auto s=j.get<std::string>();for(auto& f:prefixes)for(size_t at;(at=s.find(f))!=std::string::npos;)s.erase(at,f.size());j=s;}
++  else if(j.is_structured())for(auto& item:j)walk(item);};
++ walk(value);return value;
++}
++bool namesAbsolutePath(std::string_view s){return s.find(":\\")!=std::string_view::npos||s.find(":/")!=std::string_view::npos||s.find("\\\\")!=std::string_view::npos||s.find("/home/")!=std::string_view::npos;}
+ #ifndef _WIN32
+ // The game folder of the running executable: bin/linux64/gmod (the x86-64 branch's client),
+ // or a dedicated server's srcds_linux or bin/linux64/srcds_linux64.
+diff --git a/mmdhl/native/installation.hpp b/mmdhl/native/installation.hpp
+--- a/mmdhl/native/installation.hpp
++++ b/mmdhl/native/installation.hpp
+@@ -6,4 +6,18 @@ Json runtimeIdentity();
+ Json componentIdentity(const char* component, const void* address);
+ Json workerSelfTest(bool coacd);
+ Json probeWorker(const fs::path& bin, bool coacd);
++// ---- paths for the scripts of a server this game does not host (review finding 18) ----
++// Connected to another server, every client script comes from that server, so the client module gives
++// it no absolute path (the Windows account name, the folder layout). A path inside the game folder
++// `gameRoot` becomes relative to it: "<game>\garrysmod\lua\bin\..." with `marked` (the installation
++// check compares such paths with each other), "garrysmod\data\..." without; anything else becomes its
++// file name. Windows compares the folders without regard to case.
++std::string gameRelativePath(const fs::path& gameRoot,const std::string& path,bool marked);
++// An identity (componentIdentity) with its "path" and "expectedPath" made game-relative, marked.
++Json gameRelativeIdentity(const fs::path& gameRoot,Json identity);
++// Every text of `value` without the given folders (their files keep their names): what a job's
++// result names of the player's folders (its private folder, a source from the player's own list).
++Json withoutFolders(Json value,const std::vector<fs::path>& folders);
++// Whether a message names an absolute path.
++bool namesAbsolutePath(std::string_view text);
+ }
+diff --git a/mmdhl/native/json_assert.hpp b/mmdhl/native/json_assert.hpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/native/json_assert.hpp
+@@ -0,0 +1,15 @@
++#pragma once
++// Included first in every C++ file of this project's own targets (CMakeLists.txt, mmdhl_json_assert):
++// nlohmann::json checks the preconditions of its unchecked access (a const operator[] with a key the
++// object lacks, iterators of another value) with JSON_ASSERT, which compiles to nothing in a release
++// build, so a manifest a script wrote could make it read out of bounds (review finding 9). Here a
++// failed check throws: inside a function that may throw, the caller sees an exception; inside one
++// nlohmann marks noexcept, the process ends at once (std::terminate) instead of reading on.
++#ifdef __cplusplus
++#include <stdexcept>
++#include <string>
++namespace mmdhl_json {
++[[noreturn]] inline void assertionFailed(const char* condition){throw std::logic_error(std::string("Invalid JSON access (")+condition+")");}
++}
++#define JSON_ASSERT(condition) ((condition) ? static_cast<void>(0) : ::mmdhl_json::assertionFailed(#condition))
++#endif
+diff --git a/mmdhl/native/module.cpp b/mmdhl/native/module.cpp
+--- a/mmdhl/native/module.cpp
++++ b/mmdhl/native/module.cpp
+@@ -1,4 +1,5 @@
+ #include "runtime.hpp"
++#include "assets.hpp"
+ #include "installation.hpp"
+ #include "compatibility.hpp"
+ #include "renderer.hpp"
+@@ -44,11 +45,12 @@ constexpr bool ServerRealm=true;
+ #else
+ constexpr bool ServerRealm=false;
+ #endif
++// registry: a Reload or PropReload, whose source came from Reload's registry (assets.hpp sourceRegistryPath).
+ #ifdef _WIN32
+-struct Job{HANDLE process=nullptr,group=nullptr;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false;};
++struct Job{HANDLE process=nullptr,group=nullptr;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false,registry=false;};
+ #else
+ // The worker process (posix::Child: its own process group, killed with this thread).
+-struct Job{posix::Child child;bool process=false;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false;};
++struct Job{posix::Child child;bool process=false;fs::path dir;uint64_t started=0;Json result;std::string source,kind;bool picker=false,registry=false;};
+ static uint64_t GetTickCount64(){return posix::tickMs();}
+ static unsigned long GetCurrentProcessId(){return static_cast<unsigned long>(getpid());}
+ #endif
+@@ -80,6 +82,16 @@ void requireServer(){
+ throw std::runtime_error("Server realm owns simulation");
+ #endif
+ }
++// ---- absolute paths and another server's scripts (review finding 18; installation.hpp) ----
++// In single player and on a server this game hosts every script is the player's own, and gets paths as
++// they are. Connected to any other server, every client script comes from that server: this process runs
++// no server module then (localServerRealm counts the server realms in this process, which a remote
++// server's scripts cannot change), and no absolute path (the Windows account name, the folders) goes to
++// Lua: a path inside the game folder becomes relative to it, anything else its file name.
++bool ownScripts(){return ServerRealm||localServerRealm();}
++std::string fileName(const std::string& path){try{return utf8(fs::path(wide(path)).filename().wstring());}catch(...){return {};}}
++std::string gameRelative(const std::string& text,bool marked){return gameRelativePath(context->root,text,marked);}
++bool namesPath(const std::string& s){return namesAbsolutePath(s);}
+ // A job's folder (request and status) is only needed until its result reaches
+ // Lua; the newest results stay in memory for late polls. Never follow a junction.
+ #ifdef _WIN32
+@@ -167,7 +179,10 @@ FUNCTION(GetInstallationInfo) {
+ #endif
+  reinterpret_cast<const void*>(&GetInstallationInfo));
+  own["release"]=MMDHL_RELEASE;own["build"]=MMDHL_BUILD_ID;
+- push(LUA,{{"module",own},{"runtime",runtimeIdentity()}});return 1;
++ auto runtime=runtimeIdentity();
++ // Another server's scripts get the files relative to the game folder (ownScripts); the check still compares them.
++ if(!ownScripts()){own=gameRelativeIdentity(context->root,own);runtime=gameRelativeIdentity(context->root,runtime);}
++ push(LUA,{{"module",own},{"runtime",runtime}});return 1;
+ } END_FUNCTION
+ FUNCTION(ConfigureCompatibility) {push(LUA,configureCompatibility(json(LUA,1)));return 1;} END_FUNCTION
+ FUNCTION(CheckCompatibility) {push(LUA,checkCompatibility(
+@@ -185,23 +200,49 @@ FUNCTION(StartInstallationProbe) {
+ FUNCTION(PollInstallationProbe) {
+  if(!installationProbe.valid()){LUA->PushNil();return 1;}
+  if(installationProbe.wait_for(std::chrono::seconds(0))!=std::future_status::ready){push(LUA,{{"pending",true}});return 1;}
+- push(LUA,installationProbe.get());return 1;
++ // Another server's scripts: the worker's runtime relative to the game folder, and no message naming a path.
++ Json result;try{result=installationProbe.get();}catch(const std::exception& e){if(ownScripts()||!namesPath(e.what()))throw;throw std::runtime_error("Worker self-test failed: its report could not be read");}
++ if(!ownScripts()&&result.is_object()&&result.contains("runtime"))result["runtime"]=gameRelativeIdentity(context->root,result["runtime"]);
++ push(LUA,result);return 1;
+ } END_FUNCTION
+ FUNCTION(GetCapabilities) {push(LUA,{{"api",ApiVersion},{"version",MMDHL_RELEASE},{"build",MMDHL_BUILD_ID},{"installApi",MMDHL_INSTALL_API},{"rigVersion",RigVersion},{"rigGenerator",RigGenerator},{"rigGeneratorMin",RigGeneratorMinLoadable},{"physicsEditor",PhysicsSchema},{"sharingVersion",2},{"workers",workerCount()},{"presentationClock","fixed60-interpolated"},{"bulletApiSIMD",false},{"secondaryBroadphaseDefault",secondaryBroadphaseDefault()},{"platform",MMDHL_PLATFORM},{"parser","nanoem"},{"physics","Bullet 3.25"},{"sharedProcessSnapshots",false},{"skinning",{"BDEF1","BDEF2","BDEF4","SDEF","QDEF"}},{"characterImport",{{"version",1},{"probeVersion",1},{"requestVersion",1},{"formats",{"fbx","glb","gltf","dae"}}}},{"boneMap",{{"version",1},{"fit",true}}},{"fullTextures",FullTextureEdge},{"propFullTextures",props::fullTextureLimits().textureDimension},{"secondaryGravity",Secondary::MaxGravityScale},{"secondaryBuoyancy",1}});return 1;} END_FUNCTION
+ FUNCTION(Browse) {auto kind=LUA->IsType(1,GarrysMod::Lua::Type::String)?stringArg(LUA,1):std::string();if(!kind.empty()&&kind!="static")throw std::runtime_error("Unknown import kind");LUA->PushNumber(double(launch(true,"",kind.empty()?Json::object():Json{{"kind",kind}})));return 1;} END_FUNCTION
+ // Save a part preset of a cached static prop (materials and/or region cut).
+ FUNCTION(PropDerive) {auto id=stringArg(LUA,1);if(!validId(id))throw std::runtime_error("Invalid prop ID");if(!fs::exists(context->cache/L"static"/L"assets"/wide(id+".gmdl")))throw std::runtime_error("The original prop is not in the local cache");auto options=json(LUA,2);options["kind"]="derive";options["parent"]=id;LUA->PushNumber(double(launch(false,"",options)));return 1;} END_FUNCTION
++// An entry ({"source","options"}) of Reload's registry (outside the cache: assets.hpp sourceRegistryPath),
++// or null. Nothing about the registry's own file reaches Lua: it is in the player's profile.
++Json sourceEntry(SourceRegistry which,const std::string& id){
++ Json registry;
++ try{auto path=sourceRegistryPath(context->cache,which);std::error_code error;if(fs::is_regular_file(ioPath(path),error))registry=readJson(path);}catch(...){}
++ if(!validId(id)||!registry.is_object()||!registry.contains(id))return Json();
++ auto& entry=registry[id];if(!entry.is_object()||!entry.contains("source")||!entry["source"].is_string())return Json();
++ return entry;
++}
++#ifndef MMDHL_SERVER
++// Reload's source paths for the library's lists, {"<id>":{"source":...}} (characters or static props): the
++// paths for the player's own scripts, only the file names for another server's (ownScripts).
++FUNCTION(GetSourcePaths) {
++ auto kind=stringArg(LUA,1);if(kind!="character"&&kind!="static")throw std::runtime_error("Unknown source kind");
++ Json out=Json::object(),registry;
++ try{auto path=sourceRegistryPath(context->cache,kind=="character"?SourceRegistry::Characters:SourceRegistry::Props);std::error_code error;if(fs::is_regular_file(ioPath(path),error))registry=readJson(path);}catch(...){}
++ if(registry.is_object())for(auto& [id,entry]:registry.items()){
++  if(!validId(id)||!entry.is_object()||!entry.contains("source")||!entry["source"].is_string())continue;
++  auto source=entry["source"].get<std::string>();out[id]={{"source",ownScripts()?source:fileName(source)}};
++ }
++ push(LUA,out);return 1;
++} END_FUNCTION
++#endif
+ // Reimport a static prop from its recorded local source with new import options.
+-FUNCTION(PropReload) {auto id=stringArg(LUA,1);if(!validId(id))throw std::runtime_error("Invalid prop ID");auto path=context->cache/L"static"/L"sources.local.json";if(!fs::exists(path))throw std::runtime_error("Source path unavailable; import the file again");auto registry=readJson(path);if(!registry.contains(id))throw std::runtime_error("Source path unavailable; import the file again");auto options=json(LUA,2);options["kind"]="static";
++FUNCTION(PropReload) {auto id=stringArg(LUA,1);if(!validId(id))throw std::runtime_error("Invalid prop ID");auto entry=sourceEntry(SourceRegistry::Props,id);if(entry.is_null())throw std::runtime_error("Source path unavailable; import the file again");auto options=json(LUA,2);options["kind"]="static";
+     // A .blend reimport keeps the objects chosen at import.
+-    auto previous=registry[id].value("options",Json::object());if(!options.contains("objects")&&previous.contains("objects"))options["objects"]=previous["objects"];
+-    LUA->PushNumber(double(launch(false,registry[id].at("source"),options)));return 1;} END_FUNCTION
++    auto previous=entry.value("options",Json::object());if(!options.contains("objects")&&previous.is_object()&&previous.contains("objects"))options["objects"]=previous["objects"];
++    auto job=launch(false,entry.at("source"),options);context->jobs.at(job).registry=true;LUA->PushNumber(double(job));return 1;} END_FUNCTION
+ FUNCTION(BeginImport) {LUA->PushNumber(double(launch(false,stringArg(LUA,1),json(LUA,2))));return 1;} END_FUNCTION
+ // Reload replays the recorded options; the player's current import settings (optional
+ // JSON, argument 2) replace the recorded ones: textures at full size.
+-FUNCTION(Reload) {auto id=stringArg(LUA,1);auto registry=readJson(context->cache/L"sources.local.json");if(!registry.contains(id))throw std::runtime_error("Source path unavailable; select the model again");auto entry=registry[id];auto options=entry.value("options",Json::object());
++FUNCTION(Reload) {auto id=stringArg(LUA,1);auto entry=sourceEntry(SourceRegistry::Characters,id);if(entry.is_null())throw std::runtime_error("Source path unavailable; select the model again");auto options=entry.value("options",Json::object());
+     if(LUA->IsType(2,GarrysMod::Lua::Type::String)){auto settings=json(LUA,2);auto full=settings.find("fullTextures");if(full!=settings.end()&&*full==true)options["fullTextures"]=true;else if(options.is_object())options.erase("fullTextures");}
+-    LUA->PushNumber(double(launch(false,entry.at("source"),options)));return 1;} END_FUNCTION
++    auto job=launch(false,entry.at("source"),options);context->jobs.at(job).registry=true;LUA->PushNumber(double(job));return 1;} END_FUNCTION
+ // The end of the worker's crash log (worker.cpp), read before the job folder goes.
+ std::string workerLog(const fs::path& dir){
+  std::ifstream f(ioPath(dir/L"worker.log"),std::ios::binary|std::ios::ate);if(!f)return {};auto size=std::streamoff(f.tellg());auto start=std::max<std::streamoff>(0,size-4096);
+@@ -219,7 +260,14 @@ Json finishedJob(Job& j,Json last,const std::string& readError){
+  if(result.value("state","")=="failed"&&!result.contains("elapsed_ms"))result["elapsed_ms"]=GetTickCount64()-j.started;
+  return result;
+ }
+-FUNCTION(PollJob) {auto it=context->jobs.find(number(LUA,1));if(it==context->jobs.end())throw std::runtime_error("Unknown job");auto& j=it->second;if(!j.result.is_null()){push(LUA,j.result);return 1;}
++// What a poll shows the calling scripts: as it is to the player's own, without folders to another server's
++// (withoutFolders; a picker's choice keeps its path, the server's import of it needs it).
++Json jobForScripts(const Job& j,const Json& result){
++ if(ownScripts())return result;
++ std::vector<fs::path> folders{j.dir};if(j.registry)try{folders.push_back(fs::path(wide(j.source)).parent_path());}catch(...){}
++ return withoutFolders(result,folders);
++}
++FUNCTION(PollJob) {auto it=context->jobs.find(number(LUA,1));if(it==context->jobs.end())throw std::runtime_error("Unknown job");auto& j=it->second;if(!j.result.is_null()){push(LUA,jobForScripts(j,j.result));return 1;}
+     bool finished=workerFinished(j);Json result;std::string readError;try{result=readJson(j.dir/L"status.json");}catch(const std::exception& e){if(finished)readError=e.what();else result={{"state","running"},{"stage","Waiting for worker status"},{"progress",0}};}
+     if(!finished&&GetTickCount64()-j.started>300000)result["warning"]="Import is taking longer than five minutes. You can keep waiting or cancel.";
+ #ifdef _WIN32
+@@ -233,7 +281,7 @@ FUNCTION(PollJob) {auto it=context->jobs.find(number(LUA,1));if(it==context->job
+ #endif
+     }
+     else if(result.value("state","")!="running")result={{"state","running"},{"stage","Committing asset"},{"progress",.99}};
+-    push(LUA,result);return 1;} END_FUNCTION
++    push(LUA,jobForScripts(j,result));return 1;} END_FUNCTION
+ #ifdef _WIN32
+ FUNCTION(CancelJob) {auto it=context->jobs.find(number(LUA,1));if(it!=context->jobs.end()){auto& j=it->second;if(j.group){TerminateJobObject(j.group,1);CloseHandle(j.group);j.group=nullptr;}if(j.process){CloseHandle(j.process);j.process=nullptr;}
+ #else
+@@ -386,6 +434,14 @@ FUNCTION(PollPackageExport) {
+   try{job.result=job.future.get();job.result["state"]="complete";}catch(const std::exception& e){job.result={{"state",job.progress->cancel?"cancelled":"failed"},{"error",e.what()}};}
+   job.finished=true;
+  }
++ // Another server's scripts: the export's files relative to the game folder (the gmpublish command then
++ // runs from there), and no message naming a path.
++ if(!ownScripts()){
++  auto result=job.result;
++  for(auto key:{"path","folder","gmpublish"})if(result.contains(key)&&result[key].is_string())result[key]=gameRelative(result[key].get<std::string>(),false);
++  if(result.contains("error")&&result["error"].is_string()&&namesPath(result["error"].get<std::string>()))result["error"]="The export failed";
++  push(LUA,result);return 1;
++ }
+  push(LUA,job.result);return 1;
+ } END_FUNCTION
+ // Readme, licence and embedded terms of a model file the player chose, before importing it.
+@@ -759,7 +815,7 @@ FUNCTION(RegisterSourceShadow) {
+  if(LUA->IsType(1,GarrysMod::Lua::Type::PhysObj)){
+   physics=LUA->GetUserType<void>(1,GarrysMod::Lua::Type::PhysObj);
+   if(!physics||instance>1000000000)throw std::runtime_error("Source shadow physics object not available");key=int(1048576+instance);
+- }else key=int(number(LUA,1));
++ }else key=sourceEntityIndex(number(LUA,1));
+  registerSourceShadow(key,instance,json(LUA,3).get<std::vector<std::string>>(),float(LUA->GetNumber(4)),physics);LUA->PushBool(true);return 1;
+ } END_FUNCTION
+ FUNCTION(RemoveSourceShadow) {removeSourceShadow(int(number(LUA,1)));return 0;} END_FUNCTION
+@@ -871,12 +927,14 @@ GMOD_MODULE_OPEN(){
+         context->root=root;context->bin=root/L"garrysmod"/L"lua"/L"bin";context->cache=ioPath(root/L"garrysmod"/L"data"/L"mmd_hotloader");fs::create_directories(context->cache);
+ #ifndef MMDHL_SERVER
+         sweepJobFolders(context->cache,std::chrono::hours(24));try{sweepPrivateFolders(L"job-",std::chrono::hours(24),importJobsFolder());}catch(...){}
++        // Reload's registries from before leave garrysmod/data, which any server's scripts read (review finding 18).
++        try{moveSourceRegistries(context->cache);}catch(...){}
+ #endif
+         LUA->CreateTable();
+ #define REGISTER(name) LUA->PushCFunction(name);LUA->SetField(-2,#name)
+         REGISTER(GetInstallationInfo);REGISTER(ConfigureCompatibility);REGISTER(CheckCompatibility);
+ #ifndef MMDHL_SERVER
+-        REGISTER(StartInstallationProbe);REGISTER(PollInstallationProbe);REGISTER(StartPackageExport);REGISTER(PollPackageExport);REGISTER(CancelPackageExport);REGISTER(RevealPackageExport);REGISTER(InspectModelNotes);
++        REGISTER(StartInstallationProbe);REGISTER(PollInstallationProbe);REGISTER(StartPackageExport);REGISTER(PollPackageExport);REGISTER(CancelPackageExport);REGISTER(RevealPackageExport);REGISTER(InspectModelNotes);REGISTER(GetSourcePaths);
+ #endif
+         REGISTER(GetMountablePackage);REGISTER(StartAddonPackageScan);REGISTER(PollAddonPackageScan);
+         REGISTER(ExportSecondaryScene);REGISTER(ReadSceneChunk);REGISTER(AcceptSceneGeometry);REGISTER(PublishRemoteScene);REGISTER(ClearRemoteScene);REGISTER(StartSharedMaterialBuild);REGISTER(StartSharedExport);REGISTER(GetSharedExportSize);REGISTER(ReadSharedExport);REGISTER(ReleaseSharedExport);REGISTER(PollSharedCommit);REGISTER(GetSharedManifest);REGISTER(SharedFileMatches);REGISTER(ReadSharedChunk);REGISTER(BeginSharedFile);REGISTER(AppendSharedChunk);REGISTER(CommitSharedFile);REGISTER(CancelSharedFile);REGISTER(ForgetAssets);REGISTER(GetCapabilities);REGISTER(Browse);REGISTER(BeginImport);REGISTER(Reload);REGISTER(PollJob);REGISTER(CancelJob);REGISTER(RequestAsset);REGISTER(StartAssetCheck);REGISTER(PollAssetCheck);REGISTER(AssetInfo);REGISTER(InspectBoneMap);REGISTER(GetBoneMapProposal);REGISTER(PreviewCarrierFit);REGISTER(CreateInstance);REGISTER(DestroyInstance);REGISTER(GetDiagnostics);REGISTER(SetMaterialVisibility);REGISTER(SetSecondaryCollisionMode);REGISTER(SetSecondaryCollisionFlags);REGISTER(GetSecondaryCapabilities);REGISTER(GetSecondaryBackend);REGISTER(SetSecondaryBackend);REGISTER(SetVulkanSolverOrdering);REGISTER(Step);REGISTER(ResetPhysics);REGISTER(SetFrozen);REGISTER(SetMorph);REGISTER(SetBonePose);REGISTER(SetMirror);REGISTER(RemoveMirror);REGISTER(TakeImpulses);REGISTER(Raycast);REGISTER(BeginPhysgun);REGISTER(UpdatePhysgun);REGISTER(GetBoneTransform);REGISTER(GetMorphWeights);REGISTER(BeginGrab);REGISTER(UpdateGrab);REGISTER(EndGrab);REGISTER(Clear);
+diff --git a/mmdhl/native/prop_bindings.cpp b/mmdhl/native/prop_bindings.cpp
+--- a/mmdhl/native/prop_bindings.cpp
++++ b/mmdhl/native/prop_bindings.cpp
+@@ -1,5 +1,6 @@
+ #include "prop_bindings.hpp"
+ #include "props/core.hpp"
++#include "assets.hpp"
+ #ifdef _WIN32
+ #include <windows.h>
+ #endif
+@@ -166,7 +167,11 @@ LUA_FUNCTION(PropCatalog){try{
+     pushJson(LUA,out);return 1;
+ }catch(const std::exception& e){return failure(LUA,e);}}
+ }
+-std::string deleteProps(const std::vector<std::string>& ids){return props::deleteBundles(state->root,ids).dump();}
++// The props' entries in Reload's source registry go too (outside the cache: assets.hpp sourceRegistryPath).
++std::string deleteProps(const std::vector<std::string>& ids){
++    fs::path registry;try{registry=sourceRegistryPath(state->cache,SourceRegistry::Props);}catch(...){}
++    return props::deleteBundles(state->root,ids,registry).dump();
++}
+ void registerPropFunctions(Lua* LUA,const fs::path& cache){
+     state=std::make_unique<State>();state->cache=cache;state->root=cache/L"static";
+     fs::create_directories(state->root/L"assets");fs::create_directories(state->root/L"textures");
+diff --git a/mmdhl/native/props/core.cpp b/mmdhl/native/props/core.cpp
+--- a/mmdhl/native/props/core.cpp
++++ b/mmdhl/native/props/core.cpp
+@@ -123,7 +123,7 @@ static std::optional<std::set<std::string>> textureRefs(const fs::path& path){
+     }
+     return refs;
+ }
+-Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids){
++Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids,const fs::path& registryPath){
+     // Only content-addressed files inside root are candidates. Textures are removed
+     // only when no remaining bundle refers to them; one damaged bundle keeps all
+     // of them (its references are unknown) but blocks no deletion.
+@@ -141,8 +141,10 @@ Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids){
+         remove(path);auto packed=path;packed+=L".share2";remove(packed);
+         remove(root/L"library"/wide(asset+".json"));
+     }
+-    auto registryPath=root/L"sources.local.json";
+-    if(fs::exists(registryPath))try{auto registry=readJson(registryPath,8ull<<20);for(auto& asset:selected)registry.erase(asset);writeJson(registryPath,registry);}catch(...){}
++    // Their source paths go from Reload's registry, which the caller names (it is outside the cache since review
++    // finding 18: mmd::sourceRegistryPath); none named, none changed.
++    std::error_code exists;
++    if(!registryPath.empty()&&fs::is_regular_file(registryPath,exists))try{auto registry=readJson(registryPath,8ull<<20);if(registry.is_object()){for(auto& asset:selected)registry.erase(asset);writeJson(registryPath,registry);}}catch(...){}
+     return Json{{"removedFiles",files},{"removedBytes",bytes},{"pendingFiles",pending}};
+ }
+ static bool finite(Vec v){return std::isfinite(v.x)&&std::isfinite(v.y)&&std::isfinite(v.z)&&std::abs(v.x)<=1e7f&&std::abs(v.y)<=1e7f&&std::abs(v.z)<=1e7f;}
+diff --git a/mmdhl/native/props/core.hpp b/mmdhl/native/props/core.hpp
+--- a/mmdhl/native/props/core.hpp
++++ b/mmdhl/native/props/core.hpp
+@@ -87,9 +87,10 @@ Json readJson(const fs::path& path,uint64_t maxBytes=1ull<<20);
+ // when the file is not a readable bundle.
+ Json bundleManifest(const fs::path& path);
+ // Removes the named bundles under root (the cache's static folder), their share
+-// packs and library entries, and the textures no remaining bundle references.
++// packs and library entries, and the textures no remaining bundle references, and their
++// entries in Reload's source registry `registryPath` when one is named (best effort).
+ // Returns removedFiles, removedBytes and pendingFiles (files still in use).
+-Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids);
++Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids,const fs::path& registryPath={});
+ std::string sha256(std::span<const uint8_t> bytes);
+ bool validHash(std::string_view s);
+ void validatePNG(const Texture&);
+diff --git a/mmdhl/native/props/zstd_decode.cpp b/mmdhl/native/props/zstd_decode.cpp
+--- a/mmdhl/native/props/zstd_decode.cpp
++++ b/mmdhl/native/props/zstd_decode.cpp
+@@ -102,6 +102,10 @@ size_t readHuffman(Huffman& h,const uint8_t* src,size_t size){
+     if(!total)corrupt("empty Huffman tree");
+     int maxBits=highBit(total)+1;uint32_t left=(1u<<maxBits)-total;
+     if(left&(left-1))corrupt("Huffman weights are not a power of two");
++    // RFC 8878 describes at most 255 weights; the last one is implied. The FSE loop's overflow
++    // branches each store one more weight, so count can reach 256 here, and the implied weight
++    // would land one byte past `weights` (review finding 28).
++    if(count>255)corrupt("too many Huffman weights");
+     weights[count++]=uint8_t(highBit(left)+1);
+     if(maxBits>11)corrupt("Huffman code too long");
+     h.maxBits=maxBits;size_t tableSize=size_t(1)<<maxBits;h.symbol.assign(tableSize,0);h.bits.assign(tableSize,0);
+diff --git a/mmdhl/native/renderer.cpp b/mmdhl/native/renderer.cpp
+--- a/mmdhl/native/renderer.cpp
++++ b/mmdhl/native/renderer.cpp
+@@ -422,6 +422,8 @@ void installSourceShadows(){
+ void registerSourceShadow(int entity,uint64_t instance,const std::vector<std::string>& names,float alpha,void* corpsePhysics){
+     if(!std::isfinite(alpha)||alpha<0||alpha>1)throw std::runtime_error("Invalid shadow alpha");
+     auto& owner=world().get(instance);if(!owner.sourceRig||names.size()!=owner.model->materials.size())throw std::runtime_error("Source shadow mapping does not match model");
++    // Only an index inside the engine's entity list reaches GetClientEntity (renderer.hpp sourceEntityIndex).
++    if(!corpsePhysics&&(entity<0||entity>=SourceEntitySlots))throw std::runtime_error("Invalid Source entity index");
+     auto entities=sourceEntityList();
+     // Client-only corpses have EntIndex -1. Source CRagdoll::Init stores its
+     // C_BaseEntity in every IPhysicsObject's game data. Use that supported
+diff --git a/mmdhl/native/renderer.hpp b/mmdhl/native/renderer.hpp
+--- a/mmdhl/native/renderer.hpp
++++ b/mmdhl/native/renderer.hpp
+@@ -1,11 +1,20 @@
+ #pragma once
+ #include <cstdint>
+ #include <span>
++#include <stdexcept>
+ #include <string>
+ #include <utility>
+ #include <vector>
+ namespace mmd { void registerSourceShadow(int entity,uint64_t instance,const std::vector<std::string>& materials,float alpha,void* corpsePhysics=nullptr);void removeSourceShadow(int entity);void shutdownSourceShadows(); }
+ namespace mmd {
++// A client entity index from Lua (EntIndex) as IClientEntityList::GetClientEntity takes it. The engine's
++// list has NUM_ENT_ENTRIES (1 << 14) slots and refuses only negative indices (Source SDK 2013
++// entitylist_base.h; the upper bound is a debug assertion), so a larger one read past it and called
++// through what it found (review finding 26). Returns the index, or throws.
++constexpr int SourceEntitySlots=1<<14;
++inline int sourceEntityIndex(uint64_t value){if(value>=uint64_t(SourceEntitySlots))throw std::runtime_error("Invalid Source entity index");return int(value);}
++}
++namespace mmd {
+ struct Instance;
+ struct RenderTint {float r=1,g=1,b=1,a=1;};
+ void setupSourceLighting(float x,float y,float z);
+diff --git a/mmdhl/native/runtime.hpp b/mmdhl/native/runtime.hpp
+--- a/mmdhl/native/runtime.hpp
++++ b/mmdhl/native/runtime.hpp
+@@ -132,10 +132,11 @@ struct Model {
+     std::vector<unsigned> lightLayerRanks;
+     // Back-face copies (backface_twins.hpp): each copy vertex and the vertex of the layer facing outside
+     // whose skinning it took at load (follower, lead), ascending; per morph (by index), the offsets that
+-    // move each copy vertex with its lead; and what the load found.
++    // move each copy vertex with its lead; and what the load found (stacked: point sets of more triangles
++    // than a lining layer has, left out; limited: too many pairs for a model's lining, nothing welded).
+     std::vector<std::pair<unsigned,unsigned>> twinLeads;
+     std::vector<std::vector<std::pair<unsigned,btVector3>>> twinMorphFixes;
+-    struct TwinReport {unsigned pairs=0,voted=0,named=0,undecided=0,followers=0,skins=0,morphFixes=0;} twins;
++    struct TwinReport {unsigned pairs=0,voted=0,named=0,undecided=0,followers=0,skins=0,morphFixes=0,stacked=0;bool limited=false;} twins;
+     // Per triangle, 0 when the 0.5 alpha test removes every sampled texel of it
+     // (loadAsset; empty: nothing measured). Only RTX Remix draws skip those.
+     std::vector<uint8_t> cutoutTriangles;
+diff --git a/mmdhl/native/scene_share.cpp b/mmdhl/native/scene_share.cpp
+--- a/mmdhl/native/scene_share.cpp
++++ b/mmdhl/native/scene_share.cpp
+@@ -6,6 +6,15 @@ namespace mmd {
+ namespace {
+ Json xyz(const btVector3& v){return {v.x(),v.y(),v.z()};}
+ btVector3 vec(const Json& j){btVector3 v(j.at(0),j.at(1),j.at(2));for(int i=0;i<3;i++)if(!std::isfinite(v[i]))throw std::runtime_error("Non-finite remote collision pose");return v;}
++// A remote object's speed only widens the box a character's world culls it with (secondary.cpp sync):
++// past MaxRemoteSpeed (Source units per second, or degrees per second; Source's own limits are a few
++// thousand) a server's value could turn an empty box into one around the whole map (review finding 25).
++constexpr float MaxRemoteSpeed=1e5f;
++// In double: the square of a speed near float's limit is infinite.
++btVector3 capped(btVector3 v){double length=std::sqrt(double(v.x())*v.x()+double(v.y())*v.y()+double(v.z())*v.z());if(length>MaxRemoteSpeed)v*=float(MaxRemoteSpeed/length);return v;}
++// Coordinates of a remote shape, in its object's space: far beyond any map (Source's are within
++// +-32768), Bullet's bounding volumes lose their precision.
++constexpr float MaxRemoteCoordinate=1e6f;
+ Bytes encode(const SceneGeometry& g){StudioWriter w;w.alloc(48);w.i(0,0x43534d4d);w.i(4,1);w.i(8,g.kind);w.f(12,g.radius);w.i(16,int(g.vertices.size()));w.i(20,int(g.hullCounts.size()));w.vec(24,g.minimum);w.vec(36,g.maximum);for(auto v:g.vertices)w.vec(w.alloc(12),v);for(int n:g.hullCounts)w.i(w.alloc(4),n);return std::move(w.b);}
+ template<class T>T at(std::span<const unsigned char> b,size_t offset){if(offset>b.size()||sizeof(T)>b.size()-offset)throw std::runtime_error("Truncated remote collision geometry");T v;std::memcpy(&v,b.data()+offset,sizeof(v));return v;}
+ }
+@@ -36,11 +45,15 @@ void SceneShare::accept(const std::string& key,std::span<const unsigned char> b)
+  if(!validId(key)||hash(b)!=key||at<uint32_t>(b,0)!=0x43534d4d||at<uint32_t>(b,4)!=1)throw std::runtime_error("Invalid collision shape or checksum");
+  if(auto known=imported.find(key);known!=imported.end()){known->second.used=now();return;}
+  auto kind=at<int>(b,8),n=at<int>(b,16),h=at<int>(b,20);if(kind<0||kind>2||n<0||h<0||48ull+uint64_t(n)*12+uint64_t(h)*4!=b.size())throw std::runtime_error("Malformed remote collision shape");
+- auto g=std::make_shared<SceneGeometry>();g->kind=SceneGeometry::Kind(kind);g->radius=at<float>(b,12);if(!std::isfinite(g->radius)||g->radius<0)throw std::runtime_error("Invalid remote sphere");g->minimum={BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT};g->maximum=-g->minimum;
+- for(int i=0;i<n;i++){size_t p=48+size_t(i)*12;btVector3 v(at<float>(b,p),at<float>(b,p+4),at<float>(b,p+8));for(int j=0;j<3;j++)if(!std::isfinite(v[j]))throw std::runtime_error("Invalid remote collision vertex");g->vertices.push_back(v);g->minimum.setMin(v);g->maximum.setMax(v);}
++ auto g=std::make_shared<SceneGeometry>();g->kind=SceneGeometry::Kind(kind);g->radius=at<float>(b,12);if(!std::isfinite(g->radius)||g->radius<0||g->radius>MaxRemoteCoordinate)throw std::runtime_error("Invalid remote sphere");g->minimum={BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT};g->maximum=-g->minimum;
++ for(int i=0;i<n;i++){size_t p=48+size_t(i)*12;btVector3 v(at<float>(b,p),at<float>(b,p+4),at<float>(b,p+8));for(int j=0;j<3;j++)if(!std::isfinite(v[j])||std::abs(v[j])>MaxRemoteCoordinate)throw std::runtime_error("Invalid remote collision vertex");g->vertices.push_back(v);g->minimum.setMin(v);g->maximum.setMax(v);}
+  if(kind==SceneGeometry::Sphere){if(n||h||g->radius<=0)throw std::runtime_error("Malformed remote sphere");g->minimum={-g->radius,-g->radius,-g->radius};g->maximum=-g->minimum;}
+  size_t sum=0;for(int i=0;i<h;i++){int count=at<int>(b,48+size_t(n)*12+i*4);if(count<3)throw std::runtime_error("Invalid remote convex");sum+=count;g->hullCounts.push_back(count);}
+  if((kind==SceneGeometry::Triangles&&(n%3||h))||(kind==SceneGeometry::Convexes&&sum!=size_t(n)))throw std::runtime_error("Invalid remote collision topology");
++ // A mesh with no triangle or a set of no hulls holds nothing to collide with, and its inverted bounds
++ // pass any culling; Bullet's tree over zero triangles writes through null (review finding 25). The
++ // server's own capture never sends one (bridge.cpp skips empty objects).
++ if((kind==SceneGeometry::Triangles&&n==0)||(kind==SceneGeometry::Convexes&&h==0))throw std::runtime_error("Empty remote collision shape");
+  // Room for it: the shapes unused the longest go (R19, review MH-05).
+  while(!imported.empty()&&(importedBytes+b.size()>ImportBudget||imported.size()>=ImportLimit)){
+   auto oldest=imported.begin();for(auto it=imported.begin();it!=imported.end();++it)if(it->second.used<oldest->second.used)oldest=it;
+@@ -51,7 +64,7 @@ void SceneShare::accept(const std::string& key,std::span<const unsigned char> b)
+ std::vector<std::string> SceneShare::publish(World& host,const Json& description){
+  auto frame=std::make_shared<SceneFrame>();frame->sequence=description.at("sequence");frame->timestamp=description.at("timestamp");if(!std::isfinite(frame->timestamp))throw std::runtime_error("Invalid scene clock");
+  auto time=now();std::vector<std::string> missing;
+- for(auto& item:description.at("objects")){auto key=item.at("shape").get<std::string>();auto g=imported.find(key);if(g==imported.end()){missing.push_back(key);continue;}g->second.used=time;SceneObject o;o.id=item.at("id");o.owner=item.at("owner");o.physicsBone=item.value("bone",0);o.geometry=g->second.geometry;o.isStatic=item.at("static");auto actor=item.value("actor",0);if(actor<0||actor>2)throw std::runtime_error("Invalid remote collision actor");o.actor=uint8_t(actor);auto q=item.at("rotation");btQuaternion r(q.at(0),q.at(1),q.at(2),q.at(3));if(!std::isfinite(r.length2())||r.length2()<.5||r.length2()>1.5)throw std::runtime_error("Invalid remote collision rotation");o.transform=btTransform(r.normalized(),vec(item.at("position")));o.velocity=vec(item.at("velocity"));o.angular=vec(item.at("angular"));frame->objects.push_back(std::move(o));}
++ for(auto& item:description.at("objects")){auto key=item.at("shape").get<std::string>();auto g=imported.find(key);if(g==imported.end()){missing.push_back(key);continue;}g->second.used=time;SceneObject o;o.id=item.at("id");o.owner=item.at("owner");o.physicsBone=item.value("bone",0);o.geometry=g->second.geometry;o.isStatic=item.at("static");auto actor=item.value("actor",0);if(actor<0||actor>2)throw std::runtime_error("Invalid remote collision actor");o.actor=uint8_t(actor);auto q=item.at("rotation");btQuaternion r(q.at(0),q.at(1),q.at(2),q.at(3));if(!std::isfinite(r.length2())||r.length2()<.5||r.length2()>1.5)throw std::runtime_error("Invalid remote collision rotation");o.transform=btTransform(r.normalized(),vec(item.at("position")));o.velocity=capped(vec(item.at("velocity")));o.angular=capped(vec(item.at("angular")));frame->objects.push_back(std::move(o));}
+  host.externalScene.store(frame);
+  // Shapes no frame named for a while: their entity went away or out of reach (the frame just
+  // stored holds its own references, so nothing it uses goes from under it).
+diff --git a/mmdhl/native/secondary.cpp b/mmdhl/native/secondary.cpp
+--- a/mmdhl/native/secondary.cpp
++++ b/mmdhl/native/secondary.cpp
+@@ -147,12 +147,22 @@ struct Secondary::External {
+   return moved;
+  }
+  explicit External(Secondary& o):world(nanoemWorld(o.world)),owner(o){if(!owner.filterInstalled)world->getPairCache()->setOverlapFilterCallback(owner.filter.get());}
++ // Whether a scene shape holds anything to collide with: a sphere with a radius, a triangle, a hull.
++ // An empty one (only a server's crafted frame could carry it: SceneShare::accept refuses them and the
++ // server's capture skips them) has inverted bounds that pass any culling (review finding 25).
++ static bool collidable(const SceneGeometry& g){
++  if(g.kind==SceneGeometry::Sphere)return g.radius>0;
++  if(g.kind==SceneGeometry::Triangles)return g.vertices.size()>=3;
++  return !g.hullCounts.empty()&&!g.vertices.empty();
++ }
+  ~External(){forgetSceneInterest(reinterpret_cast<uintptr_t>(this));for(auto& [id,o]:objects)world->removeRigidBody(o.body.get());if(!owner.filterInstalled)world->getPairCache()->setOverlapFilterCallback(nullptr);}
+  static std::shared_ptr<Shape> shape(const std::shared_ptr<const SceneGeometry>& geometry,float scale){
+   static std::mutex mutex;static std::map<std::pair<const SceneGeometry*,float>,std::weak_ptr<Shape>> cache;
+   std::lock_guard lock(mutex);auto key=std::make_pair(geometry.get(),scale);if(auto old=cache[key].lock())return old;
+   for(auto it=cache.begin();it!=cache.end();)if(it->second.expired())it=cache.erase(it);else ++it;
+   auto result=std::make_shared<Shape>();result->source=geometry;
++  // sync() adds no body for an empty shape: Bullet's tree over zero triangles writes through null.
++  if(!collidable(*geometry))throw std::runtime_error("Empty collision shape");
+   if(geometry->kind==SceneGeometry::Sphere)result->shape=std::make_unique<btSphereShape>(geometry->radius/scale);
+   else if(geometry->kind==SceneGeometry::Triangles){result->mesh=std::make_unique<btTriangleMesh>();for(size_t i=0;i+2<geometry->vertices.size();i+=3)result->mesh->addTriangle(fromSource(geometry->vertices[i])/scale,fromSource(geometry->vertices[i+1])/scale,fromSource(geometry->vertices[i+2])/scale);result->shape=std::make_unique<btBvhTriangleMeshShape>(result->mesh.get(),true);}
+   else {auto compound=std::make_unique<btCompoundShape>();size_t cursor=0;for(int count:geometry->hullCounts){auto hull=std::make_unique<btConvexHullShape>();for(int i=0;i<count;i++)hull->addPoint(fromSource(geometry->vertices.at(cursor++))/scale,false);hull->setMargin(.02f/scale);hull->recalcLocalAabb();compound->addChildShape(btTransform::getIdentity(),hull.get());result->children.push_back(std::move(hull));}result->shape=std::move(compound);}
+@@ -174,7 +184,7 @@ struct Secondary::External {
+   if(frame){sequence=frame->sequence;captureMs=frame->captureMs;
+    for(auto& source:frame->objects){
+     unsigned kind=source.actor==SceneObject::LivingPlayer?Collide::Players:source.actor==SceneObject::LivingNpc?Collide::Npcs:source.isStatic?Collide::World:Collide::Objects;
+-    if(source.owner==(instance.sceneOwner?instance.sceneOwner:instance.id)||!(flags&kind))continue;
++    if(source.owner==(instance.sceneOwner?instance.sceneOwner:instance.id)||!(flags&kind)||!source.geometry||!collidable(*source.geometry))continue;
+     auto center=source.transform*((source.geometry->minimum+source.geometry->maximum)*.5f),extent=(source.geometry->maximum-source.geometry->minimum)*.5f;
+     auto basisAbs=source.transform.getBasis().absolute();extent=basisAbs*extent+source.velocity.absolute()*.1f;
+     if(center.x()+extent.x()<lower.x()||center.y()+extent.y()<lower.y()||center.z()+extent.z()<lower.z()||center.x()-extent.x()>upper.x()||center.y()-extent.y()>upper.y()||center.z()-extent.z()>upper.z())continue;
+diff --git a/mmdhl/native/worker.cpp b/mmdhl/native/worker.cpp
+--- a/mmdhl/native/worker.cpp
++++ b/mmdhl/native/worker.cpp
+@@ -167,11 +167,11 @@ props::Json importProp(const mmd::fs::path& source,const mmd::fs::path& cache,co
+     PropProgress progress(status,mmd::utf8(source.filename().wstring()));
+     auto report=reporter(progress,options.collision!="hull");
+     auto asset=props::importModel(source,options,report);bool created=false;auto id=props::saveAsset(root,asset,report,options.limits,&created);
+-    // Local-only registry for Reimport. It is never shared with a server. A damaged one is set aside, not overwritten.
++    // Local-only registry for Reimport, outside the game folder (mmd::sourceRegistryPath, review finding 18). It is
++    // never shared with a server. A damaged one is set aside, not overwritten.
+     // The library lists the bundle: a failure here removes the one this import wrote.
+-    auto registryPath=root/L"sources.local.json";std::string setAside;
+-    try{auto registry=mmd::openSourceRegistry(registryPath,setAside);
+-     registry[id]={{"source",mmd::utf8(mmd::fs::absolute(source).wstring())},{"options",request}};props::writeJson(registryPath,registry);}
++    std::string setAside;
++    try{setAside=mmd::recordSource(cache,mmd::SourceRegistry::Props,id,{{"source",mmd::utf8(mmd::fs::absolute(source).wstring())},{"options",request}});}
+     catch(...){if(created){std::error_code ec;mmd::fs::remove(root/L"assets"/props::wide(id+".gmdl"),ec);}throw;}
+     props::Json info={{"name",asset.manifest.value("name",std::string("Imported prop"))},{"warnings",asset.manifest.value("warnings",props::Json::array())},{"triangles",asset.indices.size()/3},{"vertices",asset.vertices.size()},
+         {"materials",asset.manifest.at("materials").size()},{"collision_hulls",asset.hulls.size()},{"collision_method",asset.manifest.value("collision_method",std::string("coacd"))},{"format",asset.manifest.value("format",std::string())},{"mins",asset.manifest.at("mins")},{"maxs",asset.manifest.at("maxs")}};
+diff --git a/mmdhl/tests/actor_tests.cpp b/mmdhl/tests/actor_tests.cpp
+--- a/mmdhl/tests/actor_tests.cpp
++++ b/mmdhl/tests/actor_tests.cpp
+@@ -39,6 +39,18 @@ static void remoteShapeBudget(){
+  for(size_t i=0;i<SceneShare::ImportLimit+1;i++){auto b=sphere(1.f+float(i));auto key=hash(b);if(!i)first=key;full.accept(key,b);time+=.001;}
+  if(full.imported.size()!=SceneShare::ImportLimit||full.imported.contains(first))throw std::runtime_error("The remote shape limit was not kept");
+  full.clear();if(!full.imported.empty()||full.importedBytes)throw std::runtime_error("Clearing kept remote shapes");
++ // A mesh with no triangle and a set of no hulls hold nothing to collide with; their inverted bounds passed any
++ // culling and Bullet's tree over zero triangles wrote through null (review finding 25): refused, like a shape
++ // with a coordinate far past any map. A frame's speeds are capped (they only widen the culling box).
++ SceneShare guarded;guarded.clock=[&]{return time;};
++ auto header=[](int kind,int vertices,int hulls){Bytes b(48,0);uint32_t magic=0x43534d4d,version=1;std::memcpy(b.data(),&magic,4);std::memcpy(b.data()+4,&version,4);std::memcpy(b.data()+8,&kind,4);std::memcpy(b.data()+16,&vertices,4);std::memcpy(b.data()+20,&hulls,4);return b;};
++ auto refused=[&](const Bytes& b){try{guarded.accept(hash(b),b);}catch(const std::exception&){return true;}return false;};
++ if(!refused(header(SceneGeometry::Triangles,0,0))||!refused(header(SceneGeometry::Convexes,0,0)))throw std::runtime_error("An empty remote collision shape was accepted");
++ auto triangle=[&](float reach){auto b=header(SceneGeometry::Triangles,3,0);for(float v:{0.f,0.f,0.f,reach,0.f,0.f,0.f,1.f,0.f}){auto at=b.size();b.resize(at+4);std::memcpy(b.data()+at,&v,4);}return b;};
++ if(refused(triangle(1))||!refused(triangle(1e7f)))throw std::runtime_error("Remote triangle coordinates are not checked against the map's scale");
++ auto shape=triangle(1);auto key=hash(shape);auto fast=frame({key},20);fast["objects"][0]["velocity"]={1e30,0,0};fast["objects"][0]["angular"]={0,-1e30,0};
++ guarded.publish(client,fast);auto scene=readScene(&client);auto& published=scene->objects.at(0);
++ if(published.velocity.length()>1.0001e5f||published.angular.length()>1.0001e5f||published.velocity.x()<9.999e4f)throw std::runtime_error("Remote collision speeds are not capped");
+ }
+ int main(int argc,char** argv){try{
+  remoteShapeBudget();
+diff --git a/mmdhl/tests/backface_twin_tests.cpp b/mmdhl/tests/backface_twin_tests.cpp
+--- a/mmdhl/tests/backface_twin_tests.cpp
++++ b/mmdhl/tests/backface_twin_tests.cpp
+@@ -10,8 +10,54 @@
+ #include <map>
+ #include <random>
+ #include <sstream>
++#ifdef _WIN32
++#include <windows.h>
++#include <psapi.h>
++#else
++#include <sys/resource.h>
++#endif
+ using namespace mmd;
+ static void check(bool ok,const std::string& why){if(!ok)throw std::runtime_error(why);}
++#ifdef _WIN32
++static size_t peakBytes(){PROCESS_MEMORY_COUNTERS counters{};GetProcessMemoryInfo(GetCurrentProcess(),&counters,sizeof counters);return counters.PeakPagefileUsage;}
++#else
++static size_t peakBytes(){rusage usage{};getrusage(RUSAGE_SELF,&usage);return size_t(usage.ru_maxrss)*1024;}
++#endif
++
++// `groups` point sets of three vertices each; part A holds `inA` copies of each set's triangle and part B `inB`
++// with the opposite winding: the smallest model that pairs triangles (review finding 11's harness).
++static std::unique_ptr<Model> stack(unsigned groups,unsigned inA,unsigned inB){
++ auto model=std::make_unique<Model>();auto& m=*model;
++ for(unsigned g=0;g<groups;g++)for(auto p:{btVector3(0,0,0),btVector3(1,0,0),btVector3(0,1,0)}){Vertex v;v.position=p+btVector3(float(g)*3,0,0);v.normal=btVector3(0,0,1);v.bones={0,-1,-1,-1};v.weights={1,0,0,0};m.vertices.push_back(v);}
++ Material a;a.name="Part A";a.first=0;
++ for(unsigned g=0;g<groups;g++)for(unsigned k=0;k<inA;k++)m.indices.insert(m.indices.end(),{g*3,g*3+1,g*3+2});
++ a.count=unsigned(m.indices.size());m.materials.push_back(a);
++ Material b;b.name="Part B";b.first=unsigned(m.indices.size());
++ for(unsigned g=0;g<groups;g++)for(unsigned k=0;k<inB;k++)m.indices.insert(m.indices.end(),{g*3,g*3+2,g*3+1});
++ b.count=unsigned(m.indices.size())-b.first;m.materials.push_back(b);
++ return model;
++}
++// The weld's work stays linear in the model (review finding 11): a stack of copies of one triangle is no lining
++// layer, and a model whose point sets still pair more than two twins per triangle is left as it is. Before, all
++// pairs were kept: 2 x 16,384 copies listed 268 million (over 4 GB).
++static void boundedWork(){
++ {auto m=stack(1,16384,16384);auto before=peakBytes();auto started=std::chrono::steady_clock::now();auto r=weldBackfaceTwins(*m);
++  double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();auto grown=peakBytes()-before;
++  check(r.stacked==1&&r.pairs==0&&!r.limited&&m->twinLeads.empty(),"A stack of 32,768 copies of one triangle was paired");
++  check(ms<250,"Welding a stack of 32,768 copies took "+std::to_string(ms)+" ms");
++  check(grown<(32u<<20),"Welding a stack of 32,768 copies took "+std::to_string(grown>>20)+" MB more");
++  std::cout<<"  a stack of 32,768 copies: left out in "<<ms<<" ms, "<<(grown>>10)<<" KB more at the peak\n";}
++ // Sixteen triangles on one point set (2 + 14 here: 28 twins) still pair; seventeen are a stack.
++ // (Both parts share the three vertices, so the pair is found and stays undecided: nothing to weld.)
++ {auto m=stack(1,2,14);auto r=weldBackfaceTwins(*m);check(r.pairs==1&&r.stacked==0&&!r.limited,"Sixteen coincident triangles were not paired");}
++ {auto m=stack(1,2,15);auto r=weldBackfaceTwins(*m);check(r.pairs==0&&r.stacked==1&&!r.limited&&m->twinLeads.empty(),"Seventeen coincident triangles were paired");}
++ // 2,000 point sets of 8 + 8 copies: 64 twins per 16 triangles, more than any lining has. Nothing is welded.
++ {auto m=stack(2000,8,8);auto started=std::chrono::steady_clock::now();auto r=weldBackfaceTwins(*m);
++  double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
++  check(r.limited&&r.pairs==0&&r.followers==0&&m->twinLeads.empty(),"A model of stacked copies was welded");
++  check(ms<250,"Refusing a model of stacked copies took "+std::to_string(ms)+" ms");}
++ std::cout<<"Back-face copies: a stack of copies and a model of them are left alone, linear in the model\n";
++}
+ 
+ // A layer of (n+1)^2 vertices on a plane: origin + u*s + v*t for s,t in [-.8,.8], normal `normal`,
+ // triangles wound so that `flip` reverses them. Appends to the model as part `name`.
+@@ -55,6 +101,8 @@ static void scene(Model& m){
+ static void stray(Model& m,unsigned v,int bone){m.vertices[v].bones={bone,-1,-1,-1};m.vertices[v].weights={1,0,0,0};}
+ 
+ int main(int argc,char** argv){try{
++ // First, while the process's peak is still low: it measures how far the weld raises it.
++ boundedWork();
+  auto m=parse(readFile(argv[1]));check(m->bones.size()>=2,"The fixture needs two bones");
+  scene(*m);
+  // Strays: the skirt's copy (part 2) vertex 7, the cape's inner layer (part 3) vertex 7, the cape's outer
+diff --git a/mmdhl/tests/character_import_tests.cpp b/mmdhl/tests/character_import_tests.cpp
+--- a/mmdhl/tests/character_import_tests.cpp
++++ b/mmdhl/tests/character_import_tests.cpp
+@@ -8,6 +8,11 @@
+ #include "rig.hpp"
+ #include "spring_bones.hpp"
+ #include <nanoem.h>
++#ifdef _WIN32
++#include <windows.h>
++#else
++#include <cstdlib>
++#endif
+ #define STB_IMAGE_WRITE_STATIC
+ #define STB_IMAGE_WRITE_IMPLEMENTATION
+ #include <stb_image_write.h>
+@@ -553,7 +558,7 @@ void converterTests(){
+  check(first["info"]["conversion"]["sourceSha256"]==hash(readFile(mixamo))&&first["info"].contains("conversion")&&!first["info"].contains("vrm"),"identity: the manifest's conversion block names the source file");
+  {auto id=first["asset"].get<std::string>();auto loaded=loadAsset(cache,id);
+   check(loaded->springs&&loaded->conversionBoneMap.size()==MappedSlotCount&&loaded->conversionBoneMap.at("ValveBiped.Bip01_Pelvis")==0,"reload: springs and the conversion bone map come back with the cached asset");
+-  auto registry=readJson(cache/L"sources.local.json");check(registry[id]["options"]==request,"reload: the registry keeps the request, so Reload converts the same way");
++  auto registry=readJson(sourceRegistryPath(cache,SourceRegistry::Characters));check(registry[id]["options"]==request,"reload: the registry keeps the request, so Reload converts the same way");
+   // InspectBoneMap: the skeleton for the window and the structural rules on an assignment.
+   // (Options are built explicitly: a braced {{"key",value}} argument can become an array.)
+   auto options=[](const char* key,Json value){Json o=Json::object();o[key]=std::move(value);return o;};
+@@ -574,13 +579,15 @@ void converterTests(){
+   fs::create_directories(cache/L"assets"/wide(forged));fs::copy_file(cache/L"assets"/wide(id)/L"model.bin",cache/L"assets"/wide(forged)/L"model.bin");writeJson(cache/L"assets"/wide(forged)/L"manifest.json",manifest);
+   bool refused=false;try{loadAsset(cache,forged);}catch(const std::exception& e){refused=std::string(e.what())=="Cached conversion map is invalid";}
+   check(refused,"reload: an out-of-range conversion map is refused");}
+- // A damaged source list (Reload's paths for every other model) is set aside, never written over.
++ // A damaged source list (Reload's paths for every other model) is set aside, never written over. It lives outside
++ // the cache (sourceRegistryPath, review finding 18); the import names the copy as %LOCALAPPDATA%\...\<name>.
+  for(auto [damage,label]:{std::pair{std::string("{\"broken\": "),"cut-off"},{std::string("[1,2]"),"non-object"}}){
+-  writeAtomic(cache/L"sources.local.json",Bytes(damage.begin(),damage.end()));
++  auto registryPath=sourceRegistryPath(cache,SourceRegistry::Characters);
++  writeAtomic(registryPath,Bytes(damage.begin(),damage.end()));
+   auto again=importConverted(mixamo,cache,request,{},convertCharacter(mixamo,request,{}));
+-  auto backup=again.value("registryBackup",std::string());auto kept=cache/wide(backup);
+-  bool same=backup.starts_with("sources.local.json.damaged-")&&fs::is_regular_file(kept)&&readFile(kept)==Bytes(damage.begin(),damage.end());
+-  auto registry=readJson(cache/L"sources.local.json");
++  auto backup=again.value("registryBackup",std::string());auto name=backup.substr(backup.find_last_of('\\')+1);auto kept=registryPath.parent_path()/wide(name);
++  bool same=backup.starts_with("%LOCALAPPDATA%\\ModelHotloader\\sources\\")&&name.starts_with("characters.json.damaged-")&&fs::is_regular_file(kept)&&readFile(kept)==Bytes(damage.begin(),damage.end());
++  auto registry=readJson(registryPath);
+   check(same&&registry.is_object()&&registry.size()==1&&registry.contains(again["asset"].get<std::string>()),std::string("registry: a ")+label+" source list is kept beside the new one and reported");
+   fs::remove(kept);}
+  check(!first.contains("registryBackup")&&!second.contains("registryBackup"),"registry: a readable source list is not reported");
+@@ -624,6 +631,12 @@ int main(int argc,char** argv){try{
+   writeAtomic(dir/L"mixamo.glb",humanoid());Variant ue;ue.names=Names::Unreal;writeAtomic(dir/L"unreal.glb",humanoid(ue));Variant numbered;numbered.names=Names::Nonsense;writeAtomic(dir/L"numbered.glb",humanoid(numbered));
+   Variant z;z.zUpCentimetres=true;writeAtomic(dir/L"mixamo-zup-cm.glb",humanoid(z));Variant mirror;mirror.mirrored=true;writeAtomic(dir/L"mixamo-mirrored.glb",humanoid(mirror));writeAtomic(dir/L"humanoid.dae",daeHumanoid());std::cout<<"fixtures written to "<<utf8(dir.wstring())<<"\n";return 0;}
+  if(argc==3&&std::string(argv[1])=="--write-slots"){auto text=slotsJson().dump(1)+"\n";writeAtomic(argv[2],std::span(reinterpret_cast<const unsigned char*>(text.data()),text.size()));return 0;}
++ // Reload's registries (sourceRegistryPath) stay in the test's folder, never in %LOCALAPPDATA% (CTest names one too).
++#ifdef _WIN32
++ if(!GetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",nullptr,0))SetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",temp(L"sources").c_str());
++#else
++ setenv("MMDHL_SOURCES_DIR",temp(L"sources").c_str(),0);
++#endif
+  nameTests();conventionTests();ruleTests();converterTests();dependencyTests();
+  std::cout<<checks<<" checks passed\n";return 0;
+ }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}}
+diff --git a/mmdhl/tests/file_access_tests.cpp b/mmdhl/tests/file_access_tests.cpp
+--- a/mmdhl/tests/file_access_tests.cpp
++++ b/mmdhl/tests/file_access_tests.cpp
+@@ -222,7 +222,12 @@ int wmain(int argc,wchar_t** argv){try{
+   check(granted.value("state","")=="denied"&&logged(log).size()==asked+1,"another script with the same label used the remembered folder: "+granted.dump());
+   granted=wait(*fa,fa->request({{"requester","Keyed"},{"path",local+"\\allowed\\a.json"}}));
+   check(granted.value("state","")=="denied"&&logged(log).size()==asked+2,"a script the module could not name used the remembered folder: "+granted.dump());
+-  auto listed=fa->grants();for(auto& g:listed["grants"])if(g.value("requester","")=="Keyed")check(fa->revoke(g["id"].get<std::string>()),"revoking the keyed grant");}
++  // The grants list hands out no key a script could reuse (review finding 27): no label, script or path.
++  auto listed=fa->grants();bool keyless=!listed["grants"].empty();
++  for(auto& g:listed["grants"]){keyless&=g.size()==4&&g.contains("id")&&g.contains("place")&&g.contains("created")&&g.contains("used");
++   keyless&=g.dump().find("Keyed")==std::string::npos&&g.dump().find("real.lua")==std::string::npos&&g["place"].get<std::string>()=="\xE2\x80\xA6\\allowed";}
++  check(keyless,"the grants list carries a requester, a script or a path: "+listed.dump());
++  auto stored=readJson(config.store);for(auto& g:stored["grants"])if(g.value("requester","")=="Keyed")check(fa->revoke(g["id"].get<std::string>()),"revoking the keyed grant");}
+  // Missing, linked and denied targets still show a dialog: Lua cannot probe silently.
+  answer(L"once");granted=wait(*fa,fa->request({{"requester","Prober"},{"path",local+"\\allowed\\missing.json"}}));
+  check(granted.value("state","")=="denied"&&logged(log).back().value("problem","")=="not_found","a missing file: "+granted.dump());
+@@ -259,9 +264,8 @@ int wmain(int argc,wchar_t** argv){try{
+  answer(L"yes");on=fa->setEnabled(true,"en");check(wait(*fa,on["request"]).value("state","")=="granted"&&fa->info().value("enabled",false)&&readJson(config.store).value("enabled",false),"turning on");
+  // Revoking: the grant is gone and so are the items it answered.
+  granted=wait(*fa,fa->request({{"requester","Test Addon"},{"path",local+"\\allowed\\a.json"}}));check(granted["items"][0].value("remembered",false),"the remembered grant after re-enabling");
+- // The user's folder shows as "~" (when the test's folder lies in it: TEMP may be elsewhere).
+- bool inProfile=false;{PWSTR p=nullptr;SHGetKnownFolderPath(FOLDERID_Profile,0,nullptr,&p);inProfile=insideFolder(root,resolveFile(p).path);CoTaskMemFree(p);}
+- auto grants=fa->grants();check(grants["grants"].size()==1&&grants["grants"][0]["folder"].get<std::string>().starts_with("~")==inProfile,"the grants list: "+grants.dump());
++ // The list names a folder by its own name only, never by a path (review finding 27).
++ auto grants=fa->grants();check(grants["grants"].size()==1&&grants["grants"][0].size()==4&&grants["grants"][0]["place"]=="\xE2\x80\xA6\\allowed"&&!grants["grants"][0].contains("folder"),"the grants list: "+grants.dump());
+  check(fa->revoke(grants["grants"][0]["id"])&&fa->grants()["grants"].empty()&&readJson(config.store)["grants"].empty(),"revoke");
+  check(refusal([&]{fa->read(granted["items"][0]["handle"],Json::object());})=="released","an item outlived its revoked grant");
+  // The store: a corrupt file means no grants; entries that fail the rules are dropped.
+@@ -271,7 +275,7 @@ int wmain(int argc,wchar_t** argv){try{
+   {{"id","0123456789abcde2"},{"requester","Denied"},{"folder",local+"\\outside\\denied"}},{{"id","BAD"},{"requester","Bad id"},{"folder",local+"\\allowed"}},
+   {{"id","0123456789abcde3"},{"requester","Bad\nname"},{"folder",local+"\\allowed"}}}}}.dump());
+  fa=std::make_unique<FileAccess>(config);grants=fa->grants();
+- check(grants["grants"].size()==1&&grants["grants"][0]["requester"]=="Kept"&&!grants.value("enabled",true),"store validation: "+grants.dump());
++ check(grants["grants"].size()==1&&grants["grants"][0]["id"]=="0123456789abcdef"&&grants["grants"][0]["used"]==2&&!grants.value("enabled",true),"store validation: "+grants.dump());
+  // Closing a picker is not a refusal of the addon, and an allowed request clears its refusals.
+  fa=std::make_unique<FileAccess>(FileAccessConfig{config.worker,root/L"store2"/L"file-access.json",config.temp,policy});
+  answer(L"cancelled");for(int i=0;i<4;i++)check(wait(*fa,fa->pick({{"requester","Picker"}})).value("state","")=="denied","closing the picker "+std::to_string(i+1)+" times");
+@@ -379,7 +383,8 @@ int wmain(int argc,wchar_t** argv){try{
+   check(twoInner["items"][0].value("remembered",false)&&logged(log).size()==dialogs,"the other process did not use the smaller folder: "+twoInner.dump());
+   auto oneItem=inner["items"][0]["handle"].get<std::string>(),twoItem=twoInner["items"][0]["handle"].get<std::string>();
+   auto wider=wait(one,one.request({{"requester","Grow"},{"path",local+"\\allowed\\a.json"}}));auto grants=one.grants()["grants"];
+-  check(wider.value("state","")=="granted"&&grants.size()==1&&grants[0]["folder"].get<std::string>()==displayPath(root/L"allowed"),"the larger folder did not replace the smaller one: "+grants.dump());
++  auto storedFolders=readJson(shared.store)["grants"];
++  check(wider.value("state","")=="granted"&&grants.size()==1&&grants[0]["place"]=="\xE2\x80\xA6\\allowed"&&storedFolders.size()==1&&storedFolders[0]["folder"]==u8(root/L"allowed"),"the larger folder did not replace the smaller one: "+grants.dump()+" "+storedFolders.dump());
+   check(readNow(one,oneItem,{{"length",16}}).data==blob.substr(0,16),"a file the larger folder covers was released when it replaced the smaller one");
+   check(readNow(two,twoItem,{{"length",16}}).data==blob.substr(0,16)&&two.grants()["grants"].size()==1,"the other process released a file the larger folder covers");
+   auto running=one.read(oneItem,{{"length",16}}),twoRunning=two.read(twoItem,{{"length",16}});settle();
+diff --git a/mmdhl/tests/import_error_tests.cpp b/mmdhl/tests/import_error_tests.cpp
+--- a/mmdhl/tests/import_error_tests.cpp
++++ b/mmdhl/tests/import_error_tests.cpp
+@@ -3,6 +3,7 @@
+ // the format sniffer; file errors; worker exit codes; and the worker's status.json
+ // and crash log (argv[1] = mmdhl_worker.exe). No GPU, game, network or user models.
+ #include "runtime.hpp"
++#include "assets.hpp"
+ #include "import_error.hpp"
+ #include "dependency_scope.hpp"
+ #include "release.hpp"
+@@ -124,6 +125,13 @@ int main(int argc,char** argv){try{
+  SetConsoleOutputCP(CP_UTF8);
+ #endif
+  auto temp=fs::temp_directory_path()/(L"mmdhl-import-errors-"+std::to_wstring(processId()));fs::remove_all(temp);fs::create_directories(temp);
++ // Reload's registries (assets.hpp sourceRegistryPath) stay in the test's folder, never in %LOCALAPPDATA% (CTest
++ // names one for every test; the worker this test starts inherits it).
++#ifdef _WIN32
++ if(!GetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",nullptr,0))SetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",(temp/L"sources").c_str());
++#else
++ setenv("MMDHL_SOURCES_DIR",(temp/"sources").c_str(),0);
++#endif
+ 
+  // ---- PMX: nanoem's failures name the section, the element, the last good one and the byte ----
+  {auto raw=readFile("tests/fixtures/truncated.pmx");auto e=failure([&]{parse(raw);},"truncated PMX");
+@@ -257,7 +265,7 @@ int main(int argc,char** argv){try{
+   auto rollback=temp/L"cache-rollback";fs::create_directories(rollback/L"textures");writeAtomic(rollback/L"textures"/wide(base+".vtf"),bytes("not a vtf"));
+   e=failure([&]{importAsset(folder/L"model.pmx",rollback,Json::object(),{});},"import over a damaged derivative");
+   check(e.code=="texture.derivative"&&!fs::exists(rollback/L"assets"/wide(id)/L"manifest.json")&&!fs::exists(rollback/L"assets"/wide(id)),"a failed import leaves no catalog entry and removes the model data it wrote");
+-  auto registry=rollback/L"sources.local.json";check(!fs::exists(registry)||!readJson(registry).contains(id),"a failed import records no source to reload");}
++  auto registry=sourceRegistryPath(rollback,SourceRegistry::Characters);check(!fs::exists(registry)||!readJson(registry).contains(id),"a failed import records no source to reload");}
+ 
+  // ---- textures past 4096: scaled down by default, kept at full size with fullTextures ----
+  {auto folder=temp/L"large";fs::create_directories(folder);
+@@ -279,7 +287,7 @@ int main(int argc,char** argv){try{
+   check(noted(full["info"],"Large texture wide.tga (4100 x 8) was kept at full size; memory use and loading time are higher.")&&!noted(full["info"],"Large texture wide.tga (4100 x 8) was scaled down to 4096 x 8; the game shows no more detail than that."),"a texture kept at full size is noted as such");
+   auto derivative=cache/L"textures"/wide(fullTexture+".full.vtf"),package=cache/L"assets"/wide(fullId)/L"materials-v5.gma";
+   check(vtfWidth(derivative)==4100&&!fs::exists(cache/L"textures"/wide(fullTexture+".vtf"))&&packageHas(package,"materials/mmd/tf/"+fullTexture.substr(0,16)+".vtf"),"the full-size texture has its own Source derivative and engine path");
+-  check(readJson(cache/L"sources.local.json")[fullId]["options"]==Json{{"fullTextures",true}},"Reload replays the full-size import");
++  check(readJson(sourceRegistryPath(cache,SourceRegistry::Characters))[fullId]["options"]==Json{{"fullTextures",true}},"Reload replays the full-size import");
+   // Peers build the package from the manifest and the image: the same bytes.
+   auto built=readFile(package);fs::remove(package);fs::remove(derivative);prepareSourceMaterials(cache,fullId);check(readFile(package)==built,"the full-size package builds again byte for byte");
+   check(loadAsset(cache,fullId)->id==fullId,"an asset with full-size textures loads");
+@@ -297,6 +305,65 @@ int main(int argc,char** argv){try{
+   deleteAssets(cache,{fullId,forged});
+   check(!fs::exists(derivative)&&!fs::exists(cache/L"textures"/wide(fullTexture+".png"))&&fs::exists(cache/L"textures"/wide(plainTexture+".vtf")),"deletion removes the full-size derivative of an unused texture");}
+ 
++ // ---- what a script can write into the cache (review findings 6 and 9) ----
++ // A manifest that is the content address of its own text, as a script can make one (any source hash).
++ {auto cache=temp/L"cache-crafted";
++  auto forge=[&](Json manifest){manifest["version"]=2;if(!manifest.contains("sourceHash"))manifest["sourceHash"]=std::string(64,'0');manifest["id"]=manifest["sourceHash"];
++   auto encoded=manifest.dump();auto id=hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()));manifest["id"]=id;
++   writeJson(cache/L"assets"/wide(id)/L"manifest.json",manifest);return id;};
++  // A cached "PNG" that is an 18-byte TGA header: stb's TGA loader left the rows it could not read uninitialised, and
++  // the Source texture made from them carried the game's old heap to any server's file.Read. Only a PNG is decoded.
++  {std::string texture(64,'7');Bytes tga(18,0);tga[2]=2;tga[12]=128;tga[14]=128;tga[16]=32;tga[17]=8;
++   writeAtomic(cache/L"textures"/wide(texture+".png"),tga);
++   auto id=forge({{"materials",Json::array({{{"name","m"}}})},{"textures",Json::array({{{"base",texture},{"alpha",false}}})}});
++   auto e=failure([&]{prepareSourceMaterials(cache,id);},"a TGA cached as a PNG");
++   check(e.code=="texture.derivative"&&!fs::exists(cache/L"textures"/wide(texture+".vtf"))&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma"),"a TGA cached as a PNG is refused, and no Source texture is written");}
++  // Material lists of different lengths, a missing one or entries that are not objects: read through nlohmann's
++  // const operator[], they read past the manifest's arrays (a crash). Refused before anything is written.
++  for(auto lists:{Json{{"materials",Json::array({{{"name","x"}}})},{"textures",Json::array()}},Json{{"materials",Json::array({{{"name","x"}}})}},Json{{"materials",Json::array({1})},{"textures",Json::array({2})}}}){
++   auto id=forge(lists);bool refused=false;try{prepareSourceMaterials(cache,id);}catch(const std::exception&){refused=true;}
++   check(refused&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma")&&!fs::exists(cache/L"names"/L"assets"/wide(id.substr(0,16)+".json")),"a manifest whose material lists do not match was built: "+lists.dump());}
++  // A manifest that is not its own content address (StartSharedMaterialBuild on what a script wrote) builds nothing.
++  {std::string id(64,'a');writeJson(cache/L"assets"/wide(id)/L"manifest.json",Json{{"version",2},{"id",id},{"sourceHash",std::string(64,'b')},{"materials",Json::array()},{"textures",Json::array()}});
++   bool refused=false;try{prepareSourceMaterials(cache,id);}catch(const std::exception& e){refused=has(e.what(),"checksum");}
++   check(refused&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma"),"Source materials were built from a manifest that is not its own content address");}
++  // loadAsset: a manifest naming one material more than its model has is refused before the materials are built.
++  {auto folder=temp/L"crafted";fs::create_directories(folder);writeAtomic(folder/L"model.pmx",pmx(PmxSpec{}));
++   auto good=importAsset(folder/L"model.pmx",cache,Json::object(),{});auto goodId=good["asset"].get<std::string>();
++   auto manifest=readJson(cache/L"assets"/wide(goodId)/L"manifest.json");manifest["materials"].push_back({{"name","extra"}});
++   manifest["id"]=manifest["sourceHash"];auto encoded=manifest.dump();auto id=hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()));manifest["id"]=id;
++   writeJson(cache/L"assets"/wide(id)/L"manifest.json",manifest);fs::copy_file(cache/L"assets"/wide(goodId)/L"model.bin",cache/L"assets"/wide(id)/L"model.bin");
++   bool refused=false;try{loadAsset(cache,id);}catch(const std::exception& e){refused=has(e.what(),"material");}
++   check(refused&&!fs::exists(cache/L"assets"/wide(id)/L"materials-v5.gma"),"a manifest naming more materials than its model has was loaded");
++   check(loadAsset(cache,goodId)->id==goodId,"the model the crafted manifest copied still loads");}}
++
++ // ---- Reload's source registry, outside the cache (review finding 18) ----
++ // Any server's scripts read garrysmod/data: the source paths (the Windows account name, the folders) live in the
++ // cache's folder under %LOCALAPPDATA%\ModelHotloader\sources. A registry from before moves there on first use.
++ {auto cache=temp/L"cache-registry";auto folder=temp/L"registry";fs::create_directories(folder);writeAtomic(folder/L"model.pmx",pmx(PmxSpec{}));
++  std::string older(64,'c');
++  writeJson(cache/L"sources.local.json",Json{{older,{{"source","C:\\old\\model.pmx"},{"options",Json::object()}}}});
++  writeAtomic(cache/L"sources.local.json.damaged-20260101-000000",bytes("{broken"));
++  writeJson(cache/L"static"/L"sources.local.json",Json{{older,{{"source","C:\\old\\prop.obj"},{"options",Json::object()}}}});
++  auto result=importAsset(folder/L"model.pmx",cache,Json::object(),{});auto id=result["asset"].get<std::string>();
++  auto registry=sourceRegistryPath(cache,SourceRegistry::Characters);auto entries=readJson(registry);
++  auto inside=registry.lexically_relative(cache);
++  check(registry.parent_path()==sourceRegistryFolder(cache)&&sourceRegistryFolder(cache)!=sourceRegistryFolder(temp/L"cache")&&(inside.empty()||*inside.begin()==L".."),"the registry is not in a folder of its own per cache, outside it: "+utf8(registry.wstring()));
++  check(!fs::exists(cache/L"sources.local.json")&&!fs::exists(cache/L"sources.local.json.damaged-20260101-000000"),"the registry from before stayed in the cache, where any server reads it");
++  check(entries.contains(id)&&entries[id]["source"]==utf8(fs::absolute(folder/L"model.pmx").wstring())&&entries.contains(older),"the registry lost the import or the entries from before: "+entries.dump());
++  check(fs::exists(registry.parent_path()/L"characters.json.damaged-20260101-000000"),"the copy set aside before was not kept");
++  auto props=sourceRegistryPath(cache,SourceRegistry::Props);
++  check(!fs::exists(cache/L"static"/L"sources.local.json")&&readJson(props).contains(older),"the props' registry from before did not move");
++  bool inCache=false;for(auto& e:fs::recursive_directory_iterator(cache))inCache|=e.path().filename().wstring().starts_with(L"sources.local.json");
++  check(!inCache,"a source registry is still in the cache");
++  auto display=sourceRegistryDisplay(registry.parent_path()/L"characters.json.damaged-20260101-000000");
++  check(display.starts_with("%LOCALAPPDATA%\\ModelHotloader\\sources\\")&&display.ends_with("characters.json.damaged-20260101-000000")&&!has(display,":\\"),"the registry's place in messages names a drive: "+display);
++  // A damaged registry is set aside there, and the import names it in that form; deletion takes the asset's entry.
++  writeAtomic(registry,bytes("[damaged"));auto again=importAsset(folder/L"model.pmx",cache,Json{{"fullTextures",true}},{});
++  auto backup=again.value("registryBackup",std::string());
++  check(backup.starts_with("%LOCALAPPDATA%\\ModelHotloader\\sources\\")&&has(backup,"characters.json.damaged-")&&readJson(registry).contains(again["asset"].get<std::string>()),"a damaged registry was not set aside or named: "+backup);
++  deleteAssets(cache,{id});check(!readJson(registry).contains(id),"deleting a model kept its source path");}
++
+  // ---- a PMX character's textures (dependency_scope.hpp, Reach::Local) ----
+  // A texture is read only inside the model's import root (R19, review MH-01): its folder, the
+  // tex and textures folders near it, or the Workshop item it came in. ".." inside the root still
+diff --git a/mmdhl/tests/installation_tests.cpp b/mmdhl/tests/installation_tests.cpp
+--- a/mmdhl/tests/installation_tests.cpp
++++ b/mmdhl/tests/installation_tests.cpp
+@@ -35,6 +35,22 @@ int main(int argc,char** argv){try{
+  check(configureCompatibility(none).value("configured",false));check(configureCompatibility(none).value("configured",false));
+  rejected=false;try{configureCompatibility({{"schema",1},{"family","source-win64-v1"},{"libraries",Json::array({profile("client.dll")})}});}catch(const std::exception& e){rejected=std::string(e.what()).find("restart")!=std::string::npos;}check(rejected);
+  check(runtimeIdentity()["installApi"]==1);
++ // Paths for a server this game does not host (review finding 18): inside the game folder relative to it, the
++ // installation check's loaded and expected files marked so that they still compare; anything else its file name.
++ {
++  fs::path root=L"H:\\SteamLibrary\\steamapps\\common\\GarrysMod";
++  check(gameRelativePath(root,"H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\garrysmod\\lua\\bin\\gmcl_mmdhl_win64.dll",true)=="<game>\\garrysmod\\lua\\bin\\gmcl_mmdhl_win64.dll");
++  check(gameRelativePath(root,"h:\\steamlibrary\\STEAMAPPS\\common\\garrysmod\\bin\\gmpublish.exe",false)=="bin\\gmpublish.exe");
++  check(gameRelativePath(root,"\\\\?\\H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\garrysmod\\data\\x.gma",false)=="garrysmod\\data\\x.gma");
++  check(gameRelativePath(root,"C:\\Users\\Someone\\Downloads\\model.pmx",false)=="model.pmx");
++  check(gameRelativePath(root,"H:\\SteamLibrary\\steamapps\\common\\GarrysMod_PoC\\garrysmod\\x.dll",true)=="x.dll");
++  auto identity=gameRelativeIdentity(root,{{"path","H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\garrysmod\\lua\\bin\\mmdhl_runtime_win64.dll"},{"expectedPath","H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\bin\\win64\\mmdhl_runtime_win64.dll"},{"sha256","x"}});
++  check(identity["path"]=="<game>\\garrysmod\\lua\\bin\\mmdhl_runtime_win64.dll"&&identity["expectedPath"]=="<game>\\bin\\win64\\mmdhl_runtime_win64.dll"&&identity["sha256"]=="x");
++  // A job's result loses the player's folders in every text, its files keep their names.
++  auto scrubbed=withoutFolders({{"source","C:\\Users\\Someone\\Models\\model.pmx"},{"error","Cannot read C:\\Users\\Someone\\Models\\tex\\a.png"},{"list",{"C:/Users/Someone/Models/b.png"}}},{fs::path(L"C:\\Users\\Someone\\Models")});
++  check(scrubbed["source"]=="model.pmx"&&scrubbed["error"]=="Cannot read tex\\a.png"&&scrubbed["list"][0]=="b.png"&&!namesAbsolutePath(scrubbed["error"].get<std::string>()));
++  check(namesAbsolutePath("Cannot read C:\\x")&&!namesAbsolutePath("The export failed"));
++ }
+  // vtableLength: a vtable's entries run to its last one that is code of the library; an entry another
+  // module hooked (code elsewhere) inside it does not end it, data does. An early hook used to make
+  // the default branch's 147-entry table look shorter, and its unshifted slots were called.
+diff --git a/mmdhl/tests/native_tests.cpp b/mmdhl/tests/native_tests.cpp
+--- a/mmdhl/tests/native_tests.cpp
++++ b/mmdhl/tests/native_tests.cpp
+@@ -7,6 +7,7 @@
+ #include "spring_bones.hpp"
+ #include "cutout.hpp"
+ #include "compatibility.hpp"
++#include "renderer.hpp"
+ #include <fstream>
+ #include <iostream>
+ #include <cmath>
+@@ -20,6 +21,10 @@ int main(int argc,char** argv){int failed=0,passed=0;auto check=[&](bool ok,cons
+         std::vector<btTransform> transforms(4,btTransform::getIdentity());check((skinPosition(v,transforms)-v.position).length()<1e-4,"bind pose survives skinning");for(auto& t:transforms)t.setOrigin(btVector3(4,5,6));check((skinPosition(v,transforms)-(v.position+btVector3(4,5,6))).length()<1e-4,"all skinning modes preserve rigid translation");}
+     for(int type:{0,1,2,3,4}){Vertex v;v.type=type;v.position={2,3,4};v.bones={0,1,2,3};v.weights={.4f,.6f,0,0};v.c={1,2,0};v.r0={2,1,0};v.r1={0,2,1};btTransform rigid(btQuaternion(btVector3(1,2,3).normalized(),.7f),btVector3(1,-2,5));std::vector<btTransform> t(4,rigid);check((skinPosition(v,t)-rigid*v.position).length()<1e-4,"all skinning modes preserve rigid rotation about an offset pivot");}
+     check((fromSource(toSource(btVector3(1,2,3)))-btVector3(1,2,3)).length()<1e-6,"coordinate round trip");
++    // RegisterSourceShadow's entity index stays inside the engine's entity list (review finding 26): GetClientEntity
++    // refuses only negative ones, and 70000 read past the list.
++    {auto refused=[](uint64_t value){try{sourceEntityIndex(value);}catch(const std::exception&){return true;}return false;};
++     check(refused(70000)&&refused(16384)&&refused(uint64_t(1)<<32)&&sourceEntityIndex(0)==0&&sourceEntityIndex(16383)==16383,"a Source shadow's entity index is inside the engine's entity list");}
+     for(int type=0;type<5;type++){
+         bool agrees=true;
+         for(int sample=0;sample<32;sample++){
+@@ -163,6 +168,14 @@ int main(int argc,char** argv){int failed=0,passed=0;auto check=[&](bool ok,cons
+         o.id=13;o.actor=SceneObject::LivingPlayer;kinds->objects.push_back(o);o.id=14;o.actor=SceneObject::LivingNpc;kinds->objects.push_back(o);publishScene(kinds);
+         auto mirrors=[&](unsigned flags){instance.secondary->setCollisionFlags(flags);instance.secondary->step(1./60);return instance.secondary->diagnostics()["sourceMirrors"].get<int>();};
+         check(mirrors(Collide::Character|Collide::World)==1&&mirrors(Collide::Objects)==1&&mirrors(Collide::Players)==1&&mirrors(Collide::Npcs)==1&&mirrors(Collide::All)==4&&mirrors(Collide::Default)==1,"each collision checkbox admits only its kind of scene object");}
++       // An object whose shape holds nothing (an empty mesh: SceneShare::accept refuses one, a crafted frame could
++       // still name it) adds no body, even moving fast enough to pass the culling: Bullet's tree over zero triangles
++       // wrote through null (review finding 25).
++       {auto empty=std::make_shared<SceneGeometry>();empty->kind=SceneGeometry::Triangles;empty->minimum={BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT};empty->maximum=-empty->minimum;
++        auto hollow=std::make_shared<SceneFrame>();SceneObject floor=object;floor.owner=0;floor.id=21;hollow->objects.push_back(floor);
++        SceneObject nothing;nothing.id=22;nothing.owner=0;nothing.geometry=empty;nothing.velocity={1e32f,1e32f,1e32f};hollow->objects.push_back(nothing);publishScene(hollow);
++        instance.secondary->setCollisionFlags(Collide::World|Collide::Objects);instance.secondary->step(1./60);
++        check(instance.secondary->diagnostics()["sourceMirrors"]==1,"an empty remote collision shape added no body, the floor its one");}
+        instance.secondary->setCollisionMode(0);publishScene(nullptr);check(instance.secondary->diagnostics()["sourceMirrors"]==0,"disabling scene contacts releases all proxies");
+       }
+     }catch(const std::exception& e){std::cerr<<e.what()<<"\n";check(false,"joint/scene regression");}
+diff --git a/mmdhl/tests/props/blend_tests.hpp b/mmdhl/tests/props/blend_tests.hpp
+--- a/mmdhl/tests/props/blend_tests.hpp
++++ b/mmdhl/tests/props/blend_tests.hpp
+@@ -243,6 +243,13 @@ void blendTests(){
+         check(error.find("maximum size")!=std::string::npos,"zstd block with repeated long matches accepted");
+         check(peakPrivateBytes()-before<(64u<<20),"zstd allocated past the block bound before rejecting");
+     }
++    {   // A Huffman description whose FSE weights run to 256 (RFC 8878 describes at most 255; the last
++        // weight is implied): the implied weight was stored one byte past the decoder's 256-entry array
++        // (review finding 28; 25 bytes from the review's zstd_huffman_weights.py).
++        const Bytes weights={0x28,0xb5,0x2f,0xfd,0x60,0x00,0x0f,0x7d,0x00,0x00,0xa2,0xc0,0x02,0x06,0xe0,0x0f,0x00,0x78,0xff,0x04,0x01,0x02,0x03,0x80,0x00};
++        std::string error;try{zstdDecompress(weights,1u<<20);}catch(const std::exception& e){error=e.what();}
++        check(error.find("too many Huffman weights")!=std::string::npos,"a zstd Huffman description with 256 weights was not refused as such");
++    }
+     // .blend files: both header layouts, compressed, per-ID addresses, transforms.
+     auto dir=fs::temp_directory_path()/fs::path(L"mmdhl-blend-test-"+std::to_wstring(processId()));fs::create_directories(dir);
+     auto w=scene();auto legacy=w.file(false),large=w.file(true);

@@ -126,6 +126,59 @@ as it is now. Not in the origin repository:
   missing texture warns; a concave closed ring gets CoACD, the same ring a tenth of the size, an open sheet and a sheet
   with its back-face copy the fast hull; indices, materials, paths, numbers and texture references out of range are refused.
 
+## Changes made here (2026-11-16: the repository review's fixes)
+
+`review-fixes.patch` holds this repository's changes for the bug and security review of 2026-11-16 (its findings 6,
+9, 11, 18, 25, 26, 27 and 28 on these natives); applied after `separator.patch`, it gives `mmdhl/` as it is now. Not
+in the origin repository:
+
+- **Cache textures (finding 6):** `native/cache_png.hpp`, `native/cache_png.cpp` (new): the game modules decode a
+  cache texture (`textures/<sha256>.png`) only when it starts with the PNG signature and an IHDR chunk, with stb_image
+  built with PNG alone (`STBI_ONLY_PNG`, static in that file) into zero-filled buffers; `assets.cpp`'s
+  `prepareSourceMaterials` and `loadAsset` use it. Decoded as a TGA, an 18-byte header in such a file made "pixels" of
+  the game's old heap (stb's short reads, CVE-2023-45663) in a Source texture any server could read back.
+  `assets.cpp`'s own all-format copy (the importer's) allocates zero-filled buffers too.
+- **Manifests (finding 9):** `assets.cpp`: `prepareSourceMaterials` checks the manifest's `materials` and `textures`
+  (arrays of objects of one length) before it indexes either, and its two-argument form (`StartSharedMaterialBuild`,
+  the end of `loadAsset`) first runs `loadAsset`'s identity checks (`checkManifestIdentity`); `loadAsset` also
+  requires one entry per model material in both lists. Read through nlohmann's const `operator[]`, a crafted manifest
+  read out of bounds. `native/json_assert.hpp` (new), included first in every C++ file of this project's targets
+  (`CMakeLists.txt`, `/FI` or `-include`), makes nlohmann's `JSON_ASSERT` throw in release builds.
+- **Back-face copies (finding 11):** `native/backface_twins.hpp`: a point set shared by more than 16 triangles is a
+  stack of copies, not a lining, and is left out; a model whose point sets still pair more than two twin triangles
+  per triangle, or more than 4,096 pairs of parts, is not welded. The pairs were all kept: 2 x 16,384 copies of one
+  triangle listed 268 million. `native/runtime.hpp`: `TwinReport::stacked` and `limited`.
+- **Absolute paths (finding 18):** Reload's source registries leave `garrysmod/data/mmd_hotloader`
+  (`sources.local.json`, `static/sources.local.json`), which any server's scripts read, for
+  `%LOCALAPPDATA%\ModelHotloader\sources\<16 hex digits of the cache's path>\characters.json` and `props.json`
+  (`assets.hpp`/`assets.cpp`: `sourceRegistryPath`, `recordSource`, `moveSourceRegistries`), moved there once with
+  the copies set aside beside them, when the client module starts and on first use; the worker (`worker.cpp`), the
+  deletions (`assets.cpp`, `props/core.cpp` `deleteBundles`, `prop_bindings.cpp`) and `module.cpp` (`Reload`,
+  `PropReload`, and `GetSourcePaths`, new, for the library's lists) use them there. Connected to a server this game
+  does not host, the client module gives Lua no absolute path: `GetInstallationInfo` and `PollInstallationProbe`
+  name files `<game>\...` (the installation check compares those as before), `PollPackageExport` relative to the game
+  folder, `GetSourcePaths` the file names, `PollJob` no folder of the job's and, for a Reload, none of the source's
+  (`installation.hpp`/`.cpp`: `gameRelativePath`, `gameRelativeIdentity`, `withoutFolders`). The module tells by
+  `localServerRealm()`, the server realms this process runs: none when the server is another machine.
+- **Remote collision shapes (finding 25):** `native/scene_share.cpp`: an empty `Triangles` or `Convexes` shape and
+  coordinates beyond 1e6 are refused, and published speeds are capped at 1e5; `native/secondary.cpp`: a scene
+  shape with nothing to collide with adds no body (Bullet's tree over zero triangles wrote through null).
+- **Shadows (finding 26):** `native/renderer.hpp` `sourceEntityIndex`: `RegisterSourceShadow` takes entity indices
+  0 to 16,383 only (`module.cpp`, `renderer.cpp`): `GetClientEntity` refuses only negative ones.
+- **File access (finding 27):** `native/file_access.cpp` `grants()`: the opaque id `FileAccessRevoke` takes, the
+  folder's own name (`…\Models`) and when it was remembered and last used, nothing a request could reuse (the label,
+  the script and the folder were the key a remembered folder is matched by).
+- **Zstandard (finding 28):** `native/props/zstd_decode.cpp`: a Huffman description of more than 255 weights is
+  refused; the implied last weight was written one byte past the decoder's array.
+- **Tests:** `tests/import_error_tests.cpp` (a TGA cached as a PNG, unmatched material lists, a manifest that is not
+  its own content address, one naming more materials than its model, the registry outside the cache, its move and
+  its damaged copies), `tests/character_import_tests.cpp` (the registry's place), `tests/backface_twin_tests.cpp`
+  (a stack of 2 x 16,384 copies in under 250 ms and 32 MB, the 16-triangle limit, a model of stacks),
+  `tests/actor_tests.cpp` (empty and far shapes, capped speeds), `tests/native_tests.cpp` (an empty shape adds no
+  body, the entity index), `tests/installation_tests.cpp` (game-relative paths), `tests/file_access_tests.cpp` (the
+  grant list's keys), `tests/props/blend_tests.hpp` (the review's 25-byte Zstandard frame). CTest gives every test
+  `MMDHL_SOURCES_DIR` in the build folder.
+
 ## Lua installation override (R21-B)
 
 `../overrides/installation.lua` replaces the add-on's `mmdhl/installation.lua` through

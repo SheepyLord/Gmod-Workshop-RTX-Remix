@@ -257,7 +257,8 @@ function PANEL:Init()
    local BM=mmdhl.boneMapper local picked=row.entry
    if not istable(BM) or not isfunction(BM.Available) then BM=nil end
    if BM and picked and BM.Available('fit') and isfunction(BM.OpenFit) then menu:AddOption(L'ui.menu.assign_bones',function() BM.OpenFit(picked.id,'edit',picked.name) end):SetIcon('icon16/user_edit.png') end
-   if BM and picked and istable(picked.info.conversion) and picked.source~='' and not picked.shared and isfunction(BM.Convertible) and isfunction(BM.Probe) and isfunction(BM.BringToFront) and BM.Convertible(picked.source) then
+   -- The bone window imports from the source's path: on another server's game the library knows only its file name.
+   if BM and picked and istable(picked.info.conversion) and picked.source~='' and picked.source:find('[\\/]') and not picked.shared and isfunction(BM.Convertible) and isfunction(BM.Probe) and isfunction(BM.BringToFront) and BM.Convertible(picked.source) then
     menu:AddOption(L'ui.menu.import_again_bones',function() if library.job then self:SetStatus(L'library.import.busy',true) elseif not BM.BringToFront() then BM.Probe(picked.source) end end):SetIcon('icon16/arrow_refresh.png')
    end
    self:PopulateMoveMenu(menu:AddSubMenu(L'ui.menu.move_selected'))

@@ -6,9 +6,54 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #endif
+#include <algorithm>
+#include <cwctype>
+#include <functional>
 #include <stdexcept>
 
 namespace mmd {
+// ---- paths for another server's scripts (installation.hpp; review finding 18) ----
+namespace {
+std::wstring plainPath(std::wstring s){
+ if(s.starts_with(L"\\\\?\\UNC\\"))s=L"\\\\"+s.substr(8);else if(s.starts_with(L"\\\\?\\"))s=s.substr(4);
+ while(s.size()>1&&(s.back()==L'\\'||s.back()==L'/'))s.pop_back();
+ return s;
+}
+std::wstring folded(std::wstring s){
+#ifdef _WIN32
+ for(auto& c:s)c=wchar_t(std::towlower(c));
+#endif
+ return s;
+}
+std::string fileNameOf(const std::string& path){try{return utf8(fs::path(wide(path)).filename().wstring());}catch(...){return {};}}
+}
+std::string gameRelativePath(const fs::path& gameRoot,const std::string& text,bool marked){
+ if(text.empty())return text;
+ std::wstring path,root;
+ try{path=plainPath(fs::path(wide(text)).lexically_normal().wstring());root=plainPath(gameRoot.lexically_normal().wstring());}catch(...){return {};}
+ auto p=folded(path),r=folded(root);
+ if(!r.empty()&&p.size()>r.size()+1&&p.compare(0,r.size(),r)==0&&(p[r.size()]==L'\\'||p[r.size()]==L'/'))
+  return marked?"<game>"+utf8(path.substr(r.size())):utf8(path.substr(r.size()+1));
+ return fileNameOf(text);
+}
+Json gameRelativeIdentity(const fs::path& gameRoot,Json identity){
+ if(identity.is_object())for(auto key:{"path","expectedPath"})if(identity.contains(key)&&identity[key].is_string())identity[key]=gameRelativePath(gameRoot,identity[key].get<std::string>(),true);
+ return identity;
+}
+Json withoutFolders(Json value,const std::vector<fs::path>& folders){
+ std::vector<std::string> prefixes;
+ for(auto& folder:folders)try{
+  if(folder.empty())continue;
+  for(auto& f:{utf8(folder.wstring()),utf8(plainPath(folder.wstring())),utf8(plainPath(folder.lexically_normal().wstring())),utf8(folder.generic_wstring())})if(!f.empty()){prefixes.push_back(f+"\\");prefixes.push_back(f+"/");}
+ }catch(...){}
+ // Longer spellings first: a \\?\ form would otherwise keep its prefix.
+ std::sort(prefixes.begin(),prefixes.end(),[](const std::string& a,const std::string& b){return a.size()>b.size();});
+ std::function<void(Json&)> walk=[&](Json& j){
+  if(j.is_string()){auto s=j.get<std::string>();for(auto& f:prefixes)for(size_t at;(at=s.find(f))!=std::string::npos;)s.erase(at,f.size());j=s;}
+  else if(j.is_structured())for(auto& item:j)walk(item);};
+ walk(value);return value;
+}
+bool namesAbsolutePath(std::string_view s){return s.find(":\\")!=std::string_view::npos||s.find(":/")!=std::string_view::npos||s.find("\\\\")!=std::string_view::npos||s.find("/home/")!=std::string_view::npos;}
 #ifndef _WIN32
 // The game folder of the running executable: bin/linux64/gmod (the x86-64 branch's client),
 // or a dedicated server's srcds_linux or bin/linux64/srcds_linux64.

@@ -42,7 +42,8 @@ end
 function Lib.Refresh()
  local entries={}
  local catalog=util.JSONToTable(native.PropCatalog() or '') or {}
- local sources=util.JSONToTable(file.Read(root..'sources.local.json','DATA') or '') or {}
+ -- Reload's source paths, from the binary module (mmdhl/library.lua SourcePaths), no longer a file in data/.
+ local sources=mmdhl.library and isfunction(mmdhl.library.SourcePaths) and mmdhl.library.SourcePaths('static') or util.JSONToTable(file.Read(root..'sources.local.json','DATA') or '') or {}
  for id,info in pairs(catalog) do
   if P.ValidID(id) then
    local settings=readSettings(id)

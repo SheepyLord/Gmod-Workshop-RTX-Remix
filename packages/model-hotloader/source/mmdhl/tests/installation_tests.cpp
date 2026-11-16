@@ -35,6 +35,22 @@ int main(int argc,char** argv){try{
  check(configureCompatibility(none).value("configured",false));check(configureCompatibility(none).value("configured",false));
  rejected=false;try{configureCompatibility({{"schema",1},{"family","source-win64-v1"},{"libraries",Json::array({profile("client.dll")})}});}catch(const std::exception& e){rejected=std::string(e.what()).find("restart")!=std::string::npos;}check(rejected);
  check(runtimeIdentity()["installApi"]==1);
+ // Paths for a server this game does not host (review finding 18): inside the game folder relative to it, the
+ // installation check's loaded and expected files marked so that they still compare; anything else its file name.
+ {
+  fs::path root=L"H:\\SteamLibrary\\steamapps\\common\\GarrysMod";
+  check(gameRelativePath(root,"H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\garrysmod\\lua\\bin\\gmcl_mmdhl_win64.dll",true)=="<game>\\garrysmod\\lua\\bin\\gmcl_mmdhl_win64.dll");
+  check(gameRelativePath(root,"h:\\steamlibrary\\STEAMAPPS\\common\\garrysmod\\bin\\gmpublish.exe",false)=="bin\\gmpublish.exe");
+  check(gameRelativePath(root,"\\\\?\\H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\garrysmod\\data\\x.gma",false)=="garrysmod\\data\\x.gma");
+  check(gameRelativePath(root,"C:\\Users\\Someone\\Downloads\\model.pmx",false)=="model.pmx");
+  check(gameRelativePath(root,"H:\\SteamLibrary\\steamapps\\common\\GarrysMod_PoC\\garrysmod\\x.dll",true)=="x.dll");
+  auto identity=gameRelativeIdentity(root,{{"path","H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\garrysmod\\lua\\bin\\mmdhl_runtime_win64.dll"},{"expectedPath","H:\\SteamLibrary\\steamapps\\common\\GarrysMod\\bin\\win64\\mmdhl_runtime_win64.dll"},{"sha256","x"}});
+  check(identity["path"]=="<game>\\garrysmod\\lua\\bin\\mmdhl_runtime_win64.dll"&&identity["expectedPath"]=="<game>\\bin\\win64\\mmdhl_runtime_win64.dll"&&identity["sha256"]=="x");
+  // A job's result loses the player's folders in every text, its files keep their names.
+  auto scrubbed=withoutFolders({{"source","C:\\Users\\Someone\\Models\\model.pmx"},{"error","Cannot read C:\\Users\\Someone\\Models\\tex\\a.png"},{"list",{"C:/Users/Someone/Models/b.png"}}},{fs::path(L"C:\\Users\\Someone\\Models")});
+  check(scrubbed["source"]=="model.pmx"&&scrubbed["error"]=="Cannot read tex\\a.png"&&scrubbed["list"][0]=="b.png"&&!namesAbsolutePath(scrubbed["error"].get<std::string>()));
+  check(namesAbsolutePath("Cannot read C:\\x")&&!namesAbsolutePath("The export failed"));
+ }
  // vtableLength: a vtable's entries run to its last one that is code of the library; an entry another
  // module hooked (code elsewhere) inside it does not end it, data does. An early hook used to make
  // the default branch's 147-entry table look shorter, and its unshifted slots were called.

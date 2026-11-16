@@ -28,6 +28,12 @@ namespace mmd {
 using MorphOffsets=std::vector<std::pair<unsigned,btVector3>>;
 
 namespace twins_detail {
+// A lining layer puts two triangles (a few where layers stack) on the same three points. A point set
+// shared by more is a stack of duplicates, not a copy, and is left out; a mesh whose point sets still
+// pair more twin triangles than MaxPairsPerTriangle per triangle, or more part pairs than MaxPartPairs,
+// is left as it is. So the work stays linear in the model's size: before (review finding 11) every
+// pair of a crafted stack was kept, and 16,384 copies of one triangle took 1.2 GB and 1.4 s.
+constexpr size_t MaxCoincidentTriangles=16,MaxPairsPerTriangle=2,MaxPartPairs=4096;
 template<class T,size_t N> struct ArrayHash {
  size_t operator()(const std::array<T,N>& a)const{size_t h=0;for(auto v:a)h^=std::hash<T>{}(v)+0x9e3779b9+(h<<6)+(h>>2);return h;}
 };
@@ -129,7 +135,8 @@ inline bool namedCopy(const std::string& name){
 // Finds the back-face copies, decides each pair's outside layer and gives every copy vertex the
 // skinning (type, bones, weights, SDEF parameters) of its twin on that layer. Sets Model::twinLeads
 // (follower, lead), ascending, and returns what it found (TwinReport::skins: the followers whose own
-// skinning deformed differently); the rest geometry is not changed.
+// skinning deformed differently; stacked and limited: twins_detail::MaxCoincidentTriangles and the
+// limits beside it); the rest geometry is not changed.
 inline Model::TwinReport weldBackfaceTwins(Model& m){
  Model::TwinReport report;m.twinLeads.clear();
  const size_t triangles=m.indices.size()/3;
@@ -150,14 +157,20 @@ inline Model::TwinReport weldBackfaceTwins(Model& m){
  }
  std::sort(keys.begin(),keys.end());
  // Twin triangles per pair of parts (first part < second), in triangle order, so every load votes alike.
+ // Point sets of more than MaxCoincidentTriangles are left out; past the other limits nothing is welded.
  std::map<std::pair<unsigned,unsigned>,std::vector<std::pair<unsigned,unsigned>>> pairs;
+ const size_t maxListed=triangles*twins_detail::MaxPairsPerTriangle;size_t listed=0;
+ auto limited=[&]{report=Model::TwinReport{};report.limited=true;m.twinLeads.clear();return report;};
  for(size_t begin=0,end=0;begin<keys.size();begin=end){
   end=begin+1;while(end<keys.size()&&keys[end].first==keys[begin].first)end++;
+  if(end-begin>twins_detail::MaxCoincidentTriangles){report.stacked++;continue;}
   for(size_t i=begin;i<end;i++)for(size_t j=i+1;j<end;j++){
    unsigned s=keys[i].second,t=keys[j].second;
    if(clockwise[s]==clockwise[t]||partOf[s]==partOf[t])continue;
    if(partOf[s]>partOf[t])std::swap(s,t);
-   pairs[{partOf[s],partOf[t]}].push_back({s,t});
+   if(++listed>maxListed)return limited();
+   auto& list=pairs[{partOf[s],partOf[t]}];if(list.empty()&&pairs.size()>twins_detail::MaxPartPairs)return limited();
+   list.push_back({s,t});
   }
  }
  report.pairs=unsigned(pairs.size());

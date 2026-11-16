@@ -8,6 +8,11 @@
 #include "rig.hpp"
 #include "spring_bones.hpp"
 #include <nanoem.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <cstdlib>
+#endif
 #define STB_IMAGE_WRITE_STATIC
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
@@ -553,7 +558,7 @@ void converterTests(){
  check(first["info"]["conversion"]["sourceSha256"]==hash(readFile(mixamo))&&first["info"].contains("conversion")&&!first["info"].contains("vrm"),"identity: the manifest's conversion block names the source file");
  {auto id=first["asset"].get<std::string>();auto loaded=loadAsset(cache,id);
   check(loaded->springs&&loaded->conversionBoneMap.size()==MappedSlotCount&&loaded->conversionBoneMap.at("ValveBiped.Bip01_Pelvis")==0,"reload: springs and the conversion bone map come back with the cached asset");
-  auto registry=readJson(cache/L"sources.local.json");check(registry[id]["options"]==request,"reload: the registry keeps the request, so Reload converts the same way");
+  auto registry=readJson(sourceRegistryPath(cache,SourceRegistry::Characters));check(registry[id]["options"]==request,"reload: the registry keeps the request, so Reload converts the same way");
   // InspectBoneMap: the skeleton for the window and the structural rules on an assignment.
   // (Options are built explicitly: a braced {{"key",value}} argument can become an array.)
   auto options=[](const char* key,Json value){Json o=Json::object();o[key]=std::move(value);return o;};
@@ -574,13 +579,15 @@ void converterTests(){
   fs::create_directories(cache/L"assets"/wide(forged));fs::copy_file(cache/L"assets"/wide(id)/L"model.bin",cache/L"assets"/wide(forged)/L"model.bin");writeJson(cache/L"assets"/wide(forged)/L"manifest.json",manifest);
   bool refused=false;try{loadAsset(cache,forged);}catch(const std::exception& e){refused=std::string(e.what())=="Cached conversion map is invalid";}
   check(refused,"reload: an out-of-range conversion map is refused");}
- // A damaged source list (Reload's paths for every other model) is set aside, never written over.
+ // A damaged source list (Reload's paths for every other model) is set aside, never written over. It lives outside
+ // the cache (sourceRegistryPath, review finding 18); the import names the copy as %LOCALAPPDATA%\...\<name>.
  for(auto [damage,label]:{std::pair{std::string("{\"broken\": "),"cut-off"},{std::string("[1,2]"),"non-object"}}){
-  writeAtomic(cache/L"sources.local.json",Bytes(damage.begin(),damage.end()));
+  auto registryPath=sourceRegistryPath(cache,SourceRegistry::Characters);
+  writeAtomic(registryPath,Bytes(damage.begin(),damage.end()));
   auto again=importConverted(mixamo,cache,request,{},convertCharacter(mixamo,request,{}));
-  auto backup=again.value("registryBackup",std::string());auto kept=cache/wide(backup);
-  bool same=backup.starts_with("sources.local.json.damaged-")&&fs::is_regular_file(kept)&&readFile(kept)==Bytes(damage.begin(),damage.end());
-  auto registry=readJson(cache/L"sources.local.json");
+  auto backup=again.value("registryBackup",std::string());auto name=backup.substr(backup.find_last_of('\\')+1);auto kept=registryPath.parent_path()/wide(name);
+  bool same=backup.starts_with("%LOCALAPPDATA%\\ModelHotloader\\sources\\")&&name.starts_with("characters.json.damaged-")&&fs::is_regular_file(kept)&&readFile(kept)==Bytes(damage.begin(),damage.end());
+  auto registry=readJson(registryPath);
   check(same&&registry.is_object()&&registry.size()==1&&registry.contains(again["asset"].get<std::string>()),std::string("registry: a ")+label+" source list is kept beside the new one and reported");
   fs::remove(kept);}
  check(!first.contains("registryBackup")&&!second.contains("registryBackup"),"registry: a readable source list is not reported");
@@ -624,6 +631,12 @@ int main(int argc,char** argv){try{
   writeAtomic(dir/L"mixamo.glb",humanoid());Variant ue;ue.names=Names::Unreal;writeAtomic(dir/L"unreal.glb",humanoid(ue));Variant numbered;numbered.names=Names::Nonsense;writeAtomic(dir/L"numbered.glb",humanoid(numbered));
   Variant z;z.zUpCentimetres=true;writeAtomic(dir/L"mixamo-zup-cm.glb",humanoid(z));Variant mirror;mirror.mirrored=true;writeAtomic(dir/L"mixamo-mirrored.glb",humanoid(mirror));writeAtomic(dir/L"humanoid.dae",daeHumanoid());std::cout<<"fixtures written to "<<utf8(dir.wstring())<<"\n";return 0;}
  if(argc==3&&std::string(argv[1])=="--write-slots"){auto text=slotsJson().dump(1)+"\n";writeAtomic(argv[2],std::span(reinterpret_cast<const unsigned char*>(text.data()),text.size()));return 0;}
+ // Reload's registries (sourceRegistryPath) stay in the test's folder, never in %LOCALAPPDATA% (CTest names one too).
+#ifdef _WIN32
+ if(!GetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",nullptr,0))SetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",temp(L"sources").c_str());
+#else
+ setenv("MMDHL_SOURCES_DIR",temp(L"sources").c_str(),0);
+#endif
  nameTests();conventionTests();ruleTests();converterTests();dependencyTests();
  std::cout<<checks<<" checks passed\n";return 0;
 }catch(const std::exception& e){std::cerr<<e.what()<<"\n";return 1;}}

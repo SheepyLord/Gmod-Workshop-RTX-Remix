@@ -167,11 +167,11 @@ props::Json importProp(const mmd::fs::path& source,const mmd::fs::path& cache,co
     PropProgress progress(status,mmd::utf8(source.filename().wstring()));
     auto report=reporter(progress,options.collision!="hull");
     auto asset=props::importModel(source,options,report);bool created=false;auto id=props::saveAsset(root,asset,report,options.limits,&created);
-    // Local-only registry for Reimport. It is never shared with a server. A damaged one is set aside, not overwritten.
+    // Local-only registry for Reimport, outside the game folder (mmd::sourceRegistryPath, review finding 18). It is
+    // never shared with a server. A damaged one is set aside, not overwritten.
     // The library lists the bundle: a failure here removes the one this import wrote.
-    auto registryPath=root/L"sources.local.json";std::string setAside;
-    try{auto registry=mmd::openSourceRegistry(registryPath,setAside);
-     registry[id]={{"source",mmd::utf8(mmd::fs::absolute(source).wstring())},{"options",request}};props::writeJson(registryPath,registry);}
+    std::string setAside;
+    try{setAside=mmd::recordSource(cache,mmd::SourceRegistry::Props,id,{{"source",mmd::utf8(mmd::fs::absolute(source).wstring())},{"options",request}});}
     catch(...){if(created){std::error_code ec;mmd::fs::remove(root/L"assets"/props::wide(id+".gmdl"),ec);}throw;}
     props::Json info={{"name",asset.manifest.value("name",std::string("Imported prop"))},{"warnings",asset.manifest.value("warnings",props::Json::array())},{"triangles",asset.indices.size()/3},{"vertices",asset.vertices.size()},
         {"materials",asset.manifest.at("materials").size()},{"collision_hulls",asset.hulls.size()},{"collision_method",asset.manifest.value("collision_method",std::string("coacd"))},{"format",asset.manifest.value("format",std::string())},{"mins",asset.manifest.at("mins")},{"maxs",asset.manifest.at("maxs")}};

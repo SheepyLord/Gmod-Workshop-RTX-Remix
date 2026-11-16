@@ -271,7 +271,9 @@ function FA.OpenManager()
  wrapped(L'file_access.manage.note',f.Small,UI.colors.muted)
  local bottom=frame:Add('DPanel') bottom:Dock(BOTTOM) bottom:SetTall(s(36)) bottom:SetPaintBackground(false) bottom:DockMargin(0,s(8),0,0)
  local list=frame:Add('DListView') list:Dock(FILL) list:SetMultiSelect(false) list:SetDataHeight(s(24)) list:SetHeaderHeight(s(24))
- list:AddColumn(L'file_access.manage.column_addon'):SetFixedWidth(s(200)) list:AddColumn(L'file_access.manage.column_folder') list:AddColumn(L'file_access.manage.column_used'):SetFixedWidth(s(140))
+ -- The native list names each folder by its own name and dates only: every script can read it, so it carries
+ -- no addon label, script or path a request could reuse (older binary modules send folder instead of place).
+ list:AddColumn(L'file_access.manage.column_folder') list:AddColumn(L'file_access.manage.column_used'):SetFixedWidth(s(140))
  local empty=UI.label(list,L'file_access.manage.empty',f.Small,s(60)) empty:SetWrap(true) empty:SetContentAlignment(5) empty:SetTextColor(UI.colors.muted)
  local layout=list.PerformLayout
  list.PerformLayout=function(self,w,h) if layout then layout(self,w,h) end empty:SetPos(s(12),s(30)) empty:SetSize(w-s(24),s(60)) end
@@ -288,7 +290,7 @@ function FA.OpenManager()
   updating=true enabled:SetChecked(state.enabled==true) updating=false enabled:SetEnabled(okNow==true or code=='disabled' or state.enabled==true)
   list:Clear()
   for _,g in ipairs(state.grants or {}) do
-   local line=list:AddLine(tostring(g.requester or '?'),tostring(g.folder or '?'),(tonumber(g.used) or 0)>0 and os.date('%Y-%m-%d %H:%M',tonumber(g.used)) or '') line.grant=g.id
+   local line=list:AddLine(tostring(g.place or g.folder or '?'),(tonumber(g.used) or 0)>0 and os.date('%Y-%m-%d %H:%M',tonumber(g.used)) or '') line.grant=g.id
   end
   empty:SetVisible(#(state.grants or {})==0) revoke:SetEnabled(false) revokeAll:SetEnabled(#(state.grants or {})>0)
   frame:InvalidateLayout()

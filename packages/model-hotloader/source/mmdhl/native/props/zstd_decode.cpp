@@ -102,6 +102,10 @@ size_t readHuffman(Huffman& h,const uint8_t* src,size_t size){
     if(!total)corrupt("empty Huffman tree");
     int maxBits=highBit(total)+1;uint32_t left=(1u<<maxBits)-total;
     if(left&(left-1))corrupt("Huffman weights are not a power of two");
+    // RFC 8878 describes at most 255 weights; the last one is implied. The FSE loop's overflow
+    // branches each store one more weight, so count can reach 256 here, and the implied weight
+    // would land one byte past `weights` (review finding 28).
+    if(count>255)corrupt("too many Huffman weights");
     weights[count++]=uint8_t(highBit(left)+1);
     if(maxBits>11)corrupt("Huffman code too long");
     h.maxBits=maxBits;size_t tableSize=size_t(1)<<maxBits;h.symbol.assign(tableSize,0);h.bits.assign(tableSize,0);

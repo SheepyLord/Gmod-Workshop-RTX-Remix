@@ -7,6 +7,7 @@
 #include "spring_bones.hpp"
 #include "cutout.hpp"
 #include "compatibility.hpp"
+#include "renderer.hpp"
 #include <fstream>
 #include <iostream>
 #include <cmath>
@@ -20,6 +21,10 @@ int main(int argc,char** argv){int failed=0,passed=0;auto check=[&](bool ok,cons
         std::vector<btTransform> transforms(4,btTransform::getIdentity());check((skinPosition(v,transforms)-v.position).length()<1e-4,"bind pose survives skinning");for(auto& t:transforms)t.setOrigin(btVector3(4,5,6));check((skinPosition(v,transforms)-(v.position+btVector3(4,5,6))).length()<1e-4,"all skinning modes preserve rigid translation");}
     for(int type:{0,1,2,3,4}){Vertex v;v.type=type;v.position={2,3,4};v.bones={0,1,2,3};v.weights={.4f,.6f,0,0};v.c={1,2,0};v.r0={2,1,0};v.r1={0,2,1};btTransform rigid(btQuaternion(btVector3(1,2,3).normalized(),.7f),btVector3(1,-2,5));std::vector<btTransform> t(4,rigid);check((skinPosition(v,t)-rigid*v.position).length()<1e-4,"all skinning modes preserve rigid rotation about an offset pivot");}
     check((fromSource(toSource(btVector3(1,2,3)))-btVector3(1,2,3)).length()<1e-6,"coordinate round trip");
+    // RegisterSourceShadow's entity index stays inside the engine's entity list (review finding 26): GetClientEntity
+    // refuses only negative ones, and 70000 read past the list.
+    {auto refused=[](uint64_t value){try{sourceEntityIndex(value);}catch(const std::exception&){return true;}return false;};
+     check(refused(70000)&&refused(16384)&&refused(uint64_t(1)<<32)&&sourceEntityIndex(0)==0&&sourceEntityIndex(16383)==16383,"a Source shadow's entity index is inside the engine's entity list");}
     for(int type=0;type<5;type++){
         bool agrees=true;
         for(int sample=0;sample<32;sample++){
@@ -163,6 +168,14 @@ int main(int argc,char** argv){int failed=0,passed=0;auto check=[&](bool ok,cons
         o.id=13;o.actor=SceneObject::LivingPlayer;kinds->objects.push_back(o);o.id=14;o.actor=SceneObject::LivingNpc;kinds->objects.push_back(o);publishScene(kinds);
         auto mirrors=[&](unsigned flags){instance.secondary->setCollisionFlags(flags);instance.secondary->step(1./60);return instance.secondary->diagnostics()["sourceMirrors"].get<int>();};
         check(mirrors(Collide::Character|Collide::World)==1&&mirrors(Collide::Objects)==1&&mirrors(Collide::Players)==1&&mirrors(Collide::Npcs)==1&&mirrors(Collide::All)==4&&mirrors(Collide::Default)==1,"each collision checkbox admits only its kind of scene object");}
+       // An object whose shape holds nothing (an empty mesh: SceneShare::accept refuses one, a crafted frame could
+       // still name it) adds no body, even moving fast enough to pass the culling: Bullet's tree over zero triangles
+       // wrote through null (review finding 25).
+       {auto empty=std::make_shared<SceneGeometry>();empty->kind=SceneGeometry::Triangles;empty->minimum={BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT};empty->maximum=-empty->minimum;
+        auto hollow=std::make_shared<SceneFrame>();SceneObject floor=object;floor.owner=0;floor.id=21;hollow->objects.push_back(floor);
+        SceneObject nothing;nothing.id=22;nothing.owner=0;nothing.geometry=empty;nothing.velocity={1e32f,1e32f,1e32f};hollow->objects.push_back(nothing);publishScene(hollow);
+        instance.secondary->setCollisionFlags(Collide::World|Collide::Objects);instance.secondary->step(1./60);
+        check(instance.secondary->diagnostics()["sourceMirrors"]==1,"an empty remote collision shape added no body, the floor its one");}
        instance.secondary->setCollisionMode(0);publishScene(nullptr);check(instance.secondary->diagnostics()["sourceMirrors"]==0,"disabling scene contacts releases all proxies");
       }
     }catch(const std::exception& e){std::cerr<<e.what()<<"\n";check(false,"joint/scene regression");}

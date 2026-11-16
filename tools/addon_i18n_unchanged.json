@@ -396,7 +396,8 @@
       "mmdhl.tool.prop.column_triangles": "Triangles",
       "mmdhl.ui.badge.workshop": "Workshop",
       "mmdhl.ui.folder.workshop": "Workshop",
-      "mmdhl.ui.folder.workshop_package": "{title} ({count})"
+      "mmdhl.ui.folder.workshop_package": "{title} ({count})",
+      "mmdhl.separator.editor.tool_lasso": "Lasso"
     },
     "ja": {
       "mmdhl.bonemap.group.count": "{done}/{total}",

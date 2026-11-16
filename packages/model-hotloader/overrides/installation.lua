@@ -504,7 +504,7 @@ end
 -- carry a code, as native's do, and it takes no import options. A request for a path in a
 -- folder the player always allowed for that addon needs no dialog: without the worker,
 -- native answers only those (noDialog) and refuses the rest as the guard would.
-local workerCalls={Browse=true,BeginImport=true,Reload=true,PropDerive=true,PropReload=true,FileAccessPick=true,FileAccessRequest=true,FileAccessSetEnabled=true}
+local workerCalls={Browse=true,BeginImport=true,Reload=true,PropDerive=true,PropReload=true,PropFromMesh=true,FileAccessPick=true,FileAccessRequest=true,FileAccessSetEnabled=true}
 local fileAccessCalls={FileAccessPick=true,FileAccessRequest=true,FileAccessSetEnabled=true}
 local function guardedNative(native)
  local proxy={}
@@ -525,7 +525,9 @@ local function guardedNative(native)
    if not ok then return nil,err end
    local args={...}
    if name~='Browse' and name~='Reload' and not status.features.detailedCollision then
-    local options=util.JSONToTable(args[2] or '{}') or {} options.collision='hull' args[2]=util.TableToJSON(options)
+    -- PropFromMesh (the Mesh Separator) takes its options first, the character second.
+    local at=name=='PropFromMesh' and 1 or 2
+    local options=util.JSONToTable(args[at] or '{}') or {} options.collision='hull' args[at]=util.TableToJSON(options)
    end
    return value(unpack(args))
   end

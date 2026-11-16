@@ -1,0 +1,483 @@
+diff --git a/mmdhl/CMakeLists.txt b/mmdhl/CMakeLists.txt
+--- a/mmdhl/CMakeLists.txt
++++ b/mmdhl/CMakeLists.txt
+@@ -154,7 +154,7 @@ if(WIN32)
+   target_link_libraries(mmdhl_props_core PUBLIC bcrypt)
+ endif()
+ target_compile_options(mmdhl_props_core PRIVATE ${MMDHL_WARNINGS})
+-add_library(mmdhl_props_import STATIC native/props/import.cpp native/props/pmx.cpp native/props/collision.cpp native/props/fast_hull.cpp native/props/texture_resolver.cpp native/props/material_overrides.cpp native/props/blend.cpp native/props/zstd_decode.cpp)
++add_library(mmdhl_props_import STATIC native/props/import.cpp native/props/pmx.cpp native/props/collision.cpp native/props/fast_hull.cpp native/props/texture_resolver.cpp native/props/material_overrides.cpp native/props/blend.cpp native/props/zstd_decode.cpp native/props/mesh_prop.cpp)
+ target_include_directories(mmdhl_props_import PRIVATE vendor/stb vendor/assimp/contrib/zlib ${CMAKE_BINARY_DIR}/vendor/assimp/contrib/zlib)
+ # The runtime holds the dependency scope (native/dependency_scope.cpp): every importer,
+ # characters and props, shares the worker's one denylist.
+@@ -320,6 +320,10 @@ add_executable(mmdhl_backface_twin_tests tests/backface_twin_tests.cpp)
+ target_link_libraries(mmdhl_backface_twin_tests PRIVATE mmd_runtime)
+ set_target_properties(mmdhl_backface_twin_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+ add_test(NAME backface_twins COMMAND mmdhl_backface_twin_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-chain.pmx)
++add_executable(mmdhl_mesh_prop_tests tests/mesh_prop_tests.cpp)
++target_link_libraries(mmdhl_mesh_prop_tests PRIVATE mmdhl_props_import)
++set_target_properties(mmdhl_mesh_prop_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
++add_test(NAME mesh_prop COMMAND mmdhl_mesh_prop_tests ${CMAKE_BINARY_DIR}/mesh_prop_scratch)
+ target_link_libraries(mmdhl_projection_tests PRIVATE mmd_runtime)
+ set_target_properties(mmdhl_projection_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+ add_test(NAME secondary_projection COMMAND mmdhl_projection_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-stretch-prone.pmx)
+diff --git a/mmdhl/native/module.cpp b/mmdhl/native/module.cpp
+--- a/mmdhl/native/module.cpp
++++ b/mmdhl/native/module.cpp
+@@ -594,6 +594,105 @@ FUNCTION(GetMaterialMesh) {
+  push(LUA,{{"vertices",vertices},{"indices",indices}});return 1;
+ } END_FUNCTION
+ FUNCTION(GetMaterialPositions) {auto& p=world().get(number(LUA,1));auto index=number(LUA,2);if(index>=p.model->materials.size())throw std::runtime_error("Invalid material slot");p.requireCpuVertices();Json out=Json::array();auto& part=p.model->materials[index];for(unsigned i=part.first;i<part.first+std::min(part.count,90000u);i++){auto& v=p.snapshot->vertices[p.model->indices[i]];out.push_back({v.x,v.y,v.z});}push(LUA,out);return 1;} END_FUNCTION
++// The mesh separator (props/mesh_prop.hpp). SeparatorMesh: the instance's visible parts as one mesh for selecting,
++// as three values: a JSON string (posed, asset, parts: slot, name, public material, base texture hash, first triangle
++// in this mesh and in the model, triangles), the positions (x y z of each vertex: the drawn world positions, or the
++// rest positions at the instance's scale) and the corners (1-based vertex numbers, outward counter-clockwise like the
++// static props) as Lua tables. Tables, not JSON: a character has up to millions of numbers, and GMod's JSON reader
++// stops arrays at 15,000 entries unless told otherwise.
++FUNCTION(SeparatorMesh) {
++ auto& p=world().get(number(LUA,1));const bool posed=LUA->GetBool(2);const auto& model=*p.model;
++ if(posed){p.requireCpuVertices();if(!p.snapshot||p.snapshot->vertices.size()!=model.vertices.size())throw std::runtime_error("The character has no pose yet");}
++ const float unit=p.scale/Inch;
++ // Everything that can fail first; the tables are filled afterwards.
++ Json parts=Json::array();std::vector<size_t> slots;size_t triangles=0;
++ for(size_t slot=0;slot<model.materials.size();slot++){
++  const auto& mat=model.materials[slot];
++  if(slot<p.materialVisible.size()&&!p.materialVisible[slot])continue;
++  float alpha=p.snapshot&&slot<p.snapshot->materials.size()?p.snapshot->materials[slot].alpha:mat.alpha;if(alpha<=.0001f)continue;
++  const size_t first=mat.first/3,count=mat.count/3;if(!count)continue;
++  if(triangles+count>2000000)throw std::runtime_error("The model is too large to select from (over two million triangles)");
++  parts.push_back({{"slot",slot},{"name",mat.name},{"path",materialPath(model.id,slot,mat.name)},{"base",mat.base},{"first",triangles},{"modelFirst",first},{"count",count}});
++  slots.push_back(slot);triangles+=count;
++ }
++ std::vector<int64_t> remap(model.vertices.size(),-1);std::vector<uint32_t> order,corners;order.reserve(model.vertices.size());corners.reserve(triangles*3);
++ for(auto slot:slots){
++  const auto& mat=model.materials[slot];
++  for(size_t t=mat.first/3;t<mat.first/3+mat.count/3;t++){
++   // toSource is a reflection: the second and third corners swap for outward counter-clockwise.
++   const uint32_t corner[3]={model.indices[t*3],model.indices[t*3+2],model.indices[t*3+1]};
++   for(auto v:corner){if(remap[v]<0){remap[v]=int64_t(order.size());order.push_back(v);}corners.push_back(uint32_t(remap[v]));}
++  }
++ }
++ Json meta={{"posed",posed},{"asset",model.id},{"parts",parts},{"vertices",order.size()},{"triangles",triangles}};
++ auto text=meta.dump(-1,' ',false,Json::error_handler_t::replace);
++ LUA->PushString(text.c_str(),unsigned(text.size()));
++ LUA->CreateTable();double key=1;
++ for(auto v:order){
++  btVector3 pos;if(posed){const auto& d=p.snapshot->vertices[v];pos={d.x,d.y,d.z};}else pos=toSource(model.vertices[v].position)*unit;
++  for(float f:{float(pos.x()),float(pos.y()),float(pos.z())}){LUA->PushNumber(key++);LUA->PushNumber(std::isfinite(f)?double(f):0.);LUA->SetTable(-3);}
++ }
++ LUA->CreateTable();key=1;
++ for(auto c:corners){LUA->PushNumber(key++);LUA->PushNumber(double(c)+1);LUA->SetTable(-3);}
++ return 3;
++} END_FUNCTION
++// PropFromMesh(request JSON[, instance]): starts the worker's "mesh" job. With an instance the piece is a character's:
++// the request names its triangles (model triangle indices), the pose ("current": the drawn vertices; "rest": the
++// model's at the instance's scale), the name and the collision; this fills in the vertices around their centre,
++// normals, UVs and the materials (each part's texture by its content hash, its public material as source_material).
++// Without one, Lua gave the whole piece (a vanilla model's, already around its centre). Returns the job and the
++// centre (world, for the current pose) the vertices are relative to.
++FUNCTION(PropFromMesh) {
++ auto options=json(LUA,1);if(!options.is_object())throw std::runtime_error("Invalid piece");
++ Json origin=Json::array({0.,0.,0.});
++ if(LUA->IsType(2,GarrysMod::Lua::Type::Number)){
++  auto& p=world().get(number(LUA,2));const auto& model=*p.model;
++  auto pose=options.value("pose",std::string("current"));if(pose!="current"&&pose!="rest")throw std::runtime_error("Unknown pose");
++  const auto& list=options.at("triangles");if(!list.is_array()||list.empty())throw std::runtime_error("Select at least one triangle");
++  const size_t triangleCount=model.indices.size()/3;if(list.size()>triangleCount||list.size()>2000000)throw std::runtime_error("Too many triangles");
++  const bool posed=pose=="current";
++  if(posed){p.requireCpuVertices();if(!p.snapshot||p.snapshot->vertices.size()!=model.vertices.size())throw std::runtime_error("The character has no pose yet");}
++  const float unit=p.scale/Inch;
++  // The part of each triangle: the parts cover the indices in order.
++  std::vector<size_t> starts;for(auto& m:model.materials)starts.push_back(m.first/3);
++  auto slotOf=[&](size_t t){return size_t(std::upper_bound(starts.begin(),starts.end(),t)-starts.begin())-1;};
++  std::vector<int64_t> remap(model.vertices.size(),-1);std::vector<btVector3> positions,normals;std::vector<std::array<float,2>> uvs;
++  std::vector<uint32_t> corners;std::vector<size_t> triangleSlots;std::map<size_t,size_t> slotMaterial;Json materials=Json::array();
++  std::vector<uint8_t> seen(triangleCount,0);
++  for(auto& entry:list){
++   double d=entry.is_number()?entry.get<double>():-1;if(!(d>=0)||d!=std::floor(d)||d>=double(triangleCount))throw std::runtime_error("Invalid triangle in the selection");
++   const size_t t=size_t(d);if(seen[t])continue;seen[t]=1;
++   const size_t slot=slotOf(t);
++   if(!slotMaterial.contains(slot)){
++    const auto& mat=model.materials[slot];slotMaterial[slot]=materials.size();
++    auto c=[](float v){return std::clamp(std::isfinite(v)?v:0.f,0.f,1.f);};
++    materials.push_back({{"name",mat.name},{"color",{c(mat.diffuse.x()),c(mat.diffuse.y()),c(mat.diffuse.z()),c(mat.alpha)}},{"two_sided",mat.twoSided},{"alpha_mode",mat.alpha<.999f?"blend":"opaque"},
++     {"specular",{c(mat.specular.x()),c(mat.specular.y()),c(mat.specular.z())}},{"shininess",std::clamp(std::isfinite(mat.power)?mat.power:0.f,0.f,1000.f)},{"ambient",{c(mat.ambient.x()),c(mat.ambient.y()),c(mat.ambient.z())}},
++     {"source_shading","pmx"},{"sphere_mode",std::clamp(mat.sphereMode,0,3)},{"base_texture",validId(mat.base)?mat.base:std::string()},{"source_material",materialPath(model.id,slot,mat.name)}});
++   }
++   triangleSlots.push_back(slotMaterial[slot]);
++   const uint32_t corner[3]={model.indices[t*3],model.indices[t*3+2],model.indices[t*3+1]};
++   for(auto v:corner){
++    if(remap[v]<0){
++     remap[v]=int64_t(positions.size());
++     if(posed){const auto& dv=p.snapshot->vertices[v];positions.push_back({dv.x,dv.y,dv.z});normals.push_back({dv.nx,dv.ny,dv.nz});}
++     else{positions.push_back(toSource(model.vertices[v].position)*unit);normals.push_back(toSource(model.vertices[v].normal));}
++     uvs.push_back({model.vertices[v].uv[0],model.vertices[v].uv[1]});
++    }
++    corners.push_back(uint32_t(remap[v]));
++   }
++  }
++  // Around the centre of its bounds: the fast hull refuses a piece far from its origin, and the prop spawns there.
++  btVector3 lo(BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT),hi=-lo;for(auto& q:positions){lo.setMin(q);hi.setMax(q);}
++  const btVector3 centre=(lo+hi)*.5f;origin=Json::array({centre.x(),centre.y(),centre.z()});
++  Json vertices=Json::array();
++  for(size_t i=0;i<positions.size();i++){auto q=positions[i]-centre;auto n=normals[i];for(float v:{q.x(),q.y(),q.z(),n.x(),n.y(),n.z(),uvs[i][0],uvs[i][1]})vertices.push_back(std::isfinite(v)?v:0.f);}
++  options["vertices"]=std::move(vertices);options["indices"]=std::move(corners);options["triangle_materials"]=std::move(triangleSlots);options["materials"]=std::move(materials);
++  options["separated_from"]={{"kind","character"},{"asset",model.id},{"pose",pose}};options.erase("triangles");
++ }
++ options["kind"]="mesh";
++ LUA->PushNumber(double(launch(false,"",options)));push(LUA,origin);return 2;
++} END_FUNCTION
+ FUNCTION(CreatePreview) {auto m=asset(stringArg(LUA,1));if(!m)throw std::runtime_error("Asset not loaded");context->preview=std::make_unique<World>();auto options=json(LUA,2);options["center"]={0,0,0};options["frozen"]=true;auto id=context->preview->create(m,options);LUA->PushNumber(double(id));return 1;} END_FUNCTION
+ FUNCTION(ClearPreview) {context->preview.reset();return 0;} END_FUNCTION
+ FUNCTION(DrawPreview) {if(context->preview)drawInstanceNative(context->preview->get(number(LUA,1)),unsigned(number(LUA,2)),stringArg(LUA,3),LUA->GetBool(4));return 0;} END_FUNCTION
+@@ -787,7 +886,7 @@ GMOD_MODULE_OPEN(){
+ #endif
+ #ifndef MMDHL_SERVER
+         REGISTER(SetSecondaryTuning);REGISTER(SetSpringRelativeDamping);REGISTER(SetSecondaryWater);REGISTER(SetSecondaryBuoyancy);
+-        REGISTER(GetModelAnimationDiagnostics);REGISTER(DeleteAssets);REGISTER(PropReload);REGISTER(PropDerive);REGISTER(SubmitPresentationPose);REGISTER(SubmitPresentationBatch);REGISTER(SubmitPresentationMatrixBatch);REGISTER(MarkTeleport);REGISTER(GetAlignmentProbe);REGISTER(Draw);REGISTER(RenderStatus);REGISTER(CheckRenderer);REGISTER(RenderStats);REGISTER(GetLightingState);REGISTER(SetFlashlightOverlapGuard);REGISTER(SetSoftAlpha);REGISTER(RenderFrameStats);REGISTER(SetNativeVertexCache);REGISTER(SetCompactVertices);REGISTER(SetGpuSkinning);REGISTER(SetPoseSmoothing);REGISTER(GetDrawAge);REGISTER(SetupSourceLighting);REGISTER(RegisterSourceShadow);REGISTER(RemoveSourceShadow);REGISTER(SetWorkers);REGISTER(GetWorkerCapabilities);REGISTER(SetSecondaryQuality);REGISTER(SetSecondaryWaitBudget);REGISTER(SetSecondaryMidphase);REGISTER(SetSecondarySleep);REGISTER(SetRenderSuspended);REGISTER(SetInstanceMaterials);REGISTER(DrawInstance);REGISTER(SetSecondaryBroadphase);REGISTER(PrepareFrame);REGISTER(PruneRenderCache);REGISTER(StartMainThreadSampling);REGISTER(ReadMainThreadSamples);REGISTER(CreateEditorPreview);REGISTER(DestroyEditorPreview);REGISTER(GetEditorPreviewBounds);REGISTER(DrawEditorPreview);REGISTER(GetMaterialMesh);REGISTER(GetMaterialPositions);REGISTER(CreatePreview);REGISTER(ClearPreview);REGISTER(DrawPreview);
++        REGISTER(GetModelAnimationDiagnostics);REGISTER(DeleteAssets);REGISTER(PropReload);REGISTER(PropDerive);REGISTER(SubmitPresentationPose);REGISTER(SubmitPresentationBatch);REGISTER(SubmitPresentationMatrixBatch);REGISTER(MarkTeleport);REGISTER(GetAlignmentProbe);REGISTER(Draw);REGISTER(RenderStatus);REGISTER(CheckRenderer);REGISTER(RenderStats);REGISTER(GetLightingState);REGISTER(SetFlashlightOverlapGuard);REGISTER(SetSoftAlpha);REGISTER(RenderFrameStats);REGISTER(SetNativeVertexCache);REGISTER(SetCompactVertices);REGISTER(SetGpuSkinning);REGISTER(SetPoseSmoothing);REGISTER(GetDrawAge);REGISTER(SetupSourceLighting);REGISTER(RegisterSourceShadow);REGISTER(RemoveSourceShadow);REGISTER(SetWorkers);REGISTER(GetWorkerCapabilities);REGISTER(SetSecondaryQuality);REGISTER(SetSecondaryWaitBudget);REGISTER(SetSecondaryMidphase);REGISTER(SetSecondarySleep);REGISTER(SetRenderSuspended);REGISTER(SetInstanceMaterials);REGISTER(DrawInstance);REGISTER(SetSecondaryBroadphase);REGISTER(PrepareFrame);REGISTER(PruneRenderCache);REGISTER(StartMainThreadSampling);REGISTER(ReadMainThreadSamples);REGISTER(CreateEditorPreview);REGISTER(DestroyEditorPreview);REGISTER(GetEditorPreviewBounds);REGISTER(DrawEditorPreview);REGISTER(GetMaterialMesh);REGISTER(GetMaterialPositions);REGISTER(SeparatorMesh);REGISTER(PropFromMesh);REGISTER(CreatePreview);REGISTER(ClearPreview);REGISTER(DrawPreview);
+         REGISTER(FileAccessInfo);REGISTER(FileAccessPick);REGISTER(FileAccessRequest);REGISTER(FileAccessPoll);REGISTER(FileAccessRead);REGISTER(FileAccessPollRead);REGISTER(FileAccessList);REGISTER(FileAccessPollList);REGISTER(FileAccessRelease);REGISTER(FileAccessCancel);REGISTER(FileAccessGrants);REGISTER(FileAccessRevoke);REGISTER(FileAccessSetEnabled);
+ #endif
+         registerPropFunctions(LUA,context->cache);
+diff --git a/mmdhl/native/worker.cpp b/mmdhl/native/worker.cpp
+--- a/mmdhl/native/worker.cpp
++++ b/mmdhl/native/worker.cpp
+@@ -11,6 +11,7 @@
+ #include "vulkan_solver.hpp"
+ #include "props/core.hpp"
+ #include "props/texture_resolver.hpp"
++#include "props/mesh_prop.hpp"
+ #ifdef _WIN32
+ #include <windows.h>
+ #include <shobjidl.h>
+@@ -255,6 +256,27 @@ props::Json deriveProp(const mmd::fs::path& cache,const props::Json& request,con
+         {"collision_hulls",out.hulls.size()},{"collision_method",out.manifest.value("collision_method",std::string("coacd"))},{"mins",out.manifest["mins"]},{"maxs",out.manifest["maxs"]},{"derived_from",parent},{"preset",out.manifest["preset"]}};
+     return progress.complete({{"state","complete"},{"kind","static"},{"progress",1},{"stage","Preset saved"},{"asset",id},{"info",info}});
+ }
++// The mesh separator: a new content-addressed prop from a piece of a model in the game (the game module's
++// PropFromMesh writes the triangles into the request; props/mesh_prop.hpp). Collision "auto" picks the fast hull or
++// CoACD from the piece's shape.
++props::Json meshProp(const mmd::fs::path& cache,const props::Json& request,const mmd::fs::path& status){
++    using props::Json;
++    auto name=request.value("name",std::string("Piece"));
++    auto characters=codePoints(name);if(name.empty()||!characters||*characters>60)throw std::runtime_error("Choose a name of up to 60 characters for the piece");
++    auto mode=request.value("collision",std::string("auto"));if(mode!="auto"&&mode!="hull"&&mode!="balanced")throw std::runtime_error("Unknown collision choice");
++    PropProgress progress(status,name);
++    auto limits=props::fullTextureLimits();
++    auto a=props::meshAsset(request,cache/L"textures",limits,reporter(progress,mode!="hull"));
++    if(mode=="auto")mode=props::automaticCollision(a);
++    auto report=reporter(progress,mode!="hull");
++    a.manifest["options"]={{"collision",mode}};
++    a.hulls.clear();props::makeCollision(a,mode,report);
++    auto id=props::saveAsset(cache/L"static",a,report,limits);
++    Json info={{"name",a.manifest["name"]},{"warnings",a.manifest.value("warnings",Json::array())},{"triangles",a.indices.size()/3},{"vertices",a.vertices.size()},{"materials",a.manifest["materials"].size()},
++        {"collision_hulls",a.hulls.size()},{"collision_method",a.manifest.value("collision_method",std::string("coacd"))},{"collision",mode},{"mins",a.manifest["mins"]},{"maxs",a.manifest["maxs"]}};
++    if(a.manifest.contains("separated_from"))info["separated_from"]=a.manifest["separated_from"];
++    return progress.complete({{"state","complete"},{"kind","static"},{"progress",1},{"stage","Piece saved"},{"asset",id},{"info",info}});
++}
+ int wmain(int argc,wchar_t** argv){
+     using namespace mmd;fs::path status;std::string requestSource,requestKind;const uint64_t started=GetTickCount64();
+     try {
+@@ -354,8 +376,8 @@ int wmain(int argc,wchar_t** argv){
+             }
+             else if((kind=="character"||kind.empty())&&convertibleCharacter(source)&&!mmdFile)result=importConverted(source,cache,options,status,convertCharacter(source,options,report("convert_character")));
+             else if(kind=="character")result=importAsset(source,cache,settings,status);
+-            else result=kind=="derive"?deriveProp(cache,options,status):kind=="blend_scene"?listBlend(source,options,status):kind=="static"?importProp(source,cache,options,status):importAsset(source,cache,options,status);
+-            if(kind!="derive")result["source"]=requestSource;writeJson(status,result);return 0;}
++            else result=kind=="derive"?deriveProp(cache,options,status):kind=="mesh"?meshProp(cache,options,status):kind=="blend_scene"?listBlend(source,options,status):kind=="static"?importProp(source,cache,options,status):importAsset(source,cache,options,status);
++            if(kind!="derive"&&kind!="mesh")result["source"]=requestSource;writeJson(status,result);return 0;}
+         std::cerr<<"mmdhl_worker --inspect model.pmx | --request request.json [cache-folder] | --pick job-directory [static]\n";return 2;
+     }catch(...){
+         // Any exception becomes a sentence with a code (import_error.hpp); a structured
+diff --git a/mmdhl/native/props/mesh_prop.cpp b/mmdhl/native/props/mesh_prop.cpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/native/props/mesh_prop.cpp
+@@ -0,0 +1,176 @@
++#include "mesh_prop.hpp"
++#include "material_processing.hpp"
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <map>
++#include <unordered_map>
++
++namespace props {
++namespace {
++void warn(Asset& a,const std::string& text){auto& w=a.manifest["warnings"];if(!w.is_array())w=Json::array();w.push_back(text);}
++float number(const Json& value,const char* what){
++    if(!value.is_number())throw std::runtime_error(std::string("The piece's ")+what+" is not a number");
++    float f=value.get<float>();if(!std::isfinite(f)||std::abs(f)>1e7f)throw std::runtime_error(std::string("The piece's ")+what+" is out of range");
++    return f;
++}
++uint64_t whole(const Json& value,uint64_t limit,const char* what){
++    // util.TableToJSON writes Lua's whole numbers as 1.0.
++    double d=value.is_number()?value.get<double>():-1;
++    if(!(d>=0)||d!=std::floor(d)||d>=double(limit))throw std::runtime_error(std::string("Invalid ")+what+" in the piece");
++    return uint64_t(d);
++}
++float unit(const Json& j,const char* key,float fallback){
++    if(!j.contains(key))return fallback;float f=number(j.at(key),key);return std::clamp(f,0.f,1.f);
++}
++std::array<float,3> rgb(const Json& j,const char* key,std::array<float,3> fallback){
++    if(!j.contains(key))return fallback;auto& v=j.at(key);if(!v.is_array()||v.size()!=3)throw std::runtime_error(std::string("Invalid ")+key+" in the piece");
++    return {std::clamp(number(v[0],key),0.f,1.f),std::clamp(number(v[1],key),0.f,1.f),std::clamp(number(v[2],key),0.f,1.f)};
++}
++// A Source material path: printable, no parent folders, at most 260 bytes.
++std::string sourceMaterial(const Json& j){
++    auto path=j.value("source_material",std::string());if(path.size()>260)throw std::runtime_error("A source material path is too long");
++    for(unsigned char c:path)if(c<32||c==127||c=='"')throw std::runtime_error("Invalid source material path");
++    if(path.find("..")!=std::string::npos||(!path.empty()&&(path[0]=='/'||path[0]=='\\')))throw std::runtime_error("Invalid source material path");
++    return path;
++}
++// Only the fields the static prop format knows, each checked; the request comes from Lua.
++Json material(const Json& src,size_t order){
++    if(!src.is_object())throw std::runtime_error("Invalid material in the piece");
++    auto name=src.value("name",std::string("Material"));if(name.size()>256)name.resize(256);
++    std::array<float,4> color{1,1,1,1};
++    if(src.contains("color")){auto& c=src.at("color");if(!c.is_array()||c.size()!=4)throw std::runtime_error("Invalid material colour in the piece");for(int k=0;k<4;k++)color[k]=std::clamp(number(c[k],"colour"),0.f,1.f);}
++    auto mode=src.value("alpha_mode",std::string("opaque"));if(mode!="opaque"&&mode!="mask"&&mode!="blend")mode="opaque";
++    Json m={{"source_order",order},{"name",name},{"color",color},{"two_sided",src.value("two_sided",false)==true},{"alpha_mode",mode},
++        {"alpha_explicit",src.value("alpha_explicit",false)==true},{"alpha_cutoff",unit(src,"alpha_cutoff",.5f)},{"base_texture",""},{"normal_texture",""},
++        {"specular",rgb(src,"specular",{0,0,0})},{"ambient",rgb(src,"ambient",{1,1,1})}};
++    if(src.contains("shininess"))m["shininess"]=std::clamp(number(src.at("shininess"),"shininess"),0.f,1000.f);
++    auto shading=src.value("source_shading",std::string());if(shading=="pmx"||shading=="phong"||shading=="pbr")m["source_shading"]=shading;
++    if(src.contains("sphere_mode"))m["sphere_mode"]=whole(src.at("sphere_mode"),4,"sphere mode");
++    if(src.contains("has_toon"))m["has_toon"]=src.at("has_toon")==true;
++    auto path=sourceMaterial(src);if(!path.empty())m["source_material"]=path;
++    return m;
++}
++}
++Asset meshAsset(const Json& request,const fs::path& characterTextures,const Limits& limits,const Progress& progress){
++    progress("Reading the piece",.05f);
++    const auto& vertices=request.at("vertices");const auto& indices=request.at("indices");
++    const auto& triangleMaterials=request.at("triangle_materials");const auto& materials=request.at("materials");
++    if(!vertices.is_array()||!indices.is_array()||!triangleMaterials.is_array()||!materials.is_array())throw std::runtime_error("Invalid piece");
++    if(vertices.empty()||vertices.size()%8)throw std::runtime_error("Invalid piece vertices");
++    if(indices.empty()||indices.size()%3)throw std::runtime_error("Invalid piece triangles");
++    const size_t vertexCount=vertices.size()/8,triangleCount=indices.size()/3;
++    if(triangleMaterials.size()!=triangleCount)throw std::runtime_error("Every triangle of the piece needs a material");
++    if(materials.empty()||materials.size()>limits.materials)throw std::runtime_error("Invalid number of materials in the piece");
++    checkGeometryStorage(vertexCount,indices.size(),limits);
++    // Triangles grouped by material, in material order; only the vertices they use are kept.
++    std::vector<std::vector<uint32_t>> byMaterial(materials.size());
++    for(size_t t=0;t<triangleCount;t++){
++        auto m=whole(triangleMaterials[t],materials.size(),"triangle material");
++        std::array<uint32_t,3> tri{};for(int k=0;k<3;k++)tri[k]=uint32_t(whole(indices[t*3+k],vertexCount,"vertex index"));
++        if(tri[0]==tri[1]||tri[1]==tri[2]||tri[0]==tri[2])continue;
++        byMaterial[m].insert(byMaterial[m].end(),tri.begin(),tri.end());
++    }
++    Asset a;std::vector<uint32_t> remap(vertexCount,UINT32_MAX);
++    auto vertexAt=[&](uint32_t i){
++        if(remap[i]!=UINT32_MAX)return remap[i];
++        Vertex v;const size_t o=size_t(i)*8;
++        v.pos={number(vertices[o],"position"),number(vertices[o+1],"position"),number(vertices[o+2],"position")};
++        v.normal={number(vertices[o+3],"normal"),number(vertices[o+4],"normal"),number(vertices[o+5],"normal")};
++        v.u=number(vertices[o+6],"texture coordinate");v.v=number(vertices[o+7],"texture coordinate");
++        remap[i]=uint32_t(a.vertices.size());a.vertices.push_back(v);return remap[i];
++    };
++    Json outMaterials=Json::array(),parts=Json::array();std::map<std::string,std::string> stored;
++    for(size_t m=0;m<materials.size();m++){
++        if(byMaterial[m].empty())continue;
++        progress("Collecting materials",.1f+.2f*float(m)/float(materials.size()),{},m,materials.size());
++        const size_t slot=outMaterials.size();Json out=material(materials[m],slot);
++        auto hash=materials[m].value("base_texture",std::string());
++        if(!hash.empty()){
++            if(!validHash(hash))throw std::runtime_error("Invalid texture reference in the piece");
++            auto found=stored.find(hash);
++            if(found==stored.end()){
++                std::string kept;
++                // The character cache keeps each texture as <SHA-256 of the PNG>.png: embedding it unchanged keeps its key.
++                try{auto t=makeTexture(readFile(characterTextures/(wide(hash)+L".png"),MaxTextureFileBytes),limits.textureDimension);kept=t.hash;addTexture(a,std::move(t),out.value("name",std::string()));}
++                catch(const std::exception& e){warn(a,"Texture of "+out.value("name",std::string("a material"))+": "+e.what());}
++                found=stored.emplace(hash,kept).first;
++            }
++            out["base_texture"]=found->second;
++        }
++        outMaterials.push_back(out);
++        uint32_t first=uint32_t(a.indices.size());for(auto i:byMaterial[m])a.indices.push_back(vertexAt(i));
++        uint32_t count=uint32_t(a.indices.size())-first;
++        while(count){uint32_t n=std::min(count,60000u);parts.push_back({{"material",slot},{"first",first},{"count",n}});first+=n;count-=n;}
++    }
++    if(a.indices.empty())throw std::runtime_error("The piece has no triangles");
++    Json warnings=a.manifest.contains("warnings")?a.manifest["warnings"]:Json::array();
++    auto name=request.value("name",std::string("Piece"));
++    a.manifest={{"version",1},{"name",name},{"format","separator"},{"materials",outMaterials},{"parts",parts},{"warnings",warnings}};
++    if(request.contains("separated_from")&&request["separated_from"].is_object()){
++        const auto& s=request["separated_from"];Json from=Json::object();
++        for(auto key:{"kind","asset","model","pose"})if(s.contains(key)&&s[key].is_string()&&s[key].get<std::string>().size()<=260)from[key]=s[key];
++        for(auto key:{"skin","bodygroups"})if(s.contains(key)&&(s[key].is_number_integer()||s[key].is_string()))from[key]=s[key];
++        a.manifest["separated_from"]=from;
++    }
++    // Normals: a zero one takes its triangles'; tangents from the UVs, as the PMX importer derives them.
++    progress("Generating tangents",.32f);
++    std::vector<Vec> faces(a.vertices.size()),ts(a.vertices.size()),bs(a.vertices.size());
++    for(size_t i=0;i<a.indices.size();i+=3){
++        auto i0=a.indices[i],i1=a.indices[i+1],i2=a.indices[i+2];auto& p=a.vertices[i0];auto& q=a.vertices[i1];auto& s=a.vertices[i2];
++        Vec e=q.pos-p.pos,f=s.pos-p.pos,n=e.cross(f);for(auto k:{i0,i1,i2})faces[k]=faces[k]+n;
++        float u=q.u-p.u,v=q.v-p.v,u2=s.u-p.u,v2=s.v-p.v,d=u*v2-u2*v;if(std::abs(d)<1e-10f)continue;
++        Vec t=(e*v2-f*v)*(1/d),b=(f*u-e*u2)*(1/d);for(auto k:{i0,i1,i2}){ts[k]=ts[k]+t;bs[k]=bs[k]+b;}
++    }
++    for(size_t i=0;i<a.vertices.size();i++){
++        auto& v=a.vertices[i];if(v.normal.length()<1e-6f)v.normal=faces[i];v.normal=v.normal.normalized();
++        auto t=(ts[i]-v.normal*ts[i].dot(v.normal)).normalized();v.tangent={t.x,t.y,t.z,v.normal.cross(t).dot(bs[i])<0?-1.f:1.f};
++    }
++    progress("Analyzing materials",.4f);
++    analyzeMaterials(a,progress);
++    a.manifest["triangles"]=a.indices.size()/3;a.manifest["vertices"]=a.vertices.size();
++    warnLargeGeometry(a.manifest,a.vertices.size(),a.indices.size(),limits);
++    updateBounds(a);
++    return a;
++}
++PieceShape measurePiece(const Asset& a){
++    PieceShape shape;
++    // Welded by position (to a thousandth of a unit): UV and material seams are not openings.
++    struct Key{int64_t x,y,z;bool operator==(const Key& o)const{return x==o.x&&y==o.y&&z==o.z;}};
++    struct Hash{size_t operator()(const Key& k)const{return size_t(k.x*73856093^k.y*19349663^k.z*83492791);}};
++    std::unordered_map<Key,uint32_t,Hash> ids;std::vector<uint32_t> welded(a.vertices.size());
++    for(size_t i=0;i<a.vertices.size();i++){auto& p=a.vertices[i].pos;Key k{int64_t(std::llround(p.x*1000.)),int64_t(std::llround(p.y*1000.)),int64_t(std::llround(p.z*1000.))};
++        welded[i]=ids.emplace(k,uint32_t(ids.size())).first->second;}
++    std::unordered_map<uint64_t,uint32_t> edges;double volume=0;
++    for(size_t i=0;i<a.indices.size();i+=3){
++        std::array<uint32_t,3> w{welded[a.indices[i]],welded[a.indices[i+1]],welded[a.indices[i+2]]};
++        for(int k=0;k<3;k++){uint32_t x=w[k],y=w[(k+1)%3];if(x==y)continue;uint64_t key=uint64_t(std::min(x,y))<<32|std::max(x,y);edges[key]++;}
++        auto& p0=a.vertices[a.indices[i]].pos;auto& p1=a.vertices[a.indices[i+1]].pos;auto& p2=a.vertices[a.indices[i+2]].pos;
++        volume+=double(p0.dot(p1.cross(p2)))/6.0;
++    }
++    shape.edges=edges.size();for(auto& [key,uses]:edges)if(uses==1)shape.boundaryEdges++;
++    shape.volume=std::abs(volume);
++    try{
++        auto hull=makeFastHull(a);Vec c{0,0,0};for(auto& p:hull.points)c=c+p;c=c*(1.f/float(std::max<size_t>(1,hull.points.size())));
++        double h=0;for(size_t i=0;i+2<hull.indices.size();i+=3){auto& p0=hull.points[hull.indices[i]];auto& p1=hull.points[hull.indices[i+1]];auto& p2=hull.points[hull.indices[i+2]];h+=std::abs(double((p0-c).dot((p1-c).cross(p2-c))))/6.0;}
++        shape.hullVolume=h;
++    }catch(...){shape.hullVolume=0;}
++    return shape;
++}
++std::string automaticCollision(const Asset& a){
++    if(a.indices.size()<36)return "hull";
++    // A small piece (a hairpin, an earring) gains nothing from a decomposition: CoACD cuts it into slivers far below a
++    // unit, which the game's physics may refuse. Under 12 units across it keeps the fast hull.
++    Vec lo{INFINITY,INFINITY,INFINITY},hi{-INFINITY,-INFINITY,-INFINITY};
++    for(auto& v:a.vertices){lo={std::min(lo.x,v.pos.x),std::min(lo.y,v.pos.y),std::min(lo.z,v.pos.z)};hi={std::max(hi.x,v.pos.x),std::max(hi.y,v.pos.y),std::max(hi.z,v.pos.z)};}
++    if(std::max({hi.x-lo.x,hi.y-lo.y,hi.z-lo.z})<12.f)return "hull";
++    auto shape=measurePiece(a);
++    // An open shell (cloth, a hair card, most accessories): CoACD needs a closed surface to find its inside.
++    if(shape.edges==0||shape.boundaryEdges*50>shape.edges)return "hull";
++    if(shape.hullVolume<=0)return "hull";
++    // A closed piece that fills little of its hull is concave: a ring, a bow, a cup. One with almost no volume is a
++    // flat double layer (a sheet and its back-face copy): there is no inside for CoACD to find.
++    const double fill=shape.volume/shape.hullVolume;
++    return fill>=.02&&fill<.55?"balanced":"hull";
++}
++}
+diff --git a/mmdhl/native/props/mesh_prop.hpp b/mmdhl/native/props/mesh_prop.hpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/native/props/mesh_prop.hpp
+@@ -0,0 +1,19 @@
++#pragma once
++// The mesh separator's job (kind "mesh"): a static prop from a piece of a model in the game, given as triangles in the
++// request: positions in Source units around the piece's origin, outward counter-clockwise; per material, an optional
++// texture from the character cache by its content hash and an optional Source material that draws the slot instead
++// (source_material). The request comes from the game module's PropFromMesh binding.
++#include "core.hpp"
++
++namespace props {
++// Builds the piece's asset (no collision yet). characterTextures is the character cache's texture folder.
++Asset meshAsset(const Json& request,const fs::path& characterTextures,const Limits& limits,const Progress& progress);
++// The collision a piece gets when the request asks for "auto": "balanced" (CoACD) for a closed piece, 12 units across
++// or more, that fills little of its outer hull (a ring, a bow), "hull" otherwise (a small piece, a compact piece, or an
++// open shell CoACD cannot close).
++std::string automaticCollision(const Asset& asset);
++// What automaticCollision measured: the piece's open (boundary) edges and edges, its enclosed volume and its fast
++// hull's volume.
++struct PieceShape { size_t boundaryEdges=0,edges=0; double volume=0,hullVolume=0; };
++PieceShape measurePiece(const Asset& asset);
++}
+diff --git a/mmdhl/tests/mesh_prop_tests.cpp b/mmdhl/tests/mesh_prop_tests.cpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/tests/mesh_prop_tests.cpp
+@@ -0,0 +1,82 @@
++// The mesh separator's prop job (native/props/mesh_prop.hpp): a request's triangles become a valid static prop with
++// its materials (an embedded character texture, a Source material), the automatic collision choice (a compact box, a
++// concave closed ring, an open sheet), and invalid requests are refused. argv[1]: a scratch folder.
++#include "mesh_prop.hpp"
++#include <array>
++#include <iostream>
++#include <utility>
++using namespace props;
++static void check(bool ok,const std::string& why){if(!ok)throw std::runtime_error(why);}
++struct Builder {
++    Json vertices=Json::array(),indices=Json::array(),triangles=Json::array();
++    // An axis-aligned box, outward counter-clockwise (Source's +Z up), material m.
++    void box(Vec lo,Vec hi,unsigned m){
++        const unsigned base=unsigned(vertices.size()/8);
++        for(int i=0;i<8;i++){Vec p{i&1?hi.x:lo.x,i&2?hi.y:lo.y,i&4?hi.z:lo.z};for(float v:{p.x,p.y,p.z,0.f,0.f,0.f,float(i&1),float((i>>1)&1)})vertices.push_back(v);}
++        const unsigned faces[12][3]={{0,2,1},{1,2,3},{4,5,6},{5,7,6},{0,1,4},{1,5,4},{2,6,3},{3,6,7},{0,4,2},{2,4,6},{1,3,5},{3,7,5}};
++        for(auto& f:faces){for(int k=0;k<3;k++)indices.push_back(base+f[k]);triangles.push_back(m);}
++    }
++    // A flat n x n grid of quads at z, facing +Z, or -Z (a back-face copy) when flipped.
++    void sheet(int n,float z,bool flipped,unsigned m){
++        const unsigned base=unsigned(vertices.size()/8);
++        for(int j=0;j<=n;j++)for(int i=0;i<=n;i++)for(float v:{float(i),float(j),z,0.f,0.f,flipped?-1.f:1.f,float(i)/n,float(j)/n})vertices.push_back(v);
++        auto at=[&](int i,int j){return base+unsigned(j*(n+1)+i);};
++        for(int j=0;j<n;j++)for(int i=0;i<n;i++){
++            std::array<unsigned,6> t{at(i,j),at(i+1,j),at(i+1,j+1),at(i,j),at(i+1,j+1),at(i,j+1)};
++            if(flipped){std::swap(t[1],t[2]);std::swap(t[4],t[5]);}
++            for(auto k:t)indices.push_back(k);triangles.push_back(m);triangles.push_back(m);
++        }
++    }
++    Json request(Json materials)const{return {{"name","Piece"},{"vertices",vertices},{"indices",indices},{"triangle_materials",triangles},{"materials",materials}};}
++};
++static bool throws(const Json& request,const fs::path& textures){try{meshAsset(request,textures,fullTextureLimits(),{});}catch(const std::exception&){return true;}return false;}
++int main(int argc,char** argv){try{
++    check(argc>1,"Pass a scratch folder");
++    fs::path scratch=argv[1];fs::remove_all(scratch);fs::create_directories(scratch/"textures");
++    // A 2x2 RGBA PNG in the character cache's way: <SHA-256 of its bytes>.png.
++    static const uint8_t png[]={137,80,78,71,13,10,26,10,0,0,0,13,73,72,68,82,0,0,0,2,0,0,0,2,8,6,0,0,0,114,182,13,36,0,0,0,20,73,68,65,84,120,218,99,56,161,161,241,95,227,132,198,127,6,24,3,0,72,196,8,93,121,124,77,129,0,0,0,0,73,69,78,68,174,66,96,130};
++    const std::string hash=sha256(std::span<const uint8_t>(png,sizeof png));writeAtomic(scratch/"textures"/(hash+".png"),std::span<const uint8_t>(png,sizeof png));
++    Json materials=Json::array({{{"name","cloth"},{"base_texture",hash},{"source_material","mmd/0123456789abcdef/cloth"},{"color",{1,1,1,1}},{"two_sided",true}},
++        {{"name","metal"},{"source_material","models/props_c17/metalladder001"},{"specular",{.5,.5,.5}},{"shininess",40}},{{"name","unused"}}});
++    // A box (cloth) beside a box (metal); the third material has no triangle.
++    Builder b;b.box({-2,-1,-1},{0,1,1},0);b.box({0,-1,-1},{2,1,1},1);
++    auto a=meshAsset(b.request(materials),scratch/"textures",fullTextureLimits(),{});
++    check(a.indices.size()==72&&a.vertices.size()==16,"Geometry not kept");
++    check(a.manifest["materials"].size()==2,"An unused material was kept");
++    check(a.manifest["materials"][0]["source_material"]=="mmd/0123456789abcdef/cloth"&&a.manifest["materials"][1]["source_material"]=="models/props_c17/metalladder001","Source materials lost");
++    check(a.textures.size()==1&&a.manifest["materials"][0]["base_texture"]==a.textures[0].hash&&a.manifest["materials"][1]["base_texture"]=="","The character texture was not embedded");
++    check(a.manifest["parts"].size()==2&&a.manifest["parts"][1]["first"]==36,"Parts not grouped by material");
++    for(auto& v:a.vertices)check(std::abs(v.normal.length()-1)<1e-3f,"A zero normal was not replaced");
++    check(automaticCollision(a)=="hull","Two boxes side by side are compact");
++    // Through the static prop pipeline: collision, save, load.
++    makeCollision(a,"hull",{});auto id=saveAsset(scratch/"static",a,{},fullTextureLimits());
++    auto loaded=loadAsset(scratch/"static",id,fullTextureLimits());
++    check(loaded.indices.size()==72&&loaded.manifest["materials"][1]["source_material"]=="models/props_c17/metalladder001","The saved piece differs");
++    // A missing texture: a warning and no texture, not a failure.
++    Json missing=materials;missing[0]["base_texture"]=std::string(64,'a');
++    auto m=meshAsset(b.request(missing),scratch/"textures",fullTextureLimits(),{});
++    check(m.textures.empty()&&m.manifest["materials"][0]["base_texture"]==""&&!m.manifest["warnings"].empty(),"A missing texture was not reported");
++    // A closed ring that fills little of its hull is concave: CoACD.
++    Builder ring;ring.box({-10,-10,0},{10,-8,1},1);ring.box({-10,8,0},{10,10,1},1);ring.box({-10,-8,0},{-8,8,1},1);ring.box({8,-8,0},{10,8,1},1);
++    auto r=meshAsset(ring.request(materials),scratch/"textures",fullTextureLimits(),{});auto shape=measurePiece(r);
++    check(shape.boundaryEdges==0&&shape.volume>0&&shape.hullVolume>shape.volume,"The ring was measured wrongly");
++    check(automaticCollision(r)=="balanced","A concave ring did not get a decomposition ("+std::to_string(shape.volume/shape.hullVolume)+")");
++    // The same ring a tenth of the size (2 units across, a hairpin's size) keeps the fast hull.
++    Builder small;small.box({-1,-1,0},{1,-.8f,.1f},1);small.box({-1,.8f,0},{1,1,.1f},1);small.box({-1,-.8f,0},{-.8f,.8f,.1f},1);small.box({.8f,-.8f,0},{1,.8f,.1f},1);
++    check(automaticCollision(meshAsset(small.request(materials),scratch/"textures",fullTextureLimits(),{}))=="hull","A small concave piece got a decomposition");
++    // An open sheet keeps the fast hull; so does a sheet with its back-face copy (closed, but without volume).
++    Builder open;open.sheet(4,0,false,0);
++    check(automaticCollision(meshAsset(open.request(materials),scratch/"textures",fullTextureLimits(),{}))=="hull","An open sheet got a decomposition");
++    Builder layered;layered.sheet(4,0,false,0);layered.sheet(4,0,true,1);
++    auto l=meshAsset(layered.request(materials),scratch/"textures",fullTextureLimits(),{});
++    check(measurePiece(l).boundaryEdges==0&&automaticCollision(l)=="hull","A sheet with its back-face copy got a decomposition");
++    // Refused requests.
++    auto bad=b.request(materials);bad["indices"][0]=999;check(throws(bad,scratch/"textures"),"A vertex index out of range was accepted");
++    bad=b.request(materials);bad["triangle_materials"][0]=7;check(throws(bad,scratch/"textures"),"A material out of range was accepted");
++    bad=b.request(materials);bad["materials"][0]["source_material"]="../../cfg/autoexec";check(throws(bad,scratch/"textures"),"A parent folder in a source material was accepted");
++    bad=b.request(materials);bad["vertices"][0]=1e30;check(throws(bad,scratch/"textures"),"A position out of range was accepted");
++    bad=b.request(materials);bad["triangle_materials"].erase(0);check(throws(bad,scratch/"textures"),"A triangle without material was accepted");
++    bad=b.request(materials);bad["materials"][0]["base_texture"]="../x";check(throws(bad,scratch/"textures"),"An invalid texture reference was accepted");
++    std::cout<<"Mesh separator props: materials, embedded texture, save and load, automatic collision ("<<shape.volume/shape.hullVolume<<" for the ring), refusals passed\n";
++    return 0;
++}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

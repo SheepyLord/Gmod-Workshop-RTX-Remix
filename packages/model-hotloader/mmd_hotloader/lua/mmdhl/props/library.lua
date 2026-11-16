@@ -239,6 +239,12 @@ function Lib.OnImported(status,previous)
   if saved.name==nil and parent then saved.name=parent.name..' · '..tostring(saved.preset) end
   saved.deleted=nil writeSettings(id,saved)
  end
+ -- A piece of another model (the Mesh Separator, ADR 0232): where it came from, and a character's terms of use.
+ local separated=(status.info or {}).separated_from
+ if istable(separated) then
+  saved=readSettings(id) saved.separatedFrom=separated saved.deleted=nil writeSettings(id,saved)
+  if mmdhl.terms and P.ValidID(separated.asset) then mmdhl.terms.Imported('static',id,nil,separated.asset) end
+ end
  P.RefreshRender(id)
  Lib.Refresh()
  local info=status.info or {}
@@ -248,6 +254,7 @@ function Lib.OnImported(status,previous)
  local name,triangles,hulls=tostring(info.name or L'props.import.unnamed'),string.Comma(info.triangles or 0),info.collision_hulls or 1
  local message
  if derived then message=hulls==1 and L('props.import.saved_preset_one_hull',{name=name,triangles=triangles,hulls=hulls,time=took}) or L('props.import.saved_preset',{name=name,triangles=triangles,hulls=hulls,time=took})
+ elseif separated then message=hulls==1 and L('separator.saved_one_hull',{name=name,triangles=triangles,hulls=hulls,time=took}) or L('separator.saved',{name=name,triangles=triangles,hulls=hulls,time=took})
  else message=hulls==1 and L('props.import.imported_one_hull',{name=name,triangles=triangles,hulls=hulls,time=took}) or L('props.import.imported',{name=name,triangles=triangles,hulls=hulls,time=took}) end
  if #warnings>0 then message=L('props.import.with_warnings',{message=message,count=#warnings}) end
  return message,#warnings

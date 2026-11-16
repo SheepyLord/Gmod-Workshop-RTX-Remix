@@ -11,6 +11,7 @@
 #include "vulkan_solver.hpp"
 #include "props/core.hpp"
 #include "props/texture_resolver.hpp"
+#include "props/mesh_prop.hpp"
 #ifdef _WIN32
 #include <windows.h>
 #include <shobjidl.h>
@@ -255,6 +256,27 @@ props::Json deriveProp(const mmd::fs::path& cache,const props::Json& request,con
         {"collision_hulls",out.hulls.size()},{"collision_method",out.manifest.value("collision_method",std::string("coacd"))},{"mins",out.manifest["mins"]},{"maxs",out.manifest["maxs"]},{"derived_from",parent},{"preset",out.manifest["preset"]}};
     return progress.complete({{"state","complete"},{"kind","static"},{"progress",1},{"stage","Preset saved"},{"asset",id},{"info",info}});
 }
+// The mesh separator: a new content-addressed prop from a piece of a model in the game (the game module's
+// PropFromMesh writes the triangles into the request; props/mesh_prop.hpp). Collision "auto" picks the fast hull or
+// CoACD from the piece's shape.
+props::Json meshProp(const mmd::fs::path& cache,const props::Json& request,const mmd::fs::path& status){
+    using props::Json;
+    auto name=request.value("name",std::string("Piece"));
+    auto characters=codePoints(name);if(name.empty()||!characters||*characters>60)throw std::runtime_error("Choose a name of up to 60 characters for the piece");
+    auto mode=request.value("collision",std::string("auto"));if(mode!="auto"&&mode!="hull"&&mode!="balanced")throw std::runtime_error("Unknown collision choice");
+    PropProgress progress(status,name);
+    auto limits=props::fullTextureLimits();
+    auto a=props::meshAsset(request,cache/L"textures",limits,reporter(progress,mode!="hull"));
+    if(mode=="auto")mode=props::automaticCollision(a);
+    auto report=reporter(progress,mode!="hull");
+    a.manifest["options"]={{"collision",mode}};
+    a.hulls.clear();props::makeCollision(a,mode,report);
+    auto id=props::saveAsset(cache/L"static",a,report,limits);
+    Json info={{"name",a.manifest["name"]},{"warnings",a.manifest.value("warnings",Json::array())},{"triangles",a.indices.size()/3},{"vertices",a.vertices.size()},{"materials",a.manifest["materials"].size()},
+        {"collision_hulls",a.hulls.size()},{"collision_method",a.manifest.value("collision_method",std::string("coacd"))},{"collision",mode},{"mins",a.manifest["mins"]},{"maxs",a.manifest["maxs"]}};
+    if(a.manifest.contains("separated_from"))info["separated_from"]=a.manifest["separated_from"];
+    return progress.complete({{"state","complete"},{"kind","static"},{"progress",1},{"stage","Piece saved"},{"asset",id},{"info",info}});
+}
 int wmain(int argc,wchar_t** argv){
     using namespace mmd;fs::path status;std::string requestSource,requestKind;const uint64_t started=GetTickCount64();
     try {
@@ -354,8 +376,8 @@ int wmain(int argc,wchar_t** argv){
             }
             else if((kind=="character"||kind.empty())&&convertibleCharacter(source)&&!mmdFile)result=importConverted(source,cache,options,status,convertCharacter(source,options,report("convert_character")));
             else if(kind=="character")result=importAsset(source,cache,settings,status);
-            else result=kind=="derive"?deriveProp(cache,options,status):kind=="blend_scene"?listBlend(source,options,status):kind=="static"?importProp(source,cache,options,status):importAsset(source,cache,options,status);
-            if(kind!="derive")result["source"]=requestSource;writeJson(status,result);return 0;}
+            else result=kind=="derive"?deriveProp(cache,options,status):kind=="mesh"?meshProp(cache,options,status):kind=="blend_scene"?listBlend(source,options,status):kind=="static"?importProp(source,cache,options,status):importAsset(source,cache,options,status);
+            if(kind!="derive"&&kind!="mesh")result["source"]=requestSource;writeJson(status,result);return 0;}
         std::cerr<<"mmdhl_worker --inspect model.pmx | --request request.json [cache-folder] | --pick job-directory [static]\n";return 2;
     }catch(...){
         // Any exception becomes a sentence with a code (import_error.hpp); a structured

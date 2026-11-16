@@ -75,7 +75,13 @@ function P.ApplyPhysics(ent,id,scale,wait)
  -- A new body starts as 'default': keep what the prop is made of.
  local old=ent:GetPhysicsObject() local surface=IsValid(old) and old:GetMaterial() or ent.MMDHLSurface
  ent:SetModel(P.Placeholder) ent:SetSolid(SOLID_VPHYSICS)
- if not ent:PhysicsInitMultiConvex(hulls) then return false,L'props.error.collider_rejected' end
+ if not ent:PhysicsInitMultiConvex(hulls) then
+  -- The physics engine can refuse a decomposition of a very small prop (hulls far below a unit): one convex around
+  -- all its points still collides like the fast hull, where the prop would otherwise not be placed at all.
+  local merged={}
+  if #hulls>1 then for _,hull in ipairs(hulls) do for _,point in ipairs(hull) do merged[#merged+1]=point end end end
+  if #merged<4 or not ent:PhysicsInitMultiConvex({merged}) then return false,L'props.error.collider_rejected' end
+ end
  ent:SetMoveType(MOVETYPE_VPHYSICS) ent:EnableCustomCollisions(true)
  ent:SetCollisionBounds(P.Vector(info.mins)*scale,P.Vector(info.maxs)*scale)
  local phys=ent:GetPhysicsObject()

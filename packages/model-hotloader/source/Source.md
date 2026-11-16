@@ -94,6 +94,38 @@ character's skirt under RTX; [handover](../../../docs/handover/backface-twins-re
   result at every load, a same-wound overlay that is not a copy; with a real PMX it checks named welds and that every
   weld holds under a random pose.
 
+## Changes made here (2026-11-16: the mesh separator)
+
+`separator.patch` holds this repository's changes for the user's request of 2026-11-16 (a mesh separator: a piece of a
+character or a vanilla model becomes a prop with generated physics; [handover](../../../docs/handover/mesh-separator-report.md),
+[ADR 0232](../../../docs/decisions/0232-the-mesh-separator.md)); applied after `backface-twins.patch`, it gives `mmdhl/`
+as it is now. Not in the origin repository:
+
+- `native/props/mesh_prop.hpp`, `native/props/mesh_prop.cpp` (new): the worker's job kind `mesh`. `meshAsset` builds a
+  static prop from the triangles a request carries (positions around the piece's origin, normals, UVs, a material per
+  triangle), every field checked: materials keep only the fields the bundle format knows, a texture named by its content
+  hash is embedded unchanged from the character cache (a missing one is a warning), `source_material` (the Source
+  material the part was drawn with) is kept when it is a plain relative path, the parts are grouped by material in
+  chunks of 60,000 indices, zero normals take their faces', tangents come from the UVs.
+  `automaticCollision` picks CoACD for a closed piece, 12 units across or more, that fills between 2 and 55 percent of
+  its fast hull (a ring, a bow) and the fast hull otherwise (small pieces, compact pieces, open shells, a sheet with its
+  back-face copy); `measurePiece`
+  measures the open edges, the enclosed volume and the hull's.
+- `native/worker.cpp`: `meshProp` (a name of 1 to 60 characters, collision `auto`, `hull` or `balanced`, the prop
+  saved like a derived one, `separated_from` in its info) and the dispatch of `mesh` jobs; a `mesh` job's status names no
+  source.
+- `native/module.cpp` (client): `SeparatorMesh(instance, posed)`, the instance's visible parts as one mesh for selecting:
+  a JSON string with each part's slot, name, public material, texture hash and triangle ranges, then the positions (the
+  drawn world positions or the rest positions at its scale) and the outward counter-clockwise corners as Lua tables
+  (GMod's JSON reader stops arrays at 15,000 entries); `PropFromMesh(request[, instance])`,
+  which fills a character's piece from the instance (current or rest pose, around the bounds' centre, each part's
+  material with its texture hash and its public material as `source_material`) and starts the `mesh` job; it returns the
+  job and the centre.
+- `tests/mesh_prop_tests.cpp` (CTest `mesh_prop`) and its target in `CMakeLists.txt`, with `mesh_prop.cpp` in
+  `mmdhl_props_import`: two boxes keep their materials, embedded texture and source materials through save and load; a
+  missing texture warns; a concave closed ring gets CoACD, the same ring a tenth of the size, an open sheet and a sheet
+  with its back-face copy the fast hull; indices, materials, paths, numbers and texture references out of range are refused.
+
 ## Lua installation override (R21-B)
 
 `../overrides/installation.lua` replaces the add-on's `mmdhl/installation.lua` through

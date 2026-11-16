@@ -35,6 +35,10 @@ if SERVER then
     AddCSLuaFile('mmdhl/props/library.lua')
     AddCSLuaFile('mmdhl/props/tool.lua')
     AddCSLuaFile('mmdhl/props/editor.lua')
+    AddCSLuaFile('mmdhl/separator/shared.lua')
+    AddCSLuaFile('mmdhl/separator/mesh.lua')
+    AddCSLuaFile('mmdhl/separator/client.lua')
+    AddCSLuaFile('mmdhl/separator/editor.lua')
     AddCSLuaFile('mmdhl/bodygroups.lua')
     AddCSLuaFile('mmdhl/names.lua')
     AddCSLuaFile('mmdhl/terms.lua')
@@ -114,6 +118,9 @@ include('mmdhl/scene_sharing.lua')
 include('mmdhl/props/shared.lua')
 include('mmdhl/props/collision.lua')
 if SERVER then include('mmdhl/props/server.lua') else include('mmdhl/props/render.lua') include('mmdhl/props/library.lua') include('mmdhl/props/tool.lua') include('mmdhl/props/editor.lua') end
+-- The Mesh Separator (ADR 0232): pieces of models become props of the props library.
+include('mmdhl/separator/shared.lua')
+if SERVER then include('mmdhl/separator/server.lua') else include('mmdhl/separator/mesh.lua') include('mmdhl/separator/client.lua') include('mmdhl/separator/editor.lua') end
 if CLIENT then include('mmdhl/first_person.lua') end
 include('mmdhl/secondary_backend.lua')
 include('mmdhl/secondary_collision.lua')

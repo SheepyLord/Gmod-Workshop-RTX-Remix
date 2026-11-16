@@ -3584,3 +3584,31 @@ python tools\qa\mmd_player_session.py --evidence out\qol16-poc\<run> --package <
   can inside the held hand went, whether a watermelon in the left arm's swing broke (`push_old`: the bodies as they
   were before); `endhold`: the hand during the hold and when the playback ended; `topbr_range`: each
   range's names, conversions (the console's `Processed material` lines between `NLTP_PHASE` markers) and answers.
+
+## The mesh separator (Claude, ADR 0232)
+
+Offline, in the gate:
+
+- [`tools/tests/test_separator_mesh.py`](../tools/tests/test_separator_mesh.py.md) runs
+  [`separator_mesh_harness.lua`](../tools/tests/separator_mesh_harness.lua.md) under LuaJIT on the selection engine
+  (`mmd_hotloader/lua/mmdhl/separator/mesh.lua`): pieces across seams and back-face copies, rays through the grid, the
+  brush, box and lasso through the model or only what is seen, the selection set.
+- `tools/check_addon_i18n.py`: the tool's and the editor's 64 texts in the seven catalogs.
+
+Not in the gate (the Model Hotloader's own build):
+
+- The C++ test `mesh_prop` (`source/mmdhl/tests/mesh_prop_tests.cpp`): after `tools\ci\build_hotloader.ps1`, build the
+  target `mmdhl_mesh_prop_tests` in its work folder and run it with a scratch folder. Two boxes keep their materials, an
+  embedded character texture and source materials through save and load; a missing texture warns; the automatic
+  collision gives a concave closed ring CoACD and an open sheet or a sheet with its back-face copy the fast hull; requests
+  out of range are refused.
+- The worker end to end: a `request.json` of kind `mesh` given to `mmdhl_worker.exe --request <file> <cache>` writes
+  `status.json` (`complete`, the asset, the collision chosen) and the bundle in `<cache>\static\assets`: a concave ring
+  gets CoACD, a block and a flat ribbon the fast hull.
+
+In the PoC (`out/msep/poc_sep.py`, scratch; evidence in `out/qa-poc/mesh-separator`): Character A (copied from the field
+library for the run) as a ragdoll, an oil drum, a citizen ragdoll and a citizen NPC; `util.GetModelMeshes`' bodygroup and
+skin conventions on stock models; a piece taken off each with the tool's code, detached in the current pose (placed where
+it was) and the rest pose (placed at the aim), the props' render state and source materials, a dropped piece's physics,
+the editor's projection against its own rays and a box drawn around the selection's projected bounds, screenshots of the
+highlight, the pieces and the editor.

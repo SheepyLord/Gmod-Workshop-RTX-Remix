@@ -9291,3 +9291,28 @@ merge of patch 0093. Left as they were.
   the can's top speed was 1,177.2 units/s with the old immovable bodies, 207.0 at 100 % (0.95 to 8.51 kg), 88.4 at 25 %
   and 35.7 at 0 % (0.1 kg); the watermelon broke only with the old bodies; the bodies stayed on their bones (largest
   gap 0) and still stopped traces through the hands and a player-sized hull into the head.
+
+## The mesh separator (2026-11-16, Claude, ADR 0232)
+
+- **GMod's `util.JSONToTable` stops arrays and objects at 15,000 entries** (and nesting at 15 levels) unless its second
+  argument, `ignoreLimits`, is true; the rest is dropped without an error. The first PoC run read the selection snapshot
+  of Character A (an imported test character, named by a placeholder) as one JSON string (67 visible parts, about
+  250,000 triangles): it came back as 15,000 numbers per array, 5,000 triangles and 3,000 vertices, in 606 ms, and the
+  piece search then met corners past the vertices it had. The binding now returns the positions and corners as Lua
+  tables and only the parts as JSON; the second run read 209,152 triangles in 14 ms.
+- **`util.GetModelMeshes(model, lod, bodygroupMask, skin)`'s second value** holds each bone's pose-to-bone matrix keyed
+  by its zero-based id: a bind-pose vertex goes to the world as `ent:GetBoneMatrix(bone) * bind * pos`, weighted by its
+  `weights` (the Advanced Material Editor's `cl_58_meshuv.lua`, `BindMatrices`); a model with one bone or none uses
+  `ent:LocalToWorld(pos * ent:GetModelScale())`. Its triangles are Source's clockwise front faces; the static props
+  keep outward counter-clockwise ones, so the second and third corners swap.
+- **The packed bodygroup number** `util.GetModelMeshes` wants is each group's choice times the product of the earlier
+  groups' option counts, groups with one option included (`S.BodyMask`, as the material editor packs it).
+- **`Vector:ToScreen` is inaccurate inside a panel's `cam.Start3D(pos, ang, fov, x, y, w, h)` viewport**: the
+  Advanced Bodygroup Tool's cut editor (`cl_vertex_keep_editor.lua` 525-552) inverts `util.AimVector(ang, fov, px, py, w,
+  h)` instead: the right and down rays one pixel off the centre give the view's slope per pixel along its right and up
+  axes; the separator's editor projects and casts its rays the same way.
+- **Under RTX Remix, heavy work over a large dead `util.GetModelMeshes` result crashed `client.dll`** (the destruction
+  tool, `cl_32_mesh_persistence.lua` 477-482: a large character model, reproducibly, when JSON and compression started before two
+  garbage-collector cycles had passed; `cl_29_mesh_preparation.lua` 15-38 steps the collector through two cycles,
+  never a full collection). The separator steps two cycles (at most 0.5 s) after letting a model's result go and
+  before reading another.

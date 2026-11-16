@@ -6,6 +6,22 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Mesh Separator: take a piece off a model as a prop of its own (the user's request of 2026-11-16)
+
+- **A new tool, Mesh Separator (Construction, beside Static Prop), takes a piece off a model and makes it a prop with
+  its own physics**, such as a hairpin off a character. It works on Model Hotloader characters and on props, ragdolls
+  and NPCs. Left click selects the piece you aim at and right click takes it away; the tool can also select a whole
+  material part, or paint with a brush while you hold the button. Reload opens the editor: turn the model, select with a
+  box or a lasso (through the model or only what you see), tick whole parts. **Detach** puts the piece in the Static
+  Props library (Q → External Models → Static Props) with physics made for its shape (one hull for a compact piece, a
+  detailed decomposition for a hollow one such as a ring) and places it where it was, frozen, or in the model's rest
+  pose where you aim. The model itself does not change. A character's piece keeps the character's look and RTX PBR, and
+  its terms of use. On a server you take pieces only off models you spawned (administrators off any), and the server can
+  switch the tool off (`mmdhl_separator_enabled 0`); a new piece is placed there once an administrator shares it, as any
+  imported prop ([ADR 0232](docs/decisions/0232-the-mesh-separator.md)).
+- **A very small Model Hotloader prop with detailed collision is now placed** with one hull around it when the game's
+  physics refuses its detailed one, instead of not being placed at all.
+
 ### Linlong with RTX PBR materials (the user's request of 2026-11-16)
 
 - **Linlong, the character the Model Hotloader comes with, now has PBR materials under RTX.** Her outfit and hair use

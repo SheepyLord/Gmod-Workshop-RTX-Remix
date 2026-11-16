@@ -63,3 +63,12 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   `linlong-rtx` pack (normal, roughness and emissive maps at 2048 for her outfit, hair and flowers), unchanged, as
   `mods/mmdhl_pbr_linlong`. Her PMX's terms forbid redistribution; the user chose to ship it in the public package
   anyway, as the model itself has been. The pack's copy of her model files is the add-on's own and is not stored again.
+- **2026-11-16, the mesh separator** ([report](../../docs/handover/mesh-separator-report.md),
+  [ADR 0232](../../docs/decisions/0232-the-mesh-separator.md)): the Mesh Separator tool
+  (`mmd_hotloader/lua/weapons/gmod_tool/stools/mmdhl_separator.lua`) and `mmd_hotloader/lua/mmdhl/separator/` (the
+  selection engine `mesh.lua`, the client, the editor, the server's checks and placement, what both realms share); a
+  piece's `source_material` in the prop renderer (`props/render.lua`); its origin and a character's terms in the props
+  library (`props/library.lua`); one convex around all of a prop's hulls when the physics engine refuses them
+  (`props/server.lua`); the new worker call in the install check's guard (`mmdhl/installation.lua`,
+  `overrides/installation.lua`); 63 texts in the seven catalogs; the natives' `mesh` job and the bindings
+  `SeparatorMesh` and `PropFromMesh` (`source/separator.patch`).

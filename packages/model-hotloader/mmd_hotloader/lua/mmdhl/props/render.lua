@@ -103,6 +103,22 @@ local function materialParams(m,explicitBackfaces,format,tint)
  end
  return params,shine
 end
+-- A piece of another model (the Mesh Separator, ADR 0232) names the material its part was drawn with
+-- (source_material): that material draws it, so it looks as its source does and keeps RTX Remix's replacements of
+-- the same textures. A Hotloader character's materials are in its archive, mounted here when it exists; without
+-- the material the piece draws with its own (the embedded texture, or white).
+local function sourceMaterial(info,m)
+ local path=m.source_material
+ if not isstring(path) or path=='' then return nil end
+ local from=istable(info.separated_from) and info.separated_from or nil
+ if path:sub(1,4)=='mmd/' and from and P.ValidID(from.asset) and mmdhl.MountPackage then
+  local archive='mmd_hotloader/assets/'..from.asset..'/materials-v5.gma'
+  if file.Exists(archive,'DATA') then mmdhl.MountPackage('data/'..archive) end
+ end
+ local mat=Material(path)
+ if not mat or mat:IsError() then return nil end
+ return mat
+end
 local function buildMaterial(id,index,m,explicitBackfaces,format)
  local params,shine=materialParams(m,explicitBackfaces,format)
  -- Names survive Lua refresh; the revision keeps old flags from being reused,
@@ -131,7 +147,7 @@ local function retint(mat,m,color)
  mat:Recompute()
 end
 local function materialFor(id,entry,index,color)
- if isPlain(color) then return entry.materials[index] end
+ if isPlain(color) then return entry.source and entry.source[index] or entry.materials[index] end
  local key=string.format('%02x%02x%02x%02x',color.r,color.g,color.b,color.a)
  entry.tints=entry.tints or {}
  local slot
@@ -147,6 +163,10 @@ local function materialFor(id,entry,index,color)
  if not mat then
   local m=entry.info.materials[index]
   local params,shine=materialParams(m,entry.info.render_backfaces,entry.info.format,slot.color)
+  -- A piece drawn with its source's material, and no texture of its own, takes that material's base texture: the
+  -- shared material itself cannot take one prop's colour.
+  local source=entry.source and entry.source[index]
+  if source and (m.base_texture or '')=='' then local texture=source:GetTexture('$basetexture') if texture and not texture:IsError() then params['$basetexture']=texture:GetName() end end
   mat=CreateMaterial('mmdhl_prop_r2_'..id..'_'..index..'_t'..slot.slot..(shine and 'g' or 'm'),'VertexLitGeneric',params)
   -- A name made before (another colour in this slot, a Lua refresh) keeps its first parameters.
   retint(mat,m,slot.color)
@@ -182,7 +202,7 @@ local function beginRender(id,entry)
   local blob=native.PropCollisionBlob(id)
   if blob then P.CollisionInfo[id]=util.JSONToTable(blob) end
   releaseGraphics(entry)
-  entry.info=info entry.part=1 entry.offset=0 entry.vertices={} entry.pieces={} entry.materials={}
+  entry.info=info entry.part=1 entry.offset=0 entry.vertices={} entry.pieces={} entry.materials={} entry.source={}
   entry.chunks=renderChunks(info) entry.opaque={} entry.blended={}
   entry.mins=P.Vector(info.mins) entry.maxs=P.Vector(info.maxs) entry.center=(entry.mins+entry.maxs)*.5
   -- Native vertices are centered only in the render view. The model matrix and
@@ -257,6 +277,7 @@ hook.Add('Think','MMDHL.PropMeshes',function()
     local i=#entry.materials+1 local m=entry.info.materials[i]
     if not m then entry.state='meshes' break end
     entry.materials[i]=buildMaterial(id,i,m,entry.info.render_backfaces,entry.info.format)
+    entry.source[i]=sourceMaterial(entry.info,m) or false
     P.SetAssetStatus(id,'materials',L('props.status.preparing_textures',{current=i,total=#entry.info.materials}),i,#entry.info.materials)
    end
    if SysTime()>=deadline then break end
@@ -327,7 +348,9 @@ function P.DrawAsset(id,pos,ang,translucent,color,scale,lighting,hidden)
   cam.PushModelMatrix(matrix)
   for _,piece in ipairs(pass) do
    if piece.mesh and not piece.hidden and not (hidden and hidden[piece.material]) then
-    render.SetMaterial(materialFor(id,entry,piece.material,color)) piece.mesh:Draw()
+    local mat=materialFor(id,entry,piece.material,color)
+    -- A source material culls (or not) by itself: the explicit back faces are for the prop's own materials.
+    if not (piece.backface and entry.source and entry.source[piece.material]==mat) then render.SetMaterial(mat) piece.mesh:Draw() end
    end
   end
   cam.PopModelMatrix()

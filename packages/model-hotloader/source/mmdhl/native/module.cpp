@@ -594,6 +594,105 @@ FUNCTION(GetMaterialMesh) {
  push(LUA,{{"vertices",vertices},{"indices",indices}});return 1;
 } END_FUNCTION
 FUNCTION(GetMaterialPositions) {auto& p=world().get(number(LUA,1));auto index=number(LUA,2);if(index>=p.model->materials.size())throw std::runtime_error("Invalid material slot");p.requireCpuVertices();Json out=Json::array();auto& part=p.model->materials[index];for(unsigned i=part.first;i<part.first+std::min(part.count,90000u);i++){auto& v=p.snapshot->vertices[p.model->indices[i]];out.push_back({v.x,v.y,v.z});}push(LUA,out);return 1;} END_FUNCTION
+// The mesh separator (props/mesh_prop.hpp). SeparatorMesh: the instance's visible parts as one mesh for selecting,
+// as three values: a JSON string (posed, asset, parts: slot, name, public material, base texture hash, first triangle
+// in this mesh and in the model, triangles), the positions (x y z of each vertex: the drawn world positions, or the
+// rest positions at the instance's scale) and the corners (1-based vertex numbers, outward counter-clockwise like the
+// static props) as Lua tables. Tables, not JSON: a character has up to millions of numbers, and GMod's JSON reader
+// stops arrays at 15,000 entries unless told otherwise.
+FUNCTION(SeparatorMesh) {
+ auto& p=world().get(number(LUA,1));const bool posed=LUA->GetBool(2);const auto& model=*p.model;
+ if(posed){p.requireCpuVertices();if(!p.snapshot||p.snapshot->vertices.size()!=model.vertices.size())throw std::runtime_error("The character has no pose yet");}
+ const float unit=p.scale/Inch;
+ // Everything that can fail first; the tables are filled afterwards.
+ Json parts=Json::array();std::vector<size_t> slots;size_t triangles=0;
+ for(size_t slot=0;slot<model.materials.size();slot++){
+  const auto& mat=model.materials[slot];
+  if(slot<p.materialVisible.size()&&!p.materialVisible[slot])continue;
+  float alpha=p.snapshot&&slot<p.snapshot->materials.size()?p.snapshot->materials[slot].alpha:mat.alpha;if(alpha<=.0001f)continue;
+  const size_t first=mat.first/3,count=mat.count/3;if(!count)continue;
+  if(triangles+count>2000000)throw std::runtime_error("The model is too large to select from (over two million triangles)");
+  parts.push_back({{"slot",slot},{"name",mat.name},{"path",materialPath(model.id,slot,mat.name)},{"base",mat.base},{"first",triangles},{"modelFirst",first},{"count",count}});
+  slots.push_back(slot);triangles+=count;
+ }
+ std::vector<int64_t> remap(model.vertices.size(),-1);std::vector<uint32_t> order,corners;order.reserve(model.vertices.size());corners.reserve(triangles*3);
+ for(auto slot:slots){
+  const auto& mat=model.materials[slot];
+  for(size_t t=mat.first/3;t<mat.first/3+mat.count/3;t++){
+   // toSource is a reflection: the second and third corners swap for outward counter-clockwise.
+   const uint32_t corner[3]={model.indices[t*3],model.indices[t*3+2],model.indices[t*3+1]};
+   for(auto v:corner){if(remap[v]<0){remap[v]=int64_t(order.size());order.push_back(v);}corners.push_back(uint32_t(remap[v]));}
+  }
+ }
+ Json meta={{"posed",posed},{"asset",model.id},{"parts",parts},{"vertices",order.size()},{"triangles",triangles}};
+ auto text=meta.dump(-1,' ',false,Json::error_handler_t::replace);
+ LUA->PushString(text.c_str(),unsigned(text.size()));
+ LUA->CreateTable();double key=1;
+ for(auto v:order){
+  btVector3 pos;if(posed){const auto& d=p.snapshot->vertices[v];pos={d.x,d.y,d.z};}else pos=toSource(model.vertices[v].position)*unit;
+  for(float f:{float(pos.x()),float(pos.y()),float(pos.z())}){LUA->PushNumber(key++);LUA->PushNumber(std::isfinite(f)?double(f):0.);LUA->SetTable(-3);}
+ }
+ LUA->CreateTable();key=1;
+ for(auto c:corners){LUA->PushNumber(key++);LUA->PushNumber(double(c)+1);LUA->SetTable(-3);}
+ return 3;
+} END_FUNCTION
+// PropFromMesh(request JSON[, instance]): starts the worker's "mesh" job. With an instance the piece is a character's:
+// the request names its triangles (model triangle indices), the pose ("current": the drawn vertices; "rest": the
+// model's at the instance's scale), the name and the collision; this fills in the vertices around their centre,
+// normals, UVs and the materials (each part's texture by its content hash, its public material as source_material).
+// Without one, Lua gave the whole piece (a vanilla model's, already around its centre). Returns the job and the
+// centre (world, for the current pose) the vertices are relative to.
+FUNCTION(PropFromMesh) {
+ auto options=json(LUA,1);if(!options.is_object())throw std::runtime_error("Invalid piece");
+ Json origin=Json::array({0.,0.,0.});
+ if(LUA->IsType(2,GarrysMod::Lua::Type::Number)){
+  auto& p=world().get(number(LUA,2));const auto& model=*p.model;
+  auto pose=options.value("pose",std::string("current"));if(pose!="current"&&pose!="rest")throw std::runtime_error("Unknown pose");
+  const auto& list=options.at("triangles");if(!list.is_array()||list.empty())throw std::runtime_error("Select at least one triangle");
+  const size_t triangleCount=model.indices.size()/3;if(list.size()>triangleCount||list.size()>2000000)throw std::runtime_error("Too many triangles");
+  const bool posed=pose=="current";
+  if(posed){p.requireCpuVertices();if(!p.snapshot||p.snapshot->vertices.size()!=model.vertices.size())throw std::runtime_error("The character has no pose yet");}
+  const float unit=p.scale/Inch;
+  // The part of each triangle: the parts cover the indices in order.
+  std::vector<size_t> starts;for(auto& m:model.materials)starts.push_back(m.first/3);
+  auto slotOf=[&](size_t t){return size_t(std::upper_bound(starts.begin(),starts.end(),t)-starts.begin())-1;};
+  std::vector<int64_t> remap(model.vertices.size(),-1);std::vector<btVector3> positions,normals;std::vector<std::array<float,2>> uvs;
+  std::vector<uint32_t> corners;std::vector<size_t> triangleSlots;std::map<size_t,size_t> slotMaterial;Json materials=Json::array();
+  std::vector<uint8_t> seen(triangleCount,0);
+  for(auto& entry:list){
+   double d=entry.is_number()?entry.get<double>():-1;if(!(d>=0)||d!=std::floor(d)||d>=double(triangleCount))throw std::runtime_error("Invalid triangle in the selection");
+   const size_t t=size_t(d);if(seen[t])continue;seen[t]=1;
+   const size_t slot=slotOf(t);
+   if(!slotMaterial.contains(slot)){
+    const auto& mat=model.materials[slot];slotMaterial[slot]=materials.size();
+    auto c=[](float v){return std::clamp(std::isfinite(v)?v:0.f,0.f,1.f);};
+    materials.push_back({{"name",mat.name},{"color",{c(mat.diffuse.x()),c(mat.diffuse.y()),c(mat.diffuse.z()),c(mat.alpha)}},{"two_sided",mat.twoSided},{"alpha_mode",mat.alpha<.999f?"blend":"opaque"},
+     {"specular",{c(mat.specular.x()),c(mat.specular.y()),c(mat.specular.z())}},{"shininess",std::clamp(std::isfinite(mat.power)?mat.power:0.f,0.f,1000.f)},{"ambient",{c(mat.ambient.x()),c(mat.ambient.y()),c(mat.ambient.z())}},
+     {"source_shading","pmx"},{"sphere_mode",std::clamp(mat.sphereMode,0,3)},{"base_texture",validId(mat.base)?mat.base:std::string()},{"source_material",materialPath(model.id,slot,mat.name)}});
+   }
+   triangleSlots.push_back(slotMaterial[slot]);
+   const uint32_t corner[3]={model.indices[t*3],model.indices[t*3+2],model.indices[t*3+1]};
+   for(auto v:corner){
+    if(remap[v]<0){
+     remap[v]=int64_t(positions.size());
+     if(posed){const auto& dv=p.snapshot->vertices[v];positions.push_back({dv.x,dv.y,dv.z});normals.push_back({dv.nx,dv.ny,dv.nz});}
+     else{positions.push_back(toSource(model.vertices[v].position)*unit);normals.push_back(toSource(model.vertices[v].normal));}
+     uvs.push_back({model.vertices[v].uv[0],model.vertices[v].uv[1]});
+    }
+    corners.push_back(uint32_t(remap[v]));
+   }
+  }
+  // Around the centre of its bounds: the fast hull refuses a piece far from its origin, and the prop spawns there.
+  btVector3 lo(BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT),hi=-lo;for(auto& q:positions){lo.setMin(q);hi.setMax(q);}
+  const btVector3 centre=(lo+hi)*.5f;origin=Json::array({centre.x(),centre.y(),centre.z()});
+  Json vertices=Json::array();
+  for(size_t i=0;i<positions.size();i++){auto q=positions[i]-centre;auto n=normals[i];for(float v:{q.x(),q.y(),q.z(),n.x(),n.y(),n.z(),uvs[i][0],uvs[i][1]})vertices.push_back(std::isfinite(v)?v:0.f);}
+  options["vertices"]=std::move(vertices);options["indices"]=std::move(corners);options["triangle_materials"]=std::move(triangleSlots);options["materials"]=std::move(materials);
+  options["separated_from"]={{"kind","character"},{"asset",model.id},{"pose",pose}};options.erase("triangles");
+ }
+ options["kind"]="mesh";
+ LUA->PushNumber(double(launch(false,"",options)));push(LUA,origin);return 2;
+} END_FUNCTION
 FUNCTION(CreatePreview) {auto m=asset(stringArg(LUA,1));if(!m)throw std::runtime_error("Asset not loaded");context->preview=std::make_unique<World>();auto options=json(LUA,2);options["center"]={0,0,0};options["frozen"]=true;auto id=context->preview->create(m,options);LUA->PushNumber(double(id));return 1;} END_FUNCTION
 FUNCTION(ClearPreview) {context->preview.reset();return 0;} END_FUNCTION
 FUNCTION(DrawPreview) {if(context->preview)drawInstanceNative(context->preview->get(number(LUA,1)),unsigned(number(LUA,2)),stringArg(LUA,3),LUA->GetBool(4));return 0;} END_FUNCTION
@@ -787,7 +886,7 @@ GMOD_MODULE_OPEN(){
 #endif
 #ifndef MMDHL_SERVER
         REGISTER(SetSecondaryTuning);REGISTER(SetSpringRelativeDamping);REGISTER(SetSecondaryWater);REGISTER(SetSecondaryBuoyancy);
-        REGISTER(GetModelAnimationDiagnostics);REGISTER(DeleteAssets);REGISTER(PropReload);REGISTER(PropDerive);REGISTER(SubmitPresentationPose);REGISTER(SubmitPresentationBatch);REGISTER(SubmitPresentationMatrixBatch);REGISTER(MarkTeleport);REGISTER(GetAlignmentProbe);REGISTER(Draw);REGISTER(RenderStatus);REGISTER(CheckRenderer);REGISTER(RenderStats);REGISTER(GetLightingState);REGISTER(SetFlashlightOverlapGuard);REGISTER(SetSoftAlpha);REGISTER(RenderFrameStats);REGISTER(SetNativeVertexCache);REGISTER(SetCompactVertices);REGISTER(SetGpuSkinning);REGISTER(SetPoseSmoothing);REGISTER(GetDrawAge);REGISTER(SetupSourceLighting);REGISTER(RegisterSourceShadow);REGISTER(RemoveSourceShadow);REGISTER(SetWorkers);REGISTER(GetWorkerCapabilities);REGISTER(SetSecondaryQuality);REGISTER(SetSecondaryWaitBudget);REGISTER(SetSecondaryMidphase);REGISTER(SetSecondarySleep);REGISTER(SetRenderSuspended);REGISTER(SetInstanceMaterials);REGISTER(DrawInstance);REGISTER(SetSecondaryBroadphase);REGISTER(PrepareFrame);REGISTER(PruneRenderCache);REGISTER(StartMainThreadSampling);REGISTER(ReadMainThreadSamples);REGISTER(CreateEditorPreview);REGISTER(DestroyEditorPreview);REGISTER(GetEditorPreviewBounds);REGISTER(DrawEditorPreview);REGISTER(GetMaterialMesh);REGISTER(GetMaterialPositions);REGISTER(CreatePreview);REGISTER(ClearPreview);REGISTER(DrawPreview);
+        REGISTER(GetModelAnimationDiagnostics);REGISTER(DeleteAssets);REGISTER(PropReload);REGISTER(PropDerive);REGISTER(SubmitPresentationPose);REGISTER(SubmitPresentationBatch);REGISTER(SubmitPresentationMatrixBatch);REGISTER(MarkTeleport);REGISTER(GetAlignmentProbe);REGISTER(Draw);REGISTER(RenderStatus);REGISTER(CheckRenderer);REGISTER(RenderStats);REGISTER(GetLightingState);REGISTER(SetFlashlightOverlapGuard);REGISTER(SetSoftAlpha);REGISTER(RenderFrameStats);REGISTER(SetNativeVertexCache);REGISTER(SetCompactVertices);REGISTER(SetGpuSkinning);REGISTER(SetPoseSmoothing);REGISTER(GetDrawAge);REGISTER(SetupSourceLighting);REGISTER(RegisterSourceShadow);REGISTER(RemoveSourceShadow);REGISTER(SetWorkers);REGISTER(GetWorkerCapabilities);REGISTER(SetSecondaryQuality);REGISTER(SetSecondaryWaitBudget);REGISTER(SetSecondaryMidphase);REGISTER(SetSecondarySleep);REGISTER(SetRenderSuspended);REGISTER(SetInstanceMaterials);REGISTER(DrawInstance);REGISTER(SetSecondaryBroadphase);REGISTER(PrepareFrame);REGISTER(PruneRenderCache);REGISTER(StartMainThreadSampling);REGISTER(ReadMainThreadSamples);REGISTER(CreateEditorPreview);REGISTER(DestroyEditorPreview);REGISTER(GetEditorPreviewBounds);REGISTER(DrawEditorPreview);REGISTER(GetMaterialMesh);REGISTER(GetMaterialPositions);REGISTER(SeparatorMesh);REGISTER(PropFromMesh);REGISTER(CreatePreview);REGISTER(ClearPreview);REGISTER(DrawPreview);
         REGISTER(FileAccessInfo);REGISTER(FileAccessPick);REGISTER(FileAccessRequest);REGISTER(FileAccessPoll);REGISTER(FileAccessRead);REGISTER(FileAccessPollRead);REGISTER(FileAccessList);REGISTER(FileAccessPollList);REGISTER(FileAccessRelease);REGISTER(FileAccessCancel);REGISTER(FileAccessGrants);REGISTER(FileAccessRevoke);REGISTER(FileAccessSetEnabled);
 #endif
         registerPropFunctions(LUA,context->cache);

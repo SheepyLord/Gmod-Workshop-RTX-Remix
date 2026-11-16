@@ -4,6 +4,9 @@ Loads the Seamless Portals entity's shipped client file (`seamless_portal/cl_ini
 turned into plain Lua by [test_render_mesh_entities.py](test_render_mesh_entities.py.md); path in `arg[1]`) under
 LuaJIT with the engine instrumented, and draws portals through `ENT:Draw` in every branch: an unlinked portal, a
 linked one outside and inside a portal view, one without its backface, one the Remix runtime claims, and a halo pass.
+The shared file `sh_init.lua`, which `cl_init.lua` includes first in the game, is loaded before it when its converted
+path is given as `arg[2]` (the runner passes it): it holds the side-count limits the drawn mesh is built with (review
+finding 5, [test_portal_limits.py](test_portal_limits.py.md)).
 
 Fails if the file defines `ENT:GetRenderMesh`, if anything calls `DrawModel` on a portal (the path that crashes
 queued rendering at `studiorender.dll+0x6603b`, [ADR 0153](../../docs/decisions/0153-no-entity-hands-gmod-a-lua-mesh-to-draw.md)),

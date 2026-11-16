@@ -28,6 +28,9 @@ net.Receive('mmdhl_separator_place',function(_,p)
   return
  end
  if not P.FiniteVector(pos) or pos:DistToSqr(p:EyePos())>S.Reach^2 then result(p,false,L'separator.error.too_far') return end
+ -- Where it was means at its model: within 64 units of the model's box (review finding 21: any point within reach of
+ -- the eye was taken, through walls or inside other players' builds).
+ if IsValid(source) and pos:DistToSqr(source:NearestPoint(pos))>64^2 then result(p,false,L'separator.error.too_far') return end
  local generation=mmdhl.cleanupGeneration
  P.Load(id,function(info,err)
   if not IsValid(p) then return end

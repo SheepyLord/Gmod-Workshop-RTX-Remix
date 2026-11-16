@@ -49,6 +49,11 @@ LUA_BIN_NAME = re.compile(r'gm(?:cl|sv)_[A-Za-z0-9_]{1,40}_win64\.dll')
 # counter into its own Remix mod): create-only, like the seed data, so a reinstall or an update never
 # finds them "not placed by the loader" and the converter's work is kept.
 RUNTIME_WRITTEN = ('rtx-remix/mods/~gmod_topbr',)
+# The Remix splash's editable startup text (companion/presentation, ADR 0050), where the runtime reads it
+# (StartupMessage::folder, runtime patch 0103): a folder of rtx-remix/mods holding no mod file, which GMod's Lua cannot
+# write (garrysmod/data, where it was until the review of 2026-11-16, any server's client Lua can) and another Workshop
+# item's package cannot place files in while the RTX package owns it. Create-only, so the player's edits are kept.
+STARTUP_TEXT = 'rtx-remix/mods/nativeloader_ui'
 SHADER_FILE = 'native/payload/shaders/' + SHADER_DLL
 KINDS = ('lua-binary-module', 'lua-addon', 'root-files', 'patch-set', 'module-override')  # manifest order
 # Never packaged: version-control metadata (submodules leave a .git file), Explorer and Finder files,
@@ -100,9 +105,10 @@ RTX_TITLE = re.compile(r'\bRTX\b', re.I)
 
 
 def policy_for(root_path):
-    """Seed data and the folders the fixes rewrite at run time are create-only; the rest replace-owned."""
+    """Seed data, the folders the fixes rewrite at run time and the player-editable startup text are create-only;
+    the rest replace-owned."""
     lowered = root_path.lower()
-    if lowered.startswith('garrysmod/data/') or lowered in RUNTIME_WRITTEN:
+    if lowered.startswith('garrysmod/data/') or lowered in RUNTIME_WRITTEN or lowered == STARTUP_TEXT:
         return 'create-only'
     return 'replace-owned'
 
@@ -407,12 +413,15 @@ def build(args):
             files.update(companion_catalog_sources())
         roots.append(('garrysmod/addons/' + name, 'lua-addon'))
     add_to_addons(args.add_to_addon, {name.lower(): name for name, _ in sources}, files, junk)
-    if COMPANION_NAME not in excluded:
-        files.update(collect(PRESENTATION, 'native/root/garrysmod/data/nativeloader_ui', junk, docs=False))
-        roots.append(('garrysmod/data/nativeloader_ui', 'root-files'))
+    startup_text = COMPANION_NAME not in excluded
+    if startup_text:
+        files.update(collect(PRESENTATION, 'native/root/' + STARTUP_TEXT, junk, docs=False))
+        roots.append((STARTUP_TEXT, 'root-files'))
     mods_dir = os.path.join(tree, 'rtx-remix', 'mods')
     mods, empty_mods = [], []
     for name in subfolders(mods_dir, 'the Remix mods folder'):
+        if startup_text and 'rtx-remix/mods/' + name.lower() == STARTUP_TEXT:
+            raise PackageError('the fixes have a Remix mod named %s, the folder of the startup text' % name)
         found = collect(os.path.join(mods_dir, name), 'native/root/rtx-remix/mods/' + name, junk)
         if not found:
             empty_mods.append(name)  # nothing to deploy

@@ -3633,3 +3633,44 @@ separator now has 57 texts in each catalog.
 - In the PoC (`out/msep/poc_probe.py` with `out/msep/poc/pbr_probe.lua` and `pbr_probe2.lua`, scratch; evidence in
   `out/qa-poc/game-pbr-panel`): the page with the Model Hotloader's own character in view, after a cleanup and after a
   respawn at the same entity index ([report](handover/pbr-page-dance-music-report.md)).
+
+## The repository review's fixes (Claude, ADR 0234)
+
+- [`test_lua_guards.py`](../tools/tests/test_lua_guards.py.md): the fixes' fifteenth patch `lua-guards`: the folder is
+  the patch applied, `RemixConfig.SetConfigVariable` asks the option policy before the Remix API, every text, key or
+  hash option the runtime patches declare in the runtime has a verdict, every option the package's Lua and data set
+  (about 185) is allowed by the compiled policy (MSVC `/W4 /WX`), ToPBR's game-map actions read only the character's
+  own model, the model reload's thread and per-map rule.
+- [`test_runtime_mod_option_layers.py`](../tools/tests/test_runtime_mod_option_layers.py.md),
+  [`test_runtime_imgui_formats.py`](../tools/tests/test_runtime_imgui_formats.py.md),
+  [`test_runtime_splash.py`](../tools/tests/test_runtime_splash.py.md) (helper
+  [`runtime_patch_text.py`](../tools/tests/runtime_patch_text.py.md)): runtime patches 0101-0104: no shipped Remix mod
+  uses graphs, the mod layer policy's unit test compiled and run, the wiring; an empty value through the API a success
+  (0104); no printf-style ImGui call with a runtime format in the code the patches add; the splash once, at most a
+  minute; the startup text's folder in the runtime and the packager (`test_package_fixes.py`).
+- [`test_portal_limits.py`](../tools/tests/test_portal_limits.py.md), [`test_remix_light_limits.py`](../tools/tests/test_remix_light_limits.py.md),
+  `test_editors.py` (`adv_entity_owner`), `test_check_repo.py` (account folders under `packages/`).
+- `test_hotloader_server.py` (`replace_burst`, `reset`, `dupe_factory`, `spawn_quantize`, `separator_place`, `rigs`),
+  `test_engine_guard_lua.py` (`cheats`), `test_publish_workshop.py` and `test_package_workshop.py` (inputs covered,
+  inputs changed during the build, an unvalidated package, the compact capped manifest).
+- C++ in the gate: `nl_vr_tests` (the single-player gate's refusals, the engine reader against a stand-in
+  `engine.dll`, the installed `engine.dll`'s slots) and `nl_engine_guard_tests` (the poster's view). The Model
+  Hotloader's own tests (36 of 37; `animated_carriers_and_sharing` fails at a deletion check with a cache path over
+  260 characters, on the build before the fixes too) and the runtime's unit tests (`test_mod_layer_policy`,
+  `test_mod_option_layer`, `test_splash_message`) run with their builds.
+- In the PoC (`out/msep/poc_review.py` with `out/msep/poc/review_probe.lua`, `review_mp_probe.lua` and the scratch
+  server add-on `nl_review_qa`; evidence in `out/qa-poc/review-fixes`): single-player (`review-sp-02`, gm_construct, RTX on, 1920x1080): the session keeps `sv_cheats 1`; RemixConfig takes
+  `rtx.skyBrightness` and refuses `rtx.captureHotKey`, `rtx.enableReplacementMaterials`, `rtx.waterSim.rings.texture`
+  (`..\..\x.dds`), `rtx.ignoreTextures` (`zz`) and `rtx.welcomeMessage`, each with its reason in the console; a
+  simulated VR start passes the native single-player gate and stops at the missing test root; `poster 1` reports
+  `screenshots/poster-<date>.png`; a replace burst on a character makes one replacement ("A model is already being
+  placed" for the second), two resets in a second show one notice, a Source dupe and a crafted legacy dupe both arrive;
+  Imported game PBR names `mmdhl_pbr_linlong` on 11 of the character's 30 materials (the Remix mods load); the material
+  editor allows the player's own NPC; the five RT light tools each make a light with its creator, cleanup and undo; the
+  sky editor spawns for the host; a pair of portals given 2,147,483,647 sides reads 100 on the server and the client and
+  nothing hangs; `gmod_cleanup` removes the lights, the sky editor, the portals and the characters (all but one the probe's own helper pasted without a cleanup entry); the startup text is in
+  `rtx-remix\mods\nativeloader_ui`, `garrysmod\data\nativeloader_ui` is gone and Remix lists no such mod; no Lua error
+  and no "Failed to set" line (the first run, `review-sp-01`, before runtime patch 0104, had 902). A two-slot listen
+  game (`review-mp-02`): "Server cvar 'sv_cheats' changed to 0" from the menu script a few seconds in, cheats off at the
+  start and the end; VR refused natively ("VR works in single-player games only: the game has 2 player slots"); the RT
+  light tool at `sbox_maxsents 2` makes two lights and the third gets the stock limit notice. The same two-slot game again (`review-mp-03`): the sky editor spawns for the listen host (an administrator) and the cleanup takes it. The Mesh Separator's editor flow (`out/msep/poc_editor.py`, `review-editor-01`): a left click opens the editor on the ragdoll, a 224-triangle piece detaches and is placed in place (within the new 64-unit rule). A simulated VR session (`tools/vr_session.py --simulate`, `out/vr/q/review-sim-02`): its start passes the native single-player gate, 2,317 frames rendered at the simulated 90 Hz, none submitted, OpenVR never loaded, no Lua error, a normal quit.

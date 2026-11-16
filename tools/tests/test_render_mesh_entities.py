@@ -15,6 +15,7 @@ from test_glass_map import glua_to_lua  # noqa: E402  (GLua's !, != and // to pl
 
 REPO = Path(__file__).resolve().parents[2]
 PORTAL = REPO / 'packages/fixes/garrysmod/garrysmod/addons/GMod-Seamless-Portals-Remix/lua/entities/seamless_portal/cl_init.lua'
+SHARED = PORTAL.with_name('sh_init.lua')  # cl_init.lua includes it first in the game
 HARNESS = REPO / 'tools/tests/seamless_portal_draw_harness.lua'
 # Lua the package ships: its parts' add-ons, and the add-ons read from this repository.
 LUA_ROOTS = ['packages', 'glass/addon', 'companion', 'fs_accel/addon']
@@ -59,8 +60,10 @@ class RenderMeshEntityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='seamless-portal-', dir=scratch) as folder:
             converted = Path(folder) / 'cl_init.lua'
             converted.write_text(glua_to_lua(PORTAL.read_text(encoding='utf-8')), encoding='utf-8')
-            result = subprocess.run([luajit(), str(HARNESS), str(converted)], cwd=REPO, capture_output=True,
-                                    encoding='utf-8', errors='replace', timeout=60)
+            shared = Path(folder) / 'sh_init.lua'
+            shared.write_text(glua_to_lua(SHARED.read_text(encoding='utf-8')), encoding='utf-8')
+            result = subprocess.run([luajit(), str(HARNESS), str(converted), str(shared)], cwd=REPO,
+                                    capture_output=True, encoding='utf-8', errors='replace', timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('PASS: portals draw their mesh directly', result.stdout)
 

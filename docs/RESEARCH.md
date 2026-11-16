@@ -9343,3 +9343,63 @@ merge of patch 0093. Left as they were.
   reuses entity indices, so the next entity at that index opened the gate in the middle of the song. The server's
   per-tick teardown of an unusable dancer (`update_playback_state`) did not send `mmdvmd_audio_stop` (the "stop all"
   teardown does; `MMDVMDNPC.StopPlayback` returns at once for an unusable entity).
+
+## The repository review's fixes (2026-11-16, Claude; [ADR 0234](decisions/0234-what-a-server-a-workshop-item-and-lua-may-reach.md), [report](handover/review-fixes-report.md))
+
+- **GMod's x64 `engine.dll` of 2026-11-12** (PoC copy, 5,709,136 bytes, SHA-256 `6432f653...`; RESEARCH earlier
+  recorded 5,707,088 bytes, `d8f74db7...`) keeps the layout the RTX debug module's gate reads, now also the VR module's:
+  `CreateInterface("VEngineClient015")` returns the object at .data RVA 0x4993c0 whose vtable (RTTI
+  `.?AVCEngineClient@@`, RVA 0x39d158, 159 slots) has GetMaxClients at 21 (`mov eax,[rip+x]`), IsInGame at 26 (signon
+  compared with 6), IsConnected at 27 (signon `>= 2`), GetNetChannelInfo at 72 and IsPlayingDemo at 76; the channel is a
+  `CNetChan` (RTTI vtable RVA 0x3e0280) whose slot 6 IsLoopback tests the remote address's type against NA_LOOPBACK
+  (`add rcx,0C4h; jmp`, then `cmp dword [rcx],1; sete al`). A LAN or 127.0.0.1 server is not loopback.
+- **Stock `duplicator.Paste` restores a SENT's network vars twice**: `CreateEntityFromTable` runs `DoGeneric` before
+  `Spawn`, then `RestoreNetworkVars(v.DT)` runs again after it, then `ApplyEntityModifiers` and `PostEntityPaste`
+  (`garrysmod/lua/includes/modules/duplicator.lua` 476-500, 797-862): `PostEntityPaste` is the last place to bound a
+  DT value. `GenericDuplicatorFunction` refuses non-spawnable and `AdminOnly` classes to non-admins (486-489).
+- **Sandbox's `CheckLimit` always passes in single-player** (`gamemodes/sandbox/gamemode/player_extension.lua` 11-13);
+  `GM:PlayerSpawnSENT` is `CheckLimit("sents")` and `GM:PlayerSpawnedSENT` `AddCount("sents")`. The stock light tool
+  clamps brightness to -10..20 on the server and not the size; the lamp tool clamps neither (`stools/light.lua` 38-39,
+  `lamp.lua` 43-45). `base_anim` has no Think.
+- **The released loader deploys root files only to** `rtx-remix/mods/<folder>`, `garrysmod/lua/bin`,
+  `garrysmod/data/<folder>` and `garrysmod/addons/<addon>` (`paths.cpp:80`, `manifest.cpp:405-430`); its planner skips a
+  package whose root files overlap an active one's (`planner.cpp:80-99`) and considers the allowlisted RTX package
+  first (`discovery.cpp:292`). Remix's mod manager passes over a mods folder without a `mod.*` file
+  (`rtx_mod_manager.cpp:164-176`): `rtx-remix/mods/nativeloader_ui` holds the startup text and is no mod.
+- **Remix option survey for mod layers** (the fork's `RtxOptions.md`, 2,395 rows): 1,361 pass patch 0101's name and type
+  rules; inside the allowed namespaces 8 debugging options, 25 integers without a declared range (such as
+  `rtx.atmosphere.cloudViewSamples`, `rtx.tonemap.tonemapOperator`, `rtx.volumetrics.restirFroxelDepthSlices`
+  1..65535) and 7 by name (the night sky and moon texture strings, `rtx.atmosphere.nubis3InteriorTexture`,
+  `rtx.postfx.motionBlurMaskOutTextures`) are refused.
+- **A runtime unit test with a log level opens its log during static initialisation**: `Logger::getFilePath` calls
+  `RtxFileSys::path(Logs)` (`log.cpp:73`) before `util_filesys.cpp`'s statics exist, so `RtxFileSys::path(Mods)` reads
+  empty for the whole process (`test_mod_option_layer.cpp` uses `LogLevel::None`). The runtime's meson tests
+  `test_remix_api_version` (0xC0000139) and `test_remix_categories` ("Unable to load D3D9") fail on this machine with
+  the 0100 runtime too: a second USD build on the test PATH.
+- **The RTX package's Lua sets about 185 Remix options** (quoted names in each Lua file that calls
+  `SetConfigVariable`, its data files, the weather presets, the eye whites' `rtx.gmod.` names, the default map config's
+  `rtx:` lines and the content packs' profiles); every other quoted `rtx.*` name in the package is read
+  (`GetConfigVariable`: the light updater's anti-culling and free camera checks, `rtx.sceneScale`, the bullet break
+  simulator's probe texts) or a material editor text key. The only option name built at run time is
+  `rtx.gmod.<kind>TexturesForSession`.
+- **GMod blocks `sv_cheats` for a game's own scripts**: in a two-slot listen game's server realm (PoC, 2026-11-16)
+  `RunConsoleCommand("sv_cheats", "0")` prints "RunConsoleCommand: Command is blocked! (sv_cheats)",
+  `game.ConsoleCommand("sv_cheats 0\n")` prints "game.ConsoleCommand blocked! (sv_cheats)", and
+  `exec <name>` of a cfg in a legacy add-on's `cfg/` folder runs nothing; the menu realm's `RunConsoleCommand("sv_cheats",
+  "0")` works ("Server cvar 'sv_cheats' changed to 0"), as the New Game screen's does. `GetConVar` returns nothing in
+  the menu realm, but `IsInGame()`, `file` (DATA) and `timer` work there.
+- **The Sky Editor's sun disc and altitude never reach this runtime**: its `RemixAtmosphere.SetSunDisc` and altitude
+  calls fail with code 1 ("[ConfigManager] Failed to set config variable 'rtx.atmosphere.sunDisc': 1", also
+  `rtx.atmosphere.altitude`): the runtime declares no such options (unchanged by the review; seen once a sky editor was
+  spawned in the PoC).
+- **The Remix API's empty value**: `Config::findOption` (`src/util/config/config.h:326`) returns false for an empty
+  value, so `RtxOptionImpl::readOption` reads nothing for `""`; upstream's `remixapi_SetConfigVariable` answered success
+  and changed nothing. The companion sets its session lists and the eye-white aliases to `""` whenever they are empty
+  (902 calls in a four-minute PoC session with the Model Hotloader's character spawned and removed).
+- **`inputs.py import --file` with a relative source records a modified file as not dirty**: `git_origin` runs
+  `git -C <relative folder> status -- <relative path>`, a path that does not exist from that folder. Absolute sources
+  record it correctly.
+- **Back-face twins on 46 imported characters** (the level-change crash series' test library under
+  `out\crash-34b9dc`, read only):
+  the bounded welding (at most 16 coincident triangles, 2 pairs a triangle, 4,096 part pairs) gives results identical
+  to the unbounded one; 2 x 16,384 copies of one triangle take 1.4 ms and 0.5 MB instead of 1.4 s and 1.2 GB.

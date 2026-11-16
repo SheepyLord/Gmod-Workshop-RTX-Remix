@@ -1,15 +1,25 @@
 local native=mmdhl.native
 local L=mmdhl.L
-function mmdhl.ResetPhysics(ent)
+-- requester (server): the player who asked. Every client resets the character's physics, only the requester is told,
+-- and one character is reset at most once a second (review finding 20: each reset had shown a notice on every client).
+function mmdhl.ResetPhysics(ent,requester)
  if not mmdhl.IsMMD(ent) then return false,L'physics_reset.select_model' end
  if CLIENT then
   if mmdhl.GetInstance(ent)<1 then return false,L'physics_reset.loading' end
   ent.MMDPresentationStopped=nil ent.MMDPresentationFrame=nil ent.MMDPhysicsLOD=nil
   return native.ResetPhysics(mmdhl.GetInstance(ent))
  end
+ if (ent.MMDHLResetAt or 0)>CurTime() then return true end
+ ent.MMDHLResetAt=CurTime()+1
  if mmdhl.GetInstance(ent)>0 then local ok,err=native.ResetPhysics(mmdhl.GetInstance(ent)) if not ok then return false,err end end
  ent.MMDStopped=nil
- net.Start('mmdhl_physics_reset') net.WriteEntity(ent) net.Broadcast()
+ local function start(notify) net.Start('mmdhl_physics_reset') net.WriteEntity(ent) net.WriteBool(notify) end
+ if IsValid(requester) and requester:IsPlayer() then
+  start(true) net.Send(requester)
+  start(false) net.SendOmit(requester)
+ else
+  start(false) net.Broadcast()
+ end
  return true
 end
 if SERVER then util.AddNetworkString('mmdhl_physics_reset') end
@@ -43,11 +53,12 @@ if CLIENT then
   wasDown=down
  end)
  net.Receive('mmdhl_physics_reset',function()
-  local ent=net.ReadEntity() if not IsValid(ent) then return end
+  local ent=net.ReadEntity() local notify=net.ReadBool() if not IsValid(ent) then return end
   if mmdhl.GetInstance(ent)>0 then native.ResetPhysics(mmdhl.GetInstance(ent)) end
   ent.MMDPresentationStopped=nil ent.MMDPresentationFrame=nil ent.MMDPhysicsLOD=nil ent.MMDPresentationCheckAt=RealTime()+1
   mmdhl.renderError=nil
-  notification.AddLegacy(L'physics_reset.reset_one',NOTIFY_GENERIC,4)
+  -- Only the player who asked (an older server sends no flag: nobody).
+  if notify then notification.AddLegacy(L'physics_reset.reset_one',NOTIFY_GENERIC,4) end
  end)
  concommand.Add('mmdhl_reset_physics',function(_,_,args)
   if args[1]=='all' then mmdhl.ResetAllPhysics() return end

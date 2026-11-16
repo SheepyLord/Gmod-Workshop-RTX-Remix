@@ -225,6 +225,13 @@ class BackgroundLaunchTests(unittest.TestCase):
         self.assertNotIn('--background', popen.call_args.args[0])
 
 
+def nlctl_built() -> bool:
+    """Whether this checkout has the nlctl.exe the combine validates with (a -SkipNative run has none)."""
+    sys.path.insert(0, str(REPO / 'tools'))
+    import package_workshop
+    return package_workshop.find_nlctl() is not None
+
+
 class PublishTests(unittest.TestCase):
     def setUp(self):
         SCRATCH.mkdir(parents=True, exist_ok=True)
@@ -240,6 +247,9 @@ class PublishTests(unittest.TestCase):
                        'package': {'id': 'test-item', 'title': 'Test', 'type': 'tool', 'tags': ['build']},
                        'parts': [{'name': 'mods', 'package': str(self.mods)}, {'name': 'module', 'package': str(self.module)}]}
         self.saved_state, self.saved_upload, self.saved_entries = pub.STATE, pub.upload, pub.update_entries
+        self.saved_require = pub.require_validated
+        if not nlctl_built():
+            pub.require_validated = lambda summary: None
         pub.STATE = self.root / 'state'
         self.uploads = []
         pub.upload = lambda config, gma, changes, log: self.uploads.append((Path(gma).name, changes)) or 'Success!'
@@ -249,6 +259,7 @@ class PublishTests(unittest.TestCase):
 
     def tearDown(self):
         pub.STATE, pub.upload, pub.update_entries = self.saved_state, self.saved_upload, self.saved_entries
+        pub.require_validated = self.saved_require
         shutil.rmtree(self.root, ignore_errors=True)
 
     def run_publish(self, **flags):
@@ -256,6 +267,51 @@ class PublishTests(unittest.TestCase):
         for key, value in flags.items():
             setattr(args, key, value)
         return pub.publish(self.config, args, lambda text: None)
+
+    def test_every_repository_path_a_part_names_is_a_publish_input(self):
+        # Review finding 15 (2026-11-16): fs_accel/addon, vr/addon, vr/input and third_party/openvr/LICENSE were read by
+        # their parts but were no publish inputs, so a change to them alone never shipped; publish() refuses such a path.
+        for rel in ('fs_accel/addon', 'vr/addon', 'vr/input', 'third_party/openvr/LICENSE'):
+            self.assertIn(rel, pub.REPO_INPUTS)
+        self.assertEqual(pub.uncovered_inputs(pub.load_config(pub.CONFIG)), [])
+        self.config = dict(self.config, parts=[*self.config['parts'],
+                                               {'name': 'docs', 'build': 'package_content', 'args': ['docs', 'out/inputs/x']}])
+        self.assertEqual(pub.uncovered_inputs(self.config), ['docs'])
+        with self.assertRaisesRegex(pub.PublishError, 'do not cover'):
+            self.run_publish()
+        self.assertEqual(self.uploads, [])
+
+    def test_an_input_changed_during_the_build_stops_the_upload(self):
+        # Review finding 29: the inputs are compared again after the build; an edit in the build's window is caught.
+        real = pub.build
+        def build(config, version, work, log, *args, **kwargs):
+            summary = real(config, version, work, log, *args, **kwargs)
+            (self.mods / 'late.txt').write_text('late', encoding='utf-8')
+            return summary
+        pub.build = build
+        try:
+            with self.assertRaisesRegex(pub.PublishError, 'changed while the package was built'):
+                self.run_publish()
+        finally:
+            pub.build = real
+        self.assertEqual(self.uploads, [])
+        self.assertFalse((pub.STATE / 'published.json').exists())
+
+    def test_a_package_nlctl_did_not_check_is_not_uploaded(self):
+        # Review finding 30: without a built nlctl.exe the combine skipped the loader's check and anything went up.
+        real = pub.build
+        pub.require_validated = self.saved_require
+        def build(config, version, work, log, *args, **kwargs):
+            summary = real(config, version, work, log, *args, **kwargs)
+            summary['validated_by'] = None
+            return summary
+        pub.build = build
+        try:
+            with self.assertRaisesRegex(pub.PublishError, 'nlctl'):
+                self.run_publish()
+        finally:
+            pub.build = real
+        self.assertEqual(self.uploads, [])
 
     def test_first_run_uploads_then_unchanged_inputs_stop_early(self):
         first = self.run_publish()
@@ -428,6 +484,8 @@ class GitHubFakes:
                                           self.uploads.append((Path(gma).read_bytes(), changes)) or 'Success!'),
                         # The change notes' changelog (ADR 0222) is ChangeNoteTests'; fixed here.
                         mock.patch.object(pub, 'update_entries', side_effect=lambda *args, **kwargs: self.entries)]
+        if not nlctl_built():
+            self.patches.append(mock.patch.object(pub, 'require_validated', side_effect=lambda summary: None))
         for patch in self.patches:
             patch.start()
 

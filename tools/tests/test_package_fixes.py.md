@@ -9,6 +9,11 @@ Filtered catalog scratch is under `out/tmp`; the source catalogs remain unchange
 Also verifies the optional verified-client bootstrap's journaled SHA-256/root, required licence
 notices and refusal when the companion is excluded.
 
+The startup text (finding 17 of the repository review of 2026-11-16): `companion/presentation`'s texts go to
+`rtx-remix/mods/nativeloader_ui` (`STARTUP_TEXT`, where runtime patch 0103 reads them) with create-only policy, and
+nothing to `garrysmod/data/nativeloader_ui`, where any server's client Lua writes; a fixes tree with a Remix mod of
+that name is refused.
+
 Unit tests for [`package_fixes.py`](../package_fixes.py.md). Each test builds a small fake fixes repo
 in a temporary folder under `out\tmp`: add-ons (with a submodule's `.git` file, a `.git` folder,
 `Thumbs.db`, `desktop.ini`, a `.bak`, a loose file), Remix mods (one empty), seed data

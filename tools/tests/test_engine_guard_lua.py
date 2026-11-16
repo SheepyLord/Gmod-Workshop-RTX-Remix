@@ -19,6 +19,10 @@ class EngineGuardAutorunTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn('PASS ' + scenario, done.stdout)
 
+    def test_a_multiplayer_rtx_start_turns_cheats_off(self):
+        # Review finding 16: sv_cheats 1 from the RTX session file stayed on in games started outside the menu.
+        self.run_case('cheats')
+
     def test_only_in_this_machines_rtx_start(self):
         self.run_case('off')
 

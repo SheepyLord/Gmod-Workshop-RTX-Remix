@@ -62,9 +62,11 @@ function TOOL:LeftClick(trace)
     
     -- Don't attach to other lights
     if parent:GetClass() == "remix_rt_light" then return false end
-    
-    -- Get bone from hit position (closest bone)
-    local boneID = self:GetClientNumber("bone_id") or 0
+    if not IsValid(ply) or not RemixRTLight then return false end
+
+    -- Get bone from hit position (closest bone); a convar that is not a finite number means bone 0
+    local boneID = self:GetClientNumber("bone_id", 0)
+    boneID = RemixRTLight.Finite(boneID) and math.floor(boneID) or 0
     if boneID < 0 then boneID = 0 end
     
     -- If entity has bones, ensure bone ID is valid
@@ -85,70 +87,47 @@ function TOOL:LeftClick(trace)
         end
     end
     
-    -- Create the light entity
-    local ent = ents.Create("remix_rt_light")
+    -- Create the light entity: sbox_maxsents, creator, prop-protection owner, cleanup and undo, as the
+    -- spawn menu gives a SENT
+    local ent = RemixRTLight.Spawn(ply, spawnPos, parent:GetAngles(), "Remix Bonemerged Light")
     if not IsValid(ent) then return false end
-    
-    ent:SetPos(spawnPos)
-    ent:SetAngles(parent:GetAngles())
-    ent:Spawn()
-    ent:Activate()
-    
-    -- Set light type and properties
-    local lightType = self:GetClientInfo("light_type") or "sphere"
-    ent:SetNWString("rtx_light_type", lightType)
-    ent:SetNWFloat("rtx_light_radius", self:GetClientNumber("radius") or 20)
-    ent:SetNWFloat("rtx_light_brightness", self:GetClientNumber("brightness") or 1)
-    ent:SetNWFloat("rtx_light_volumetric", self:GetClientNumber("volumetric") or 1)
-    
-    -- Set color
-    local r = self:GetClientNumber("color_r") or 255
-    local g = self:GetClientNumber("color_g") or 220
-    local b = self:GetClientNumber("color_b") or 180
-    ent:SetNWFloat("rtx_light_color_r", r)
-    ent:SetNWFloat("rtx_light_color_g", g)
-    ent:SetNWFloat("rtx_light_color_b", b)
-    
-    -- Set shaping parameters
-    ent:SetNWBool("rtx_light_shape_enabled", (self:GetClientNumber("shape_enabled") or 0) ~= 0)
-    ent:SetNWFloat("rtx_light_shape_cone", self:GetClientNumber("cone") or 90)
-    ent:SetNWFloat("rtx_light_shape_softness", self:GetClientNumber("softness") or 0.1)
-    ent:SetNWFloat("rtx_light_shape_focus", self:GetClientNumber("focus") or 1.0)
-    
-    -- Set shape-specific parameters
-    ent:SetNWFloat("rtx_light_xsize", self:GetClientNumber("xsize") or 40)
-    ent:SetNWFloat("rtx_light_ysize", self:GetClientNumber("ysize") or 40)
-    ent:SetNWFloat("rtx_light_xradius", self:GetClientNumber("xradius") or 20)
-    ent:SetNWFloat("rtx_light_yradius", self:GetClientNumber("yradius") or 20)
-    ent:SetNWFloat("rtx_light_axis_len", self:GetClientNumber("axislen") or 40)
-    ent:SetNWFloat("rtx_light_distant_angle", self:GetClientNumber("distantang") or 0.5)
-    
-    -- Set bonemerge parameters
-    ent:SetNWBool("rtx_light_is_bonemerged", true)
-    ent:SetNWInt("rtx_light_parent_id", parent:EntIndex())
-    ent:SetNWInt("rtx_light_bone_id", boneID)
-    
-    local offsetX = self:GetClientNumber("offset_x") or 0
-    local offsetY = self:GetClientNumber("offset_y") or 0
-    local offsetZ = self:GetClientNumber("offset_z") or 0
-    ent:SetNWVector("rtx_light_offset_pos", Vector(offsetX, offsetY, offsetZ))
-    
-    local angleP = self:GetClientNumber("angle_p") or 0
-    local angleY = self:GetClientNumber("angle_y") or 0
-    local angleR = self:GetClientNumber("angle_r") or 0
-    ent:SetNWAngle("rtx_light_offset_ang", Angle(angleP, angleY, angleR))
-    
+
+    -- The light's type, properties and attachment from this tool's convars. A client can put anything in
+    -- its convars, so they go through RemixRTLight.Apply (remix_rt_light), which keeps each within the
+    -- light's limits (an unknown type leaves the light a sphere).
+    RemixRTLight.Apply(ent, {
+        rtx_light_type = self:GetClientInfo("light_type"),
+        rtx_light_radius = self:GetClientNumber("radius", 20),
+        rtx_light_brightness = self:GetClientNumber("brightness", 1),
+        rtx_light_volumetric = self:GetClientNumber("volumetric", 1),
+        rtx_light_color_r = self:GetClientNumber("color_r", 255),
+        rtx_light_color_g = self:GetClientNumber("color_g", 220),
+        rtx_light_color_b = self:GetClientNumber("color_b", 180),
+        rtx_light_shape_enabled = self:GetClientNumber("shape_enabled", 0) ~= 0,
+        rtx_light_shape_cone = self:GetClientNumber("cone", 90),
+        rtx_light_shape_softness = self:GetClientNumber("softness", 0.1),
+        rtx_light_shape_focus = self:GetClientNumber("focus", 1),
+        rtx_light_xsize = self:GetClientNumber("xsize", 40),
+        rtx_light_ysize = self:GetClientNumber("ysize", 40),
+        rtx_light_xradius = self:GetClientNumber("xradius", 20),
+        rtx_light_yradius = self:GetClientNumber("yradius", 20),
+        rtx_light_axis_len = self:GetClientNumber("axislen", 40),
+        rtx_light_distant_angle = self:GetClientNumber("distantang", 0.5),
+        rtx_light_is_bonemerged = true,
+        rtx_light_parent_id = parent:EntIndex(),
+        rtx_light_bone_id = boneID,
+        rtx_light_offset_pos = Vector(self:GetClientNumber("offset_x", 0), self:GetClientNumber("offset_y", 0),
+            self:GetClientNumber("offset_z", 0)),
+        rtx_light_offset_ang = Angle(self:GetClientNumber("angle_p", 0), self:GetClientNumber("angle_y", 0),
+            self:GetClientNumber("angle_r", 0)),
+    })
+
     -- Disable physics (bonemerged lights don't need physics)
     local phys = ent:GetPhysicsObject()
     if IsValid(phys) then
         phys:EnableMotion(false)
     end
-    
-    undo.Create("Remix Bonemerged Light")
-        undo.AddEntity(ent)
-        undo.SetPlayer(ply)
-    undo.Finish()
-    
+
     return true
 end
 

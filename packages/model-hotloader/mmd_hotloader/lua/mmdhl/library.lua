@@ -79,10 +79,17 @@ function library.RemoveFolder(path)
  if not saveFolders(paths) then return false,L'library.folder.save_failed' end
  library.Refresh() return true
 end
+-- Reload's source paths by asset id ({id={source=path}}). The binary module keeps them outside the game folder,
+-- whose files any server's scripts read, and gives the paths only to the player's own scripts (file names to
+-- another server's); a binary module without GetSourcePaths kept them in data/mmd_hotloader/sources.local.json.
+function library.SourcePaths(kind)
+ if istable(native) and isfunction(native.GetSourcePaths) then return util.JSONToTable(native.GetSourcePaths(kind) or '') or {} end
+ return util.JSONToTable(file.Read(kind=='static' and 'mmd_hotloader/static/sources.local.json' or 'mmd_hotloader/sources.local.json','DATA') or '') or {}
+end
 function library.Refresh()
  local entries={} local deleting={}
  for _,path in ipairs(util.JSONToTable(file.Read('mmd_hotloader/cleanup.json','DATA') or '') or {}) do local id=path:match('^assets/([a-f0-9]+)') if validId(id) then deleting[id]=true end end
- local sources=util.JSONToTable(file.Read('mmd_hotloader/sources.local.json','DATA') or '') or {}
+ local sources=library.SourcePaths('character')
  local _,dirs=file.Find('mmd_hotloader/assets/*','DATA')
  for _,id in ipairs(dirs or {}) do
   if validId(id) and not deleting[id] then
@@ -715,8 +722,11 @@ hook.Add('Think','MMDHL.LibraryImport',function()
  if isnumber(status.progress) then library.progress=math.max(library.progress or 0,math.Clamp(status.progress,0,1)) end
  library.filename=status.filename or library.filename
  -- The import kept a damaged list of source paths (Reload's) under this name and started a new one (natives after 2.3.0).
+ -- The binary module names where (in its application data folder); older ones gave a file name in data/mmd_hotloader.
  if status.state=='complete' and isstring(status.registryBackup) and status.registryBackup~='' then
-  local text=L('library.import.registry_damaged',{file='mmd_hotloader/'..(status.kind=='static' and 'static/' or '')..status.registryBackup})
+  local backup=status.registryBackup
+  if not backup:find('[\\/]') then backup='data/mmd_hotloader/'..(status.kind=='static' and 'static/' or '')..backup end
+  local text=L('library.import.registry_damaged',{file=backup})
   notification.AddLegacy(text,NOTIFY_ERROR,15) chat.AddText(Color(255,170,80),'[Model Hotloader] ',color_white,text)
  end
  if status.state=='selected' then

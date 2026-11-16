@@ -17,6 +17,35 @@ ENT.RenderGroup  = RENDERGROUP_OPAQUE
 
 SeamlessPortals  = SeamlessPortals or {}
 
+-- A portal's side count and size are network vars, and the duplicator restores a dupe's network vars as the
+-- file has them, not through ENT:SetSides or ENT:SetSize: a pasted portal with two billion sides hung the
+-- server and every client (review finding 5). So every reader takes them through these limits. A value that
+-- is not a finite number falls back to the default (NaN fails every comparison, so math.Clamp keeps it).
+local MIN_SIDES, MAX_SIDES, DEFAULT_SIDES = 3, 100, 4
+-- The tools make portals up to 500 (the creator) and just under 1000 (the fitter) from the centre to an
+-- edge, and up to 100 thick; a portal placed in Hammer may be larger, up to these.
+local MAX_SIZE_XY, MAX_SIZE_Z = 2048, 256
+local DEFAULT_SIZE = { 50, 50, 8 }
+
+local function limited(value, low, high, fallback)
+	value = tonumber(value)
+	if not value or value ~= value or value == math.huge or value == -math.huge then return fallback end
+	if value < low then return low end
+	if value > high then return high end
+	return value
+end
+
+function SeamlessPortals.LimitSides(sides)
+	return math.floor(limited(sides, MIN_SIDES, MAX_SIDES, DEFAULT_SIDES))
+end
+
+function SeamlessPortals.LimitSize(size)
+	local x, y, z
+	if size then x, y, z = size[1], size[2], size[3] end
+	return Vector(limited(x, 1, MAX_SIZE_XY, DEFAULT_SIZE[1]), limited(y, 1, MAX_SIZE_XY, DEFAULT_SIZE[2]),
+		limited(z, 1, MAX_SIZE_Z, DEFAULT_SIZE[3]))
+end
+
 function ENT:SetupDataTables()
 	self:NetworkVar("Entity", 0, "ExitPortal")
 	self:NetworkVar("Vector", 0, "SizeInternal")
@@ -28,14 +57,21 @@ function ENT:SetupDataTables()
 	end
 end
 
+-- The number of sides, within the limits above.
+function ENT:GetSides()
+	return SeamlessPortals.LimitSides(self:GetSidesInternal())
+end
+
 function ENT:SetSides(sides)
-	local shouldUpdatePhysmesh = self:GetSidesInternal() != sides
-	self:SetSidesInternal(math.Clamp(sides, 3, 100))
+	sides = SeamlessPortals.LimitSides(sides)
+	local shouldUpdatePhysmesh = self:GetSides() ~= sides
+	self:SetSidesInternal(sides)
 	if shouldUpdatePhysmesh then self:UpdatePhysmesh() end
 end
 
+-- The size, within the limits above (a new Vector each call: callers scale it in place).
 function ENT:GetSize()
-	return self:GetSizeInternal()
+	return SeamlessPortals.LimitSize(self:GetSizeInternal())
 end
 
 -- So the size is in source units (remember we are using sine/cosine)
@@ -45,7 +81,7 @@ local size_mult = Vector(math.sqrt(2), math.sqrt(2), 1)
 function ENT:UpdatePhysmesh()
 	local sizev = self:GetSize() * size_mult
 	local finalMesh = {}
-	local sides = self:GetSidesInternal()
+	local sides = self:GetSides()
 	local angleMul = 360 / sides
 	local degreeOffset = (sides * 90 + (sides % 4 != 0 and 0 or 45)) * (math.pi / 180)
 	for side = 1, sides do

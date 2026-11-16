@@ -96,7 +96,7 @@ add_library(nanoem_physics STATIC native/nanoem_backend.cpp)
 target_include_directories(nanoem_physics PRIVATE vendor/glm vendor/bullet/src vendor/json/single_include)
 target_compile_definitions(nanoem_physics PRIVATE NANOEM_ENABLE_BULLET)
 target_link_libraries(nanoem_physics PUBLIC nanoem_core BulletSoftBody BulletDynamics BulletCollision LinearMath)
-add_library(mmd_runtime SHARED native/installation.cpp native/compatibility.cpp native/compute_probe.cpp native/compute_solver.cpp vendor/bullet/src/clew/clew.c native/broadphase.cpp native/jobs.cpp native/naming.cpp native/model.cpp native/physics.cpp native/assets.cpp native/rig.cpp native/rig_animation.cpp native/rig_geometry.cpp native/sharing.cpp native/packages.cpp native/model_notes.cpp native/scene_share.cpp native/fitter.cpp native/secondary.cpp native/secondary_quality.cpp native/scene.cpp native/spring_bones.cpp native/vrm.cpp native/pmx_writer.cpp native/humanoid_map.cpp native/import_error.cpp native/physics_profile.cpp native/file_access.cpp native/picked_models.cpp native/dependency_scope.cpp)
+add_library(mmd_runtime SHARED native/installation.cpp native/compatibility.cpp native/compute_probe.cpp native/compute_solver.cpp vendor/bullet/src/clew/clew.c native/broadphase.cpp native/jobs.cpp native/naming.cpp native/model.cpp native/physics.cpp native/assets.cpp native/rig.cpp native/rig_animation.cpp native/rig_geometry.cpp native/sharing.cpp native/packages.cpp native/model_notes.cpp native/scene_share.cpp native/fitter.cpp native/secondary.cpp native/secondary_quality.cpp native/scene.cpp native/spring_bones.cpp native/vrm.cpp native/pmx_writer.cpp native/humanoid_map.cpp native/import_error.cpp native/physics_profile.cpp native/file_access.cpp native/picked_models.cpp native/dependency_scope.cpp native/cache_png.cpp)
 set_target_properties(mmd_runtime PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON OUTPUT_NAME mmdhl_runtime_${MMDHL_PLATFORM})
 target_include_directories(mmd_runtime PUBLIC native vendor/bullet/src vendor/nanoem/nanoem vendor/json/single_include PRIVATE vendor/stb vendor/glm)
 target_link_libraries(mmd_runtime PUBLIC nanoem_core nanoem_physics BulletSoftBody BulletDynamics BulletCollision LinearMath)
@@ -458,3 +458,22 @@ set_tests_properties(character_import PROPERTIES WORKING_DIRECTORY "${CMAKE_SOUR
 # The worker's status.json contract for the bone window, on models the tests generate.
 add_test(NAME character_import_worker COMMAND ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/scripts/test-character-import.py" "$<TARGET_FILE:mmdhl_worker>" "$<TARGET_FILE:mmdhl_character_import_tests>" "$<TARGET_FILE:mmdhl_vrm_tests>")
 set_tests_properties(character_import_worker PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+
+# nlohmann::json's own precondition checks (JSON_ASSERT) throw in every build of this project's
+# targets, release builds included: native/json_assert.hpp is included first in each of their C++
+# files (review finding 9). The vendored libraries' targets live in their own folders and are left alone.
+get_property(MMDHL_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(target IN LISTS MMDHL_TARGETS)
+  get_target_property(type ${target} TYPE)
+  if(type MATCHES "^(STATIC_LIBRARY|SHARED_LIBRARY|MODULE_LIBRARY|EXECUTABLE|OBJECT_LIBRARY)$")
+    if(MSVC)
+      target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:/FI${CMAKE_SOURCE_DIR}/native/json_assert.hpp>")
+    else()
+      target_compile_options(${target} PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_SOURCE_DIR}/native/json_assert.hpp>")
+    endif()
+  endif()
+endforeach()
+# Tests keep Reload's source registries (native/assets.hpp sourceRegistryPath) in the build folder,
+# never in the player's %LOCALAPPDATA%\ModelHotloader.
+get_property(MMDHL_TESTS DIRECTORY PROPERTY TESTS)
+set_property(TEST ${MMDHL_TESTS} APPEND PROPERTY ENVIRONMENT "MMDHL_SOURCES_DIR=${CMAKE_BINARY_DIR}/test-sources")

@@ -6,6 +6,15 @@ namespace mmd {
 namespace {
 Json xyz(const btVector3& v){return {v.x(),v.y(),v.z()};}
 btVector3 vec(const Json& j){btVector3 v(j.at(0),j.at(1),j.at(2));for(int i=0;i<3;i++)if(!std::isfinite(v[i]))throw std::runtime_error("Non-finite remote collision pose");return v;}
+// A remote object's speed only widens the box a character's world culls it with (secondary.cpp sync):
+// past MaxRemoteSpeed (Source units per second, or degrees per second; Source's own limits are a few
+// thousand) a server's value could turn an empty box into one around the whole map (review finding 25).
+constexpr float MaxRemoteSpeed=1e5f;
+// In double: the square of a speed near float's limit is infinite.
+btVector3 capped(btVector3 v){double length=std::sqrt(double(v.x())*v.x()+double(v.y())*v.y()+double(v.z())*v.z());if(length>MaxRemoteSpeed)v*=float(MaxRemoteSpeed/length);return v;}
+// Coordinates of a remote shape, in its object's space: far beyond any map (Source's are within
+// +-32768), Bullet's bounding volumes lose their precision.
+constexpr float MaxRemoteCoordinate=1e6f;
 Bytes encode(const SceneGeometry& g){StudioWriter w;w.alloc(48);w.i(0,0x43534d4d);w.i(4,1);w.i(8,g.kind);w.f(12,g.radius);w.i(16,int(g.vertices.size()));w.i(20,int(g.hullCounts.size()));w.vec(24,g.minimum);w.vec(36,g.maximum);for(auto v:g.vertices)w.vec(w.alloc(12),v);for(int n:g.hullCounts)w.i(w.alloc(4),n);return std::move(w.b);}
 template<class T>T at(std::span<const unsigned char> b,size_t offset){if(offset>b.size()||sizeof(T)>b.size()-offset)throw std::runtime_error("Truncated remote collision geometry");T v;std::memcpy(&v,b.data()+offset,sizeof(v));return v;}
 }
@@ -36,11 +45,15 @@ void SceneShare::accept(const std::string& key,std::span<const unsigned char> b)
  if(!validId(key)||hash(b)!=key||at<uint32_t>(b,0)!=0x43534d4d||at<uint32_t>(b,4)!=1)throw std::runtime_error("Invalid collision shape or checksum");
  if(auto known=imported.find(key);known!=imported.end()){known->second.used=now();return;}
  auto kind=at<int>(b,8),n=at<int>(b,16),h=at<int>(b,20);if(kind<0||kind>2||n<0||h<0||48ull+uint64_t(n)*12+uint64_t(h)*4!=b.size())throw std::runtime_error("Malformed remote collision shape");
- auto g=std::make_shared<SceneGeometry>();g->kind=SceneGeometry::Kind(kind);g->radius=at<float>(b,12);if(!std::isfinite(g->radius)||g->radius<0)throw std::runtime_error("Invalid remote sphere");g->minimum={BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT};g->maximum=-g->minimum;
- for(int i=0;i<n;i++){size_t p=48+size_t(i)*12;btVector3 v(at<float>(b,p),at<float>(b,p+4),at<float>(b,p+8));for(int j=0;j<3;j++)if(!std::isfinite(v[j]))throw std::runtime_error("Invalid remote collision vertex");g->vertices.push_back(v);g->minimum.setMin(v);g->maximum.setMax(v);}
+ auto g=std::make_shared<SceneGeometry>();g->kind=SceneGeometry::Kind(kind);g->radius=at<float>(b,12);if(!std::isfinite(g->radius)||g->radius<0||g->radius>MaxRemoteCoordinate)throw std::runtime_error("Invalid remote sphere");g->minimum={BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT};g->maximum=-g->minimum;
+ for(int i=0;i<n;i++){size_t p=48+size_t(i)*12;btVector3 v(at<float>(b,p),at<float>(b,p+4),at<float>(b,p+8));for(int j=0;j<3;j++)if(!std::isfinite(v[j])||std::abs(v[j])>MaxRemoteCoordinate)throw std::runtime_error("Invalid remote collision vertex");g->vertices.push_back(v);g->minimum.setMin(v);g->maximum.setMax(v);}
  if(kind==SceneGeometry::Sphere){if(n||h||g->radius<=0)throw std::runtime_error("Malformed remote sphere");g->minimum={-g->radius,-g->radius,-g->radius};g->maximum=-g->minimum;}
  size_t sum=0;for(int i=0;i<h;i++){int count=at<int>(b,48+size_t(n)*12+i*4);if(count<3)throw std::runtime_error("Invalid remote convex");sum+=count;g->hullCounts.push_back(count);}
  if((kind==SceneGeometry::Triangles&&(n%3||h))||(kind==SceneGeometry::Convexes&&sum!=size_t(n)))throw std::runtime_error("Invalid remote collision topology");
+ // A mesh with no triangle or a set of no hulls holds nothing to collide with, and its inverted bounds
+ // pass any culling; Bullet's tree over zero triangles writes through null (review finding 25). The
+ // server's own capture never sends one (bridge.cpp skips empty objects).
+ if((kind==SceneGeometry::Triangles&&n==0)||(kind==SceneGeometry::Convexes&&h==0))throw std::runtime_error("Empty remote collision shape");
  // Room for it: the shapes unused the longest go (R19, review MH-05).
  while(!imported.empty()&&(importedBytes+b.size()>ImportBudget||imported.size()>=ImportLimit)){
   auto oldest=imported.begin();for(auto it=imported.begin();it!=imported.end();++it)if(it->second.used<oldest->second.used)oldest=it;
@@ -51,7 +64,7 @@ void SceneShare::accept(const std::string& key,std::span<const unsigned char> b)
 std::vector<std::string> SceneShare::publish(World& host,const Json& description){
  auto frame=std::make_shared<SceneFrame>();frame->sequence=description.at("sequence");frame->timestamp=description.at("timestamp");if(!std::isfinite(frame->timestamp))throw std::runtime_error("Invalid scene clock");
  auto time=now();std::vector<std::string> missing;
- for(auto& item:description.at("objects")){auto key=item.at("shape").get<std::string>();auto g=imported.find(key);if(g==imported.end()){missing.push_back(key);continue;}g->second.used=time;SceneObject o;o.id=item.at("id");o.owner=item.at("owner");o.physicsBone=item.value("bone",0);o.geometry=g->second.geometry;o.isStatic=item.at("static");auto actor=item.value("actor",0);if(actor<0||actor>2)throw std::runtime_error("Invalid remote collision actor");o.actor=uint8_t(actor);auto q=item.at("rotation");btQuaternion r(q.at(0),q.at(1),q.at(2),q.at(3));if(!std::isfinite(r.length2())||r.length2()<.5||r.length2()>1.5)throw std::runtime_error("Invalid remote collision rotation");o.transform=btTransform(r.normalized(),vec(item.at("position")));o.velocity=vec(item.at("velocity"));o.angular=vec(item.at("angular"));frame->objects.push_back(std::move(o));}
+ for(auto& item:description.at("objects")){auto key=item.at("shape").get<std::string>();auto g=imported.find(key);if(g==imported.end()){missing.push_back(key);continue;}g->second.used=time;SceneObject o;o.id=item.at("id");o.owner=item.at("owner");o.physicsBone=item.value("bone",0);o.geometry=g->second.geometry;o.isStatic=item.at("static");auto actor=item.value("actor",0);if(actor<0||actor>2)throw std::runtime_error("Invalid remote collision actor");o.actor=uint8_t(actor);auto q=item.at("rotation");btQuaternion r(q.at(0),q.at(1),q.at(2),q.at(3));if(!std::isfinite(r.length2())||r.length2()<.5||r.length2()>1.5)throw std::runtime_error("Invalid remote collision rotation");o.transform=btTransform(r.normalized(),vec(item.at("position")));o.velocity=capped(vec(item.at("velocity")));o.angular=capped(vec(item.at("angular")));frame->objects.push_back(std::move(o));}
  host.externalScene.store(frame);
  // Shapes no frame named for a while: their entity went away or out of reach (the frame just
  // stored holds its own references, so nothing it uses goes from under it).

@@ -42,6 +42,20 @@ local isRTXStart = rtxStart()
 NativeLoaderRTXStart = function() return isRTXStart end
 if not isRTXStart then return end
 
+-- Review finding 16: an RTX start sets sv_cheats 1 for its rendering settings (the loader's session file). GMod's New
+-- Game screen sets it to 0 for the games it starts; a multiplayer game started another way (the command line, the
+-- console) kept it, and every player who joined had cheats. GMod lets neither realm of a game run sv_cheats
+-- (RunConsoleCommand and game.ConsoleCommand are blocked for it, PoC 2026-11-16), so the server leaves a request with the
+-- time in the data folder and the companion's menu script (nativeloader/menu/multiplayer_cheats.lua) runs sv_cheats 0
+-- from the menu realm, as the New Game screen does. A single-player game keeps it.
+if SERVER and game and game.SinglePlayer and not game.SinglePlayer() and game.MaxPlayers and game.MaxPlayers() > 1 then
+    local cheats = GetConVar("sv_cheats")
+    if cheats and cheats:GetBool() then
+        file.CreateDir("nativeloader_companion")
+        file.Write("nativeloader_companion/cheats_off.txt", tostring(os.time()))
+    end
+end
+
 local guard = rawget(_G, "nlengineguard")
 if type(guard) ~= "table" then
     local loaded = pcall(require, "nlengineguard")

@@ -1,0 +1,1117 @@
+diff --git a/source/lua_path_policy.h b/source/lua_path_policy.h
+index f3c64dc67d98322d224af48fa3b0009cad7a7047..b8c4e9f7c3f0444f2d3e4199effdbefff26f12c3 100644
+--- a/source/lua_path_policy.h
++++ b/source/lua_path_policy.h
+@@ -75,16 +75,34 @@ inline bool LocalDrivePath(std::string_view path, std::string* reason = nullptr)
+ }
+ 
+ // A value that names a root, a drive or a network path ("\\host", "//host", "/x", "C:", "C:\x"),
+-// whatever its key.
++// whatever its key. The native loader's review of 2026-11-16 (finding 2): also a drive-relative
++// value ("C:x", which Windows resolves in that drive's current folder) and one that climbs out of
++// the folder it is read in: a segment of dots and spaces only, with at least two dots ("..", and
++// look-alikes such as ".. " or "..." that Windows trims). Neither is ever an option's own value.
+ inline bool AbsolutePathValue(std::string_view value) {
+     if (!value.empty() && (value.front() == '/' || value.front() == '\\')) return true;
+-    return value.size() >= 2 && std::isalpha(static_cast<unsigned char>(value[0])) && value[1] == ':' &&
+-           (value.size() == 2 || value[2] == '\\' || value[2] == '/');
++    if (value.size() >= 2 && std::isalpha(static_cast<unsigned char>(value[0])) && value[1] == ':') return true;
++    size_t start = 0;
++    while (start <= value.size()) {
++        const size_t end = value.find_first_of("/\\", start);
++        const std::string_view segment = value.substr(start, end == std::string_view::npos ? std::string_view::npos : end - start);
++        size_t dots = 0;
++        bool climbs = !segment.empty();
++        for (char c : segment) {
++            if (c == '.') ++dots;
++            else if (c != ' ') climbs = false;
++        }
++        if (climbs && dots >= 2) return true;
++        if (end == std::string_view::npos) break;
++        start = end + 1;
++    }
++    return false;
+ }
+ 
+ // The Remix options whose value is a file or a folder that the runtime opens, loads code from or
+ // writes to (rtx_atmosphere.h, rtx_camera.h, rtx_nrc_context.h, rtx_nsight_capture.h,
+-// rtx_options.h of the runtime fork). Lua leaves them to rtx.conf and the Remix menu.
++// rtx_options.h and, since the upstream merge of 2026-11-14, rtx_water_sim.h of the runtime fork).
++// Lua leaves them to rtx.conf and the Remix menu.
+ inline bool RemixPathOption(std::string_view key) {
+     static constexpr const char* kPaths[] = {
+         "rtx.atmosphere.moonalbedotexture", "rtx.atmosphere.moonnormaltexture",
+@@ -93,6 +111,7 @@ inline bool RemixPathOption(std::string_view key) {
+         "rtx.camerasequence.filepath", "rtx.captureinstancestagename", "rtx.capturetimestampreplacement",
+         "rtx.neuralradiancecache.cudadlldepsdirectorypath", "rtx.nsight.graphicscaptureinstallpath",
+         "rtx.nsight.graphicscaptureoutputdir", "rtx.nsight.graphicscaptureoutputfile",
++        "rtx.watersim.rings.texture",
+     };
+     std::string lower;
+     for (char c : key) {
+diff --git a/source/material_pipeline/to_pbr/game_source.h b/source/material_pipeline/to_pbr/game_source.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..16bd85b351971edd66d2f8e8b9fa9e6e1e7bc7c2
+--- /dev/null
++++ b/source/material_pipeline/to_pbr/game_source.h
+@@ -0,0 +1,125 @@
++// GPL-2.0, like the rest of the RTX fixes. The native loader's review of 2026-11-16 (finding 7): game
++// maps come only from the character's own model. ToPBR.GameMaterialAction's "options" listed the image
++// files in the folder of any absolute path ending in .pmx, and its "maps" scanned that folder, whatever
++// the player's rtx_topbr_game_maps; any server's client Lua reaches both, and their errors told a missing
++// folder from an existing one. An automatic resolution likewise opened any path it was given. The source
++// must now be an existing .pmx file that this module's PMX reader takes, one of whose materials draws the
++// base texture; a server cannot put such a file on the player's drive. Lua sees one text for every
++// refusal; the reason goes to the game's console. Standard C++ and the Windows headers game_pbr.h takes:
++// tests/game_source_test.cpp compiles it with that header alone.
++#pragma once
++#include "game_pbr.h"
++#include <cstdint>
++#include <filesystem>
++#include <map>
++#include <set>
++#include <stdexcept>
++#include <string>
++#include <system_error>
++#include <vector>
++
++namespace MaterialPipeline { namespace ToPBR { namespace GamePBR {
++
++// The one text Lua sees for a refused source, or for a model folder the scan cannot read.
++constexpr const char* SourceRefusal = "the model's source is unavailable (the game console says why)";
++
++struct SourceCheck {
++    bool usable = false;   // an existing .pmx file whose materials draw the base texture
++    bool present = false;  // a file is there (only the console tells this apart)
++    std::string why;       // the reason, for the console
++};
++
++// The models checked so far, by path, kept while their size and write time stay the same: a character's
++// materials share one model, and each material asks once. At most 16 models; one owner thread.
++class SourceModels {
++public:
++    SourceCheck Check(const std::string& source, const std::string& base) {
++        SourceCheck check;
++        try {
++            const fs::path pmx = fs::u8path(source);
++            if (source.empty() || !pmx.is_absolute() || Lower(pmx.extension().u8string()) != ".pmx") {
++                check.why = "not a local PMX";
++                return check;
++            }
++            if (base.empty()) {
++                check.why = "no base texture";
++                return check;
++            }
++            std::error_code ec;
++            if (!fs::is_regular_file(pmx, ec)) {
++                check.why = "no PMX file there";
++                return check;
++            }
++            check.present = true;
++            const auto size = fs::file_size(pmx, ec);
++            const auto written = ec ? fs::file_time_type{} : fs::last_write_time(pmx, ec);
++            if (ec) {
++                check.why = "the PMX file cannot be read";
++                return check;
++            }
++            auto found = models_.find(pmx);
++            if (found == models_.end() || found->second.size != size || found->second.written != written) {
++                Model model{size, written, {}};
++                const Mesh mesh = ParsePMX(Read(pmx, 256ull * 1024 * 1024));
++                for (const auto& part : mesh.parts)
++                    if (!part.texture.empty()) model.textures.insert(part.texture);
++                if (found == models_.end() && models_.size() >= 16) models_.erase(models_.begin());
++                found = models_.insert_or_assign(pmx, std::move(model)).first;
++            }
++            if (!found->second.textures.count(Lower(base))) {
++                check.why = "no material of the PMX draws the base texture";
++                return check;
++            }
++            check.usable = true;
++        } catch (const std::exception& e) {
++            check.why = e.what();
++        }
++        return check;
++    }
++
++private:
++    struct Model {
++        std::uintmax_t size = 0;
++        fs::file_time_type written{};
++        std::set<std::string> textures;
++    };
++    std::map<fs::path, Model> models_;
++};
++
++// The scanned folder of a usable source, for "options" and "maps". A refused source, or a folder the scan
++// cannot read, throws SourceRefusal once `why` holds the reason.
++inline Discovery& SourceFolder(SourceModels& sources, DiscoveryCache& discovery, const std::string& source,
++                               const std::string& base, std::string& why) {
++    try {
++        const auto check = sources.Check(source, base);
++        if (!check.usable) throw std::runtime_error(check.why);
++        return discovery.Get(fs::u8path(source).parent_path());
++    } catch (const std::exception& e) {
++        why = e.what();
++        throw std::runtime_error(SourceRefusal);
++    }
++}
++
++// What "options" lists for a material: the map families and the image files beside the character's model,
++// or, for a refusal or anything the folder's scan cannot do, none of them and SourceRefusal.
++struct Options {
++    std::vector<Family> families;
++    std::vector<std::string> files;
++    std::string error;
++};
++inline Options ListOptions(SourceModels& sources, DiscoveryCache& discovery, const std::string& source,
++                           const std::string& base, std::string& why) {
++    Options options;
++    try {
++        auto& folder = SourceFolder(sources, discovery, source, base, why);
++        options.families = folder.Families();
++        options.files = folder.Files();
++    } catch (const std::exception& e) {
++        if (why.empty()) why = e.what();
++        options = Options{};
++        options.error = SourceRefusal;
++    }
++    return options;
++}
++
++}}}
+diff --git a/source/material_pipeline/to_pbr/to_pbr.cpp b/source/material_pipeline/to_pbr/to_pbr.cpp
+index 982c822accef92634143b91c8324d0c205fbd5ca..b5b4609a9cbdb2ad3c7e98335cbb3c1b27eab1bf 100644
+--- a/source/material_pipeline/to_pbr/to_pbr.cpp
++++ b/source/material_pipeline/to_pbr/to_pbr.cpp
+@@ -9,6 +9,7 @@
+ #include "game_pbr.h"
+ #include "game_registry.h"
+ #include "game_overrides.h"
++#include "game_source.h"
+ #include <filesystem>
+ #include <iomanip>
+ #include "../material_filter.h"
+@@ -4876,6 +4877,7 @@ void TextureProcessor::StopWorkerThread() {
+ void TextureProcessor::WorkerThreadFunc() {
+     const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+     GamePBR::DiscoveryCache discovery;
++    GamePBR::SourceModels sources; // The native loader's review of 2026-11-16 (finding 7): game_source.h.
+     GameOverrides::Store overrides(std::filesystem::u8path(m_outputDirectory));
+     if(!overrides.Load())Warning("[MaterialPipeline::ToPBR] Game overrides unreadable; retained without automatic fallback for unknown choices\n");
+     std::map<std::string,GameJob> liveJobs;
+@@ -4962,14 +4964,21 @@ void TextureProcessor::WorkerThreadFunc() {
+                 if(gameJob.action=="options") {
+                     view.choices.clear();view.files.clear();
+                     if(!gameJob.source.empty()) {
+-                        const auto pmx=std::filesystem::u8path(gameJob.source);
+-                        if(!pmx.is_absolute() || GamePBR::Lower(pmx.extension().u8string())!=".pmx")throw std::runtime_error("not a local PMX");
+-                        auto& folder=discovery.Get(pmx.parent_path());
+-                        for(const auto& f:folder.Families()) {
+-                            auto relative=[&](const std::filesystem::path& p){return p.empty()?std::string{}:p.lexically_relative(pmx.parent_path()).u8string();};
+-                            view.choices.push_back({f.stem,relative(f.maps.normal),relative(f.maps.packed),relative(f.maps.emission),int(f.maps.layout)});
++                        // The native loader's review of 2026-11-16 (finding 7): only the folder of the character's
++                        // own model is listed (game_source.h), and a refusal or a folder the scan cannot read gives
++                        // Lua one text; the console names the reason.
++                        std::string why;
++                        const auto options=GamePBR::ListOptions(sources,discovery,gameJob.source,gameJob.base,why);
++                        if(!options.error.empty()) {
++                            Warning("[MaterialPipeline::ToPBR] Game map choices refused: %s (%s)\n",gameJob.base.c_str(),why.c_str());
++                            view.error=options.error;
++                        } else {
++                            const auto root=std::filesystem::u8path(gameJob.source).parent_path();
++                            auto relative=[&](const std::filesystem::path& p){return p.empty()?std::string{}:p.lexically_relative(root).u8string();};
++                            for(const auto& f:options.families)
++                                view.choices.push_back({f.stem,relative(f.maps.normal),relative(f.maps.packed),relative(f.maps.emission),int(f.maps.layout)});
++                            view.files=options.files;
+                         }
+-                        view.files=folder.Files();
+                     }
+                     std::lock_guard<std::mutex> lock(m_queueMutex);m_gameViews[gameJob.name]=view;
+                     continue;
+@@ -4978,13 +4987,30 @@ void TextureProcessor::WorkerThreadFunc() {
+                     GameOverrides::Choice choice;choice.mode=gameJob.action;choice.source=gameJob.source;choice.base=gameJob.base;
+                     choice.normal=gameJob.normal;choice.packed=gameJob.packed;choice.emission=gameJob.emission;choice.layout=unsigned(gameJob.layout);
+                     if(choice.mode=="maps") {
+-                        const auto pmx=std::filesystem::u8path(gameJob.source);
+-                        if(!pmx.is_absolute() || GamePBR::Lower(pmx.extension().u8string())!=".pmx")throw std::runtime_error("not a local PMX");
+-                        const auto root=pmx.parent_path();auto& folder=discovery.Get(root);
++                        // The native loader's review of 2026-11-16 (finding 7): the character's own model only
++                        // (game_source.h), its folder read as "options" reads it, one text to Lua for a refusal,
++                        // and the chosen maps among the images that folder lists.
++                        std::string why;
++                        GamePBR::Discovery* scanned=nullptr;
++                        try {
++                            scanned=&GamePBR::SourceFolder(sources,discovery,gameJob.source,gameJob.base,why);
++                        } catch(const std::exception&) {
++                            Warning("[MaterialPipeline::ToPBR] Game map choice refused: %s (%s)\n",gameJob.base.c_str(),why.c_str());
++                            throw;
++                        }
++                        auto& folder=*scanned;
++                        const auto root=std::filesystem::u8path(gameJob.source).parent_path();
+                         GamePBR::Maps selected;selected.layout=GamePBR::Maps::Layout(choice.layout);selected.recognized=true;
+                         auto path=[&](const std::string& s){return s.empty()?std::filesystem::path{}:root/GamePBR::RelativeTexture(root,s);};
+                         selected.normal=path(choice.normal);selected.packed=path(choice.packed);selected.emission=path(choice.emission);
+                         if(selected.normal.empty() && selected.packed.empty())throw std::runtime_error("choose a normal or packed map, or None");
++                        std::set<std::string> listed;
++                        for(const auto& f:folder.Families())for(const auto& p:{f.maps.normal,f.maps.packed,f.maps.emission})
++                            if(!p.empty())listed.insert(GamePBR::Lower(p.u8string()));
++                        for(const auto& file:folder.Files())listed.insert(GamePBR::Lower((root/std::filesystem::u8path(file)).u8string()));
++                        for(const auto& p:{selected.normal,selected.packed,selected.emission})
++                            if(!p.empty() && !listed.count(GamePBR::Lower(p.u8string())))
++                                throw std::runtime_error("choose maps from the lists of this model's folder");
+                         for(const auto& f:folder.Families())for(const auto& p:{selected.normal,selected.packed,selected.emission})
+                             if(!p.empty() && (p==f.maps.normal || p==f.maps.packed || p==f.maps.emission) && selected.layout!=f.maps.layout)
+                                 throw std::runtime_error("selected game layout does not match these maps");
+@@ -5013,8 +5039,14 @@ void TextureProcessor::WorkerThreadFunc() {
+                     auto selected=overrides.Select(gameJob.identity,gameJob.hashes,true,[&]() {
+                     // Resolve each identity once per worker, including source probing,
+                     // DDS validation and registry saves. Later jobs only register live hashes.
+-                    std::ifstream source(std::filesystem::u8path(gameJob.source), std::ios::binary);
+-                    const bool sourceReadable = !gameJob.base.empty() && source.good();
++                    // The native loader's review of 2026-11-16 (finding 7): the source counts only as the
++                    // character's own model (game_source.h); anything else restores recorded maps only, the
++                    // same whether or not a file is there. Only the console names a file there that is refused.
++                    const auto check = sources.Check(gameJob.source, gameJob.base);
++                    const bool sourceReadable = check.usable;
++                    if (!sourceReadable && check.present)
++                        Warning("[MaterialPipeline::ToPBR] Game maps restore recorded maps only: %s (%s)\n",
++                                gameJob.base.c_str(), check.why.c_str());
+                     if(!sourceReadable) {
+                         try {
+                             if(const auto maps=m_gameRegistry->Compact(gameJob.identity,transcode))
+diff --git a/source/model_reload_policy.h b/source/model_reload_policy.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4687bab28ac5628e94c21f7a7c4c6889325c4c23
+--- /dev/null
++++ b/source/model_reload_policy.h
+@@ -0,0 +1,42 @@
++// GPL-2.0, like the rest of the RTX fixes. The native loader's review of 2026-11-16 (finding 24): when
++// RTX_ReloadModelsAfterHardwareSkinningSettings may discard studiorender's hardware meshes
++// (MDLCACHE_FLUSH_STUDIOHWDATA). Under queued rendering the material system's own thread may be drawing
++// those meshes at that moment: about half of the native loader's PoC starts crashed in studiorender until
++// cl_rtx.lua switched mat_queue_mode to 0 for its last call (review R4). Any Lua can call the global, so the
++// flush now runs only while the material system draws on the calling thread, and at most twice in one
++// client Lua state (one map): the two calls cl_rtx.lua makes, after the hardware-skinning setting is
++// restored and once the map has loaded. A refused call is not counted. No SDK and no Windows header:
++// tests/model_reload_policy_test.cpp compiles this file alone.
++#pragma once
++
++#include <string>
++
++namespace ModelReloadPolicy {
++
++constexpr int ReloadsPerLuaState = 2;
++
++class Allowance {
++public:
++    // A new client Lua state: the module opens again for each map.
++    void Reset() { m_used = 0; }
++
++    // Whether the flush may run now (singleThreaded: the material system's thread mode is
++    // MATERIAL_SINGLE_THREADED); counts the flush when it may.
++    bool Take(bool singleThreaded, std::string* reason = nullptr) {
++        if (!singleThreaded) return Refuse(reason, "the material system renders on its own thread (queued rendering)");
++        if (m_used >= ReloadsPerLuaState) return Refuse(reason, "this map's two model reloads have run");
++        ++m_used;
++        return true;
++    }
++
++    int Used() const { return m_used; }
++
++private:
++    static bool Refuse(std::string* reason, const char* why) {
++        if (reason) *reason = why;
++        return false;
++    }
++    int m_used = 0;
++};
++
++}  // namespace ModelReloadPolicy
+diff --git a/source/module.cpp b/source/module.cpp
+index 7e1c59589b0b58884a437eac5bb7cacdc73be9e4..a0dfa319b7851b61f5cfe5ef9ff3253d7bc42bbf 100644
+--- a/source/module.cpp
++++ b/source/module.cpp
+@@ -38,6 +38,7 @@
+ #include "model_draw_hook.h"
+ #include "material_pipeline/material_pipeline.h"
+ #ifdef _WIN64
++#include "model_reload_policy.h"
+ #include <filesystem>
+ #include <optional>
+ #include <string>
+@@ -302,10 +303,23 @@ LUA_FUNCTION(SetModelDrawHookEnabled_Lua) {
+ }
+ 
+ #ifdef _WIN64
++// The native loader's review of 2026-11-16 (finding 24): any Lua can call the reload, which discards the
++// meshes studiorender draws; it runs only while the material system draws on this thread, and at most
++// twice for one client Lua state (model_reload_policy.h). Returns whether it ran.
++static ModelReloadPolicy::Allowance g_modelReloads;
++
+ LUA_FUNCTION(ReloadModelsAfterHardwareSkinningSettings_Lua) {
+     try {
++        const bool singleThreaded = materials && materials->GetThreadMode() == MATERIAL_SINGLE_THREADED;
++        std::string reason;
++        if (!g_modelReloads.Take(singleThreaded, &reason)) {
++            Msg("[gmRTX - Model Load Fixes] Model reload skipped: %s\n", reason.c_str());
++            LUA->PushBool(false);
++            return 1;
++        }
+         ModelLoadHooks::Instance().ReloadModelsAfterSettings();
+-        return 0;
++        LUA->PushBool(true);
++        return 1;
+     }
+     catch (...) {
+         Error("[gmRTX - Model Load Fixes] Exception while reloading models after hardware-skinning settings\n");
+@@ -330,6 +344,7 @@ GMOD_MODULE_OPEN() {
+     try {
+ #ifdef _WIN64
+         g_moduleClosing = false;
++        g_modelReloads.Reset(); // a new client Lua state, one map (model_reload_policy.h)
+ #endif
+         Msg("[gmRTX - Binary Module] - Module loaded!\n"); 
+ 
+diff --git a/source/remix_option_policy.h b/source/remix_option_policy.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..cae279b9dc2440cc5839034309114f549a851b70
+--- /dev/null
++++ b/source/remix_option_policy.h
+@@ -0,0 +1,167 @@
++// GPL-2.0, like the rest of the RTX fixes. The native loader's review of 2026-11-16 (finding 2): the
++// Remix options Lua may set through RemixConfig.SetConfigVariable. Any server's client Lua reaches that
++// function, and the runtime keeps what it sets in its User layer, which the Remix menu's "Save Settings"
++// writes to user.conf. R19 (ADR 0112) refused fourteen path options by name and let every other option
++// through: among them the capture hotkey (a modifier alone fires on every frame it is held, and each
++// capture is written under rtx-remix/captures), the sky probe's size, the replacement switches, the crash
++// hotkeys and a texture path the upstream merge of 2026-11-14 added. Lua now sets only what the RTX
++// package's own Lua sets: the sky, the weather and the fog, the tone curve, the game's lights, the
++// session's texture lists and the RTX Remix tab's settings. Everything else stays with rtx.conf and the
++// Remix menu. No SDK and no Windows header: tests/remix_option_policy_test.cpp compiles this file alone.
++#pragma once
++
++#include <cctype>
++#include <cstddef>
++#include <string>
++#include <string_view>
++
++#include "lua_path_policy.h"
++
++namespace RemixOptionPolicy {
++
++// The longest option name and value Lua may pass. The runtime's names are under 80 bytes; the longest
++// values are the companion's texture lists (at most 4096 hashes of 18 characters each, about 90 KB).
++constexpr size_t MaxKey = 256;
++constexpr size_t MaxValue = 1024 * 1024;
++
++// An option name as the lists below hold it: lower case, without white space.
++inline std::string Normal(std::string_view key) {
++    std::string out;
++    out.reserve(key.size());
++    for (char c : key) {
++        const auto byte = static_cast<unsigned char>(c);
++        if (std::isspace(byte)) continue;
++        out += static_cast<char>(std::tolower(byte));
++    }
++    return out;
++}
++
++inline bool StartsWith(std::string_view text, std::string_view prefix) {
++    return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
++}
++
++// Never from Lua, whatever the allowed list holds: the options whose value is a file or folder
++// (LuaPathPolicy::RemixPathOption), captures, the replacement switches, key bindings, the crash and
++// debugger hotkeys, the profiler, automation, the camera sequence recorder, Nsight, the splash and the
++// menu's own settings, the sky probe's size, the GPU overrides, the generated mods' rank and diagnostic
++// logging.
++inline bool Refused(std::string_view key) {
++    const std::string name = Normal(key);
++    if (LuaPathPolicy::RemixPathOption(name)) return true;
++    static constexpr const char* kPrefixes[] = {
++        "rtx.capture",            // rtx.captureHotKey, rtx.captureShowMenuOnHotkey, ..., rtx.capture.*
++        "rtx.enablereplacement",  // rtx.enableReplacementAssets, ...Lights, ...Materials, ...Meshes
++        "rtx.profiler.", "rtx.automation.", "rtx.camerasequence.", "rtx.nsight.", "rtx.freecam.", "rtx.gui.",
++        "rtx.gpuoverride.",
++    };
++    static constexpr const char* kNames[] = {
++        "rtx.skyprobeside", "rtx.welcomemessage", "rtx.splashmessagedisplaytimeseconds", "rtx.hidesplashmessage",
++        "rtx.enablecrashhotkey", "rtx.crashhotkey", "rtx.gpucrashhotkey", "rtx.enablebreakintodebuggeronpressingb",
++        "rtx.remixmenukeybinds", "rtx.dumpallinstancesonframe", "rtx.gmod.fallbackmods",
++        "rtx.gmod.enableinstrumentation",
++    };
++    for (const char* prefix : kPrefixes)
++        if (StartsWith(name, prefix)) return true;
++    for (const char* refused : kNames)
++        if (name == refused) return true;
++    return false;
++}
++
++// What the RTX package's Lua sets (the patch's README names each source): whole groups where its Lua
++// sets many options from data (the sky, the weather and the fog; the tone curve and the content packs'
++// looks; ReSTIR DI from the default map config; RTX Water; the companion's session lists), and single
++// options.
++inline bool Allowed(std::string_view key) {
++    const std::string name = Normal(key);
++    static constexpr const char* kPrefixes[] = {
++        "rtx.atmosphere.", "rtx.weather.", "rtx.volumetrics.", "rtx.tonemap.", "rtx.autoexposure.", "rtx.bloom.",
++        "rtx.postfx.", "rtx.di.", "rtx.translucentmaterial.", "rtx.gmod.",
++    };
++    static constexpr const char* kNames[] = {
++        // the sky and the game's lights: the map lights, the fixes' settings, the companion's sky and menu,
++        // Poolrooms RTX, the content packs, the map RTX add-ons (their fallback light)
++        "rtx.skybrightness", "rtx.skymode", "rtx.ignoregamepointlights", "rtx.ignoregamespotlights",
++        "rtx.ignoregamedirectionallights", "rtx.fallbacklightmode", "rtx.playermodel.enableprimaryshadows",
++        "rtx.enabledirecttranslucentshadows",
++        // the RTX Remix tab's Remix settings
++        "rtx.graphicspreset", "rtx.upscalertype", "rtx.qualitydlss", "rtx.framegenerationtype",
++        "rtx.integrateindirectmode", "rtx.pathmaxbounces",
++        // the physgun's glow
++        "rtx.legacyemissivecolorsstring", "rtx.legacyemissiveintensitiesstring",
++        // texture lists: ARC9's scopes, the bullet break simulator, VR's held camera, the default map config
++        "rtx.raytracedrendertargettextures", "rtx.recomputetexturehashonwrite", "rtx.opacitymicromapignoretextures",
++        "rtx.ignoretextures", "rtx.hideinstancetextures",
++        // the default map config's settings for API lights
++        "rtx.neecache.enableanalyticallight", "rtx.rislightsamplecount",
++        "rtx.denoisedirectandindirectlightingseparately", "rtx.suppresslightkeeping",
++        // the options RemixConfig's own shortcuts set (SetRaytracing, SetUpscaler, ...)
++        "rtx.enableraytracing", "rtx.upscaler", "rtx.denoiser", "rtx.reflectionupscaler",
++        "rtx.renderresolutionscale", "rtx.maxbounces", "rtx.volumetricenabled", "rtx.defaulttoadvancedui",
++    };
++    for (const char* prefix : kPrefixes)
++        if (StartsWith(name, prefix)) return true;
++    for (const char* allowed : kNames)
++        if (name == allowed) return true;
++    return false;
++}
++
++// The allowed options whose value is a list of texture or mesh hashes (fast_unordered_set and
++// std::vector<XXH64_hash_t> in the runtime). The runtime reads each item with std::stoull, unguarded:
++// an item that is not a hash would throw through the Remix API.
++inline bool HashList(std::string_view key) {
++    const std::string name = Normal(key);
++    static constexpr const char* kNames[] = {
++        "rtx.ignoretextures", "rtx.hideinstancetextures", "rtx.raytracedrendertargettextures",
++        "rtx.opacitymicromapignoretextures", "rtx.postfx.motionblurmaskouttextures",
++        "rtx.gmod.particletexturesforsession", "rtx.gmod.decaltexturesforsession",
++        "rtx.gmod.legacyeffecttexturesforsession", "rtx.gmod.ignoredoutlinetextures",
++        "rtx.gmod.importedmodelsmoothnormaltextures", "rtx.gmod.mmdalphatexturesforsession",
++        "rtx.gmod.meshreplacementhashaliases",
++    };
++    for (const char* list : kNames)
++        if (name == list) return true;
++    return false;
++}
++
++// Comma-separated hashes, each of 1 to 16 hex digits after an optional 0x and, to take a hash out of a
++// lower layer's list, an optional leading '-' (the runtime's HashSetLayer). Spaces around an item and
++// empty items are fine, as the runtime skips them.
++inline bool HashListValue(std::string_view value) {
++    auto space = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
++    size_t start = 0;
++    while (start <= value.size()) {
++        const size_t comma = value.find(',', start);
++        std::string_view item = value.substr(start, comma == std::string_view::npos ? std::string_view::npos : comma - start);
++        while (!item.empty() && space(item.front())) item.remove_prefix(1);
++        while (!item.empty() && space(item.back())) item.remove_suffix(1);
++        if (!item.empty()) {
++            if (item.front() == '-') item.remove_prefix(1);
++            if (item.size() >= 2 && item[0] == '0' && (item[1] == 'x' || item[1] == 'X')) item.remove_prefix(2);
++            if (item.empty() || item.size() > 16) return false;
++            for (char c : item)
++                if (!std::isxdigit(static_cast<unsigned char>(c))) return false;
++        }
++        if (comma == std::string_view::npos) break;
++        start = comma + 1;
++    }
++    return true;
++}
++
++inline bool Refuse(std::string* reason, const char* why) {
++    if (reason) *reason = why;
++    return false;
++}
++
++// Whether Lua may set `key` to `value`; `reason` says why not.
++inline bool LuaMaySet(std::string_view key, std::string_view value, std::string* reason = nullptr) {
++    if (key.empty() || key.size() > MaxKey) return Refuse(reason, "the option name is empty or longer than 256 bytes");
++    if (Refused(key)) return Refuse(reason, "Lua may not set this option");
++    if (!Allowed(key)) return Refuse(reason, "the RTX package's Lua does not set this option");
++    if (value.size() > MaxValue) return Refuse(reason, "the value is longer than 1 MiB");
++    if (LuaPathPolicy::AbsolutePathValue(value))
++        return Refuse(reason, "the value names a drive, a root, a network path or a parent folder");
++    if (HashList(key) && !HashListValue(value)) return Refuse(reason, "the value is not a list of hashes");
++    return true;
++}
++
++}  // namespace RemixOptionPolicy
+diff --git a/source/remixapi/config_lua_bindings.cpp b/source/remixapi/config_lua_bindings.cpp
+index 105dedab707cf5552cab3ce77f4641339746cdbd..a7cf31469a91c587f7c41c5ba539d6c05ef40649 100644
+--- a/source/remixapi/config_lua_bindings.cpp
++++ b/source/remixapi/config_lua_bindings.cpp
+@@ -1,7 +1,7 @@
+ #ifdef _WIN64
+ #include "remixapi.h"
+ #include "upscaling_state.h"
+-#include "../lua_path_policy.h"
++#include "../remix_option_policy.h"
+ #include <tier0/dbg.h>
+ 
+ using namespace GarrysMod::Lua;
+@@ -25,13 +25,16 @@ LUA_FUNCTION(RemixConfig_SetConfigVariable) {
+     std::string key = LUA->GetString(1);
+     std::string value = LUA->GetString(2);
+ 
+-    // R19 (the native loader's ADR 0112): any server's client Lua reaches this. Remix opens, loads
+-    // code from or writes to the paths in some options (textures, a camera sequence file, NRC's CUDA
+-    // DLL folder, Nsight's folders, capture names, the mod redirect): those stay with rtx.conf and
+-    // the Remix menu. A value naming a drive, root or network path is refused for every option.
+-    if (LuaPathPolicy::RemixPathOption(key) || LuaPathPolicy::AbsolutePathValue(value)) {
+-        Warning("[RemixConfig] SetConfigVariable: '%s' names a file or folder; set it in rtx.conf or the Remix menu\n",
+-                key.c_str());
++    // R19 (the native loader's ADR 0112): any server's client Lua reaches this. It refused the options
++    // naming a file or folder; the native loader's review of 2026-11-16 (finding 2) found the rest open:
++    // captures written on every frame a key is held, the sky probe's size, the replacement switches, the
++    // crash hotkeys, a texture path the upstream merge added. Lua now sets only the options the RTX
++    // package's own Lua sets (remix_option_policy.h), with values that name no drive, root, network path
++    // or parent folder; everything else stays with rtx.conf and the Remix menu.
++    std::string reason;
++    if (!RemixOptionPolicy::LuaMaySet(key, value, &reason)) {
++        Warning("[RemixConfig] SetConfigVariable: '%.128s' refused (%s); set it in rtx.conf or the Remix menu\n",
++                key.c_str(), reason.c_str());
+         LUA->PushBool(false);
+         return 1;
+     }
+@@ -40,7 +43,7 @@ LUA_FUNCTION(RemixConfig_SetConfigVariable) {
+     bool result = configManager.SetConfigVariable(key, value);
+     
+     if (!result) {
+-        Warning("[RemixConfig] SetConfigVariable: Failed to set '%s' = '%s' (check if key exists and value is valid)\n", 
++        Warning("[RemixConfig] SetConfigVariable: Failed to set '%.128s' = '%.256s' (check if key exists and value is valid)\n", 
+                 key.c_str(), value.c_str());
+     }
+     
+diff --git a/tests/game_source_test.cpp b/tests/game_source_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..fe8e9f53f8c7564337f01fa56837d13e6f0260ac
+--- /dev/null
++++ b/tests/game_source_test.cpp
+@@ -0,0 +1,151 @@
++// GPL-2.0. The native loader's review of 2026-11-16 (finding 7): regression for
++// source/material_pipeline/to_pbr/game_source.h, what a game-map action may read. Standard C++ with the
++// Windows headers game_pbr.h takes; no SDK. Usage: game_source_test <empty scratch folder>
++#include "game_pbr_types.h"
++#include "../source/material_pipeline/to_pbr/game_source.h"
++#include <cassert>
++#include <fstream>
++#include <iostream>
++#include <set>
++#include <string>
++#include <utility>
++#include <vector>
++
++using namespace MaterialPipeline::ToPBR;
++namespace fs = std::filesystem;
++
++static void Put(const fs::path& path, const std::string& bytes) {
++    std::ofstream f(path, std::ios::binary | std::ios::trunc);
++    f << bytes;
++}
++
++// A PMX 2.0 model in UTF-8: one triangle and one material drawing `texture`, the least the reader takes.
++static std::string Pmx(const std::string& texture) {
++    std::string b;
++    auto u8 = [&](uint8_t v) { b.push_back(static_cast<char>(v)); };
++    auto i32 = [&](int32_t v) { b.append(reinterpret_cast<const char*>(&v), 4); };
++    auto f32 = [&](float v) { b.append(reinterpret_cast<const char*>(&v), 4); };
++    auto text = [&](const std::string& s) { i32(static_cast<int32_t>(s.size())); b += s; };
++    b += "PMX ";
++    f32(2.0f);
++    u8(8);
++    const uint8_t globals[] = {1, 0, 1, 1, 1, 1, 1, 1};  // UTF-8, no extra UVs, every index one byte
++    for (uint8_t g : globals) u8(g);
++    for (int i = 0; i < 4; ++i) text("model");
++    i32(3);
++    for (int v = 0; v < 3; ++v) {
++        for (int i = 0; i < 6; ++i) f32(0.0f);  // position and normal
++        f32(static_cast<float>(v % 2));
++        f32(static_cast<float>(v / 2));
++        u8(0);  // BDEF1
++        u8(0);  // bone 0
++        f32(1.0f);  // edge scale
++    }
++    i32(3);
++    const uint8_t indices[] = {0, 1, 2};
++    for (uint8_t index : indices) u8(index);
++    i32(1);
++    text(texture);
++    i32(1);
++    text("cloth");
++    text("cloth");
++    b.append(65, '\0');  // colours, flags, edge
++    u8(0);     // texture 0
++    u8(0xFF);  // no sphere map
++    u8(0);     // sphere mode
++    u8(1);     // shared toon
++    u8(0);
++    text("");  // memo
++    i32(3);    // the material's indices
++    return b;
++}
++
++int wmain(int argc, wchar_t** argv) {
++    assert(argc == 2);
++    const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
++    const fs::path root = argv[1];
++    // A character's model folder: the model, its base texture and a map beside it.
++    const auto model = root / "model";
++    fs::create_directories(model / "tex");
++    fs::create_directories(model / "maps");
++    Put(model / "Model.pmx", Pmx("tex\\Body.png"));
++    Put(model / "tex" / "Body.png", "png");
++    Put(model / "maps" / "detail.png", "png");
++    // The review's reproduction: personal images and no model; a file and a folder only named like one.
++    const auto victim = root / "victim";
++    fs::create_directories(victim / "Pictures" / "holiday");
++    Put(victim / "Pictures" / "holiday" / "IMG_0001.png", "png");
++    Put(victim / "passport_scan.jpg", "jpg");
++    Put(victim / "notes.pmx", "not a model");
++    fs::create_directories(victim / "folder.pmx");
++
++    GamePBR::SourceModels sources;
++    const auto pmx = (model / "Model.pmx").u8string();
++    // The character's own model, its base texture spelt as the importer or the model spells it.
++    for (const char* base : {"tex\\Body.png", "tex/body.png", "TEX/BODY.PNG"}) {
++        const auto check = sources.Check(pmx, base);
++        assert(check.usable && check.present && check.why.empty() && "the character's own model is used");
++    }
++    // Every other source is refused; only the console tells a file there from none.
++    struct Refusal { fs::path path; std::string base; bool present; };
++    const std::vector<Refusal> refusals = {
++        {model / "Model.pmx", "tex/other.png", true},           // no material draws that texture
++        {model / "Model.pmx", "", false},                       // no base texture
++        {victim / "anything.pmx", "tex/body.png", false},       // images, no model
++        {root / "NoSuchFolder" / "x.pmx", "tex/body.png", false},
++        {victim / "notes.pmx", "tex/body.png", true},           // not a model
++        {victim / "folder.pmx", "tex/body.png", false},         // a folder
++        {victim / "passport_scan.jpg", "tex/body.png", false},  // not a .pmx
++        {fs::path("relative") / "x.pmx", "tex/body.png", false},
++    };
++    for (const auto& refusal : refusals) {
++        const auto check = sources.Check(refusal.path.u8string(), refusal.base);
++        assert(!check.usable && check.present == refusal.present && !check.why.empty() && "anything else is refused");
++    }
++    assert(!sources.Check("", "tex/body.png").usable);
++    // The cache follows the model: a changed file is read again.
++    Put(model / "Model.pmx", Pmx("tex/other.png"));
++    assert(sources.Check(pmx, "tex/other.png").usable && !sources.Check(pmx, "tex/body.png").usable);
++    Put(model / "Model.pmx", Pmx("tex\\Body.png"));
++    assert(sources.Check(pmx, "tex/body.png").usable);
++
++    // "options": the model's folder is listed; for every refusal nothing is, with one text whether or not the
++    // folder exists or holds images.
++    GamePBR::DiscoveryCache discovery;
++    std::string why;
++    const auto listed = GamePBR::ListOptions(sources, discovery, pmx, "tex\\Body.png", why);
++    assert(listed.error.empty() && why.empty() && "the model's own folder is listed");
++    const std::set<std::string> files(listed.files.begin(), listed.files.end());
++    assert(files == std::set<std::string>({(fs::path("tex") / "Body.png").u8string(), (fs::path("maps") / "detail.png").u8string()}));
++    const std::vector<std::pair<std::string, std::string>> refused = {
++        {(victim / "anything.pmx").u8string(), "tex/body.png"},
++        {(root / "NoSuchFolder" / "x.pmx").u8string(), "tex/body.png"},
++        {(victim / "notes.pmx").u8string(), "tex/body.png"},
++        {(victim / "folder.pmx").u8string(), "tex/body.png"},
++        {pmx, "tex/other.png"},
++    };
++    for (const auto& [source, base] : refused) {
++        why.clear();
++        const auto options = GamePBR::ListOptions(sources, discovery, source, base, why);
++        assert(options.files.empty() && options.families.empty() && "nothing is listed for a refused source");
++        assert(options.error == std::string(GamePBR::SourceRefusal) && !why.empty() && "one text for every refusal");
++    }
++    // "maps": the same refusal, as the error the worker hands back.
++    for (const auto& [source, base] : refused) {
++        why.clear();
++        bool threw = false;
++        try {
++            GamePBR::SourceFolder(sources, discovery, source, base, why);
++        } catch (const std::exception& e) {
++            threw = std::string(e.what()) == GamePBR::SourceRefusal;
++        }
++        assert(threw && !why.empty() && "a manual choice reads no folder of a refused source");
++    }
++    why.clear();
++    assert(GamePBR::SourceFolder(sources, discovery, pmx, "tex/body.png", why).Files().size() == 2 && why.empty());
++    if (SUCCEEDED(com)) CoUninitialize();
++    std::cout << "PASS game source: the character's own model only (an existing .pmx the reader takes, a material "
++                 "drawing the base texture), cached by size and time; images without a model, missing and existing "
++                 "folders, a file or folder named .pmx and other files refused with one text; nothing listed then\n";
++    return 0;
++}
+diff --git a/tests/lua_path_policy_test.cpp b/tests/lua_path_policy_test.cpp
+index 36c5148d6549cf4db3a2fda08866cb38bf90cee4..f9f331b18b31101992a93183e02959da2a297095 100644
+--- a/tests/lua_path_policy_test.cpp
++++ b/tests/lua_path_policy_test.cpp
+@@ -42,13 +42,22 @@ static void LocalDrivePaths() {
+ static void ValuesAndOptions() {
+     for (const char* value : {"\\\\host\\share", "//host/share", "C:\\x", "c:/x", "D:", "/x", "\\x"})
+         assert(AbsolutePathValue(value));
+-    for (const char* value : {"", "1", "True", "0.5, 0.25", "0xABCDEF, 0x123", "zh-CN", "~gmod_topbr", "a:b", "ab:\\x"})
+-        assert(!AbsolutePathValue(value));
++    // The native loader's review of 2026-11-16 (finding 2): drive-relative values and ".." segments, the two
++    // values its reproduction pointed rtx.waterSim.rings.texture at, and look-alikes of ".." Windows trims.
++    for (const char* value : {"..\\..\\..\\..\\..\\..\\Users\\Public\\x.dds", "C:Users\\Public\\x.dds", "a:b", "z:",
++                              "..", "../x", "a/../b", "a\\..\\..\\b", "rtx-remix/..", ".. /x", "...\\x", ". ./x",
++                              "x/.. "})
++        assert(AbsolutePathValue(value) && "a drive-relative path or a climb out of the folder is refused");
++    for (const char* value : {"", "1", "True", "0.5, 0.25", "0xABCDEF, 0x123", "zh-CN", "~gmod_topbr", "ab:\\x",
++                              "-0x35d7392325ed05a9", "0x0000000000000001=0x0000000000000002",
++                              "A1B2C3D4E5F60718:1.000000,0.500000,0.250000", "1:2", ".5", "x..y", "a/..b/c", "a/b../c",
++                              ". ", "0.93, 0.97, 0.997"})
++        assert(!AbsolutePathValue(value) && "an option's own value is not a path");
+     for (const char* key : {"rtx.neuralRadianceCache.cudaDllDepsDirectoryPath", "RTX.NSIGHT.GRAPHICSCAPTUREINSTALLPATH",
+                             "rtx.nsight.graphicsCaptureOutputDir", "rtx.nsight.graphicsCaptureOutputFile",
+                             "rtx.cameraSequence.filePath", "rtx.atmosphere.moonAlbedoTexture",
+                             "rtx.atmosphere.starMapTexture", "rtx.captureInstanceStageName", "rtx.baseGameModPathRegex",
+-                            " rtx.baseGameModRegex "})
++                            " rtx.baseGameModRegex ", "rtx.waterSim.rings.texture", "RTX.WATERSIM.RINGS.TEXTURE"})
+         assert(RemixPathOption(key) && "an option naming a file or folder is left to rtx.conf");
+     for (const char* key : {"rtx.atmosphere.starMapEnable", "rtx.atmosphere.nubis3InteriorTexture", "rtx.showUI",
+                             "rtx.enablePreservePath", "rtx.gmod.fallbackMods", "rtx.debugView.debugViewIdx"})
+@@ -79,7 +88,7 @@ int main() {
+     ValuesAndOptions();
+     Folders();
+     std::cout << "PASS lua path policy: relative game paths (roots, UNC, \\\\?\\, drives, streams, \"..\", "
+-                 "shortened names, devices, control characters, length), local model files, absolute option values, "
+-                 "Remix path options and folders inside the converter's own\n";
++                 "shortened names, devices, control characters, length), local model files, absolute, drive-relative "
++                 "and climbing option values, Remix path options and folders inside the converter's own\n";
+     return 0;
+ }
+diff --git a/tests/model_reload_policy_test.cpp b/tests/model_reload_policy_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..57e5ceb890fc68cb514a10e8a56cd3fb15cf2890
+--- /dev/null
++++ b/tests/model_reload_policy_test.cpp
+@@ -0,0 +1,32 @@
++// GPL-2.0. The native loader's review of 2026-11-16 (finding 24): regression for source/model_reload_policy.h,
++// when RTX_ReloadModelsAfterHardwareSkinningSettings may discard studiorender's hardware meshes. Compiles alone
++// (no SDK): cl /EHsc /std:c++17 /W4 /WX /UNDEBUG tests/model_reload_policy_test.cpp
++#include <cassert>
++#include <iostream>
++#include <string>
++#include "../source/model_reload_policy.h"
++
++int main() {
++    ModelReloadPolicy::Allowance reloads;
++    std::string why;
++    // Queued rendering (the material system's own thread may be drawing the meshes): never, and not counted.
++    for (int i = 0; i < 5; ++i) {
++        why.clear();
++        assert(!reloads.Take(false, &why) && !why.empty() && reloads.Used() == 0 && "no flush under queued rendering");
++    }
++    // Single-threaded: cl_rtx.lua's two calls in one client Lua state (after the hardware-skinning setting is
++    // restored, and once the map has loaded with mat_queue_mode 0), then no more.
++    assert(reloads.Take(true) && reloads.Used() == 1);
++    assert(!reloads.Take(false) && reloads.Used() == 1);
++    assert(reloads.Take(true) && reloads.Used() == 2);
++    why.clear();
++    assert(!reloads.Take(true, &why) && !why.empty() && reloads.Used() == 2 && "at most two in one Lua state");
++    assert(!reloads.Take(true) && !reloads.Take(true));
++    // The next map opens the module again: two more.
++    reloads.Reset();
++    assert(reloads.Used() == 0 && !reloads.Take(false) && reloads.Take(true) && reloads.Take(true) && !reloads.Take(true));
++    std::cout << "PASS model reload policy: none under queued rendering (not counted), at most "
++              << ModelReloadPolicy::ReloadsPerLuaState << " single-threaded reloads in one client Lua state, again after "
++                 "the module opens for the next map\n";
++    return 0;
++}
+diff --git a/tests/remix_option_policy_test.cpp b/tests/remix_option_policy_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ba25a7cc8f622876f28ca1daa0a6ed3aec461fd2
+--- /dev/null
++++ b/tests/remix_option_policy_test.cpp
+@@ -0,0 +1,282 @@
++// GPL-2.0. The native loader's review of 2026-11-16 (finding 2): regression for source/remix_option_policy.h,
++// the Remix options RemixConfig.SetConfigVariable takes from Lua. Compiles alone (no SDK):
++//   cl /EHsc /std:c++17 /W4 /WX /UNDEBUG tests/remix_option_policy_test.cpp
++// "remix_option_policy_test --verdicts <file>" prints "allow <name>" or "refuse <name>" for each option name in
++// the file (one a line): the loader's gate hands it every option the RTX package's Lua sets.
++#include <cassert>
++#include <cstdio>
++#include <fstream>
++#include <iostream>
++#include <string>
++#include "../source/remix_option_policy.h"
++
++namespace {
++
++bool May(const std::string& key, const std::string& value) { return RemixOptionPolicy::LuaMaySet(key, value); }
++
++enum class Expect { Refused, HashList, Text };
++struct RuntimeOption {
++    const char* name;
++    Expect expect;
++};
++
++// Every option of the runtime the package ships (the fork's c6b48ed with runtime/patches 0001-0100, built as
++// 25c85588b) whose value is text, a key binding or a hash list: std::string, VirtualKeys, fast_unordered_set and
++// std::vector<XXH64_hash_t>, the types that name files, bind keys or throw on a bad item. test_lua_guards.py fails
++// while a runtime patch declares one of these this table does not name. Text and hash lists Lua sets are allowed;
++// every other one is refused.
++const RuntimeOption kRuntimeOptions[] = {
++    // std::string
++    {"rtx.welcomeMessage", Expect::Refused},
++    {"rtx.atmosphere.moonAlbedoTexture", Expect::Refused},
++    {"rtx.atmosphere.moonNormalTexture", Expect::Refused},
++    {"rtx.atmosphere.starMapTexture", Expect::Refused},
++    {"rtx.atmosphere.starMapGalaxyTexture", Expect::Refused},
++    {"rtx.atmosphere.starMapNebulaTexture", Expect::Refused},
++    {"rtx.cameraSequence.filePath", Expect::Refused},
++    {"rtx.gmod.fallbackMods", Expect::Refused},
++    {"rtx.gui.language", Expect::Refused},
++    {"rtx.gmod.eyeWhiteAliases", Expect::Text},
++    {"rtx.neuralRadianceCache.cudaDllDepsDirectoryPath", Expect::Refused},
++    {"rtx.nsight.graphicsCaptureInstallPath", Expect::Refused},
++    {"rtx.nsight.graphicsCaptureOutputDir", Expect::Refused},
++    {"rtx.nsight.graphicsCaptureOutputFile", Expect::Refused},
++    {"rtx.legacyEmissiveIntensitiesString", Expect::Text},
++    {"rtx.legacyEmissiveColorsString", Expect::Text},
++    {"rtx.legacyEmissiveAlphaInvertString", Expect::Refused},
++    {"rtx.legacyEmissiveForceAlbedoString", Expect::Refused},
++    {"rtx.thinWallThicknessOverridesString", Expect::Refused},
++    {"rtx.geometryGenerationHashRuleString", Expect::Refused},
++    {"rtx.geometryAssetHashRuleString", Expect::Refused},
++    {"rtx.baseGameModRegex", Expect::Refused},
++    {"rtx.baseGameModPathRegex", Expect::Refused},
++    {"rtx.captureTimestampReplacement", Expect::Refused},
++    {"rtx.captureInstanceStageName", Expect::Refused},
++    {"rtx.waterSim.rings.texture", Expect::Refused},
++    {"rtx.readbackTest.category", Expect::Refused},  // the runtime's unit tests (patch 0040)
++    {"rtx.threadTest.text", Expect::Refused},        // the runtime's unit tests (patch 0033)
++    // VirtualKeys
++    {"rtx.freeCam.keyMoveFaster", Expect::Refused},
++    {"rtx.freeCam.keyMoveForward", Expect::Refused},
++    {"rtx.freeCam.keyMoveLeft", Expect::Refused},
++    {"rtx.freeCam.keyMoveBack", Expect::Refused},
++    {"rtx.freeCam.keyMoveRight", Expect::Refused},
++    {"rtx.freeCam.keyMoveUp", Expect::Refused},
++    {"rtx.freeCam.keyMoveDown", Expect::Refused},
++    {"rtx.freeCam.keyPitchDown", Expect::Refused},
++    {"rtx.freeCam.keyPitchUp", Expect::Refused},
++    {"rtx.freeCam.keyYawLeft", Expect::Refused},
++    {"rtx.freeCam.keyYawRight", Expect::Refused},
++    {"rtx.remixMenuKeyBinds", Expect::Refused},
++    {"rtx.crashHotkey", Expect::Refused},
++    {"rtx.gpuCrashHotkey", Expect::Refused},
++    {"rtx.captureHotKey", Expect::Refused},
++    // fast_unordered_set
++    {"rtx.gmod.particleTexturesForSession", Expect::HashList},
++    {"rtx.gmod.decalTexturesForSession", Expect::HashList},
++    {"rtx.gmod.legacyEffectTexturesForSession", Expect::HashList},
++    {"rtx.gmod.ignoredOutlineTextures", Expect::HashList},
++    {"rtx.gmod.importedModelSmoothNormalTextures", Expect::HashList},
++    {"rtx.gmod.mmdAlphaTexturesForSession", Expect::HashList},
++    {"rtx.mmdAlphaTextures", Expect::Refused},
++    {"rtx.lightmapTextures", Expect::Refused},
++    {"rtx.skyBoxTextures", Expect::Refused},
++    {"rtx.skyBoxGeometries", Expect::Refused},
++    {"rtx.ignoreTextures", Expect::HashList},
++    {"rtx.ignoreLights", Expect::Refused},
++    {"rtx.uiTextures", Expect::Refused},
++    {"rtx.worldSpaceUiTextures", Expect::Refused},
++    {"rtx.worldSpaceUiBackgroundTextures", Expect::Refused},
++    {"rtx.legacyEmissiveTextures", Expect::Refused},
++    {"rtx.thinWalledOverrideTextures", Expect::Refused},
++    {"rtx.hideInstanceTextures", Expect::HashList},
++    {"rtx.playerModelTextures", Expect::Refused},
++    {"rtx.playerModelBodyTextures", Expect::Refused},
++    {"rtx.lightConverter", Expect::Refused},
++    {"rtx.particleTextures", Expect::Refused},
++    {"rtx.hairCardTextures", Expect::Refused},
++    {"rtx.beamTextures", Expect::Refused},
++    {"rtx.decalTextures", Expect::Refused},
++    {"rtx.dynamicDecalTextures", Expect::Refused},
++    {"rtx.singleOffsetDecalTextures", Expect::Refused},
++    {"rtx.nonOffsetDecalTextures", Expect::Refused},
++    {"rtx.terrainTextures", Expect::Refused},
++    {"rtx.opacityMicromapIgnoreTextures", Expect::HashList},
++    {"rtx.animatedWaterTextures", Expect::Refused},
++    {"rtx.sludgeTextures", Expect::Refused},
++    {"rtx.allowBakedLightingTextures", Expect::Refused},
++    {"rtx.ignoreAlphaOnTextures", Expect::Refused},
++    {"rtx.antiCulling.antiCullingTextures", Expect::Refused},
++    {"rtx.postfx.motionBlurMaskOutTextures", Expect::HashList},
++    {"rtx.raytracedRenderTargetTextures", Expect::HashList},
++    {"rtx.particleEmitterTextures", Expect::Refused},
++    {"rtx.smoothNormalsTextures", Expect::Refused},
++    {"rtx.test.testHashSetCopy", Expect::Refused},   // the runtime's unit tests (patch 0001)
++    {"rtx.test.testScopeHashSet", Expect::Refused},  // the runtime's unit tests (patch 0001)
++    // std::vector<XXH64_hash_t>
++    {"rtx.gmod.meshReplacementHashAliases", Expect::HashList},
++    {"rtx.rayPortalModelTextureHashes", Expect::Refused},
++};
++
++void RuntimeOptions() {
++    for (const auto& option : kRuntimeOptions) {
++        switch (option.expect) {
++        case Expect::Refused:
++            assert(!May(option.name, "1") && !May(option.name, "") && !May(option.name, "0x10") &&
++                   "a text, key or hash option the package's Lua does not set is refused");
++            break;
++        case Expect::HashList:
++            assert(RemixOptionPolicy::HashList(option.name) && May(option.name, "0x00000000DEADBEEF, -0x1") &&
++                   May(option.name, "") && !May(option.name, "zz") && !May(option.name, "0x1, x") &&
++                   "a hash list Lua sets takes hashes only");
++            break;
++        case Expect::Text:
++            assert(!RemixOptionPolicy::HashList(option.name) &&
++                   May(option.name, "0x0000000000000001=0x0000000000000002") &&
++                   May(option.name, "A1B2C3D4E5F60718:1.000000,0.500000,0.250000") &&
++                   !May(option.name, "..\\..\\x.dds") && !May(option.name, "C:x.dds") &&
++                   !May(option.name, "\\\\host\\share\\x") && "text Lua sets names no file");
++            break;
++        }
++    }
++}
++
++// What any server could set before (the review's reproduction and its list) stays with rtx.conf and the Remix menu.
++void TheReviewsList() {
++    for (const char* key :
++         {"rtx.captureHotKey", "rtx.captureShowMenuOnHotkey", "rtx.captureInstances", "rtx.captureMaxFrames",
++          "rtx.captureEnableMultiframe", "rtx.capture.correctBakedTransforms", "rtx.skyProbeSide",
++          "rtx.enableReplacementAssets", "rtx.enableReplacementLights", "rtx.enableReplacementMaterials",
++          "rtx.enableReplacementMeshes", "rtx.enableCrashHotkey", "rtx.crashHotkey", "rtx.gpuCrashHotkey",
++          "rtx.enableBreakIntoDebuggerOnPressingB", "rtx.profiler.memory.requestSnapshot", "rtx.profiler.memory.enable",
++          "rtx.automation.disableBlockingDialogBoxes", "rtx.automation.enableTestTrace", "rtx.waterSim.rings.texture",
++          "rtx.welcomeMessage", "rtx.splashMessageDisplayTimeSeconds", "rtx.hideSplashMessage", "rtx.gui.language",
++          "rtx.gui.logUntranslatedText", "rtx.remixMenuKeyBinds", "rtx.freeCam.keyMoveForward",
++          "rtx.cameraSequence.mode", "rtx.nsight.graphicsCaptureEnabled", "rtx.dumpAllInstancesOnFrame",
++          "rtx.gmod.fallbackMods", "rtx.gmod.enableInstrumentation", "rtx.gpuOverride.graphicsPreset.10DE_2684",
++          "rtx.showUI", "rtx.geometryAssetHashRuleString", "rtx.baseGameModRegex",
++          "rtx.atmosphere.moonAlbedoTexture", "rtx.atmosphere.starMapNebulaTexture"})
++        assert(!May(key, "False") && !May(key, "0x10") && !May(key, "1") && "kept from Lua");
++    for (const char* key : {"rtx.captureHotKey", "rtx.captureShowMenuOnHotkey", "rtx.skyProbeSide",
++                            "rtx.enableReplacementAssets", "rtx.waterSim.rings.texture", "rtx.welcomeMessage",
++                            "rtx.splashMessageDisplayTimeSeconds"})
++        assert(RemixOptionPolicy::Refused(key) && "the review's list is refused by name, not only by omission");
++    // Case and white space do not get past the lists.
++    for (const char* key : {"RTX.CAPTUREHOTKEY", " rtx.captureHotKey", "rtx.capture HotKey", "rtx.skyProbeSide\t",
++                            "rtx.\nenableReplacementAssets", "rtx.gmod.FallbackMods", "RTX.GMOD.ENABLEINSTRUMENTATION",
++                            "rtx.atmosphere.MOONALBEDOTEXTURE", " rtx.waterSim.rings.texture ",
++                            "rtx.atmosphere.moonAlbedo\nTexture"})
++        assert(!May(key, "1") && "a changed spelling is refused too");
++    // The reproduction's values.
++    assert(!May("rtx.waterSim.rings.texture", "..\\..\\..\\..\\..\\..\\Users\\Public\\x.dds"));
++    assert(!May("rtx.waterSim.rings.texture", "C:Users\\Public\\x.dds"));
++    assert(!May("rtx.captureHotKey", "0x10") && !May("rtx.captureShowMenuOnHotkey", "False"));
++    assert(!May("rtx.enableReplacementAssets", "False") && !May("rtx.skyProbeSide", "4096"));
++}
++
++// A sample of what the RTX package's Lua sets, one or more from each source (the gate hands the whole list to
++// --verdicts): it stays settable.
++void TheShippedOptions() {
++    for (const char* key :
++         {// the companion: sky, weather, night sky editor, menu, model layers, eye whites, effect categories
++          "rtx.skyMode", "rtx.ignoreGameDirectionalLights", "rtx.atmosphere.sunElevation", "rtx.atmosphere.moon0.phase",
++          "rtx.atmosphere.timeCycleEnable", "rtx.atmosphere.starMapConstellationBrightness",
++          "rtx.atmosphere.daytimeMoonBrightness", "rtx.atmosphere.noHorizon", "rtx.atmosphere.cloudCoverageMean",
++          "rtx.weather.precipitation.intensity", "rtx.weather.precipitation.appearance.widthScale",
++          "rtx.volumetrics.enable", "rtx.volumetrics.transmittanceMeasurementDistanceMeters",
++          "rtx.playerModel.enablePrimaryShadows", "rtx.graphicsPreset", "rtx.upscalerType", "rtx.qualityDLSS",
++          "rtx.frameGenerationType", "rtx.integrateIndirectMode", "rtx.pathMaxBounces", "rtx.skyBrightness",
++          "rtx.postfx.enable", "rtx.tonemap.psycho17.purityScale", "rtx.gmod.ignoreOutlineMeshes",
++          "rtx.gmod.ignoredOutlineTextures", "rtx.gmod.importedModelSmoothNormalTextures",
++          "rtx.gmod.mmdAlphaTexturesForSession", "rtx.gmod.automaticEyeWhites", "rtx.gmod.eyeWhiteBrightness",
++          "rtx.gmod.eyeWhiteAliases", "rtx.gmod.particleTexturesForSession", "rtx.gmod.decalTexturesForSession",
++          "rtx.gmod.legacyEffectTexturesForSession",
++          // the fixes: settings, physgun glow, map lights, ARC9, map configs, RTX Water, Poolrooms RTX
++          "rtx.ignoreGamePointLights", "rtx.ignoreGameSpotLights", "rtx.legacyEmissiveColorsString",
++          "rtx.legacyEmissiveIntensitiesString", "rtx.raytracedRenderTargetTextures", "rtx.neeCache.enableAnalyticalLight",
++          "rtx.risLightSampleCount", "rtx.di.initialSampleCount", "rtx.di.enableDenoiserGradient",
++          "rtx.denoiseDirectAndIndirectLightingSeparately", "rtx.suppressLightKeeping", "rtx.hideInstanceTextures",
++          "rtx.translucentMaterial.animatedWaterEnable", "rtx.translucentMaterial.animatedWaterPrimaryNormalMotion",
++          "rtx.volumetrics.enableAtmosphere",
++          // the bullet break simulator, VR, the content packs' looks
++          "rtx.recomputeTextureHashOnWrite", "rtx.opacityMicromapIgnoreTextures", "rtx.ignoreTextures",
++          "rtx.tonemap.tonemapOperator", "rtx.tonemap.hable.whitePoint", "rtx.tonemap.agx.look",
++          "rtx.autoExposure.enabled", "rtx.bloom.enable", "rtx.bloom.burnIntensity",
++          "rtx.enableDirectTranslucentShadows",
++          // the map RTX add-ons (Modern House RTX and the others built from the fork's map branches)
++          "rtx.fallbackLightMode", "rtx.volumetrics.froxelMaxDistanceMeters", "rtx.atmosphere.cloudLayer2CoverageMean",
++          // RemixConfig's shortcuts and the atmosphere bindings
++          "rtx.enableRaytracing", "rtx.renderResolutionScale", "rtx.defaultToAdvancedUI"})
++        assert(RemixOptionPolicy::Allowed(key) && !RemixOptionPolicy::Refused(key) && May(key, "1") &&
++               "what the package's Lua sets stays settable");
++    // The values the package sends.
++    assert(May("rtx.atmosphere.moon0.color", "0.11, 0.12, 0.135"));
++    assert(May("rtx.volumetrics.transmittanceColor", "0.93, 0.97, 0.997"));
++    assert(May("rtx.ignoreTextures", "0xABCDEF0123456789, -0x35d7392325ed05a9"));
++    assert(May("rtx.hideInstanceTextures", "41C11B59983BC9E7"));
++    assert(May("rtx.legacyEmissiveColorsString", "A1B2C3D4E5F60718:1.000000,0.500000,0.250000;0000000000000001:0.1,0.2,0.3"));
++    assert(May("rtx.legacyEmissiveIntensitiesString", "A1B2C3D4E5F60718:2.000000,0000000000000001:1.000000"));
++    assert(May("rtx.gmod.eyeWhiteAliases", "0x0000000000000001=0x0000000000000002"));
++    assert(May("rtx.translucentMaterial.animatedWaterPrimaryNormalMotion", "0.0100, -0.0200"));
++    assert(May("rtx.raytracedRenderTargetTextures", "0x9B6B9A2DE0DCA4E3"));
++    assert(May("rtx.gmod.ignoredOutlineTextures", ""));
++}
++
++void Values() {
++    for (const char* value : {"C:\\x", "C:x", "\\\\host\\share", "//host/share", "/x", "..", "a/../b", "..\\x",
++                              ".. /x", "x/..."})
++        assert(!May("rtx.skyBrightness", value) && "an allowed option takes no path");
++    for (const char* value : {"1", "1.5", "True", "0.5, 0.25, 0.125", "-3", "0x1", ""})
++        assert(May("rtx.skyBrightness", value));
++    for (const char* value : {"", "0x1", "0x00000000DEADBEEF", "deadbeef", "DEADBEEF, 0xabc", " 0x1 ,, 0x2 ",
++                              "-0x35d7392325ed05a9", "0x41C11B59983BC9E7, -0x35D7392325ED05A9", "41C11B59983BC9E7",
++                              "0XAB", "\t0x1\r\n"})
++        assert(RemixOptionPolicy::HashListValue(value) && May("rtx.ignoreTextures", value));
++    for (const char* value : {"zz", "0x", "-", "0x1g", "0x12345678901234567", "1 2", "0x1;0x2", "+0x1", "--0x1",
++                              "0x-1", "0x1, -", "C:x"})
++        assert(!May("rtx.ignoreTextures", value) && "a hash list takes hashes only");
++    // Sizes: the companion's longest lists fit; a name over 256 bytes or a value over 1 MiB does not.
++    std::string list;
++    for (int i = 0; i < 4096; ++i) {
++        char item[24];
++        std::snprintf(item, sizeof(item), "0x%016X, ", static_cast<unsigned>(i) * 2654435761u);
++        list += item;
++    }
++    assert(May("rtx.gmod.particleTexturesForSession", list));
++    assert(!May("rtx.skyBrightness", std::string(RemixOptionPolicy::MaxValue + 1, '1')));
++    assert(May("rtx.skyBrightness", std::string(RemixOptionPolicy::MaxValue, '1')));
++    assert(!May("", "1") && !May(std::string(RemixOptionPolicy::MaxKey + 1, 'a'), "1"));
++    std::string why;
++    assert(!RemixOptionPolicy::LuaMaySet("rtx.captureHotKey", "0x10", &why) && !why.empty());
++    why.clear();
++    assert(!RemixOptionPolicy::LuaMaySet("rtx.someUnknownOption", "1", &why) && !why.empty());
++    why.clear();
++    assert(RemixOptionPolicy::LuaMaySet("rtx.skyBrightness", "2", &why) && why.empty());
++}
++
++int Verdicts(const char* path) {
++    std::ifstream in(path, std::ios::binary);
++    if (!in) return 2;
++    std::string line;
++    while (std::getline(in, line)) {
++        if (!line.empty() && line.back() == '\r') line.pop_back();
++        if (line.empty()) continue;
++        std::cout << (RemixOptionPolicy::LuaMaySet(line, "1") ? "allow " : "refuse ") << line << '\n';
++    }
++    return 0;
++}
++
++}  // namespace
++
++int main(int argc, char** argv) {
++    if (argc == 3 && std::string(argv[1]) == "--verdicts") return Verdicts(argv[2]);
++    RuntimeOptions();
++    TheReviewsList();
++    TheShippedOptions();
++    Values();
++    std::cout << "PASS remix option policy: " << sizeof(kRuntimeOptions) / sizeof(kRuntimeOptions[0])
++              << " text, key and hash options of the runtime (allowed lists take hashes only, allowed text no paths), "
++                 "the review's list kept from Lua whatever its spelling, what the package's Lua sets still settable, "
++                 "path values, hash items and sizes\n";
++    return 0;
++}

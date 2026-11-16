@@ -39,6 +39,18 @@ static void remoteShapeBudget(){
  for(size_t i=0;i<SceneShare::ImportLimit+1;i++){auto b=sphere(1.f+float(i));auto key=hash(b);if(!i)first=key;full.accept(key,b);time+=.001;}
  if(full.imported.size()!=SceneShare::ImportLimit||full.imported.contains(first))throw std::runtime_error("The remote shape limit was not kept");
  full.clear();if(!full.imported.empty()||full.importedBytes)throw std::runtime_error("Clearing kept remote shapes");
+ // A mesh with no triangle and a set of no hulls hold nothing to collide with; their inverted bounds passed any
+ // culling and Bullet's tree over zero triangles wrote through null (review finding 25): refused, like a shape
+ // with a coordinate far past any map. A frame's speeds are capped (they only widen the culling box).
+ SceneShare guarded;guarded.clock=[&]{return time;};
+ auto header=[](int kind,int vertices,int hulls){Bytes b(48,0);uint32_t magic=0x43534d4d,version=1;std::memcpy(b.data(),&magic,4);std::memcpy(b.data()+4,&version,4);std::memcpy(b.data()+8,&kind,4);std::memcpy(b.data()+16,&vertices,4);std::memcpy(b.data()+20,&hulls,4);return b;};
+ auto refused=[&](const Bytes& b){try{guarded.accept(hash(b),b);}catch(const std::exception&){return true;}return false;};
+ if(!refused(header(SceneGeometry::Triangles,0,0))||!refused(header(SceneGeometry::Convexes,0,0)))throw std::runtime_error("An empty remote collision shape was accepted");
+ auto triangle=[&](float reach){auto b=header(SceneGeometry::Triangles,3,0);for(float v:{0.f,0.f,0.f,reach,0.f,0.f,0.f,1.f,0.f}){auto at=b.size();b.resize(at+4);std::memcpy(b.data()+at,&v,4);}return b;};
+ if(refused(triangle(1))||!refused(triangle(1e7f)))throw std::runtime_error("Remote triangle coordinates are not checked against the map's scale");
+ auto shape=triangle(1);auto key=hash(shape);auto fast=frame({key},20);fast["objects"][0]["velocity"]={1e30,0,0};fast["objects"][0]["angular"]={0,-1e30,0};
+ guarded.publish(client,fast);auto scene=readScene(&client);auto& published=scene->objects.at(0);
+ if(published.velocity.length()>1.0001e5f||published.angular.length()>1.0001e5f||published.velocity.x()<9.999e4f)throw std::runtime_error("Remote collision speeds are not capped");
 }
 int main(int argc,char** argv){try{
  remoteShapeBudget();

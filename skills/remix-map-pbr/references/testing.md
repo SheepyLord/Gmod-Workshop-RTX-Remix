@@ -84,7 +84,10 @@ what was wrong was fixed and shot again (`v1` to `v19` on gm_poolrooms, `wip2` t
 - `python stock.py on` turns the running map into stock GMod RTX: the addon's lights and Remix options off,
   its scoped engine settings back to the user's (the whole map drawn, the game's lights handed to Remix the
   user's way) and `rtx.enableReplacementMaterials False`. `stock.py off` brings the remaster back (the
-  replacement materials on, the engine settings applied, the addon reloaded).
+  replacement materials on, the engine settings applied, the addon reloaded). Since the review of 2026-11-16
+  `RemixConfig.SetConfigVariable` refuses the replacement switches (and every option the RTX package's own Lua does
+  not set): a `stock.py` that sets them through it must use the debug module's `RTXDebug.Remix.SetConfig` and
+  `RestoreConfig` in a local single-player game instead.
 - gm_poolrooms took its `before` tour from stock Remix before anything was installed.
 - `python compare.py <after> [before]` reads `gallery.json` (`"gallery"`: cameras for the gallery, entries
   like `time_dusk/ext_lawn` taking a shot from another label; `"compare"`: cameras for pairs) and writes

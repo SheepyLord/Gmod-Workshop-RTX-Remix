@@ -6,6 +6,61 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The repository review of 2026-11-16: what a server or a Workshop item can reach, and crashes fixed
+
+- **A server can no longer change your Remix settings beyond what the RTX package itself sets.** Its scripts could set
+  any Remix option through the RTX fixes: a capture key that wrote a capture to disk on every frame you held Shift, a
+  huge sky probe, the replacement switches, crash keys, a texture file anywhere on your drive. Now only the options the
+  package's own Lua sets are taken (the sky, weather and fog, the tone curve, the game's lights, the RTX Remix tab's
+  settings, the session's texture lists), and no value may name a drive, a root, a network path or a parent folder.
+  Another add-on that sets other Remix options gets `false` and a console line naming the option
+  ([ADR 0234](docs/decisions/0234-what-a-server-a-workshop-item-and-lua-may-reach.md)).
+- **A Workshop item's Remix mod can no longer read files outside its own folder or change your settings**: a Remix
+  Logic graph's option layer reads only config files in its mod's folder and sets only how the scene looks (sky,
+  weather, fog, exposure, tone mapping, bloom, post effects), and a value Remix cannot read no longer ends the game
+  (runtime patch 0101).
+- **The welcome message can no longer crash the game, and the start-up splash shows once**, at the start, for at most
+  a minute (runtime patch 0102).
+- **The start-up text now lives in `rtx-remix\mods\nativeloader_ui`**, where no server's scripts can write (it was in
+  `garrysmod\data\nativeloader_ui`, which they could). A copy you customised in the old folder is no longer used:
+  copy it to the new folder once (runtime patch 0103).
+- **VR starts only in a single-player game, as the game engine itself reports it.** A multiplayer server's scripts can
+  no longer start SteamVR, type into the game's window or open the SteamVR keyboard; VR also refuses while a demo plays.
+- **A multiplayer game started from the command line or the console with RTX no longer leaves cheats on for every
+  player**: once it runs, the game turns `sv_cheats` off from the main menu's side, as GMod's New Game screen does
+  (GMod lets no game script change it). Single-player keeps them.
+- **Servers' scripts no longer see your Windows folders**: the `poster` status names `screenshots/<name>.png`, and on
+  another server the Model Hotloader gives paths relative to the game or file names only. Its list of where your models
+  came from (for Reload) moved from `garrysmod\data\mmd_hotloader` to `%LOCALAPPDATA%\ModelHotloader\sources`, once,
+  with its entries.
+- **Seamless Portals: a pasted portal with an absurd side count or size no longer hangs the server and every player**:
+  3 to 100 sides, sizes up to 2048 (every tool's and map's portals keep theirs).
+- **Lights can no longer be made infinite or invalid for every RTX player**: stock lights and lamps, projected textures
+  and RT lights stay within the ranges of their own controls. **The six RT light tools now count against the server's
+  entity limit (`sbox_maxsents`)**, and their lights have an owner and appear in cleanup and undo. The RT light editor
+  keeps radii and sizes up to 2000, as its sliders show (it had cut them to 200 and 400).
+- **The Sky Editor is for administrators**, spawned or pasted, and its values stay in range.
+- **Advanced Material Editor with `advmat_adminonly 0`**: a player changes only entities they may use the tool on
+  (their own model, other players only as an administrator, props as prop protection allows).
+- **Model Hotloader on a server**: replace works one at a time and under the server's spawn limits; sizes snap to steps
+  of 0.05 and masses to whole kilograms; making yourself a character waits ten seconds on a server (administrators and
+  single-player do not wait); arms previews are kept only for the session, and saved rigs are trimmed to the newest 16
+  for each model, role and voice; a pasted old-style character keeps only its look and place and arrives a moment later,
+  under the ragdoll limit; reset works once a second and only you see its notice; the Mesh Separator puts a piece back
+  in place only at its model.
+- **Crashes and leaks fixed in the Model Hotloader**: a crafted cached texture no longer carries game memory into a file
+  other servers can read; a crafted model manifest no longer crashes every start; a model with stacked triangles no
+  longer takes gigabytes to load; an empty collision shape from another player no longer crashes the physics;
+  `RegisterSourceShadow` checks its entity; file-access grants no longer hand their keys to scripts; the shared-prop
+  decoder no longer writes past an array.
+- **ToPBR's game-map lists read only a character's own model folder**, and **the model reload after the hardware
+  skinning settings runs only when the game draws on its main thread** (at most twice a map), so a script can no longer
+  crash it under multicore rendering.
+- For maintainers: the maintainer's local path is gone from `rtx_agent`'s README and `check_repo.py` refuses any Windows
+  account folder under `packages/`; the development publish covers the VR and load accelerator sources, stops when the
+  inputs change while it builds, and uploads only a package `nlctl.exe` checked, its manifest compact and under the
+  loader's 1 MiB limit. Details: [review-fixes-report.md](docs/handover/review-fixes-report.md).
+
 ### Imported game PBR says what PBR each material has; a dance's music ends with its NPC (the user's report of 2026-11-16)
 
 - **Imported game PBR (RTX Remix tab, Rendering) now shows what PBR each material of a character has**: the Remix mod

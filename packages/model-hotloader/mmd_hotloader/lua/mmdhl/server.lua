@@ -5,6 +5,19 @@ util.AddNetworkString('mmdhl_action') util.AddNetworkString('mmdhl_notice')
 util.AddNetworkString('mmdhl_spawn_status')
 cleanup.Register('mmdhl')
 local function notice(p,text) if IsValid(p) then net.Start('mmdhl_notice') net.WriteString(tostring(text)) net.Send(p) end end
+-- A number a client sent, clamped to [low, high] on a grid of 1/per (NaN and infinities: nil). Nearby requests then
+-- share one carrier instead of each making its own on disk (review finding 4).
+local function quantized(value,per,low,high)
+ value=tonumber(value)
+ if not value or value~=value or value==math.huge or value==-math.huge then return nil end
+ return math.min(high,math.max(low,math.floor(value*per+.5)/per))
+end
+mmdhl.QuantizedOption=quantized
+-- One physics reset a second per player (review finding 20).
+local function resetAllowed(p)
+ if (p.MMDHLNextReset or 0)>CurTime() then return false end
+ p.MMDHLNextReset=CurTime()+1 return true
+end
 local loading={}
 local fitSequence=0
 -- A map cleanup bumps this. Spawns still loading when it happens end with one
@@ -140,13 +153,21 @@ net.Receive('mmdhl_action',function(_,p)
   if not mmdhl.CanUseAsset(p,id) then reply('error',L'server.error.spawn_not_approved') return end
   if p.MMDHLSpawnPending then reply('error',L'server.error.spawn_pending') return end
   local role=({ragdoll=true,citizen=true,combine=true,player=true})[settings.role or 'ragdoll'] and (settings.role or 'ragdoll') or 'ragdoll'
+  -- A player model makes a carrier on disk for each new size (review finding 4): on a server one every ten seconds
+  -- per player (administrators: no wait), and the server's own rule is asked before any is made (the rig is nil here;
+  -- it is asked again with the rig before the model is set).
+  if role=='player' then
+   if not game.SinglePlayer() and not p:IsAdmin() and (p.MMDHLNextPlayerModel or 0)>CurTime() then reply('error',L'server.error.spawn_pending') return end
+   if hook.Run('MMDHLCanSetPlayerModel',p,id)==false then reply('error',L'actors.error.player_model_disallowed') return end
+   p.MMDHLNextPlayerModel=CurTime()+10
+  end
   local tr=p:GetEyeTrace()
   if role~='player' and (not tr.Hit or tr.HitSky or tr.StartSolid or tr.HitPos:DistToSqr(p:EyePos())>4096^2) then reply('error',L'server.error.spawn_aim') return end
   local pos=role=='player' and p:GetPos() or tr.HitPos+tr.HitNormal*3
   local weapon=mmdhl.NPCWeapon(p,role)
   if role~='player' and gamemode.Call(role=='ragdoll' and 'PlayerSpawnRagdoll' or 'PlayerSpawnNPC',p,role=='ragdoll' and id or mmdhl.ActorClass(role),weapon)==false then reply('error',L'server.error.spawn_forbidden') return end
   p.MMDHLSpawnPending=true reply('loading',L'server.progress.loading')
-  mmdhl.Spawn(p,id,{role=role,weapon=weapon,gender=settings.gender,armsParts=settings.armsParts,bodygroups=mmdhl.CleanBodygroups(settings.bodygroups),position={pos.x,pos.y,pos.z},angles={mmdhl.FacingPlayerAngles(p,pos,role):Unpack()},backend='source',secondaryBackend=mmdhl.ValidSecondaryBackend(settings.secondaryBackend),frozen=settings.frozen==true,collisionFlags=mmdhl.ValidCollisionFlags(settings.collisionFlags) or mmdhl.CollideDefault,mass=tonumber(settings.mass) and math.Clamp(tonumber(settings.mass),1,500) or nil,scaleMultiplier=math.Clamp(tonumber(settings.scaleMultiplier) or 1,.1,4)},function(created,err)
+  mmdhl.Spawn(p,id,{role=role,weapon=weapon,gender=settings.gender,armsParts=settings.armsParts,bodygroups=mmdhl.CleanBodygroups(settings.bodygroups),position={pos.x,pos.y,pos.z},angles={mmdhl.FacingPlayerAngles(p,pos,role):Unpack()},backend='source',secondaryBackend=mmdhl.ValidSecondaryBackend(settings.secondaryBackend),frozen=settings.frozen==true,collisionFlags=mmdhl.ValidCollisionFlags(settings.collisionFlags) or mmdhl.CollideDefault,mass=role~='player' and quantized(settings.mass,1,1,500) or nil,scaleMultiplier=quantized(settings.scaleMultiplier,20,.1,4) or 1},function(created,err)
    if IsValid(p) then p.MMDHLSpawnPending=nil end
    reply(IsValid(created) and 'ready' or 'error',err or (role=='player' and L'server.spawned.player' or role=='ragdoll' and L'server.spawned.ragdoll' or L'server.spawned.npc'),created)
   end,function(message) reply('loading',message) end)
@@ -161,7 +182,7 @@ net.Receive('mmdhl_action',function(_,p)
  if IsValid(ent) and ent:GetClass()~='mmdhl_ragdoll' and mmdhl.IsMMD(ent) then
   local h=mmdhl.GetInstance(ent)
   if action=='freeze' and ent:GetClass()=='prop_ragdoll' then local motion=ent:GetPhysicsObjectNum(0):IsMotionEnabled() for i=0,17 do local b=ent:GetPhysicsObjectNum(i) b:EnableMotion(not motion) if not motion then b:Wake() end end
-  elseif action=='reset' then mmdhl.ResetPhysics(ent)
+  elseif action=='reset' then if resetAllowed(p) then mmdhl.ResetPhysics(ent,p) end
   elseif action=='remove' then if ent:IsPlayer() then mmdhl.RemovePlayerModel(ent) else ent:Remove() end
   elseif action=='morph' then local data=util.JSONToTable(value) or {} mmdhl.SetMorphWeight(ent,tonumber(data.index) or 0,tonumber(data.weight) or 0)
   elseif action=='bone' then local data=util.JSONToTable(value) or {} mmdhl.SetManualBonePose(ent,tonumber(data.index) or 0,data)
@@ -171,14 +192,28 @@ net.Receive('mmdhl_action',function(_,p)
    local P=mmdhl.physics
    if P and P.CollisionFit then P.CollisionFit(p,ent,value,notice) end
   elseif action=='replace' and not ent:IsPlayer() then
-   local options=table.Copy(ent.MMDOptions) options.backend='source' options.frozen=true
-   mmdhl.Spawn(p,id,options,function(replacement,err) if IsValid(replacement) then ent:Remove() else notice(p,err) end end)
+   -- One replacement at a time per player and per character, under the spawn's own rules (review finding 3: a burst
+   -- of replaces had queued one spawn each, without the gamemode's limits).
+   if p.MMDHLSpawnPending or ent.MMDHLReplacing then notice(p,L'server.error.spawn_pending') return end
+   local options=table.Copy(ent.MMDOptions or {}) options.backend='source' options.frozen=true
+   local role=({ragdoll=true,citizen=true,combine=true})[options.role or 'ragdoll'] and (options.role or 'ragdoll') or 'ragdoll'
+   options.role=role
+   if gamemode.Call(role=='ragdoll' and 'PlayerSpawnRagdoll' or 'PlayerSpawnNPC',p,role=='ragdoll' and id or mmdhl.ActorClass(role),options.weapon)==false then notice(p,L'server.error.spawn_forbidden') return end
+   p.MMDHLSpawnPending=true ent.MMDHLReplacing=true
+   mmdhl.Spawn(p,id,options,function(replacement,err)
+    if IsValid(p) then p.MMDHLSpawnPending=nil end
+    if IsValid(ent) then ent.MMDHLReplacing=nil end
+    if not IsValid(replacement) then notice(p,err) return end
+    -- The character it replaces went meanwhile (removed, cleaned up): the replacement goes too.
+    if not IsValid(ent) then replacement:Remove() return end
+    ent:Remove()
+   end)
   end return
  end
  if not IsValid(ent) or ent:GetClass()~='mmdhl_ragdoll' then return end
  local h=ent:GetInstance()
  if action=='freeze' then ent:SetFrozen(not ent:GetFrozen()) native.SetFrozen(h,ent:GetFrozen())
- elseif action=='reset' then mmdhl.ResetPhysics(ent)
+ elseif action=='reset' then if resetAllowed(p) then mmdhl.ResetPhysics(ent,p) end
  elseif action=='remove' then ent:Remove()
  elseif action=='morph' then local data=util.JSONToTable(value) or {} native.SetMorph(h,tonumber(data.index) or 0,tonumber(data.weight) or 0)
  elseif action=='bone' then local data=util.JSONToTable(value) or {} native.SetBonePose(h,tonumber(data.index) or 0,util.TableToJSON(data))
@@ -187,13 +222,18 @@ net.Receive('mmdhl_action',function(_,p)
   -- path creates its instance directly. A withdrawn model is not served to
   -- other players, who would see nothing.
   if not mmdhl.CanUseAsset(p,id) then notice(p,L'server.error.not_approved') return end
-  local options=table.Copy(ent.MMDOptions) local bounds=mmdhl.Decode(native.GetBounds(h)) options.center=bounds and bounds.center options.frozen=ent:GetFrozen()
+  -- One at a time (review finding 3): a burst had made an instance each and destroyed the same old one again.
+  if ent.MMDHLReplacing then notice(p,L'server.error.spawn_pending') return end
+  local options=table.Copy(ent.MMDOptions or {}) local bounds=mmdhl.Decode(native.GetBounds(h)) options.center=bounds and bounds.center options.frozen=ent:GetFrozen()
+  ent.MMDHLReplacing=true
   mmdhl.LoadAsset(id,function(info,err)
    if not IsValid(ent) then return end
+   ent.MMDHLReplacing=nil
    if not info then notice(p,err) return end
    local replacement,e=native.CreateInstance(id,util.TableToJSON(options))
    if not replacement then notice(p,e) return end
-   ent:SetInstance(replacement) ent:SetAsset(id) ent.MMDOptions=options native.DestroyInstance(h)
+   local old=ent:GetInstance()
+   ent:SetInstance(replacement) ent:SetAsset(id) ent.MMDOptions=options native.DestroyInstance(old)
    ent.MMDInfo=nil ent.MMDAngles=nil ent.MMDFlexWeights=nil ent.MMDEyeTarget=nil ent.MMDHeld=nil ent.FingerIndex=nil
   end)
  end
@@ -206,23 +246,53 @@ hook.Add('Tick','MMDHL.Simulation',function()
  if err then mmdhl.simulationError=err mmdhl.simulationEnabled=false ErrorNoHalt('[Model Hotloader] '..mmdhl.Localize(err)..'\n') end
 end)
 hook.Add('PostCleanupMap','MMDHL.Cleanup',function() mmdhl.cleanupGeneration=mmdhl.cleanupGeneration+1 native.Clear() mmdhl.simulationEnabled=false end)
+-- Three finite numbers (a position or angles a dupe carries), else nil.
+local function triple(t)
+ if not istable(t) then return nil end
+ local out={}
+ for i=1,3 do local v=tonumber(t[i]) if not v or v~=v or v==math.huge or v==-math.huge then return nil end out[i]=v end
+ return out
+end
+-- What a dupe or a save may set on a character: how it looks and where it is, never fitting, animation or physics
+-- options (review finding 12: the factory passed whatever the paste carried to a full fit on the main thread). The
+-- server's saved corrections and the actor setup come from mmdhl.Spawn, as for the spawn menu.
+function mmdhl.DupeOptions(options)
+ options=istable(options) and options or {}
+ return {role='ragdoll',backend='source',gender=options.gender=='male' and 'male' or 'female',
+  bodygroups=mmdhl.CleanBodygroups and mmdhl.CleanBodygroups(options.bodygroups) or nil,frozen=options.frozen==true,
+  secondaryBackend=mmdhl.ValidSecondaryBackend and mmdhl.ValidSecondaryBackend(options.secondaryBackend) or nil,
+  collisionFlags=mmdhl.ValidCollisionFlags and mmdhl.ValidCollisionFlags(options.collisionFlags) or mmdhl.CollideDefault,
+  scaleMultiplier=quantized(options.scaleMultiplier,20,.1,4) or 1,mass=quantized(options.mass,1,1,500),
+  position=triple(options.position),angles=triple(options.angles)}
+end
 duplicator.RegisterEntityClass('mmdhl_ragdoll',function(p,data)
  local entry=data.EntityMods and data.EntityMods.MMDHL if not entry then return end
- -- Both backends below create the character directly; a dupe or save may name
- -- a model whose approval was withdrawn since.
+ -- Both backends below create the character; a dupe or save may name a model whose approval was withdrawn since.
  if not mmdhl.CanUseAsset(p,entry.asset) then notice(p,L'persistence.error.model_not_approved') return end
+ if not IsValid(p) or not isstring(entry.asset) then return end
+ -- The gamemode's rules for a ragdoll (Sandbox's limit), as for a spawn.
+ if gamemode.Call('PlayerSpawnRagdoll',p,entry.asset)==false then return end
+ local options=mmdhl.DupeOptions(entry.options)
+ if istable(entry.state) and entry.state.frozen~=nil then options.frozen=entry.state.frozen==true end
  if GetConVar('mmdhl_native_carrier'):GetBool() and mmdhl.SpawnNative then
-  local options=table.Copy(entry.options or {}) options.backend='source' options.frozen=entry.state and entry.state.frozen or options.frozen
-  -- Dupe data comes from the pasting client: bone pins are the server's.
-  options.boneMap=mmdhl.SavedBoneMap(entry.asset)
-  local oldCenter=entry.state and entry.state.center or options.position or {0,0,0}
-  local offset=data.Pos-Vector(unpack(oldCenter)) options.position={((Vector(unpack(options.position or {0,0,0}))+offset)):Unpack()} options.center=nil
-  local ent=mmdhl.SpawnNative(p,entry.asset,options) if not IsValid(ent) then return end
-  ent:SetFlexScale(entry.flexScale or 1)
-  if entry.state then for i,pose in ipairs(entry.state.manual or {}) do native.SetBonePose(mmdhl.GetInstance(ent),i-1,util.TableToJSON(pose)) end for i,weight in ipairs(entry.state.morphs or {}) do mmdhl.SetMorphWeight(ent,i-1,entry.flexScale==0 and 0 or weight/(entry.flexScale or 1)) end end
-  return ent
+  local oldCenter=entry.state and triple(entry.state.center) or options.position or {0,0,0}
+  local offset=data.Pos-Vector(unpack(oldCenter)) options.position={((Vector(unpack(options.position or {0,0,0}))+offset)):Unpack()}
+  -- The fit runs as for any spawn (asynchronously); the duplicator gets no entity back and the character arrives a
+  -- moment later with its own undo entry.
+  mmdhl.Spawn(p,entry.asset,options,function(ent,err)
+   if not IsValid(ent) then if err then notice(p,err) end return end
+   ent:SetFlexScale(tonumber(entry.flexScale) or 1)
+   if istable(entry.state) then
+    for i,pose in ipairs(istable(entry.state.manual) and entry.state.manual or {}) do if istable(pose) then native.SetBonePose(mmdhl.GetInstance(ent),i-1,util.TableToJSON(pose)) end end
+    for i,weight in ipairs(istable(entry.state.morphs) and entry.state.morphs or {}) do
+     weight=tonumber(weight) or 0
+     mmdhl.SetMorphWeight(ent,i-1,entry.flexScale==0 and 0 or weight/(tonumber(entry.flexScale) or 1))
+    end
+   end
+  end)
+  return
  end
- local options=table.Copy(entry.options or {}) options.center={data.Pos.x,data.Pos.y,data.Pos.z}
+ options.center={data.Pos.x,data.Pos.y,data.Pos.z}
  local h,err=native.CreateInstance(entry.asset,util.TableToJSON(options)) if not h then notice(p,err) return end
  local ent=ents.Create('mmdhl_ragdoll') if not IsValid(ent) then native.DestroyInstance(h) notice(p,L'server.error.native_ragdoll_failed') return end
  ent:SetAsset(entry.asset) ent:SetInstance(h) ent:SetFrozen(options.frozen or false) ent.MMDOptions=options ent:SetPos(data.Pos) ent:Spawn() ent:SetCreator(p)

@@ -69,7 +69,10 @@ pool floor hidden in the user's game (2026-10-26).
 
 - Report the counts: textures, predicted, matched live, live-only, left without a replacement and why.
 - Flip the mod in the running game from the same camera: `stock.py on`/`off` (it also takes the addon out)
-  or `RemixConfig.SetConfigVariable("rtx.enableReplacementMaterials", "False")` and back to `"True"`.
+  or, in a local single-player game, the debug module's
+  `RTXDebug.Remix.SetConfig("rtx.enableReplacementMaterials", "False", "True")` and
+  `RTXDebug.Remix.RestoreConfig("rtx.enableReplacementMaterials")`. `RemixConfig.SetConfigVariable` refuses the
+  replacement switches since the review of 2026-11-16 (the fixes' option allowlist: any server's Lua reaches it).
 - Roughness overrides that are hard to see in shading show in Remix debug view 89 (primary perceptual
   roughness): with the debug module under `sv_cheats 1`, `Remix.SetDebugView(89, 0)`, undone with
   `Remix.RestoreConfig("rtx.debugView.debugViewIdx")` (used for character hair, 2026-10-26). The debug
@@ -262,7 +265,10 @@ keep a look on its map:
 ## Remix options set from Lua
 
 `RemixConfig.SetConfigVariable(key, value)` sets a live option (values as strings, vectors as
-`"x, y, z"`). `RemixConfig.GetConfigVariable(key)` returns the value in `rtx.conf`, or `""`, never the live
+`"x, y, z"`). Since the review of 2026-11-16 it sets only the options the RTX package's own Lua sets (the sky,
+weather, fog, tone curve and the other groups the fixes' `lua-guards` patch README lists, in
+`packages/fixes/licenses/oversized-skinning/lua-guards/README.md`) and returns `false` for any other; a remaster that
+needs one more asks for it to be added there. `RemixConfig.GetConfigVariable(key)` returns the value in `rtx.conf`, or `""`, never the live
 value; so to put an option back, keep `rtx.conf`'s value or your own defaults table. Apply the options when
 the map starts, again a few times in the first minute (the addons re-apply three times, 20 s apart) because
 other code may reset them, and restore them at `ShutDown`. These are live changes only; the remaster writes

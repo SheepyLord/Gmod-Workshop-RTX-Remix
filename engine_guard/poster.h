@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -80,6 +81,25 @@ Runtime runtime();
 const char* state_name(std::uint32_t state);
 
 std::string utf8(const wchar_t* text);
+
+// What Lua and the console see of a poster's file (review finding 18): "screenshots/<name>" for a file in a folder
+// named screenshots (the command's own, <garrysmod>\screenshots), otherwise the file's name alone. Never a drive, a
+// share, the folders above it or a backslash: any client Lua, a server's included, can read PosterStatus(), and an
+// absolute path names the player's folders, often their Windows account.
+std::string shown_name(const wchar_t* path);
+// The runtime's English reason with the poster's absolute path, and its folder, put as shown_name puts them.
+std::string shown_reason(const char* why, const wchar_t* path);
+
+// nlengineguard.PosterStatus()'s fields, read from the runtime: what any client Lua may see of the poster.
+struct View {
+  const char* state = "idle";
+  std::uint32_t generation = 0, width = 0, height = 0, columns = 0, rows = 0, done = 0, frame = 0, frames = 0;
+  std::int32_t error = 0;
+  std::string why;   // shown_reason
+  std::string path;  // shown_name, never absolute
+};
+// The runtime's poster status as Lua gets it; nothing without the runtime's poster, or when its status call refuses.
+std::optional<View> view(const Runtime& runtime);
 
 // The client realm of an RTX start: takes GMod's poster command over for the process (this module is pinned). Once
 // done it stays; a later call says so. Never throws.

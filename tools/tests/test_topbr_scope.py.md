@@ -12,7 +12,7 @@ cd tools; python -m unittest discover -s tests -p test_topbr_scope.py -v
 - `test_complete_files_are_the_patch_applied`: `topbr-scope.patch` touches exactly `to_pbr.cpp`, `to_pbr.h`, the new
   `topbr_scope.h` and `tests/topbr_scope_test.cpp`. The first two are the patch applied to topbr-publish's copies (no
   later patch changes them); the new files are its added lines. `tools/ci/pins.json` builds the module with the patch
-  last, right after eye-texgen.
+  right after eye-texgen (the fifteenth, [lua-guards](test_lua_guards.py.md), follows it).
 - `test_every_queue_takes_only_the_players_range`: `QueueMaterialsForProcessing` skips a material outside the range
   before it is queued, `ProcessSingleMaterial` refuses one, and the worker drops a queued one a narrower range left out
   without marking it processed (so a wider range takes it later); `PumpSnapshots` reads the player's setting

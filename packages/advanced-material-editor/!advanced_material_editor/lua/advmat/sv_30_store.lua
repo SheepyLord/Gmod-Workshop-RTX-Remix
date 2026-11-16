@@ -67,6 +67,11 @@ Store.MAX_DATABASE_BYTES = math.floor( AdvMat.Net.MAX_SYNC_SIZE * 0.75 )
 -- told it is a conflict separately, so the text is only for people.
 Store.CONFLICT = "somebody else changed this material after you loaded it"
 
+-- The reason given when a player may not change the entity a save names
+-- (AdvMat.CanEditEntity). The player is told with the translated "not allowed"
+-- notice, so this text is only for the refused editor's bookkeeping.
+Store.NOT_ALLOWED = "you may not change that entity's materials"
+
 -- The wiki explicitly recommends a verbose modifier name: the registry is
 -- global and a collision silently hijacks another addon's modifier.
 local DUPE_MODIFIER = "Advanced Material Editor - submaterials"
@@ -475,6 +480,17 @@ end
 --- the rule stored at that identity now (nil when there is none or the
 --- identity was invalid).
 function Store.Set( scope, key, index, mat, shader, params, ply, gen, expect )
+	-- An entity rule restyles that one entity for everybody: a player's edit of
+	-- it, a save naming its index or the tool's paste, must be one this player
+	-- may make (AdvMat.CanEditEntity; review finding 23). A target that is gone
+	-- is left to Prepare to report.
+	if IsValid( ply ) and tonumber( scope ) == AdvMat.SCOPE.ENTITY then
+		local ent = isentity( key ) and key or Entity( tonumber( key ) or 0 )
+		if IsValid( ent ) and not AdvMat.CanEditEntity( ply, ent ) then
+			return nil, Store.NOT_ALLOWED, nil
+		end
+	end
+
 	local rule, entOrReason, rejected = Prepare( scope, key, index, mat, shader, params, ply, gen )
 	if not rule then
 		return nil, entOrReason, rejected and CurrentRule( rejected ) or nil
@@ -864,7 +880,9 @@ local function HandleEdit( ply, remove )
 		SendRejected( ply, msg, result, current, remove )
 		-- A conflict is explained by the editor that sent it, which knows the
 		-- slot and what the player can do about it.
-		if result ~= Store.CONFLICT then
+		if result == Store.NOT_ALLOWED then
+			Notify( ply, "You are not allowed to save material overrides here.", NOTIFY_ERROR )
+		elseif result ~= Store.CONFLICT then
 			Notify( ply, "Material override rejected: " .. tostring( result ), NOTIFY_ERROR )
 		end
 		return

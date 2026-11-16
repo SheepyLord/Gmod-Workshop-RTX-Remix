@@ -105,8 +105,12 @@ Needs `gh` signed in with read access to this repository, and Steam (as below).
    `tools/inputs.py`, the four packagers, `package_workshop.py`, `gmapack.py`, `companion_i18n.py`
    (it builds the shipped `i18n_data.lua`), `third_party/reshade`, `LICENSE` and
    `third_party/gmod/LICENSE` (shipped as notices), `.gitattributes` (it sets the bytes a checkout
-   gives `/LICENSE` and the guard) and `workshop.json`. Before review R4 the four after `gmapack.py`
-   were missing, and a change to them alone (`.gitattributes`, 2026-10-31) was never published.
+   gives `/LICENSE` and the guard) and `workshop.json`, and the add-on folders and licences parts read
+   from this repository (`glass/addon`, `fs_accel/addon`, `vr/addon`, `vr/input`, `third_party/jolt/LICENSE`,
+   `third_party/openvr/LICENSE`). Before review R4 the four after `gmapack.py` were missing, and a change to
+   them alone (`.gitattributes`, 2026-10-31) was never published; before the review of 2026-11-16 (finding
+   15) the load accelerator's and VR's were. Since then a part that names any other path of this repository
+   outside `out/` stops the run (`uncovered_inputs`) until `REPO_INPUTS` covers it.
    The part folders' own READMEs (`packages/README.md`, `packages/<part>/README.md`; see step 3a) do
    not count: they would not go into the item.
    `--dry-run` and `--allow-dirty` skip this check.
@@ -164,6 +168,10 @@ Needs `gh` signed in with read access to this repository, and Steam (as below).
    adds a manifest key or kind, build the loader in the main checkout (`tools\build.ps1 -Config
    Release`) before the merge into `main`: in round 8 (2026-10-29) the hooks' runs failed with "nlctl
    refuses the package: manifest: unknown key "reshade"" until it was rebuilt.
+   After the build it compares `HEAD`, the packaging inputs' uncommitted changes and the fingerprint with
+   what it checked before: an edit, a checkout or a commit while the parts were built stops the run with
+   nothing recorded or uploaded (review finding 29). A package `nlctl.exe` did not check (none is built in
+   this checkout, `validated_by` empty) is not uploaded either (finding 30); `--dry-run` only reports it.
 5. **Digest.** If the build's content digest matches the last upload's, it uploads nothing:
    **unchanged content**. It records the new fingerprint, so the next run stops at step 3.
 6. **Upload.** It runs `gmpublish update -id <item> -addon <archive> -changes "<note>"`, the note

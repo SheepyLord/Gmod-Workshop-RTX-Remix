@@ -2,6 +2,8 @@
 -- the engine instrumented, and draws portals in every branch of ENT:Draw / ENT:DrawStenciled: no ENT:GetRenderMesh,
 -- no DrawModel (the path that crashes queued rendering at studiorender.dll+0x6603b), and the frame drawn as its
 -- mesh with the portal's material, under the portal's transform scaled by its size, as GetRenderMesh's matrix did.
+-- arg[2], the shared file (seamless_portal/sh_init.lua) that cl_init.lua includes first in the game, is loaded
+-- before it: the side-count limits live there (review finding 5).
 local function fail(text) io.stderr:write('FAIL: '..text..'\n') os.exit(1) end
 local function check(ok,text) if not ok then fail(text) end end
 local function near(a,b) return math.abs(a-b)<1e-6 end
@@ -48,6 +50,8 @@ end
 SeamlessPortals={Portals={},Rendering=false,claimed={}}
 SeamlessPortals.IsRemixPortalClaimed=function(p) return SeamlessPortals.claimed[p]==true end
 ENT={}
+file={Exists=function() return false end}
+if arg[2] then assert(loadfile(arg[2]))() end
 assert(loadfile(arg[1]))()
 check(ENT.GetRenderMesh==nil,'the portal must not define ENT:GetRenderMesh (DrawModel would draw it through studiorender)')
 check(type(SeamlessPortals.GetRenderMesh)=='function','the mesh builder stays (SeamlessPortals.GetRenderMesh)')

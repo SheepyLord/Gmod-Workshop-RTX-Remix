@@ -27,6 +27,8 @@ sys.path.insert(0, str(REPO / 'tools' / 'gmapack'))
 import gmapack  # noqa: E402
 
 MANIFEST = 'native/manifest.json'
+# The loader reads at most this much manifest (loader/core/include/nl/package.h, kMaxManifestBytes).
+MANIFEST_LIMIT = 1 << 20
 KNOWN_KEYS = {'schema', 'id', 'name', 'version', 'kinds', 'requires_loader', 'requires_remix', 'files', 'remix', 'root_files',
               'module_overrides', 'patch_sets', 'session_cvars', 'module_dependencies', 'reshade'}
 ADDON_TYPES = ('gamemode', 'map', 'weapon', 'vehicle', 'npc', 'entity', 'tool', 'effects', 'model', 'servercontent')
@@ -241,7 +243,12 @@ def combine(parts: list[Path], ident: str, version: str, name: str | None, addon
                             raise CombineError(f'{part.path}: {rel} would be written outside the package folder')
                         part.copy(rel, target, info)
             (folder / 'native').mkdir(parents=True, exist_ok=True)
-            (folder / 'native' / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+            # Compact (review finding 30): the loader's 1 MiB cap is a hard ceiling, and a union past it fails here
+            # rather than in every player's loader.
+            text = json.dumps(manifest, separators=(',', ':')) + '\n'
+            if len(text.encode('utf-8')) > MANIFEST_LIMIT:
+                raise CombineError(f'the combined manifest is {len(text.encode("utf-8"))} bytes; the loader reads at most {MANIFEST_LIMIT}')
+            (folder / 'native' / 'manifest.json').write_text(text, encoding='utf-8')
             (folder / 'addon.json').write_text(json.dumps(addon, indent=2) + '\n', encoding='utf-8')
             checker = (nlctl or find_nlctl()) if validate else None
             validated = None
@@ -264,6 +271,11 @@ def combine(parts: list[Path], ident: str, version: str, name: str | None, addon
                     raise CombineError('gmapack could not pack the package: ' + (done.stdout + done.stderr).strip()[-1500:])
                 summary['gma'] = str(gma)
                 summary['gma_bytes'] = gma.stat().st_size
+                # The archive itself, as the loader will read it (review finding 30).
+                if checker:
+                    done = subprocess.run([str(checker), 'manifest', str(gma)], capture_output=True, text=True)
+                    if done.returncode:
+                        raise CombineError('nlctl refuses the packed archive: ' + (done.stdout + done.stderr).strip()[-1500:])
                 summary['gma_sha256'] = sha256_file(gma)
             if out:
                 if out.exists():

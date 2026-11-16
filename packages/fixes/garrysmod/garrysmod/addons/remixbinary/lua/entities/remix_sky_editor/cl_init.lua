@@ -86,45 +86,50 @@ local PRESETS = {
     },
 }
 
+-- Every value reaches the atmosphere API within the sky's limits (shared.lua; review finding 22), whoever
+-- set it: the editor, a dupe or a player who placed one before it was admin-only.
 local function ApplyAtmosphere(self)
     if not RemixAtmosphere then return end
+    local Get = RemixSkyEditor.Get
 
     local ang = self:GetAngles()
-    RemixAtmosphere.SetSunElevation(-ang.p)
-    RemixAtmosphere.SetSunRotation((90 - ang.y) % 360)
+    if RemixSkyEditor.Finite(ang.p) and RemixSkyEditor.Finite(ang.y) then
+        RemixAtmosphere.SetSunElevation(-ang.p)
+        RemixAtmosphere.SetSunRotation((90 - ang.y) % 360)
+    end
 
-    RemixAtmosphere.SetSunIntensity(self:GetNWFloat("sky_sun_intensity", 1.0))
-    RemixAtmosphere.SetSunSize(self:GetNWFloat("sky_sun_size", 0.545))
+    RemixAtmosphere.SetSunIntensity(Get(self, "sky_sun_intensity"))
+    RemixAtmosphere.SetSunSize(Get(self, "sky_sun_size"))
     RemixAtmosphere.SetSunDisc(self:GetNWBool("sky_sun_disc", true))
     RemixAtmosphere.SetSunIlluminance(
-        self:GetNWFloat("sky_illum_r", 20),
-        self:GetNWFloat("sky_illum_g", 20),
-        self:GetNWFloat("sky_illum_b", 20))
+        Get(self, "sky_illum_r"),
+        Get(self, "sky_illum_g"),
+        Get(self, "sky_illum_b"))
 
-    RemixAtmosphere.SetAirDensity(self:GetNWFloat("sky_air_density", 1.0))
-    RemixAtmosphere.SetDustDensity(self:GetNWFloat("sky_dust_density", 1.0))
-    RemixAtmosphere.SetOzoneDensity(self:GetNWFloat("sky_ozone_density", 1.0))
+    RemixAtmosphere.SetAirDensity(Get(self, "sky_air_density"))
+    RemixAtmosphere.SetDustDensity(Get(self, "sky_dust_density"))
+    RemixAtmosphere.SetOzoneDensity(Get(self, "sky_ozone_density"))
 
-    RemixAtmosphere.SetAltitude(self:GetNWFloat("sky_altitude", 100))
-    RemixAtmosphere.SetPlanetRadius(self:GetNWFloat("sky_planet_radius", 6371))
-    RemixAtmosphere.SetAtmosphereThickness(self:GetNWFloat("sky_atmo_thickness", 100))
+    RemixAtmosphere.SetAltitude(Get(self, "sky_altitude"))
+    RemixAtmosphere.SetPlanetRadius(Get(self, "sky_planet_radius"))
+    RemixAtmosphere.SetAtmosphereThickness(Get(self, "sky_atmo_thickness"))
 
-    RemixAtmosphere.SetMieAnisotropy(self:GetNWFloat("sky_mie_anisotropy", 0.97))
+    RemixAtmosphere.SetMieAnisotropy(Get(self, "sky_mie_anisotropy"))
     RemixAtmosphere.SetRayleighScattering(
-        self:GetNWFloat("sky_rayleigh_r", 0.0058),
-        self:GetNWFloat("sky_rayleigh_g", 0.0135),
-        self:GetNWFloat("sky_rayleigh_b", 0.0331))
+        Get(self, "sky_rayleigh_r"),
+        Get(self, "sky_rayleigh_g"),
+        Get(self, "sky_rayleigh_b"))
     RemixAtmosphere.SetMieScattering(
-        self:GetNWFloat("sky_mie_r", 0.003996),
-        self:GetNWFloat("sky_mie_g", 0.003996),
-        self:GetNWFloat("sky_mie_b", 0.003996))
+        Get(self, "sky_mie_r"),
+        Get(self, "sky_mie_g"),
+        Get(self, "sky_mie_b"))
     RemixAtmosphere.SetOzoneAbsorption(
-        self:GetNWFloat("sky_ozone_r", 0.00204),
-        self:GetNWFloat("sky_ozone_g", 0.00497),
-        self:GetNWFloat("sky_ozone_b", 0.000214))
+        Get(self, "sky_ozone_r"),
+        Get(self, "sky_ozone_g"),
+        Get(self, "sky_ozone_b"))
     RemixAtmosphere.SetOzoneLayer(
-        self:GetNWFloat("sky_ozone_alt", 25),
-        self:GetNWFloat("sky_ozone_width", 15))
+        Get(self, "sky_ozone_alt"),
+        Get(self, "sky_ozone_width"))
 end
 
 function ENT:Think()
@@ -143,7 +148,8 @@ function ENT:Think()
     local cache = self.LastUpdateCache
     local needsUpdate = false
 
-    if not cache.pitch or math.abs(cache.pitch - ang.p) > 0.05 or math.abs(cache.yaw - ang.y) > 0.05 then
+    -- Written as "not the same" so an angle that is not a number never counts as unchanged.
+    if not (cache.pitch and math.abs(cache.pitch - ang.p) <= 0.05 and math.abs(cache.yaw - ang.y) <= 0.05) then
         needsUpdate = true
     end
 
@@ -159,9 +165,10 @@ function ENT:Think()
         "sky_ozone_alt", "sky_ozone_width",
     }
 
+    -- Compared within the limits too: a NaN never equals itself and would push the sky every think.
     if not needsUpdate then
         for _, k in ipairs(floatKeys) do
-            if cache[k] ~= self:GetNWFloat(k) then
+            if cache[k] ~= RemixSkyEditor.Get(self, k) then
                 needsUpdate = true
                 break
             end
@@ -174,7 +181,7 @@ function ENT:Think()
     if needsUpdate then
         cache.pitch = ang.p
         cache.yaw = ang.y
-        for _, k in ipairs(floatKeys) do cache[k] = self:GetNWFloat(k) end
+        for _, k in ipairs(floatKeys) do cache[k] = RemixSkyEditor.Get(self, k) end
         cache.sky_sun_disc = self:GetNWBool("sky_sun_disc", true)
 
         ApplyAtmosphere(self)

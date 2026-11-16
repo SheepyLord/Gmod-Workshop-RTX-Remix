@@ -87,6 +87,38 @@ class CheckRepoTests(unittest.TestCase):
     def test_claude_md_imports_agents_md(self):
         self.assertEqual(self.problems({'CLAUDE.md': 'nothing here\n'}), ['CLAUDE.md must exist and import @AGENTS.md'])
 
+    def test_packages_name_no_windows_account_folder(self):
+        # Review finding 19: rtx_agent's README shipped a maintainer's C:\Users\<account>\ harness path in every
+        # package. Any text file under packages/ fails the checks with one, however the path is written.
+        found = self.problems({
+            'packages/fixes/addons/rtx_agent/README.md': 'Run `C:\\Users\\some-one\\.rpai\\session_run.py` first.\n',
+            'packages/fixes/files.json': '{"source": "c:\\\\users\\\\Other\\\\Downloads\\\\x.png"}\n',
+            'packages/fixes/addons/a/lua/b.lua': '-- see\n-- C:/Users/third/notes.txt\n',
+        })
+        self.assertEqual(sorted(found), [
+            'packages/fixes/addons/a/lua/b.lua:2: names a Windows account folder (C:/Users/third); '
+            'packages/ is published, write a placeholder or leave the path out',
+            'packages/fixes/addons/rtx_agent/README.md:1: names a Windows account folder (C:\\Users\\some-one); '
+            'packages/ is published, write a placeholder or leave the path out',
+            'packages/fixes/files.json:1: names a Windows account folder (c:\\\\users\\\\Other); '
+            'packages/ is published, write a placeholder or leave the path out',
+        ])
+        # Placeholders, binary files and the xz-compressed inputs are fine, and so is the rest of the repository.
+        for rel in ('packages/fixes/addons/rtx_agent/README.md', 'packages/fixes/files.json',
+                    'packages/fixes/addons/a/lua/b.lua'):
+            (self.root / rel).unlink()
+        self.assertEqual(self.problems({
+            'packages/x/source/tests/writer_tests.cpp': '// path (C:\\Users\\NAME~1\\...)\n',
+            'packages/x/source/file_access.cpp': '// C:\\Users\\me\\AppData holds Roaming and Local\n',
+            'packages/x/README.md': 'Under `C:\\Users\\<account>\\` or %USERPROFILE% (C:\\Users\\%USERNAME%).\n',
+            'packages/x/bin/tool.dll': None,
+            'docs/notes.md': 'C:\\Users\\some-one\\x\n',
+        }), [])
+        (self.root / 'packages/x/bin').mkdir(parents=True, exist_ok=True)
+        (self.root / 'packages/x/bin/tool.dll').write_bytes(b'MZ\0\0C:\\Users\\some-one\\x.pdb')
+        (self.root / 'packages/x/bin/tool.dll.xz').write_bytes(b'C:\\Users\\some-one\\x')
+        self.assertEqual(check_repo.check(self.root), [])
+
     def test_other_checkouts_inside_are_not_this_repos_files(self):
         # A worktree another session keeps in .claude/worktrees has its own .git file; its files are not
         # this checkout's (it had failed the checks of main with every script of its packages/).

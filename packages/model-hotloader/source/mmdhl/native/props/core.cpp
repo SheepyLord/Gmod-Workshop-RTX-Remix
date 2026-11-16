@@ -123,7 +123,7 @@ static std::optional<std::set<std::string>> textureRefs(const fs::path& path){
     }
     return refs;
 }
-Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids){
+Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids,const fs::path& registryPath){
     // Only content-addressed files inside root are candidates. Textures are removed
     // only when no remaining bundle refers to them; one damaged bundle keeps all
     // of them (its references are unknown) but blocks no deletion.
@@ -141,8 +141,10 @@ Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids){
         remove(path);auto packed=path;packed+=L".share2";remove(packed);
         remove(root/L"library"/wide(asset+".json"));
     }
-    auto registryPath=root/L"sources.local.json";
-    if(fs::exists(registryPath))try{auto registry=readJson(registryPath,8ull<<20);for(auto& asset:selected)registry.erase(asset);writeJson(registryPath,registry);}catch(...){}
+    // Their source paths go from Reload's registry, which the caller names (it is outside the cache since review
+    // finding 18: mmd::sourceRegistryPath); none named, none changed.
+    std::error_code exists;
+    if(!registryPath.empty()&&fs::is_regular_file(registryPath,exists))try{auto registry=readJson(registryPath,8ull<<20);if(registry.is_object()){for(auto& asset:selected)registry.erase(asset);writeJson(registryPath,registry);}}catch(...){}
     return Json{{"removedFiles",files},{"removedBytes",bytes},{"pendingFiles",pending}};
 }
 static bool finite(Vec v){return std::isfinite(v.x)&&std::isfinite(v.y)&&std::isfinite(v.z)&&std::abs(v.x)<=1e7f&&std::abs(v.y)<=1e7f&&std::abs(v.z)<=1e7f;}

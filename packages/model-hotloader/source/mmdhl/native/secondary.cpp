@@ -147,12 +147,22 @@ struct Secondary::External {
   return moved;
  }
  explicit External(Secondary& o):world(nanoemWorld(o.world)),owner(o){if(!owner.filterInstalled)world->getPairCache()->setOverlapFilterCallback(owner.filter.get());}
+ // Whether a scene shape holds anything to collide with: a sphere with a radius, a triangle, a hull.
+ // An empty one (only a server's crafted frame could carry it: SceneShare::accept refuses them and the
+ // server's capture skips them) has inverted bounds that pass any culling (review finding 25).
+ static bool collidable(const SceneGeometry& g){
+  if(g.kind==SceneGeometry::Sphere)return g.radius>0;
+  if(g.kind==SceneGeometry::Triangles)return g.vertices.size()>=3;
+  return !g.hullCounts.empty()&&!g.vertices.empty();
+ }
  ~External(){forgetSceneInterest(reinterpret_cast<uintptr_t>(this));for(auto& [id,o]:objects)world->removeRigidBody(o.body.get());if(!owner.filterInstalled)world->getPairCache()->setOverlapFilterCallback(nullptr);}
  static std::shared_ptr<Shape> shape(const std::shared_ptr<const SceneGeometry>& geometry,float scale){
   static std::mutex mutex;static std::map<std::pair<const SceneGeometry*,float>,std::weak_ptr<Shape>> cache;
   std::lock_guard lock(mutex);auto key=std::make_pair(geometry.get(),scale);if(auto old=cache[key].lock())return old;
   for(auto it=cache.begin();it!=cache.end();)if(it->second.expired())it=cache.erase(it);else ++it;
   auto result=std::make_shared<Shape>();result->source=geometry;
+  // sync() adds no body for an empty shape: Bullet's tree over zero triangles writes through null.
+  if(!collidable(*geometry))throw std::runtime_error("Empty collision shape");
   if(geometry->kind==SceneGeometry::Sphere)result->shape=std::make_unique<btSphereShape>(geometry->radius/scale);
   else if(geometry->kind==SceneGeometry::Triangles){result->mesh=std::make_unique<btTriangleMesh>();for(size_t i=0;i+2<geometry->vertices.size();i+=3)result->mesh->addTriangle(fromSource(geometry->vertices[i])/scale,fromSource(geometry->vertices[i+1])/scale,fromSource(geometry->vertices[i+2])/scale);result->shape=std::make_unique<btBvhTriangleMeshShape>(result->mesh.get(),true);}
   else {auto compound=std::make_unique<btCompoundShape>();size_t cursor=0;for(int count:geometry->hullCounts){auto hull=std::make_unique<btConvexHullShape>();for(int i=0;i<count;i++)hull->addPoint(fromSource(geometry->vertices.at(cursor++))/scale,false);hull->setMargin(.02f/scale);hull->recalcLocalAabb();compound->addChildShape(btTransform::getIdentity(),hull.get());result->children.push_back(std::move(hull));}result->shape=std::move(compound);}
@@ -174,7 +184,7 @@ struct Secondary::External {
   if(frame){sequence=frame->sequence;captureMs=frame->captureMs;
    for(auto& source:frame->objects){
     unsigned kind=source.actor==SceneObject::LivingPlayer?Collide::Players:source.actor==SceneObject::LivingNpc?Collide::Npcs:source.isStatic?Collide::World:Collide::Objects;
-    if(source.owner==(instance.sceneOwner?instance.sceneOwner:instance.id)||!(flags&kind))continue;
+    if(source.owner==(instance.sceneOwner?instance.sceneOwner:instance.id)||!(flags&kind)||!source.geometry||!collidable(*source.geometry))continue;
     auto center=source.transform*((source.geometry->minimum+source.geometry->maximum)*.5f),extent=(source.geometry->maximum-source.geometry->minimum)*.5f;
     auto basisAbs=source.transform.getBasis().absolute();extent=basisAbs*extent+source.velocity.absolute()*.1f;
     if(center.x()+extent.x()<lower.x()||center.y()+extent.y()<lower.y()||center.z()+extent.z()<lower.z()||center.x()-extent.x()>upper.x()||center.y()-extent.y()>upper.y()||center.z()-extent.z()>upper.z())continue;

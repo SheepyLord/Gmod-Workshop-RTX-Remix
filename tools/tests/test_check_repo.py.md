@@ -21,3 +21,7 @@ Run from `tools\`: `python -m unittest discover -s tests` (or `tools\test.ps1`).
   without a record fail, each naming the `repo_builds.py refresh` command.
 - `test_other_checkouts_inside_are_not_this_repos_files`: a folder with its own `.git` (a worktree in
   `.claude/worktrees`) is skipped.
+- `test_packages_name_no_windows_account_folder` (review finding 19): a Windows account folder in a text file under
+  `packages/` fails, written with backslashes in Markdown, with doubled backslashes and in lower case in JSON, or
+  with slashes in Lua, each reported with its file and line; the placeholders `NAME~1` and `me` (two comments in the
+  native sources), `<account>` and `%USERNAME%`, a binary file, an `.xz` file and a path outside `packages/` pass.

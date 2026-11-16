@@ -11,5 +11,5 @@ modules, `util` JSON, hooks, ordered timers, `engine.GetAddons` with per-add-on 
 legacy add-on folders. Each boot reloads the autorun with fresh locals for one realm while DATA
 persists, as a new map or a new start does.
 
-Scenarios: `off`, `client`, `server`, `already-loaded`, `no-module`, `recovered`, `notice` (see the
+Scenarios: `off`, `client`, `server`, `already-loaded`, `no-module`, `recovered`, `notice`, `cheats` (see the
 test's `.md`). Prints `PASS <scenario>` and exits 0, or raises an assertion error. No side effects.

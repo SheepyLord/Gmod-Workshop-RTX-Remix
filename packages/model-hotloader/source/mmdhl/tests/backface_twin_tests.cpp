@@ -10,8 +10,54 @@
 #include <map>
 #include <random>
 #include <sstream>
+#ifdef _WIN32
+#include <windows.h>
+#include <psapi.h>
+#else
+#include <sys/resource.h>
+#endif
 using namespace mmd;
 static void check(bool ok,const std::string& why){if(!ok)throw std::runtime_error(why);}
+#ifdef _WIN32
+static size_t peakBytes(){PROCESS_MEMORY_COUNTERS counters{};GetProcessMemoryInfo(GetCurrentProcess(),&counters,sizeof counters);return counters.PeakPagefileUsage;}
+#else
+static size_t peakBytes(){rusage usage{};getrusage(RUSAGE_SELF,&usage);return size_t(usage.ru_maxrss)*1024;}
+#endif
+
+// `groups` point sets of three vertices each; part A holds `inA` copies of each set's triangle and part B `inB`
+// with the opposite winding: the smallest model that pairs triangles (review finding 11's harness).
+static std::unique_ptr<Model> stack(unsigned groups,unsigned inA,unsigned inB){
+ auto model=std::make_unique<Model>();auto& m=*model;
+ for(unsigned g=0;g<groups;g++)for(auto p:{btVector3(0,0,0),btVector3(1,0,0),btVector3(0,1,0)}){Vertex v;v.position=p+btVector3(float(g)*3,0,0);v.normal=btVector3(0,0,1);v.bones={0,-1,-1,-1};v.weights={1,0,0,0};m.vertices.push_back(v);}
+ Material a;a.name="Part A";a.first=0;
+ for(unsigned g=0;g<groups;g++)for(unsigned k=0;k<inA;k++)m.indices.insert(m.indices.end(),{g*3,g*3+1,g*3+2});
+ a.count=unsigned(m.indices.size());m.materials.push_back(a);
+ Material b;b.name="Part B";b.first=unsigned(m.indices.size());
+ for(unsigned g=0;g<groups;g++)for(unsigned k=0;k<inB;k++)m.indices.insert(m.indices.end(),{g*3,g*3+2,g*3+1});
+ b.count=unsigned(m.indices.size())-b.first;m.materials.push_back(b);
+ return model;
+}
+// The weld's work stays linear in the model (review finding 11): a stack of copies of one triangle is no lining
+// layer, and a model whose point sets still pair more than two twins per triangle is left as it is. Before, all
+// pairs were kept: 2 x 16,384 copies listed 268 million (over 4 GB).
+static void boundedWork(){
+ {auto m=stack(1,16384,16384);auto before=peakBytes();auto started=std::chrono::steady_clock::now();auto r=weldBackfaceTwins(*m);
+  double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();auto grown=peakBytes()-before;
+  check(r.stacked==1&&r.pairs==0&&!r.limited&&m->twinLeads.empty(),"A stack of 32,768 copies of one triangle was paired");
+  check(ms<250,"Welding a stack of 32,768 copies took "+std::to_string(ms)+" ms");
+  check(grown<(32u<<20),"Welding a stack of 32,768 copies took "+std::to_string(grown>>20)+" MB more");
+  std::cout<<"  a stack of 32,768 copies: left out in "<<ms<<" ms, "<<(grown>>10)<<" KB more at the peak\n";}
+ // Sixteen triangles on one point set (2 + 14 here: 28 twins) still pair; seventeen are a stack.
+ // (Both parts share the three vertices, so the pair is found and stays undecided: nothing to weld.)
+ {auto m=stack(1,2,14);auto r=weldBackfaceTwins(*m);check(r.pairs==1&&r.stacked==0&&!r.limited,"Sixteen coincident triangles were not paired");}
+ {auto m=stack(1,2,15);auto r=weldBackfaceTwins(*m);check(r.pairs==0&&r.stacked==1&&!r.limited&&m->twinLeads.empty(),"Seventeen coincident triangles were paired");}
+ // 2,000 point sets of 8 + 8 copies: 64 twins per 16 triangles, more than any lining has. Nothing is welded.
+ {auto m=stack(2000,8,8);auto started=std::chrono::steady_clock::now();auto r=weldBackfaceTwins(*m);
+  double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
+  check(r.limited&&r.pairs==0&&r.followers==0&&m->twinLeads.empty(),"A model of stacked copies was welded");
+  check(ms<250,"Refusing a model of stacked copies took "+std::to_string(ms)+" ms");}
+ std::cout<<"Back-face copies: a stack of copies and a model of them are left alone, linear in the model\n";
+}
 
 // A layer of (n+1)^2 vertices on a plane: origin + u*s + v*t for s,t in [-.8,.8], normal `normal`,
 // triangles wound so that `flip` reverses them. Appends to the model as part `name`.
@@ -55,6 +101,8 @@ static void scene(Model& m){
 static void stray(Model& m,unsigned v,int bone){m.vertices[v].bones={bone,-1,-1,-1};m.vertices[v].weights={1,0,0,0};}
 
 int main(int argc,char** argv){try{
+ // First, while the process's peak is still low: it measures how far the weld raises it.
+ boundedWork();
  auto m=parse(readFile(argv[1]));check(m->bones.size()>=2,"The fixture needs two bones");
  scene(*m);
  // Strays: the skirt's copy (part 2) vertex 7, the cape's inner layer (part 3) vertex 7, the cape's outer

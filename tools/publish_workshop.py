@@ -24,6 +24,7 @@ import hashlib
 import json
 import msvcrt
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -73,7 +74,8 @@ BACKGROUND_FLAGS = 0x08000000 | 0x00000200  # CREATE_NO_WINDOW | CREATE_NEW_PROC
 REPO_INPUTS = ('companion', 'packages', 'tools/inputs.py', 'tools/package_fixes.py', 'tools/package_runtime.py',
                'tools/package_workshop.py', 'tools/package_content.py', 'tools/package_reshade.py', 'third_party/reshade',
                'tools/gmapack/gmapack.py', 'tools/workshop.json', 'tools/companion_i18n.py', 'LICENSE',
-               'third_party/gmod/LICENSE', '.gitattributes', 'glass/addon', 'third_party/jolt/LICENSE')
+               'third_party/gmod/LICENSE', '.gitattributes', 'glass/addon', 'third_party/jolt/LICENSE',
+               'fs_accel/addon', 'vr/addon', 'vr/input', 'third_party/openvr/LICENSE')
 # What in packages/ is about the parts, not in them (ADR 0127): packages/README.md and each part folder's
 # own README.md, a name tools/inputs.py keeps for the folder itself (PART_DOCS), so no part has a file
 # there, and no packager reads them. A change to them alone leaves the package as it was, so the release
@@ -98,6 +100,38 @@ COMPAT_PREFLIGHT_ERROR = "Couldn't initialize Steam!\nMake sure it is running!"
 
 class PublishError(Exception):
     pass
+
+
+def repository_args(config: dict, repo: Path = REPO) -> list[str]:
+    """Every relative path a part names that is a file or folder of this repository outside out/: what the packagers
+    read from here. A destination inside an add-on (nlvr/input/...) is no path here and is passed over."""
+    found = []
+    for part in config['parts']:
+        for text in [part.get('package', ''), *part.get('args', [])]:
+            if not isinstance(text, str) or not text or text.startswith('-') or os.path.isabs(text) or '*' in text:
+                continue
+            rel = posixpath.normpath(text.replace('\\', '/'))
+            if rel in ('.', 'out') or rel.startswith(('../', 'out/')):
+                continue
+            if (repo / rel).exists():
+                found.append(rel)
+    return found
+
+
+def uncovered_inputs(config: dict, repo: Path = REPO) -> list[str]:
+    """Review finding 15: repository paths a part reads that REPO_INPUTS does not cover. A change to one of them would
+    neither change the fingerprint nor trip the check for uncommitted inputs (fs_accel/addon, vr/addon, vr/input and
+    third_party/openvr/LICENSE were missing)."""
+    return sorted({rel for rel in repository_args(config, repo)
+                   if not any(rel == p or rel.startswith(p + '/') for p in REPO_INPUTS)})
+
+
+def require_validated(summary: dict) -> None:
+    """Review finding 30: a package the loader's own check (nlctl) did not read is not uploaded; without a built
+    nlctl.exe the combine skipped that check and any manifest went up."""
+    if not summary.get('validated_by'):
+        raise PublishError('nlctl.exe did not check the package (none is built in this checkout): run '
+                           'tools\\build.ps1 -Config Release here first; nothing uploaded')
 
 
 def stamp() -> str:
@@ -600,6 +634,9 @@ def publish(config: dict, args, log, repo: Path = REPO) -> dict:
         if want != have:
             raise PublishError(f'this checkout is at {have[:8]}, not at {want[:8]} as asked: nothing published')
     head, head_sha = git('log', '-1', '--format=%h %s', cwd=repo), git('rev-parse', 'HEAD', cwd=repo)
+    uncovered = uncovered_inputs(config, repo)
+    if uncovered:
+        raise PublishError('parts read repository paths the publish inputs do not cover (REPO_INPUTS): ' + ', '.join(uncovered))
     # An uncommitted edit of a part folder's README would not go into the item (ADR 0127).
     dirty = git('status', '--porcelain', '--', *SHIPPED_INPUTS, cwd=repo)
     if dirty and not (args.dry_run or args.allow_dirty):
@@ -627,6 +664,13 @@ def publish(config: dict, args, log, repo: Path = REPO) -> dict:
         summary = build(config, version, work, log)
     finally:
         shutil.rmtree(work, ignore_errors=True)
+    # Review finding 29: what was built is what was checked. An edit, a checkout or a commit while the parts were built
+    # changes the inputs; then nothing is recorded or uploaded.
+    if (git('rev-parse', 'HEAD', cwd=repo) != head_sha or git('status', '--porcelain', '--', *SHIPPED_INPUTS, cwd=repo) != dirty
+            or fingerprint(config, repo) != current):
+        raise PublishError('the packaging inputs changed while the package was built: nothing recorded or uploaded')
+    if not args.dry_run:
+        require_validated(summary)
     gma = Path(summary['gma'])
     record = {'item': str(config['item']), 'fingerprint': current, 'digest': summary['digest'], 'version': version,
               'gma': str(gma), 'gma_bytes': summary['gma_bytes'], 'gma_sha256': summary['gma_sha256'], 'commit': head,

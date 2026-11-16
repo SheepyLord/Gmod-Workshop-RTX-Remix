@@ -33,7 +33,8 @@
       "packages/fixes/licenses/oversized-skinning/topbr-publish/topbr-publish.patch",
       "packages/fixes/licenses/oversized-skinning/player-categories/player-categories.patch",
       "packages/fixes/licenses/oversized-skinning/eye-texgen/eye-texgen.patch",
-      "packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch"
+      "packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch",
+      "packages/fixes/licenses/oversized-skinning/lua-guards/lua-guards.patch"
     ],
     "patch_paths": [
       "source/*",
@@ -41,7 +42,7 @@
       "public/*"
     ],
     "patched_tree": {
-      "source": "b07547bcf5c35f53550f0b40f81a3e920d4abf49",
+      "source": "14a120ec5deacad2633daae28fc85da079f32223",
       "public": "7165af4dc4ab4d841a19b7405211b27190bddea6",
       "premake5.lua": "b308ed2f6b0b31aa7b69f0ee576c0bcf5f666cd1"
     },
@@ -80,7 +81,7 @@
     ],
     "policy": "packages/model-hotloader/mmd_hotloader/lua/mmdhl/native_policy.lua",
     "policy_in_part": "mmd_hotloader/lua/mmdhl/native_policy.lua",
-    "why": "the shipped 2.3.1 natives were built from that commit with staged, uncommitted changes (buoyancy, secondary water); this repository keeps that source (ADR 0107), with its own changes on top, each recorded in source/Source.md with its patch: R19's review fixes (r19-changes.patch), the import progress of 2026-11-10 (import-progress.patch, ADR 0152) the back-face copies of 2026-11-16 (backface-twins.patch, ADR 0228) and the mesh separator of 2026-11-16 (separator.patch, ADR 0232)"
+    "why": "the shipped 2.3.1 natives were built from that commit with staged, uncommitted changes (buoyancy, secondary water); this repository keeps that source (ADR 0107), with its own changes on top, each recorded in source/Source.md with its patch: R19's review fixes (r19-changes.patch), the import progress of 2026-11-10 (import-progress.patch, ADR 0152), the back-face copies of 2026-11-16 (backface-twins.patch, ADR 0228), the mesh separator of 2026-11-16 (separator.patch, ADR 0232) and the repository review's fixes of 2026-11-16 (review-fixes.patch, ADR 0234)"
   },
   "repository_builds": [
     {
@@ -162,14 +163,14 @@
         "engine_guard/tests"
       ],
       "packaged": {
-        "sha256": "9ec7d6484bb3085e34ac942d82202a777e2da422450df781c048f09328e2cc60",
+        "sha256": "8ed3a1f27a12313ab6fb2a9c3e5c78c164328df826949a2de80f7f967006e941",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "engine_guard": "922be328b0be8715f7cd597225f1e865eceb06588318c2007226ac05af7d0f47",
+          "engine_guard": "989302bc0e9ffe8bb11af953d8e11977bbc57fb102da70cfde4f7fe6ad9457cc",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "9047e0689f937186923cb81c2dbcec610a8035bc (with uncommitted changes)",
+        "commit": "a267b1066bbb8e2f842d835406c7fb16626a9212",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }
@@ -189,16 +190,16 @@
         "engine_guard/tests"
       ],
       "packaged": {
-        "sha256": "667fc41ff1de52d3cf23d68ee95fadaa8843662798743d727794835baa8b6a16",
+        "sha256": "70721960ebe695666498356874bbac09b85abee8aea070f5dbe84cc730821fa6",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "engine_guard": "922be328b0be8715f7cd597225f1e865eceb06588318c2007226ac05af7d0f47",
+          "engine_guard": "989302bc0e9ffe8bb11af953d8e11977bbc57fb102da70cfde4f7fe6ad9457cc",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "9047e0689f937186923cb81c2dbcec610a8035bc (with uncommitted changes)",
+        "commit": "a267b1066bbb8e2f842d835406c7fb16626a9212",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "kept: a build of these sources is the same image"
+        "how": "imported: built from these sources"
       }
     },
     {
@@ -290,17 +291,19 @@
         "third_party/openvr",
         "vr/native/lua_policy.h",
         "vr/native/controller_frames.cpp",
-        "vr/native/controller_frames.h"
+        "vr/native/controller_frames.h",
+        "vr/native/single_player.cpp",
+        "vr/native/single_player.h"
       ],
       "packaged": {
-        "sha256": "aa1d8b651caa445e9a8acc97e8c3e68ff6b8307e83d59b6f8798d6cadff5dadf",
+        "sha256": "25d44d6701bbeabbae76096245c3bfd7a349f5d0c8e2eb854fb6d3f3cdf53034",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "vr/native/CMakeLists.txt": "1aaa5bfb9dd504bf90a0f329d80bb4f85b27fbe87b2ef441696a856bf6e9de18",
-          "vr/native/module.cpp": "8544a204f0d293fe97f45c8ddfc80491b5dc9230ace4fd0c7ef280a200e9854a",
-          "vr/native/session.cpp": "8b05537f1583d3f782576a0d06cda5e5bf367d793e7371bbd3da70bcba505d0a",
-          "vr/native/session.h": "285f4296dc196909edca8e59151af3757b60e38e9c9eaddfcaefbf2a5d84885a",
+          "vr/native/CMakeLists.txt": "defcb058ea6503145b7ed0ef86a64efd227ffecc5085afb0933e133a68b2265d",
+          "vr/native/module.cpp": "168823818ffc4b0ff90e786f66ab939c14b7b49b7ac6ff4cbd98997989fd07dd",
+          "vr/native/session.cpp": "ea13ffb4c77609b8438eaee509a1f7c3c8559c8407c421a945826d5ac0b8c799",
+          "vr/native/session.h": "51009c2e0e69bb2e6a6d2f875a98194f8bf8f6cd2bdf260f3d327efd9f61751e",
           "vr/native/window_input.cpp": "85dadbd8d54496e8c317b97eefa9968423b8f2c5e836ed74b9822f611f474c4a",
           "vr/native/window_input.h": "aaacf49a541ef5c1fb6acbc198288ac69994385d9a16588ff4a4ec8449b70ad9",
           "vr/native/pose_math.cpp": "82f42248bad3e34bcdb8a0b70f831173a6d9707a4b82be5be3ac1a0631adc2ba",
@@ -322,9 +325,11 @@
           "third_party/openvr": "9e999de5f07aa53887aa936f997542ca565a24f1718d2b08a0e792453ef29636",
           "vr/native/lua_policy.h": "ad6300582ab439643a05e27f7d73ea8c964e4c15ae2898cf87b1a1efe9ba4ef3",
           "vr/native/controller_frames.cpp": "a8e361a9e7ee6c0811fe171c8658ec052f071278c205038b1476d4f81d7f5478",
-          "vr/native/controller_frames.h": "91efeee3626947c6129b4a84a4264539b178eb0cc8b7594ba814bd858b8eea7b"
+          "vr/native/controller_frames.h": "91efeee3626947c6129b4a84a4264539b178eb0cc8b7594ba814bd858b8eea7b",
+          "vr/native/single_player.cpp": "a97859347f850b169fc080eaaa0e72c18790ad87e88db8a258e3ead963581069",
+          "vr/native/single_player.h": "b1aeab6edebe219915bef36f22a5ee32b5f9fdefb3f06a9407809657628e9a56"
         },
-        "commit": "48328f96ba61d203a84bf416deae4b9de7f07f82",
+        "commit": "a267b1066bbb8e2f842d835406c7fb16626a9212",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }

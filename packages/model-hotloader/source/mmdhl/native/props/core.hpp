@@ -87,9 +87,10 @@ Json readJson(const fs::path& path,uint64_t maxBytes=1ull<<20);
 // when the file is not a readable bundle.
 Json bundleManifest(const fs::path& path);
 // Removes the named bundles under root (the cache's static folder), their share
-// packs and library entries, and the textures no remaining bundle references.
+// packs and library entries, and the textures no remaining bundle references, and their
+// entries in Reload's source registry `registryPath` when one is named (best effort).
 // Returns removedFiles, removedBytes and pendingFiles (files still in use).
-Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids);
+Json deleteBundles(const fs::path& root,const std::vector<std::string>& ids,const fs::path& registryPath={});
 std::string sha256(std::span<const uint8_t> bytes);
 bool validHash(std::string_view s);
 void validatePNG(const Texture&);

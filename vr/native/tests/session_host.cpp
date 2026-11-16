@@ -22,10 +22,16 @@ struct Lock {
   }
   ~Lock() { if(file!=INVALID_HANDLE_VALUE) { CloseHandle(file);DeleteFileW(path.c_str()); } }
 };
+// This host is no game and has no engine.dll: it stands in for the local single-player game VR starts in (review
+// finding 8), as its native options stand in for the game's DLL paths.
+struct HostGame final:nl::vr::GameCalls {
+  bool facts(nl::vr::GameFacts& out,std::string&) override { out={true,true,true,false,1};return true; }
+};
+HostGame host_game;
 int skeleton_host(wchar_t** argv) {
   Lock lock(argv[5]);std::ofstream out(argv[6]);if(!out) return 2;
   nl::vr::Options o;o.openvr_dll=argv[2];o.runtime_dll=argv[3];o.manifest=argv[4];o.no_submit=true;
-  nl::vr::Session s(std::filesystem::path(argv[2]).parent_path());std::string error;
+  nl::vr::Session s(std::filesystem::path(argv[2]).parent_path(),host_game);std::string error;
   if(!s.start(o,error)) throw std::runtime_error(error);
   const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(90);
   while(s.state().first=="starting"&&std::chrono::steady_clock::now()<until) std::this_thread::sleep_for(std::chrono::milliseconds(20));
@@ -64,7 +70,7 @@ int wmain(int argc,wchar_t** argv) {
     out<<"{\"test_runtime\":true,\"real_eye_submission\":false}\n";out.flush();
     nl::vr::Options options;options.openvr_dll=argv[1];options.runtime_dll=argv[2];options.manifest=argv[3];options.no_submit=true;
     if(std::wstring(argv[4])!=L"-") options.timeline=argv[4];
-    nl::vr::Session session(std::filesystem::path(argv[1]).parent_path());
+    nl::vr::Session session(std::filesystem::path(argv[1]).parent_path(),host_game);
     for(int cycle=1;cycle<=2;++cycle) {
       std::string error;if(!session.start(options,error)) throw std::runtime_error(error);
       const auto start=std::chrono::steady_clock::now();

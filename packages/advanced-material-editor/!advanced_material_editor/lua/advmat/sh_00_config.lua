@@ -121,6 +121,27 @@ function AdvMat.IsAllowed( ply )
 	return ply:IsAdmin()
 end
 
+--- Whether a player may change one entity's materials. AdvMat.IsAllowed says
+--- who may save at all; this asks about the target, as a click of the tool gun
+--- does: another player only for an admin (as the bodygroup tool), anything
+--- else only where CanTool allows this tool on it, so prop protection decides
+--- about other players' props. A player's own model is always theirs to edit.
+--- Without it, `advmat_adminonly 0` let anyone restyle anyone's entity by
+--- naming its index in a save (review finding 23).
+function AdvMat.CanEditEntity( ply, ent )
+	if not IsValid( ply ) or not IsValid( ent ) then return false end
+	if ent == ply then return true end
+	if ent:IsPlayer() and not ply:IsAdmin() then return false end
+
+	local trace = ply:GetEyeTrace()
+	trace.Entity = ent
+	trace.HitPos = ent:WorldSpaceCenter()
+	trace.HitNonWorld = true
+	trace.HitWorld = false
+	trace.PhysicsBone = 0
+	return hook.Run( "CanTool", ply, trace, "advmateditor" ) ~= false
+end
+
 function AdvMat.Log( fmt, ... )
 	MsgC( Color( 120, 200, 255 ), "[AdvMat] ", Color( 220, 220, 220 ),
 		string.format( fmt, ... ), "\n" )

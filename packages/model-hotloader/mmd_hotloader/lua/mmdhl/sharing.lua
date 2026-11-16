@@ -242,15 +242,61 @@ if SERVER then
   if arms then approved.rigs[arms.key]={asset=arms.asset,role='arms'} end save()
  end
  mmdhl.SendSharedCatalog=catalog
+ -- Arms previews (actors.lua) are served this session to whoever asks for them and never saved: each preview's rig
+ -- had been written to approved.json and registered again at every map start (review finding 4). The newest 64 stay.
+ mmdhl.previewRigs=mmdhl.previewRigs or {}
+ function mmdhl.PublishPreviewRig(rig)
+  if not istable(rig) or not isstring(rig.key) then return end
+  mmdhl.previewRigs[rig.key]={asset=rig.asset,role='arms',at=SysTime()}
+  local keys={} for key in pairs(mmdhl.previewRigs) do keys[#keys+1]=key end
+  if #keys<=64 then return end
+  table.sort(keys,function(a,b) return mmdhl.previewRigs[a].at<mmdhl.previewRigs[b].at end)
+  for i=1,#keys-64 do mmdhl.previewRigs[keys[i]]=nil end
+ end
+ -- A saved rig's group: its model, role and voice. Of each group the newest 16 stay in approved.json and the newest 4
+ -- are registered at a map's start (review finding 4: every size a client asked for had stayed, and each was
+ -- registered at every map start); an arms rig stays while a kept rig names it.
+ local KEEP_SAVED,KEEP_READY=16,4
+ local function rigTime(key) return file.Time('mmd_hotloader/rigs/'..key..'/rig.json','DATA') or 0 end
+ local function rigGroup(entry,rig)
+  local profile=istable(rig) and istable(rig.animation) and rig.animation.profile
+  return tostring(entry.asset)..'|'..tostring(entry.role)..'|'..(isstring(profile) and profile:find('_male$') and 'male' or 'female')
+ end
+ local function newestFirst(a,b) if a.time~=b.time then return a.time>b.time end return a.key<b.key end
+ function mmdhl.PruneRigs()
+  local groups,used,changed={},{},false
+  for key,entry in pairs(approved.rigs) do
+   if not istable(entry) or not isstring(entry.asset) or not approved.assets[entry.asset] then approved.rigs[key]=nil changed=true
+   elseif entry.role~='arms' then
+    local rig=util.JSONToTable(file.Read('mmd_hotloader/rigs/'..key..'/rig.json','DATA') or '')
+    if not istable(rig) then approved.rigs[key]=nil changed=true
+    else local g=rigGroup(entry,rig) groups[g]=groups[g] or {} groups[g][#groups[g]+1]={key=key,time=rigTime(key)} end
+   end
+  end
+  for _,list in pairs(groups) do
+   table.sort(list,newestFirst)
+   for i,item in ipairs(list) do
+    if i>KEEP_SAVED then approved.rigs[item.key]=nil changed=true
+    elseif approved.rigs[item.key].arms then used[approved.rigs[item.key].arms]=true end
+   end
+  end
+  for key,entry in pairs(approved.rigs) do if entry.role=='arms' and not used[key] then approved.rigs[key]=nil changed=true end end
+  return changed
+ end
  hook.Add('InitPostEntity','MMDHL.RestorePublishedActors',function()
-  local entries={}
+  if mmdhl.PruneRigs() then save() end
+  local entries,groups={},{}
   for id,entry in pairs(approved.rigs) do if entry.role~='ragdoll' and entry.role~='arms' and approved.assets[entry.asset] then
    local r=util.JSONToTable(file.Read('mmd_hotloader/rigs/'..id..'/rig.json','DATA') or '')
    local a=entry.arms and util.JSONToTable(file.Read('mmd_hotloader/rigs/'..entry.arms..'/rig.json','DATA') or '') or nil
    if mmdhl.IsLoadableRig(r) and (not entry.arms or mmdhl.IsLoadableRig(a)) and file.Exists('mmd_hotloader/rigs/'..id..'/carrier.gma','DATA') then
-    entries[#entries+1]={rig=r,arms=a}
+    local g=rigGroup(entry,r) groups[g]=groups[g] or {} groups[g][#groups[g]+1]={key=id,time=rigTime(id),rig=r,arms=a}
    end
   end end
+  for _,list in pairs(groups) do
+   table.sort(list,newestFirst)
+   for i=1,math.min(#list,KEEP_READY) do entries[#entries+1]={rig=list[i].rig,arms=list[i].arms} end
+  end
   -- Every map publishes each saved character; the most recently used are made ready now and the
   -- others right before their first use (mmdhl.readiness in actors.lua, ADR 0099).
   if mmdhl.RestoreActors then mmdhl.RestoreActors(entries) return end
@@ -341,7 +387,7 @@ net.Receive('mmdhl_share',function(_,p)
  -- Requests are refused while this peer has a transfer, before any file is hashed.
  if command=='request' and SERVER then
   local id=net.ReadString() local asset,rigs=id,{}
-  if #id==32 then local r=mmdhl.approved.rigs[id] if not r then refuse(L'share.error.rig_not_published') return end asset=r.asset rigs={id} if r.arms then rigs[#rigs+1]=r.arms end end
+  if #id==32 then local r=mmdhl.approved.rigs[id] or mmdhl.previewRigs and mmdhl.previewRigs[id] if not r then refuse(L'share.error.rig_not_published') return end asset=r.asset rigs={id} if r.arms then rigs[#rigs+1]=r.arms end end
   if not mmdhl.CanUseAsset(p,asset) then refuse(L'share.error.model_not_approved') return end
   if outgoing[k] or incoming[k] then refuse(L'share.error.busy') return end
   local manifest,err=sharedManifest(p,asset..':'..table.concat(rigs,','),function() return mmdhl.Decode(native.GetSharedManifest(asset,util.TableToJSON(rigs),false)) end)

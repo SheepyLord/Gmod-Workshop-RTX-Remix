@@ -22,7 +22,13 @@ python tools\package_workshop.py --part out\packages\m5\runtime-b.gma --part out
   two; `--type` defaults to `tool`.
 - `--out FOLDER` and/or `--gma FILE`; `--force` replaces an earlier one.
 - `--nlctl`: the `nlctl.exe` that validates the result (default: the built one in `out\build`, if
-  any). `--no-validate` skips that check, for tests with partial manifests.
+  any): the combined folder, and the packed archive as the loader reads it. `--no-validate` skips that
+  check, for tests with partial manifests.
+
+The combined `native/manifest.json` is written compactly, and a union over the loader's limit
+(`MANIFEST_LIMIT`, 1 MiB, the loader's `kMaxManifestBytes`) is refused here instead of by every player's
+loader (review finding 30 of 2026-11-16). The content digest is computed from the manifest's data, so its
+formatting does not change it.
 
 ## How parts are merged
 

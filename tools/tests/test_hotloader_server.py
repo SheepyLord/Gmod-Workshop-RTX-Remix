@@ -26,6 +26,7 @@ def slices(folder: Path) -> str:
     sharing = (folder / 'sharing.lua').read_text(encoding='utf8')
     carrier = (folder / 'carrier.lua').read_text(encoding='utf8')
     return ('-- slice sharing\n' + between(sharing, ' function mmdhl.CanEdit(', ' local function save()') + '-- end sharing\n'
+            '-- slice rigs\n' + between(sharing, ' mmdhl.previewRigs=mmdhl.previewRigs or {}', '\nelse\n') + '-- end rigs\n'
             '-- slice carrier\n' + between(carrier, " net.Receive('mmdhl_collision_mesh',function(_,p)",
                                              " net.Receive('mmdhl_native_morph',") + '-- end carrier\n')
 
@@ -55,6 +56,25 @@ class HotloaderServerTests(unittest.TestCase):
 
     def test_remote_shapes_the_module_dropped_are_asked_for_again(self):
         self.run_lua('scene')
+
+    # The review of 2026-11-16.
+    def test_one_replacement_at_a_time_under_the_gamemodes_rules(self):
+        self.run_lua('replace_burst')
+
+    def test_resets_are_paced_and_only_the_requester_is_told(self):
+        self.run_lua('reset')
+
+    def test_the_legacy_dupe_factory_takes_only_look_and_place(self):
+        self.run_lua('dupe_factory')
+
+    def test_spawn_sizes_share_carriers_and_player_models_wait(self):
+        self.run_lua('spawn_quantize')
+
+    def test_a_piece_placed_where_it_was_is_at_its_model(self):
+        self.run_lua('separator_place')
+
+    def test_saved_rigs_are_bounded_and_previews_never_saved(self):
+        self.run_lua('rigs')
 
 
 if __name__ == '__main__':

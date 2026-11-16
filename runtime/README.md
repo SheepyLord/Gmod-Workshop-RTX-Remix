@@ -1,5 +1,67 @@
 # runtime/
 
+Patches 0101-0104 fix the runtime's findings of the repository review of 2026-11-16 (`out/review/repository-review.md`
+in the main checkout: findings 1, 10 and 17; the user approved fixing every finding) and what the PoC smoke test of
+those fixes found (0104). Fork branch `claude/review-runtime`: `aa92fe27a` (0101), `e5c5cae45` (0102), `ffaa14878`
+(0103), `8cd421cd8` (0104), on 0100's `25c85588b`; each exported alone (`format-patch -1 --start-number <N>
+--zero-commit`) and built together by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0104):
+**`d3d9.dll` 479,885,312 bytes, SHA-256 `f88d381dbb12f0cc70228ae411f8859b0c19bd986eaae888049adc8fedcc08da`**
+(70,861,508 bytes xz in Git LFS; 0001-0103's build, `2ee16d49...`, was never published). No loader (`winmm.dll`)
+change.
+
+- **Patch `0101-A-mod-s-Remix-Logic-option-layer-only-its-own-config.patch`** (finding 1): the loader deploys the Remix
+  mods of any subscribed Workshop item as content, and an `RtxOptionLayerAction` node in such a mod's Remix Logic
+  graph acquired an option layer, above `rtx.conf`, from any config file it named (a UNC path made Windows offer the
+  player's login to another host), the file could set every runtime option (the folder NRC loads its CUDA DLLs from,
+  the welcome message the splash formatted as printf, captures, keys), and a hash list that failed to parse
+  (`std::stoull`) threw out of the graph and ended the game. Now `rtx_mod_layer_policy.h` (new, self-contained)
+  holds the rules: in a mod's stage the graph's parser refuses an asset path that names a drive, a root, a share or a
+  scheme before USD's resolver looks for it, and what it resolves to must lie in the mod's folder (the stage's root
+  layer's; in-memory stages keep upstream's resolution; a string-typed asset path resolves as a token does);
+  `RtxOptionManager::acquireModLayer` (the graph's only way to a layer now) loads only a file in a mod's folder below
+  `rtx-remix/mods`, without `.` or `..`, a stream, a device or a share other than the game's, and marks the layer a
+  mod's layer, which applies only rendering options (`rtx.atmosphere.`, `rtx.weather.`, `rtx.volumetrics.`,
+  `rtx.tonemap.`, `rtx.autoExposure.`, `rtx.bloom.`, `rtx.postfx.` and eight single look options; never text,
+  lists, keys, integer vectors, an integer without a declared range of at most 1024 values, a debugging option, a
+  name ending as a file, folder, message or key, the player's own settings or runtime state), creates no dynamic
+  options and never shares a layer with code. The refused keys count as rejected keys (kept on save) and are logged
+  once. For every layer, and for `readOption` (the Remix API's `SetConfigVariable`, which any server's client Lua
+  reaches), a value that fails to parse is refused and leaves the value as it was; `SetConfigVariable` returns
+  `INVALID_ARGUMENTS` for it. `RtxOptionLayerAction` catches what acquiring could still throw. No Remix mod the
+  package ships uses Remix Logic graphs (checked by the gate). Unit tests: `tests/rtx/unit/test_mod_layer_policy.cpp`
+  (338 checks; also compiled by the gate, [test_runtime_mod_option_layers.py](../tools/tests/test_runtime_mod_option_layers.py.md))
+  and `test_mod_option_layer.cpp` (62 checks, through the real option manager: refused paths, a file in a mod's folder,
+  reload, a code layer and `readOption` with a hash list that fails to parse; meson only).
+- **Patch `0102-The-splash-the-welcome-message-shown-as-text-once-fo.patch`** (finding 10): `ImGuiSplash::update`
+  drew `rtx.welcomeMessage` as `TextWrapped`'s printf format, and `rtx.splashMessageDisplayTimeSeconds` (unbounded,
+  compared every frame with a start time that stayed at the epoch when the splash never started) brought the splash
+  back at once; both are reachable through the Remix API. The welcome message is drawn with `TextWrapped("%s", ...)`;
+  the display time is capped at 60 s (the option's maximum, and again where it is read; `RtxOptions.md`); the splash
+  starts only in the first two minutes after the first frame, never times from the epoch, and is done for the process
+  once its time has passed (a steady clock). The gate scans the code the patches add for a printf-style ImGui call
+  whose format is a runtime value ([test_runtime_imgui_formats.py](../tools/tests/test_runtime_imgui_formats.py.md)).
+  The fork's base commit, which no patch shows, has more calls of that shape, each carrying fixed or driver text:
+  `dxvk_memory_tracker.cpp` (counts and byte sizes), `dxvk_imgui.cpp` (`TextSeparator`'s literals, the HUD's progress
+  lines, NGX's reason, the render size), `dxvk_imgui_capture.cpp` (the capture menu's own lines), `rtx_user_menu.cpp`
+  (tab descriptions), `rtx_fork_upscaler_ui.cpp` (the upscaler's reason, the render size).
+- **Patch `0103-The-startup-text-from-rtx-remix-mods-nativeloader_ui.patch`** (finding 17): the splash and the font
+  atlas read the editable startup text (patch 0012, ADR 0050) from `garrysmod/data/nativeloader_ui`, where any server's
+  client Lua writes `.txt` files, so a server's text stayed on the splash at every later start. `StartupMessage::folder`
+  is now `rtx-remix/mods/nativeloader_ui` (relative to the game's folder, as before), where
+  [`package_fixes.py`](../tools/package_fixes.py.md) deploys the texts create-only (the player's edits are kept):
+  neither GMod's Lua nor another Workshop item's package can write there (the loader skips a content package whose
+  root files overlap the RTX package's), and the folder holds no mod file, so Remix's mod manager passes it by. A copy
+  edited in the old folder is not read any more and not moved: a file in `garrysmod/data` may as well be a server's,
+  which the runtime cannot tell from the player's. The loader leaves such an edited file in place (no longer tracked)
+  and removes the unedited ones. Checked by [test_runtime_splash.py](../tools/tests/test_runtime_splash.py.md).
+- **Patch `0104-The-Remix-API-an-empty-value-changes-nothing-and-suc.patch`** (found by the PoC smoke test of
+  0101-0103): 0101 made `remixapi_SetConfigVariable` answer `INVALID_ARGUMENTS` whenever `readOption` read nothing,
+  and `Config::findOption` takes `""` for no value, so an empty value, which had always changed nothing and answered
+  success, became a failure. The RTX package's Lua sets its session texture lists and the eye-white aliases to `""`
+  whenever they are empty, and the fixes' binding printed a failure for each (902 lines in a four-minute session). An
+  empty value is a success again; a value that fails to parse is still refused. Checked by
+  [test_runtime_mod_option_layers.py](../tools/tests/test_runtime_mod_option_layers.py.md).
+
 Patch `0100-Translate-the-Remix-menus-98-new-texts-zh-CN-zh-TW-j.patch` (the user's go-ahead of 2026-11-15; fork
 branch `claude/remix-menu-i18n`, commit `25c85588` on 0099's `1dd38dbf`): the Remix menus' (Alt+X) texts that came
 with the upstream merge of patch 0093, translated into the six languages. That merge brought 98 menu texts the

@@ -1,10 +1,19 @@
 #pragma once
 #include <cstdint>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 namespace mmd { void registerSourceShadow(int entity,uint64_t instance,const std::vector<std::string>& materials,float alpha,void* corpsePhysics=nullptr);void removeSourceShadow(int entity);void shutdownSourceShadows(); }
+namespace mmd {
+// A client entity index from Lua (EntIndex) as IClientEntityList::GetClientEntity takes it. The engine's
+// list has NUM_ENT_ENTRIES (1 << 14) slots and refuses only negative indices (Source SDK 2013
+// entitylist_base.h; the upper bound is a debug assertion), so a larger one read past it and called
+// through what it found (review finding 26). Returns the index, or throws.
+constexpr int SourceEntitySlots=1<<14;
+inline int sourceEntityIndex(uint64_t value){if(value>=uint64_t(SourceEntitySlots))throw std::runtime_error("Invalid Source entity index");return int(value);}
+}
 namespace mmd {
 struct Instance;
 struct RenderTint {float r=1,g=1,b=1,a=1;};

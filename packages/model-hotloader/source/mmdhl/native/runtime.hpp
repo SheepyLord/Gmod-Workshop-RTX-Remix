@@ -132,10 +132,11 @@ struct Model {
     std::vector<unsigned> lightLayerRanks;
     // Back-face copies (backface_twins.hpp): each copy vertex and the vertex of the layer facing outside
     // whose skinning it took at load (follower, lead), ascending; per morph (by index), the offsets that
-    // move each copy vertex with its lead; and what the load found.
+    // move each copy vertex with its lead; and what the load found (stacked: point sets of more triangles
+    // than a lining layer has, left out; limited: too many pairs for a model's lining, nothing welded).
     std::vector<std::pair<unsigned,unsigned>> twinLeads;
     std::vector<std::vector<std::pair<unsigned,btVector3>>> twinMorphFixes;
-    struct TwinReport {unsigned pairs=0,voted=0,named=0,undecided=0,followers=0,skins=0,morphFixes=0;} twins;
+    struct TwinReport {unsigned pairs=0,voted=0,named=0,undecided=0,followers=0,skins=0,morphFixes=0,stacked=0;bool limited=false;} twins;
     // Per triangle, 0 when the 0.5 alpha test removes every sampled texel of it
     // (loadAsset; empty: nothing measured). Only RTX Remix draws skip those.
     std::vector<uint8_t> cutoutTriangles;

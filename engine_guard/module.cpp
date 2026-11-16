@@ -232,32 +232,30 @@ bool menu_realm(GarrysMod::Lua::ILuaBase*) { return false; }  // gmcl_: never th
 
 // nlengineguard.PosterStatus() -> {state = "idle"|"starting"|"rendering"|"writing"|"done"|"failed", generation =,
 // error =, why =, width =, height =, columns =, rows =, done =, frame =, frames =, path =}, or nil without the
-// runtime's poster (ADR 0226). Read only: the companion's sky holds its clock while a poster renders.
+// runtime's poster (ADR 0226). Read only: the companion's sky holds its clock while a poster renders. Any client Lua,
+// a server's included, can call it: path is "screenshots/<name>.png", never the absolute path the runtime writes,
+// and why names the poster the same way (poster::view; review finding 18).
 LUA_FUNCTION_STATIC(PosterStatus) {
   namespace poster = nl::engine_guard::poster;
-  const auto runtime = poster::runtime();
-  rtxposter_Status status{};
-  status.structSize = sizeof(status);
-  if (!runtime.ready() || runtime.status(&status) != RTXPOSTER_OK) {
+  const auto status = poster::view(poster::runtime());
+  if (!status) {
     LUA->PushNil();
     return 1;
   }
-  status.lastErrorText[sizeof(status.lastErrorText) - 1] = '\0';
-  status.path[RTXPOSTER_PATH_CHARS - 1] = L'\0';
   LUA->CreateTable();
-  LUA->PushString(poster::state_name(status.state));
+  LUA->PushString(status->state);
   LUA->SetField(-2, "state");
   const std::pair<const char*, double> numbers[] = {
-      {"generation", status.generation}, {"error", status.lastError}, {"width", status.width}, {"height", status.height},
-      {"columns", status.columns}, {"rows", status.rows}, {"done", status.tilesDone}, {"frame", status.frame},
-      {"frames", status.framesPerTile}};
+      {"generation", status->generation}, {"error", status->error}, {"width", status->width}, {"height", status->height},
+      {"columns", status->columns}, {"rows", status->rows}, {"done", status->done}, {"frame", status->frame},
+      {"frames", status->frames}};
   for (const auto& [name, value] : numbers) {
     LUA->PushNumber(value);
     LUA->SetField(-2, name);
   }
-  LUA->PushString(status.lastErrorText);
+  LUA->PushString(status->why.c_str());
   LUA->SetField(-2, "why");
-  LUA->PushString(poster::utf8(status.path).c_str());
+  LUA->PushString(status->path.c_str());
   LUA->SetField(-2, "path");
   return 1;
 }

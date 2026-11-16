@@ -7,6 +7,8 @@
 #include "cutout.hpp"
 #include "import_error.hpp"
 #include "dependency_scope.hpp"
+#include "cache_png.hpp"
+#include "file_access.hpp"
 #ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
@@ -32,6 +34,13 @@
 #include <map>
 #include <stdexcept>
 #include <sstream>
+#include <cstdlib>
+// Every format, for the importer (normalizeTexture, vrm.cpp); the game reads cache files with the
+// PNG-only copy (cache_png.cpp). Zero-filled buffers here too: a truncated TGA in a model the player
+// imports must not carry the worker's old heap into a cached PNG that shares send on (review finding 6).
+#define STBI_MALLOC(size) std::calloc(1,size)
+#define STBI_REALLOC(pointer,size) std::realloc(pointer,size)
+#define STBI_FREE(pointer) std::free(pointer)
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -219,21 +228,44 @@ static bool pngSize(const fs::path& path,int& width,int& height){
 }
 // An asset imported with fullTextures that kept a texture past 4096 (importAsset).
 static bool fullTextures(const Json& manifest){auto it=manifest.find("fullTextures");return it!=manifest.end()&&*it==true;}
+// A cached manifest as loadAsset trusts it: version 1 or 2, its own id, the content address over the
+// rest (the id replaced by sourceHash), a valid texture size option. StartSharedMaterialBuild builds
+// from it too, so a manifest a script wrote into the cache is refused there (review finding 9).
+static void checkManifestIdentity(const Json& manifest,const std::string& id){
+ if(!validId(id))throw std::runtime_error("Invalid asset ID");
+ if(!manifest.is_object()||(manifest.value("version",0)!=1&&manifest.value("version",0)!=2)||manifest.value("id",std::string())!=id)throw std::runtime_error("Cache version or ID mismatch");
+ auto identity=manifest;identity["id"]=manifest.at("sourceHash");auto encoded=identity.dump();if(hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()))!=id)throw std::runtime_error("Cached manifest checksum mismatch");
+ if(manifest.contains("fullTextures")&&manifest.at("fullTextures")!=true)throw std::runtime_error("Cached texture size option is invalid");
+}
+// The manifest's per-material lists, "materials" and "textures": arrays of objects of one length. Read
+// through nlohmann's const operator[], a missing key or an index past the end was undefined (a read out
+// of bounds: review finding 9), so both are checked before either is indexed.
+static std::pair<const Json&,const Json&> materialLists(const Json& manifest){
+ const auto& materials=manifest.at("materials");const auto& textures=manifest.at("textures");
+ if(!materials.is_array()||!textures.is_array()||materials.size()!=textures.size())throw std::runtime_error("Cached material list mismatch");
+ for(auto& m:materials)if(!m.is_object())throw std::runtime_error("Cached material list mismatch");
+ for(auto& t:textures)if(!t.is_object())throw std::runtime_error("Cached material list mismatch");
+ return {materials,textures};
+}
 // Source-readable derivatives allow normal IMaterial/VMT editor workflows.
-void prepareSourceMaterials(const fs::path& cache,const std::string& id){prepareSourceMaterials(cache,id,readJson(cache/L"assets"/wide(id)/L"manifest.json"));}
+void prepareSourceMaterials(const fs::path& cache,const std::string& id){
+ if(!validId(id))throw std::runtime_error("Invalid asset ID");
+ auto manifest=readJson(cache/L"assets"/wide(id)/L"manifest.json");checkManifestIdentity(manifest,id);prepareSourceMaterials(cache,id,manifest);
+}
 void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Json& manifest,const std::function<void(double,size_t,size_t)>& progress){
  auto directory=cache/L"assets"/wide(id),package=directory/L"materials-v5.gma";
+ const auto lists=materialLists(manifest);const Json& materials=lists.first;const Json& textures=lists.second;
  registerShortName(cache,"assets",id);
  std::vector<fs::path> retained={fs::path(L"assets")/wide(id)};
- for(auto& t:manifest["textures"])for(auto kind:{"base","sphere","toon"}){auto h=t.value(kind,"");if(validId(h))for(auto ext:{".png",".vtf",".full.vtf"})retained.push_back(fs::path(L"textures")/wide(h+ext));}
+ for(auto& t:textures)for(auto kind:{"base","sphere","toon"}){auto h=t.value(kind,"");if(validId(h))for(auto ext:{".png",".vtf",".full.vtf"})retained.push_back(fs::path(L"textures")/wide(h+ext));}
  retainCacheFiles(cache,retained);if(fs::is_regular_file(package))return;
  const bool keepFull=fullTextures(manifest);
  // Textures stay on disk until the package streams them: a model with dozens of
  // 4096 textures never holds them all, plus a packed copy, in memory.
  std::map<std::string,GmaEntry> files;
- for(size_t i=0;i<manifest["materials"].size();i++){
-  if(progress)progress(.45*double(i)/double(manifest["materials"].size()),i,manifest["materials"].size());
-  auto& material=manifest["materials"][i];auto& texture=manifest["textures"][i];std::string base=texture.value("base","");auto at=place("material",int64_t(i),material.value("name",""));
+ for(size_t i=0;i<materials.size();i++){
+  if(progress)progress(.45*double(i)/double(materials.size()),i,materials.size());
+  auto& material=materials.at(i);auto& texture=textures.at(i);std::string base=texture.value("base","");auto at=place("material",int64_t(i),material.value("name",""));
   std::string texturePath="models/debug/debugwhite";
   if(validId(base)){
    // A texture an asset keeps past 4096 has its own derivative and engine path: a cache
@@ -241,11 +273,13 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
    int pngWidth=0,pngHeight=0;const bool full=keepFull&&pngSize(cache/L"textures"/wide(base+".png"),pngWidth,pngHeight)&&std::max(pngWidth,pngHeight)>MaxTextureEdge;
    registerShortName(cache,"textures",base);texturePath=(full?"mmd/tf/":"mmd/t/")+base.substr(0,16);auto derivative=cache/L"textures"/wide(base+(full?".full.vtf":".vtf"));
    if(!fs::is_regular_file(derivative)){
-    int width,height,channels;std::unique_ptr<unsigned char,decltype(&stbi_image_free)> decoded(nullptr,stbi_image_free);
-    {auto png=readFile(cache/L"textures"/wide(base+".png"));decoded.reset(stbi_load_from_memory(png.data(),int(png.size()),&width,&height,&channels,4));}
-    if(!decoded)importFail("texture.derivative","Cannot create the Source texture of "+placeText(at)+": its cached image "+base.substr(0,16)+".png cannot be decoded",{{"where",Json::array({at})},{"texture",base},{"path",utf8((cache/L"textures"/wide(base+".png")).wstring())}});
+    // Only a PNG, through the PNG-only decoder (cache_png.hpp, review finding 6).
+    int width=0,height=0;DecodedPng decoded;
+    try{auto png=readFile(cache/L"textures"/wide(base+".png"));decoded=decodeCachedPng(png,base.substr(0,16)+".png");width=decoded.width;height=decoded.height;}
+    catch(const ImportError&){throw;}catch(const std::exception&){decoded=DecodedPng();}
+    if(!decoded.pixels)importFail("texture.derivative","Cannot create the Source texture of "+placeText(at)+": its cached image "+base.substr(0,16)+".png cannot be decoded",{{"where",Json::array({at})},{"texture",base},{"path",utf8((cache/L"textures"/wide(base+".png")).wstring())}});
     // Caches from before 2.2 hold textures larger than 4096.
-    Bytes scaled;const unsigned char* pixels=decoded.get();if(fitTexture(pixels,width,height,scaled,full?FullTextureEdge:MaxTextureEdge))pixels=scaled.data();
+    Bytes scaled;const unsigned char* pixels=decoded.pixels.get();if(fitTexture(pixels,width,height,scaled,full?FullTextureEdge:MaxTextureEdge))pixels=scaled.data();
     if(width>65535||height>65535)importFail("texture.derivative","Cannot create the Source texture of "+placeText(at)+": its image is "+std::to_string(width)+" x "+std::to_string(height)+" pixels, more than the VTF format holds",{{"where",Json::array({at})},{"texture",base}});
     // Mip levels follow the 80-byte header smallest first; each level is a 2x2
     // box filter of the one above, built in place.
@@ -253,7 +287,7 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
     std::vector<size_t> offsets(levels.size());size_t size=80;for(size_t k=levels.size();k-->0;){offsets[k]=size;size+=size_t(levels[k].first)*levels[k].second*4;}
     Bytes vtf(size,0);auto put=[&]<class T>(size_t at,T value){std::memcpy(vtf.data()+at,&value,sizeof(T));};
     std::memcpy(vtf.data(),"VTF",3);put(4,uint32_t(7));put(8,uint32_t(2));put(12,uint32_t(80));put(16,uint16_t(width));put(18,uint16_t(height));put(20,uint32_t(texture.value("alpha",false)?0x2000:0));put(24,uint16_t(1));put(32,.5f);put(36,.5f);put(40,.5f);put(48,1.f);put(52,uint32_t(0));put(57,int32_t(-1));put(63,uint16_t(1));
-    vtf[56]=uint8_t(levels.size());std::memcpy(vtf.data()+offsets[0],pixels,size_t(width)*height*4);decoded.reset();scaled=Bytes();
+    vtf[56]=uint8_t(levels.size());std::memcpy(vtf.data()+offsets[0],pixels,size_t(width)*height*4);decoded.pixels.reset();scaled=Bytes();
     for(size_t k=1;k<levels.size();k++){auto [w,h]=levels[k-1];auto [nw,nh]=levels[k];const unsigned char* prior=vtf.data()+offsets[k-1];unsigned char* next=vtf.data()+offsets[k];
      for(int y=0;y<nh;y++)for(int x=0;x<nw;x++)for(int c=0;c<4;c++){unsigned sum=0;for(int yy=0;yy<2;yy++)for(int xx=0;xx<2;xx++)sum+=prior[(size_t(std::min(h-1,y*2+yy))*w+std::min(w-1,x*2+xx))*4+c];next[(size_t(y)*nw+x)*4+c]=uint8_t(sum/4);}}
     writeAtomic(derivative,vtf);
@@ -275,10 +309,10 @@ void prepareSourceMaterials(const fs::path& cache,const std::string& id,const Js
   value("$bumpmap","mmdhl/scmi/normal");value("$lightwarptexture","mmdhl/scmi/lightwarptexture");value("$halflambert","0");value("$phong","1");value("$phongboost","24");value("$phongalbedotint","1");value("$phongexponenttexture","mmdhl/scmi/phong_exp");value("$phongfresnelranges","[0 0 1]");value("$rimlight","1");value("$rimlightexponent","2");value("$rimlightboost","2");vmt<<"}\n";
   auto text=vmt.str();files["materials/"+materialPath(id,i,material.value("name",""))+".vmt"].data=Bytes(text.begin(),text.end());
  }
- const size_t materials=manifest["materials"].size();
+ const size_t count=materials.size();
  if(!progress){writeGma(package,files,"Model Hotloader materials "+id);return;}
- progress(.45,materials,materials);
- writeGma(package,files,"Model Hotloader materials "+id,[&](uint64_t done,uint64_t total){progress(.45+.55*double(done)/double(std::max<uint64_t>(1,total)),materials,materials);});
+ progress(.45,count,count);
+ writeGma(package,files,"Model Hotloader materials "+id,[&](uint64_t done,uint64_t total){progress(.45+.55*double(done)/double(std::max<uint64_t>(1,total)),count,count);});
 }
 Json openSourceRegistry(const fs::path& path,std::string& setAside){
     setAside.clear();std::error_code ec;if(!fs::exists(ioPath(path),ec))return Json::object();
@@ -301,6 +335,92 @@ Json openSourceRegistry(const fs::path& path,std::string& setAside){
         if(error!=EEXIST||n>=99)fileFailure("Cannot set aside the damaged source registry "+utf8(path.wstring()),path,windowsError(error),true);
     }
 #endif
+}
+// ---- where Reload's source registries live (assets.hpp sourceRegistryPath; review finding 18) ----
+namespace {
+fs::path sourcesRoot(){
+#ifdef _WIN32
+ wchar_t value[32768];auto n=GetEnvironmentVariableW(L"MMDHL_SOURCES_DIR",value,32768);
+ if(n>0&&n<32768)return fs::path(std::wstring(value,n));
+#else
+ if(auto value=std::getenv("MMDHL_SOURCES_DIR");value&&*value)return fs::path(value);
+#endif
+ return fileAccessStore().parent_path()/L"sources";
+}
+const wchar_t* registryName(SourceRegistry which){return which==SourceRegistry::Characters?L"characters.json":L"props.json";}
+// A file of `folder` named `name`, or name-1, name-2... when that is taken.
+fs::path freeName(const fs::path& folder,const std::wstring& name){
+ std::error_code error;for(int n=0;;n++){auto path=folder/(n?name+L"-"+std::to_wstring(n):name);if(!fs::exists(ioPath(path),error)||n>=999)return path;}
+}
+// The registry `old` (in the cache, from before) into `target`: entries `target` lacks join it, an
+// unreadable one is kept beside it as <target>.damaged-<old's name>, and so are the copies set aside
+// beside `old` (<old>.damaged-<time>); then the old files go.
+void moveRegistry(const fs::path& old,const fs::path& target){
+ std::error_code error;auto folder=old.parent_path();const auto prefix=old.filename().wstring()+L".damaged-";
+ std::vector<fs::path> aside;
+ for(auto& entry:fs::directory_iterator(ioPath(folder),error)){std::error_code e;auto name=entry.path().filename().wstring();if(name.starts_with(prefix)&&entry.is_regular_file(e))aside.push_back(folder/name);}
+ const bool present=fs::is_regular_file(ioPath(old),error);
+ if(!present&&aside.empty())return;
+ fs::create_directories(ioPath(target.parent_path()));
+ if(present){
+  auto bytes=readFile(old);Json moved;bool readable=false;
+  try{moved=Json::parse(bytes.begin(),bytes.end());readable=moved.is_object();}catch(const Json::exception&){}
+  if(readable){
+   // What the registry there holds wins: it is newer. A damaged one is set aside first.
+   std::string setAside;auto merged=openSourceRegistry(target,setAside);
+   for(auto& [id,entry]:moved.items())if(!merged.contains(id))merged[id]=entry;
+   writeJson(target,merged);
+  }else writeAtomic(freeName(target.parent_path(),target.filename().wstring()+L".damaged-moved"),bytes);
+  fs::remove(ioPath(old));
+ }
+ for(auto& copy:aside){
+  auto bytes=readFile(copy);writeAtomic(freeName(target.parent_path(),target.filename().wstring()+L".damaged-"+copy.filename().wstring().substr(prefix.size())),bytes);
+  fs::remove(ioPath(copy));
+ }
+}
+}
+fs::path sourceRegistryFolder(const fs::path& cache){
+ auto path=ioPath(cache).wstring();
+#ifdef _WIN32
+ // One spelling for the module and the worker: no \\?\ prefix, no trailing separator, lowercase.
+ if(path.starts_with(L"\\\\?\\UNC\\"))path=L"\\\\"+path.substr(8);else if(path.starts_with(L"\\\\?\\"))path=path.substr(4);
+ while(path.size()>3&&(path.back()==L'\\'||path.back()==L'/'))path.pop_back();
+ if(!path.empty())CharLowerBuffW(path.data(),DWORD(path.size()));
+#else
+ while(path.size()>1&&path.back()==L'/')path.pop_back();
+#endif
+ auto text=utf8(path);auto digest=hash(std::span(reinterpret_cast<const unsigned char*>(text.data()),text.size()));
+ return sourcesRoot()/wide(digest.substr(0,16));
+}
+void moveSourceRegistries(const fs::path& cache){
+ auto folder=sourceRegistryFolder(cache);
+ moveRegistry(cache/L"sources.local.json",folder/registryName(SourceRegistry::Characters));
+ moveRegistry(cache/L"static"/L"sources.local.json",folder/registryName(SourceRegistry::Props));
+}
+fs::path sourceRegistryPath(const fs::path& cache,SourceRegistry which){
+ auto folder=sourceRegistryFolder(cache);auto file=folder/registryName(which);
+ // Best effort: a registry from before that cannot move now is read again (and moved) next time.
+ try{moveRegistry(which==SourceRegistry::Characters?cache/L"sources.local.json":cache/L"static"/L"sources.local.json",file);}catch(...){}
+ return file;
+}
+std::string sourceRegistryDisplay(const fs::path& file){
+ auto relative=file.lexically_relative(sourcesRoot());
+ if(relative.empty()||*relative.begin()==L"..")return utf8(file.filename().wstring());
+#ifdef _WIN32
+ return "%LOCALAPPDATA%\\ModelHotloader\\sources\\"+utf8(relative.wstring());
+#else
+ return "~/.local/share/ModelHotloader/sources/"+utf8(relative.generic_wstring());
+#endif
+}
+std::string recordSource(const fs::path& cache,SourceRegistry which,const std::string& id,const Json& entry){
+ std::string setAside;
+ try{
+  auto path=sourceRegistryPath(cache,which);auto registry=openSourceRegistry(path,setAside);registry[id]=entry;writeJson(path,registry);
+  return setAside.empty()?std::string():sourceRegistryDisplay(path.parent_path()/wide(setAside));
+ }catch(const std::exception&){
+  // The registry is in the player's profile: its path stays out of the message a script reads.
+  importFail("io.write","Cannot save the list of the files your models came from (for Reload)",{{"why","Model Hotloader's list in its application data folder cannot be written"}});
+ }
 }
 Json importAsset(const fs::path& source,const fs::path& cache,const Json& options,const fs::path& progress,CharacterConversion* character){
     // Every step has a code (stageCode) the addon names in the player's language; the
@@ -372,8 +492,7 @@ Json importAsset(const fs::path& source,const fs::path& cache,const Json& option
      prepareSourceMaterials(cache,id,manifest,[&](double fraction,size_t done,size_t total){
       report("Preparing Source materials","materials",.62f+.32f*float(fraction),done<total?"Material "+std::to_string(done+1)+" of "+std::to_string(total):std::string("Writing the materials package"),done,total);});
      // A damaged registry (Reload's source paths) must not block every import: it is set aside and a new one starts.
-     auto registryPath=cache/L"sources.local.json";Json registry=openSourceRegistry(registryPath,setAside);
-     registry[id]={{"source",utf8(fs::absolute(source).wstring())},{"options",options}};writeJson(registryPath,registry);
+     setAside=recordSource(cache,SourceRegistry::Characters,id,{{"source",utf8(fs::absolute(source).wstring())},{"options",options}});
      report("Fitting native collision anatomy","fit",.94f);fit=prepareModelFit(*model,cache);
      writeJson(directory/L"manifest.json",manifest);
     }catch(...){
@@ -415,9 +534,7 @@ std::shared_ptr<Model> loadAsset(const fs::path& cache,const std::string& id,con
     // The module is closing (a map change, the game quitting): the load ends at its next
     // step, so the close waits only for the step already running (R19, review MH-06).
     auto stopped=[stop]{if(stop&&stop->load())throw std::runtime_error("Model loading stopped: the map is changing");};
-    if(!validId(id))throw std::runtime_error("Invalid asset ID");auto directory=cache/L"assets"/wide(id);auto manifest=readJson(directory/L"manifest.json");if((manifest.value("version",0)!=1&&manifest.value("version",0)!=2)||manifest.value("id",std::string())!=id)throw std::runtime_error("Cache version or ID mismatch");
-    auto identity=manifest;identity["id"]=manifest.at("sourceHash");auto encoded=identity.dump();if(hash(std::span(reinterpret_cast<const unsigned char*>(encoded.data()),encoded.size()))!=id)throw std::runtime_error("Cached manifest checksum mismatch");
-    if(manifest.contains("fullTextures")&&manifest["fullTextures"]!=true)throw std::runtime_error("Cached texture size option is invalid");
+    if(!validId(id))throw std::runtime_error("Invalid asset ID");auto directory=cache/L"assets"/wide(id);auto manifest=readJson(directory/L"manifest.json");checkManifestIdentity(manifest,id);
     stopped();
     // The file, nanoem's objects and the model's own copies are all held at once: checked before any of it is read.
     LoadBudget budget(times(fileBytes(directory/L"model.bin"),LoadBudget::LoadExpansion),"This model");
@@ -429,10 +546,13 @@ std::shared_ptr<Model> loadAsset(const fs::path& cache,const std::string& id,con
         auto map=conversion.value("boneMap",Json::object());if(!map.is_object())throw std::runtime_error("Cached conversion map is invalid");
         for(auto& [key,value]:map.items()){if(!mappedSlotKey(key)||!value.is_number_integer()||value.get<int64_t>()<-1||value.get<int64_t>()>=int64_t(model->bones.size()))throw std::runtime_error("Cached conversion map is invalid");model->conversionBoneMap[key]=value.get<int>();}
     }
-    if(manifest.at("textures").size()!=model->materials.size())throw std::runtime_error("Cached material count mismatch");
+    // One entry per material of the model in both lists (review finding 9: a model with no materials and
+    // a manifest naming one made the Source materials read past an empty list).
+    const auto lists=materialLists(manifest);const Json& textures=lists.second;
+    if(textures.size()!=model->materials.size()||lists.first.size()!=model->materials.size())throw std::runtime_error("Cached material count mismatch");
     std::set<std::string> verified;
     std::map<std::string,std::vector<size_t>> alphaParts;
-    for(size_t i=0;i<model->materials.size();i++){auto& t=manifest["textures"][i];auto& m=model->materials[i];auto resolve=[&](const char* key){std::string h=t.value(key,std::string());if(h.empty())return h;if(!validId(h))throw std::runtime_error("Invalid cached texture reference");if(verified.insert(h).second){auto p=cache/L"textures"/wide(h+".png");stopped();LoadBudget file(fileBytes(p),"A texture of this model");if(hash(readFile(p))!=h)throw std::runtime_error("Cached texture checksum mismatch");}return h;};m.base=resolve("base");m.sphere=resolve("sphere");m.toon=resolve("toon");m.alphaTexture=t.value("alpha",false);}
+    for(size_t i=0;i<model->materials.size();i++){auto& t=textures.at(i);auto& m=model->materials[i];auto resolve=[&](const char* key){std::string h=t.value(key,std::string());if(h.empty())return h;if(!validId(h))throw std::runtime_error("Invalid cached texture reference");if(verified.insert(h).second){auto p=cache/L"textures"/wide(h+".png");stopped();LoadBudget file(fileBytes(p),"A texture of this model");if(hash(readFile(p))!=h)throw std::runtime_error("Cached texture checksum mismatch");}return h;};m.base=resolve("base");m.sphere=resolve("sphere");m.toon=resolve("toon");m.alphaTexture=t.value("alpha",false);}
     // Cached manifests remain immutable. Classify their decoded base alpha at
     // load time so cutout hair writes depth, while authored sheer fabric/glass
     // still blends. Count meaningful coverage rather than empty atlas space.
@@ -472,12 +592,13 @@ std::shared_ptr<Model> loadAsset(const fs::path& cache,const std::string& id,con
     std::vector<std::array<float,2>> offset;
     for(auto& [base,parts]:alphaParts){
         stopped();auto pngPath=cache/L"textures"/wide(base+".png");LoadBudget file(fileBytes(pngPath),"A texture of this model");
-        auto png=readFile(pngPath);int w=0,h=0,c=0;
-        if(png.size()>INT_MAX||!stbi_info_from_memory(png.data(),int(png.size()),&w,&h,&c)||w<1||h<1)throw std::runtime_error("Cannot inspect cached texture alpha");
+        auto png=readFile(pngPath);int w=0,h=0;
+        // A PNG only, through the PNG-only decoder (cache_png.hpp, review finding 6); its checksum held above.
+        if(!pngHeader(png,w,h))throw std::runtime_error("Cannot inspect cached texture alpha");
         // The decoded pixels and the masks made from them.
         LoadBudget decoded(times(uint64_t(w)*uint64_t(h),8),"A texture of this model");
-        std::unique_ptr<unsigned char,decltype(&stbi_image_free)> pixels(stbi_load_from_memory(png.data(),int(png.size()),&w,&h,&c,4),stbi_image_free);
-        if(!pixels||w<1||h<1)throw std::runtime_error("Cannot inspect cached texture alpha");
+        DecodedPng image;try{image=decodeCachedPng(png,base.substr(0,16)+".png");}catch(const std::exception&){throw std::runtime_error("Cannot inspect cached texture alpha");}
+        auto& pixels=image.pixels;
         size_t visible=0,soft=0;for(size_t k=3;k<size_t(w)*h*4;k+=4){auto a=pixels.get()[k];visible+=a>8;soft+=a>8&&a<247;}
         auto mask=std::make_shared<const AlphaPassMask>(pixels.get(),w,h);
         std::optional<SoftMask> softMask;if(soft)softMask.emplace(pixels.get(),w,h);
@@ -567,8 +688,10 @@ Json deleteAssets(const fs::path& cache,const std::vector<std::string>& ids){
   auto path=entry.is_directory()?entry.path()/(std::wstring(dir)==L"rigs"?L"rig.json":L"status.json"):entry.path();if(path.extension()!=L".json"||!fs::exists(path))continue;
   Json metadata;try{metadata=readJson(path);}catch(...){continue;}auto asset=metadata.contains("fit")?metadata["fit"].value("asset",""):metadata.value("asset","");if(selected.contains(asset)){collect(fs::path(dir)/entry.path().filename());if(std::wstring(dir)==L"rigs"){collect(fs::path(L"names/rigs")/wide(metadata.value("key","").substr(0,16)+".json"));collect(fs::path(L"names/rigs")/wide(metadata.value("key","").substr(0,16)+"-carrier.gma"));}}
  }
- auto registryPath=cache/L"sources.local.json";
- if(!selected.empty()&&fs::exists(registryPath)){auto registry=readJson(registryPath);for(auto& id:selected)registry.erase(id);writeJson(registryPath,registry);}
+ // Their source paths go from Reload's registry (outside the cache, sourceRegistryPath). One that cannot be
+ // read or written blocks no deletion, and its error, which would name a folder of the player's profile, stays here.
+ if(!selected.empty())try{auto registryPath=sourceRegistryPath(cache,SourceRegistry::Characters);std::error_code exists;
+  if(fs::is_regular_file(ioPath(registryPath),exists)){auto registry=readJson(registryPath);if(registry.is_object()){for(auto& id:selected)registry.erase(id);writeJson(registryPath,registry);}}}catch(const std::exception&){}
  // Persist intent before touching mounted files. Windows may hold an archive
  // open until game exit; the next client startup finishes these exact paths.
  auto save=[&](const auto& entries){Json list=Json::array();for(auto& relative:entries)list.push_back(utf8(relative.generic_wstring()));writeJson(queue,list);};

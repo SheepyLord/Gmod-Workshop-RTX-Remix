@@ -243,6 +243,13 @@ void blendTests(){
         check(error.find("maximum size")!=std::string::npos,"zstd block with repeated long matches accepted");
         check(peakPrivateBytes()-before<(64u<<20),"zstd allocated past the block bound before rejecting");
     }
+    {   // A Huffman description whose FSE weights run to 256 (RFC 8878 describes at most 255; the last
+        // weight is implied): the implied weight was stored one byte past the decoder's 256-entry array
+        // (review finding 28; 25 bytes from the review's zstd_huffman_weights.py).
+        const Bytes weights={0x28,0xb5,0x2f,0xfd,0x60,0x00,0x0f,0x7d,0x00,0x00,0xa2,0xc0,0x02,0x06,0xe0,0x0f,0x00,0x78,0xff,0x04,0x01,0x02,0x03,0x80,0x00};
+        std::string error;try{zstdDecompress(weights,1u<<20);}catch(const std::exception& e){error=e.what();}
+        check(error.find("too many Huffman weights")!=std::string::npos,"a zstd Huffman description with 256 weights was not refused as such");
+    }
     // .blend files: both header layouts, compressed, per-ID addresses, transforms.
     auto dir=fs::temp_directory_path()/fs::path(L"mmdhl-blend-test-"+std::to_wstring(processId()));fs::create_directories(dir);
     auto w=scene();auto legacy=w.file(false),large=w.file(true);

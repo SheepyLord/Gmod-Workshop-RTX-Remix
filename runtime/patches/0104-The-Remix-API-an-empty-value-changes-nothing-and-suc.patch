@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Mon, 16 Nov 2026 06:40:09 -0700
+Subject: [PATCH] The Remix API: an empty value changes nothing and succeeds,
+ as before 0101
+
+Patch 0101 made remixapi_SetConfigVariable return INVALID_ARGUMENTS whenever readOption reported that it read
+nothing, to refuse a value that fails to parse. Config::findOption takes an empty value for no value, so readOption
+also reports nothing read for "": an empty value had always changed nothing and answered success. The RTX package's
+Lua sets its session texture lists and the eye-white aliases to "" whenever they are empty, often (902 times in a
+four-minute PoC session), and after 0101 every one of those calls printed a failure in the game's console. An empty
+value succeeds again; a value that fails to parse is still refused.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/dxvk/rtx_render/rtx_remix_api.cpp | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/src/dxvk/rtx_render/rtx_remix_api.cpp b/src/dxvk/rtx_render/rtx_remix_api.cpp
+index a812ea221..c489a7409 100644
+--- a/src/dxvk/rtx_render/rtx_remix_api.cpp
++++ b/src/dxvk/rtx_render/rtx_remix_api.cpp
+@@ -1903,8 +1903,11 @@ namespace {
+     newSetting.setOptionMove(std::move(strKey), std::string{ value });
+     // NoSave options such as showUI are transient. A User-layer API write would otherwise
+     // override the Derived-layer Close/timeout action and leave the menu stuck open.
+-    // NV-DXVK start: a value that fails to parse is refused, not thrown through the API (GMod: any server's Lua calls it)
+-    if (!option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer()))) {
++    // NV-DXVK start: a value that fails to parse is refused, not thrown through the API (GMod: any server's Lua calls it).
++    // An empty value is no value to Config::findOption, so readOption changes nothing for it: that stays a success, as
++    // it always was (the RTX package's Lua sets its session lists to "" when they are empty, often).
++    const bool emptyValue = value[0] == '\0';
++    if (!option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer())) && !emptyValue) {
+       return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;
+     }
+     // NV-DXVK end
+-- 
+2.56.0.windows.1
+

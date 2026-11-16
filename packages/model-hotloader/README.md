@@ -76,3 +76,13 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   ([ADR 0233](../../docs/decisions/0233-the-mesh-separator-selects-in-its-editor.md)): a left click opens the editor and nothing is drawn on the model in the
   world (`mmd_hotloader/lua/mmdhl/separator/client.lua`, the tool, `separator/editor.lua`); seven texts fewer in the
   seven catalogs.
+- **2026-11-16, the repository review's fixes** (its findings 6, 9, 11, 18, 25, 26, 27 and 28 on these natives;
+  `source/review-fixes.patch`, see [Source.md](source/Source.md)): cache textures decoded as PNGs only; manifests
+  checked before their material lists are read; back-face copies welded in linear time; empty remote collision shapes
+  refused and remote speeds capped; shadow entity indices bounded; a Zstandard description of too many weights
+  refused. Reload's source paths leave `garrysmod/data` for `%LOCALAPPDATA%\ModelHotloader\sources`, and another
+  server's scripts get no absolute path: the library reads the paths from the natives (`mmd_hotloader/lua/mmdhl/library.lua`
+  `SourcePaths`, `props/library.lua`; `ui.lua` offers the bone window's re-import only with a path), and a damaged
+  list is named where it is kept (`library.lua`, `library.import.registry_damaged` in the seven catalogs). The file
+  access manager lists each remembered folder by its own name and dates (`mmd_hotloader/lua/mmdhl/file_access.lua`):
+  the natives' list no longer hands out the label, script and folder a remembered folder is matched by.

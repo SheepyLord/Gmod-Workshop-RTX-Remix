@@ -1,0 +1,14 @@
+#usda 1.0
+(
+    customLayerData = {
+        string lightspeed_game_name = "Garry's Mod (x64)"
+        string lightspeed_layer_type = "replacement"
+    }
+    doc = "Linlong RTX PBR, packaged for the Workshop."
+    metersPerUnit = 0.01
+    subLayers = [
+        @./models/linlong_801f3bcf.usda@
+    ]
+    timeCodesPerSecond = 24
+    upAxis = "Z"
+)

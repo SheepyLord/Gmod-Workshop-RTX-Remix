@@ -94,6 +94,8 @@
         "--addon-file",
         "mmd_hotloader/lua/mmdhl/installation.lua",
         "out/inputs/model-hotloader/overrides/installation.lua",
+        "--mod",
+        "out/inputs/model-hotloader/mods/mmdhl_pbr_linlong",
         "--add-to-addon",
         "mmd_hotloader/LICENSE",
         "packages/model-hotloader/LICENSE",

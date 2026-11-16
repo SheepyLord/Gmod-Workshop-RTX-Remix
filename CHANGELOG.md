@@ -6,6 +6,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Linlong with RTX PBR materials (the user's request of 2026-11-16)
+
+- **Linlong, the character the Model Hotloader comes with, now has PBR materials under RTX.** Her outfit and hair use
+  normal maps from her source game at 2048, with roughness and metalness set part by part: sage-green and white
+  cotton with a woven leaf pattern, an olive waxed-canvas vest and apron, gardening gloves with a leather back, a
+  laminated badge, embroidered lace, and soft petals and waxy leaves for her flowers. They come with the RTX package
+  as the Remix mod `mmdhl_pbr_linlong`; there is nothing to download or switch on
+  ([ADR 0231](docs/decisions/0231-linlongs-rtx-pbr-ships-with-the-model-hotloader.md)).
+
 ### ToPBR on the map's own surfaces, an end pose for dances, a gentler dance push (the user's requests of 2026-11-16)
 
 - **ToPBR (Map and prop PBR) now converts only the map's own surfaces unless you choose more, and is marked

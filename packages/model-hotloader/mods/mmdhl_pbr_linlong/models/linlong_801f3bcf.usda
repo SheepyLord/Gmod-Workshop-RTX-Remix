@@ -1,0 +1,193 @@
+#usda 1.0
+(
+    doc = "Remix PBR AI layer for linlong_801f3bcf (asset 801f3bcf7491bc1e)"
+    upAxis = "Z"
+)
+
+over "RootNode"
+{
+    over "Looks"
+    {
+        over "mat_DA456CB33950E77C"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/af1af1e11b22d453_2d19c4b8.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/af1af1e11b22d453_46d95ac3.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_587C43060362D8B0"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_cb58efb6.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_eff12b33.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_910ABA58035CD689"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/8236dbc8bd29ac24_b31b947d.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/8236dbc8bd29ac24_2c175158.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_BD866DD56CE2DD0E"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/f8337dceab17ce36_2fe71415.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/f8337dceab17ce36_87ed0f1c.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:emissive_mask_texture = @../textures/linlong_801f3bcf/f8337dceab17ce36_a6fd8807.e.rtex.dds@ (
+                    colorSpace = "auto"
+                )
+                int inputs:encoding = 0
+                bool inputs:enable_emission = 1
+                float inputs:emissive_intensity = 0.025
+                float inputs:emissive_adaptive_intensity = 0.625000009
+            }
+        }
+
+        over "mat_B4AB0BC5BF618CCF"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/78386baae7761ba7_2fe71415.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/78386baae7761ba7_e6b5a9b6.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:emissive_mask_texture = @../textures/linlong_801f3bcf/78386baae7761ba7_ba3ae045.e.rtex.dds@ (
+                    colorSpace = "auto"
+                )
+                int inputs:encoding = 0
+                bool inputs:enable_emission = 1
+                float inputs:emissive_intensity = 0.04
+                float inputs:emissive_adaptive_intensity = 0.999999978
+            }
+        }
+
+        over "mat_02875E20FE811FA4"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/cfc4cd03f26360d2_ca5cac7c.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/cfc4cd03f26360d2_3ec1eb05.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_7D5C000A18B2D827"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_d1d87462.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_26468e45.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_7BFC8F3668AEF283"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/419c39f47edea046_b150974b.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/419c39f47edea046_5d98b57b.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_79314C224EF34A2E"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/ff75fb5ae563d643_db6f3e88.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/ff75fb5ae563d643_911f2407.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+
+        over "mat_00979212B81925B6"
+        {
+            over "Shader"
+            {
+                uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
+                uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
+                bool inputs:preload_textures = 1
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/09c5316261c2c5f9_15c74b32.n.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/09c5316261c2c5f9_73886d6e.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                int inputs:encoding = 0
+            }
+        }
+    }
+}

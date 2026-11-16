@@ -681,6 +681,16 @@
     "dirty": false
    },
    "imported": "2026-11-16T08:02:26+00:00"
+  },
+  "mods/mmdhl_pbr_linlong": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\linlong\\extract\\native\\root\\rtx-remix\\mods\\pbr_linlong",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "f4abd3e67c17fd76d60e8dce7f234a170751a908",
+    "dirty": false
+   },
+   "imported": "2026-11-16T09:19:26+00:00"
   }
  },
  "files": {
@@ -1419,6 +1429,194 @@
    "stored": "xz",
    "stored_size": 352,
    "stored_sha256": "776efdbd2bbaf1e4caf44c7c573ae28b8b39270e5bd1dbeacb42c758b4b83fd2"
+  },
+  "mods/mmdhl_pbr_linlong/mod.usda": {
+   "size": 346,
+   "sha256": "8a1355fa2f8a5776bcb459cab1baf9c256614d69f3d865b0dc761631d93792ab",
+   "mtime_ns": 1794820515987362300,
+   "stored": "plain"
+  },
+  "mods/mmdhl_pbr_linlong/models/linlong_801f3bcf.usda": {
+   "size": 8168,
+   "sha256": "584d0e7c879836cf040235e91db02244f708cde3866d062160e2b29d2ae407f0",
+   "mtime_ns": 1794820515987362300,
+   "stored": "plain"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/09c5316261c2c5f9_15c74b32.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "0d0cd03508af5b7fdd3d2bcd3e5eee536a62265ccc3d168d573fbe1dcd87f7d6",
+   "mtime_ns": 1794820515991875000,
+   "stored": "xz",
+   "stored_size": 4254196,
+   "stored_sha256": "7b0117e3893dc7f04fae5cbafd3ba7bf8f9d613a43d44e2bd7dd8135abdd810d"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/09c5316261c2c5f9_73886d6e.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "e036703815dc74c8aa147dc43a02664ebbe74226870e7cf6c601dc0869677ddf",
+   "mtime_ns": 1794820515994871300,
+   "stored": "xz",
+   "stored_size": 1514032,
+   "stored_sha256": "90bcde07a043fe7f489cef0092ff3c4f9b7488df0759a05467c6149aab451249"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/1c36828ba5f18dda_cb58efb6.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "3097df3999d328ac56143b9d7d1c58adc14065e28b23934fcb467ac228145488",
+   "mtime_ns": 1794820515999870300,
+   "stored": "xz",
+   "stored_size": 2920124,
+   "stored_sha256": "0f5552cdeecb2a957d824d05bb58ad32e94411d604650e0f723dde1f7c87b940"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/1c36828ba5f18dda_eff12b33.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "a848c33ea6764dddd88322a7fd9da211b7e09166cf9d9f5af64016f6d6a9e620",
+   "mtime_ns": 1794820516003377500,
+   "stored": "xz",
+   "stored_size": 1033984,
+   "stored_sha256": "c1463b7952e50846edac6c545b56e4cee7dcd4ab820d285cdcbf270bd600179e"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/419c39f47edea046_5d98b57b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "0e9406a5dd4778c1c51f4ceb4e2e207e2c3512ddfa6e5186c5874cdebc745582",
+   "mtime_ns": 1794820516005883800,
+   "stored": "xz",
+   "stored_size": 709720,
+   "stored_sha256": "beccffc8897ff6e6f3ad7b03df989d1885eff9f8aa31b8d534e3fced98bb5194"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/419c39f47edea046_b150974b.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "ca3ec10e85791639cda9eae74e2d22ada93be13698afa56912d2e185a8dba63b",
+   "mtime_ns": 1794820516010814700,
+   "stored": "xz",
+   "stored_size": 2359712,
+   "stored_sha256": "518280185e2f95345276f18bcfabe3d2913c80e3a5f24219b79542e602b46cc4"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/78386baae7761ba7_2fe71415.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "1670452feb3fa97dbc804eefd6079c11384b10ff7adee6372a2f9bd4dd3fb470",
+   "mtime_ns": 1794820516014822000,
+   "stored": "xz",
+   "stored_size": 1000,
+   "stored_sha256": "34b5e33bb745f144515cab145ac41e26a4265506c764d7d11a0c12c18bb8fe00"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/78386baae7761ba7_ba3ae045.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "65894c4cde2e7d0d2b5e4638271bb942da1c58386028444a57a33d123d245b17",
+   "mtime_ns": 1794820516018821900,
+   "stored": "xz",
+   "stored_size": 3004624,
+   "stored_sha256": "57f6625f49ce3b0ccc1b84734ac4fb7fc7eadbee76b9f7f25b9dbbd32e776edb"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/78386baae7761ba7_e6b5a9b6.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "eb17d9c2282d3af7ec397fe308617d00026acfaabd9d08cac231f03f7e72fd88",
+   "mtime_ns": 1794820516022329400,
+   "stored": "xz",
+   "stored_size": 596,
+   "stored_sha256": "187a3aa1e8b66c438939ea812f45fd797c461b711ee98f53bf5667dbe092cf8e"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/8236dbc8bd29ac24_2c175158.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "56109b086a80100195238d8b3e8580a08cb2d82e62e9c4b051f6e8f4e7bf3fce",
+   "mtime_ns": 1794820516025332600,
+   "stored": "xz",
+   "stored_size": 665140,
+   "stored_sha256": "315c813ac45d879ec4f9e810513d814ee195e71054164550b6dbdebfe35dd584"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/8236dbc8bd29ac24_b31b947d.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "8901d02386113e33e6d9011ad3c65bc2f4a7d04a893da9d4387d5fbf3be7687c",
+   "mtime_ns": 1794820516029331700,
+   "stored": "xz",
+   "stored_size": 2058856,
+   "stored_sha256": "ee9f79759869d2eca6ead1b083af3bf2510a618e3c57f3aa61f9f3fab4c1e359"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/af1af1e11b22d453_2d19c4b8.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "2832a6b9f1cc4e3db339bbb9bd83a6c6ad0ebc770a380ec261ffc9c3e6cbac22",
+   "mtime_ns": 1794820516033841700,
+   "stored": "xz",
+   "stored_size": 4255748,
+   "stored_sha256": "619b00c6722b3a31323f02d184fc7d1755c140ade820a6fd051d0d431d47879d"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/af1af1e11b22d453_46d95ac3.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ee6b598b79b7eecf85fac8e070c19258efe903ebb89afe970a1ae7718b34227f",
+   "mtime_ns": 1794820516036841800,
+   "stored": "xz",
+   "stored_size": 1769520,
+   "stored_sha256": "9f240aaa46c8e8252a5ecc4f9c3ae9b25e862b5620d66b6a1171a7903545c29e"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/bf21464dff9a9e06_26468e45.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "1268452acee297ede07872ccf7124274e3cde5dd4b26a9df173b56fd3070e56f",
+   "mtime_ns": 1794820516039841900,
+   "stored": "xz",
+   "stored_size": 933396,
+   "stored_sha256": "7e9d8026912143bd48a56ba6ed4a476f57b105ad7b7ead8acd731314ab8b74eb"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/bf21464dff9a9e06_d1d87462.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "65a8f1844ae091d1380537d04d0d5bb7026472c3d8928fb592f6d8118731a8bf",
+   "mtime_ns": 1794820516044350700,
+   "stored": "xz",
+   "stored_size": 2313772,
+   "stored_sha256": "c2e703a187aa8232c0a78b20dea9021b5b177595e919ebf49b3c0876473071d7"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/cfc4cd03f26360d2_3ec1eb05.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "1d45f80f9f841703b84ad317a161befae6a256b1e9b0d61d863112525f2b971e",
+   "mtime_ns": 1794820516047350300,
+   "stored": "xz",
+   "stored_size": 1197372,
+   "stored_sha256": "dc0586cb0669c8ceca7c2fb102cd2332867b1c2aa7024e507b643baaa5fb090c"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/cfc4cd03f26360d2_ca5cac7c.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "752299a7107859c09a10a3216ab0fca1a7a74e628d71d585315dc2f220dda8ee",
+   "mtime_ns": 1794820516052360100,
+   "stored": "xz",
+   "stored_size": 2127960,
+   "stored_sha256": "1a3a1449e288be0ffd3825c075e2d499ede3955eb1ab2cfb1dd66ff20a5cc46c"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/f8337dceab17ce36_2fe71415.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "1670452feb3fa97dbc804eefd6079c11384b10ff7adee6372a2f9bd4dd3fb470",
+   "mtime_ns": 1794820516056870000,
+   "stored": "xz",
+   "stored_size": 1000,
+   "stored_sha256": "34b5e33bb745f144515cab145ac41e26a4265506c764d7d11a0c12c18bb8fe00"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/f8337dceab17ce36_87ed0f1c.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "f5a2095d530bd9fead414adb2911e5b4a118fbc95c55c39e8f466c07cf12c50f",
+   "mtime_ns": 1794820516058869100,
+   "stored": "xz",
+   "stored_size": 9760,
+   "stored_sha256": "fbcc08945d49124a50b8e0c725a106a735566ba2b70c0a81ea82e9be62c9d046"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/f8337dceab17ce36_a6fd8807.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "c570f23e15a6f9ce84bc3ae8eef3444169b62897aefdc36b3bfa41793289e9d0",
+   "mtime_ns": 1794820516064375900,
+   "stored": "xz",
+   "stored_size": 58212,
+   "stored_sha256": "75798fb6743962c8b2a37d9e1d8b568cae63032400f6b5a7743b7ef5cc6ae687"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/ff75fb5ae563d643_911f2407.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ac9e1bc3e25326d34bb19506ae184107f1a4c6f8ab8c9779fd001dd1698006ac",
+   "mtime_ns": 1794820516066878400,
+   "stored": "xz",
+   "stored_size": 1818292,
+   "stored_sha256": "dda8856c8e12ba24acc899acfa0bc0c5fd63276db7890d3d432109e73bbc8975"
+  },
+  "mods/mmdhl_pbr_linlong/textures/linlong_801f3bcf/ff75fb5ae563d643_db6f3e88.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e1d147957ee86547f9c337449e9f6e4680cb52fd7db5285c8b1f5e37b7e17ba9",
+   "mtime_ns": 1794820516071915900,
+   "stored": "xz",
+   "stored_size": 4461000,
+   "stored_sha256": "8679263271f2b9c333e93448e6fce13f819c24adc2e5fd8f1632044a7bc2a26c"
   },
   "overrides/installation.lua": {
    "size": 45586,

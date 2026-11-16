@@ -10,6 +10,7 @@ Its origin is [SheepyLord/Gmod-Model-Hotloader-with-Vulkan](https://github.com/S
 | `mmd_hotloader/` | The add-on, deployed as `garrysmod/addons/mmd_hotloader` |
 | `overrides/installation.lua` | Replaces the add-on's install check (`tools/workshop.json` `--addon-file`): game-build findings only in diagnostics ([ADR 0125](../../docs/decisions/0125-hotloader-game-build-findings-are-diagnostics.md)) |
 | `bin/` | The natives, deployed to `garrysmod/lua/bin`: `gmcl_`/`gmsv_mmdhl_win64.dll`, `mmdhl_runtime_win64.dll`, the import worker `mmdhl_worker.exe`, CoACD's `lib_coacd.dll` (its wheel's DLL), and `mmdhl-native-release.json` |
+| `mods/mmdhl_pbr_linlong/` | RTX Remix PBR materials for Linlong, the character the add-on comes with (`mmd_hotloader/data_static/mmdhl`), deployed to `rtx-remix/mods/mmdhl_pbr_linlong` (`--mod`): the user's pack of 2026-11-16, made with rpai ([ADR 0231](../../docs/decisions/0231-linlongs-rtx-pbr-ships-with-the-model-hotloader.md)) |
 | `source/` | The natives' source ([Source.md](source/Source.md)): the origin's commit with its author's staged changes, and this repository's changes as patches |
 
 ## The natives
@@ -57,3 +58,8 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   copies (`X+` layers: another part's triangles with the opposite winding) take, at load, the skinning and the vertex
   morph offsets of their twins on the layer facing outside, so a copy can no longer stand outside its cloth and shade
   it black (`source/backface-twins.patch`: `native/backface_twins.hpp`, `model.cpp`, `runtime.hpp`, the C++ test).
+- **2026-11-16, Linlong's RTX PBR** ([report](../../docs/handover/linlong-pbr-report.md),
+  [ADR 0231](../../docs/decisions/0231-linlongs-rtx-pbr-ships-with-the-model-hotloader.md)): the Remix mod of the user's
+  `linlong-rtx` pack (normal, roughness and emissive maps at 2048 for her outfit, hair and flowers), unchanged, as
+  `mods/mmdhl_pbr_linlong`. Her PMX's terms forbid redistribution; the user chose to ship it in the public package
+  anyway, as the model itself has been. The pack's copy of her model files is the add-on's own and is not stored again.

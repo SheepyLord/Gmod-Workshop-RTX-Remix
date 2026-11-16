@@ -7,7 +7,10 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cwchar>
+#include <iterator>
 #include <mutex>
+#include <string_view>
 
 namespace nl::engine_guard::poster {
 
@@ -196,7 +199,7 @@ void command_hook(const void* command) {
   g_watch.active = true;
   g_watch.generation = status.generation;
   g_watch.last = RTXPOSTER_STATE_STARTING;
-  g_watch.shown = "screenshots/" + utf8(name.c_str()) + ".png";
+  g_watch.shown = shown_name(path.c_str());
 }
 
 }  // namespace
@@ -356,6 +359,67 @@ std::string utf8(const wchar_t* text) {
   if (size <= 1) return {};
   std::string result(static_cast<std::size_t>(size - 1), '\0');
   WideCharToMultiByte(CP_UTF8, 0, text, -1, result.data(), size, nullptr, nullptr);
+  return result;
+}
+
+std::string shown_name(const wchar_t* path) {
+  if (!path || !*path) return {};
+  const std::wstring_view text(path);
+  // A drive's colon separates too: "C:poster.png" shows as "poster.png".
+  const std::size_t cut = text.find_last_of(L"\\/:");
+  const std::wstring_view leaf = cut == std::wstring_view::npos ? text : text.substr(cut + 1);
+  if (leaf.empty()) return {};
+  std::wstring_view folder;
+  if (cut != std::wstring_view::npos && text[cut] != L':') {
+    const std::wstring_view head = text.substr(0, cut);
+    const std::size_t start = head.find_last_of(L"\\/:");
+    folder = start == std::wstring_view::npos ? head : head.substr(start + 1);
+  }
+  const std::string name = utf8(std::wstring(leaf).c_str());
+  constexpr wchar_t kFolder[] = L"screenshots";
+  const bool screenshots = folder.size() == std::size(kFolder) - 1 && _wcsnicmp(folder.data(), kFolder, folder.size()) == 0;
+  return screenshots ? "screenshots/" + name : name;
+}
+
+std::string shown_reason(const char* why, const wchar_t* path) {
+  std::string text = why ? why : "";
+  const std::string absolute = utf8(path);
+  const std::string shown = shown_name(path);
+  const auto replace = [&text](const std::string& from, const std::string& to) {
+    if (from.empty()) return;
+    for (std::size_t at = text.find(from); at != std::string::npos; at = text.find(from, at + to.size())) {
+      text.replace(at, from.size(), to);
+    }
+  };
+  // The whole path first (also the start of "<path>.part"), then its folder alone.
+  replace(absolute, shown);
+  const std::size_t cut = absolute.find_last_of("\\/");
+  if (cut != std::string::npos && cut > 0) {
+    const std::size_t slash = shown.rfind('/');
+    replace(absolute.substr(0, cut), slash == std::string::npos ? std::string("the poster's folder") : shown.substr(0, slash));
+  }
+  return text;
+}
+
+std::optional<View> view(const Runtime& runtime) {
+  rtxposter_Status status{};
+  status.structSize = sizeof(status);
+  if (!runtime.ready() || runtime.status(&status) != RTXPOSTER_OK) return std::nullopt;
+  status.lastErrorText[sizeof(status.lastErrorText) - 1] = '\0';
+  status.path[RTXPOSTER_PATH_CHARS - 1] = L'\0';
+  View result;
+  result.state = state_name(status.state);
+  result.generation = status.generation;
+  result.error = status.lastError;
+  result.width = status.width;
+  result.height = status.height;
+  result.columns = status.columns;
+  result.rows = status.rows;
+  result.done = status.tilesDone;
+  result.frame = status.frame;
+  result.frames = status.framesPerTile;
+  result.why = shown_reason(status.lastErrorText, status.path);
+  result.path = shown_name(status.path);
   return result;
 }
 

@@ -8,6 +8,8 @@
 
 #include <cstddef>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -200,4 +202,120 @@ TEST_CASE("poster: files are named as the engine names its own") {
   const auto status = poster::take_command();
   CHECK(!status.installed);
   CHECK(status.reason == "the RTX runtime has no poster");
+}
+
+namespace {
+// A stand-in runtime whose status names the poster by the absolute path the module asked it to write, as the real one
+// does (<garrysmod>\screenshots\<name>.png).
+const wchar_t* g_status_path = L"";
+const char* g_status_why = "";
+std::uint32_t g_status_state = RTXPOSTER_STATE_DONE;
+int g_status_result = RTXPOSTER_OK;
+int fake_start(const rtxposter_Request*) { return RTXPOSTER_OK; }
+void fake_cancel() {}
+int fake_status(rtxposter_Status* status) {
+  if (!status || status->structSize != sizeof(*status)) return RTXPOSTER_E_ARGUMENT;
+  if (g_status_result != RTXPOSTER_OK) return g_status_result;
+  *status = {};
+  status->structSize = sizeof(*status);
+  status->state = g_status_state;
+  status->generation = 3;
+  status->lastError = g_status_state == RTXPOSTER_STATE_FAILED ? RTXPOSTER_E_WRITE : RTXPOSTER_OK;
+  status->width = 2560;
+  status->height = 1440;
+  status->columns = 3;
+  status->rows = 3;
+  status->tilesDone = 9;
+  status->frame = 64;
+  status->framesPerTile = 64;
+  strncpy_s(status->lastErrorText, g_status_why, _TRUNCATE);
+  wcsncpy_s(status->path, g_status_path, _TRUNCATE);
+  return RTXPOSTER_OK;
+}
+// A drive-rooted path ("C:\", "C:/"), a share or any backslash: what names the player's folders.
+bool names_folders(const std::string& text) {
+  for (std::size_t i = 0; i + 2 < text.size(); ++i) {
+    const unsigned char c = static_cast<unsigned char>(text[i]);
+    if (((c | 0x20) >= 'a' && (c | 0x20) <= 'z') && text[i + 1] == ':' && (text[i + 2] == '\\' || text[i + 2] == '/')) return true;
+  }
+  return text.find('\\') != std::string::npos || text.find("//") != std::string::npos;
+}
+}  // namespace
+
+TEST_CASE("poster: Lua and the console see screenshots/<name>.png, never the player's folders (review finding 18)") {
+  const wchar_t* path = L"C:\\Users\\Someone\\Steam\\steamapps\\common\\GarrysMod\\garrysmod\\screenshots\\poster-26-11-16 01-02-03.png";
+  CHECK(poster::shown_name(path) == "screenshots/poster-26-11-16 01-02-03.png");
+  CHECK(poster::shown_name(L"D:/Games/garrysmod/Screenshots/poster.png") == "screenshots/poster.png");
+  CHECK(poster::shown_name(L"C:\\Users\\J\xFCrgen\\garrysmod\\screenshots\\poster \xE9.png") == "screenshots/poster \xC3\xA9.png");
+  // Anywhere else only the file's name: no share, drive or folder.
+  CHECK(poster::shown_name(L"\\\\server\\share\\poster.png") == "poster.png");
+  CHECK(poster::shown_name(L"C:\\Users\\Someone\\poster.png") == "poster.png");
+  CHECK(poster::shown_name(L"C:poster.png") == "poster.png");
+  CHECK(poster::shown_name(L"poster.png") == "poster.png");
+  CHECK(poster::shown_name(L"C:\\Users\\Someone\\screenshots\\").empty());
+  CHECK(poster::shown_name(L"").empty());
+  CHECK(poster::shown_name(nullptr).empty());
+  // The runtime's reasons name the poster the same way (today's reasons hold no path; a later one may).
+  CHECK(poster::shown_reason("rename: Access is denied.: \"C:\\Users\\Someone\\Steam\\steamapps\\common\\GarrysMod\\garrysmod"
+                             "\\screenshots\\poster-26-11-16 01-02-03.png.part\"", path) ==
+        "rename: Access is denied.: \"screenshots/poster-26-11-16 01-02-03.png.part\"");
+  CHECK(poster::shown_reason("C:\\Users\\Someone\\Steam\\steamapps\\common\\GarrysMod\\garrysmod\\screenshots is full", path) ==
+        "screenshots is full");
+  CHECK(poster::shown_reason("the view moved; hold still while a poster renders", path) ==
+        "the view moved; hold still while a poster renders");
+  CHECK(poster::shown_reason(nullptr, path).empty());
+  CHECK(poster::shown_reason("cancelled", nullptr) == "cancelled");
+
+  // PosterStatus()'s fields from a stand-in runtime whose status holds that absolute path.
+  const poster::Runtime runtime{fake_start, fake_cancel, fake_status};
+  g_status_path = path;
+  g_status_why = "";
+  g_status_state = RTXPOSTER_STATE_DONE;
+  g_status_result = RTXPOSTER_OK;
+  auto view = poster::view(runtime);
+  REQUIRE(view.has_value());
+  CHECK(std::string(view->state) == "done");
+  CHECK(view->path == "screenshots/poster-26-11-16 01-02-03.png");
+  CHECK(view->why.empty());
+  CHECK(view->generation == 3 && view->error == RTXPOSTER_OK);
+  CHECK(view->width == 2560 && view->height == 1440 && view->columns == 3 && view->rows == 3);
+  CHECK(view->done == 9 && view->frame == 64 && view->frames == 64);
+  CHECK(!names_folders(view->path));
+  g_status_state = RTXPOSTER_STATE_FAILED;
+  g_status_why = "could not open C:\\Users\\Someone\\Steam\\steamapps\\common\\GarrysMod\\garrysmod\\screenshots"
+                 "\\poster-26-11-16 01-02-03.png.part";
+  view = poster::view(runtime);
+  REQUIRE(view.has_value());
+  CHECK(std::string(view->state) == "failed");
+  CHECK(view->error == RTXPOSTER_E_WRITE);
+  CHECK(view->why == "could not open screenshots/poster-26-11-16 01-02-03.png.part");
+  CHECK(!names_folders(view->path) && !names_folders(view->why));
+  // The check itself sees what it must.
+  CHECK(names_folders(poster::utf8(path)));
+  CHECK(names_folders("\\\\server\\share\\poster.png"));
+  CHECK(!names_folders("rename: Access is denied."));
+  // Without the runtime's poster, or when its status call refuses: nothing (PosterStatus() is nil).
+  CHECK(!poster::view(poster::Runtime{}).has_value());
+  g_status_result = RTXPOSTER_E_ARGUMENT;
+  CHECK(!poster::view(runtime).has_value());
+  g_status_result = RTXPOSTER_OK;
+}
+
+TEST_CASE("poster: the module's PosterStatus pushes the view, never the runtime's path") {
+  std::ifstream file(NL_ENGINE_GUARD_MODULE_SOURCE);
+  REQUIRE(file.good());
+  std::stringstream read;
+  read << file.rdbuf();
+  const std::string text = read.str();
+  const auto begin = text.find("LUA_FUNCTION_STATIC(PosterStatus)");
+  REQUIRE(begin != std::string::npos);
+  const auto end = text.find("LUA_FUNCTION_STATIC(", begin + 1);
+  REQUIRE(end != std::string::npos);
+  const std::string body = text.substr(begin, end - begin);
+  CHECK(body.find("poster::view(poster::runtime())") != std::string::npos);
+  CHECK(body.find("status->path") != std::string::npos);
+  CHECK(body.find("status->why") != std::string::npos);
+  CHECK(body.find("status.path") == std::string::npos);
+  CHECK(body.find("lastErrorText") == std::string::npos);
+  CHECK(body.find("utf8(") == std::string::npos);
 }

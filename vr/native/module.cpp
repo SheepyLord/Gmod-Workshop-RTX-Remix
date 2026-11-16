@@ -337,7 +337,8 @@ GMOD_MODULE_OPEN() {
     if(!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS|GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
       reinterpret_cast<const wchar_t*>(&gmod13_open),&self)) return 0;
     const auto n=GetModuleFileNameW(self,filename,static_cast<DWORD>(std::size(filename)));if(!n||n>=std::size(filename)) return 0;
-    session=std::make_unique<Session>(std::filesystem::path(filename).parent_path());owner=LUA;
+    // The game itself says whether VR may start (review finding 8): engine.dll's answer, never a Lua global.
+    session=std::make_unique<Session>(std::filesystem::path(filename).parent_path(),engine_game_calls());owner=LUA;
   }
   LUA->CreateTable();
   const struct { const char* name; GarrysMod::Lua::CFunc fn; } functions[]={

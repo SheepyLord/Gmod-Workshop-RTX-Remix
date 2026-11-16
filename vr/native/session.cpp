@@ -54,8 +54,9 @@ void keyboard_string(const std::string& text,std::size_t limit) {
 }
 }
 struct Session::Impl {
-  Impl(std::filesystem::path folder,WindowCalls& calls):module_folder(std::move(folder)),window_input(calls) {}
+  Impl(std::filesystem::path folder,GameCalls& game_calls,WindowCalls& calls):module_folder(std::move(folder)),game(game_calls),window_input(calls) {}
   std::filesystem::path module_folder;
+  GameCalls& game;
   WindowInput window_input;
   mutable std::mutex status_mutex, api_mutex;
   std::mutex lifecycle,stop_mutex,event_mutex;
@@ -151,6 +152,23 @@ struct Session::Impl {
   std::unique_lock<std::mutex> access() const {
     std::unique_lock lock(api_mutex,std::try_to_lock);
     need(lock.owns_lock(),"nlvr is busy starting or stopping");require_ready();return lock;
+  }
+  // ADR 0197 natively (review finding 8): the engine's own answer, never Lua's game.SinglePlayer, which a server's
+  // client scripts can replace. Asked on the caller's thread (the game's, through Lua), never by the worker.
+  bool local_game(std::string& error) const {
+    GameFacts reported;std::string why;
+    if(!game.facts(reported,why)) {
+      error="VR works in single-player games only, and the engine could not say whether this is one: "+why;return false;
+    }
+    if(local_single_player(reported)) return true;
+    error="VR works in single-player games only: "+not_single_player(reported);return false;
+  }
+  // The game window, the SteamVR keyboard, the binding editor and captures: a running session (only a local
+  // single-player game starts one) in a game that is still one.
+  std::unique_lock<std::mutex> access_local() const {
+    auto lock=access();std::string error;
+    if(!local_game(error)) throw std::runtime_error(error);
+    return lock;
   }
   void fail(const std::string& message) {
     window_input.release();
@@ -433,7 +451,8 @@ struct Session::Impl {
     action_values=std::move(fresh);
   }
 };
-Session::Session(std::filesystem::path folder,WindowCalls& calls):impl_(std::make_unique<Impl>(std::move(folder),calls)) {}
+Session::Session(std::filesystem::path folder,WindowCalls& calls):Session(std::move(folder),engine_game_calls(),calls) {}
+Session::Session(std::filesystem::path folder,GameCalls& game,WindowCalls& calls):impl_(std::make_unique<Impl>(std::move(folder),game,calls)) {}
 std::filesystem::path Session::data_path(const std::string& name,bool capture) const { return named_data(data_root(impl_->module_folder),name,capture); }
 Session::~Session() {
   // Unlike Exit VR, unloading cannot leave code executing in this DLL. OpenVR exposes no Init cancellation.
@@ -460,6 +479,8 @@ bool Session::start(const Options& options,std::string& error) {
       error="nlvr is already "+s.phase+"; wait for cleanup before starting again";return false;
     }
   }
+  // Before anything is loaded: in any other game no OpenVR, SteamVR or renderer start, no worker.
+  if(!s.local_game(error)) return false;
   if(!std::isfinite(options.scale)||options.scale<1||options.scale>1000||!std::isfinite(options.render_scale)||options.render_scale<0.1f||options.render_scale>2) {
     error="invalid scale (1-1000) or render_scale (0.1-2)";return false;
   }
@@ -609,7 +630,7 @@ int Session::haptic(const std::string& hand,float seconds,float frequency,float 
 }
 void Session::window_input(const WindowInputEvent& event) {
   auto& s=*impl_;
-  try { auto lock=s.access();s.window_input.dispatch(event,s.sequence); }
+  try { auto lock=s.access_local();s.window_input.dispatch(event,s.sequence); }
   catch(...) { cancel_window_input();throw; }
 }
 void Session::cancel_window_input() noexcept {
@@ -618,7 +639,7 @@ void Session::cancel_window_input() noexcept {
 }
 void Session::show_keyboard(const std::string& text,const std::string& description,bool multiline,uint32_t maxchars) {
   keyboard_string(text,16384);keyboard_string(description,512);need(maxchars>=1&&maxchars<=4096,"keyboard maxchars must be 1..4096");
-  auto& s=*impl_;auto lock=s.access();std::lock_guard keyboard_lock(s.event_mutex);
+  auto& s=*impl_;auto lock=s.access_local();std::lock_guard keyboard_lock(s.event_mutex);
   if(!s.options.simulate) s.overlay_check(s.overlay->ShowKeyboard(::vr::k_EGamepadTextInputModeNormal,
     multiline?::vr::k_EGamepadTextInputLineModeMultipleLines: ::vr::k_EGamepadTextInputLineModeSingleLine,
     ::vr::KeyboardFlag_Modal,description.c_str(),maxchars,text.c_str(),Impl::keyboard_token));
@@ -635,7 +656,7 @@ void Session::hide_keyboard() {
   if(emit) s.queue_event({"keyboard_closed",::vr::VREvent_KeyboardClosed,0,{}});
 }
 int Session::open_binding_ui() {
-  auto& s=*impl_;auto lock=s.access();++s.facts.binding_ui_requests;
+  auto& s=*impl_;auto lock=s.access_local();++s.facts.binding_ui_requests;
   if(s.options.simulate) return 0;
   // OpenBindingUI requires a device source, not k_ulInvalidInputValueHandle. Prefer a controller;
   // a sleeping pair has no connected device, but the HMD opens the application's desktop editor.
@@ -734,7 +755,7 @@ bool Session::set_quality(const Quality& quality,std::string& error) {
 }
 void Session::capture(const std::filesystem::path& folder,uint32_t what) {
   need(folder.is_absolute()&&what>0&&(what&~15u)==0,"invalid capture folder/flags");
-  auto& s=*impl_;auto lock=s.access();runtime_check(s.rt_capture(folder.c_str(),what),"rtxvr_Capture");
+  auto& s=*impl_;auto lock=s.access_local();runtime_check(s.rt_capture(folder.c_str(),what),"rtxvr_Capture");
 }
 std::optional<ScriptSample> Session::test_state() const {
   auto& s=*impl_;std::unique_lock lock(s.api_mutex,std::try_to_lock);

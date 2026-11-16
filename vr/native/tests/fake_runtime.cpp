@@ -85,7 +85,7 @@ extern "C" int rtxvr_PushFramePose(const rtxvr_FramePose* pose) {
   return RTXVR_OK;
 }
 extern "C" int rtxvr_SetOverlaySource(uint64_t,uint32_t,uint32_t) { std::lock_guard lock(mutex);++count.sources;return RTXVR_OK; }
-extern "C" int rtxvr_Capture(const wchar_t*,uint32_t) { return RTXVR_OK; }
+extern "C" int rtxvr_Capture(const wchar_t*,uint32_t) { std::lock_guard lock(mutex);++count.captures;return RTXVR_OK; }
 extern "C" int rtxvr_GetStatus(rtxvr_Status* out) { std::lock_guard lock(mutex);*out=status;return RTXVR_OK; }
 #ifdef NLVR_FAKE_WINDOW
 #pragma comment(linker, "/EXPORT:rtxvr_SetOverlayWindow")

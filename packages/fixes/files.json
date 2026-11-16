@@ -678,24 +678,24 @@
    "imported": "2026-11-05T22:27:46+00:00"
   },
   "modules/gmcl_nlengineguard_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\px\\out\\build\\win64-release\\engine_guard\\gmcl_nlengineguard_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-sm\\out\\build\\win64-release\\engine_guard\\gmcl_nlengineguard_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/px",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-sm",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "9047e0689f937186923cb81c2dbcec610a8035bc",
+    "commit": "a267b1066bbb8e2f842d835406c7fb16626a9212",
     "dirty": false
    },
-   "imported": "2026-11-15T09:14:36+00:00"
+   "imported": "2026-11-16T12:54:08+00:00"
   },
   "modules/gmsv_nlengineguard_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\px\\out\\build\\win64-release\\engine_guard\\gmsv_nlengineguard_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-sm\\out\\build\\win64-release\\engine_guard\\gmsv_nlengineguard_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/px",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-sm",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "9047e0689f937186923cb81c2dbcec610a8035bc",
+    "commit": "a267b1066bbb8e2f842d835406c7fb16626a9212",
     "dirty": false
    },
-   "imported": "2026-11-15T08:23:15+00:00"
+   "imported": "2026-11-16T12:54:08+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_arc9.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r25\\out\\r25\\fixes-lua\\cl_arc9.lua",
@@ -3910,12 +3910,12 @@
    "stored": "plain"
   },
   "modules/gmcl_nlengineguard_win64.dll": {
-   "size": 295936,
-   "sha256": "9ec7d6484bb3085e34ac942d82202a777e2da422450df781c048f09328e2cc60",
-   "mtime_ns": 1794734075679775500,
+   "size": 303104,
+   "sha256": "8ed3a1f27a12313ab6fb2a9c3e5c78c164328df826949a2de80f7f967006e941",
+   "mtime_ns": 1794833308905211900,
    "stored": "xz",
-   "stored_size": 124000,
-   "stored_sha256": "891b9db7a4b6a7dca3a454bcc035e57dbf770e74d4c76b03f20b1f8ab5151021"
+   "stored_size": 127192,
+   "stored_sha256": "9f44e65a916c3e1c500449153dd7c03aaf7e74614975a22671156a58b9191357"
   },
   "modules/gmcl_rtxdebug_win64.dll": {
    "size": 428032,
@@ -3943,11 +3943,11 @@
   },
   "modules/gmsv_nlengineguard_win64.dll": {
    "size": 302592,
-   "sha256": "667fc41ff1de52d3cf23d68ee95fadaa8843662798743d727794835baa8b6a16",
-   "mtime_ns": 1794730649586472400,
+   "sha256": "70721960ebe695666498356874bbac09b85abee8aea070f5dbe84cc730821fa6",
+   "mtime_ns": 1794833308991477600,
    "stored": "xz",
-   "stored_size": 124456,
-   "stored_sha256": "219893e0c3dd4f90e12d0daa0b0e998f84d85f6d210aa87b49bb37ae18703175"
+   "stored_size": 124548,
+   "stored_sha256": "a0a088ef841e9ff1e1949441caea0ceec255bd4e350944ac68c333d7e7668f97"
   },
   "modules/gmsv_nlrtxclient_win64.dll": {
    "size": 696320,

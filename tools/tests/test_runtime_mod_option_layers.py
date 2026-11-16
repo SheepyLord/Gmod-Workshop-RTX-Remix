@@ -157,6 +157,22 @@ class ModOptionLayerTests(unittest.TestCase):
         self.assertIn('if (!option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer()))) {', api)
         self.assertIn('return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;', api)
 
+    def test_an_empty_value_through_the_api_stays_a_success(self):
+        """Patch 0104: Config::findOption takes "" for no value, so readOption reads nothing for it; the Remix API
+        answers success for it as before patch 0101 (the RTX package's Lua sets its session lists to "" often, and each
+        call had printed a failure), and still refuses a value that fails to parse."""
+        patch = patches.read(patches.one_patch(104))
+        self.assertEqual(sorted(patches.file_blocks(patch)), [API])
+        added, removed = patches.added_lines(patch, API), patches.removed_lines(patch, API)
+        self.assertIn("const bool emptyValue = value[0] == '\\0';", added)
+        self.assertIn('if (!option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer())) '
+                      '&& !emptyValue) {', added)
+        self.assertIn('if (!option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer()))) {',
+                      removed)
+        # Patch 0101's readOption returns false before reading for an option the config does not hold (upstream's
+        # findOption, which an empty value fails): that is the case the API answers success for again.
+        self.assertIn('if (!options.findOption(fullName.c_str())) {', patch_text())
+
     def test_meson_lists_the_header_and_both_unit_tests(self):
         patch = patch_text()
         self.assertIn("'rtx_render/rtx_mod_layer_policy.h',", patches.added_lines(patch, 'src/dxvk/meson.build'))

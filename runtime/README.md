@@ -1,12 +1,13 @@
 # runtime/
 
-Patches 0101-0103 fix the runtime's findings of the repository review of 2026-11-16 (`out/review/repository-review.md`
-in the main checkout: findings 1, 10 and 17; the user approved fixing every finding). Fork branch
-`claude/review-runtime`: `aa92fe27a` (0101), `e5c5cae45` (0102), `ffaa14878` (0103), on 0100's `25c85588b`; each
-exported alone (`format-patch -1 --start-number <N> --zero-commit`) and built together by `build_runtime.ps1` in
-`out/worktrees/r17/out/runtime-src` (0001-0103): **`d3d9.dll` 479,885,312 bytes, SHA-256
-`2ee16d495322cfb09c26d188f79e2ac777162bc279b17ee61989bccc011e393c`** (70,845,120 bytes xz in Git LFS). No loader
-(`winmm.dll`) change.
+Patches 0101-0104 fix the runtime's findings of the repository review of 2026-11-16 (`out/review/repository-review.md`
+in the main checkout: findings 1, 10 and 17; the user approved fixing every finding) and what the PoC smoke test of
+those fixes found (0104). Fork branch `claude/review-runtime`: `aa92fe27a` (0101), `e5c5cae45` (0102), `ffaa14878`
+(0103), `8cd421cd8` (0104), on 0100's `25c85588b`; each exported alone (`format-patch -1 --start-number <N>
+--zero-commit`) and built together by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0104):
+**`d3d9.dll` 479,885,312 bytes, SHA-256 `f88d381dbb12f0cc70228ae411f8859b0c19bd986eaae888049adc8fedcc08da`**
+(70,861,508 bytes xz in Git LFS; 0001-0103's build, `2ee16d49...`, was never published). No loader (`winmm.dll`)
+change.
 
 - **Patch `0101-A-mod-s-Remix-Logic-option-layer-only-its-own-config.patch`** (finding 1): the loader deploys the Remix
   mods of any subscribed Workshop item as content, and an `RtxOptionLayerAction` node in such a mod's Remix Logic
@@ -53,6 +54,13 @@ exported alone (`format-patch -1 --start-number <N> --zero-commit`) and built to
   edited in the old folder is not read any more and not moved: a file in `garrysmod/data` may as well be a server's,
   which the runtime cannot tell from the player's. The loader leaves such an edited file in place (no longer tracked)
   and removes the unedited ones. Checked by [test_runtime_splash.py](../tools/tests/test_runtime_splash.py.md).
+- **Patch `0104-The-Remix-API-an-empty-value-changes-nothing-and-suc.patch`** (found by the PoC smoke test of
+  0101-0103): 0101 made `remixapi_SetConfigVariable` answer `INVALID_ARGUMENTS` whenever `readOption` read nothing,
+  and `Config::findOption` takes `""` for no value, so an empty value, which had always changed nothing and answered
+  success, became a failure. The RTX package's Lua sets its session texture lists and the eye-white aliases to `""`
+  whenever they are empty, and the fixes' binding printed a failure for each (902 lines in a four-minute session). An
+  empty value is a success again; a value that fails to parse is still refused. Checked by
+  [test_runtime_mod_option_layers.py](../tools/tests/test_runtime_mod_option_layers.py.md).
 
 Patch `0100-Translate-the-Remix-menus-98-new-texts-zh-CN-zh-TW-j.patch` (the user's go-ahead of 2026-11-15; fork
 branch `claude/remix-menu-i18n`, commit `25c85588` on 0099's `1dd38dbf`): the Remix menus' (Alt+X) texts that came

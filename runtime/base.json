@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "2ee16d495322cfb09c26d188f79e2ac777162bc279b17ee61989bccc011e393c",
-  "built_from": "HEAD -> claude/review-runtime ffaa14878 (with what the rest of this record names)",
+  "d3d9.dll": "f88d381dbb12f0cc70228ae411f8859b0c19bd986eaae888049adc8fedcc08da",
+  "built_from": "HEAD -> claude/review-runtime 8cd421cd8 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -153,6 +153,7 @@
    "patches/0101-A-mod-s-Remix-Logic-option-layer-only-its-own-config.patch": "d851f7f55104b0aeaf9cabe6dfde5b419b30041395b00e4d0209c70327a7d54d",
    "patches/0102-The-splash-the-welcome-message-shown-as-text-once-fo.patch": "f97fcb7eefe6e8d1587b833724c4c2a4dccaab63534134c5d2a642013e44e76c",
    "patches/0103-The-startup-text-from-rtx-remix-mods-nativeloader_ui.patch": "83d66a2dce954691bb5f449d33f3e18034d8c1783541b5fe56d375b27886afd5",
+   "patches/0104-The-Remix-API-an-empty-value-changes-nothing-and-suc.patch": "d982178c59d004f257798309bff317780c95bdb641d9ed58db4589184ffbee8a",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

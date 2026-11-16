@@ -39,6 +39,10 @@ class MotionServerTests(unittest.TestCase):
     def test_debug_frames_are_paced(self):
         self.run_lua('debug_rate')
 
+    def test_a_removed_dancers_music_stops(self):
+        # The user's report of 2026-11-16: the song came back with an NPC spawned later at the dancer's index.
+        self.run_lua('dancer_gone_music')
+
     def test_cvars_come_back_after_a_map_change(self):
         self.run_lua('cvar_shutdown')
 

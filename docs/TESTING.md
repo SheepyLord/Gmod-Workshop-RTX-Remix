@@ -3619,3 +3619,17 @@ opens the editor on the model (and on the model being worked on after a click on
 there detaches and is placed, that a removed model clears the target, and the frame time with the tool out and all of
 a character selected; `out/msep/poc_overlay.py` with `out/msep/poc/overlay_probe.lua` timed the removed overlay. The
 separator now has 57 texts in each catalog.
+
+## The Imported game PBR page and a dance's music (Claude, 2026-11-16)
+
+- [`game_pbr_panel_harness.lua`](../tools/tests/game_pbr_panel_harness.lua.md) (run by `test_topbr.py`) also gives
+  the page fake live hashes and a fake index of `rtx-remix/mods`: each material's source line (a mod with its maps,
+  game maps by family, no PBR, not drawn yet, an editor profile, the automatic layer), the rows' short lines with the
+  hash, the summary's counts, pictures only for drawn materials and only once, and the characters followed while the
+  page stays built (a removed one empties it and resets the status, a new one fills it).
+- `motion_server_harness.lua` `dancer_gone_music` and `motion_tab_harness.lua` `dance_music` (in `test_motion_server`
+  and `test_motion_tab`): a removed dancer's music stops on the server and on the client, and a later entity at the
+  same index brings nothing back; both fail on the code before the fix.
+- In the PoC (`out/msep/poc_probe.py` with `out/msep/poc/pbr_probe.lua` and `pbr_probe2.lua`, scratch; evidence in
+  `out/qa-poc/game-pbr-panel`): the page with the Model Hotloader's own character in view, after a cleanup and after a
+  respawn at the same entity index ([report](handover/pbr-page-dance-music-report.md)).

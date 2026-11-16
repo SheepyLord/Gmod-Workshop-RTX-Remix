@@ -4305,6 +4305,9 @@ MMDVMDNPC.EndHoldSeconds = 3
 local function update_playback_state(ent, state, now)
     if not is_usable_npc(ent) then
         MMDVMDNPC.Playbacks[ent] = nil
+        -- The dancer died or was removed: its music ends with it. Without the stop, clients kept the song playing
+        -- muted (no dancer to hear it from), and a later entity given the same index brought it back mid-song.
+        send_audio_stop(state)
         if state and state.collision then actor.stop_collision(ent, state.collision) end
         if update_rpe_body_suppression then update_rpe_body_suppression() end
         if state and state.cvarSuppression then
@@ -4381,6 +4384,7 @@ local function update_playback_state(ent, state, now)
     local frames = built.frames or {}
     if #frames <= 0 then
         MMDVMDNPC.Playbacks[ent] = nil
+        send_audio_stop(state)
         if state.collision then actor.stop_collision(ent, state.collision) end
         if update_rpe_body_suppression then update_rpe_body_suppression() end
         if state.cvarSuppression then

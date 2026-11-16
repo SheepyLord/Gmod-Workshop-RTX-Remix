@@ -53,14 +53,14 @@
    "imported": "2026-10-31T12:53:45+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_menu.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\mmd\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\cl_menu.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\cl_menu.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/mmd",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "6cf6e92ac1639949ca22275499216ca8d7f11c5f",
-    "dirty": true
+    "commit": "63c325951ba62f72cefb2e2895e1bdb267558c88",
+    "dirty": false
    },
-   "imported": "2026-11-15T07:07:02+00:00"
+   "imported": "2026-11-16T11:55:00+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_importer.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r4\\out\\tmp\\stage-r4-own-scale\\cl_importer.lua",
@@ -153,14 +153,14 @@
    "imported": "2026-11-15T06:51:25+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/sv_commands.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\qol16\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\sv_commands.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\sv_commands.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/qol16",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "9b2cab57e83c9b5df490e986c2d586603ec66d16",
+    "commit": "63c325951ba62f72cefb2e2895e1bdb267558c88",
     "dirty": false
    },
-   "imported": "2026-11-16T08:38:16+00:00"
+   "imported": "2026-11-16T11:55:00+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_flashlight.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\q-light\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\cl_flashlight.lua",
@@ -259,9 +259,9 @@
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_menu.lua": {
-   "size": 280769,
-   "sha256": "d3d33e42f3deff54ade167d634a5ae04705536d100254dededea9b4a749cf58c",
-   "mtime_ns": 1794726282517319000,
+   "size": 281367,
+   "sha256": "2799ccda0695850435eb1e648243e422d0d370effcee7f177c1d40fcea4b246c",
+   "mtime_ns": 1794829693221445000,
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_radial.lua": {
@@ -283,9 +283,9 @@
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/sv_commands.lua": {
-   "size": 249526,
-   "sha256": "dd04080f35b51317ff141129d3975b90d718867117c5dd368a0ac8f544963c82",
-   "mtime_ns": 1794818186107285200,
+   "size": 249819,
+   "sha256": "c467223388aba0b7653519e03efd67dfe58b350147cfc157d8b1e14529193cd7",
+   "mtime_ns": 1794829693222450100,
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/weapons/gmod_tool/stools/mmd_vmd_npc.lua": {

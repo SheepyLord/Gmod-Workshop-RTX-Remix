@@ -892,6 +892,23 @@ local panelPhrases = {
         ["override"] = "手动覆盖",
         ["none"] = "无",
         ["error"] = "错误",
+        ["Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."] = "每个材质都显示 Remix 为其绘制的 PBR：Remix 模组（如角色的 PBR 包）、高级材质编辑器配置，或在此设置的游戏贴图。",
+        ["Remix mod: %s"] = "Remix 模组：%s",
+        ["Advanced Material Editor profile"] = "高级材质编辑器配置",
+        ["Game maps: %s"] = "游戏贴图：%s",
+        ["Game maps"] = "游戏贴图",
+        ["No PBR"] = "无 PBR",
+        ["Not drawn yet"] = "尚未绘制",
+        ["In effect: %s"] = "当前生效：%s",
+        ["Texture hash %s"] = "纹理哈希 %s",
+        ["No character: spawn one, or look at one and list it."] = "没有角色：生成一个，或看向一个角色后列出。",
+        ["values only"] = "仅数值",
+        ["albedo"] = "反照率",
+        ["normal"] = "法线",
+        ["roughness"] = "粗糙度",
+        ["metallic"] = "金属度",
+        ["height"] = "高度",
+        ["emission"] = "自发光",
     },
     ["zh-TW"] = {
         ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "用於透過 Model Hotloader 匯入的角色：使用其遊戲隨模型附帶的 PBR 貼圖。地圖和道具請見「地圖和道具 PBR（ToPBR）」。",
@@ -918,6 +935,23 @@ local panelPhrases = {
         ["override"] = "手動覆寫",
         ["none"] = "無",
         ["error"] = "錯誤",
+        ["Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."] = "每個材質都顯示 Remix 為其繪製的 PBR：Remix 模組（如角色的 PBR 包）、高階材質編輯器設定檔，或在此設定的遊戲貼圖。",
+        ["Remix mod: %s"] = "Remix 模組：%s",
+        ["Advanced Material Editor profile"] = "高階材質編輯器設定檔",
+        ["Game maps: %s"] = "遊戲貼圖：%s",
+        ["Game maps"] = "遊戲貼圖",
+        ["No PBR"] = "無 PBR",
+        ["Not drawn yet"] = "尚未繪製",
+        ["In effect: %s"] = "目前生效：%s",
+        ["Texture hash %s"] = "紋理雜湊 %s",
+        ["No character: spawn one, or look at one and list it."] = "沒有角色：生成一個，或看向一個角色後列出。",
+        ["values only"] = "僅數值",
+        ["albedo"] = "反照率",
+        ["normal"] = "法線",
+        ["roughness"] = "粗糙度",
+        ["metallic"] = "金屬度",
+        ["height"] = "高度",
+        ["emission"] = "自發光",
     },
     ["ja"] = {
         ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Model Hotloader で取り込んだキャラクター用：そのゲームがモデルと一緒に収録している PBR マップを使います。マップとプロップは「マップとプロップの PBR (ToPBR)」を参照してください。",
@@ -944,6 +978,23 @@ local panelPhrases = {
         ["override"] = "手動設定",
         ["none"] = "なし",
         ["error"] = "エラー",
+        ["Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."] = "各マテリアルには Remix が描画する PBR が表示されます：Remix MOD（キャラクターの PBR パックなど）、高機能マテリアルエディターのプロファイル、またはここで設定するゲームのマップです。",
+        ["Remix mod: %s"] = "Remix MOD：%s",
+        ["Advanced Material Editor profile"] = "高機能マテリアルエディターのプロファイル",
+        ["Game maps: %s"] = "ゲームのマップ：%s",
+        ["Game maps"] = "ゲームのマップ",
+        ["No PBR"] = "PBR なし",
+        ["Not drawn yet"] = "まだ描画されていません",
+        ["In effect: %s"] = "適用中：%s",
+        ["Texture hash %s"] = "テクスチャハッシュ %s",
+        ["No character: spawn one, or look at one and list it."] = "キャラクターがいません：スポーンするか、キャラクターを見て一覧表示してください。",
+        ["values only"] = "数値のみ",
+        ["albedo"] = "アルベド",
+        ["normal"] = "法線",
+        ["roughness"] = "粗さ",
+        ["metallic"] = "金属度",
+        ["height"] = "高さ",
+        ["emission"] = "発光",
     },
     ["ko"] = {
         ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Model Hotloader로 가져온 캐릭터용: 게임이 모델 옆에 함께 제공한 PBR 맵을 사용합니다. 맵과 프롭은 '맵과 프롭 PBR (ToPBR)'을 참고하세요.",
@@ -970,6 +1021,23 @@ local panelPhrases = {
         ["override"] = "수동 설정",
         ["none"] = "없음",
         ["error"] = "오류",
+        ["Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."] = "각 재질에는 Remix가 그리는 PBR이 표시됩니다: Remix 모드(캐릭터의 PBR 팩 등), 고급 재질 편집기 프로필, 또는 여기서 설정한 게임 맵.",
+        ["Remix mod: %s"] = "Remix 모드: %s",
+        ["Advanced Material Editor profile"] = "고급 재질 편집기 프로필",
+        ["Game maps: %s"] = "게임 맵: %s",
+        ["Game maps"] = "게임 맵",
+        ["No PBR"] = "PBR 없음",
+        ["Not drawn yet"] = "아직 그려지지 않음",
+        ["In effect: %s"] = "적용 중: %s",
+        ["Texture hash %s"] = "텍스처 해시 %s",
+        ["No character: spawn one, or look at one and list it."] = "캐릭터 없음: 하나를 스폰하거나, 캐릭터를 바라본 뒤 나열하세요.",
+        ["values only"] = "값만",
+        ["albedo"] = "알베도",
+        ["normal"] = "노멀",
+        ["roughness"] = "거칠기",
+        ["metallic"] = "금속성",
+        ["height"] = "높이",
+        ["emission"] = "발광",
     },
     ["fr"] = {
         ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Pour les personnages importés avec Model Hotloader : utilise les textures PBR que leur jeu fournit à côté du modèle. Pour les cartes et objets, voir PBR des cartes et objets (ToPBR).",
@@ -996,6 +1064,23 @@ local panelPhrases = {
         ["override"] = "personnalisé",
         ["none"] = "aucune",
         ["error"] = "erreur",
+        ["Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."] = "Chaque matériau indique le PBR que Remix dessine pour lui : un mod Remix comme le pack PBR d'un personnage, un profil de l'Éditeur de matériaux avancé, ou les maps du jeu réglées ici.",
+        ["Remix mod: %s"] = "Mod Remix : %s",
+        ["Advanced Material Editor profile"] = "Profil de l'Éditeur de matériaux avancé",
+        ["Game maps: %s"] = "Maps du jeu : %s",
+        ["Game maps"] = "Maps du jeu",
+        ["No PBR"] = "Pas de PBR",
+        ["Not drawn yet"] = "Pas encore dessiné",
+        ["In effect: %s"] = "En vigueur : %s",
+        ["Texture hash %s"] = "Hachage de texture %s",
+        ["No character: spawn one, or look at one and list it."] = "Aucun personnage : faites-en apparaître un, ou visez-en un et listez-le.",
+        ["values only"] = "valeurs seules",
+        ["albedo"] = "albédo",
+        ["normal"] = "normale",
+        ["roughness"] = "rugosité",
+        ["metallic"] = "métallique",
+        ["height"] = "hauteur",
+        ["emission"] = "émission",
     },
     ["ru"] = {
         ["For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."] = "Для персонажей, импортированных через Model Hotloader: использует PBR-текстуры, которые их игра поставляет рядом с моделью. Для карт и объектов см. «PBR карт и объектов (ToPBR)».",
@@ -1022,6 +1107,23 @@ local panelPhrases = {
         ["override"] = "переопределение",
         ["none"] = "нет",
         ["error"] = "ошибка",
+        ["Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."] = "Для каждого материала показан PBR, который рисует Remix: мод Remix (например, PBR-пакет персонажа), профиль Расширенного редактора материалов или карты игры, настроенные здесь.",
+        ["Remix mod: %s"] = "Мод Remix: %s",
+        ["Advanced Material Editor profile"] = "Профиль Расширенного редактора материалов",
+        ["Game maps: %s"] = "Карты игры: %s",
+        ["Game maps"] = "Карты игры",
+        ["No PBR"] = "Нет PBR",
+        ["Not drawn yet"] = "Ещё не отрисован",
+        ["In effect: %s"] = "Действует: %s",
+        ["Texture hash %s"] = "Хеш текстуры %s",
+        ["No character: spawn one, or look at one and list it."] = "Нет персонажа: создайте его или посмотрите на него и выведите список.",
+        ["values only"] = "только значения",
+        ["albedo"] = "альбедо",
+        ["normal"] = "нормали",
+        ["roughness"] = "шероховатость",
+        ["metallic"] = "металличность",
+        ["height"] = "высота",
+        ["emission"] = "свечение",
     },
 }
 local function L(text)
@@ -1097,6 +1199,68 @@ function P.State(row)
     return view
 end
 
+-- What Remix draws for a material (the user's report of 2026-11-16: the page named only the game maps, so every
+-- material of a character whose PBR comes from a Remix mod read "none"): the material's live texture hash, and the mod
+-- in rtx-remix/mods that supplies that hash, from the Advanced Material Editor's index of the mods in the runtime's own
+-- order (AdvMat.RTX.Enhance.Lookup). A material that has not been drawn has no hash yet.
+local MAP_INPUTS = {{"inputs:diffuse_texture", "albedo"}, {"inputs:normalmap_texture", "normal"},
+    {"inputs:reflectionroughness_texture", "roughness"}, {"inputs:metallic_texture", "metallic"},
+    {"inputs:height_texture", "height"}, {"inputs:emissive_mask_texture", "emission"}}
+function P.Effective(row)
+    local info = {}
+    local remix = RemixMaterial
+    if remix and remix.GetTextureHash then
+        local ok, number, hex = pcall(remix.GetTextureHash, row.name)
+        if ok and (tonumber(number) or 0) ~= 0 and isstring(hex) and hex ~= "" then info.hash = hex end
+    end
+    local index = AdvMat and AdvMat.RTX and AdvMat.RTX.Enhance
+    if not info.hash or not (index and index.Lookup) then return info end
+    local ok, look = pcall(index.Lookup, {info.hash})
+    local entry = ok and istable(look) and look.effective or nil
+    if not entry then return info end
+    info.mod, info.own, info.automatic = entry.folder, entry.own == true, entry.automatic == true
+    info.maps = {}
+    local inputs = istable(entry.material) and istable(entry.material.inputs) and entry.material.inputs or {}
+    for _, pair in ipairs(MAP_INPUTS) do
+        local opinion = inputs[pair[1]]
+        if istable(opinion) and isstring(opinion.asset) and opinion.asset ~= "" then info.maps[#info.maps + 1] = L(pair[2]) end
+    end
+    return info
+end
+-- One line for what a material shows under RTX, the group the page's summary counts it in, and for a mod the maps it
+-- has (a row puts the source and its maps on lines of their own).
+function P.Describe(info, view)
+    view = view or {}
+    if info.mod and not info.automatic then
+        local source = info.own and L("Advanced Material Editor profile") or string.format(L("Remix mod: %s"), info.mod)
+        local detail = info.maps and #info.maps > 0 and table.concat(info.maps, ", ") or L("values only")
+        return source .. " (" .. detail .. ")", source, detail
+    end
+    if info.automatic or view.state == "automatic" or view.state == "cached" or view.state == "override" then
+        local family = isstring(view.family) and view.family ~= "" and view.family or L(view.state or "automatic")
+        return string.format(L("Game maps: %s"), family), L("Game maps")
+    end
+    if info.hash then return L("No PBR"), L("No PBR") end
+    return L("Not drawn yet"), L("Not drawn yet")
+end
+-- A material's picture for its row: its base texture in an interface material (a model material draws nothing in a
+-- 2D image), only for a drawn material, whose texture is loaded already: nothing unseen is loaded for a picture.
+local pictures, pictureCount = {}, 0
+local function picture(row)
+    local known = pictures[row.name]
+    if known ~= nil then return known or nil end
+    local ok, mat = pcall(Material, row.name)
+    local texture = ok and mat and not mat:IsError() and mat:GetTexture("$basetexture")
+    if not texture or texture:IsError() then pictures[row.name] = false return nil end
+    pictureCount = pictureCount + 1
+    local made = CreateMaterial("rtx_gamepbr_picture_" .. pictureCount, "UnlitGeneric", {["$basetexture"] = texture:GetName()})
+    pictures[row.name] = made or false
+    return made
+end
+local function entityKey(ent)
+    return tostring(ent.EntIndex and ent:EntIndex() or ent) .. ":" .. tostring(ent.GetCreationID and ent:GetCreationID() or 0)
+end
+
 function P.Build(panel)
     panel:Clear()
     panel:CheckBox(L("Imported game PBR"), "rtx_topbr_game_maps")
@@ -1104,11 +1268,13 @@ function P.Build(panel)
     panel:Help(L("For characters imported with the Model Hotloader: uses the PBR maps their game shipped beside the model. For maps and props, see Map and prop PBR (ToPBR)."))
     panel:Help(L("Look at a character, then list its materials. Choices apply to every character sharing the same texture."))
     panel:Help(L("Authored Remix replacements take priority. Face and eye protection stays active."))
+    panel:Help(L("Each material shows the PBR Remix draws for it: a Remix mod such as a character's PBR pack, an Advanced Material Editor profile, or the game maps set up here."))
     local characters = panel:ComboBox(L("Character"))
+    local summary = panel:Help("")
     local list = vgui.Create("DScrollPanel", panel)
     list:SetTall(240) panel:AddItem(list)
-    local selected, signature, family, files = nil, nil, nil, nil
-    local rowUpdates = {}
+    local current, selected, signature, family, files = nil, nil, nil, nil, nil
+    local rows, rowUpdates = {}, {}
     local status = panel:Help(L("Select a material"))
     local families = panel:ComboBox(L("Map family"))
     local normal = panel:ComboBox(L("Normal map"))
@@ -1117,40 +1283,80 @@ function P.Build(panel)
     local layout = panel:ComboBox(L("Game layout"))
     for i, name in ipairs({"Wuthering Waves", "Endfield", "Silver Palace"}) do layout:AddChoice(name, i-1) end
     layout:ChooseOptionID(1)
-    local function rebuild(target)
-        list:Clear() rowUpdates = {}
-        local default, defaultRank = nil, -1
+    local function lookedAt()
         local ply = LocalPlayer()
         local trace = IsValid(ply) and (ply.GetEyeTraceNoCursor and ply:GetEyeTraceNoCursor() or ply:GetEyeTrace())
-        local ent = target or trace and trace.Entity
-        for _, row in ipairs(P.Materials(ent)) do
+        local ent = trace and trace.Entity
+        return IsValid(ent) and #P.Materials(ent) > 0 and ent or nil
+    end
+    local function rebuild(target)
+        list:Clear() rows, rowUpdates = {}, {}
+        current = IsValid(target) and target or nil
+        selected, signature, family, files = nil, nil, nil, nil
+        local default, seen
+        for _, row in ipairs(P.Materials(current)) do
+            rows[#rows + 1] = row
             local button = list:Add("DButton")
             button:Dock(TOP) button:SetTall(64) button:DockMargin(0, 0, 0, 4)
             button:SetText("")
             local image = vgui.Create("DImage", button) image:Dock(LEFT) image:SetWide(60)
-            local label = vgui.Create("DLabel", button) label:Dock(FILL) label:SetWrap(true) label:SetDark(true)
-            local thumbnail = ""
+            local label = vgui.Create("DLabel", button) label:Dock(FILL) label:DockMargin(6, 0, 0, 0) label:SetWrap(true) label:SetDark(true)
+            local pictured = false
             local function update()
-                local state = P.State(row)
-                -- Never load an unseen material just to show a thumbnail.
-                if state.identity ~= "" and thumbnail ~= state.identity then
-                    image:SetMaterial(Material(row.name)) thumbnail = state.identity
+                local info = P.Effective(row)
+                local text, group, detail = P.Describe(info, P.State(row))
+                if info.hash and not pictured then
+                    pictured = true
+                    local made = picture(row)
+                    if made then image:SetMaterial(made) end
                 end
-                label:SetText(tostring(row.label) .. "\n" .. L(state.state or "waiting"))
-                return state
+                -- Short lines (a wrapped line lost its first letter in the game's labels).
+                local lines = {tostring(row.label), detail and group or text}
+                if detail then lines[#lines + 1] = detail end
+                if info.hash then lines[#lines + 1] = info.hash end
+                label:SetText(table.concat(lines, "\n"))
+                return info, group
             end
             rowUpdates[#rowUpdates + 1] = update
-            local state = update()
-            local rank = state.state == "override" and 3 or (state.state == "automatic" or state.state == "cached") and 2 or 0
-            if state.identity ~= "" and rank > defaultRank then default, defaultRank = button, rank end
+            local info = update()
             button.DoClick = function()
                 selected, signature, family, files = row, nil, nil, nil
                 P.Action(row, "options")
             end
+            -- The first drawn material, else the first the native view has seen.
+            if not default and info.hash then default = button end
+            if not seen and (P.State(row).identity or "") ~= "" then seen = button end
         end
-        if default then default.DoClick() list:ScrollToChild(default) end
+        default = default or seen
+        if default then default.DoClick() list:ScrollToChild(default) else status:SetText(L("Select a material")) end
+        if not current then summary:SetText(L("No character: spawn one, or look at one and list it.")) end
     end
-    local refresh = panel:Button(L("List looked-at character")) refresh.DoClick = function() rebuild() end
+    -- The characters in the game. The spawn menu builds this page once, so the list follows them while it stays
+    -- built: a character spawned later appears, a removed one goes, and the page never lists a removed one.
+    local targetsKey, filling = nil, false
+    local function fillCharacters(prefer)
+        local targets = P.Targets()
+        local want = IsValid(prefer) and prefer or current
+        local keys, index = {}, nil
+        for number, target in ipairs(targets) do
+            keys[#keys + 1] = entityKey(target.entity) .. "=" .. tostring(target.label)
+            if target.entity == want then index = number end
+        end
+        index = index or (#targets > 0 and 1 or nil)
+        local key = table.concat(keys, ",") .. "|" .. tostring(index)
+        if key ~= targetsKey then
+            targetsKey = key
+            filling = true
+            characters:Clear()
+            for _, target in ipairs(targets) do characters:AddChoice(target.label, target.entity) end
+            if index then characters:ChooseOptionID(index) end
+            filling = false
+        end
+        return index and targets[index].entity or nil
+    end
+    characters.OnSelect = function(_, _, _, target) if not filling then rebuild(target) end end
+    -- The character looked at, or the one shown when the eyes are on no character (the spawn menu is usually open).
+    local refresh = panel:Button(L("List looked-at character")) refresh.DoClick = function() rebuild(fillCharacters(lookedAt())) end
     families.OnSelect = function(_, _, _, data) family = data if data then layout:ChooseOptionID(data.layout + 1) end end
     local function chosen(combo) local _, data = combo:GetSelected() return data or "" end
     local useFamily = panel:Button(L("Use selected family"))
@@ -1171,11 +1377,26 @@ function P.Build(panel)
         if self.RTXGamePBRBaseThink then self:RTXGamePBRBaseThink() end
         if RealTime() < nextPoll then return end
         nextPoll = RealTime() + .5
-        for _, update in ipairs(rowUpdates) do update() end
+        local wanted = fillCharacters()
+        if wanted ~= current then rebuild(wanted) end
+        local counts, order = {}, {}
+        for _, update in ipairs(rowUpdates) do
+            local _, group = update()
+            if not counts[group] then counts[group] = 0 order[#order + 1] = group end
+            counts[group] = counts[group] + 1
+        end
+        if current then
+            local lines = {}
+            for _, group in ipairs(order) do lines[#lines + 1] = string.format("%d × %s", counts[group], group) end
+            summary:SetText(table.concat(lines, "\n"))
+        end
         if not selected then return end
         local view = P.State(selected)
-        status:SetText(tostring(selected.label) .. "\n" .. (view.identity or "") .. "\n" .. L(view.state or "waiting") ..
-            " " .. (view.family or "") .. "\n" .. (view.error or ""))
+        local info = P.Effective(selected)
+        status:SetText(tostring(selected.label) .. "\n" .. string.format(L("In effect: %s"), (P.Describe(info, view))) .. "\n" ..
+            (info.hash and string.format(L("Texture hash %s"), info.hash) or L("Not drawn yet")) .. "\n" ..
+            L("Game maps") .. ": " .. L(view.state or "waiting") .. (isstring(view.family) and view.family ~= "" and (" " .. view.family) or "") ..
+            (view.error and ("\n" .. view.error) or ""))
         local key = tostring(selected.name) .. ":" .. #(view.choices or {}) .. ":" .. #(view.files or {})
         if signature == key then return end
         signature = key families:Clear() normal:Clear() packed:Clear() emission:Clear()
@@ -1189,16 +1410,7 @@ function P.Build(panel)
             combo:ChooseOptionID(1)
         end
     end
-    characters.OnSelect = function(_, _, _, target) rebuild(target) end
-    local ply = LocalPlayer()
-    local trace = IsValid(ply) and (ply.GetEyeTraceNoCursor and ply:GetEyeTraceNoCursor() or ply:GetEyeTrace())
-    local wanted = trace and trace.Entity
-    local targets, index = P.Targets(), 1
-    for number, target in ipairs(targets) do
-        characters:AddChoice(target.label, target.entity)
-        if target.entity == wanted then index = number end
-    end
-    if #targets > 0 then characters:ChooseOptionID(index) rebuild(targets[index].entity) else rebuild() end
+    rebuild(fillCharacters(lookedAt()))
 end
 hook.Add("PopulateToolMenu", "RTXImportedGamePBR", function()
     spawnmenu.AddToolMenuOption("Utilities", "RTX Remix", "RTX_ImportedGamePBR", L("Imported game PBR"), "", "", P.Build)

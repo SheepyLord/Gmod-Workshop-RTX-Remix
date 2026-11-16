@@ -466,6 +466,22 @@ elseif scenario=='ragdoll_collision' then
  disk[M().BuiltPath('m','models/plain.mdl')]=disk[M().BuiltPath('m',capedModel)]:gsub('caped','plain')
  dance(attacker,plain)
  check(M().Playbacks[plain].collision==nil and plain.group==nil,'a model without a ragdoll lost its box')
+elseif scenario=='dancer_gone_music' then
+ -- The user's report of 2026-11-16: a dancing NPC that dies or is removed takes its music with it (the song played on
+ -- muted, and an NPC spawned later at the same index brought it back).
+ local dancer=entity('npc')
+ disk[M().BuiltPath('m',dancer:GetModel())]=util.TableToJSON({format='built-test',model=dancer:GetModel(),frame_start=0,frame_end=1,fps=30,
+  frames={{frame=0,bones={},flexes={}},{frame=1,bones={},flexes={}}}})
+ M().DebugTargets[attacker]=dancer receive('mmdvmd_play_request',attacker,'m')
+ local state=M().Playbacks[dancer]
+ check(state~=nil,'the dance did not start')
+ hooks.Think.MMDVMDNPCBuiltPlaybackThink()
+ -- Its music is playing (the test motion has none, so the state is set as a started song leaves it).
+ state.audioStarted,state.audioToken=true,4242
+ local stops=sentCount('mmdvmd_audio_stop')
+ dancer.valid=false hooks.Think.MMDVMDNPCBuiltPlaybackThink()
+ check(M().Playbacks[dancer]==nil,'a removed dancer kept its state')
+ check(sentCount('mmdvmd_audio_stop')==stops+1,'a removed dancer\'s music was not stopped')
 elseif scenario=='end_hold' then
  -- The user's request of 2026-11-16: a dance that ends keeps its last pose for EndHoldSeconds (3), then the NPC
  -- returns to the reference pose; a pause during the hold lengthens it by the pause; a looping dance never ends.

@@ -9321,3 +9321,25 @@ merge of patch 0093. Left as they were.
   1.5 ms for 252 triangles, 22.9 ms for 4,427 (frames 37.3 ms instead of 16.6) and 50.5 ms for about 6,000 (frames
   65.7 ms): 4 to 8 microseconds a triangle; the guard's slow-hook report had named it at 17-18 ms. ADR 0233 removed it
   rather than batching its triangles into few draws.
+
+## The Imported game PBR page and a dance's music (2026-11-16, Claude; [report](handover/pbr-page-dance-music-report.md))
+
+- **The spawn menu builds a tool page once**, when it is first shown, and keeps it. Imported game PBR's character list
+  therefore held the entities of that moment: choosing one that had since been respawned or removed rebuilt the
+  material list from nothing (blank), and "List looked-at character" did the same whenever the eyes were on no
+  character, which is usual with the spawn menu open. A page that lists entities has to refresh them while shown.
+- **What Remix draws for a drawn material** is readable from client Lua: `RemixMaterial.GetTextureHash(material)`
+  (the fixes' module) gives its live texture hash (0 until the material is drawn), and the Advanced Material Editor's
+  `AdvMat.RTX.Enhance.Lookup({hash}).effective` names the mod in `rtx-remix/mods` that supplies it, in the runtime's
+  order, with the material's shader inputs. In the PoC (gm_construct, RTX on), the character the Model Hotloader comes
+  with has 30 materials; with her in view 13 were drawn, 11 of them supplied by `mmdhl_pbr_linlong`, the eye white
+  and the skin by no mod.
+- **A model material (VertexLitGeneric) in a `DImage` draws nothing**; an `UnlitGeneric` made from its `$basetexture`
+  does.
+- **The game's word wrap in a row label dropped the first letter of a wrapped line** ("oughness" for "roughness") in
+  the PoC at 1920x1080; the page's form labels wrapped the same text correctly. The rows now use short lines.
+- **The animation player's music follows its dancer by entity index**, because a start message can reach a client
+  before the dancer is networked to it. With the dancer gone its volume gate closed, but the song kept playing; Source
+  reuses entity indices, so the next entity at that index opened the gate in the middle of the song. The server's
+  per-tick teardown of an unusable dancer (`update_playback_state`) did not send `mmdvmd_audio_stop` (the "stop all"
+  teardown does; `MMDVMDNPC.StopPlayback` returns at once for an unusable entity).

@@ -6,6 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Imported game PBR says what PBR each material has; a dance's music ends with its NPC (the user's report of 2026-11-16)
+
+- **Imported game PBR (RTX Remix tab, Rendering) now shows what PBR each material of a character has**: the Remix mod
+  that supplies it and its maps (for the Model Hotloader's own character, `mmdhl_pbr_linlong` with normal, roughness
+  and emission maps), an Advanced Material Editor profile, game maps by family, no PBR, or not drawn yet, with each
+  material's texture hash and picture and a count for the character. The material list no longer goes blank: it
+  follows the characters in the game while the page stays open (a removed character goes, a new one appears), and
+  **List looked-at character** keeps the current character when you are not looking at one.
+- **A dance's music now stops for good when its NPC dies or is removed.** It had kept playing silently, and an NPC
+  spawned later could bring the song back in the middle.
+
 ### Mesh Separator: take a piece off a model as a prop of its own (the user's request of 2026-11-16)
 
 - **Mesh Separator: a left click now opens the editor** for the model you aim at, and you select the piece there.

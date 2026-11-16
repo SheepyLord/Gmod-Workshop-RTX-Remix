@@ -21,5 +21,8 @@ a model whose name has `caped` 22, three of them on main bones), the collider cl
 `scripted_ents.Register` with its shadow physics object, and the built folder listed from the in-memory `data/`
 (the add-on's `BuiltMotionIDs`).
 
+Scenario `dancer_gone_music` (2026-11-16): a dance with its music playing, its dancer invalidated, one Think: the
+state goes and `mmdvmd_audio_stop` is sent.
+
 **Output:** `PASS <scenario>`, exit 0; a failed check raises `FAIL <scenario>: <why>` (exit 1).
 **Writes:** nothing on disk.

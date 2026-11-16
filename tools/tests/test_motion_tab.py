@@ -60,6 +60,10 @@ class MotionTabTests(unittest.TestCase):
     def test_the_debug_windows_timeline(self):
         self.run_lua('timeline')
 
+    def test_a_dances_music_ends_with_its_dancer(self):
+        # The user's report of 2026-11-16: the song came back with an NPC spawned later at the dancer's index.
+        self.run_lua('dance_music')
+
 
 if __name__ == '__main__':
     unittest.main()

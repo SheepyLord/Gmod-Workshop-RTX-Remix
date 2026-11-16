@@ -21,5 +21,8 @@ first and dropped once the panel is removed. Model Hotloader's file access is a 
 picks. Unmocked globals are inert stubs (numeric enums are 0); `MMDVMDNPC`, `mmdhl` and `g_SpawnMenu`
 stay absent until a scenario sets them.
 
+Scenario `dance_music` (2026-11-16) loads `cl_menu.lua`'s music: `sound.PlayFile` gives a mock channel, `Entity` and
+`LocalPlayer` mock positions, and the follow hook runs by hand.
+
 Writes nothing, sends nothing, renders nothing. Prints `PASS <scenario>` and exits 0, or fails an
 assertion with a message (non-zero exit).

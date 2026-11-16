@@ -648,14 +648,14 @@
    "imported": "2026-11-01T04:27:28+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_topbr_conversion.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\qol16\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\cl_rtx_topbr_conversion.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\cl_rtx_topbr_conversion.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/qol16",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "0231259e6bbe5e5c01549af0864349d3ed061a68",
+    "commit": "63c325951ba62f72cefb2e2895e1bdb267558c88",
     "dirty": false
    },
-   "imported": "2026-11-16T08:47:30+00:00"
+   "imported": "2026-11-16T12:01:57+00:00"
   },
   "modules/gmcl_rtxwater_win64.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r19-fixes\\out\\ci\\built\\fixes\\modules\\gmcl_rtxwater_win64.dll",
@@ -1686,9 +1686,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_topbr_conversion.lua": {
-   "size": 61583,
-   "sha256": "1e936d25075863d649e34a0196f9becc1d98c7a3ae81ed01e06290f333bda14c",
-   "mtime_ns": 1794818760698789600,
+   "size": 75645,
+   "sha256": "4618b1f31ea736e993af079b12adddc37e04420f82969e69361fdead28d38bae",
+   "mtime_ns": 1794830490073108600,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_viewmodel_materials.lua": {

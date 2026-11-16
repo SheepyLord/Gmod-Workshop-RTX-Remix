@@ -2386,12 +2386,15 @@ end
 -- The dancer arrives as an entity index (not an entity handle): a client can
 -- receive the start message before the entity is networked to it (PAS is wider
 -- than PVS), and a handle read then would stay NULL forever. Re-resolving the
--- index lets the source become valid as soon as the entity appears.
+-- index lets the source become valid as soon as the entity appears. Once it has,
+-- the music belongs to that entity alone: Source reuses entity indices, and an
+-- NPC spawned later at the same index must not bring a removed dancer's song back.
 local function audio_source_entity(state)
+    if state.source ~= nil then return IsValid(state.source) and state.source or nil end
     local index = tonumber(state.sourceEntIndex) or 0
     if index <= 0 then return nil end
     local ent = Entity(index)
-    if IsValid(ent) then return ent end
+    if IsValid(ent) then state.source = ent return ent end
     return nil
 end
 
@@ -2504,7 +2507,12 @@ end)
 hook.Add("Think", "MMDVMDNPCAudioFollow", function()
     for token, state in pairs(MMDVMDNPC.AudioChannels or {}) do
         local channel = state.channel
-        if channel and channel.GetState and channel:GetState() == GMOD_CHANNEL_STOPPED then
+        audio_source_entity(state)
+        if state.source ~= nil and not IsValid(state.source) then
+            -- The dancer died or was removed: the song ends with it, also when the
+            -- server's stop never arrives (an older server, a lost message).
+            stop_audio_channel(token)
+        elseif channel and channel.GetState and channel:GetState() == GMOD_CHANNEL_STOPPED then
             -- A "noplay" channel reports STOPPED until its first Play(); a
             -- channel deliberately held back because the playback was paused
             -- before the file finished loading must not be reaped, or the

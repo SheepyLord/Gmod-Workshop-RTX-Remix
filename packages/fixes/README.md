@@ -6,6 +6,21 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## The Imported game PBR page says what Remix draws (2026-11-16)
+
+The user's report ([report](../../docs/handover/pbr-page-dance-music-report.md)): the page did not work and said nothing useful about a
+character whose PBR comes from a Remix mod. Imported with `inputs.py --file`; every other indexed input is unchanged.
+
+- `garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_topbr_conversion.lua`, its R12 section: each
+  material's row names the PBR Remix draws for it: the Remix mod that supplies its live texture hash
+  (`RemixMaterial.GetTextureHash`, looked up in the Advanced Material Editor's index of `rtx-remix/mods`,
+  `AdvMat.RTX.Enhance.Lookup`) with its maps, an editor profile, game maps by family, no PBR or not drawn yet; then its
+  hash; a drawn material's picture (an `UnlitGeneric` of its base texture, made once); a count per source for the
+  character; the selected material's status (what is in effect, the hash, the game maps). The character list follows
+  the game while the page stays built (the spawn menu builds it once); "List looked-at character" keeps the shown
+  character when the eyes are on none; the status resets when its character goes. Seventeen new texts in the page's
+  own six translations.
+
 ## ToPBR takes the map's own surfaces unless the player widens it (2026-11-16)
 
 The user's request ([ADR 0229](../../docs/decisions/0229-topbr-takes-the-maps-own-surfaces-unless-the-player-widens-it.md)):

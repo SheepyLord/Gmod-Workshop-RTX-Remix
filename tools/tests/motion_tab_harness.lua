@@ -811,6 +811,57 @@ elseif scenario == "timeline" then
     flush_named()
     equal(sent_count("mmdvmd_debug_request"), requests, "moving the knob to the shown frame asked again")
     equal(frame.Timeline:GetValue(), 90, "the knob did not follow the frame shown")
+elseif scenario == "dance_music" then
+    -- The user's report of 2026-11-16: a dance's music ends with its dancer, also without the server's stop, and an
+    -- NPC spawned later at the dancer's entity index does not bring the song back.
+    load_addon(false)
+    named_timers()
+    -- GMod's string helpers the music's file lookup uses.
+    string.Replace = string.Replace or function(s, a, b) return (s:gsub(a:gsub("%p", "%%%0"), (b:gsub("%%", "%%%%")))) end
+    string.StartWith = string.StartWith or function(s, p) return s:sub(1, #p) == p end
+    local function at(x) return { x = x, y = 0, z = 0, Distance = function(a, b) return math.abs(a.x - b.x) end } end
+    local entities = {}
+    function Entity(index) return entities[index] or { valid = false } end
+    local function npc(index) local e = { valid = true, GetPos = function() return at(0) end } entities[index] = e return e end
+    function LocalPlayer() return { valid = true, GetPos = function() return at(10) end } end
+    GMOD_CHANNEL_STOPPED = 0
+    local channels = {}
+    sound = { PlayFile = function(_, _, callback)
+        local c = { valid = true, state = 0, playing = false }
+        function c:Play() self.playing, self.state = true, 1 end
+        function c:Stop() self.playing, self.stopped, self.state = false, true, 0 end
+        function c:Pause() self.playing = false end
+        function c:SetVolume(v) self.volume = v end
+        function c:SetTime() end
+        function c:GetState() return self.state end
+        channels[#channels + 1] = c
+        callback(c)
+    end }
+    local dancer = npc(42)
+    receive("mmdvmd_audio_start", 7, "music/song.mp3", 42, 0, CurTime(), 1)
+    flush_named()
+    local channel = channels[1]
+    assert(channel and channel.playing, "the music did not start")
+    hooks.Think.MMDVMDNPCAudioFollow()
+    equal(channel.volume, 1, "the music near its dancer")
+    -- The dancer dies or is removed, and no stop arrives from the server: the song ends.
+    dancer.valid = false
+    hooks.Think.MMDVMDNPCAudioFollow()
+    assert(channel.stopped, "a removed dancer's music kept playing")
+    equal(MMDVMDNPC.AudioChannels[7], nil, "the removed dancer's music kept its channel")
+    -- An NPC spawned later at the same index: nothing comes back.
+    npc(42)
+    hooks.Think.MMDVMDNPCAudioFollow()
+    assert(not channel.playing and #channels == 1, "a new NPC at the dancer's index brought the song back")
+    -- A start that arrives before its dancer is networked waits for it, then follows it.
+    receive("mmdvmd_audio_start", 8, "music/song.mp3", 43, 0, CurTime(), 1)
+    flush_named()
+    local early = channels[2]
+    hooks.Think.MMDVMDNPCAudioFollow()
+    assert(early and early.playing and not early.stopped, "a start before its dancer was networked was dropped")
+    npc(43)
+    hooks.Think.MMDVMDNPCAudioFollow()
+    equal(early.volume, 1, "the music once its dancer arrived")
 else
     error("unknown scenario " .. tostring(scenario))
 end

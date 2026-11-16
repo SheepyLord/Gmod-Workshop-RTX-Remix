@@ -1,4 +1,5 @@
 #include "light_overlaps.hpp"
+#include "backface_twins.hpp"
 #include "runtime.hpp"
 #include "import_error.hpp"
 #include <nanoem_p.h>
@@ -399,6 +400,16 @@ std::shared_ptr<Model> parse(std::span<const unsigned char> bytes){
     auto morphs=nanoemModelGetAllMorphObjects(m->source,&n);advise(n,16384,"morphs");m->morphs.assign(morphs,morphs+n);
     for(auto s:m->morphs)m->morphNames.push_back(m->text(nanoemModelMorphGetName(s,NANOEM_LANGUAGE_TYPE_JAPANESE)));
     validateNumbers(*m);
+    // Back-face copies deform with the layer facing outside them (backface_twins.hpp): only the
+    // twin vertices' morph offsets are gathered.
+    m->twins=weldBackfaceTwins(*m);
+    if(!m->twinLeads.empty()){
+        std::vector<uint8_t> twin(m->vertices.size(),0);for(auto [v,lead]:m->twinLeads){twin[v]=1;twin[lead]=1;}
+        std::vector<MorphOffsets> offsets(m->morphs.size());
+        for(size_t i=0;i<m->morphs.size();i++)if(nanoemModelMorphGetType(m->morphs[i])==NANOEM_MODEL_MORPH_TYPE_VERTEX){nanoem_rsize_t count=0;auto entries=nanoemModelMorphGetAllVertexMorphObjects(m->morphs[i],&count);
+            for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphVertexGetVertexObject(entries[k]));if(id>=0&&size_t(id)<twin.size()&&twin[size_t(id)])offsets[i].push_back({unsigned(id),vec(nanoemModelMorphVertexGetPosition(entries[k]))});}}
+        buildTwinMorphFixes(*m,offsets);
+    }
     buildLightOverlaps(*m);
     m->id=hash(bytes);return m;
 }
@@ -675,6 +686,7 @@ void buildGpuSkin(const Model& m,GpuSkin& out){
  std::vector<float> reach(n,0.f);
  for(auto morph:m.morphs)if(nanoemModelMorphGetType(morph)==NANOEM_MODEL_MORPH_TYPE_VERTEX){nanoem_rsize_t count=0;auto entries=nanoemModelMorphGetAllVertexMorphObjects(morph,&count);
   for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphVertexGetVertexObject(entries[k]));if(id<0||size_t(id)>=n)continue;auto p=nanoemModelMorphVertexGetPosition(entries[k]);reach[size_t(id)]+=std::sqrt(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]);}}
+ for(const auto& fixes:m.twinMorphFixes)for(const auto& [id,d]:fixes)if(id<n)reach[id]+=d.length();
  out.boneBounds.assign(out.palette,{BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT,-BT_LARGE_FLOAT,-BT_LARGE_FLOAT,-BT_LARGE_FLOAT});out.boneReach.assign(out.palette,0.f);
  for(size_t i=0;i<n;i++){if(out.cpuVertex[i])continue;const auto& p=m.vertices[i].position;
   for(int k=0;k<3;k++){if(out.weights[i][k]<=0)continue;auto& box=out.boneBounds[out.bones[i][k]];for(int a=0;a<3;a++){box[a]=std::min(box[a],p[a]-reach[i]);box[a+3]=std::max(box[a+3],p[a]+reach[i]);}
@@ -722,7 +734,11 @@ void Instance::publish(double t){
     for(size_t i=0;i<weights.size();i++)if(weights[i]!=0){auto morph=model->morphs[i];float w=weights[i];nanoem_rsize_t count=0;int type=nanoemModelMorphGetType(morph);
         if(type==NANOEM_MODEL_MORPH_TYPE_VERTEX){auto entries=nanoemModelMorphGetAllVertexMorphObjects(morph,&count);for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphVertexGetVertexObject(entries[k]));if(id<0||size_t(id)>=n)continue;auto p=nanoemModelMorphVertexGetPosition(entries[k]);int s=layout.sorted[id];
             if(s>=0){morphX[s]+=p[0]*w;morphY[s]+=p[1]*w;morphZ[s]+=p[2]*w;morphTouched.push_back(unsigned(s));}
-            else scalarMorph.try_emplace(id,btVector3(0,0,0)).first->second+=btVector3(p[0],p[1],p[2])*w;}}
+            else scalarMorph.try_emplace(id,btVector3(0,0,0)).first->second+=btVector3(p[0],p[1],p[2])*w;}
+            // Back-face copies move with the layer facing outside them (backface_twins.hpp).
+            if(i<model->twinMorphFixes.size())for(const auto& [vertex,d]:model->twinMorphFixes[i]){if(size_t(vertex)>=n)continue;int s=layout.sorted[vertex];
+                if(s>=0){morphX[s]+=d.x()*w;morphY[s]+=d.y()*w;morphZ[s]+=d.z()*w;morphTouched.push_back(unsigned(s));}
+                else scalarMorph.try_emplace(int(vertex),btVector3(0,0,0)).first->second+=d*w;}}
         if(uvChanged&&writesUv(type)){auto entries=nanoemModelMorphGetAllUVMorphObjects(morph,&count);for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphUVGetVertexObject(entries[k]));if(id<0||size_t(id)>=n)continue;auto p=nanoemModelMorphUVGetPosition(entries[k]);
             if(type==NANOEM_MODEL_MORPH_TYPE_TEXTURE){uvU[id]+=p[0]*w;uvV[id]+=p[1]*w;}else if(type==NANOEM_MODEL_MORPH_TYPE_UVA1){uvE0[id]+=p[0]*w;uvE1[id]+=p[1]*w;}uvTouched.push_back(unsigned(id));}}
         if(type==NANOEM_MODEL_MORPH_TYPE_MATERIAL){auto entries=nanoemModelMorphGetAllMaterialMorphObjects(morph,&count);for(size_t k=0;k<count;k++){auto e=entries[k];auto target=nanoemModelMorphMaterialGetMaterialObject(e);int index=target?nanoemModelObjectGetIndex(nanoemModelMaterialGetModelObject(target)):-1;bool multiply=nanoemModelMorphMaterialGetOperationType(e)==NANOEM_MODEL_MORPH_MATERIAL_OPERATION_TYPE_MULTIPLY;

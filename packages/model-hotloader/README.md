@@ -51,3 +51,9 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   clothing physics' scene capture puts the bodies of an entity flagged `MMDHLSceneExcluded` in its excluded list
   (`mmd_hotloader/lua/mmdhl/secondary_collision.lua`). The character motion importer's colliders, which follow a
   dancing NPC's ragdoll bodies, carry the flag, so hair and clothing collide as before.
+- **2026-11-16, the user's report of a black patch on a skirt under RTX**
+  ([handover](../../docs/handover/backface-twins-report.md),
+  [ADR 0228](../../docs/decisions/0228-back-face-copies-deform-with-the-layer-facing-outside.md)): a character's back-face
+  copies (`X+` layers: another part's triangles with the opposite winding) take, at load, the skinning and the vertex
+  morph offsets of their twins on the layer facing outside, so a copy can no longer stand outside its cloth and shade
+  it black (`source/backface-twins.patch`: `native/backface_twins.hpp`, `model.cpp`, `runtime.hpp`, the C++ test).

@@ -1,0 +1,459 @@
+diff --git a/mmdhl/CMakeLists.txt b/mmdhl/CMakeLists.txt
+--- a/mmdhl/CMakeLists.txt
++++ b/mmdhl/CMakeLists.txt
+@@ -316,6 +316,10 @@ add_executable(mmdhl_light_overlap_tests tests/light_overlap_tests.cpp)
+ target_link_libraries(mmdhl_light_overlap_tests PRIVATE mmd_runtime)
+ set_target_properties(mmdhl_light_overlap_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+ add_test(NAME flashlight_overlaps COMMAND mmdhl_light_overlap_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-chain.pmx)
++add_executable(mmdhl_backface_twin_tests tests/backface_twin_tests.cpp)
++target_link_libraries(mmdhl_backface_twin_tests PRIVATE mmd_runtime)
++set_target_properties(mmdhl_backface_twin_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
++add_test(NAME backface_twins COMMAND mmdhl_backface_twin_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-chain.pmx)
+ target_link_libraries(mmdhl_projection_tests PRIVATE mmd_runtime)
+ set_target_properties(mmdhl_projection_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+ add_test(NAME secondary_projection COMMAND mmdhl_projection_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-stretch-prone.pmx)
+@@ -345,7 +349,7 @@ target_compile_options(mmdhl_replay PRIVATE ${MMDHL_UTF8})
+ foreach(target mmdhl_compute_tests mmdhl_replay mmdhl_profile)
+   add_dependencies(${target} mmdhl_worker)
+ endforeach()
+-foreach(target mmd_runtime mmdhl_worker mmdhl_client mmdhl_server mmdhl_tests mmdhl_replay mmdhl_timing mmdhl_profile mmdhl_broadphase_tests mmdhl_compute_tests mmdhl_async_tests mmdhl_midphase_tests mmdhl_motion_tests mmdhl_buoyancy_tests mmdhl_stretch_tests mmdhl_stretch_ground_tests mmdhl_projection_tests mmdhl_light_overlap_tests mmdhl_quality_tests)
++foreach(target mmd_runtime mmdhl_worker mmdhl_client mmdhl_server mmdhl_tests mmdhl_replay mmdhl_timing mmdhl_profile mmdhl_broadphase_tests mmdhl_compute_tests mmdhl_async_tests mmdhl_midphase_tests mmdhl_motion_tests mmdhl_buoyancy_tests mmdhl_stretch_tests mmdhl_stretch_ground_tests mmdhl_projection_tests mmdhl_light_overlap_tests mmdhl_backface_twin_tests mmdhl_quality_tests)
+   target_compile_options(${target} PRIVATE ${MMDHL_DEBUG_COMPILE})
+   target_link_options(${target} PRIVATE ${MMDHL_DEBUG_LINK})
+   set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin" LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+diff --git a/mmdhl/native/backface_twins.hpp b/mmdhl/native/backface_twins.hpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/native/backface_twins.hpp
+@@ -0,0 +1,226 @@
++#pragma once
++// Back-face copies: a part whose triangles lie exactly on another part's with the opposite winding
++// (MMD's "X+" or lining layers), so that single-sided rendering shows the outer layer from outside and
++// the copy from inside. Raster culling hides whichever layer faces away, so a copy whose vertices are
++// skinned or morphed differently from its twins never shows there. A path tracer's shadow and bounce
++// rays still meet it: where a pose or a morph lifts the copy above its outer layer, it shades that
++// layer black (RTX Remix). At load each copy vertex takes the skinning of its twin on the layer facing
++// outside (weldBackfaceTwins), and its vertex morphs are corrected to its twin's offsets
++// (buildTwinMorphFixes, applied with the morphs in Instance::publish). The outside layer of a pair is
++// voted over its triangles: a ray along each layer's normals through a coarse occupancy grid of the
++// rest mesh; the layer whose rays cross fewer surfaces faces outside. A pair the vote leaves open is
++// decided by its names (a "+" suffix, 裏, 内側, lining), else left alone.
++#include "runtime.hpp"
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstdint>
++#include <cstring>
++#include <map>
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++
++namespace mmd {
++
++// One vertex morph's offsets as (vertex, offset); a vertex may repeat (its offsets add up).
++using MorphOffsets=std::vector<std::pair<unsigned,btVector3>>;
++
++namespace twins_detail {
++template<class T,size_t N> struct ArrayHash {
++ size_t operator()(const std::array<T,N>& a)const{size_t h=0;for(auto v:a)h^=std::hash<T>{}(v)+0x9e3779b9+(h<<6)+(h>>2);return h;}
++};
++// Coincident rest positions share one representative: the light overlaps' rule (within 1e-4 PMX units). Cells are
++// four times that wide, so a neighbouring cell is searched only where the point lies that close to its border.
++inline std::vector<unsigned> points(const Model& m){
++ constexpr float epsilon=1e-4f;constexpr double width=4.0*epsilon;using Cell=std::array<int64_t,3>;
++ std::unordered_map<Cell,std::vector<unsigned>,ArrayHash<int64_t,3>> cells;cells.reserve(m.vertices.size());
++ std::vector<unsigned> out(m.vertices.size());
++ for(unsigned i=0;i<m.vertices.size();i++){
++  auto p=m.vertices[i].position;Cell cell{};std::array<int,3> low{},high{};bool bounded=true;out[i]=i;
++  for(int k=0;k<3;k++){
++   double v=double(p[k])/width,base=std::floor(v);
++   if(!std::isfinite(base)||std::abs(base)>1e12){bounded=false;break;}
++   cell[k]=int64_t(base);double inside=(v-base)*width;low[k]=inside<epsilon?-1:0;high[k]=inside>width-epsilon?1:0;
++  }
++  if(!bounded)continue;bool found=false;
++  for(int x=low[0];x<=high[0]&&!found;x++)for(int y=low[1];y<=high[1]&&!found;y++)for(int z=low[2];z<=high[2]&&!found;z++){
++   auto it=cells.find({cell[0]+x,cell[1]+y,cell[2]+z});if(it==cells.end())continue;
++   for(unsigned j:it->second)if((m.vertices[j].position-p).length2()<=epsilon*epsilon){out[i]=j;found=true;break;}
++  }
++  if(!found)cells[cell].push_back(i);
++ }
++ return out;
++}
++// The rest mesh in cells of 1/64 of its largest extent, with one empty cell around it.
++struct Grid {
++ btVector3 low{0,0,0};float cell=0;int nx=0,ny=0,nz=0;std::vector<uint8_t> occupied;
++ int index(const btVector3& p)const{
++  int x=int(std::floor((p.x()-low.x())/cell)),y=int(std::floor((p.y()-low.y())/cell)),z=int(std::floor((p.z()-low.z())/cell));
++  return x<0||y<0||z<0||x>=nx||y>=ny||z>=nz?-1:(z*ny+y)*nx+x;
++ }
++};
++inline Grid occupancy(const Model& m){
++ Grid g;btVector3 low(BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT),high=-low;
++ for(auto i:m.indices){const auto& p=m.vertices[i].position;low.setMin(p);high.setMax(p);}
++ auto size=high-low;float extent=std::max({size.x(),size.y(),size.z()});
++ if(m.indices.empty()||!std::isfinite(extent)||!(extent>0))return g;
++ g.cell=extent/64;g.low=low-btVector3(g.cell,g.cell,g.cell);
++ g.nx=int(size.x()/g.cell)+3;g.ny=int(size.y()/g.cell)+3;g.nz=int(size.z()/g.cell)+3;
++ g.occupied.assign(size_t(g.nx)*size_t(g.ny)*size_t(g.nz),0);
++ for(size_t t=0;t+2<m.indices.size();t+=3){
++  const auto& a=m.vertices[m.indices[t]].position;const auto& b=m.vertices[m.indices[t+1]].position;const auto& c=m.vertices[m.indices[t+2]].position;
++  float edge=std::max({(b-a).length(),(c-a).length(),(c-b).length()});
++  int n=std::clamp(int(std::ceil(edge/(.5f*g.cell))),1,32);
++  for(int i=0;i<=n;i++)for(int j=0;i+j<=n;j++){int k=g.index(a+(b-a)*(float(i)/n)+(c-a)*(float(j)/n));if(k>=0)g.occupied[size_t(k)]=1;}
++ }
++ return g;
++}
++// Surfaces a ray from p along the unit direction d crosses, from two cells away to the grid's edge.
++inline int crossings(const Grid& g,const btVector3& p,const btVector3& d){
++ int count=0;bool inside=false;const float step=.5f*g.cell,limit=g.cell*float(g.nx+g.ny+g.nz);
++ for(float t=2*g.cell;t<limit;t+=step){int k=g.index(p+d*t);if(k<0)break;bool occupied=g.occupied[size_t(k)]!=0;if(occupied&&!inside)count++;inside=occupied;}
++ return count;
++}
++// Which layer of a pair faces outside: +1 the first part's, -1 the second's, 0 undecided. Up to 64
++// twin triangles, spread over the pair, vote; one side needs three votes and three times the other's.
++inline int outsideLayer(const Model& m,const Grid& g,const std::vector<std::pair<unsigned,unsigned>>& twins){
++ int first=0,second=0;const size_t stride=std::max<size_t>(1,twins.size()/64);
++ for(size_t s=0;s<twins.size();s+=stride){
++  auto [ta,tb]=twins[s];btVector3 na(0,0,0),nb(0,0,0),centre(0,0,0);
++  for(int k=0;k<3;k++){const auto& a=m.vertices[m.indices[ta*3+k]];na+=a.normal;nb+=m.vertices[m.indices[tb*3+k]].normal;centre+=a.position;}
++  if(na.length2()<1e-12f||nb.length2()<1e-12f)continue;
++  na.normalize();nb.normalize();centre/=3;
++  // A copy's normals face the other way; a pair whose normals do not tells nothing.
++  if(na.dot(nb)>-.5f)continue;
++  int a=crossings(g,centre,na),b=crossings(g,centre,nb);
++  if(a<b)first++;else if(b<a)second++;
++ }
++ if(first>=3&&first>=3*second)return 1;
++ if(second>=3&&second>=3*first)return -1;
++ return 0;
++}
++// Whether two vertices deform alike: the same bones with the same weights (in any slot order, within 1e-4), and the
++// same kind of blend (PMX SDEF 3 and QDEF 4 differ from linear blending; SDEF also by its parameters).
++inline bool sameSkinning(const Vertex& a,const Vertex& b){
++ auto special=[](int type){return type==3||type==4;};
++ if(special(a.type)!=special(b.type)||(special(a.type)&&a.type!=b.type))return false;
++ if(a.type==3&&(a.c!=b.c||a.r0!=b.r0||a.r1!=b.r1))return false;
++ auto influences=[](const Vertex& v){std::array<std::pair<int,float>,4> out{};int count=0;
++  for(int k=0;k<4;k++){if(v.bones[k]<0||!(v.weights[k]>1e-6f))continue;int at=0;while(at<count&&out[at].first!=v.bones[k])at++;if(at==count)out[count++]={v.bones[k],0.f};out[at].second+=v.weights[k];}
++  std::sort(out.begin(),out.begin()+count);for(int k=count;k<4;k++)out[k]={-1,0.f};return out;};
++ auto x=influences(a),y=influences(b);
++ for(int k=0;k<4;k++)if(x[k].first!=y[k].first||std::abs(x[k].second-y[k].second)>1e-4f)return false;
++ return true;
++}
++// A part named as the inside of another: a "+" suffix, 裏, 内侧/內側/内側, a trailing 内/內, inner, lining.
++inline bool namedCopy(const std::string& name){
++ std::string n=name;while(!n.empty()&&(n.back()==' '||n.back()=='\t'))n.pop_back();
++ if(!n.empty()&&n.back()=='+')return true;
++ std::string lower;for(char c:n)lower+=char(c>='A'&&c<='Z'?c-'A'+'a':c);
++ for(const char* mark:{"inner","lining","\xE8\xA3\x8F","\xE5\x86\x85\xE4\xBE\xA7","\xE5\x85\xA7\xE5\x81\xB4","\xE5\x86\x85\xE5\x81\xB4"})
++  if(lower.find(mark)!=std::string::npos)return true;
++ auto ends=[&](const char* s){size_t l=std::strlen(s);return n.size()>=l&&n.compare(n.size()-l,l,s)==0;};
++ return ends("\xE5\x86\x85")||ends("\xE5\x85\xA7");
++}
++}
++
++// Finds the back-face copies, decides each pair's outside layer and gives every copy vertex the
++// skinning (type, bones, weights, SDEF parameters) of its twin on that layer. Sets Model::twinLeads
++// (follower, lead), ascending, and returns what it found (TwinReport::skins: the followers whose own
++// skinning deformed differently); the rest geometry is not changed.
++inline Model::TwinReport weldBackfaceTwins(Model& m){
++ Model::TwinReport report;m.twinLeads.clear();
++ const size_t triangles=m.indices.size()/3;
++ if(m.materials.size()<2||!triangles)return report;
++ auto point=twins_detail::points(m);
++ // Triangles by their three points; twins have the same points in the opposite cyclic order.
++ std::vector<uint8_t> clockwise(triangles,0);std::vector<unsigned> partOf(triangles,~0u);
++ std::vector<std::pair<std::array<unsigned,3>,unsigned>> keys;keys.reserve(triangles);
++ for(unsigned part=0;part<m.materials.size();part++){
++  const auto& material=m.materials[part];
++  for(size_t i=material.first;i+2<size_t(material.first)+material.count&&i+2<m.indices.size();i+=3){
++   unsigned t=unsigned(i/3);std::array<unsigned,3> p{point[m.indices[i]],point[m.indices[i+1]],point[m.indices[i+2]]};
++   if(p[0]==p[1]||p[1]==p[2]||p[0]==p[2])continue;
++   unsigned k=unsigned(std::min_element(p.begin(),p.end())-p.begin());
++   clockwise[t]=p[(k+1)%3]<p[(k+2)%3];partOf[t]=part;
++   auto key=p;std::sort(key.begin(),key.end());keys.push_back({key,t});
++  }
++ }
++ std::sort(keys.begin(),keys.end());
++ // Twin triangles per pair of parts (first part < second), in triangle order, so every load votes alike.
++ std::map<std::pair<unsigned,unsigned>,std::vector<std::pair<unsigned,unsigned>>> pairs;
++ for(size_t begin=0,end=0;begin<keys.size();begin=end){
++  end=begin+1;while(end<keys.size()&&keys[end].first==keys[begin].first)end++;
++  for(size_t i=begin;i<end;i++)for(size_t j=i+1;j<end;j++){
++   unsigned s=keys[i].second,t=keys[j].second;
++   if(clockwise[s]==clockwise[t]||partOf[s]==partOf[t])continue;
++   if(partOf[s]>partOf[t])std::swap(s,t);
++   pairs[{partOf[s],partOf[t]}].push_back({s,t});
++  }
++ }
++ report.pairs=unsigned(pairs.size());
++ if(pairs.empty())return report;
++ auto grid=twins_detail::occupancy(m);
++ std::vector<unsigned> follow(m.vertices.size(),~0u);
++ for(auto& [parts,list]:pairs){
++  std::sort(list.begin(),list.end());
++  int side=grid.cell>0?twins_detail::outsideLayer(m,grid,list):0;
++  if(side)report.voted++;
++  else{
++   bool first=twins_detail::namedCopy(m.materials[parts.first].name),second=twins_detail::namedCopy(m.materials[parts.second].name);
++   if(first!=second){side=first?-1:1;report.named++;}
++  }
++  if(!side){report.undecided++;continue;}
++  for(auto [s,t]:list){
++   unsigned outer=side>0?s:t,copy=side>0?t:s;
++   for(int k=0;k<3;k++){
++    unsigned c=m.indices[copy*3+k];if(follow[c]!=~0u)continue;
++    for(int j=0;j<3;j++){unsigned o=m.indices[outer*3+j];if(point[o]==point[c]){if(o!=c)follow[c]=o;break;}}
++   }
++  }
++ }
++ // A copy of a copy follows the end of its chain; a cycle leaves its vertices as they are.
++ for(unsigned v=0;v<follow.size();v++)if(follow[v]!=~0u){
++  unsigned lead=v;bool cycle=false;
++  for(int step=0;step<16&&follow[lead]!=~0u;step++){lead=follow[lead];if(lead==v){cycle=true;break;}}
++  if(!cycle&&lead!=v&&follow[lead]==~0u)m.twinLeads.push_back({v,lead});
++ }
++ // Every follower takes its lead's record as it is (the two then deform bit for bit alike); `skins` counts those
++ // whose own skinning deformed differently.
++ for(auto [v,lead]:m.twinLeads){
++  auto& c=m.vertices[v];const auto& a=m.vertices[lead];report.followers++;
++  if(!twins_detail::sameSkinning(c,a))report.skins++;
++  c.type=a.type;c.bones=a.bones;c.weights=a.weights;c.c=a.c;c.r0=a.r0;c.r1=a.r1;
++ }
++ return report;
++}
++
++// Per vertex morph, the offsets that bring each copy vertex to its lead's offset (Model::twinMorphFixes):
++// a morph that moves the outside layer moves its copy alike, and one that moves only the copy no longer
++// does. `morphs` holds every morph's vertex offsets by morph index (others empty); only the entries of
++// twin vertices are read. Returns the number of corrections.
++inline unsigned buildTwinMorphFixes(Model& m,const std::vector<MorphOffsets>& morphs){
++ m.twinMorphFixes.assign(morphs.size(),{});
++ if(m.twinLeads.empty())return 0;
++ std::vector<unsigned> lead(m.vertices.size(),~0u);std::unordered_map<unsigned,std::vector<unsigned>> led;
++ for(auto [v,l]:m.twinLeads){lead[v]=l;led[l].push_back(v);}
++ std::vector<uint32_t> stamp(m.vertices.size(),0);unsigned fixes=0;
++ for(size_t i=0;i<morphs.size();i++){
++  std::unordered_map<unsigned,btVector3> offset;
++  for(const auto& [v,p]:morphs[i])if(v<lead.size()&&(lead[v]!=~0u||led.count(v))){auto [it,added]=offset.try_emplace(v,btVector3(0,0,0));it->second+=p;}
++  if(offset.empty())continue;
++  std::vector<unsigned> touched;const uint32_t mark=uint32_t(i+1);
++  for(const auto& [v,p]:offset){
++   if(lead[v]!=~0u&&stamp[v]!=mark){stamp[v]=mark;touched.push_back(v);}
++   if(auto it=led.find(v);it!=led.end())for(auto f:it->second)if(stamp[f]!=mark){stamp[f]=mark;touched.push_back(f);}
++  }
++  std::sort(touched.begin(),touched.end());
++  auto at=[&](unsigned v){auto it=offset.find(v);return it==offset.end()?btVector3(0,0,0):it->second;};
++  for(auto f:touched){auto d=at(lead[f])-at(f);if(d.length2()>1e-14f){m.twinMorphFixes[i].push_back({f,d});fixes++;}}
++ }
++ m.twins.morphFixes=fixes;
++ return fixes;
++}
++}
+diff --git a/mmdhl/native/model.cpp b/mmdhl/native/model.cpp
+--- a/mmdhl/native/model.cpp
++++ b/mmdhl/native/model.cpp
+@@ -1,4 +1,5 @@
+ #include "light_overlaps.hpp"
++#include "backface_twins.hpp"
+ #include "runtime.hpp"
+ #include "import_error.hpp"
+ #include <nanoem_p.h>
+@@ -399,6 +400,16 @@ std::shared_ptr<Model> parse(std::span<const unsigned char> bytes){
+     auto morphs=nanoemModelGetAllMorphObjects(m->source,&n);advise(n,16384,"morphs");m->morphs.assign(morphs,morphs+n);
+     for(auto s:m->morphs)m->morphNames.push_back(m->text(nanoemModelMorphGetName(s,NANOEM_LANGUAGE_TYPE_JAPANESE)));
+     validateNumbers(*m);
++    // Back-face copies deform with the layer facing outside them (backface_twins.hpp): only the
++    // twin vertices' morph offsets are gathered.
++    m->twins=weldBackfaceTwins(*m);
++    if(!m->twinLeads.empty()){
++        std::vector<uint8_t> twin(m->vertices.size(),0);for(auto [v,lead]:m->twinLeads){twin[v]=1;twin[lead]=1;}
++        std::vector<MorphOffsets> offsets(m->morphs.size());
++        for(size_t i=0;i<m->morphs.size();i++)if(nanoemModelMorphGetType(m->morphs[i])==NANOEM_MODEL_MORPH_TYPE_VERTEX){nanoem_rsize_t count=0;auto entries=nanoemModelMorphGetAllVertexMorphObjects(m->morphs[i],&count);
++            for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphVertexGetVertexObject(entries[k]));if(id>=0&&size_t(id)<twin.size()&&twin[size_t(id)])offsets[i].push_back({unsigned(id),vec(nanoemModelMorphVertexGetPosition(entries[k]))});}}
++        buildTwinMorphFixes(*m,offsets);
++    }
+     buildLightOverlaps(*m);
+     m->id=hash(bytes);return m;
+ }
+@@ -675,6 +686,7 @@ void buildGpuSkin(const Model& m,GpuSkin& out){
+  std::vector<float> reach(n,0.f);
+  for(auto morph:m.morphs)if(nanoemModelMorphGetType(morph)==NANOEM_MODEL_MORPH_TYPE_VERTEX){nanoem_rsize_t count=0;auto entries=nanoemModelMorphGetAllVertexMorphObjects(morph,&count);
+   for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphVertexGetVertexObject(entries[k]));if(id<0||size_t(id)>=n)continue;auto p=nanoemModelMorphVertexGetPosition(entries[k]);reach[size_t(id)]+=std::sqrt(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]);}}
++ for(const auto& fixes:m.twinMorphFixes)for(const auto& [id,d]:fixes)if(id<n)reach[id]+=d.length();
+  out.boneBounds.assign(out.palette,{BT_LARGE_FLOAT,BT_LARGE_FLOAT,BT_LARGE_FLOAT,-BT_LARGE_FLOAT,-BT_LARGE_FLOAT,-BT_LARGE_FLOAT});out.boneReach.assign(out.palette,0.f);
+  for(size_t i=0;i<n;i++){if(out.cpuVertex[i])continue;const auto& p=m.vertices[i].position;
+   for(int k=0;k<3;k++){if(out.weights[i][k]<=0)continue;auto& box=out.boneBounds[out.bones[i][k]];for(int a=0;a<3;a++){box[a]=std::min(box[a],p[a]-reach[i]);box[a+3]=std::max(box[a+3],p[a]+reach[i]);}
+@@ -722,7 +734,11 @@ void Instance::publish(double t){
+     for(size_t i=0;i<weights.size();i++)if(weights[i]!=0){auto morph=model->morphs[i];float w=weights[i];nanoem_rsize_t count=0;int type=nanoemModelMorphGetType(morph);
+         if(type==NANOEM_MODEL_MORPH_TYPE_VERTEX){auto entries=nanoemModelMorphGetAllVertexMorphObjects(morph,&count);for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphVertexGetVertexObject(entries[k]));if(id<0||size_t(id)>=n)continue;auto p=nanoemModelMorphVertexGetPosition(entries[k]);int s=layout.sorted[id];
+             if(s>=0){morphX[s]+=p[0]*w;morphY[s]+=p[1]*w;morphZ[s]+=p[2]*w;morphTouched.push_back(unsigned(s));}
+-            else scalarMorph.try_emplace(id,btVector3(0,0,0)).first->second+=btVector3(p[0],p[1],p[2])*w;}}
++            else scalarMorph.try_emplace(id,btVector3(0,0,0)).first->second+=btVector3(p[0],p[1],p[2])*w;}
++            // Back-face copies move with the layer facing outside them (backface_twins.hpp).
++            if(i<model->twinMorphFixes.size())for(const auto& [vertex,d]:model->twinMorphFixes[i]){if(size_t(vertex)>=n)continue;int s=layout.sorted[vertex];
++                if(s>=0){morphX[s]+=d.x()*w;morphY[s]+=d.y()*w;morphZ[s]+=d.z()*w;morphTouched.push_back(unsigned(s));}
++                else scalarMorph.try_emplace(int(vertex),btVector3(0,0,0)).first->second+=d*w;}}
+         if(uvChanged&&writesUv(type)){auto entries=nanoemModelMorphGetAllUVMorphObjects(morph,&count);for(size_t k=0;k<count;k++){int id=vertexIndex(nanoemModelMorphUVGetVertexObject(entries[k]));if(id<0||size_t(id)>=n)continue;auto p=nanoemModelMorphUVGetPosition(entries[k]);
+             if(type==NANOEM_MODEL_MORPH_TYPE_TEXTURE){uvU[id]+=p[0]*w;uvV[id]+=p[1]*w;}else if(type==NANOEM_MODEL_MORPH_TYPE_UVA1){uvE0[id]+=p[0]*w;uvE1[id]+=p[1]*w;}uvTouched.push_back(unsigned(id));}}
+         if(type==NANOEM_MODEL_MORPH_TYPE_MATERIAL){auto entries=nanoemModelMorphGetAllMaterialMorphObjects(morph,&count);for(size_t k=0;k<count;k++){auto e=entries[k];auto target=nanoemModelMorphMaterialGetMaterialObject(e);int index=target?nanoemModelObjectGetIndex(nanoemModelMaterialGetModelObject(target)):-1;bool multiply=nanoemModelMorphMaterialGetOperationType(e)==NANOEM_MODEL_MORPH_MATERIAL_OPERATION_TYPE_MULTIPLY;
+diff --git a/mmdhl/native/runtime.hpp b/mmdhl/native/runtime.hpp
+--- a/mmdhl/native/runtime.hpp
++++ b/mmdhl/native/runtime.hpp
+@@ -130,6 +130,12 @@ struct Model {
+     // after deformation before additive lighting. No authored faces are deleted.
+     std::vector<std::vector<OverlapTriangle>> lightOverlaps;
+     std::vector<unsigned> lightLayerRanks;
++    // Back-face copies (backface_twins.hpp): each copy vertex and the vertex of the layer facing outside
++    // whose skinning it took at load (follower, lead), ascending; per morph (by index), the offsets that
++    // move each copy vertex with its lead; and what the load found.
++    std::vector<std::pair<unsigned,unsigned>> twinLeads;
++    std::vector<std::vector<std::pair<unsigned,btVector3>>> twinMorphFixes;
++    struct TwinReport {unsigned pairs=0,voted=0,named=0,undecided=0,followers=0,skins=0,morphFixes=0;} twins;
+     // Per triangle, 0 when the 0.5 alpha test removes every sampled texel of it
+     // (loadAsset; empty: nothing measured). Only RTX Remix draws skip those.
+     std::vector<uint8_t> cutoutTriangles;
+diff --git a/mmdhl/tests/backface_twin_tests.cpp b/mmdhl/tests/backface_twin_tests.cpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/tests/backface_twin_tests.cpp
+@@ -0,0 +1,137 @@
++// Back-face copies (native/backface_twins.hpp): a copy layer takes the skinning and the morph offsets of
++// its twin on the layer facing outside, decided by the outside vote, else by the names, else left alone.
++// argv[1]: any PMX (the synthetic scene replaces its mesh). Optional argv[2]: a real PMX, then
++// "follower:lead" vertex pairs that must be welded; every weld of it is checked under a random pose.
++#include "backface_twins.hpp"
++#include "light_overlaps.hpp"
++#include <chrono>
++#include <cstdlib>
++#include <iostream>
++#include <map>
++#include <random>
++#include <sstream>
++using namespace mmd;
++static void check(bool ok,const std::string& why){if(!ok)throw std::runtime_error(why);}
++
++// A layer of (n+1)^2 vertices on a plane: origin + u*s + v*t for s,t in [-.8,.8], normal `normal`,
++// triangles wound so that `flip` reverses them. Appends to the model as part `name`.
++static void layer(Model& m,const char* name,btVector3 origin,btVector3 u,btVector3 v,btVector3 normal,bool flip,int bone,int n=4){
++ unsigned first=unsigned(m.vertices.size());Material part;part.name=name;part.first=unsigned(m.indices.size());
++ for(int j=0;j<=n;j++)for(int i=0;i<=n;i++){Vertex x;x.position=origin+u*(-.8f+1.6f*i/n)+v*(-.8f+1.6f*j/n);x.normal=normal;x.bones={bone,-1,-1,-1};x.weights={1,0,0,0};x.type=0;m.vertices.push_back(x);}
++ auto at=[&](int i,int j){return first+unsigned(j*(n+1)+i);};
++ for(int j=0;j<n;j++)for(int i=0;i<n;i++){
++  std::array<unsigned,6> t{at(i,j),at(i+1,j),at(i+1,j+1),at(i,j),at(i+1,j+1),at(i,j+1)};
++  if(flip){std::swap(t[1],t[2]);std::swap(t[4],t[5]);}
++  m.indices.insert(m.indices.end(),t.begin(),t.end());
++ }
++ part.count=unsigned(m.indices.size())-part.first;m.materials.push_back(part);
++}
++// The k-th vertex of a layer (its vertices are consecutive, from the lowest its triangles use).
++static unsigned partVertex(const Model& m,unsigned part,unsigned k){
++ unsigned lowest=~0u;const auto& p=m.materials[part];
++ for(unsigned i=p.first;i<p.first+p.count;i++)lowest=std::min(lowest,m.indices[i]);
++ return lowest+k;
++}
++static unsigned leadOf(const Model& m,unsigned v){for(auto [f,l]:m.twinLeads)if(f==v)return l;return ~0u;}
++
++static void scene(Model& m){
++ m.vertices.clear();m.indices.clear();m.materials.clear();m.morphs.clear();
++ // Part 0: a closed box, the body every layer below lies around.
++ Material box;box.name="body";box.first=0;
++ for(int i=0;i<8;i++){Vertex x;x.position=btVector3(i&1?1.f:-1.f,i&2?1.f:-1.f,i&4?1.f:-1.f);x.normal=x.position.normalized();x.bones={0,-1,-1,-1};x.weights={1,0,0,0};m.vertices.push_back(x);}
++ const unsigned faces[12][3]={{0,2,1},{1,2,3},{4,5,6},{5,7,6},{0,1,4},{1,5,4},{2,6,3},{3,6,7},{0,4,2},{2,4,6},{1,3,5},{3,7,5}};
++ for(auto& f:faces)for(int k=0;k<3;k++)m.indices.push_back(f[k]);
++ box.count=36;m.materials.push_back(box);
++ const btVector3 X(1,0,0),Y(0,1,0),Z(0,0,1);
++ // Parts 1-2: a skirt at x=1.6 facing out (+x) and its copy facing the box; the copy's names mark it.
++ layer(m,"skirt",X*1.6f,Y,Z,X,false,0);layer(m,"skirt+",X*1.6f,Y,Z,-X,true,0);
++ // Parts 3-4: a cape at x=-1.6; the layer named as a copy ("cape+") is the one facing outside (-x).
++ layer(m,"cape",-X*1.6f,Y,Z,X,false,0);layer(m,"cape+",-X*1.6f,Y,Z,-X,true,0);
++ // Parts 5-6: a ribbon far from the box (and from the rays above), open on both sides: only its names decide.
++ layer(m,"ribbon",X*8+Y*4,X,Y,Z,false,0);layer(m,"ribbon+",X*8+Y*4,X,Y,-Z,true,0);
++ // Parts 7-8: another open pair whose names say nothing: left as it is.
++ layer(m,"a",X*8+Y*7,X,Y,Z,false,0);layer(m,"b",X*8+Y*7,X,Y,-Z,true,0);
++}
++static void stray(Model& m,unsigned v,int bone){m.vertices[v].bones={bone,-1,-1,-1};m.vertices[v].weights={1,0,0,0};}
++
++int main(int argc,char** argv){try{
++ auto m=parse(readFile(argv[1]));check(m->bones.size()>=2,"The fixture needs two bones");
++ scene(*m);
++ // Strays: the skirt's copy (part 2) vertex 7, the cape's inner layer (part 3) vertex 7, the cape's outer
++ // layer (part 4) vertex 12, the ribbon's copy (part 6) vertex 3, the open pair's second layer vertex 3.
++ unsigned skirtCopy=partVertex(*m,2,7),skirtOuter=partVertex(*m,1,7);
++ unsigned capeInner=partVertex(*m,3,7),capeOuter=partVertex(*m,4,7),capeOuterStray=partVertex(*m,4,12),capeInnerTwin=partVertex(*m,3,12);
++ unsigned ribbonCopy=partVertex(*m,6,3),ribbonOuter=partVertex(*m,5,3),openB=partVertex(*m,8,3);
++ stray(*m,skirtCopy,1);stray(*m,capeInner,1);stray(*m,capeOuterStray,1);stray(*m,ribbonCopy,1);stray(*m,openB,1);
++ auto report=weldBackfaceTwins(*m);
++ check(report.pairs==4,"Four layer pairs expected, found "+std::to_string(report.pairs));
++ check(report.voted==2&&report.named==1&&report.undecided==1,"Votes "+std::to_string(report.voted)+", names "+std::to_string(report.named)+", undecided "+std::to_string(report.undecided));
++ // The skirt: the copy follows the outer layer, whose skinning is unchanged.
++ check(leadOf(*m,skirtCopy)==skirtOuter,"The skirt's copy does not follow its outer layer");
++ check(m->vertices[skirtCopy].bones[0]==0&&m->vertices[skirtOuter].bones[0]==0,"The skirt's stray copy vertex kept its bone");
++ for(auto [f,l]:m->twinLeads)check(f!=l,"A vertex leads itself");
++ // The cape: the vote beats the names; the inner layer follows the outer one, stray included.
++ check(leadOf(*m,capeInner)==capeOuter&&m->vertices[capeInner].bones[0]==0,"The cape's inner layer does not follow the outside");
++ check(leadOf(*m,capeInnerTwin)==capeOuterStray&&m->vertices[capeInnerTwin].bones[0]==1&&m->vertices[capeOuterStray].bones[0]==1,
++       "The cape's outer layer must keep its own skinning and lead its copy with it");
++ check(leadOf(*m,capeOuter)==~0u,"The outside layer follows its copy");
++ // The ribbon: decided by its names.
++ check(leadOf(*m,ribbonCopy)==ribbonOuter&&m->vertices[ribbonCopy].bones[0]==0,"The ribbon's named copy does not follow");
++ // The open pair: nothing to go on, nothing changed.
++ check(leadOf(*m,openB)==~0u&&m->vertices[openB].bones[0]==1,"An undecided pair was changed");
++ // Four copy vertices change their skinning: three strays and the cape's inner twin of its outer stray.
++ check(report.skins==4,"Four copy vertices change their skinning, found "+std::to_string(report.skins));
++ for(size_t i=1;i<m->twinLeads.size();i++)check(m->twinLeads[i-1].first<m->twinLeads[i].first,"Leads not ascending");
++ // Morphs: one moving the skirt's outer vertex, one moving only its copy, one moving both alike.
++ std::vector<MorphOffsets> morphs(4);
++ morphs[0]={{skirtOuter,btVector3(0,0,.1f)}};
++ morphs[1]={{skirtCopy,btVector3(.2f,0,0)},{skirtCopy,btVector3(.1f,0,0)}};
++ morphs[2]={{skirtOuter,btVector3(0,.3f,0)},{skirtCopy,btVector3(0,.3f,0)}};
++ auto fixes=buildTwinMorphFixes(*m,morphs);
++ check(fixes==2&&m->twins.morphFixes==2,"Two morph corrections expected, in the model's report too");
++ check(m->twinMorphFixes.size()==4&&m->twinMorphFixes[0].size()==1&&m->twinMorphFixes[0][0].first==skirtCopy&&
++       (m->twinMorphFixes[0][0].second-btVector3(0,0,.1f)).length()<1e-6f,"The outer layer's morph does not move its copy");
++ check(m->twinMorphFixes[1].size()==1&&(m->twinMorphFixes[1][0].second+btVector3(.3f,0,0)).length()<1e-6f,"A morph of the copy alone still moves it");
++ check(m->twinMorphFixes[2].empty()&&m->twinMorphFixes[3].empty(),"Matching or absent morphs corrected");
++ // The same mesh welds alike every time.
++ auto first=m->twinLeads;scene(*m);stray(*m,skirtCopy,1);stray(*m,capeInner,1);stray(*m,capeOuterStray,1);stray(*m,ribbonCopy,1);stray(*m,openB,1);
++ weldBackfaceTwins(*m);check(first==m->twinLeads,"Welds differ between loads");
++ // A layer with its own winding (a coplanar overlay, no copy) is not a twin.
++ scene(*m);for(unsigned i=m->materials[2].first;i<m->materials[2].first+m->materials[2].count;i+=3)std::swap(m->indices[i+1],m->indices[i+2]);
++ check(weldBackfaceTwins(*m).pairs==3,"A same-wound overlay was taken for a back-face copy");
++ std::cout<<"Back-face copies: outside vote, names, undecided pairs, skinning and morph corrections passed\n";
++ if(argc>2){
++  auto bytes=readFile(argv[2]);auto real=parse(bytes);auto& r=real->twins;
++  // The weld's own time: a second weld of the same model finds the same twins and changes nothing.
++  auto started=std::chrono::steady_clock::now();auto again=weldBackfaceTwins(*real);
++  double ms=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
++  check(again.pairs==r.pairs&&again.followers==r.followers&&again.skins==0,"A second weld changed the model");
++  auto clock=[](auto&& work){auto t=std::chrono::steady_clock::now();work();return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-t).count();};
++  double pointsMs=clock([&]{twins_detail::points(*real);}),gridMs=clock([&]{twins_detail::occupancy(*real);}),overlapMs=clock([&]{buildLightOverlaps(*real);});
++  std::cout<<"  of the weld: coincident points "<<pointsMs<<" ms, occupancy grid "<<gridMs<<" ms; the light overlaps' own pass "<<overlapMs<<" ms\n";
++  std::cout<<"Real model: "<<real->vertices.size()<<" vertices, "<<real->indices.size()/3<<" triangles; pairs "<<r.pairs<<", voted "<<r.voted<<", named "<<r.named
++           <<", undecided "<<r.undecided<<"; followers "<<r.followers<<", skinning changed "<<r.skins<<", morph corrections "<<r.morphFixes<<"; weld "<<ms<<" ms\n";
++  // Which part follows which (by the leads' parts), with the vertices that changed their skinning.
++  std::vector<unsigned> partOf(real->vertices.size(),~0u);
++  for(unsigned p=0;p<real->materials.size();p++)for(unsigned i=real->materials[p].first;i<real->materials[p].first+real->materials[p].count;i++)if(partOf[real->indices[i]]==~0u)partOf[real->indices[i]]=p;
++  std::map<std::pair<unsigned,unsigned>,unsigned> follows;for(auto [f,l]:real->twinLeads)follows[{partOf[f],partOf[l]}]++;
++  for(auto& [parts,count]:follows)std::cout<<"  part "<<parts.first+1<<" "<<real->materials[parts.first].name<<" follows part "<<parts.second+1<<" "<<real->materials[parts.second].name<<": "<<count<<" vertices\n";
++  for(int a=3;a<argc;a++){
++   std::string pair=argv[a];auto colon=pair.find(':');check(colon!=std::string::npos,"Pairs are follower:lead");
++   unsigned f=unsigned(std::stoul(pair.substr(0,colon))),l=unsigned(std::stoul(pair.substr(colon+1)));
++   check(leadOf(*real,f)==l,"Vertex "+std::to_string(f)+" does not follow "+std::to_string(l));
++   const auto& x=real->vertices[f];const auto& y=real->vertices[l];
++   check(x.type==y.type&&x.bones==y.bones&&x.weights==y.weights,"Vertex "+std::to_string(f)+" kept its own skinning");
++   std::ostringstream text;for(int k=0;k<4;k++)if(y.weights[k]>0)text<<" bone "<<y.bones[k]<<" "<<y.weights[k];
++   std::cout<<"  "<<f<<" follows "<<l<<":"<<text.str()<<"\n";
++  }
++  // Every weld holds under a random pose: twins land together.
++  std::mt19937 random(7);std::uniform_real_distribution<float> unit(-1,1);
++  std::vector<btTransform> pose(real->bones.size());
++  for(auto& t:pose){btVector3 axis(unit(random),unit(random),unit(random));if(axis.length2()<1e-6f)axis=btVector3(0,1,0);t.setRotation(btQuaternion(axis.normalized(),unit(random)*1.2f));t.setOrigin(btVector3(unit(random),unit(random),unit(random))*2);}
++  float worst=0;for(auto [f,l]:real->twinLeads)worst=std::max(worst,(skinPosition(real->vertices[f],pose)-skinPosition(real->vertices[l],pose)).length());
++  check(worst<1e-2f,"Welded twins part under a pose by "+std::to_string(worst));
++  std::cout<<"  "<<real->twinLeads.size()<<" welds under a random pose: largest gap "<<worst<<"\n";
++ }
++ return 0;
++}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

@@ -73,6 +73,27 @@ The Lua side of the same report is in the add-on in `../mmd_hotloader`: static p
 (no `GetRenderMesh` entity: the importer's preview crashed queued rendering), and detailed collision serves one
 import instead of being a remembered default.
 
+## Changes made here (2026-11-16: back-face copies)
+
+`backface-twins.patch` holds this repository's changes for the user's report of 2026-11-16 (a black patch on an imported
+character's skirt under RTX; [handover](../../../docs/handover/backface-twins-report.md),
+[ADR 0228](../../../docs/decisions/0228-back-face-copies-deform-with-the-layer-facing-outside.md)); applied after
+`import-progress.patch`, it gives `mmdhl/` as it is now. Not in the origin repository:
+
+- `native/backface_twins.hpp` (new): a model's back-face copies, parts whose triangles lie on another part's points with
+  the opposite winding (MMD's `X+` layers), found at load; for each pair of parts, which layer faces outside, voted by rays
+  along each layer's normals through a coarse occupancy grid of the rest mesh, else by the parts' names; each copy vertex
+  then takes the skinning (type, bones, weights, SDEF parameters) of its twin on that layer (`weldBackfaceTwins`), and
+  per vertex morph the offsets that keep it with its twin (`buildTwinMorphFixes`).
+- `native/runtime.hpp`: `Model::twinLeads`, `twinMorphFixes` and the `twins` report.
+- `native/model.cpp`: `parse` welds the copies after `validateNumbers` and gathers only the twin vertices' morph
+  offsets; `Instance::publish` applies the morph corrections with each vertex morph; `buildGpuSkin` counts them in the
+  bone boxes' reach.
+- `tests/backface_twin_tests.cpp` (CTest `backface_twins`) and its target in `CMakeLists.txt`: the outside vote, a vote
+  that overrules a misleading name, the names deciding an open pair, a pair left alone, the morph corrections, the same
+  result at every load, a same-wound overlay that is not a copy; with a real PMX it checks named welds and that every
+  weld holds under a random pose.
+
 ## Lua installation override (R21-B)
 
 `../overrides/installation.lua` replaces the add-on's `mmdhl/installation.lua` through

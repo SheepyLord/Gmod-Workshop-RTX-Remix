@@ -130,6 +130,12 @@ struct Model {
     // after deformation before additive lighting. No authored faces are deleted.
     std::vector<std::vector<OverlapTriangle>> lightOverlaps;
     std::vector<unsigned> lightLayerRanks;
+    // Back-face copies (backface_twins.hpp): each copy vertex and the vertex of the layer facing outside
+    // whose skinning it took at load (follower, lead), ascending; per morph (by index), the offsets that
+    // move each copy vertex with its lead; and what the load found.
+    std::vector<std::pair<unsigned,unsigned>> twinLeads;
+    std::vector<std::vector<std::pair<unsigned,btVector3>>> twinMorphFixes;
+    struct TwinReport {unsigned pairs=0,voted=0,named=0,undecided=0,followers=0,skins=0,morphFixes=0;} twins;
     // Per triangle, 0 when the 0.5 alpha test removes every sampled texel of it
     // (loadAsset; empty: nothing measured). Only RTX Remix draws skip those.
     std::vector<uint8_t> cutoutTriangles;

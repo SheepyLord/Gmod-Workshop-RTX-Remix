@@ -3539,3 +3539,18 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package 
   still shown in English as `[i18n] untranslated (<language>)`, header labels below the visible part included. In
   the PoC (2026-11-15) the published package logged "Water Simulation [Experimental]" in all six languages and patch
   0100's package nothing ([report](handover/remix-menu-i18n-report.md)).
+
+## Back-face copies of imported characters (ADR 0228)
+
+- The Model Hotloader's C++ test `backface_twins` (`source/mmdhl/tests/backface_twin_tests.cpp`; not part of
+  `tools\test.ps1`, which does not build the Hotloader): after `tools\ci\build_hotloader.ps1`, build the target
+  `mmdhl_backface_twin_tests` in its work folder (`cmake --build <work>\src\build --config Release --target ...`)
+  and run it with `tests/fixtures/native-chain.pmx`. A synthetic scene checks the outside vote, a vote over a
+  misleading name, names deciding an open pair, a pair left alone, the morph corrections and the same result at every
+  load. With a real `model.bin` (the PMX in `data/mmd_hotloader/assets/<id>`) as a second argument it prints the
+  pairs and which part follows which, checks `follower:lead` vertex pairs given after it, and checks that every weld
+  holds under a random pose. Run over a whole library (read only) it is also a load test: on 2026-11-16 the user's 206
+  characters all passed ([report](handover/backface-twins-report.md)).
+- In a game: `mmdhl.native.GetMaterialPositions(instance, part)` for an outer part and its copy, matched by their
+  rest positions (`GetMaterialMesh`), gives the largest distance between twins while the physics moves; 0 once
+  welded.

@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Imported characters: no more black patches on skirts and sleeves (the user's report of 2026-11-16)
+
+- **Under RTX, an imported character's skirt, sleeve or top no longer shows sharp black patches when the cloth swings
+  or the character falls as a ragdoll.** Many MMD clothes are two layers on the same surface: the cloth seen from
+  outside and an inside copy seen from under it. Where the model ties a few points of that inside copy to other bones
+  than the cloth itself, or moves them with a morph the cloth does not have, a swinging skirt lifted the copy outside
+  the cloth: invisible to the camera, it still blocked the light, and the cloth under it went black. The Model Hotloader
+  now makes each inside copy move exactly with the cloth facing outside whenever it loads a character, so the outside
+  looks as the model was made, and the inside matches it. This applies to every imported character: 68 of the 206 in
+  the reporting library have such copies, and 20 had points that could come apart (Fu Xua, Furina, The Herta, Topaz,
+  Robin, Silver Wolf, Firefly, Jingliu and others). Clipping between different pieces (a leg through a skirt, a skirt
+  through the floor) is the physics' and shows the same without RTX.
+- The four Model Hotloader natives are rebuilt from their source copy with this change (`source/backface-twins.patch`,
+  [ADR 0228](docs/decisions/0228-back-face-copies-deform-with-the-layer-facing-outside.md)).
+
 ### The RTX Remix menu's newest texts translated (2026-11-15)
 
 - **The RTX Remix menu (Alt+X) is fully translated again in Simplified and Traditional Chinese, Japanese, Korean,

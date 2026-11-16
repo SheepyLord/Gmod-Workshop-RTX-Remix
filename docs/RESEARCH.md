@@ -8976,6 +8976,52 @@ controller 6, まばたき 0).
 - **`file.Find` with a wildcard before a literal tail** (`mmd_vmd_npc/built/*_<model>_<crc>_<options>.json`) lists the
   built files of one model and option set; the tail is fixed, so the motion id is the name without it.
 
+## Back-face copies of imported characters (2026-11-16, Claude, ADR 0228)
+
+The user's report: a sharp black region on the back of an imported character's skirt, a ragdoll in the field session
+(modern_house). Measured in that running game (single-player, `sv_allowcslua 0`) and offline.
+
+- **Reaching a running field session's client Lua without changing a setting:** server Lua runs through the console
+  (`lua_run`, sent with WM_COPYDATA like `poc_session.console`); `Entity(1):SendLua(...)` registers a `net.Receive`
+  that runs a string, and `net.Start`/`net.WriteString`/`net.Send` carries any client chunk (hex-encoded through the
+  console into a global first). Output went to `data/` files, removed afterwards.
+- **The Hotloader's native read-outs:** `mmdhl.native.GetMaterialPositions(instance, part)` returns a part's drawn
+  world positions, one per index in triangle order (it forces a CPU publish); `GetMaterialMesh(asset, part, scale)` its
+  rest mesh (vertices with normals and UVs, indices); `SetMaterialVisibility(instance, json)` hides parts in the native
+  renderer alone (no bodygroup, nothing networked) and the add-on's `ent.MMDVisibilitySent` puts it back.
+- **The character:** Fu Xua (asset `19c0edc5...`), 83 parts, 202,223 vertices, 292,308 triangles. The floor is at z
+  480.03; the lower skirt reaches z 464.29 (16 units through the floor), `裙飾1` lies wholly under it, the ponytail
+  reaches 463.55: MMD physics does not stop the skirt at the world.
+- **The patch:** Remix's debug views at a fixed camera: albedo (23) and roughness (89) as on the rest of the hem;
+  direct diffuse (100) and direct specular (101) 0 inside it, indirect diffuse (106) near 0; triangle normals (14) show
+  a fan of four triangles there. Hiding parts one at a time: only the hem `裙下擺` (41) and its copy `裙下擺+` (42)
+  matter; hiding 42 alone removes the patch.
+- **Why:** 41 and 42 have the same 366 triangles in reversed winding, coincident at rest (gap 0). Drawn, five of 42's
+  triangles were apart by up to 1.55 units, each through one vertex lifted 1.0-1.5 units outside 41 along its normal. In
+  the PMX (`model.bin` is the PMX), that vertex v177473 is BDEF2 on bones 453 `裙_5_8` (0.9215) and 454 `裙_5_9`
+  (0.0785), the sixth segment of two skirt physics chains (rigid bodies "dynamic+bone"); its twin v177194 on the hem is
+  BDEF4 on 13 `下半身` (0.490), 174 `左足D+` (0.290), 193 `左足回転+` (0.187), 173 `左足D` (0.033). The other 278 twin
+  vertices match. Any swing of chains 8-9 away from the leg opens the copy.
+- **What the runtime does with it** (the fork at patch 0100): primary rays cull back faces per instance
+  (`geometry_resolver.slangh` 3597; `determineInstanceFlags` in `rtx_instance_manager.cpp` disables culling for
+  `$nocull` draws, blending, translucency, hair cards and baked terrain); indirect rays cull them too (`integrator_indirect.slangh`
+  1760); shadow rays only with `rtx.enableCullingInSecondaryRays` (`visibility.slangh` 387), `False` in the package's
+  classic defaults. The camera never sees the lifted copy, but its front faces point at the hem, so every ray from the
+  hem meets it: culling in shadow rays would not help. `surface_interaction.slangh` 403-406 flips a triangle's normal
+  toward the ray and 262 the vertex normals to match it.
+- **The Hotloader before:** `buildLightOverlaps` groups coincident triangles of the same winding only ("Cyclic order
+  preserves winding: intentional backfaces remain separate", `light_overlaps.hpp` 42), so reversed copies were never
+  related; `remixLayerSeparation` moves same-wound layers apart by at most 0.05 units.
+- **Over the user's library** (206 imported characters, the native test `mmdhl_backface_twin_tests` run on each
+  `model.bin`, read only): 68 have back-face copies, 262 pairs of parts (133 decided by the outside vote, 90 by names,
+  39 left alone); 159,905 copy vertices follow a twin, 752 of them were skinned differently and 4,973 vertex morph
+  offsets differed, in 24 models (20 distinct): The Herta (210 vertices, 1,430 morph offsets), Robin (70, 243),
+  hyacine (38, 686), Rin (18, 966: `妊娠↓` on the copy `裙+` only), Silver Wolf (44), Lycia (55), Sandrone (24), Furina
+  (11), Topaz (7, 11), Firefly, Jingliu and Citlali (morphs only), Fu Xua (1). After the weld every twin lands within
+  9.5e-5 units of its lead under random poses. The weld takes a median 28 ms per model (Fu Xua 100 ms, of it 52 ms for
+  the coincident points; the largest, 941,469 triangles, 455 ms); the existing light-overlap pass took 280 ms on Fu Xua.
+  In six pairs the vote put the part named `+` outside; their twins were alike, so nothing changed.
+
 ## The Remix menu's catalogs after the upstream merge (2026-11-15, Claude, runtime patch 0100)
 
 - **The catalogs fell behind at the upstream merge** (runtime patch 0093, fork commit `20e3553eb`): it brought 98 menu

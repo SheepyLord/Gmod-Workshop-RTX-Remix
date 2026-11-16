@@ -70,7 +70,7 @@ local) listed 30 findings in descending severity, each with evidence and a small
 ## Tests
 
 - **The gate** (`tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set, on the integration branch): CTest 35 of 35,
-  2,074 Python tests OK (one skipped, as before) after the five branches were merged; and again before the merge into main, with runtime patch 0104 and the menu-realm cheats fix: GATE2_RESULT.
+  2,074 Python tests OK (one skipped, as before) after the five branches were merged; and again before the merge into main, with runtime patch 0104 and the menu-realm cheats fix: CTest 35 of 35, 2,082 Python tests OK (one skipped).
 - **New tests, each failing on the code before its fix** (the agents' and the parent's checks against the old code):
   - `test_lua_guards.py` (the option policy, ToPBR's source check, the model reload's rule, every option the package's
     Lua sets allowed), `test_runtime_mod_option_layers.py`, `test_runtime_imgui_formats.py`, `test_runtime_splash.py`;

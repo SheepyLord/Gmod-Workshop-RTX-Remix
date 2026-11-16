@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed; another author's map mod (ModDB, with the author's permission) is matched to its map by texture hashes, re-keyed from Remix's default XXH3 texture hash to the package's XXH64 with rekey_mod_hashes.py when needed, and fitted under one item with fit_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355, 3840655317, 3840655643, 3840656009. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed; another author's map mod (ModDB, with the author's permission) is matched to its map by texture hashes, re-keyed from Remix's default XXH3 texture hash to the package's XXH64 with rekey_mod_hashes.py when needed, and fitted under one item with fit_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355, 3840655317, 3840655643, 3840656009, 3840675944. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -24,7 +24,8 @@ Items made this way (all hidden; dates UTC):
 Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3836505482 and 3836505733 the
 Backrooms remaster ("A remaster larger than one item"), 3838671223 Pool Day RTX and 3838671355 Safehouse
 RTX (hidden; "A classic install's map mod"), 3840655317 Valley View Mall RTX, 3840655643 Funkis RTX and
-3840656009 Country Estate RTX (hidden; "Another author's map mod (ModDB)"), 3797839157 and 3803057911 the two converted
+3840656009 Country Estate RTX (hidden; "Another author's map mod (ModDB)"), 3840675944 lestnicha3 RTX (hidden;
+"A remastered map"), 3797839157 and 3803057911 the two converted
 Astra companions (public; "An Astra companion"), 3829070317 the RTX package. The
 last builds are in the main checkout's `out\packages\guinaifen`, `out\packages\robin` and
 `out\packages\evernight-march7th` (each with a `pre-c16` copy of the earlier archive and layers).
@@ -305,6 +306,18 @@ python -I "$repo\tools\package_content.py" --id modern-house-rtx --name "Modern 
 
 Never ship the map or its files (the Workshop bans re-uploads): it is a Required item (Modern House:
 3495468649). Textures derived from another author's map keep the item hidden until the user decides.
+
+lestnicha3 RTX went up this way at the user's request ("Pack and upload the enhancement to the
+workshop", 2026-11-16 UTC) as the hidden item **3840675944**: package `lestnicha3-rtx`
+`0.0.0-dev.202611090538+e93c7cb0`, the add-on `lestnicha3_rtx` and the mod `lestnicha3_rtx` (14 materials,
+51 DDS), 648,811,424 bytes, SHA-256 `ae2c235b...`, `check_pack.py` 0 errors and 0 warnings. Its fork worktree
+had been removed by then: the field's deployed copy, checked file by file against the fork branch
+`claude/lestnicha3-rtx` (`E:\Modding_Backup\garrys-mod-rtx-remixed`), was the source of the build folder
+(this worktree's `out\packages\lestnicha3-rtx`, with the icon, the description and `gmpublish-create.log`).
+On the PoC the loader deployed it beside the published RTX package and the add-on started on the map
+(pitfall 36 for the first run). `gmpublish create` from the PoC root; Steam's public lookup answers
+`result 9`. The page description, the Required items (3756151906 and 3829070317) and visibility are the
+user's.
 Keep packs under about 4 GB (the Workshop's guideline). `check_pack.py --addon <folder> --mod <folder>
 --gma <file>` checks a plain Lua add-on without the Hotloader rules.
 

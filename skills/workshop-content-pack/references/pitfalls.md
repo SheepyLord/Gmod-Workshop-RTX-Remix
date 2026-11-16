@@ -408,6 +408,21 @@ layers as they are; nothing to convert.
   4x. In the field, the mall's floors mirror the store windows and lights like a polished floor (stock and
   the old build: matte), and its stucco walls show more relief.
 
+### 36. The PoC ignores the local pack: its old deployment is kept (2026-11-16)
+
+- **Symptom.** A PoC run with the lestnicha3 pack in `allow.local` loaded the map, but neither the pack's
+  folders nor its add-on's lines appeared. `loader.log`: `deployment.outcome=kept`, `change_count=0`,
+  `deployment.skipped="local ...gmod-rtx-remix-...8aafd13e.gma: file not found"`.
+- **Cause.** The PoC's `config.json` also allowed a local build of the RTX package that the publish hook had
+  since replaced with a newer one (`out\workshop` keeps only the newest). When an allowlisted source is
+  missing the loader keeps the whole previous deployment rather than deploy part of the plan, so the new
+  pack is never looked at.
+- **Fix.** Run `nlctl plan <PoC>` before the run: every source must be `ACTIVE`. For the test, write a config
+  from the saved original that allows the published RTX package (`"workshop": ["3829070317"]`) and the
+  archive. Afterwards write it once more without the archive, `nlctl apply <PoC> --dry-run` (only the pack's
+  files are removed) and `apply`, then put the original config back byte for byte and say that the PoC now
+  runs the published RTX package: with its own source still missing, later starts keep that deployment.
+
 ## Diagnosing
 
 | Question | Where to look |

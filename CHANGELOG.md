@@ -883,6 +883,11 @@ Versions follow the loader's CMake project version once it ships; until then eve
   ratios (other programs never block a test). The
   skill's description, workflow, standards, troubleshooting, lessons, pipeline and testing references say how,
   with the measurements.
+- **lestnicha3 RTX uploaded as the hidden Workshop item 3840675944** at the user's request (2026-11-16 UTC): the
+  content package `lestnicha3-rtx` (the add-on and the Remix mod, 649 MB), built from the field install's copy
+  after the fork worktree was removed, checked with `nlctl` and `check_pack.py` and in the PoC game. New pitfall 36
+  in the workshop-content-pack skill: a PoC whose `config.json` allows a local archive that no longer exists keeps
+  its old deployment and never deploys the pack under test.
 
 ### After R24: a map remaster too big for one Workshop item
 

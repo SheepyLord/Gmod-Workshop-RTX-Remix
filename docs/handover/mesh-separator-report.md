@@ -34,7 +34,7 @@ of questions ([ADR 0232](../decisions/0232-the-mesh-separator.md), [plan](mesh-s
 | A piece drawn with its source's material | `props/render.lua` |
 | A piece's origin and a character's terms | `props/library.lua` |
 | The worker call in the install check's guard | `mmdhl/installation.lua`, `overrides/installation.lua` |
-| 63 texts in the seven catalogs | `resource/localization/*/mmdhl.properties` |
+| 64 texts in the seven catalogs | `resource/localization/*/mmdhl.properties` |
 
 ## Checks
 
@@ -72,14 +72,14 @@ In the PoC (gm_construct, RTX on, 1920x1080; `out/qa-poc/mesh-separator`):
     character in its panel, but Detach was below the fold at 1080p; a footer keeps it in view.
 - **Run 3** (`03-branch`):
   - Character A's hair-ornament piece (360 triangles) kept the fast hull (0.4 s) and was placed where it was, 0.36 units
-    from the mean of its triangles' centres, and again at the aim in the rest pose; both drawn with her own material
-    its own public material (`mmd/<asset>/...`) (found for 1 of 1 slots). Frozen it had one convex, 2 kg and the world-only
-    collision group; unfrozen it dropped 2.1 units to the ground. She kept her own ornament.
+    from the mean of its triangles' centres, and again at the aim in the rest pose; both drawn with the character's own
+    public material (`mmd/<asset>/...`, found for 1 of 1 slots). Frozen it had one convex, 2 kg and the world-only
+    collision group; unfrozen it dropped 2.1 units to the ground. The character kept its own ornament.
   - The drum, the ragdoll's body (13 hulls, 7.0 s) and the NPC's mouth were placed again; every placement answered
     "Placed ...".
-  - Under RTX the selection drew on the screen in orange (the drum) and the piece under the aim in blue (her hair).
+  - Under RTX the selection drew on the screen in orange (the drum) and the piece under the aim in blue (the character's hair).
   - The editor showed its footer ("360 of 209,152 triangles selected", Clear, Detach); from its first view the piece is
-    behind her hair, so run 4 turns the camera to it.
+    behind the character's hair, so run 4 turns the camera to it.
 - **Run 4** (`04-branch`): every placement answered "Placed ..." again. In the editor, turned to face the piece from
   outside, 45 of 50 rays cast through the projected centres of selected triangles hit the selection (the other 5 meet
   a triangle in front) and all 50 pass within 0.05 units of the centre they were cast through; a box drawn around the

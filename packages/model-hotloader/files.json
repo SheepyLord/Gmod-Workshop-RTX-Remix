@@ -612,10 +612,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "6eaef0ddb6f2f2cb54f8b62c7f3fc5c85f24d28d",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T10:44:02+00:00"
   },
   "mmd_hotloader/lua/mmdhl/props/library.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\props\\library.lua",
@@ -1326,9 +1326,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/props/render.lua": {
-   "size": 22993,
-   "sha256": "674552a87c3f02bd58be30a478f4703969a92aa2149b997c30f6c04d2aa0f8ef",
-   "mtime_ns": 1794822671443154700,
+   "size": 23001,
+   "sha256": "c6dc1cd3f69c4a3484671a1e5f5a39e841b89223b0be487e5151dab4e60bca7b",
+   "mtime_ns": 1794825842441473600,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/props/server.lua": {

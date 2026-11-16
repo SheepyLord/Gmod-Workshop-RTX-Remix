@@ -109,8 +109,8 @@ end
 -- the material the piece draws with its own (the embedded texture, or white).
 local function sourceMaterial(info,m)
  local path=m.source_material
- if not isstring(path) or path=='' then return nil end
- local from=istable(info.separated_from) and info.separated_from or nil
+ if type(path)~='string' or path=='' then return nil end
+ local from=type(info.separated_from)=='table' and info.separated_from or nil
  if path:sub(1,4)=='mmd/' and from and P.ValidID(from.asset) and mmdhl.MountPackage then
   local archive='mmd_hotloader/assets/'..from.asset..'/materials-v5.gma'
   if file.Exists(archive,'DATA') then mmdhl.MountPackage('data/'..archive) end

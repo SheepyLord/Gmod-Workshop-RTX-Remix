@@ -646,6 +646,11 @@ lua/mmdhl/scene_sharing.lua
 lua/mmdhl/secondary_backend.lua
 lua/mmdhl/secondary_collision.lua
 lua/mmdhl/secondary_water.lua
+lua/mmdhl/separator/client.lua
+lua/mmdhl/separator/editor.lua
+lua/mmdhl/separator/mesh.lua
+lua/mmdhl/separator/server.lua
+lua/mmdhl/separator/shared.lua
 lua/mmdhl/server.lua
 lua/mmdhl/server_settings.lua
 lua/mmdhl/settings.lua
@@ -806,6 +811,7 @@ lua/weapons/gmod_tool/stools/advanced_bodygroup.lua
 lua/weapons/gmod_tool/stools/advmateditor.lua
 lua/weapons/gmod_tool/stools/mmd_vmd_npc.lua
 lua/weapons/gmod_tool/stools/mmdhl_prop.lua
+lua/weapons/gmod_tool/stools/mmdhl_separator.lua
 lua/weapons/gmod_tool/stools/portal_creator_tool.lua
 lua/weapons/gmod_tool/stools/portal_fitter_tool.lua
 lua/weapons/gmod_tool/stools/portal_resizer_tool.lua

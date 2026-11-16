@@ -36,7 +36,7 @@ exit $LASTEXITCODE
 class EyeTexGenTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """HardwareSkinningHooks.cpp is queued-draws' copy (no patch after it changes the file) with this patch
-        applied; the header and the regression are its added lines. pins.json builds the module with it, last, after
+        applied; the header and the regression are its added lines. pins.json builds the module with it right after
         player-categories."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), [HOOKS, STATE, TEST])
@@ -44,8 +44,8 @@ class EyeTexGenTests(unittest.TestCase):
         for path in (STATE, TEST):
             self.assertEqual(added(patch, path), text(FOLDER / path).rstrip('\n').split('\n'), path)
         patches = json.loads((REPO / 'tools/ci/pins.json').read_text(encoding='utf-8'))['fixes']['patches']
-        self.assertEqual(patches[-1], PATCH.relative_to(REPO).as_posix())
-        self.assertEqual(patches[-2], 'packages/fixes/licenses/oversized-skinning/player-categories/player-categories.patch')
+        player = 'packages/fixes/licenses/oversized-skinning/player-categories/player-categories.patch'
+        self.assertEqual(patches.index(PATCH.relative_to(REPO).as_posix()), patches.index(player) + 1)
 
     def test_the_draw_writes_the_eye_request_again(self):
         """The request is kept per thread, set before RTX_SetEyeTexGenState's device check, and written again at

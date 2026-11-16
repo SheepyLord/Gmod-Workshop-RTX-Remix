@@ -5207,6 +5207,52 @@ do
     end
 end
 
+-- The user's request of 2026-11-16: how hard a dancing NPC's ragdoll bodies push what they touch.
+do
+    local phrases = {
+        en = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "Push strength of a dancing NPC's body (%)",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "How hard those bodies push props they touch, in percent of the weight of the character's own ragdoll: 100 (default) pushes like the real body, 0 barely moves props, 500 pushes five times as hard. Players and NPCs are blocked the same at any value.",
+        },
+        zh = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "跳舞 NPC 身体的推力（%）",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "这些身体部件推动所碰到道具的力度，以角色自身布娃娃重量的百分比表示：100（默认）像真实身体一样推动，0 几乎推不动道具，500 的推力是五倍。无论取何值，对玩家和 NPC 的阻挡都相同。",
+        },
+        ["zh-tw"] = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "跳舞 NPC 身體的推力（%）",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "這些身體部件推動所碰到道具的力度，以角色本身布娃娃重量的百分比表示：100（預設）像真實身體一樣推動，0 幾乎推不動道具，500 的推力是五倍。無論取何值，對玩家和 NPC 的阻擋都相同。",
+        },
+        ja = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "ダンス中の NPC の体の押す強さ（%）",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "体のパーツが触れたプロップを押す強さを、キャラクター自身のラグドールの重さに対する割合で指定します。100（既定）は実際の体と同じように押し、0 ではプロップはほとんど動かず、500 では 5 倍の強さで押します。プレイヤーと NPC の遮り方はどの値でも同じです。",
+        },
+        ko = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "춤추는 NPC 몸의 미는 힘 (%)",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "이 몸 부위들이 닿은 프롭을 미는 힘을 캐릭터 자신의 래그돌 무게에 대한 백분율로 정합니다. 100(기본값)은 실제 몸처럼 밀고, 0이면 프롭이 거의 움직이지 않으며, 500이면 다섯 배로 밉니다. 플레이어와 NPC를 막는 정도는 어떤 값에서도 같습니다.",
+        },
+        fr = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "Force de poussée du corps d'un PNJ qui danse (%)",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "La force avec laquelle ces parties du corps poussent les props qu'elles touchent, en pourcentage du poids du ragdoll du personnage : 100 (par défaut) pousse comme le vrai corps, 0 ne déplace presque pas les props, 500 pousse cinq fois plus fort. Les joueurs et les PNJ sont bloqués de la même façon quelle que soit la valeur.",
+        },
+        ru = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "Сила толчка тела танцующего NPC (%)",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "Насколько сильно эти части тела толкают пропы, которых касаются, в процентах от веса собственного рэгдолла персонажа: 100 (по умолчанию) толкает как настоящее тело, 0 почти не сдвигает пропы, 500 толкает в пять раз сильнее. Игроков и NPC тело блокирует одинаково при любом значении.",
+        },
+        ar = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "قوة دفع جسم الشخصية الراقصة (%)",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "مدى قوة دفع أجزاء الجسم هذه للأغراض التي تلمسها، كنسبة مئوية من وزن دمية الراغدول الخاصة بالشخصية: 100 (افتراضي) يدفع مثل الجسم الحقيقي، و0 بالكاد يحرك الأغراض، و500 يدفع بقوة خمسة أضعاف. يُحجب اللاعبون والشخصيات بالطريقة نفسها مهما كانت القيمة.",
+        },
+        es = {
+            ["mmd_vmd_npc.ui.ragdoll_push"] = "Fuerza de empuje del cuerpo de un NPC que baila (%)",
+            ["mmd_vmd_npc.ui.ragdoll_push_help"] = "Con cuánta fuerza esas partes del cuerpo empujan los props que tocan, en porcentaje del peso del ragdoll del propio personaje: 100 (predeterminado) empuja como el cuerpo real, 0 apenas mueve los props, 500 empuja cinco veces más fuerte. Los jugadores y los NPC quedan bloqueados igual con cualquier valor.",
+        },
+    }
+    for language, entries in pairs(phrases) do
+        MMDVMDNPC.I18N[language] = MMDVMDNPC.I18N[language] or {}
+        for key, text in pairs(entries) do MMDVMDNPC.I18N[language][key] = text end
+    end
+end
+
 MMDVMDNPC.LanguageAliases = {
     english = "en",
     en = "en",

@@ -14,6 +14,7 @@ function CreateClientConVar(name,value)
         local cv={value=value}
         function cv:GetBool() return tobool(self.value) end
         function cv:GetFloat() return tonumber(self.value) end
+        function cv:GetInt() return math.floor(tonumber(self.value) or 0) end
         vars[name]=cv
     end
 end
@@ -26,6 +27,22 @@ end
 cvars={AddChangeCallback=function(name,fn) callbacks[name]=fn end}
 concommand={Add=function(name,fn) assert(not vars[name],"convar/command collision: "..name) commands[name]=fn end}
 hook={Add=function(event,name,fn) hooks[name]=fn end}
+-- The player's range (ADR 0229): a map with three BSP materials, one static prop model and one physics prop.
+function IsValid(v) return v~=nil end
+function math.Clamp(v,lo,hi) return math.min(math.max(v,lo),hi) end
+local timers={}
+timer={Simple=function(delay,fn) timers[#timers+1]=fn end}
+local mapName="gm_scope"
+local world={GetMaterials=function() return {"CONCRETE/FLOOR01","maps/gm_scope/nature/blend_grass_wvt_patch"} end}
+game={GetWorld=function() return world end,GetMap=function() return mapName end}
+NikNaks={CurrentMap={GetTextures=function() return {"glass/window01","CONCRETE/FLOOR01"} end,
+    GetStaticPropModels=function() return {"models/props_c17/oildrum001.mdl"} end}}
+RTXMaterialPipeline={ModelMaterialNames=function(model)
+    assert(model=="models/props_c17/oildrum001.mdl") return {"models/props_c17/oildrum001"} end}
+local crate={GetModel=function() return "models/props_junk/wood_crate001a.mdl" end,
+    GetMaterials=function() return {"models/props_junk/wood_crate001a"} end,
+    GetSubMaterial=function() return "" end}
+ents={FindByClass=function(pattern) return pattern=="prop_physics*" and {crate} or {} end}
 local enabled,gameEnabled=false,false
 local tries,accepted=0,0
 local p={}
@@ -42,7 +59,14 @@ p.IsProcessingInBackground=function() return false end
 p.GetQueuedMaterialCount=function() return 0 end
 p.GetLastProcessedCount=function() return 0 end
 p.ClearCache=function() calls.clear=true end
-p.QueueMaterialsForProcessing=function() calls.queue=true end
+p.QueueMaterialsForProcessing=function() calls.queue=true calls.queueAtScope=calls.scopeSent end
+local scopeNames={}
+p.ClearScope=function() scopeNames={} calls.scopeCleared=(calls.scopeCleared or 0)+1 end
+p.AllowScopeMaterials=function(names)
+    for _,name in ipairs(names) do scopeNames[name]=true end
+    calls.scopeSent=(calls.scopeSent or 0)+1
+    return #names
+end
 p.QueueGameMaterial=function(name,source,base)
     assert(name=="mmd/0123456789abcdef/material_0")
     assert(source=="E:/models/test.pmx" and base=="tex/test_D.png")
@@ -111,4 +135,40 @@ pending,total=RTXGamePBRProgress() assert(pending==0 and total==0, "the batch en
 p.GetGameMaterial=function() error("native view failed") end
 commands.rtx_topbr_clear() hooks.RTXToPBR_GameMaps() assert(queued==2)
 pending,total=RTXGamePBRProgress() assert(pending==0 and total==0, "an unreadable view counts as finished")
-print("PASS ToPBR driver: diagnostics, settings, bounded metadata discovery, hash retry, source-less queue, clear/requeue and conversion progress")
+
+-- The player's range (the user's request of 2026-11-16, ADR 0229).
+assert(vars.rtx_topbr_scope and vars.rtx_topbr_scope.value=="0", "the map's own surfaces by default")
+calls.queue,calls.scopeSent,calls.scopeCleared,calls.clear=nil,nil,nil,nil
+hooks.RTXToPBR_Scope()
+assert(calls.scopeCleared==1 and calls.scopeSent==1, "a map's start sends a fresh list")
+assert(scopeNames["CONCRETE/FLOOR01"] and scopeNames["maps/gm_scope/nature/blend_grass_wvt_patch"], "the world's materials")
+assert(scopeNames["glass/window01"], "the BSP's whole texture list (brush entities, overlays)")
+assert(not scopeNames["models/props_c17/oildrum001"] and not scopeNames["models/props_junk/wood_crate001a"], "no props by default")
+assert(calls.queue and calls.queueAtScope==1, "with ToPBR on, the drawn materials are queued after the names")
+assert(#timers==1, "a second pass once NikNaks has read the BSP") timers[1]() timers={}
+-- Props in range: static prop models and prop entities; a narrower range clears what the wider one converted.
+calls.clear=nil
+RunConsoleCommand("rtx_topbr_scope","1")
+assert(not calls.clear, "a wider range keeps what was converted")
+assert(scopeNames["models/props_c17/oildrum001"] and scopeNames["models/props_junk/wood_crate001a"], "props named")
+assert(scopeNames["CONCRETE/FLOOR01"], "and the map's surfaces")
+local sent=calls.scopeSent
+function RealTime() return 200 end
+hooks.RTXToPBR_ScopeProps()
+assert(calls.scopeSent==sent, "a prop seen before is not sent again")
+crate.GetModel=function() return "models/props_junk/wood_crate002a.mdl" end
+crate.GetMaterials=function() return {"models/props_junk/wood_crate002a"} end
+function RealTime() return 203 end
+hooks.RTXToPBR_ScopeProps()
+assert(scopeNames["models/props_junk/wood_crate002a"], "a prop whose model changed is named again")
+RunConsoleCommand("rtx_topbr_scope","2")
+assert(not calls.clear and next(scopeNames)==nil, "everything: no names, nothing cleared")
+RunConsoleCommand("rtx_topbr_scope","0")
+assert(calls.clear, "back to the map's surfaces: the cache is cleared")
+assert(scopeNames["CONCRETE/FLOOR01"] and not scopeNames["models/props_junk/wood_crate001a"], "only the map's surfaces again")
+-- Turning ToPBR on in a new map sends that map's names before it queues.
+mapName="gm_other"
+calls.scopeSent=nil
+RunConsoleCommand("rtx_topbr_enabled","0") RunConsoleCommand("rtx_topbr_enabled","1")
+assert(calls.scopeSent==1 and calls.queueAtScope==1, "names first, then the queue")
+print("PASS ToPBR driver: diagnostics, settings, bounded metadata discovery, hash retry, source-less queue, clear/requeue, conversion progress and the player's range")

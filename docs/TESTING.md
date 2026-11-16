@@ -3554,3 +3554,33 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\<run> --package 
 - In a game: `mmdhl.native.GetMaterialPositions(instance, part)` for an outer part and its copy, matched by their
   rest positions (`GetMaterialMesh`), gives the largest distance between twins while the physics moves; 0 once
   welded.
+
+## The QoL requests of 2026-11-16: ToPBR's range, the end hold, a dancer's push (Claude, ADR 0229, ADR 0230)
+
+Offline, in the gate:
+
+- [`tools/tests/test_topbr_scope.py`](../tools/tests/test_topbr_scope.py.md): the RTX fixes' fourteenth native patch
+  (its complete files, the three queues asking the range, the player's setting read natively, the bindings, its
+  SDK-free regression with MSVC: 32 checks) and the driver's default.
+- [`topbr_harness.lua`](../tools/tests/topbr_harness.lua.md) (through `test_topbr.py`): the map's names sent at its
+  start, props named with range 1, a narrower range clearing the cache, the names before the queue.
+- [`rtx_settings_harness.lua`](../tools/tests/rtx_settings_harness.lua.md) (through `test_topbr_publish.py`): the page
+  marked experimental, Apply to with the map's own surfaces first and chosen.
+- [test_motion_server.py](../tools/tests/test_motion_server.py.md): `ragdoll_collision` (each body a shadow the
+  physics may push, without gravity, weighing its ragdoll body times the push strength, read again during a dance, 0.1
+  kg at 0, at most five times; bodies collide with neither each other nor the map) and the new `end_hold` (three
+  seconds, a pause lengthens them, a loop never ends).
+- `tools/check_addon_i18n.py` (the motion catalog's two new keys in nine languages, 489 keys) and
+  `tools/companion_i18n.py check` (the ten ToPBR texts and the guide line in six languages).
+
+In the PoC with [mmd_player_session.py](../tools/qa/mmd_player_session.py.md) `--qol --no-steps` (an empty motion
+library is enough: the server half writes its own test dance):
+
+```powershell
+python tools\qa\mmd_player_session.py --evidence out\qol16-poc\<run> --package <gma> --label qol --data <folder with an empty mmd_vmd_npc> --qol --no-steps
+```
+
+- `push_old`, `push_100`, `push_25`, `push_0`: the bodies' masses, how fast a paint can in the right arm's swing and a
+  can inside the held hand went, whether a watermelon in the left arm's swing broke (`push_old`: the bodies as they
+  were before); `endhold`: the hand during the hold and when the playback ended; `topbr_range`: each
+  range's names, conversions (the console's `Processed material` lines between `NLTP_PHASE` markers) and answers.

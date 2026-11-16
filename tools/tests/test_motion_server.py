@@ -63,6 +63,9 @@ class MotionServerTests(unittest.TestCase):
     def test_a_dancing_npc_collides_through_its_ragdolls_bodies(self):
         self.run_lua('ragdoll_collision')
 
+    def test_a_dance_holds_its_last_pose_before_the_reference_pose(self):
+        self.run_lua('end_hold')
+
     def test_a_selection_gets_the_built_flags_alone(self):
         self.run_lua('built_flags')
 

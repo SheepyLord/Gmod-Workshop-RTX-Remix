@@ -2083,7 +2083,7 @@ msgid "Performance: draws the map faster. Mesh replacements stop working while P
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:133
-msgid "Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."
+msgid "Map and prop PBR (ToPBR, experimental): builds PBR materials from what Source materials already have, for the map's own surfaces unless you widen its range to props or everything. Off by default; it uses disk space and VRAM."
 msgstr ""
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:134

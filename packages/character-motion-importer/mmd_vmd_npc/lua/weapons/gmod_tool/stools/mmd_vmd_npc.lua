@@ -134,6 +134,9 @@ TOOL.ClientConVar = {
     -- starts at 0, as before), and a dancing NPC collides through its ragdoll's bodies (on).
     keep_flexes = "0",
     ragdoll_collision = "1",
+    -- The user's request of 2026-11-16: how hard those bodies push what they touch, in percent of the weight of the
+    -- character's own ragdoll (before, they could not be moved and sent props flying).
+    ragdoll_push = "100",
 }
 
 if CLIENT then
@@ -1156,6 +1159,8 @@ function TOOL.BuildCPanel(panel)
     add_slider(playbackTab, L("mmd_vmd_npc.ui.thirdperson_height"), "mmd_vmd_npc_thirdperson_height", -20, 90, 0)
     add_checkbox_with_help(playbackTab, L("mmd_vmd_npc.ui.keep_flexes"), "mmd_vmd_npc_keep_flexes", L("mmd_vmd_npc.ui.keep_flexes_help"))
     add_checkbox_with_help(playbackTab, L("mmd_vmd_npc.ui.ragdoll_collision"), "mmd_vmd_npc_ragdoll_collision", L("mmd_vmd_npc.ui.ragdoll_collision_help"))
+    add_slider(playbackTab, L("mmd_vmd_npc.ui.ragdoll_push"), "mmd_vmd_npc_ragdoll_push", 0, 500, 0)
+    playbackTab:Help(L("mmd_vmd_npc.ui.ragdoll_push_help"))
 
     section(playbackTab, L("mmd_vmd_npc.ui.stage_movement"), Color(120, 220, 190))
     add_slider(playbackTab, L("mmd_vmd_npc.ui.stage_jumps"), "mmd_vmd_npc_stage_jumps", 0, 100, 0)

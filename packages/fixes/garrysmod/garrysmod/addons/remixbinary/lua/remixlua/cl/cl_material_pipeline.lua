@@ -230,6 +230,8 @@ local function GetModelMaterialNames(modelPath)
     f:Close()
     return names
 end
+-- ToPBR's range (ADR 0229) names a prop model's materials the same way.
+RTXMaterialPipeline.ModelMaterialNames = GetModelMaterialNames
 
 -- World and static prop materials of the current map. The BSP texture list already
 -- holds every texture its faces use, so the faces themselves are not walked.

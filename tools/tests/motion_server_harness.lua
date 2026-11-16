@@ -64,7 +64,11 @@ function isvector(v) return type(v)=='table' and v.isVector==true end function i
 local V={} V.__index=V
 function V:DistToSqr(o) return (self.x-o.x)^2+(self.y-o.y)^2+(self.z-o.z)^2 end
 function Vector(x,y,z) return setmetatable({x=x or 0,y=y or 0,z=z or 0,isVector=true},V) end
+V.__add=function(a,b) return Vector(a.x+b.x,a.y+b.y,a.z+b.z) end
+V.__sub=function(a,b) return Vector(a.x-b.x,a.y-b.y,a.z-b.z) end
+V.__mul=function(a,b) if type(a)=='number' then a,b=b,a end return Vector(a.x*b,a.y*b,a.z*b) end
 COLLISION_GROUP_NONE,COLLISION_GROUP_DEBRIS=0,1
+MOVETYPE_VPHYSICS=6
 function Angle(p,y,r) return {p=p or 0,y=y or 0,r=r or 0} end
 function FindMetaTable() return nil end
 function math.Clamp(v,a,b) return math.max(a,math.min(b,v)) end
@@ -150,6 +154,9 @@ function Entity:GetPhysicsObject()
   phys={collides=true,updates=0}
   function phys:IsCollisionEnabled() return self.collides end function phys:EnableCollisions(on) self.collides=on==true end
   function phys:UpdateShadow(pos) self.updates=self.updates+1 self.target=pos end function phys:Wake() end
+  -- A body's weight and gravity (the push strength, 2026-11-16).
+  function phys:SetMass(mass) self.mass=mass end function phys:GetMass() return self.mass or 1e6 end
+  function phys:EnableGravity(on) self.gravity=on==true end
   self.phys=phys
  end
  return phys
@@ -165,13 +172,18 @@ function Entity:LookupBone(name) if caped(self) and (BONE_INDEX[name] or 99)>3 t
 function Entity:GetBonePosition(bone) return Vector(bone,0,0),Angle() end
 function Entity:SetModel(model) self.model=model end
 function Entity:GetPhysicsObjectCount() if self.kind=='prop_ragdoll' then return caped(self) and 22 or 18 end return 1 end
-function Entity:GetPhysicsObjectNum()
- return {GetMeshConvexes=function() return {{{pos=Vector(0,0,0)},{pos=Vector(1,0,0)},{pos=Vector(0,1,0)},{pos=Vector(0,0,1)}}} end}
+-- Ragdoll body i weighs 2 + i kg.
+function Entity:GetPhysicsObjectNum(i)
+ return {GetMeshConvexes=function() return {{{pos=Vector(0,0,0)},{pos=Vector(1,0,0)},{pos=Vector(0,1,0)},{pos=Vector(0,0,1)}}} end,
+  GetMass=function() return 2+(i or 0) end}
 end
+-- The bodies' own collision rule (2026-11-16).
+function Entity:SetCustomCollisionCheck(on) self.customCheck=on==true end
+function Entity:IsWorld() return self.kind=='worldspawn' end
 function Entity:TranslatePhysBoneToBone(i) return i+1 end
 function Entity:GetBoneName(bone) if caped(self) and bone>3 then return 'hair'..bone end return BONES[bone] or ('bone'..bone) end
 function Entity:PhysicsInitMultiConvex(hulls) self.hulls=hulls return true end
-function Entity:MakePhysicsObjectAShadow() self.shadow=true end
+function Entity:MakePhysicsObjectAShadow(movement,rotation) self.shadow=true self.shadowMove=movement self.shadowRotate=rotation end
 function Entity:SetOwner(owner) self.owner=owner end function Entity:GetOwner() return rawget(self,'owner') end
 function Entity:DeleteOnRemove(other) self.deletes=rawget(self,'deletes') or {} self.deletes[#self.deletes+1]=other end
 function Entity:Remove() self.valid=false end
@@ -406,6 +418,30 @@ elseif scenario=='ragdoll_collision' then
  check(dancer.group==COLLISION_GROUP_DEBRIS and dancer.phys.collides==false,'the box still collides')
  hooks.Think.MMDVMDNPCBuiltPlaybackThink()
  for _,c in ipairs(bodies) do check(c.phys.updates==1,'a collider did not follow its bone this tick') end
+ -- The user's request of 2026-11-16: each body is a shadow the physics may push back, without gravity, weighing its
+ -- ragdoll body (2 + its index here) times the player's push strength (100 percent by default); a change reaches a
+ -- running dance within half a second; 0 is the lightest body VPhysics has and the strength stops at 500 percent.
+ -- Bodies collide with neither each other nor the map; every other pair is the engine's.
+ for i,c in ipairs(bodies) do
+  check(c.shadowMove==true and c.shadowRotate==true and c.phys.gravity==false and c.customCheck==true,
+   'a body is not a shadow the physics may push, without gravity, with its own collision rule')
+  check(c.phys.mass==2+(i-1),'a body does not weigh its ragdoll body: '..tostring(c.phys.mass))
+ end
+ local function push(percent,expect,what)
+  attacker.info={mmd_vmd_npc_ragdoll_push=percent}
+  tick(0.6) hooks.Think.MMDVMDNPCBuiltPlaybackThink()
+  for i,c in ipairs(bodies) do check(math.abs(c.phys.mass-expect(2+(i-1)))<1e-9,what..': '..tostring(c.phys.mass)) end
+ end
+ push(50,function(m) return m*0.5 end,'the push strength did not reach a running dance')
+ push(0,function() return 0.1 end,'push strength 0 is not the lightest body')
+ push(9000,function(m) return m*5 end,'the push strength is not capped at 500 percent')
+ attacker.info={}
+ local world=entity('worldspawn')
+ local rule=hooks.ShouldCollide.MMDVMDNPCBodies
+ check(rule(bodies[1],bodies[2])==false,'two bodies collide')
+ check(rule(bodies[1],world)==false and rule(world,bodies[1])==false,'a body collides with the map')
+ check(rule(bodies[1],attacker)==nil and rule(attacker,world)==nil and rule(dancer,attacker)==nil,
+  'a pair without two bodies or a body and the map is not left to the engine')
  M().StopPlayback(dancer,true)
  check(#colliders_of(dancer)==0 and dancer.group==COLLISION_GROUP_NONE and dancer.phys.collides==true,'the stop did not give the box back')
  -- Turned off in the tool: the box, as before.
@@ -430,6 +466,43 @@ elseif scenario=='ragdoll_collision' then
  disk[M().BuiltPath('m','models/plain.mdl')]=disk[M().BuiltPath('m',capedModel)]:gsub('caped','plain')
  dance(attacker,plain)
  check(M().Playbacks[plain].collision==nil and plain.group==nil,'a model without a ragdoll lost its box')
+elseif scenario=='end_hold' then
+ -- The user's request of 2026-11-16: a dance that ends keeps its last pose for EndHoldSeconds (3), then the NPC
+ -- returns to the reference pose; a pause during the hold lengthens it by the pause; a looping dance never ends.
+ check(M().EndHoldSeconds==3,'the hold is not three seconds')
+ local dancer=entity('npc')
+ disk[M().BuiltPath('m',dancer:GetModel())]=util.TableToJSON({format='built-test',model=dancer:GetModel(),frame_start=0,frame_end=1,fps=30,
+  frames={{frame=0,bones={},flexes={}},{frame=1,bones={},flexes={}}}})
+ local function dance(loop)
+  M().DebugTargets[attacker]=dancer
+  M().StartPlaybackForPlayer(attacker,'m',{},{startDelay=2,loopPlayback=loop==true})
+  local state=M().Playbacks[dancer]
+  check(state~=nil,'the dance did not start')
+  return state,state.started+1/30
+ end
+ local function at(t) tick(t-clock) hooks.Think.MMDVMDNPCBuiltPlaybackThink() end
+ local state,ends=dance()
+ at(ends+0.05)
+ check(M().Playbacks[dancer]==state and state.endHoldUntil~=nil,'the dance stopped at its last frame')
+ at(ends+2.9)
+ check(M().Playbacks[dancer]==state,'the hold ended before three seconds')
+ at(ends+3.1)
+ check(M().Playbacks[dancer]==nil,'the dancer did not return to the reference pose after the hold')
+ state,ends=dance()
+ at(ends+0.05)
+ at(ends+1) M().TogglePlaybackPauseForPlayer(attacker,dancer)
+ check(state.paused==true,'the hold did not pause')
+ at(ends+6)
+ check(M().Playbacks[dancer]==state,'a paused hold ended')
+ M().TogglePlaybackPauseForPlayer(attacker,dancer)
+ at(ends+8)
+ check(M().Playbacks[dancer]==state,'the hold did not take the five-second pause into account')
+ at(ends+8.1)
+ check(M().Playbacks[dancer]==nil,'the hold did not end after the pause')
+ state,ends=dance(true)
+ at(ends+5)
+ check(M().Playbacks[dancer]==state and state.endHoldUntil==nil,'a looping dance held or stopped')
+ M().StopPlayback(dancer,true)
 elseif scenario=='built_flags' then
  -- A selection asks for the built flags alone: one listing of the built folder, the target's motions.
  local npcModel=npc:GetModel()

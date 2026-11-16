@@ -50,7 +50,7 @@ def settings_lua(args) -> str:
     return (f'NLMP_SETTINGS = {{window = {args.window:g}, settle = {args.settle:g}, '
             f'manager = {"true" if args.manager else "false"}, tab = {"true" if args.tab else "false"}, '
             f'features = {"true" if args.features else "false"}, steps = {"false" if args.no_steps else "true"}, '
-            f'motions = {{{motions}}}}}\n')
+            f'qol = {"true" if args.qol else "false"}, motions = {{{motions}}}}}\n')
 
 
 def run_command(args, evidence: Path, probe: Path) -> list[str]:
@@ -117,7 +117,9 @@ def main(argv=None) -> int:
     parser.add_argument('--tab', action='store_true', help='also open the RTX package\'s Motion importer spawn-menu tab')
     parser.add_argument('--features', action='store_true',
                         help='after the steps, check keep-expressions, ragdoll collision and the debug timeline in the game')
-    parser.add_argument('--no-steps', action='store_true', help='skip the timed click-through (with --features: the checks alone)')
+    parser.add_argument('--qol', action='store_true',
+                        help='after the steps, check the push strength of a dancing body and the hold on the last pose (2026-11-16)')
+    parser.add_argument('--no-steps', action='store_true', help='skip the timed click-through (with --features or --qol: the checks alone)')
     parser.add_argument('--motions', nargs='*', default=[], help='the two motion ids to select (default: a third and two thirds down the list)')
     parser.add_argument('--window', type=float, default=4, help='seconds measured after each action')
     parser.add_argument('--settle', type=float, default=8, help='seconds after the NPCs spawn before the first step')

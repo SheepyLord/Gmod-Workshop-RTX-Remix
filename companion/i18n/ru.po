@@ -2105,8 +2105,8 @@ msgid "Performance: draws the map faster. Mesh replacements stop working while P
 msgstr "Производительность: ускоряет отрисовку карты. Замены мешей перестают работать, пока включён «Режим производительности»."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:133
-msgid "Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."
-msgstr "PBR карт и объектов (ToPBR): создаёт PBR-материалы для карт и объектов из того, что уже есть в их материалах Source. По умолчанию выключено; занимает место на диске и VRAM."
+msgid "Map and prop PBR (ToPBR, experimental): builds PBR materials from what Source materials already have, for the map's own surfaces unless you widen its range to props or everything. Off by default; it uses disk space and VRAM."
+msgstr "PBR карт и объектов (ToPBR, экспериментально): создаёт PBR-материалы из того, что уже есть в материалах Source, для поверхностей самой карты, если не расширить область до объектов или всего. По умолчанию выключено; занимает место на диске и VRAM."
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:134
 msgid "Auto-Categorization: sorts textures into Remix's categories automatically."

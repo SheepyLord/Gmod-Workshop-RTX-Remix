@@ -41,8 +41,19 @@ afterwards: GMod copies a class's methods into each panel, so assigning nil woul
 positions in about one and a half seconds, counting the debug requests; after the knob is let go, the frame shown
 and the bone and flex lists. All of it goes to `data\nlmp_probe\features.json` and `NLMP_FEATURES` is printed.
 
+With `qol` (the user's requests of 2026-11-16; alone or after `features`): the server half builds the test dance,
+plays it once with ragdoll collision on (where the held-out hands are), then `push_old` (the bodies as they were
+before) and `push` at `mmd_vmd_npc_ragdoll_push` 100 (the ragdoll's weight, the default), 25 and 0, then `endhold`. Then ToPBR's range: three props spawned in
+view (`gm_spawn`: an oil drum, a crate, a chair; their own first materials recorded), `rtx_topbr_debug` and
+`rtx_topbr_enabled` on, and `rtx_topbr_scope` 0, 1, 2 and 0 again for 25 s each between
+`NLTP_PHASE <name> begin|end` console lines (the console's `Processed material '...'` lines between them are what each
+range converted). Each phase records the native converter's `GetScope()` (restricted, names held, the player's
+setting), its processed count and whether `InScope` takes the map's first material, each prop's material and the
+view model's (`"none"` when there is no such material). Results go to `features.json` (`push_old`, `push_100`,
+`push_25`, `push_0`, `endhold`, `topbr_range`).
+
 Settings (a line the driver puts in front): `NLMP_SETTINGS = {window = 4, settle = 8, manager = false,
-tab = false, features = false, steps = true, motions = {}}`.
+tab = false, features = false, steps = true, qol = false, motions = {}}`.
 
 Console output: `NLMP_CLIENT_READY`, `NLMP_SETUP <json>`, `NLMP_MOTIONS`, one `NLMP_STEP <step> max <n> ms`
 line per step, `NLMP_ERROR <message>` on a failure, then `NLMP_DONE` and `NL_SHOT_DONE`, which ends the

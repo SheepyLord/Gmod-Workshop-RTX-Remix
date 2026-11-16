@@ -6,6 +6,29 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### ToPBR on the map's own surfaces, an end pose for dances, a gentler dance push (the user's requests of 2026-11-16)
+
+- **ToPBR (Map and prop PBR) now converts only the map's own surfaces unless you choose more, and is marked
+  experimental.** Walls, floors, ceilings, displacements and brush entities get its PBR materials; props, weapons,
+  characters and effects keep their own. **Apply to** on its page (Utilities > RTX Remix > Map and prop PBR) chooses
+  the map's own surfaces (the default), the map's surfaces and props, or everything it can convert (as before); a
+  narrower choice removes what a wider one converted. The page, its switch and the guide say the feature is
+  experimental. ToPBR stays off until you turn it on, and Imported game PBR for imported characters is unchanged.
+  `rtx_topbr_scope` 0/1/2 is the console setting; `rtx_topbr_stats` shows it. A fourteenth patch of the RTX fixes'
+  native module holds every conversion to the range
+  ([ADR 0229](docs/decisions/0229-topbr-takes-the-maps-own-surfaces-unless-the-player-widens-it.md)).
+- **A dance that ends now holds its last pose for three seconds before the dancer returns to the reference pose**
+  (the Advanced MMD Animation Player), instead of snapping back at the last frame. A pause during those three seconds
+  lengthens them; a looping dance never ends.
+- **A dancing NPC no longer sends props flying, and a new slider sets how hard it pushes.** The Animation Player's
+  Build & Playback tab has **Push strength of a dancing NPC's body (%)**: each body part now weighs what the same part
+  of the character's ragdoll weighs, times this percentage (100 by default), and gives way to what is heavier; 0
+  barely moves props and 500 pushes five times as hard. Before, every body part counted as immovable: a fast arm
+  swing threw a paint can at about 30 m/s and broke a watermelon, where it now moves it at about 5 m/s and the melon
+  stays whole. Players and NPCs are blocked the same at any value
+  ([ADR 0230](docs/decisions/0230-a-dance-holds-its-last-pose-and-its-bodies-weigh-its-ragdoll.md)).
+
+
 ### Imported characters: no more black patches on skirts and sleeves (the user's report of 2026-11-16)
 
 - **Under RTX, an imported character's skirt, sleeve or top no longer shows sharp black patches when the cloth swings

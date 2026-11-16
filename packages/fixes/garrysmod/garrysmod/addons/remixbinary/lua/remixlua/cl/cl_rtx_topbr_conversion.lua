@@ -22,6 +22,9 @@ if not (BRANCH == "x86-64" or BRANCH == "chromium") then return end
 -- ConVars for configuration
 -- NOTE: Material discovery is handled by RTXMaterialPipeline. ToPBR only processes individual materials.
 CreateClientConVar("rtx_topbr_enabled", "0", true, false, "Enable ToPBR conversion stage")
+-- The user's request of 2026-11-16 (the native loader's ADR 0229): what ToPBR converts. The native converter reads it
+-- itself; while it is 0 or 1 it takes only the materials this file names (see "The player's range" below).
+CreateClientConVar("rtx_topbr_scope", "0", true, false, "What ToPBR converts: 0 the map's own surfaces (default), 1 the map's surfaces and props, 2 everything it can convert")
 CreateClientConVar("rtx_topbr_debug", "0", true, false, "Enable debug output")
 CreateClientConVar("rtx_topbr_metallic", "0", true, false, "Compatibility flag; metallic comes only from authored maps or unmasked chrome")
 CreateClientConVar("rtx_topbr_autodiscover", "1", true, false, "Auto-discover companion textures (_normal, _mask, _spec) not explicitly referenced in VMT")
@@ -524,6 +527,15 @@ concommand.Add("rtx_topbr_stats", function()
     
     print(string.format("[RTX ToPBR] max client snapshot %.3f ms, max worker job %.3f ms", stats.snapshotMaxMs or 0, stats.decodeMaxMs or 0))
 
+    -- ADR 0229: the player's range and how many material names the native converter holds for it.
+    local scopeProcessor = GetProcessor()
+    if scopeProcessor and scopeProcessor.GetScope then
+        local restricted, held, setting = scopeProcessor.GetScope()
+        local ranges = {[0] = "the map's own surfaces", [1] = "the map's surfaces and props", [2] = "everything"}
+        print(string.format("[RTX ToPBR] range: rtx_topbr_scope %d (%s), %s, %d material names held",
+            setting or 0, ranges[setting or 0] or "the map's own surfaces", restricted and "restricted" or "unrestricted", held or 0))
+    end
+
     -- Background processing status
     local p = GetProcessor()
     local isProcessing = p and p.IsProcessingInBackground and p.IsProcessingInBackground() or false
@@ -562,6 +574,7 @@ end)
 
 concommand.Add("rtx_topbr_process", function()
     local p = GetProcessor()
+    if RTXToPBR.EnsureScope then RTXToPBR.EnsureScope() end
     if p and p.QueueMaterialsForProcessing then p.QueueMaterialsForProcessing() end
 end)
 
@@ -570,11 +583,15 @@ concommand.Add("rtx_topbr_help", function()
     MsgC(Color(100, 200, 255), string.rep("=", 70) .. "\n")
     MsgC(Color(255, 255, 255), [[
 This module converts Source Engine materials to PBR materials in RTX Remix.
-It is off by default: rtx_topbr_enabled 1 (Map and prop PBR in the RTX Remix
-menu) turns it on. It writes rtx-remix/mods/~gmod_topbr, which Remix ranks
-after every other mod, so a real PBR mod for a texture always wins over it.
-Characters imported with the Model Hotloader use Imported game PBR
-(rtx_topbr_game_maps) instead.
+It is experimental and off by default: rtx_topbr_enabled 1 (Map and prop PBR
+in the RTX Remix menu) turns it on. It writes rtx-remix/mods/~gmod_topbr,
+which Remix ranks after every other mod, so a real PBR mod for a texture
+always wins over it. Characters imported with the Model Hotloader use
+Imported game PBR (rtx_topbr_game_maps) instead.
+
+What it converts is rtx_topbr_scope: 0 the map's own surfaces (walls,
+floors, ceilings, displacements, brush entities; the default), 1 also the
+map's props, 2 everything it can convert.
 
 Materials are found by RTXMaterialPipeline (cl_material_pipeline.lua) as
 they are drawn; turning ToPBR on also queues the materials already drawn.
@@ -583,7 +600,8 @@ The console line "Published N fallback materials" says how many show.
 ToPBR Configuration Commands:
   rtx_topbr_inspect [material] - Inspect material's PBR properties
                                  (no argument = look at what you're aiming at)
-  rtx_topbr_stats             - Show conversion statistics
+  rtx_topbr_stats             - Show conversion statistics and the range
+  rtx_topbr_scope 0/1/2       - Map surfaces / with props / everything
   rtx_topbr_clear             - Clear conversion cache
   rtx_topbr_debug 1/0         - Enable/disable debug output
   rtx_topbr_metallic 1/0      - Compatibility flag (darkness inference removed)
@@ -615,6 +633,132 @@ PBR channels and unmasked chrome remain supported.
     MsgC(Color(100, 200, 255), string.rep("=", 60) .. "\n\n")
 end, nil, "Show ToPBR help information")
 
+-- =============================================================================
+-- The player's range (the user's request of 2026-11-16, the native loader's ADR 0229)
+-- =============================================================================
+-- rtx_topbr_scope 0 (default): the map's own surfaces, every material its BSP names (world brushes, displacements,
+-- brush entities, overlays). 1: also the map's props (its static props' models, and the physics, dynamic and door
+-- props there are). 2: everything the converter can convert, as before. The native converter reads the setting and,
+-- for 0 and 1, takes only the names sent here; a narrower range clears the cache, so what a wider one converted
+-- leaves the published layer.
+local SCOPE_PROP_CLASSES = {"prop_physics*", "prop_dynamic*", "prop_door*"}
+local scopeMap, scopeModels, scopeEntities, scopeNextScan = nil, {}, setmetatable({}, {__mode = "k"}), 0
+
+local function ScopeSetting()
+    local cv = GetConVar("rtx_topbr_scope")
+    local value = cv and cv:GetInt() or 0
+    if value == 1 or value == 2 then return value end
+    return 0
+end
+RTXToPBR.ScopeSetting = ScopeSetting
+
+local function MapSurfaceNames(add)
+    local world = game.GetWorld()
+    if IsValid(world) then
+        for _, name in ipairs(world:GetMaterials() or {}) do add(name) end
+    end
+    -- The BSP's whole texture list also has the brush entities' and overlays' materials.
+    local bsp = NikNaks and NikNaks.CurrentMap
+    if bsp and bsp.GetTextures then
+        local ok, textures = pcall(bsp.GetTextures, bsp)
+        if ok and istable(textures) then
+            for _, name in ipairs(textures) do add(name) end
+        end
+    end
+end
+
+local function ModelNames(model, add)
+    if not isstring(model) or model == "" or scopeModels[model] then return end
+    scopeModels[model] = true
+    local names = RTXMaterialPipeline and RTXMaterialPipeline.ModelMaterialNames and RTXMaterialPipeline.ModelMaterialNames(model)
+    for _, name in ipairs(names or {}) do add(name) end
+end
+
+-- Props: each static prop model once, each prop entity when first seen or when its model changed.
+local function PropNames(add)
+    local bsp = NikNaks and NikNaks.CurrentMap
+    if bsp and bsp.GetStaticPropModels then
+        local ok, models = pcall(bsp.GetStaticPropModels, bsp)
+        if ok and istable(models) then
+            for _, model in ipairs(models) do ModelNames(model, add) end
+        end
+    end
+    for _, pattern in ipairs(SCOPE_PROP_CLASSES) do
+        for _, ent in ipairs(ents.FindByClass(pattern)) do
+            local model = IsValid(ent) and ent:GetModel() or nil
+            if model and scopeEntities[ent] ~= model then
+                scopeEntities[ent] = model
+                for _, name in ipairs(ent:GetMaterials() or {}) do add(name) end
+                for index = 0, 31 do
+                    local sub = ent:GetSubMaterial(index)
+                    if sub and sub ~= "" then add(sub) end
+                end
+            end
+        end
+    end
+end
+
+-- Sends the names the range takes (fresh: the native list is emptied first). Returns how many names were sent.
+local function SendScope(fresh)
+    local p = GetProcessor()
+    if not (p and p.AllowScopeMaterials and p.ClearScope) then return 0 end
+    if fresh then
+        p.ClearScope()
+        scopeModels, scopeEntities = {}, setmetatable({}, {__mode = "k"})
+        scopeMap = game.GetMap()
+    end
+    local setting = ScopeSetting()
+    if setting == 2 then return 0 end -- every material; the names wait for a narrower range
+    local names, seen = {}, {}
+    local function add(name)
+        if isstring(name) and name ~= "" and not seen[name] then
+            seen[name] = true
+            names[#names + 1] = name
+        end
+    end
+    if fresh then MapSurfaceNames(add) end
+    if setting == 1 then PropNames(add) end
+    if #names > 0 then p.AllowScopeMaterials(names) end
+    return #names
+end
+
+local function QueueIfEnabled()
+    local p = GetProcessor()
+    if p and p.QueueMaterialsForProcessing and GetConVarBoolSafe("rtx_topbr_enabled", false) then
+        p.QueueMaterialsForProcessing()
+    end
+end
+
+-- The map's names once per map, before anything is queued.
+local function EnsureScope()
+    if scopeMap ~= game.GetMap() then SendScope(true) end
+end
+RTXToPBR.EnsureScope = EnsureScope
+
+hook.Add("InitPostEntity", "RTXToPBR_Scope", function()
+    SendScope(true)
+    QueueIfEnabled()
+    -- NikNaks may read the BSP later than the first frame; its texture list then completes the map's names.
+    timer.Simple(10, function()
+        if SendScope(true) > 0 then QueueIfEnabled() end
+    end)
+end)
+
+-- With props in range, new props are named every two seconds.
+hook.Add("Think", "RTXToPBR_ScopeProps", function()
+    if ScopeSetting() ~= 1 or RealTime() < scopeNextScan then return end
+    scopeNextScan = RealTime() + 2
+    if scopeMap ~= game.GetMap() then return end
+    if SendScope(false) > 0 then QueueIfEnabled() end
+end)
+
+cvars.AddChangeCallback("rtx_topbr_scope", function(_, old)
+    local before, after = math.Clamp(math.floor(tonumber(old) or 0), 0, 2), ScopeSetting()
+    if after < before then RTXToPBR.ClearCache() end
+    SendScope(true)
+    QueueIfEnabled()
+end, "RTXToPBRScope")
+
 -- Sync rtx_topbr_enabled ConVar to C++ when changed at runtime
 cvars.AddChangeCallback("rtx_topbr_enabled", function(_, _, new)
     local processor = GetProcessor()
@@ -622,6 +766,7 @@ cvars.AddChangeCallback("rtx_topbr_enabled", function(_, _, new)
         processor.SetEnabled(tobool(new))
         -- Issue 6 (ADR 0212): the materials already drawn convert now; no map reload needed.
         if tobool(new) and processor.QueueMaterialsForProcessing then
+            EnsureScope()
             processor.QueueMaterialsForProcessing()
         end
     end

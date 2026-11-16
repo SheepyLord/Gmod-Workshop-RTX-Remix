@@ -356,14 +356,35 @@ if BRANCH == "x86-64" or BRANCH == "chromium" then
     hook.Add( "PopulateToolMenu", "RTXOptionsClient_ToPBR", function()
         -- Issue 6 (ADR 0212): what ToPBR does, next to Imported game PBR. Its metallic switch is gone from the page:
         -- since R11 darkness never makes a material metal, so rtx_topbr_metallic changes nothing.
-        spawnmenu.AddToolMenuOption( "Utilities", "RTX Remix", "RTX_Client_ToPBR", NL("Map and prop PBR (ToPBR)"), "", "", function( panel )
+        -- The user's request of 2026-11-16 (ADR 0229): ToPBR is marked experimental in the menu, and what it converts
+        -- is a choice that starts at the map's own surfaces (rtx_topbr_scope, read by the native converter).
+        spawnmenu.AddToolMenuOption( "Utilities", "RTX Remix", "RTX_Client_ToPBR", NL("Map and prop PBR (ToPBR, experimental)"), "", "", function( panel )
             panel:ClearControls()
+            local experimental = panel:Help(NL("Experimental feature."))
+            if experimental and experimental.SetTextColor then experimental:SetTextColor(Color(230, 140, 30)) end
             -- Master toggle
-            local enabledCheckbox = panel:CheckBox(NL("Enable ToPBR for maps and props"), "rtx_topbr_enabled")
-            panel:ControlHelp(NL("Builds PBR materials for map, prop and weapon materials from what their Source materials already have: bump and normal maps, Phong and envmap masks, and community PBR shaders."))
+            local enabledCheckbox = panel:CheckBox(NL("Enable ToPBR (experimental)"), "rtx_topbr_enabled")
+            panel:ControlHelp(NL("Builds PBR materials from what Source materials already have: bump and normal maps, Phong and envmap masks, and community PBR shaders."))
             panel:ControlHelp(NL("Off by default. A real PBR mod for a texture always wins over it. Imported characters use Imported game PBR instead."))
             panel:ControlHelp(NL("Conversion is experimental and cannot reproduce every material exactly."))
             panel:ControlHelp(NL("It writes textures into rtx-remix/mods/~gmod_topbr, which takes disk space and video memory. Materials appear a few seconds after they are first drawn."))
+
+            -- What it converts
+            local range = panel:ComboBox(NL("Apply to"))
+            if range then
+                if range.SetSortItems then range:SetSortItems(false) end
+                range:AddChoice(NL("The map's own surfaces (default)"), 0)
+                range:AddChoice(NL("The map's surfaces and props"), 1)
+                range:AddChoice(NL("Everything ToPBR can convert"), 2)
+                local scope = GetConVar("rtx_topbr_scope")
+                local current = scope and scope:GetInt() or 0
+                range:ChooseOptionID((current == 1 or current == 2) and current + 1 or 1)
+                range.OnSelect = function(_, _, _, value)
+                    RunConsoleCommand("rtx_topbr_scope", tostring(value or 0))
+                end
+            end
+            panel:ControlHelp(NL("By default only the map's own surfaces are converted: walls, floors, ceilings, displacements and brush entities. Props, weapons, characters and effects keep their materials unless you widen the range."))
+            panel:ControlHelp(NL("A narrower range removes what a wider one converted."))
 
             -- Debug output toggle
             panel:CheckBox(NL("Debug Output"), "rtx_topbr_debug")

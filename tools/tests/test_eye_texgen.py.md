@@ -11,7 +11,8 @@ cd tools; python -m unittest discover -s tests -p test_eye_texgen.py -v
 - `test_complete_files_are_the_patch_applied`: `eye-texgen.patch` touches exactly `source/HardwareSkinningHooks.cpp`,
   the new `source/eye_texgen_state.h` and `tests/eye_texgen_state_test.cpp`. `HardwareSkinningHooks.cpp` is the patch
   applied to queued-draws' copy (no later patch changes the file); the new files are its added lines.
-  `tools/ci/pins.json` builds the module with the patch last, right after player-categories.
+  `tools/ci/pins.json` builds the module with the patch right after player-categories (topbr-scope, the fourteenth,
+  follows it since 2026-11-16).
 - `test_the_draw_writes_the_eye_request_again`: the request is a `thread_local EyeTexGen::Request`;
   `RTX_SetEyeTexGenState` records it before its device check; the `DrawIndexedPrimitive` hook writes it again before
   its per-strip work and before calling the device's draw; the header writes camera-space TexGen on the iris stage and

@@ -26,7 +26,8 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\before --rollbac
 | `--manager` | Also open the Motion Manager window before the steps |
 | `--tab` | Also open the RTX package's Motion importer creation tab (its embedded Motion Manager) |
 | `--features` | After the steps, check the new options in the game (below) |
-| `--no-steps` | Skip the timed click-through (with `--features`: the checks alone, a shorter run) |
+| `--qol` | After the steps, check the user's requests of 2026-11-16 in the game: a dancing body's push strength, the hold on the last pose, ToPBR's range (below) |
+| `--no-steps` | Skip the timed click-through (with `--features` or `--qol`: the checks alone, a shorter run) |
 | `--motions A B` | The two motion ids to pick (default: a third and two thirds down the sorted list) |
 | `--window` | Seconds measured after each action (4) |
 | `--settle` | Seconds after the NPCs spawn before the first step (8) |
@@ -76,6 +77,14 @@ and the state after the stop), `flexes_kept` and `flexes_reset` (`mmd_vmd_npc_ke
 笑い, set to 0.6 and not driven, and まばたき, driven, after a selection, at the start, mid-dance and after the
 stop) and `timeline` (the debug window's timeline: its range and widths, one set position, a held sweep of 51
 positions with the requests it sent, and the lists after the knob is let go).
+
+With `--qol`, `results\features.json` also has `push_old`, `push_100`, `push_25` and `push_0` (the bodies' masses; a
+gravity-less paint can in the right arm's swing and a pop can inside the held-out hand: how far each went and its top
+speed; whether a watermelon in the left arm's swing broke; `push_old` with the bodies as they were before),
+`endhold` (the right hand and
+the playback before the end, during the hold and after it, and when the playback ended) and `topbr_range` (for
+`rtx_topbr_scope` 0, 1, 2 and 0 again: the native converter's view and what it takes; the console's
+`NLTP_PHASE` lines bracket each range's `Processed material` lines in `poc\<label>\console.log`).
 
 **Exit:** 0 when the run finished (its steps may still have failed: see the printed lines and
 `action_error`); 1 on an error, with the PoC restored when no game still runs (otherwise `--rollback`

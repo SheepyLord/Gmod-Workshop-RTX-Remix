@@ -205,14 +205,15 @@ local function job(ply, kind, fn)
     end)
 end
 
--- A four-second test dance: both upper arms swing out from frame 20 and hold until frame 100; the eyes
--- close from frame 30 to 90 (まばたき, an imported character's blink).
+-- A four-second test dance: both upper arms swing out over frames 0 to 4 (a dance's speed, for the push strength) and
+-- stay out to the last frame (120), so the pose the dance ends on differs from the reference pose (the end hold,
+-- 2026-11-16); the eyes close from frame 30 to 90 (まばたき, an imported character's blink).
 Q.motionID = "nlmp_probe_dance"
 local PLAY = { startDelay = 2, pelvisZOffset = -2.5, eyeTrackMode = "off", musicEnabled = false, loopPlayback = false,
     buildFramesPerBatch = 64, playbackHz = 120 }
 local function probe_motion()
     local function arm(source, mmd, z)
-        return { m = mmd, g = source, k = { { 0, 0, 0, 0, 0, 0, 0 }, { 20, 0, 0, z, 0, 0, 0 }, { 100, 0, 0, z, 0, 0, 0 }, { 120, 0, 0, 0, 0, 0, 0 } } }
+        return { m = mmd, g = source, k = { { 0, 0, 0, 0, 0, 0, 0 }, { 4, 0, 0, z, 0, 0, 0 }, { 120, 0, 0, z, 0, 0, 0 } } }
     end
     return { format = "mmd_vmd_npc_parent_corrected_axis_v1", fps = 30, frame_start = 0, frame_end = 120, frame_count = 121,
         display_name = "NLMP probe dance", bones = { arm("ValveBiped.Bip01_R_UpperArm", "右腕", -70), arm("ValveBiped.Bip01_L_UpperArm", "左腕", 70) },
@@ -299,6 +300,9 @@ local function collision_test(ply)
     -- A light prop, without gravity, put where the held-out right hand is: the hand's body pushes it away.
     local hand = npc:LookupBone("ValveBiped.Bip01_R_Hand")
     local handAt = hand and npc:GetBonePosition(hand)
+    Q.handOut = handAt or Q.handOut -- where push_test puts a prop in the swing's way
+    local left = npc:LookupBone("ValveBiped.Bip01_L_Hand")
+    Q.leftOut = left and npc:GetBonePosition(left) or Q.leftOut
     if handAt then
         local can = ents.Create("prop_physics")
         can:SetModel("models/props_junk/popcan01a.mdl")
@@ -317,6 +321,111 @@ local function collision_test(ply)
     sleep(0.3)
     phys = npc:GetPhysicsObject()
     out.after = { colliders = #colliders_of(npc), group = npc:GetCollisionGroup(), box_collides = IsValid(phys) and phys:IsCollisionEnabled() or nil }
+    return out
+end
+
+-- The user's request of 2026-11-16: what the dancing body does to props at the player's push strength
+-- (mmd_vmd_npc_ragdoll_push, set by the client half: percent of the ragdoll's weight) or, with old, with the bodies
+-- as they were before (shadows the physics may not move: MMDVMDNPC.Actor.body_physics and apply_push replaced for that
+-- run). The bodies' masses; props without gravity put during the countdown where the hands arrive at frame 4
+-- (Q.handOut and Q.leftOut, from collision_test), so the swing meets them: a metal paint can at the right hand
+-- (`swing`: how far it went and its top speed, in units) and a watermelon, which breaks, at the left (`melon`: whether
+-- it broke); then a pop can put inside the held-out right hand (`inside`, as collision_test does).
+local function float_prop(model, at)
+    local prop = ents.Create("prop_physics")
+    prop:SetModel(model)
+    prop:SetPos(at)
+    prop:Spawn()
+    local phys = prop:GetPhysicsObject()
+    if IsValid(phys) then
+        phys:EnableGravity(false)
+        phys:Wake()
+    end
+    return prop, phys
+end
+local function watch_prop(prop, phys, from, seconds)
+    local top, untilTime = 0, CurTime() + seconds
+    local mass = IsValid(phys) and math.Round(phys:GetMass(), 2) or nil
+    while CurTime() < untilTime do
+        if not IsValid(prop) then return { broke = true, top_speed = math.Round(top, 1), mass = mass } end
+        if IsValid(phys) then top = math.max(top, phys:GetVelocity():Length()) end
+        coroutine.yield()
+    end
+    return { broke = false, moved = math.Round(prop:GetPos():Distance(from), 2), top_speed = math.Round(top, 1), mass = mass }
+end
+local function push_test(ply, old)
+    local npc = Q.npcs[1]
+    local actor = MMDVMDNPC.Actor
+    local savedBody, savedApply = actor.body_physics, actor.apply_push
+    if old then
+        actor.body_physics = function(collider)
+            collider:MakePhysicsObjectAShadow(false, false)
+            local phys = collider:GetPhysicsObject()
+            if IsValid(phys) then phys:Wake() end
+        end
+        actor.apply_push = function(record, strength) record.strength = strength end
+    end
+    local out = { old = old == true, strength = actor.push_strength(ply) }
+    local ok, err = pcall(function()
+        out.start_ok, out.start_err = MMDVMDNPC.StartPlaybackForPlayer(ply, Q.motionID, {}, PLAY)
+        sleep(0.3)
+        local state = MMDVMDNPC.Playbacks[npc]
+        out.body_masses = {}
+        for _, entry in ipairs(state and state.collision and state.collision.colliders or {}) do
+            local phys = IsValid(entry.ent) and entry.ent:GetPhysicsObject()
+            if IsValid(phys) then out.body_masses[#out.body_masses + 1] = math.Round(phys:GetMass(), 2) end
+        end
+        if Q.handOut and Q.leftOut then
+            local can, canPhys = float_prop("models/props_junk/metal_paintcan001a.mdl", Q.handOut)
+            local melon = float_prop("models/props_junk/watermelon01.mdl", Q.leftOut)
+            local startAt = state and tonumber(state.started) or CurTime()
+            while CurTime() < startAt do coroutine.yield() end
+            out.swing = watch_prop(can, canPhys, Q.handOut, 1.6) -- frames 0 to about 48
+            out.melon = { broke = not IsValid(melon) }
+            if IsValid(can) then can:Remove() end
+            if IsValid(melon) then melon:Remove() end
+        end
+        local hand = npc:LookupBone("ValveBiped.Bip01_R_Hand")
+        local handAt = hand and npc:GetBonePosition(hand)
+        if handAt then
+            local can, canPhys = float_prop("models/props_junk/popcan01a.mdl", handAt)
+            out.inside = watch_prop(can, canPhys, handAt, 0.6)
+            if IsValid(can) then can:Remove() end
+        end
+    end)
+    actor.body_physics, actor.apply_push = savedBody, savedApply
+    if not ok then out.error = tostring(err) end
+    MMDVMDNPC.StopPlayback(npc, true)
+    sleep(0.3)
+    return out
+end
+
+-- The user's request of 2026-11-16: a dance that ends keeps its last pose for MMDVMDNPC.EndHoldSeconds, then the NPC
+-- returns to the reference pose. The right hand (held out to the last frame) half a second before the end, one and
+-- two and a half seconds after it, and after the stop; when the playback ended, to the tick.
+local function endhold_test(ply)
+    local npc = Q.npcs[1]
+    local out = { hold_seconds = MMDVMDNPC.EndHoldSeconds }
+    out.start_ok, out.start_err = MMDVMDNPC.StartPlaybackForPlayer(ply, Q.motionID, {}, PLAY)
+    sleep(0.2)
+    local state = MMDVMDNPC.Playbacks[npc]
+    local built = state and state.built or {}
+    local danceEnd = (state and tonumber(state.started) or CurTime())
+        + ((tonumber(built.frame_end) or 120) - (tonumber(built.frame_start) or 0)) / math.max(1, tonumber(built.fps) or 30)
+    local hand = npc:LookupBone("ValveBiped.Bip01_R_Hand")
+    local function sample(label, at)
+        while CurTime() < danceEnd + at do coroutine.yield() end
+        out[label] = { t = math.Round(CurTime() - danceEnd, 2), playing = MMDVMDNPC.Playbacks[npc] ~= nil,
+            hand = hand and vec(npc:GetBonePosition(hand)) or nil }
+    end
+    sample("before_end", -0.5)
+    sample("hold_1s", 1)
+    sample("hold_2_5s", 2.5)
+    while CurTime() < danceEnd + 6 and MMDVMDNPC.Playbacks[npc] do coroutine.yield() end
+    out.stopped_after_end = not MMDVMDNPC.Playbacks[npc] and math.Round(CurTime() - danceEnd, 3) or nil
+    sleep(0.3)
+    out.after_stop = { playing = MMDVMDNPC.Playbacks[npc] ~= nil, hand = hand and vec(npc:GetBonePosition(hand)) or nil }
+    if MMDVMDNPC.Playbacks[npc] then MMDVMDNPC.StopPlayback(npc, true) end
     return out
 end
 
@@ -421,6 +530,9 @@ net.Receive("nlmp_cmd", function(_, ply)
     if cmd == "collision" then job(ply, "collision", function() return collision_test(ply) end) return end
     if cmd == "followers" then job(ply, "followers", function() return follower_probe() end) return end
     if cmd == "flexes" then job(ply, "flexes", function() return flex_test(ply) end) return end
+    if cmd == "push" then job(ply, "push", function() return push_test(ply, false) end) return end
+    if cmd == "push_old" then job(ply, "push_old", function() return push_test(ply, true) end) return end
+    if cmd == "endhold" then job(ply, "endhold", function() return endhold_test(ply) end) return end
     if cmd == "select1" then
         reply(ply, "select1", { ok = MMDVMDNPC.SelectTargetForPlayer(ply, Q.npcs[1]) })
         return

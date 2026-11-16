@@ -9250,3 +9250,44 @@ merge of patch 0093. Left as they were.
   tile. Scaled down to the window, `poster 2` and `poster 3` match `poster 1` within 34.8-40.6 dB overall and
   31-54 dB in every ninth; the step across each overlap's middle is no larger than beside it. A single-player game
   does not pause with the console open (`showconsole`): `CurTime` ran 1.006 s in a second.
+
+## The QoL requests of 2026-11-16: ToPBR's range, the end hold, a dancer's push (Claude, ADR 0229, ADR 0230)
+
+- **ToPBR's queue is filled natively.** The RTX fixes' material pipeline calls
+  `ToPBR::TextureProcessor::QueueMaterialsForProcessing()` from its worker for each newly drawn material and from
+  `ProcessAllMaterialsThroughPipeline` (`source/material_pipeline/material_pipeline.cpp` of the base `f28bd5a`,
+  about lines 693 and 1047); that walks every material the texture tracker holds
+  (`D3D9TextureTracker::GetCachedMaterials`). A range has to be held there, in native code.
+- **The tracker's names**: `IMaterial::GetName()` in lower case with forward slashes (`d3d9_texture_tracker.cpp`,
+  `NormalizeTextureName`, lines 70-77, used at 403); a blended material's second base texture as `<name>_stage1`
+  (943-945). The BSP's patched materials keep their `maps/<map>/` prefix (cubemap patches end in the cubemap's
+  position, `..._-1280_-1536_-96`; blended displacements in `_wvt_patch`), so `topbr_scope.h` compares both sides
+  without that prefix and suffix.
+- **gm_construct in the PoC** (`out\qol16-poc\a`, the worktree's): `game.GetWorld():GetMaterials()` gave 188 names,
+  NikNaks' texture list brought the range to 203. With `rtx_topbr_scope` 0 ToPBR converted 24 materials in the first
+  25 s, every one the map's (`maps/gm_construct/...` cubemap patches, `gm_construct/...`, `plaster/...`,
+  `brick/...`, `metal/...`); 1 held 236 names and added 11 props' and static props' materials
+  (`models/props_c17/oil_drum001a`, `models/props_interiors/furniture_chair01a`, `models/props_buildings/...`,
+  `maxofs2d/models/companion_doll`); 2 added the view models' and Kleiner's (`models/weapons/v_toolgun/toolgun`,
+  `models/weapons/c_arms_citizen/...`, `models/kleiner/...`); back to 0 the cache cleared (193 drawn materials
+  queued, 24 converted again, all the map's).
+- **A dancing NPC's bodies** (`MakePhysicsObjectAShadow(false, false)`, driven by `UpdateShadow` each tick) report
+  `GetMass()` 50,000: VPhysics gives a shadow that may not move 1e6 kg, GMod's `SetMass`/`GetMass` stop at 50,000.
+  Setting each body's mass does not change how hard it pushes: in the PoC (a 10 kg watermelon without gravity in a
+  slow arm swing, a 1 kg pop can inside the held-out hand; top speeds in units/s) the 50,000 kg bodies gave 44.6 and
+  111.6, the ragdoll's own masses (0.95 to 8.51 kg) 60.6 and 151.9, 0.1 kg 46.2 and 42.0, five times the ragdoll's
+  masses 116.1 and 136.6. The shadow controller puts each body on its bone whatever it meets.
+- **The end hold** (the same run): the held-out right hand stood at the same point half a second before the end, one
+  and two and a half seconds after it; the playback ended 3.03 s after the end and the hand went 16.1 units back to
+  the reference pose.
+- **Scaling a hit prop's speed afterwards backfires** (`out\qol16-poc\c`, the test dance's arms swinging out in four
+  frames, a 7 kg paint can at the right hand, a watermelon at the left): a prop's `PhysicsCollide` callback does report
+  a hit by a shadow body (`data.HitEntity` the collider; one hit per swing at full strength), but a prop slowed to 25 %
+  of what the hit gave it is overrun by the limb, still forced onto its bone, and launched harder: the can's top speed
+  was 189.2 units/s at 100 %, 564.8 at 25 % (4 hits) and 308.2 at 0 % (3 hits), and the watermelon broke at 0 %
+  (the hit's damage is done at the impact).
+- **Bodies the physics may push back** (`MakePhysicsObjectAShadow(true, true)`, no gravity, each the ragdoll body's
+  mass times the strength; `ShouldCollide` keeps them off each other and the map; `out\qol16-poc\d`, the same swing):
+  the can's top speed was 1,177.2 units/s with the old immovable bodies, 207.0 at 100 % (0.95 to 8.51 kg), 88.4 at 25 %
+  and 35.7 at 0 % (0.1 kg); the watermelon broke only with the old bodies; the bodies stayed on their bones (largest
+  gap 0) and still stopped traces through the hands and a player-sized hull into the head.

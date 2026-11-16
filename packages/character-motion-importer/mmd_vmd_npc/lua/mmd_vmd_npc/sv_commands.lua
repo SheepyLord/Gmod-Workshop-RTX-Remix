@@ -1699,6 +1699,59 @@ function actor.ragdoll_collision(ply)
     return (tonumber((ply:GetInfoNum("mmd_vmd_npc_ragdoll_collision", 1))) or 1) ~= 0
 end
 
+-- The user's request of 2026-11-16: how hard the bodies push what they touch (mmd_vmd_npc_ragdoll_push, percent of
+-- the weight of the character's own ragdoll, 100 by default, 0 to 500). Each body used to be a shadow the physics
+-- could not move (50,000 kg to the solver), so props in a limb's way were shoved off at its speed and more. Neither a
+-- lighter immovable body nor scaling a hit prop's speed afterwards helps (measured in the PoC: the controller keeps a
+-- body on its bone, and a slowed prop is overrun by the limb and launched harder). So each body is a shadow the
+-- physics may push back, weighing the same body of the model's ragdoll times this factor: what it hits gets a body's
+-- share of momentum, and a prop heavier than the body slows it. Bodies collide with neither each other nor the map
+-- (actor.should_collide), only with what is around the dancer. Players and NPCs are blocked by traces, the same at
+-- any value.
+actor.DefaultPush = 100
+actor.MaxPush = 5
+actor.DefaultBodyMass = 5
+function actor.push_strength(ply)
+    if not IsValid(ply) or ply.GetInfoNum == nil then return actor.DefaultPush / 100 end
+    local percent = tonumber((ply:GetInfoNum("mmd_vmd_npc_ragdoll_push", actor.DefaultPush))) or actor.DefaultPush
+    return math.Clamp(percent, 0, actor.MaxPush * 100) / 100
+end
+
+function actor.body_mass(shape, strength)
+    return math.Clamp((tonumber(shape and shape.mass) or actor.DefaultBodyMass) * strength, 0.1, 50000)
+end
+
+-- Makes a collider's physics its body: a shadow its bone drives that the physics may push back, without gravity.
+function actor.body_physics(collider, shape, strength)
+    collider:MakePhysicsObjectAShadow(true, true)
+    local phys = collider:GetPhysicsObject()
+    if IsValid(phys) then
+        phys:EnableGravity(false)
+        phys:SetMass(actor.body_mass(shape, strength))
+        phys:Wake()
+    end
+end
+
+-- Gives each body its weight for this strength.
+function actor.apply_push(record, strength)
+    record.strength = strength
+    for _, collider in ipairs(record.colliders or {}) do
+        local phys = IsValid(collider.ent) and collider.ent:GetPhysicsObject() or nil
+        if IsValid(phys) then phys:SetMass(actor.body_mass(collider.shape, strength)) end
+    end
+end
+
+-- Bodies that the physics may move would push each other apart at the joints and press against the floor: they
+-- collide with neither (nil leaves every other pair to the engine).
+function actor.should_collide(a, b)
+    local aBody, bBody = a.MMDVMDNPCCollider == true, b.MMDVMDNPCCollider == true
+    if not (aBody or bBody) then return nil end
+    if aBody and bBody then return false end
+    if (aBody and b:IsWorld()) or (bBody and a:IsWorld()) then return false end
+    return nil
+end
+hook.Add("ShouldCollide", "MMDVMDNPCBodies", function(a, b) return actor.should_collide(a, b) end)
+
 -- Per model: the bodies of its ragdoll as {bone = name, hulls = {convex point lists in the bone's space}},
 -- read once from a ragdoll that exists for an instant (a ragdoll's bodies sit on their bones). false: none.
 actor.Shapes = {}
@@ -1729,7 +1782,7 @@ function actor.body_shapes(model)
                 end
                 if #points >= 4 then hulls[#hulls + 1] = points end
             end
-            if #hulls > 0 then shapes[#shapes + 1] = { bone = name, hulls = hulls, mins = mins, maxs = maxs } end
+            if #hulls > 0 then shapes[#shapes + 1] = { bone = name, hulls = hulls, mins = mins, maxs = maxs, mass = phys:GetMass() } end
         end
     end
     ragdoll:Remove()
@@ -1751,6 +1804,7 @@ function actor.start_collision(ent, ply)
     if not shapes then return nil end
     setup_bones_now(ent)
     local colliders = {}
+    local strength = actor.push_strength(ply)
     for _, shape in ipairs(shapes) do
         local bone = ent:LookupBone(shape.bone)
         local pos, ang
@@ -1769,18 +1823,18 @@ function actor.start_collision(ent, ply)
                 -- tool gun, bullets) never test it: its shape's box, and its physics mesh for the test.
                 collider:SetCollisionBounds(shape.mins, shape.maxs)
                 collider:EnableCustomCollisions(true)
-                collider:MakePhysicsObjectAShadow(false, false)
-                local phys = collider:GetPhysicsObject()
-                if IsValid(phys) then phys:Wake() end
+                -- ShouldCollide (actor.should_collide) keeps it from the other bodies and the map.
+                collider:SetCustomCollisionCheck(true)
+                actor.body_physics(collider, shape, strength)
                 ent:DeleteOnRemove(collider)
-                colliders[#colliders + 1] = { ent = collider, bone = bone }
+                colliders[#colliders + 1] = { ent = collider, bone = bone, shape = shape }
             else
                 collider:Remove()
             end
         end
     end
     if #colliders == 0 then return nil end
-    local record = { colliders = colliders, group = ent:GetCollisionGroup() }
+    local record = { colliders = colliders, group = ent:GetCollisionGroup(), ply = ply, strength = strength }
     local phys = ent:GetPhysicsObject()
     if IsValid(phys) then
         record.hullCollides = phys:IsCollisionEnabled()
@@ -1791,9 +1845,16 @@ function actor.start_collision(ent, ply)
     return record
 end
 
--- Each collider's shadow goes where its bone is after this tick's pose.
+-- Each collider's shadow goes where its bone is after this tick's pose. The player's push strength is read again
+-- twice a second, so the slider acts on a dance already running.
 function actor.update_collision(ent, record)
     if not record or not IsValid(ent) then return end
+    local now = CurTime()
+    if now >= (record.nextPushCheck or 0) then
+        record.nextPushCheck = now + 0.5
+        local strength = actor.push_strength(record.ply)
+        if strength ~= record.strength then actor.apply_push(record, strength) end
+    end
     local interval = engine.TickInterval()
     for _, collider in ipairs(record.colliders) do
         local phys = IsValid(collider.ent) and collider.ent:GetPhysicsObject() or nil
@@ -4142,6 +4203,10 @@ local function set_playback_paused(playbackEnt, state, paused, ply)
     if tonumber(state.delayUntil) and state.delayUntil > now then
         state.delayUntil = state.delayUntil + pausedFor
     end
+    -- A pause during the end hold lengthens it by the pause.
+    if tonumber(state.endHoldUntil) then
+        state.endHoldUntil = state.endHoldUntil + pausedFor
+    end
     state.nextTick = 0
     state.nextPausedStatus = nil
     send_audio_pause(state, false)
@@ -4232,6 +4297,10 @@ local function apply_start_transition(ent, state, now, delayUntil)
     state.cutFrame, state.cutThrough = frame, frame
     apply_built_sample(ent, frames[index], frames[index], 0, state.pelvisZOffset or 0, state, travelX, travelY, weight)
 end
+
+-- The user's request of 2026-11-16: a motion that ends (not looping) keeps its last pose this long, then the dancer
+-- returns to the reference pose.
+MMDVMDNPC.EndHoldSeconds = 3
 
 local function update_playback_state(ent, state, now)
     if not is_usable_npc(ent) then
@@ -4377,12 +4446,13 @@ local function update_playback_state(ent, state, now)
     apply_runtime_eye_tracking(ent, state, now)
 
     if finished then
-         
+        -- The user's request of 2026-11-16: the dancer holds the motion's last pose for MMDVMDNPC.EndHoldSeconds,
+        -- then returns to the reference pose (StopPlayback). Each tick until then applies the last frame again.
+        state.endHoldUntil = tonumber(state.endHoldUntil) or (now + math.max(0, tonumber(MMDVMDNPC.EndHoldSeconds) or 0))
+        if now < state.endHoldUntil then return end
         if state.selfProxy and IsValid(state.realPlayer) then
-             
             MMDVMDNPC.ForceResetSelfPlaybackForPlayer(state.realPlayer)
         else
-             
             MMDVMDNPC.StopPlayback(ent, true)
         end
     end

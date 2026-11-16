@@ -2105,8 +2105,8 @@ msgid "Performance: draws the map faster. Mesh replacements stop working while P
 msgstr "性能：加快地图绘制。开启“性能模式”时，网格替换会失效。"
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:133
-msgid "Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."
-msgstr "地图和道具 PBR（ToPBR）：根据 Source 材质已有的内容，为地图和道具生成 PBR 材质。默认关闭，会占用磁盘空间和 VRAM。"
+msgid "Map and prop PBR (ToPBR, experimental): builds PBR materials from what Source materials already have, for the map's own surfaces unless you widen its range to props or everything. Off by default; it uses disk space and VRAM."
+msgstr "地图和道具 PBR（ToPBR，实验性）：根据 Source 材质已有的内容生成 PBR 材质，默认只用于地图自身的表面，可把范围扩大到道具或全部内容。默认关闭，会占用磁盘空间和 VRAM。"
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:134
 msgid "Auto-Categorization: sorts textures into Remix's categories automatically."

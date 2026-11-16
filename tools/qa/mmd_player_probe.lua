@@ -303,29 +303,113 @@ local function timeline_test()
     return out
 end
 
+-- The user's request of 2026-11-16 (ADR 0229): ToPBR's range. Three props are spawned in view, ToPBR is turned on
+-- with debug output, and each range runs for 25 seconds between NLTP_PHASE console lines (the console's "Processed
+-- material '...'" lines between them are what that range converted). For each: the native converter's view
+-- (restricted, names held, the player's setting, materials processed) and whether it takes a world material, the
+-- props' materials and the view model's.
+local function topbr_range()
+    local tp = MaterialPipeline and MaterialPipeline.ToPBR
+    if not (tp and tp.GetScope and tp.InScope and tp.GetStats) then return { error = "ToPBR range API missing" } end
+    local out = {}
+    local world = game.GetWorld():GetMaterials() or {}
+    out.world_materials = #world
+    local ply = LocalPlayer()
+    local base = ply:EyeAngles()
+    for index, model in ipairs({ "models/props_c17/oildrum001.mdl", "models/props_junk/wood_crate001a.mdl",
+            "models/props_interiors/furniture_chair01a.mdl" }) do
+        ply:SetEyeAngles(Angle(20, base.y + (index - 2) * 25, 0))
+        RunConsoleCommand("gm_spawn", model)
+        wait(0.4)
+    end
+    ply:SetEyeAngles(Angle(15, base.y, 0))
+    wait(1)
+    local viewModel = ply:GetViewModel()
+    local viewMaterials = IsValid(viewModel) and viewModel:GetMaterials() or {}
+    out.view_model_material = viewMaterials[1]
+    -- The spawned props' own materials (an oil drum's is models/props_c17/oil_drum001a).
+    out.prop_materials = {}
+    for _, prop in ipairs(ents.FindByClass("prop_physics")) do
+        local first = (prop:GetMaterials() or {})[1]
+        if first then out.prop_materials[prop:GetModel() or "?"] = first end
+    end
+    RunConsoleCommand("rtx_topbr_debug", "1")
+    RunConsoleCommand("rtx_topbr_scope", "0")
+    RunConsoleCommand("rtx_topbr_enabled", "1")
+    local function phase(name, scope, seconds)
+        RunConsoleCommand("rtx_topbr_scope", tostring(scope))
+        wait(1)
+        print("NLTP_PHASE " .. name .. " begin")
+        wait(seconds)
+        local restricted, held, setting = tp.GetScope()
+        local stats = tp.GetStats() or {}
+        local function taken(material) if material then return tp.InScope(material) == true end return "none" end
+        local props = {}
+        for model, material in pairs(out.prop_materials) do props[model] = taken(material) end
+        out[name] = { restricted = restricted, held = held, setting = setting, processed = stats.materialsProcessed,
+            failed = stats.failedConversions, world = taken(world[1]), props = props,
+            view_model = taken(out.view_model_material) }
+        print("NLTP_PHASE " .. name .. " end")
+    end
+    phase("map", 0, 25)
+    phase("props", 1, 25)
+    phase("everything", 2, 25)
+    phase("map_again", 0, 25)
+    RunConsoleCommand("rtx_topbr_enabled", "0")
+    RunConsoleCommand("rtx_topbr_debug", "0")
+    return out
+end
+
+-- The user's requests of 2026-11-16: the dancing body's push strength (the bodies as they were before, then 100
+-- percent of the ragdoll's weight, the default, 25 and 0) and the hold on the last pose before the reference pose.
+local function qol_checks(out)
+    RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "1")
+    RunConsoleCommand("mmd_vmd_npc_ragdoll_push", "100")
+    wait(0.6)
+    -- Where the held-out hands are, for the props in the swing's way.
+    if not out.collision_on then out.collision_on = run_server("collision", 60) end
+    out.push_old = run_server("push_old", 60)
+    for _, percent in ipairs({ 100, 25, 0 }) do
+        RunConsoleCommand("mmd_vmd_npc_ragdoll_push", tostring(percent))
+        wait(0.6)
+        out["push_" .. percent] = run_server("push", 60)
+    end
+    RunConsoleCommand("mmd_vmd_npc_ragdoll_push", "100")
+    wait(0.6)
+    out.endhold = run_server("endhold", 60)
+    local ok, result = pcall(topbr_range)
+    out.topbr_range = ok and result or { error = tostring(result) }
+end
+
 local function features()
     local out = {}
     out.build = run_server("build", 150)
     if not out.build.built then return out end
-    out.followers = run_server("followers", 30)
-    RunConsoleCommand("mmd_vmd_npc_keep_flexes", "0")
-    RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "1")
-    wait(0.5)
-    out.collision_on = run_server("collision", 60)
-    RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "0")
-    wait(0.5)
-    out.collision_off = run_server("collision", 60)
-    RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "1")
-    RunConsoleCommand("mmd_vmd_npc_keep_flexes", "1")
-    wait(0.5)
-    out.flexes_kept = run_server("flexes", 60)
-    RunConsoleCommand("mmd_vmd_npc_keep_flexes", "0")
-    wait(0.5)
-    out.flexes_reset = run_server("flexes", 60)
-    run_server("select1", 10)
-    wait(0.5)
-    local ok, result = pcall(timeline_test)
-    out.timeline = ok and result or { error = tostring(result) }
+    if SETTINGS.features then
+        out.followers = run_server("followers", 30)
+        RunConsoleCommand("mmd_vmd_npc_keep_flexes", "0")
+        RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "1")
+        wait(0.5)
+        out.collision_on = run_server("collision", 60)
+        RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "0")
+        wait(0.5)
+        out.collision_off = run_server("collision", 60)
+        RunConsoleCommand("mmd_vmd_npc_ragdoll_collision", "1")
+        RunConsoleCommand("mmd_vmd_npc_keep_flexes", "1")
+        wait(0.5)
+        out.flexes_kept = run_server("flexes", 60)
+        RunConsoleCommand("mmd_vmd_npc_keep_flexes", "0")
+        wait(0.5)
+        out.flexes_reset = run_server("flexes", 60)
+        run_server("select1", 10)
+        wait(0.5)
+        local ok, result = pcall(timeline_test)
+        out.timeline = ok and result or { error = tostring(result) }
+    end
+    if SETTINGS.qol then
+        local ok, result = pcall(qol_checks, out)
+        if not ok then out.qol_error = tostring(result) end
+    end
     run_server("cleanup", 10)
     return out
 end
@@ -410,7 +494,7 @@ local function sequence()
     measured("clear_selection", window, function() MMDVMDNPC.RequestClearAssignedActors("all") end)
     end
 
-    if SETTINGS.features then
+    if SETTINGS.features or SETTINGS.qol then
         local ok, result = pcall(features)
         local featuresOut = ok and result or { error = tostring(result) }
         file.Write("nlmp_probe/features.json", util.TableToJSON(featuresOut, true))

@@ -2105,8 +2105,8 @@ msgid "Performance: draws the map faster. Mesh replacements stop working while P
 msgstr "パフォーマンス: マップの描画を高速化します。「パフォーマンスモード」がオンの間はメッシュの置き換えが機能しません。"
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:133
-msgid "Map and prop PBR (ToPBR): builds PBR materials for maps and props from what their Source materials already have. Off by default; it uses disk space and VRAM."
-msgstr "マップとプロップの PBR (ToPBR)：Source マテリアルが元から持つ情報から、マップとプロップの PBR マテリアルを作ります。既定ではオフで、ディスク容量と VRAM を使います。"
+msgid "Map and prop PBR (ToPBR, experimental): builds PBR materials from what Source materials already have, for the map's own surfaces unless you widen its range to props or everything. Off by default; it uses disk space and VRAM."
+msgstr "マップとプロップの PBR (ToPBR、実験的)：Source マテリアルが元から持つ情報から PBR マテリアルを作ります。範囲をプロップやすべてに広げない限り、対象はマップ自体の表面です。既定ではオフで、ディスク容量と VRAM を使います。"
 
 #: nativeloader/lua/nativeloader/guide_pages.lua:134
 msgid "Auto-Categorization: sorts textures into Remix's categories automatically."

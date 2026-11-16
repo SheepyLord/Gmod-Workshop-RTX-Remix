@@ -1,0 +1,425 @@
+diff --git a/source/material_pipeline/to_pbr/to_pbr.cpp b/source/material_pipeline/to_pbr/to_pbr.cpp
+index 75bedba6a05942d483c59dd77ac90323a104e9b2..982c822accef92634143b91c8324d0c205fbd5ca 100644
+--- a/source/material_pipeline/to_pbr/to_pbr.cpp
++++ b/source/material_pipeline/to_pbr/to_pbr.cpp
+@@ -146,7 +146,7 @@ static std::string ShippedOutputDirectory() {
+ // creates (rtx_topbr_enabled, rtx_topbr_game_maps). Any server's client Lua reaches this module's
+ // bindings, so only these turn work on. They are read from the engine's convar list, on the game
+ // thread: a Lua global could be replaced by that same Lua. A missing convar counts as off.
+-static bool PlayerSetting(const char* name) {
++static const ConVar* PlayerConVar(const char* name) {
+     static ICvar* engineCvars = nullptr;
+     if (!engineCvars) {
+         engineCvars = cvar;
+@@ -155,10 +155,21 @@ static bool PlayerSetting(const char* name) {
+             engineCvars = vstdlib.GetInterface<ICvar>(CVAR_INTERFACE_VERSION);
+         }
+     }
+-    const ConVar* setting = engineCvars ? engineCvars->FindVar(name) : nullptr;
++    return engineCvars ? engineCvars->FindVar(name) : nullptr;
++}
++
++static bool PlayerSetting(const char* name) {
++    const ConVar* setting = PlayerConVar(name);
+     return setting && setting->GetBool();
+ }
+ 
++// The native loader's ADR 0229: the player's range for world conversion, rtx_topbr_scope (topbr_scope.h); a missing
++// convar counts as the map's own surfaces.
++static int PlayerScope() {
++    const ConVar* setting = PlayerConVar("rtx_topbr_scope");
++    return setting ? setting->GetInt() : Scope::MapSurfaces;
++}
++
+ // Whether a folder between root and folder (root excluded) is a link or a junction: the output
+ // folder is checked where it really is, not where its name points.
+ static bool LinkBelow(const std::filesystem::path& root, const std::filesystem::path& folder) {
+@@ -4584,6 +4595,8 @@ bool TextureProcessor::ProcessSingleMaterial(const std::string& materialName) {
+     // inside the game's folders.
+     if (!PlayerSetting("rtx_topbr_enabled")) { SetEnabled(false); return false; }
+     if (!LuaPathPolicy::RelativePath(materialName)) return false;
++    // ADR 0229: only a material within the player's range.
++    if (!m_scope.Allows(materialName)) return false;
+     std::lock_guard<std::mutex> lock(m_queueMutex);
+     if (m_queuedMaterials.size() >= 8192) return false;
+     if (m_queuedMaterials.insert(materialName).second) m_materialQueue.push(materialName);
+@@ -4600,6 +4613,11 @@ void TextureProcessor::SetEnabled(bool enabled) {
+     if (m_enabled.exchange(enabled) != enabled) m_publishRequested.store(true);
+ }
+ 
++// ADR 0229: the range follows the player's rtx_topbr_scope; read on the game thread only.
++void TextureProcessor::SyncScope() {
++    m_scope.Restrict(Scope::Restricts(PlayerScope()));
++}
++
+ // R19 (ADR 0112): imported game maps likewise follow the player's rtx_topbr_game_maps.
+ void TextureProcessor::SetGameEnabled(bool enabled) {
+     if (enabled && !m_gameEnabled.load() && !PlayerSetting("rtx_topbr_game_maps")) return;
+@@ -4660,6 +4678,7 @@ void TextureProcessor::PumpSnapshots() {
+         m_lastSettingCheck = now;
+         if (IsEnabled() && !PlayerSetting("rtx_topbr_enabled")) SetEnabled(false);
+         if (m_gameEnabled.load() && !PlayerSetting("rtx_topbr_game_maps")) SetGameEnabled(false);
++        SyncScope();
+     }
+     StartWorkerThread();
+     if (!IsEnabled()) return;
+@@ -4900,6 +4919,9 @@ void TextureProcessor::WorkerThreadFunc() {
+             if (MaterialFilter::IsNonSceneMaterialName(metadataName) || Policy::IsImportedMaterialName(metadataName)) {
+                 { std::lock_guard<std::recursive_mutex> lock(m_mutex); m_processedMaterials.insert(metadataName); }
+                 { std::lock_guard<std::mutex> lock(m_queueMutex); m_queuedMaterials.erase(metadataName); }
++            } else if (!m_scope.Allows(metadataName)) {
++                // ADR 0229: the range narrowed after it was queued; not processed, so a wider range takes it again.
++                std::lock_guard<std::mutex> lock(m_queueMutex); m_queuedMaterials.erase(metadataName);
+             } else {
+                 auto prepared=std::make_shared<PreparedSnapshot>(); prepared->name=metadataName;
+                 try { prepared->valid=ParseVMTFile(m_fileSystem,metadataName,prepared->vmt,m_debugOutput); }
+@@ -5149,6 +5171,8 @@ int TextureProcessor::QueueMaterialsForProcessing() {
+                 m_processedMaterials.insert(matName);
+                 continue;
+             }
++            // ADR 0229: outside the player's range it waits, unmarked, until the range takes it in.
++            if (!m_scope.Allows(matName)) continue;
+ 
+             auto processedIt = m_processedMaterials.find(matName);
+             if (processedIt != m_processedMaterials.end()) {
+@@ -5804,6 +5828,7 @@ LUA_FUNCTION(ToPBR_ProcessSingleMaterial) {
+     }
+     
+     const char* matName = LUA->GetString(1);
++    MaterialPipeline::ToPBR::TextureProcessor::Instance().SyncScope();
+     bool result = MaterialPipeline::ToPBR::TextureProcessor::Instance().ProcessSingleMaterial(matName);
+     LUA->PushBool(result);
+     return 1;
+@@ -5824,11 +5849,59 @@ LUA_FUNCTION(ToPBR_NeedsUSDAUpdate) {
+ // =========================================================================
+ 
+ LUA_FUNCTION(ToPBR_QueueMaterialsForProcessing) {
++    MaterialPipeline::ToPBR::TextureProcessor::Instance().SyncScope();
+     int count = PlayerAllowsConversion() ? MaterialPipeline::ToPBR::TextureProcessor::Instance().QueueMaterialsForProcessing() : 0;
+     LUA->PushNumber(count);
+     return 1;
+ }
+ 
++// The native loader's ADR 0229: the game's Lua names the materials within the player's range (the map's BSP
++// materials, with props their model materials). Any server's client Lua reaches this, so it only adds names (bounded
++// by topbr_scope.h); whether the range is restricted at all is the player's rtx_topbr_scope, read natively.
++LUA_FUNCTION(ToPBR_AllowScopeMaterials) {
++    LUA->CheckType(1, GarrysMod::Lua::Type::Table);
++    std::vector<std::string> names;
++    const size_t count = (std::min)(static_cast<size_t>(LUA->ObjLen(1)), MaterialPipeline::ToPBR::Scope::MaxNames);
++    names.reserve(count);
++    for (size_t i = 1; i <= count; ++i) {
++        LUA->PushNumber(static_cast<double>(i));
++        LUA->GetTable(1);
++        if (LUA->IsType(-1, GarrysMod::Lua::Type::String)) {
++            unsigned int length = 0;
++            const char* name = LUA->GetString(-1, &length);
++            if (name && length > 0 && length <= MaterialPipeline::ToPBR::Scope::MaxNameLength) names.emplace_back(name, length);
++        }
++        LUA->Pop();
++    }
++    auto& processor = MaterialPipeline::ToPBR::TextureProcessor::Instance();
++    processor.SyncScope();
++    LUA->PushNumber(static_cast<double>(processor.GetScope().Allow(names)));
++    return 1;
++}
++
++LUA_FUNCTION(ToPBR_ClearScope) {
++    MaterialPipeline::ToPBR::TextureProcessor::Instance().GetScope().Clear();
++    return 0;
++}
++
++// restricted, the number of names held, the player's setting.
++LUA_FUNCTION(ToPBR_GetScope) {
++    auto& processor = MaterialPipeline::ToPBR::TextureProcessor::Instance();
++    processor.SyncScope();
++    LUA->PushBool(processor.GetScope().Restricted());
++    LUA->PushNumber(static_cast<double>(processor.GetScope().Size()));
++    LUA->PushNumber(static_cast<double>(MaterialPipeline::ToPBR::PlayerScope()));
++    return 3;
++}
++
++LUA_FUNCTION(ToPBR_InScope) {
++    const char* name = LUA->CheckString(1);
++    auto& processor = MaterialPipeline::ToPBR::TextureProcessor::Instance();
++    processor.SyncScope();
++    LUA->PushBool(processor.GetScope().Allows(name ? name : ""));
++    return 1;
++}
++
+ LUA_FUNCTION(ToPBR_IsProcessingInBackground) {
+     LUA->PushBool(MaterialPipeline::ToPBR::TextureProcessor::Instance().IsProcessingInBackground());
+     return 1;
+@@ -5951,7 +6024,17 @@ void InitializeToPBRLuaBindings(GarrysMod::Lua::ILuaBase* LUA) {
+     // Background processing
+     LUA->PushCFunction(ToPBR_QueueMaterialsForProcessing);
+     LUA->SetField(-2, "QueueMaterialsForProcessing");
+-    
++
++    // The player's range (ADR 0229)
++    LUA->PushCFunction(ToPBR_AllowScopeMaterials);
++    LUA->SetField(-2, "AllowScopeMaterials");
++    LUA->PushCFunction(ToPBR_ClearScope);
++    LUA->SetField(-2, "ClearScope");
++    LUA->PushCFunction(ToPBR_GetScope);
++    LUA->SetField(-2, "GetScope");
++    LUA->PushCFunction(ToPBR_InScope);
++    LUA->SetField(-2, "InScope");
++
+     LUA->PushCFunction(ToPBR_IsProcessingInBackground);
+     LUA->SetField(-2, "IsProcessingInBackground");
+     
+diff --git a/source/material_pipeline/to_pbr/to_pbr.h b/source/material_pipeline/to_pbr/to_pbr.h
+index d70ad65c364616c8450a893122865b73ea3fdee3..97c9a624b02c58416d79eb87d08cd19caf9576c0 100644
+--- a/source/material_pipeline/to_pbr/to_pbr.h
++++ b/source/material_pipeline/to_pbr/to_pbr.h
+@@ -21,6 +21,8 @@
+ #include <remix/remix_c.h>
+ #include <GarrysMod/Lua/Interface.h>
+ 
++#include "topbr_scope.h"
++
+ // Forward declarations
+ class IMaterial;
+ class IFileSystem;
+@@ -367,7 +369,13 @@ public:
+     bool QueueGameMaterial(const std::string& name, const std::string& source, const std::string& base,
+         const std::string& action="",const std::string& normal="",const std::string& packed="",const std::string& emission="",int layout=0);
+     bool IsEnabled() const { return m_enabled.load(std::memory_order_relaxed); }
+-    
++
++    // The player's range for world conversion (rtx_topbr_scope, the native loader's ADR 0229; topbr_scope.h):
++    // restricted, only the materials the game's Lua named are queued. SyncScope reads the player's setting on the
++    // game thread.
++    Scope::Filter& GetScope() { return m_scope; }
++    void SyncScope();
++
+     // Enable/disable auto-processing of new materials
+     void SetAutoProcessing(bool enabled) { m_autoProcessing = enabled; }
+     bool IsAutoProcessingEnabled() const { return m_autoProcessing; }
+@@ -657,6 +665,7 @@ private:
+     bool m_gameRegistrySaveWarned = false; // Worker-only, once per module session across worker restarts.
+     std::atomic<bool> m_gameEnabled{false};
+     std::chrono::steady_clock::time_point m_lastSettingCheck{}; // Game thread: PumpSnapshots' player-setting check.
++    Scope::Filter m_scope; // ADR 0229: restricted and empty until the game's Lua names the map's materials.
+     std::queue<std::shared_ptr<PreparedSnapshot>> m_metadataReady;
+     std::queue<WorkItem> m_readyQueue;
+     std::atomic<bool> m_publishRequested{true};
+diff --git a/source/material_pipeline/to_pbr/topbr_scope.h b/source/material_pipeline/to_pbr/topbr_scope.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..466c0a23242883f77935d7977f56ba01af5f88db
+--- /dev/null
++++ b/source/material_pipeline/to_pbr/topbr_scope.h
+@@ -0,0 +1,108 @@
++#pragma once
++
++// Which materials world conversion (ToPBR) may take: the player's range, rtx_topbr_scope (the native loader's
++// ADR 0229). 0 is the map's own surfaces (the default), 1 adds the map's props, 2 is every scene material as before.
++// Restricted (0 or 1), a material is taken only when the game's Lua has named it: the map's BSP materials, and with 1
++// the props' model materials. Until Lua names any, nothing is taken.
++//
++// Names are compared as the texture tracker records them (lower case, forward slashes), whichever way they arrive:
++// without a materials/ prefix or .vmt, a second base texture's tracker name (..._stage1) as its material, and a map's
++// own patched material (maps/<map>/..., a cubemap patch, or a blended displacement's ..._wvt_patch) without that
++// prefix and suffix, so the BSP's name and the drawn name meet.
++//
++// Standard C++ only (no Source SDK, no Windows SDK), so tests/topbr_scope_test.cpp builds it alone.
++
++#include <cstddef>
++#include <mutex>
++#include <string>
++#include <unordered_set>
++#include <vector>
++
++namespace MaterialPipeline {
++namespace ToPBR {
++namespace Scope {
++
++constexpr int MapSurfaces = 0;
++constexpr int MapAndProps = 1;
++constexpr int Everything = 2;
++// Bounds on what Lua may hand over: any server's client Lua reaches the bindings.
++constexpr std::size_t MaxNames = 65536;
++constexpr std::size_t MaxNameLength = 512;
++
++inline bool StartsWith(const std::string& text, const char* prefix) {
++    return text.compare(0, std::char_traits<char>::length(prefix), prefix) == 0;
++}
++
++inline bool EndsWith(const std::string& text, const char* suffix) {
++    const std::size_t length = std::char_traits<char>::length(suffix);
++    return text.size() >= length && text.compare(text.size() - length, length, suffix) == 0;
++}
++
++// The key a material name is compared by.
++inline std::string Key(const std::string& name) {
++    std::string key;
++    key.reserve(name.size());
++    for (char c : name) key.push_back(c == '\\' ? '/' : (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c);
++    if (StartsWith(key, "materials/")) key.erase(0, 10);
++    if (EndsWith(key, ".vmt")) key.resize(key.size() - 4);
++    if (EndsWith(key, "_stage1")) key.resize(key.size() - 7);
++    if (StartsWith(key, "maps/")) {
++        const std::size_t slash = key.find('/', 5);
++        if (slash != std::string::npos && slash + 1 < key.size()) key.erase(0, slash + 1);
++    }
++    if (EndsWith(key, "_wvt_patch")) key.resize(key.size() - 10);
++    return key;
++}
++
++// The range the player's setting gives: anything but 2 restricts (an unknown value too).
++inline bool Restricts(int setting) { return setting != Everything; }
++
++class Filter {
++public:
++    void Restrict(bool restricted) {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        m_restricted = restricted;
++    }
++
++    bool Restricted() const {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        return m_restricted;
++    }
++
++    // Adds names (empty and overlong ones are skipped); returns how many keys were new. Holds at most MaxNames.
++    std::size_t Allow(const std::vector<std::string>& names) {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        std::size_t added = 0;
++        for (const std::string& name : names) {
++            if (name.empty() || name.size() > MaxNameLength || m_keys.size() >= MaxNames) continue;
++            std::string key = Key(name);
++            if (!key.empty() && m_keys.insert(std::move(key)).second) ++added;
++        }
++        return added;
++    }
++
++    void Clear() {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        m_keys.clear();
++    }
++
++    // Whether conversion may take this material now.
++    bool Allows(const std::string& name) const {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        return !m_restricted || m_keys.count(Key(name)) != 0;
++    }
++
++    std::size_t Size() const {
++        std::lock_guard<std::mutex> lock(m_mutex);
++        return m_keys.size();
++    }
++
++private:
++    mutable std::mutex m_mutex;
++    bool m_restricted = true;
++    std::unordered_set<std::string> m_keys;
++};
++
++} // namespace Scope
++} // namespace ToPBR
++} // namespace MaterialPipeline
+diff --git a/tests/topbr_scope_test.cpp b/tests/topbr_scope_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..9671f27575a4ad0bb27d52034cc5f280b709e066
+--- /dev/null
++++ b/tests/topbr_scope_test.cpp
+@@ -0,0 +1,98 @@
++// Regression for topbr_scope.h (patch 14, topbr-scope): world conversion takes only the materials within the player's
++// range. A map's BSP names meet the names the texture tracker records; restricted, nothing is taken until Lua names it.
++// Builds alone: cl /EHsc /std:c++17 /W4 /WX /UNDEBUG /DWIN32_LEAN_AND_MEAN /DNOMINMAX topbr_scope_test.cpp
++#include <cstdio>
++#include <cstdlib>
++#include <string>
++#include <vector>
++
++#include "../source/material_pipeline/to_pbr/topbr_scope.h"
++
++namespace {
++
++int g_checks = 0;
++
++void Check(bool condition, const char* what) {
++    ++g_checks;
++    if (!condition) {
++        std::printf("FAIL %s\n", what);
++        std::exit(1);
++    }
++}
++
++using MaterialPipeline::ToPBR::Scope::Filter;
++using MaterialPipeline::ToPBR::Scope::Key;
++using MaterialPipeline::ToPBR::Scope::Restricts;
++namespace Scope = MaterialPipeline::ToPBR::Scope;
++
++}  // namespace
++
++int main() {
++    // Keys: case, slashes, the materials/ prefix and .vmt.
++    Check(Key("Materials\\Concrete\\ConcreteFloor001a.vmt") == "concrete/concretefloor001a", "case, slashes, prefix, extension");
++    Check(Key("concrete/concretefloor001a") == "concrete/concretefloor001a", "a plain name is its own key");
++    // A map's own patched materials: the cubemap patch keeps its coordinates on both sides.
++    Check(Key("maps/gm_construct/concrete/concretefloor001a_-123_456_789") == "concrete/concretefloor001a_-123_456_789",
++          "a cubemap patch loses only its maps/<map>/ prefix");
++    // A blended displacement: the BSP names the runtime patch material, the tracker its two stages.
++    Check(Key("maps/gm_flatgrass/nature/blend_grass_wvt_patch") == "nature/blend_grass", "the WVT patch material");
++    Check(Key("maps/gm_flatgrass/nature/blend_grass_wvt_patch_stage1") == "nature/blend_grass", "its second base texture");
++    Check(Key("nature/blend_grass_stage1") == "nature/blend_grass", "a second stage without the patch");
++    Check(Key("maps/onlyone") == "maps/onlyone", "maps/ without a map folder is kept");
++    Check(Key("MAPS/GM_X/Glass/Window01") == "glass/window01", "an upper-case BSP name");
++
++    // The player's setting: 0 and 1 restrict, 2 does not, anything else restricts.
++    Check(Restricts(Scope::MapSurfaces) && Restricts(Scope::MapAndProps), "0 and 1 restrict");
++    Check(!Restricts(Scope::Everything), "2 takes everything");
++    Check(Restricts(7) && Restricts(-1), "an unknown value restricts");
++
++    Filter filter;
++    // Restricted and empty until Lua names the map's materials: nothing is taken.
++    Check(filter.Restricted(), "a new filter is restricted");
++    Check(!filter.Allows("concrete/concretefloor001a"), "nothing before Lua names the map's materials");
++
++    // The BSP's names (as game.GetWorld():GetMaterials() gives them) admit the tracker's names.
++    const std::vector<std::string> world = {
++        "CONCRETE/CONCRETEFLOOR001A",
++        "maps/gm_construct/metal/metalwall048a_-512_128_64",
++        "maps/gm_construct/nature/blend_grass_wvt_patch",
++        "",
++        std::string(Scope::MaxNameLength + 1, 'x'),
++    };
++    Check(filter.Allow(world) == 3, "three names added; empty and overlong ones skipped");
++    Check(filter.Allow(world) == 0, "a name is held once");
++    Check(filter.Size() == 3, "three keys");
++    Check(filter.Allows("concrete/concretefloor001a"), "a world material");
++    Check(filter.Allows("maps/gm_construct/metal/metalwall048a_-512_128_64"), "a cubemap-patched world material");
++    Check(filter.Allows("maps/gm_construct/nature/blend_grass_wvt_patch"), "a blended displacement");
++    Check(filter.Allows("maps/gm_construct/nature/blend_grass_wvt_patch_stage1"), "its second stage");
++    Check(!filter.Allows("models/props_c17/oildrum001"), "a prop's material is outside the map's surfaces");
++    Check(!filter.Allows("models/weapons/v_hand/v_hand_sheet"), "a weapon's material is outside");
++    Check(!filter.Allows("metal/metalwall048a"), "the unpatched name of a cubemap-patched material is not the same key");
++
++    // Props join when Lua names their models' materials (the range with props).
++    Check(filter.Allow({"models/props_c17/oildrum001"}) == 1, "a prop's material added");
++    Check(filter.Allows("models/props_c17/oildrum001"), "then it is taken");
++
++    // Everything: no restriction, the names stay for a later narrower range.
++    filter.Restrict(false);
++    Check(filter.Allows("models/weapons/v_hand/v_hand_sheet"), "everything takes any material");
++    filter.Restrict(true);
++    Check(!filter.Allows("models/weapons/v_hand/v_hand_sheet"), "restricted again");
++    Check(filter.Allows("concrete/concretefloor001a"), "the names were kept");
++
++    // Clear (a new map) leaves nothing taken.
++    filter.Clear();
++    Check(filter.Size() == 0 && !filter.Allows("concrete/concretefloor001a"), "cleared");
++
++    // At most MaxNames keys.
++    std::vector<std::string> many;
++    many.reserve(Scope::MaxNames + 10);
++    for (std::size_t i = 0; i < Scope::MaxNames + 10; ++i) many.push_back("m/" + std::to_string(i));
++    Check(filter.Allow(many) == Scope::MaxNames, "the bound");
++    Check(filter.Size() == Scope::MaxNames, "no more than MaxNames held");
++    Check(!filter.Allows("m/" + std::to_string(Scope::MaxNames + 5)), "a name past the bound is not held");
++
++    std::printf("PASS topbr scope: %d checks\n", g_checks);
++    return 0;
++}

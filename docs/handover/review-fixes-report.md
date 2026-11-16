@@ -152,3 +152,6 @@ fixes' Lua).
   file before the fix too. In the PoC (`out/msep/poc_review.py` with `out/msep/poc/distant_probe.lua`, evidence
   `out/qa-poc/review-fixes/distant-01`): the saved setting read `1.000000` before, with a distant RT light out and after
   the cleanup; `Light2RTX.EnvMuted()` was false, true, false.
+- **Published:** merged into `main` as `1f043939` and pushed (`e8455e32..1f043939`); the merge's hook uploaded item
+  3829070317 as **`0.0.0-dev.20261116174322+1c509cb9`** (content digest `5bde0519...`), its change note this
+  follow-up's changelog entry; the push's hook found the inputs unchanged.

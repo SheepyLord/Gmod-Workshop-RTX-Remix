@@ -145,30 +145,35 @@ elseif scenario == "server" then
     boot("server")
     assert(catalogReads == 1 and calls[1]:find("^message Garry's Mod is not finishing its start|"), calls[1])
 elseif scenario == "cheats" then
-    -- Review finding 16: a multiplayer game started outside the New Game screen gets sv_cheats 0 back from the server;
-    -- single-player keeps 1 (its rendering settings need it), and a start without RTX is left alone.
+    -- Review finding 16: a multiplayer game started outside the New Game screen asks the menu realm for sv_cheats 0
+    -- (GMod blocks sv_cheats for RunConsoleCommand and game.ConsoleCommand in a game's realms): the server writes the
+    -- time to data/nativeloader_companion/cheats_off.txt, which nativeloader/menu/multiplayer_cheats.lua carries out.
+    -- Single-player keeps 1 (its rendering settings need it), and a start without RTX is left alone.
+    local REQUEST = "nativeloader_companion/cheats_off.txt"
     local ran = {}
     function RunConsoleCommand(name, value) ran[#ran + 1] = name .. " " .. tostring(value) end
     convars.sv_cheats = "1"
     rtx()
     game = { SinglePlayer = function() return false end, MaxPlayers = function() return 8 end }
     boot("server")
-    assert(#ran == 1 and ran[1] == "sv_cheats 0", "a multiplayer RTX start kept cheats: " .. table.concat(ran, ","))
-    ran = {}
+    local made = tonumber(data[REQUEST] or "")
+    assert(made and math.abs(made - os.time()) <= 2, "a multiplayer RTX start left no request: " .. tostring(data[REQUEST]))
+    assert(#ran == 0, "the server ran a command GMod blocks: " .. table.concat(ran, ","))
+    data[REQUEST] = nil
     boot("client")
-    assert(#ran == 0, "the client realm set a server variable")
+    assert(data[REQUEST] == nil and #ran == 0, "the client realm asked for a server variable")
     game.SinglePlayer, game.MaxPlayers = function() return true end, function() return 1 end
     boot("server")
-    assert(#ran == 0, "single-player lost the cheats its rendering settings need")
+    assert(data[REQUEST] == nil, "single-player lost the cheats its rendering settings need")
     game.SinglePlayer, game.MaxPlayers = function() return false end, function() return 8 end
     convars.sv_cheats = "0"
     boot("server")
-    assert(#ran == 0, "set again although already off")
+    assert(data[REQUEST] == nil, "asked again although already off")
     convars.sv_cheats = "1"
     data["native-loader/status.json"] = status("0.16.0", "inactive")
     data["native-loader/rtx-session.txt"] = nil
     boot("server")
-    assert(#ran == 0, "a start without RTX was changed")
+    assert(data[REQUEST] == nil and #ran == 0, "a start without RTX was changed")
 elseif scenario == "already-loaded" then
     -- The early view loaded the module and made the first call: the autorun neither loads nor sets again.
     rtx()

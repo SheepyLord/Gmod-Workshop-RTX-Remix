@@ -16,10 +16,13 @@ not itself start with four `!`.
   by it is used as it is.
 - **The answer for the rest of the package** ([ADR 0206](../../../../docs/decisions/0206-rtx-a-removed-loader-left-removes-itself.md)). Before it stops in a start without RTX, it publishes that decision, worked out once, as `NativeLoaderRTXStart()`. Every other autorun of the companion, and of the RTX fixes' `remixbinary` add-on, returns at its first line of code when the answer is no; `server/nativeloader_leftovers.lua` uses it to stay out of RTX starts. This file sorts before all of them.
 - **Cheats in a multiplayer game** (review finding 16, 2026-11-16). An RTX start runs `sv_cheats 1` for its
-  rendering settings (the loader's session file). GMod's New Game screen sets it back to 0 for a game with more
-  than one slot; a multiplayer game started another way (the command line, the console) kept it, so every player
-  who joined had cheats. In an RTX start the server realm of a game that is not single-player and has more than
-  one slot sets `sv_cheats 0` (only when it is on), as the menu does. Single-player keeps it.
+  rendering settings (the loader's session file). GMod's New Game screen sets it to 0 for the games it starts; a
+  multiplayer game started another way (the command line, the console) kept it, so every player who joined had
+  cheats. GMod blocks `sv_cheats` for `RunConsoleCommand` and `game.ConsoleCommand` in a game's realms, so in an RTX
+  start the server realm of a game that is not single-player and has more than one slot, with `sv_cheats` on, writes
+  the time to `data/nativeloader_companion/cheats_off.txt`, and the companion's menu script
+  [`multiplayer_cheats.lua`](../nativeloader/menu/multiplayer_cheats.lua.md) runs `sv_cheats 0` from the menu realm
+  once the game is running, as the New Game screen does. Single-player keeps it.
 - **The message.** The watchdog's native message (title, and a body with `%s` for the stuck file) comes from
   [`nativeloader/engine_guard_words.lua`](../nativeloader/engine_guard_words.lua.md), in the player's
   language from the companion's own catalog. The module takes only the first `SetMessage` call, and the

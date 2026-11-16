@@ -18,5 +18,8 @@ cd tools; python -m unittest tests.test_engine_guard_lua
 - `recovered`: a start that was reported and went on removes the report.
 - `notice`: the next start names the add-on (a mounted Workshop add-on, a legacy folder, or the path
   alone) in a 30-second notice after eight seconds, once per report, and logs it in English.
+- `cheats` (review finding 16, ADR 0234): the server realm of a multiplayer RTX start with `sv_cheats` on writes the
+  time to `data/nativeloader_companion/cheats_off.txt` (for the menu script `multiplayer_cheats.lua`) and runs no
+  command GMod blocks; the client realm, single-player, cheats already off and a start without RTX write nothing.
 
 Skipped without LuaJIT. Exit code 0 when every test passes. No side effects.

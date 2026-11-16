@@ -87,3 +87,16 @@ evidence in `out/qa-poc/game-pbr-panel/01-before`):
   invalid with no stop from the server, a new NPC at the same index brings nothing back, and a start that arrives
   before its dancer exists waits for it and then follows it. It fails on the code before the fix.
 - Not checked in the game: a dance with music in a PoC run.
+
+## Gate
+
+`tools\test.ps1 -Config Release` on the branch (`625167c7`): "All checks passed" (repo conventions OK; C++ 35 of 35;
+Python 2,031 tests in `tools`, 1 skipped, 29 in `gmapack`, 26 in `steam`).
+
+## Published
+
+`main` was fast-forwarded to `625167c7` (the branch's one commit) and pushed (`63c32595..625167c7`, no LFS objects). The
+merge's hook built the package from `packages/` and uploaded item 3829070317 as **0.0.0-dev.20261116120729+6a4541c7**
+(2,301,144,280 bytes, content digest `379d3426...`), its change note the changelog's new entry; the push's hook found
+the inputs unchanged. The package checked in run `03-branch` differs from it only by the rows' 6-pixel label margin
+(29 bytes of Lua). Not yet seen in the field: a running game keeps the previous page and music code until it restarts.

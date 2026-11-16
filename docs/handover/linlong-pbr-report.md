@@ -31,3 +31,11 @@ Branch `linlong-pbr`, by Claude, package only.
   and lists `native/root/rtx-remix/mods/mmdhl_pbr_linlong/` with its 24 files.
 - Not checked in the game here: the maps are the user's pack as made and checked with rpai; the folder name does not
   change what Remix replaces.
+
+## Published
+
+`main` was fast-forwarded to `bd250b52` (the branch's one commit) and pushed (`f4abd3e6..bd250b52`, 21 LFS objects,
+38 MB: two of the 22 maps are the same file). The merge's hook built the package from `packages/` and uploaded item
+3829070317 as **0.0.0-dev.20261116093052+564dd514** (content digest `6e3cd068...`, the same content as the branch's build),
+its change note the changelog's entry; the push's hook found the inputs unchanged. Not yet seen in a game: a start of
+the field or the PoC with this package deploys `rtx-remix\mods\mmdhl_pbr_linlong`.

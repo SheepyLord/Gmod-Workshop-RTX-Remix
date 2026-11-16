@@ -2,6 +2,7 @@
 #include "nl_test.h"
 #include "session.h"
 #include "fake_control.h"
+#include "fake_game.h"
 #include <windows.h>
 #include <chrono>
 #include <thread>
@@ -115,7 +116,7 @@ TEST_CASE("Window input: Session Exit and renderer failure release every owned p
     REQUIRE(done());
   };
   for(bool failure:{false,true}) {
-    reset();reset_api();Calls calls;v::Session session(folder,calls);v::Options o;
+    reset();reset_api();Calls calls;v::Session session(folder,single_player(),calls);v::Options o;
     o.openvr_dll=folder/L"openvr_api.dll";o.runtime_dll=folder/L"nlvr_test_runtime.dll";o.manifest=NL_VR_MANIFEST;o.no_submit=true;
     std::string error;REQUIRE(session.start(o,error));wait([&] { return session.state().first=="running"; });
     REQUIRE(session.begin_frame());session.window_input(button("left",true));session.window_input(key("enter",true));

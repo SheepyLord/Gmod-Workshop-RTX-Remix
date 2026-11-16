@@ -3,6 +3,7 @@
 #include "sim_device.h"
 #include "lua_policy.h"
 #include "fake_control.h"
+#include "fake_game.h"
 #include "nl_test.h"
 #include <windows.h>
 #include <fstream>
@@ -78,7 +79,7 @@ TEST_CASE("V2 timeline: interpolate axes force curls splay and preserve typed ke
   bad=script;bad.replace(bad.find("\"time\":0.08"),11,"\"time\":-0.1");CHECK_THROWS_AS(v::Timeline::parse(bad),std::exception);
 }
 TEST_CASE("V4 C: controller components and skeleton are cached until reconnect and reset on Stop") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder());start(s,live());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder(),single_player());start(s,live());
   auto frame=s.begin_frame();REQUIRE(frame);CHECK(frame->controllers[0].valid);CHECK(frame->controllers[1].skeleton);
   CHECK(frame->controllers[0].model=="fake_index_left");CHECK(sdk.stats().component_reads==4);CHECK(sdk.stats().skeleton_reads==2);
   for(int n=0;n<10;++n) REQUIRE(s.begin_frame());CHECK(sdk.stats().component_reads==4);CHECK(sdk.stats().controller_properties==2);
@@ -88,13 +89,13 @@ TEST_CASE("V4 C: controller components and skeleton are cached until reconnect a
 }
 TEST_CASE("V4 C: missing render models components and invalid matrices fall back without failing VR") {
   for(const int fault:{16,17,18}) {
-    Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(fault);v::Session s(folder());start(s,live());
+    Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(fault);v::Session s(folder(),single_player());start(s,live());
     const auto frame=s.begin_frame();REQUIRE(frame);CHECK(frame->poses[1].valid);CHECK(!frame->controllers[0].valid);
     CHECK(frame->controllers[0].source=="raw");CHECK(!frame->controllers[0].detail.empty());stop(s);
   }
 }
 TEST_CASE("V4 C review: tip-only controllers preserve aim and retry unavailable hand data") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(21);v::Session s(folder());start(s,live());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(21);v::Session s(folder(),single_player());start(s,live());
   auto f=s.begin_frame();REQUIRE(f);CHECK(!f->controllers[0].valid);CHECK(f->controllers[0].aim.valid);
   CHECK(f->controllers[0].source=="tip_only");const auto reads=sdk.stats().component_reads;
   REQUIRE(s.begin_frame());CHECK(sdk.stats().component_reads==reads);
@@ -102,7 +103,7 @@ TEST_CASE("V4 C review: tip-only controllers preserve aim and retry unavailable 
   f=s.begin_frame();REQUIRE(f);CHECK(f->controllers[0].valid);CHECK(sdk.stats().component_reads>reads);stop(s);
 }
 TEST_CASE("V4 C review3: battery events cannot resample live curled hand anchors") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder());start(s,live());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder(),single_player());start(s,live());
   const auto before=s.begin_frame();REQUIRE(before);const auto old=before->controllers[0];const auto reads=sdk.stats().skeleton_reads;
   sdk.fault(26);fn<FakeEvent>(sdk.dll,"nlvr_fake_event")(::vr::VREvent_PropertyChanged);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));const auto after=s.begin_frame();REQUIRE(after);
@@ -111,24 +112,24 @@ TEST_CASE("V4 C review3: battery events cannot resample live curled hand anchors
   CHECK(after->controllers[0].revision==old.revision);CHECK(sdk.stats().skeleton_reads==reads);stop(s);
 }
 TEST_CASE("V4 C review: property changes invalidate component profiles") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder());start(s,live());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder(),single_player());start(s,live());
   REQUIRE(s.begin_frame());const auto reads=sdk.stats().component_reads;
   fn<FakeEvent>(sdk.dll,"nlvr_fake_event")(::vr::VREvent_PropertyChanged);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));REQUIRE(s.begin_frame());
   CHECK(sdk.stats().component_reads>reads);stop(s);
 }
 TEST_CASE("V4 C review: a missing tip does not discard a valid wrist component") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(25);v::Session s(folder());start(s,live());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(25);v::Session s(folder(),single_player());start(s,live());
   const auto f=s.begin_frame();REQUIRE(f);CHECK(!f->controllers[0].valid);CHECK(!f->controllers[0].aim.valid);
   CHECK(f->controllers[0].wrist.valid);CHECK(f->controllers[0].source=="raw");stop(s);
 }
 TEST_CASE("V4 C: a constrained skeleton supplies the hand when only the tip component exists") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(20);v::Session s(folder());start(s,live());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");sdk.fault(20);v::Session s(folder(),single_player());start(s,live());
   const auto frame=s.begin_frame();REQUIRE(frame);CHECK(frame->controllers[0].valid);CHECK(frame->controllers[0].skeleton);
   CHECK(std::abs(frame->controllers[0].wrist.pos.x+.13f)<.00001f);stop(s);
 }
 TEST_CASE("V4 C: model-space live and named skeletal references preserve all joints") {
-  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder());start(s,live());REQUIRE(s.begin_frame());
+  Fake sdk(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder(),single_player());start(s,live());REQUIRE(s.begin_frame());
   for(const std::string kind:{"with_controller","fist","grip_limit","open"}) {
     const auto sample=s.skeleton("left",kind);REQUIRE(sample.valid);CHECK(sample.source==kind);CHECK(sample.error==0);
     CHECK(std::abs(sample.bones[1].pos.x+.13f)<.00001f);CHECK(sample.bones[30].valid);
@@ -137,13 +138,13 @@ TEST_CASE("V4 C: model-space live and named skeletal references preserve all joi
   stop(s);
 }
 TEST_CASE("V2 simulation: launcher boundary refuses before renderer initialization") {
-  Fake runtime(L"nlvr_test_runtime.dll");Root root({});v::Session s(folder());auto o=live();o.simulate=true;std::string error;
+  Fake runtime(L"nlvr_test_runtime.dll");Root root({});v::Session s(folder(),single_player());auto o=live();o.simulate=true;std::string error;
   CHECK(!s.start(o,error));CHECK(error.find("NLVR_TEST_ROOT")!=std::string::npos);CHECK(runtime.stats().runtime_starts==0);
   CHECK(GetModuleHandleW(L"openvr_api.dll")==nullptr);CHECK(s.state().first=="off");
 }
 TEST_CASE("V2 simulation: timer poses actions overlays keyboard and clean restart without OpenVR") {
   REQUIRE(GetModuleHandleW(L"openvr_api.dll")==nullptr);Fake runtime(L"nlvr_test_runtime.dll");
-  const auto scratch=nl::test::scratch_dir("v2-simulated");Root root(scratch);auto o=simulated(scratch);v::Session s(folder());
+  const auto scratch=nl::test::scratch_dir("v2-simulated");Root root(scratch);auto o=simulated(scratch);v::Session s(folder(),single_player());
   for(int cycle=0;cycle<2;++cycle) {
     start(s,o);REQUIRE(GetModuleHandleW(L"openvr_api.dll")==nullptr);
     const auto info=s.info();CHECK(info.simulated&&!info.sdk_ready&&!info.openvr_loaded);CHECK(info.eye_width==2468&&info.eye_height==2740);CHECK(info.refresh==90);
@@ -179,7 +180,7 @@ TEST_CASE("V2 simulation: timer poses actions overlays keyboard and clean restar
 }
 TEST_CASE("V6 quality: the module hands the ladder's step to the runtime and reports a refusal") {
   REQUIRE(GetModuleHandleW(L"openvr_api.dll")==nullptr);Fake runtime(L"nlvr_test_runtime.dll");
-  const auto scratch=nl::test::scratch_dir("v6-quality");Root root(scratch);auto o=simulated(scratch);v::Session s(folder());
+  const auto scratch=nl::test::scratch_dir("v6-quality");Root root(scratch);auto o=simulated(scratch);v::Session s(folder(),single_player());
   start(s,o);
   v::Session::Quality q;q.render_scale=.7f;q.dlss=0;q.min_bounces=1;q.max_bounces=2;q.volumetrics=false;q.fine_clouds=false;
   std::string error;REQUIRE(s.set_quality(q,error));CHECK(error.empty());
@@ -201,7 +202,7 @@ TEST_CASE("V6 quality: the module hands the ladder's step to the runtime and rep
 TEST_CASE("V2 simulation: bad device and timeline fail cleanly and a scripted quit needs no Lua polling") {
   Fake runtime(L"nlvr_test_runtime.dll");const auto scratch=nl::test::scratch_dir("v2-sim-bad");Root root(scratch);
   auto o=simulated(scratch);{ std::ofstream out(scratch/L"simulated-index.json");out<<"{}"; }
-  v::Session s(folder());std::string error;REQUIRE(s.start(o,error));wait([&] { return s.state().first=="failed"; });stop(s);
+  v::Session s(folder(),single_player());std::string error;REQUIRE(s.start(o,error));wait([&] { return s.state().first=="failed"; });stop(s);
   o=simulated(scratch);{ std::ofstream out(o.timeline);out<<"{}"; }
   REQUIRE(s.start(o,error));wait([&] { return s.state().first=="failed"; });stop(s);
   o=simulated(scratch);std::string quit=script;quit.insert(quit.find("\"version\":"),"\"quit_at\":0.05,");
@@ -210,7 +211,7 @@ TEST_CASE("V2 simulation: bad device and timeline fail cleanly and a scripted qu
 }
 TEST_CASE("V2 combined overlays: movement ghosts gloves panels and keyboard share a bounded session budget") {
   Fake runtime(L"nlvr_test_runtime.dll");const auto scratch=nl::test::scratch_dir("v2-overlay-budget");Root root(scratch);
-  auto o=simulated(scratch);v::Session s(folder());
+  auto o=simulated(scratch);v::Session s(folder(),single_player());
   for(int cycle=0;cycle<2;++cycle) {
     start(s,o);std::vector<uint64_t> handles;
     for(int i=0;i<32;++i) {
@@ -225,7 +226,7 @@ TEST_CASE("V2 combined overlays: movement ghosts gloves panels and keyboard shar
   }
 }
 TEST_CASE("V2 OpenVR: keyboard events splay binding UI tint sort and validation") {
-  Fake api(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder());start(s,live());
+  Fake api(L"openvr_api.dll"),runtime(L"nlvr_test_runtime.dll");v::Session s(folder(),single_player());start(s,live());
   s.show_keyboard("initial","description",true,128);CHECK(api.stats().keyboard_shows==1);CHECK(s.info().keyboard_visible);
   CHECK(api.stats().keyboard_maxchars==128&&api.stats().keyboard_multiline==1&&api.stats().keyboard_flags==::vr::KeyboardFlag_Modal);
   fn<FakeKeyboardText>(api.dll,"nlvr_fake_keyboard_text")("native text");
@@ -244,7 +245,7 @@ TEST_CASE("V2 OpenVR: keyboard events splay binding UI tint sort and validation"
   s.show_keyboard("","",false,20);s.hide_keyboard();CHECK(api.stats().keyboard_hides==1);stop(s);
 }
 TEST_CASE("V2 optional window source: flags ownership removal and older-runtime refusal") {
-  Fake api(L"openvr_api.dll"),runtime(L"nlvr_test_runtime_window.dll");v::Session s(folder());auto o=live();o.runtime_dll=folder()/L"nlvr_test_runtime_window.dll";
+  Fake api(L"openvr_api.dll"),runtime(L"nlvr_test_runtime_window.dll");v::Session s(folder(),single_player());auto o=live();o.runtime_dll=folder()/L"nlvr_test_runtime_window.dll";
   start(s,o);CHECK(s.info().overlay_window_supported);const auto h=s.overlay_create("window","window");std::string error;
   REQUIRE(s.overlay_window(h,true,error));CHECK(runtime.stats().window_flags==3);CHECK(s.overlay_info(h).window);
   CHECK_THROWS_AS(s.overlay_window(h+1,true,error),std::exception);CHECK(runtime.stats().windows==1);

@@ -290,7 +290,9 @@
         "third_party/openvr",
         "vr/native/lua_policy.h",
         "vr/native/controller_frames.cpp",
-        "vr/native/controller_frames.h"
+        "vr/native/controller_frames.h",
+        "vr/native/single_player.cpp",
+        "vr/native/single_player.h"
       ],
       "packaged": {
         "sha256": "aa1d8b651caa445e9a8acc97e8c3e68ff6b8307e83d59b6f8798d6cadff5dadf",

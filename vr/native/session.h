@@ -3,6 +3,7 @@
 #include "timeline.h"
 #include "window_input.h"
 #include "controller_frames.h"
+#include "single_player.h"
 #include <openvr.h>
 #include <chrono>
 #include <memory>
@@ -72,7 +73,11 @@ struct Info {
 };
 class Session {
  public:
+  // The game is asked whether it is a local single-player one (single_player.h): engine.dll by default, a native test
+  // host's GameCalls otherwise. Start refuses every other game before it loads anything, and WindowInput,
+  // ShowKeyboard, OpenBindingUI and Capture refuse unless their session started in one and the game is still one.
   explicit Session(std::filesystem::path module_folder,WindowCalls& window_calls=system_window_calls());
+  Session(std::filesystem::path module_folder,GameCalls& game_calls,WindowCalls& window_calls=system_window_calls());
   ~Session();
   Session(const Session&)=delete;
   Session& operator=(const Session&)=delete;

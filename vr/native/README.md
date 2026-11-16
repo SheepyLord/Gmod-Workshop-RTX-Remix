@@ -28,7 +28,8 @@ with request counts in Info. Keyboard state is retained locally. All overlays/ti
 ## V2 APIs and timeline example
 
 Task M follow-up, 2026-11-11: `WindowInput(kind,...)` is an additional client API. It refuses while
-VR is off/starting/stopping/failed, and before the first acquired frame. It discovers the unique
+VR is off/starting/stopping/failed, before the first acquired frame, and (review finding 8) unless the
+engine still reports a local single-player game, as do ShowKeyboard, OpenBindingUI and Capture. It discovers the unique
 top-level `Valve001` window in **this process**, rechecks class/process ownership before every post,
 and never accepts a window handle from Lua. Missing/ambiguous/recycled/foreign windows are refused.
 Only `PostMessageW` is used: no SendInput, hooks, focus activation, cursor warp or executable access.
@@ -109,6 +110,24 @@ client Lua. The page's host check is not an authorization boundary. Start refuse
 runtime_dll and manifest keys. Executable code and the manifest are found relative to this module;
 only native test hosts may override their paths. Probe returns SDK presence, not an absolute path.
 
+**Single-player, read natively** (review finding 8, ADR 0197): `Start` refuses unless the engine itself
+reports a local single-player game, before it loads OpenVR or the renderer and before any worker:
+`engine.dll`'s `CreateInterface("VEngineClient015")` says the client is connected (`IsConnected`, slot 27),
+through a net channel (`GetNetChannelInfo`, 72) whose `IsLoopback` (CNetChan slot 6) is true, with one
+player slot (`GetMaxClients`, 21) and no demo playing (`IsPlayingDemo`, 76): the facts and the decision of
+the RTX debug module's mutation gate. A remote server decides the slot count it reports, but cannot make
+the client's channel loopback (127.0.0.1 or a LAN server is not loopback). Lua globals are never asked: a
+server's client scripts can replace `game.SinglePlayer`. `WindowInput`, `ShowKeyboard`, `OpenBindingUI`
+and `Capture` refuse unless their session is running (so it passed that gate) and the game is still a
+local single-player one, asked again at each call. The refusal is `false, "VR works in single-player games
+only: <why>"` from Start, `nil` and the same message from the four. Each slot is called under SEH, and only
+when the object's vtable lies in `engine.dll` and the slot's function in its code; without `engine.dll`, or
+with another shape, the engine "could not say" and VR refuses. `single_player.h` holds the facts, the
+decision and the injectable `GameCalls` boundary (`engine_game_calls()` in the game); native test hosts
+pass their own, as they pass `WindowCalls`. The slots were read through RTTI and each function's code in the
+build of 2026-11-12 (`engine.dll` 5709136 bytes); `nl_vr_tests` checks them again in the installed game's
+`engine.dll` (`NL_ENGINE_DLL`, else the PoC's; skipped without a game).
+
 Timeline/Capture use a name (1-64 ASCII letters/digits/_/-), not a path. Default storage is
 garrysmod/data/nlvr/timelines/NAME.json and garrysmod/data/nlvr/captures/NAME/. Reserved Windows
 names and links are refused. A launching process may set absolute NLVR_TEST_ROOT for automation;
@@ -160,20 +179,23 @@ The package format permits these DLLs in `garrysmod/lua/bin`. Native hosts alone
 | `timeline.h`, `timeline.cpp` | Bounded JSON timeline parsing, sampling and derivatives |
 | `sim_device.h`, `sim_device.cpp` | Launcher-root recorded-device parser and validation |
 | `input_actions.h` | Shared button/axis metadata for input reads and strict script validation |
-| `session.h`, `session.cpp` | Worker start, ordered stop, DLL exports, poses, input, overlays, events and facts |
+| `session.h`, `session.cpp` | Worker start, ordered stop, DLL exports, poses, input, overlays, events and facts; the single-player gate at Start and at the window, keyboard, binding-editor and capture calls |
 | `window_input.h`, `window_input.cpp` | Bounded owned-game-window message dispatcher and injectable Win32 boundary |
-| `module.cpp` | Thin client-realm Lua adapter, validated arguments and exact overlay handles |
+| `single_player.h`, `single_player.cpp` | Review finding 8: the engine's facts about the game (connected, net channel, loopback, demo, player slots), the local single-player decision and its English refusal, the injectable `GameCalls` boundary, and `engine_game_calls()`: `engine.dll`'s VEngineClient015 by vtable slot, SEH-guarded, only into `engine.dll`'s code |
+| `module.cpp` | Thin client-realm Lua adapter, validated arguments and exact overlay handles; its session asks `engine_game_calls()` |
 | `tests/make_stubs.py` | Generates concrete inert SDK interface bases in the build tree |
 | `tests/fake_control.h` | Offline test fault/counter ABI |
 | `tests/fake_openvr.cpp` | Stand-in `openvr_api.dll`, never the user's SteamVR |
-| `tests/fake_runtime.cpp`, `tests/fake_runtime.def` | Stand-in runtime exports and failure injection |
+| `tests/fake_runtime.cpp`, `tests/fake_runtime.def` | Stand-in runtime exports and failure injection (counts captures too) |
 | `tests/missing_runtime.cpp` | A renderer with no VR exports |
-| `tests/test_vr.cpp` | Offline CTest coverage of lifecycle, maths, timeline, overlays and failures |
+| `tests/fake_game.h` | `FakeGame`, the game an offline session runs in (a local single-player one unless a test says otherwise), and `single_player()`, the one every session not about the gate uses |
+| `tests/fake_engine.cpp` | A stand-in `engine.dll` (built into `engine_fake/`, loaded by path): `CreateInterface("VEngineClient015")` with GMod x64's slots 21, 27, 72, 76 and a channel with IsLoopback at 6, written on their own; the test sets their answers, counts the calls and gives the objects other shapes |
+| `tests/test_vr.cpp` | Offline CTest coverage of lifecycle, maths, timeline, overlays and failures; review finding 8: a game of two player slots (and a remote server, no channel, a demo, the main menu, an engine that cannot say) starts no VR (no `VR_InitInternal2`) and reaches no window, keyboard, binding editor or capture, a game that stops being one is refused at each call, the engine reader against the stand-in `engine.dll`, and the slots' code in the installed game's `engine.dll` |
 | `tests/test_v2.cpp` | Simulated sessions, pacing, extended input/events, keyboard, binding UI and optional window-source tests |
 | `tests/test_window_input.cpp` | Stand-in window calls, message fields, Unicode, bounds/budget, failures, releases and Session lifecycle |
 | `tests/api_layout.c` | Compiles the current header as C and asserts the Windows x64 ABI layout (API 4: `rtxvr_Quality` 24 bytes, `rtxvr_Status` 488) |
 | `tests/check_input.py` | Cross-checks bindings, action types and native readers offline |
-| `tests/session_host.cpp` | Explicit real Index host, two start/stop cycles, inputs and overlay visibility |
+| `tests/session_host.cpp` | Explicit real Index host, two start/stop cycles, inputs and overlay visibility; having no `engine.dll`, it stands in for the local single-player game (`HostGame`) |
 
 The offline event test collects delivery for up to five seconds, retaining exact count, order
 and drain checks; it does not assume the worker runs within a fixed 30 ms sleep. The stand-in
@@ -198,6 +220,8 @@ crosses the Lua ABI. Close stops and joins the session before unloading the modu
   39.37007874, range 1-1000), render_scale (default 1, .1-2), timeline (data name),
   no_submit (default false), and pacing="render" only. A missing renderer fails before
   SDK initialization. Lua path overrides are refused; native hosts use native Options.
+  Outside a local single-player game, as `engine.dll` reports it, Start returns
+  `false, "VR works in single-player games only: <why>"` and loads nothing (see the boundary above).
 - `State()` -> state, detail: `off`, `starting`, `running`, `stopping`, `failed`. `starting` covers
   SteamVR launch and the runtime's own first-frame transition. `Stop()` is safe at any time,
   including during start or after a failure. It **requests** cancellation and returns immediately;

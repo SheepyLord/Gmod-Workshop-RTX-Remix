@@ -111,3 +111,12 @@ OK; C++ 35 of 35; Python 2,024 tests in `tools`, 1 skipped, 29 in `gmapack`, 26 
 in `nl_client_catalog_tests`, at a different check each time (`test_leftovers.cpp:170`, `test_former_rtx.cpp:314`):
 both count a `gmod.exe` that cannot be opened as another game, so a process ending during the snapshot (another
 session's game or test host) fails them; the test passed alone and in the third run. Loader code is unchanged here.
+
+## Published
+
+`main` was fast-forwarded to `0cc79d27` (the branch's one commit) and pushed (`0231259e..0cc79d27`, one LFS object,
+the fixes module, 1.1 MB). The merge's hook built the package from `packages/` and uploaded item 3829070317 as
+**0.0.0-dev.20261116091301+f38cbcc6** (2,205,859,273 bytes, SHA-256
+`4cc280f958db7911649eef11ec0089acdb0f814ddaabcae141a9cccfe2c11eea`, content digest `8d230b6f...`; Steam sent 19.7 MB
+of changed content) at 2026-11-16 02:13 UTC, its change note the changelog's entry; the push's hook found the inputs
+unchanged. Not yet seen in the field: a running game keeps the previous fixes module until it restarts.

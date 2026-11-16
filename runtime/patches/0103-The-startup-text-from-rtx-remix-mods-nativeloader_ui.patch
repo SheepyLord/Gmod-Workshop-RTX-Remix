@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Mon, 16 Nov 2026 06:00:07 -0700
+Subject: [PATCH] The startup text from rtx-remix/mods/nativeloader_ui, not
+ garrysmod/data
+
+The splash and the font atlas read the editable startup text (patch 0012) from garrysmod/data/nativeloader_ui, where
+any server's client Lua writes .txt files (file.Write): a server's text stayed on the Remix splash at every later
+start, single-player included, and the loader kept it as the player's edit (create-only).
+
+StartupMessage::folder is now rtx-remix/mods/nativeloader_ui, relative to the game's folder as before. The GMod
+loader deploys the texts there create-only, so the player's edits are still kept; GMod's Lua cannot write there, and
+another Workshop item's package cannot place files in a folder the RTX package owns. The folder holds no mod file, so
+the mod manager passes it by. tests/rtx/unit/test_splash_message.cpp checks the folder.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/dxvk/imgui/dxvk_imgui_splash.cpp   | 2 +-
+ src/dxvk/rtx_render/rtx_fork_i18n.cpp  | 2 +-
+ src/util/util_startup_message.h        | 5 +++++
+ tests/rtx/unit/test_splash_message.cpp | 5 +++++
+ 4 files changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/src/dxvk/imgui/dxvk_imgui_splash.cpp b/src/dxvk/imgui/dxvk_imgui_splash.cpp
+index 943e12f4f..df6a5382e 100644
+--- a/src/dxvk/imgui/dxvk_imgui_splash.cpp
++++ b/src/dxvk/imgui/dxvk_imgui_splash.cpp
+@@ -123,7 +123,7 @@ namespace dxvk {
+         const auto language = StartupMessage::language(RtxForkI18n::language());
+         if (language != m_messageLanguage) {
+           m_messageLanguage = language;
+-          m_message = StartupMessage::load("garrysmod/data/nativeloader_ui", language);
++          m_message = StartupMessage::load(StartupMessage::folder, language);
+         }
+         const auto message = StartupMessage::format(m_message, keyBindDescriptor, static_cast<unsigned>(clampedSecondsRemaining));
+         ImGui::TextUnformatted(message.c_str());
+diff --git a/src/dxvk/rtx_render/rtx_fork_i18n.cpp b/src/dxvk/rtx_render/rtx_fork_i18n.cpp
+index 86b6d054f..33890c3f8 100644
+--- a/src/dxvk/rtx_render/rtx_fork_i18n.cpp
++++ b/src/dxvk/rtx_render/rtx_fork_i18n.cpp
+@@ -246,7 +246,7 @@ namespace dxvk {
+       for (size_t i = 0; i < i18n_data::kLanguageCount; i++) {
+         addCodepoints(i18n_data::kLanguages[i].name, extra);
+       }
+-      addCodepoints(StartupMessage::load("garrysmod/data/nativeloader_ui", RtxForkI18n::languageObject().getCopy()), extra);
++      addCodepoints(StartupMessage::load(StartupMessage::folder, RtxForkI18n::languageObject().getCopy()), extra);
+       s_ui.extraRanges = toRanges(std::move(extra));
+ 
+       // The selected language's font gets all of its characters; every other font only the names of its languages.
+diff --git a/src/util/util_startup_message.h b/src/util/util_startup_message.h
+index e30b5e187..67aa87d0a 100644
+--- a/src/util/util_startup_message.h
++++ b/src/util/util_startup_message.h
+@@ -8,6 +8,11 @@
+ namespace dxvk {
+   class StartupMessage {
+   public:
++    // Where the editable texts are, relative to the game's folder. Not garrysmod/data, where any server's client Lua
++    // writes .txt files (file.Write): the GMod loader deploys them create-only to a folder of rtx-remix/mods, which
++    // neither Lua nor another Workshop item's package can write, and the player's edits there are kept.
++    static constexpr std::string_view folder = "rtx-remix/mods/nativeloader_ui";
++
+     static constexpr std::string_view fallback =
+       "RTX Remix for Garry's Mod\nPress {hotkey} to open the Remix menu.\n\n"
+       "Project and issue reports:\nhttps://github.com/SheepyLord/Gmod-Workshop-RTX-Remix\n\n"
+diff --git a/tests/rtx/unit/test_splash_message.cpp b/tests/rtx/unit/test_splash_message.cpp
+index f166bf8a8..922ce15c8 100644
+--- a/tests/rtx/unit/test_splash_message.cpp
++++ b/tests/rtx/unit/test_splash_message.cpp
+@@ -8,6 +8,11 @@ int main(int argc, char** argv) {
+     if (!passed) { std::cerr << "Startup text policy failed\n"; std::exit(1); }
+   };
+   if (argc != 2) return 1;
++  // The texts come from a folder of rtx-remix/mods that the GMod loader deploys, never from garrysmod/data, where
++  // any server's client Lua writes .txt files.
++  check(StartupMessage::folder == "rtx-remix/mods/nativeloader_ui");
++  check(StartupMessage::folder.find("garrysmod") == std::string_view::npos);
++  check(StartupMessage::folder.find("data") == std::string_view::npos);
+   const std::filesystem::path directory(argv[1]);
+   std::filesystem::create_directories(directory);
+   const auto english = directory / "startup_message.txt";
+-- 
+2.56.0.windows.1
+

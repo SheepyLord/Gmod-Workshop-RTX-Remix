@@ -110,9 +110,10 @@ DEBUG_ADDON_FILE = 'source/debug/addon/lua/autorun/client/rtx_debug.lua'
 FAKE_MOD = 'garrysmod/rtx-remix/mods/base_mod/textures/a.dds'
 EXPECTED_ROOTS = [
     'garrysmod/addons/nativeloader', 'garrysmod/addons/niknaks',
-    'garrysmod/addons/remixbinary', 'garrysmod/addons/rtx_agent', 'garrysmod/data/nativeloader_ui', 'garrysmod/data/remix_map_configs',
+    'garrysmod/addons/remixbinary', 'garrysmod/addons/rtx_agent', 'garrysmod/data/remix_map_configs',
     'garrysmod/lua/bin/gmcl_RTXFixesBinary_win64.dll',
-    'garrysmod/lua/bin/gmcl_rtxwater_win64.dll', 'rtx-remix/mods/base_mod', 'rtx-remix/mods/~gmod_topbr',
+    'garrysmod/lua/bin/gmcl_rtxwater_win64.dll', 'rtx-remix/mods/base_mod', 'rtx-remix/mods/nativeloader_ui',
+    'rtx-remix/mods/~gmod_topbr',
 ]
 EXPECTED_LEFT_OUT = [
     'bin/win64/stdshader_dx6.pdb', 'bin/win64/stdshader_dx6_readme.txt', 'dxvk.conf', 'garrysmod/addons/loose.txt',
@@ -132,7 +133,7 @@ def companion_files():
              for p in sorted(COMPANION.rglob('*')) if p.is_file() and p.suffix.lower() != '.md'}
     files.update({name: Path(source) for name, source in package_fixes.companion_catalog_sources().items()})
     for path in (REPO / 'companion/presentation').glob('*.txt'):
-        files['native/root/garrysmod/data/nativeloader_ui/' + path.name] = path
+        files['native/root/rtx-remix/mods/nativeloader_ui/' + path.name] = path
     return files
 
 
@@ -219,9 +220,10 @@ class PackageFixesTests(unittest.TestCase):
         self.assertEqual(m['name'], 'RTX fixes ' + m['version'])
         self.assertEqual(m['kinds'], ['lua-binary-module', 'lua-addon', 'root-files', 'patch-set', 'module-override'])
         # Seed data and the ToPBR converter's mod are create-only: what the fixes write there at run time
-        # stays, and never blocks a reinstall.
+        # stays, and never blocks a reinstall. So is the startup text, which the player may edit.
         self.assertEqual(m['root_files'], [{'path': p, 'policy': 'create-only' if p.startswith('garrysmod/data/') or
-                                            p == 'rtx-remix/mods/~gmod_topbr' else 'replace-owned'} for p in EXPECTED_ROOTS])
+                                            p in ('rtx-remix/mods/~gmod_topbr', 'rtx-remix/mods/nativeloader_ui')
+                                            else 'replace-owned'} for p in EXPECTED_ROOTS])
         self.assertEqual(m['module_overrides'], [{'module': 'stdshader_dx6.dll', 'file': 'native/payload/shaders/stdshader_dx6.dll'}])
         self.assertEqual(m['session_cvars'], EXPECTED_CVARS)
         self.assertEqual(list(m['session_cvars']), list(EXPECTED_CVARS))  # file order, last assignment wins
@@ -236,6 +238,26 @@ class PackageFixesTests(unittest.TestCase):
         self.assertEqual(summary['junk'], EXPECTED_JUNK)
         self.assertEqual(summary['patches'], 7)
         self.assertEqual(self.leftovers(), [])
+
+    def test_the_startup_text_goes_where_no_lua_writes(self):
+        # The review of 2026-11-16 (finding 17): any server's client Lua writes .txt files under garrysmod/data, so
+        # the Remix splash's editable text goes to a folder of rtx-remix/mods (where runtime patch 0103 reads it),
+        # create-only so the player's edits are kept.
+        out = self.root / 'pkg'
+        self.build('--out', out)
+        m = self.manifest(out)
+        self.assertEqual(package_fixes.STARTUP_TEXT, 'rtx-remix/mods/nativeloader_ui')
+        self.assertEqual(sorted(p for p in m['files'] if '/nativeloader_ui/' in p),
+                         sorted('native/root/rtx-remix/mods/nativeloader_ui/' + p.name
+                                for p in (REPO / 'companion/presentation').glob('*.txt')))
+        self.assertIn({'path': 'rtx-remix/mods/nativeloader_ui', 'policy': 'create-only'}, m['root_files'])
+        self.assertFalse([r for r in m['root_files'] if r['path'].startswith('garrysmod/data/nativeloader_ui')])
+        # A Remix mod of the fixes with the folder's name would overlap it: refused.
+        self.write(self.repo / 'garrysmod' / 'rtx-remix' / 'mods' / 'NativeLoader_UI' / 'mod.usda', b'#usda 1.0\n')
+        code, _, err = self.run_tool('--out', self.root / 'x')
+        self.assertEqual(code, 1)
+        self.assertIn('NativeLoader_UI', err)
+        self.assertFalse((self.root / 'x').exists())
 
     def test_g1_retires_only_old_glass_and_its_exclusive_translations(self):
         folder = self.root / 'pkg'

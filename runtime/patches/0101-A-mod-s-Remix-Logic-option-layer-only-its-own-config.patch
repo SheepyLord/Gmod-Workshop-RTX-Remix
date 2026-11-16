@@ -1,0 +1,1420 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Mon, 16 Nov 2026 05:56:11 -0700
+Subject: [PATCH] A mod's Remix Logic option layer: only its own config file,
+ only rendering options
+
+The GMod loader deploys the Remix mods of any subscribed Workshop item as content. An RtxOptionLayerAction node in
+such a mod's graph acquired an option layer, above rtx.conf, from any config file it named (a UNC path made Windows
+offer the player's login to another host), the file could set every runtime option (the folder NRC loads its CUDA
+DLLs from, the welcome message the splash formatted as printf, captures, keys), and a hash list that failed to parse
+(std::stoull) threw out of the graph and ended the game.
+
+- rtx_mod_layer_policy.h (new, self-contained): the path rules (relative as authored, inside the mod's folder once
+  resolved; at the option manager, a file in a mod's folder below rtx-remix/mods, no "." or "..", no share other
+  than the game's, no stream, no device), the options a mod's layer may set (the sky, the weather, fog and volumetric
+  light, exposure, tone mapping, bloom and post effects, and eight single look options; never text, lists, keys or
+  integer vectors, never an integer without a declared range of at most 1024 values, never a debugging option, a name
+  ending as a file, folder, message or key, the player's own settings or runtime state) and a parse that reports
+  instead of throwing.
+- The graph's parser: in a mod's stage, an asset path that names a drive, a root, a share or a scheme is refused
+  before the resolver looks for it, and what it resolves to must lie in the mod's folder; a string-typed asset path
+  resolves as a token does. In-memory stages keep upstream's resolution.
+- RtxOptionManager::acquireModLayer: the graph's layers, with the path checked against the mods folder; the layer is
+  marked a mod's layer, which applies only the allowed options (the others count as rejected keys, kept on save, and
+  are logged once) and creates no dynamic options. A mod's graph and code never share a layer.
+- Any layer, and readOption (the Remix API's SetConfigVariable): a value that fails to parse is refused and leaves
+  the value as it was; SetConfigVariable returns INVALID_ARGUMENTS for it. RtxOptionLayerAction catches what
+  acquiring a layer could still throw.
+
+tests/rtx/unit/test_mod_layer_policy.cpp covers the policy alone (also compiled by the project's gate);
+test_mod_option_layer.cpp drives a mod's layer through the real option manager (refused paths, a file in a mod's
+folder, reload, a code layer and readOption with a hash list that fails to parse).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/dxvk/meson.build                          |   1 +
+ .../components/rtx_option_layer_action.h      |  21 +-
+ .../rtx_render/graph/rtx_graph_usd_parser.cpp |  58 +++
+ src/dxvk/rtx_render/rtx_mod_layer_policy.h    | 380 ++++++++++++++++++
+ src/dxvk/rtx_render/rtx_option.cpp            |  87 +++-
+ src/dxvk/rtx_render/rtx_option.h              |   8 +-
+ src/dxvk/rtx_render/rtx_option_layer.cpp      |   6 +-
+ src/dxvk/rtx_render/rtx_option_layer.h        |   6 +
+ src/dxvk/rtx_render/rtx_option_manager.cpp    |  56 ++-
+ src/dxvk/rtx_render/rtx_option_manager.h      |  12 +-
+ src/dxvk/rtx_render/rtx_remix_api.cpp         |   6 +-
+ tests/rtx/unit/meson.build                    |  13 +
+ tests/rtx/unit/test_mod_layer_policy.cpp      | 257 ++++++++++++
+ tests/rtx/unit/test_mod_option_layer.cpp      | 197 +++++++++
+ 14 files changed, 1091 insertions(+), 17 deletions(-)
+ create mode 100644 src/dxvk/rtx_render/rtx_mod_layer_policy.h
+ create mode 100644 tests/rtx/unit/test_mod_layer_policy.cpp
+ create mode 100644 tests/rtx/unit/test_mod_option_layer.cpp
+
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index bcad7c6d1..443c62f6d 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -306,6 +306,7 @@ dxvk_src = files([
+   'rtx_render/rtx_matrix_helpers.h',
+   'rtx_render/rtx_mipmap.cpp',
+   'rtx_render/rtx_mipmap.h',
++  'rtx_render/rtx_mod_layer_policy.h',
+   'rtx_render/rtx_mod_manager.cpp',
+   'rtx_render/rtx_mod_manager.h',
+   'rtx_render/rtx_mod_usd.cpp',
+diff --git a/src/dxvk/rtx_render/graph/components/rtx_option_layer_action.h b/src/dxvk/rtx_render/graph/components/rtx_option_layer_action.h
+index 2224e6d49..c735f104a 100644
+--- a/src/dxvk/rtx_render/graph/components/rtx_option_layer_action.h
++++ b/src/dxvk/rtx_render/graph/components/rtx_option_layer_action.h
+@@ -101,12 +101,21 @@ void RtxOptionLayerAction::initializeInstance(const Rc<DxvkContext>& context, co
+   
+   // Acquire layer through the manager
+   const RtxOptionLayerKey layerKey = { getPriority(m_priority[index]), m_configPath[index] };
+-  const RtxOptionLayer* layer = RtxOptionManager::acquireLayer(
+-    m_configPath[index],
+-    layerKey,
+-    1.0f,  // Default blend strength (will be updated in updateRange)
+-    0.1f   // Default blend threshold (will be updated in updateRange)
+-  );
++  // NV-DXVK start: a mod's layer (GMod: Remix mods come from any subscribed Workshop item): only a config file in a mod's
++  // folder, only rendering options, and nothing thrown out of the graph (rtx_mod_layer_policy.h)
++  const RtxOptionLayer* layer = nullptr;
++  try {
++    layer = RtxOptionManager::acquireModLayer(
++      m_configPath[index],
++      layerKey,
++      1.0f,  // Default blend strength (will be updated in updateRange)
++      0.1f   // Default blend threshold (will be updated in updateRange)
++    );
++  } catch (const std::exception& e) {
++    Logger::err(str::format("RtxOptionLayerAction: Loading '", m_configPath[index], "' failed: ", e.what()));
++    layer = nullptr;
++  }
++  // NV-DXVK end
+   if (layer != nullptr) {
+     m_holdsReference[index] = true;
+     // Cache the values used to acquire this layer
+diff --git a/src/dxvk/rtx_render/graph/rtx_graph_usd_parser.cpp b/src/dxvk/rtx_render/graph/rtx_graph_usd_parser.cpp
+index 973af115e..0de1be729 100644
+--- a/src/dxvk/rtx_render/graph/rtx_graph_usd_parser.cpp
++++ b/src/dxvk/rtx_render/graph/rtx_graph_usd_parser.cpp
+@@ -22,6 +22,9 @@
+ 
+ #include "rtx_graph_usd_parser.h"
+ #include "dxvk_scoped_annotation.h"
++// NV-DXVK start: a mod's asset paths stay in its folder (GMod)
++#include "../rtx_mod_layer_policy.h"
++// NV-DXVK end
+ #include <algorithm>  // for std::count
+ 
+ #include <algorithm>
+@@ -40,11 +43,37 @@ namespace dxvk {
+ 
+ namespace {
+ 
++// NV-DXVK start: the folder of the mod whose stage holds an attribute (GMod: Remix mods come from any subscribed
++// Workshop item). A mod's stage is opened from rtx-remix/mods/<mod>/mod.usda, so its root layer's folder is the mod's.
++// An in-memory stage (tests, tools) has none and keeps upstream's resolution.
++std::string modFolderOf(const pxr::UsdAttribute& attr) {
++  const pxr::UsdStageWeakPtr stage = attr.GetStage();
++  if (!stage) {
++    return std::string();
++  }
++  const pxr::SdfLayerHandle rootLayer = stage->GetRootLayer();
++  return rootLayer ? mod_layer_policy::parentFolder(rootLayer->GetRealPath()) : std::string();
++}
++// NV-DXVK end
++
+ // Helper function to resolve asset paths relative to the attribute's authoring layer
+ std::string resolveAssetPath(const pxr::UsdAttribute& attr, const std::string& pathStr) {
+   if (pathStr.empty()) {
+     return pathStr;
+   }
++
++  // NV-DXVK start: in a mod, an asset path names a file in that mod's folder, relative to the USD file that authors it
++  // (rtx_mod_layer_policy.h). A drive, a root, a share or a scheme is refused before the resolver looks for it, as
++  // resolving \\host\share opens a network session; what it resolves to must lie in the mod's folder. Refused reads "".
++  const std::string modFolder = modFolderOf(attr);
++  if (!modFolder.empty()) {
++    std::string reason;
++    if (!mod_layer_policy::authoredPathAllowed(pathStr, &reason)) {
++      Logger::warn(str::format("[RTX Graph]: Asset path '", pathStr, "' of ", attr.GetPath().GetString(), " refused: ", reason, "."));
++      return std::string();
++    }
++  }
++  // NV-DXVK end
+   
+   // Get the layer where this attribute value is authored (strongest opinion)
+   auto propertyStack = attr.GetPropertyStack();
+@@ -62,11 +91,31 @@ std::string resolveAssetPath(const pxr::UsdAttribute& attr, const std::string& p
+       
+       // Resolve the identifier to get the final resolved path
+       pxr::ArResolvedPath resolvedPath = resolver.Resolve(identifier);
++      // NV-DXVK start: in a mod, the resolved file, or the path anchored to the authoring USD file when there is none
++      // yet, must lie in the mod's folder (a bare name the resolver finds in the game's folder does not)
++      if (!modFolder.empty()) {
++        const std::string candidate = !resolvedPath.empty() ? resolvedPath.GetPathString()
++          : mod_layer_policy::joinedNormal(mod_layer_policy::parentFolder(authoringLayer->GetRealPath()), pathStr);
++        std::string reason;
++        if (!mod_layer_policy::insideFolder(candidate, modFolder, &reason)) {
++          Logger::warn(str::format("[RTX Graph]: Asset path '", pathStr, "' of ", attr.GetPath().GetString(), " refused: ", reason, "."));
++          return std::string();
++        }
++        return candidate;
++      }
++      // NV-DXVK end
+       if (!resolvedPath.empty()) {
+         return resolvedPath.GetPathString();
+       }
+     }
+   }
++
++  // NV-DXVK start: a mod's path that could not be anchored to the USD file that authors it is refused
++  if (!modFolder.empty()) {
++    Logger::warn(str::format("[RTX Graph]: Asset path '", pathStr, "' of ", attr.GetPath().GetString(), " refused: its USD file is unknown."));
++    return std::string();
++  }
++  // NV-DXVK end
+   
+   // If we couldn't resolve it, return the original path
+   return pathStr;
+@@ -802,6 +851,15 @@ RtComponentPropertyValue GraphUsdParser::getPropertyValue(const pxr::UsdAttribut
+         }
+         return spec.defaultValue;
+       }
++      // NV-DXVK start: a string-typed asset path resolves as a token does, so a mod's stays in its folder (GMod)
++      if (value.IsHolding<std::string>()) {
++        const std::string pathStr = value.Get<std::string>();
++        if (!pathStr.empty()) {
++          return resolveAssetPath(attr, pathStr);
++        }
++        return spec.defaultValue;
++      }
++      // NV-DXVK end
+       return getPropertyValue<std::string>(value, spec);
+     case RtComponentPropertyType::Hash:
+       // Hash is stored as uint64_t but represented as a token in USD
+diff --git a/src/dxvk/rtx_render/rtx_mod_layer_policy.h b/src/dxvk/rtx_render/rtx_mod_layer_policy.h
+new file mode 100644
+index 000000000..13c8c9202
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_mod_layer_policy.h
+@@ -0,0 +1,380 @@
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++#pragma once
++
++// NV-DXVK: what a Remix Logic graph in a mod may do with option layers (runtime patch 0101 of the GMod native loader
++// project). Self-contained (the standard library only), so the project's gate compiles and runs
++// tests/rtx/unit/test_mod_layer_policy.cpp against it. The runtime's side: resolveAssetPath in
++// graph/rtx_graph_usd_parser.cpp, RtxOptionManager::acquireModLayer, RtxOptionImpl::readOptionLayer and readValue's
++// callers in rtx_option.cpp, and RtxOptionLayerAction::initializeInstance.
++//
++// Upstream treats Remix mods as trusted configuration. The GMod loader deploys the Remix mods of any subscribed
++// Workshop item as content (its ADR 0027 and 0111), and an RtxOptionLayerAction node in such a mod's graph acquired
++// an option layer, above rtx.conf, from any config file it named: a UNC path made Windows offer the player's login to
++// another host, the file could set every runtime option (the folder NRC loads its CUDA DLLs from, the welcome message
++// the splash formatted as printf), and a hash list that failed to parse threw out of the graph and ended the game.
++// A mod's graph now reads a config file only from its own folder, and its layer applies only rendering options.
++
++#include <cstddef>
++#include <exception>
++#include <string>
++#include <string_view>
++#include <vector>
++
++namespace dxvk::mod_layer_policy {
++
++  // ==============================================================================================================
++  // Paths
++  // ==============================================================================================================
++
++  inline char foldAscii(char c) {
++    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
++  }
++
++  inline std::string foldAscii(std::string_view text) {
++    std::string folded(text);
++    for (char& c : folded) {
++      c = foldAscii(c);
++    }
++    return folded;
++  }
++
++  inline bool isSeparator(char c) {
++    return c == '/' || c == '\\';
++  }
++
++  inline bool refuse(std::string* reason, const char* why) {
++    if (reason != nullptr) {
++      *reason = why;
++    }
++    return false;
++  }
++
++  // A path taken apart, '/' and '\\' alike. An absolute path's first part is its root: "x:" for a drive, "//server"
++  // for a share, whose name is the second part. Parts compare without ASCII case, as Windows names do.
++  struct PathParts {
++    enum class Root { Relative, Drive, Share };
++    Root root = Root::Relative;
++    std::vector<std::string> parts;
++  };
++
++  // Splits `path`; false for what is neither a plain relative path, a drive path ("x:\...") nor a share
++  // ("\\server\share\..."): a device path ("\\?\", "\\.\"), a rooted path without a drive ("\x"), a drive without a
++  // separator ("c:x"), a ':' anywhere else (a stream, a scheme), a character Windows refuses in a name, a control
++  // character, or more than 4096 bytes.
++  inline bool splitPath(std::string_view path, PathParts& out, std::string* reason = nullptr) {
++    out = PathParts {};
++    if (path.empty()) {
++      return refuse(reason, "the path is empty");
++    }
++    if (path.size() > 4096) {
++      return refuse(reason, "the path is longer than 4096 bytes");
++    }
++    for (const char c : path) {
++      const unsigned char u = static_cast<unsigned char>(c);
++      if (u < 0x20 || u == 0x7f) {
++        return refuse(reason, "the path holds a control character");
++      }
++      if (c == '"' || c == '<' || c == '>' || c == '|' || c == '*' || c == '?') {
++        return refuse(reason, "the path holds a character Windows refuses in a name");
++      }
++    }
++    size_t at = 0;
++    const auto nextPart = [&path, &at]() {
++      while (at < path.size() && isSeparator(path[at])) {
++        ++at;
++      }
++      const size_t start = at;
++      while (at < path.size() && !isSeparator(path[at])) {
++        ++at;
++      }
++      return path.substr(start, at - start);
++    };
++    if (path.size() >= 2 && isSeparator(path[0]) && isSeparator(path[1])) {
++      // "\\?\" and "\\.\" were refused with '?' above, or read here: a share's server is never "." or "?".
++      at = 2;
++      const std::string_view server = nextPart();
++      const std::string_view share = nextPart();
++      if (server.empty() || share.empty() || server == "." || server == "..") {
++        return refuse(reason, "the path is a device or an incomplete share");
++      }
++      out.root = PathParts::Root::Share;
++      out.parts.push_back("//" + foldAscii(server));
++      out.parts.push_back(foldAscii(share));
++    } else if (path.size() >= 2 && ((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) &&
++               path[1] == ':') {
++      if (path.size() == 2 || !isSeparator(path[2])) {
++        return refuse(reason, "the path names a drive without a folder (x:file)");
++      }
++      out.root = PathParts::Root::Drive;
++      out.parts.push_back(std::string(1, foldAscii(path[0])) + ":");
++      at = 3;
++    } else if (isSeparator(path[0])) {
++      return refuse(reason, "the path starts at a root without a drive");
++    }
++    while (at < path.size()) {
++      const std::string_view part = nextPart();
++      if (part.empty()) {
++        break;  // trailing separators
++      }
++      if (part.find(':') != std::string_view::npos) {
++        return refuse(reason, "the path holds a ':' after its drive (a stream or a scheme)");
++      }
++      out.parts.push_back(foldAscii(part));
++    }
++    return true;
++  }
++
++  // A name Windows would shorten ("x.", "x ", "...") can reach another file than the one it spells.
++  inline bool trailingDotOrSpace(const std::string& part) {
++    return part != "." && part != ".." && !part.empty() && (part.back() == '.' || part.back() == ' ');
++  }
++
++  // `parts` with "." dropped and ".." taking the part before it (never the root). Lexical, as Win32 normalizes.
++  inline std::vector<std::string> lexicallyNormal(const PathParts& path) {
++    std::vector<std::string> out;
++    const size_t rootParts = path.root == PathParts::Root::Share ? 2 : path.root == PathParts::Root::Drive ? 1 : 0;
++    for (size_t i = 0; i < path.parts.size(); ++i) {
++      const std::string& part = path.parts[i];
++      if (i < rootParts) {
++        out.push_back(part);
++      } else if (part == ".") {
++        continue;
++      } else if (part == "..") {
++        if (out.size() > rootParts) {
++          out.pop_back();
++        }
++      } else {
++        out.push_back(part);
++      }
++    }
++    return out;
++  }
++
++  // True when `parts` starts with every part of `folder` and has at least `deeper` parts more.
++  inline bool startsWithParts(const std::vector<std::string>& parts, const std::vector<std::string>& folder,
++                              size_t deeper) {
++    if (parts.size() < folder.size() + deeper) {
++      return false;
++    }
++    for (size_t i = 0; i < folder.size(); ++i) {
++      if (parts[i] != folder[i]) {
++        return false;
++      }
++    }
++    return true;
++  }
++
++  // The folder of a file path: everything before its last separator ("" without one).
++  inline std::string parentFolder(std::string_view path) {
++    const size_t slash = path.find_last_of("/\\");
++    return slash == std::string_view::npos ? std::string() : std::string(path.substr(0, slash));
++  }
++
++  // `relative` anchored to the absolute `folder`, lexically normal, with '/' between parts (folded ASCII case, as
++  // the parts compare); "" when either does not split as such.
++  inline std::string joinedNormal(std::string_view folder, std::string_view relative) {
++    PathParts base;
++    PathParts rest;
++    if (!splitPath(folder, base, nullptr) || base.root == PathParts::Root::Relative ||
++        !splitPath(relative, rest, nullptr) || rest.root != PathParts::Root::Relative) {
++      return std::string();
++    }
++    base.parts.insert(base.parts.end(), rest.parts.begin(), rest.parts.end());
++    std::string joined;
++    for (const std::string& part : lexicallyNormal(base)) {
++      joined += (joined.empty() || joined.back() == '/') ? part : "/" + part;
++    }
++    return joined;
++  }
++
++  // An asset path as a mod's USD layer authors it: relative to that layer, never a drive, a root, a share or a
++  // scheme. Checked before USD's resolver looks for it: resolving "\\host\share\x" opens a network session.
++  inline bool authoredPathAllowed(std::string_view authored, std::string* reason = nullptr) {
++    PathParts parts;
++    if (!splitPath(authored, parts, reason)) {
++      return false;
++    }
++    if (parts.root != PathParts::Root::Relative) {
++      return refuse(reason, "a mod names its files relative to its own USD file, never a drive or a share");
++    }
++    return true;
++  }
++
++  // True when `candidate` (absolute) lies in `folder` (absolute), lexically normal, at least one part deeper.
++  inline bool insideFolder(std::string_view candidate, std::string_view folder, std::string* reason = nullptr) {
++    PathParts file;
++    PathParts base;
++    if (!splitPath(candidate, file, reason)) {
++      return false;
++    }
++    if (file.root == PathParts::Root::Relative) {
++      return refuse(reason, "the path is not absolute");
++    }
++    for (const std::string& part : file.parts) {
++      if (trailingDotOrSpace(part)) {
++        return refuse(reason, "the path holds a name ending in a dot or a space");
++      }
++    }
++    if (!splitPath(folder, base, nullptr) || base.root == PathParts::Root::Relative) {
++      return refuse(reason, "the mod's folder is unknown");
++    }
++    if (!startsWithParts(lexicallyNormal(file), lexicallyNormal(base), 1)) {
++      return refuse(reason, "the path leaves the mod's folder");
++    }
++    return true;
++  }
++
++  // A config file a mod's graph may load as an option layer: an absolute path, without "." or "..", in a mod's
++  // folder below `modsRoot` (rtx-remix/mods), so at least two parts deeper: <mod>/<file>. The graph's parser has
++  // already kept each mod to its own folder; this holds whatever reaches the option manager.
++  inline bool configPathAllowed(std::string_view path, std::string_view modsRoot, std::string* reason = nullptr) {
++    PathParts file;
++    PathParts root;
++    if (!splitPath(path, file, reason)) {
++      return false;
++    }
++    if (file.root == PathParts::Root::Relative) {
++      return refuse(reason, "the path is not absolute");
++    }
++    for (const std::string& part : file.parts) {
++      if (part == "." || part == "..") {
++        return refuse(reason, "the path holds a \".\" or \"..\" part");
++      }
++      if (trailingDotOrSpace(part)) {
++        return refuse(reason, "the path holds a name ending in a dot or a space");
++      }
++    }
++    if (modsRoot.empty() || !splitPath(modsRoot, root, nullptr) || root.root == PathParts::Root::Relative) {
++      return refuse(reason, "the mods folder is unknown");
++    }
++    if (!startsWithParts(file.parts, lexicallyNormal(root), 2)) {
++      return refuse(reason, "the path is not a file in a mod's folder below rtx-remix/mods");
++    }
++    return true;
++  }
++
++  // ==============================================================================================================
++  // Options
++  // ==============================================================================================================
++
++  enum class ValueKind { Bool, Int, Float, FloatVector, IntVector, String, HashSet, HashVector, VirtualKeys };
++
++  struct OptionFacts {
++    std::string_view name;      // the full name, "rtx.atmosphere.sunSize"
++    ValueKind kind = ValueKind::Float;
++    bool userSetting = false;   // RtxOptionFlags::UserSetting: the player's choice (quality, upscaler, interface)
++    bool noSave = false;        // RtxOptionFlags::NoSave: runtime state (the menu, low-memory mode)
++    bool hasMin = false;        // an Int's declared range
++    bool hasMax = false;
++    double minValue = 0.0;
++    double maxValue = 0.0;
++  };
++
++  // How the scene looks: the sky, the weather, fog and volumetric light, exposure, tone mapping, bloom and the post
++  // effects. A content package may change these; what in them names a file, a key or a message, sizes memory or a
++  // loop without a bound, or is the player's own setting is refused by the rules below.
++  inline constexpr std::string_view kAllowedNamespaces[] = {
++    "rtx.atmosphere.", "rtx.weather.", "rtx.volumetrics.", "rtx.tonemap.", "rtx.autoExposure.", "rtx.bloom.",
++    "rtx.postfx.",
++  };
++
++  // Single options of the same kind outside those namespaces.
++  inline constexpr std::string_view kAllowedOptions[] = {
++    "rtx.skyBrightness", "rtx.emissiveIntensity", "rtx.fogColorScale", "rtx.maxFogDistance", "rtx.enableFog",
++    "rtx.fogIgnoreSky", "rtx.vertexColorStrength", "rtx.lightConversionIntensityFactor",
++  };
++
++  // A last name part ending so names a file, a folder or a pattern, a message, the interface language, a key or a
++  // capture, never a rendering value. (The 14 path options the GMod fixes keep from Lua, ADR 0112, are among them.)
++  inline constexpr std::string_view kRefusedEndings[] = {
++    "texture", "textures", "path", "file", "dir", "directory", "folder", "regex", "message", "language", "hotkey",
++    "keybinds", "stagename", "replacement",
++  };
++
++  // An integer applies only within a declared range at most this wide: a count or a size without one can exhaust
++  // video memory or hang the GPU, and a mode without one can index past its table.
++  inline constexpr double kMaxIntegerRange = 1024.0;
++
++  inline bool startsWithFolded(const std::string& folded, std::string_view prefix) {
++    return folded.compare(0, prefix.size(), foldAscii(prefix)) == 0;
++  }
++
++  inline bool endsWithFolded(const std::string& folded, std::string_view suffix) {
++    return folded.size() >= suffix.size() && folded.compare(folded.size() - suffix.size(), suffix.size(), foldAscii(suffix)) == 0;
++  }
++
++  // True when a layer a mod's graph acquired may apply this option.
++  inline bool optionAllowed(const OptionFacts& option, std::string* reason = nullptr) {
++    const std::string name = foldAscii(option.name);
++    bool listed = false;
++    for (const std::string_view allowed : kAllowedNamespaces) {
++      listed = listed || startsWithFolded(name, allowed);
++    }
++    for (const std::string_view allowed : kAllowedOptions) {
++      listed = listed || name == foldAscii(allowed);
++    }
++    if (!listed) {
++      return refuse(reason, "not a rendering option a mod may set");
++    }
++    if (name.find("debug") != std::string::npos) {
++      return refuse(reason, "a debugging option");
++    }
++    const std::string last = name.substr(name.find_last_of('.') + 1);
++    for (const std::string_view ending : kRefusedEndings) {
++      if (endsWithFolded(last, ending)) {
++        return refuse(reason, "it names a file, a folder, a message or a key");
++      }
++    }
++    if (option.userSetting) {
++      return refuse(reason, "the player's own setting");
++    }
++    if (option.noSave) {
++      return refuse(reason, "runtime state");
++    }
++    switch (option.kind) {
++    case ValueKind::Bool:
++    case ValueKind::Float:
++    case ValueKind::FloatVector:
++      return true;
++    case ValueKind::Int:
++      if (!option.hasMin || !option.hasMax || option.maxValue < option.minValue ||
++          option.maxValue - option.minValue > kMaxIntegerRange) {
++        return refuse(reason, "an integer without a declared range of at most 1024 values");
++      }
++      return true;
++    case ValueKind::IntVector:
++    case ValueKind::String:
++    case ValueKind::HashSet:
++    case ValueKind::HashVector:
++    case ValueKind::VirtualKeys:
++      break;
++    }
++    return refuse(reason, "text, lists, keys and integer vectors are not rendering values a mod may set");
++  }
++
++  // ==============================================================================================================
++  // Parsing
++  // ==============================================================================================================
++
++  // Runs a parse that may throw (std::stoull in the hash lists) and reports instead: a value that fails to parse is
++  // refused, never thrown through a graph, a layer's load or the Remix API.
++  template<typename Parse>
++  bool parsedWithoutThrow(Parse&& parse, std::string* error = nullptr) {
++    try {
++      parse();
++      return true;
++    } catch (const std::exception& e) {
++      if (error != nullptr) {
++        *error = e.what();
++      }
++    } catch (...) {
++      if (error != nullptr) {
++        *error = "an unknown error";
++      }
++    }
++    return false;
++  }
++
++}
+diff --git a/src/dxvk/rtx_render/rtx_option.cpp b/src/dxvk/rtx_render/rtx_option.cpp
+index 939a87c65..0c2f666a5 100644
+--- a/src/dxvk/rtx_render/rtx_option.cpp
++++ b/src/dxvk/rtx_render/rtx_option.cpp
+@@ -22,6 +22,9 @@
+ #include "rtx_options.h"
+ #include "rtx_option_dynamic.h"
+ #include "rtx_fork_game_state.h"
++// NV-DXVK start: what a mod's option layer may set; values that fail to parse (GMod)
++#include "rtx_mod_layer_policy.h"
++// NV-DXVK end
+ 
+ namespace dxvk {
+   void fillHashVector(const std::vector<std::string>& rawInput, std::vector<XXH64_hash_t>& hashVectorOutput) {
+@@ -447,30 +450,86 @@ namespace dxvk {
+     }
+   }
+ 
+-  void RtxOptionImpl::readOption(const Config& options, const RtxOptionLayer* layer) {
++  bool RtxOptionImpl::readOption(const Config& options, const RtxOptionLayer* layer) {
+     if (!layer) {
+-      return;
++      return false;
+     }
+     
+     const std::string fullName = getFullName();
+     
+     // Check if the option exists in config
+     if (!options.findOption(fullName.c_str())) {
+-      return;
++      return false;
+     }
+     
+     // The Remix API calls this on the game's thread while the render thread resolves the dirty options.
+     std::lock_guard<std::mutex> lock(getUpdateMutex());
+ 
+     // Read into the specified layer (create entry since we know option exists)
+-    auto [layerValue, _] = getOrCreateGenericValue(layer);
++    auto [layerValue, created] = getOrCreateGenericValue(layer);
+     if (layerValue) {
+-      readValue(options, fullName, *layerValue);
++      // NV-DXVK start: a value that fails to parse leaves the layer as it was (GMod: any server's RemixConfig call)
++      std::string error;
++      if (!readValueWithoutThrow(options, fullName, *layerValue, &error)) {
++        if (created) {
++          disableLayerValue(layer);
++        }
++        Logger::warn(str::format("[RTX Option]: Ignoring an invalid value for ", fullName, ": ", error, "."));
++        return false;
++      }
++      // NV-DXVK end
+     }
+     
+     markDirty();
++    return true;
++  }
++
++  // NV-DXVK start: readValue that never throws (GMod): std::stoull in the hash lists threw out of a layer's load, a
++  // Remix Logic graph and the Remix API for a malformed entry. A hash list appends as it parses, so it parses into a
++  // copy that is kept only whole.
++  bool RtxOptionImpl::readValueWithoutThrow(const Config& options, const std::string& fullName, GenericValue& value, std::string* error) {
++    GenericValueWrapper parsed(m_type);
++    copyValue(value, parsed.data);
++    if (!mod_layer_policy::parsedWithoutThrow([&]() { readValue(options, fullName, parsed.data); }, error)) {
++      return false;
++    }
++    copyValue(parsed.data, value);
++    return true;
+   }
+ 
++  // What a layer a mod's Remix Logic graph acquired may apply (rtx_mod_layer_policy.h).
++  bool RtxOptionImpl::allowedInModLayer() const {
++    using mod_layer_policy::ValueKind;
++    const std::string fullName = getFullName();
++    mod_layer_policy::OptionFacts facts;
++    facts.name = fullName;
++    switch (m_type) {
++    case OptionType::Bool: facts.kind = ValueKind::Bool; break;
++    case OptionType::Int:
++      facts.kind = ValueKind::Int;
++      facts.hasMin = minValue.has_value();
++      facts.hasMax = maxValue.has_value();
++      facts.minValue = facts.hasMin ? static_cast<double>(minValue->i) : 0.0;
++      facts.maxValue = facts.hasMax ? static_cast<double>(maxValue->i) : 0.0;
++      break;
++    case OptionType::Float: facts.kind = ValueKind::Float; break;
++    case OptionType::Vector2:
++    case OptionType::Vector3:
++    case OptionType::Vector4: facts.kind = ValueKind::FloatVector; break;
++    case OptionType::Vector2i: facts.kind = ValueKind::IntVector; break;
++    case OptionType::String: facts.kind = ValueKind::String; break;
++    case OptionType::HashSet: facts.kind = ValueKind::HashSet; break;
++    case OptionType::HashVector: facts.kind = ValueKind::HashVector; break;
++    case OptionType::VirtualKeys: facts.kind = ValueKind::VirtualKeys; break;
++    default: facts.kind = ValueKind::String; break;
++    }
++    const uint32_t flags = getFlags();
++    facts.userSetting = (flags & RtxOptionFlags::UserSetting) != 0;
++    facts.noSave = (flags & RtxOptionFlags::NoSave) != 0;
++    return mod_layer_policy::optionAllowed(facts);
++  }
++  // NV-DXVK end
++
+   bool RtxOptionImpl::loadFromEnvironmentVariable(const RtxOptionLayer* envLayer, std::string* outValue) {
+     // Skip options without environment variable names
+     if (m_environment == nullptr || strlen(m_environment) == 0) {
+@@ -645,11 +704,27 @@ namespace dxvk {
+     const std::string fullName = getFullName();
+     // Only insert into queue when the option can be found in the config of option layer
+     if (optionLayer.getConfig().findOption(fullName.c_str())) {
++      // NV-DXVK start: a layer a mod's Remix Logic graph acquired applies only rendering options (rtx_mod_layer_policy.h, GMod)
++      if (optionLayer.isModLayer() && !allowedInModLayer()) {
++        optionLayer.setKeyRejected(fullName, true);
++        disableLayerValue(&optionLayer);
++        return;
++      }
++      // NV-DXVK end
+       if (m_isDynamic) {
+         readDynamicLayerValue(optionLayer, fullName, value.data);
+         return;
+       }
+-      readValue(optionLayer.getConfig(), fullName, value.data);
++      // NV-DXVK start: a value that fails to parse is refused, not thrown out of the layer's load (GMod)
++      std::string error;
++      if (!readValueWithoutThrow(optionLayer.getConfig(), fullName, value.data, &error)) {
++        Logger::warn(str::format("[RTX Option]: Ignoring an invalid value for ", fullName, " in layer '",
++                                 optionLayer.getName(), "': ", error, "."));
++        optionLayer.setKeyRejected(fullName, true);
++        disableLayerValue(&optionLayer);
++        return;
++      }
++      // NV-DXVK end
+       // All layer properties (priority, blend strength, threshold) are read from the layer itself
+       insertOptionLayerValue(value.data, &optionLayer);
+       // When adding a new option layer, dirty current option
+diff --git a/src/dxvk/rtx_render/rtx_option.h b/src/dxvk/rtx_render/rtx_option.h
+index f18cca194..41d405bc9 100644
+--- a/src/dxvk/rtx_render/rtx_option.h
++++ b/src/dxvk/rtx_render/rtx_option.h
+@@ -240,7 +240,8 @@ namespace dxvk {
+     // Layer value operations. Caller holds the update mutex, except where noted.
+     void readOptionLayer(const RtxOptionLayer& optionLayer);
+     // Reads the option from options into layer, as the Remix API's SetConfigVariable does. Takes the update mutex.
+-    void readOption(const Config& options, const RtxOptionLayer* layer);
++    // NV-DXVK (GMod): false, with the layer as it was, when the value fails to parse (a malformed hash list threw).
++    bool readOption(const Config& options, const RtxOptionLayer* layer);
+     bool loadFromEnvironmentVariable(const RtxOptionLayer* envLayer, std::string* outValue = nullptr);
+     void disableLayerValue(const RtxOptionLayer* layer);
+     void updateLayerBlendStrength(const RtxOptionLayer& optionLayer);
+@@ -330,6 +331,11 @@ namespace dxvk {
+     void addWeightedValue(const GenericValue& source, const float weight, GenericValue& target);
+ 
+     void readValue(const Config& options, const std::string& fullName, GenericValue& value);
++    // NV-DXVK start: readValue that never throws: a value that fails to parse leaves `value` as it was (GMod)
++    bool readValueWithoutThrow(const Config& options, const std::string& fullName, GenericValue& value, std::string* error);
++    // True when a layer a mod's graph acquired may apply this option (rtx_mod_layer_policy.h).
++    bool allowedInModLayer() const;
++    // NV-DXVK end
+     // Strict variant of readOptionLayer for dynamic options; invalid values are logged and not installed.
+     void readDynamicLayerValue(const RtxOptionLayer& optionLayer, const std::string& fullName, GenericValue& value);
+     void writeOption(Config& options, const RtxOptionLayer* layer, bool changedOptionOnly);
+diff --git a/src/dxvk/rtx_render/rtx_option_layer.cpp b/src/dxvk/rtx_render/rtx_option_layer.cpp
+index d4ded311b..08543914b 100644
+--- a/src/dxvk/rtx_render/rtx_option_layer.cpp
++++ b/src/dxvk/rtx_render/rtx_option_layer.cpp
+@@ -161,7 +161,11 @@ namespace dxvk {
+     }
+     m_rejectedKeys.clear();
+     // Create dynamic options for owned keys first so the snapshot below includes them.
+-    RtxOptionManager::discoverDynamicOptions(*this);
++    // NV-DXVK start: a mod's layer creates none: the dynamic namespaces are the player's per-GPU choices (GMod)
++    if (!m_modLayer) {
++      RtxOptionManager::discoverDynamicOptions(*this);
++    }
++    // NV-DXVK end
+     const auto globalRtxOptions = RtxOptionImpl::getGlobalOptionMap();
+     for (auto& [hash, optionPtr] : *globalRtxOptions) {
+       optionPtr->readOptionLayer(*this);
+diff --git a/src/dxvk/rtx_render/rtx_option_layer.h b/src/dxvk/rtx_render/rtx_option_layer.h
+index b6918cdc5..dac188c98 100644
+--- a/src/dxvk/rtx_render/rtx_option_layer.h
++++ b/src/dxvk/rtx_render/rtx_option_layer.h
+@@ -220,6 +220,11 @@ namespace dxvk {
+     // True when the last save() failed; cleared by a successful save() or reload().
+     bool saveFailed() const { return m_saveFailed; }
+ 
++    // NV-DXVK start: a layer a mod's Remix Logic graph acquired (RtxOptionManager::acquireModLayer, GMod): it applies only
++    // the options rtx_mod_layer_policy.h lets a mod set (the others count as rejected keys) and creates no dynamic options
++    bool isModLayer() const { return m_modLayer; }
++    // NV-DXVK end
++
+     // Get the pending enabled state for UI display (returns current state if no pending request)
+     bool getPendingEnabled() const {
+       if (m_pendingEnabledRequest != EnabledRequest::NoRequest) {
+@@ -396,6 +401,7 @@ namespace dxvk {
+ 
+     bool m_readFailed = false;  // Set by RtxOptionManager::acquireLayer, cleared by a successful reload()
+     bool m_saveFailed = false;
++    bool m_modLayer = false;  // NV-DXVK (GMod): set by RtxOptionManager::acquireLayer before the layer first applies
+ 
+     Config m_config;
+ 
+diff --git a/src/dxvk/rtx_render/rtx_option_manager.cpp b/src/dxvk/rtx_render/rtx_option_manager.cpp
+index 47c872fc3..87ee8426b 100644
+--- a/src/dxvk/rtx_render/rtx_option_manager.cpp
++++ b/src/dxvk/rtx_render/rtx_option_manager.cpp
+@@ -23,6 +23,11 @@
+ #include "rtx_option_manager.h"
+ #include "rtx_fork_game_state.h"
+ #include "../util/log/log.h"
++// NV-DXVK start: a mod's option layer (GMod)
++#include "rtx_mod_layer_policy.h"
++#include "../../util/util_filesys.h"
++#include <filesystem>
++// NV-DXVK end
+ 
+ #include <fstream>
+ #include <algorithm>
+@@ -65,7 +70,7 @@ namespace dxvk {
+   RtxOptionLayer* RtxOptionManager::acquireLayer(
+     const std::string& configPath, const RtxOptionLayerKey& layerKey,
+     float blendStrength, float blendThreshold,
+-    bool isSystemLayer, const Config* config) {
++    bool isSystemLayer, const Config* config, bool modLayer) {
+     
+     std::lock_guard<std::mutex> lock(s_layerMutex);
+     
+@@ -74,6 +79,13 @@ namespace dxvk {
+     // Check if a layer with this priority/name already exists
+     auto it = layerMap.find(layerKey);
+     if (it != layerMap.end()) {
++      // NV-DXVK start: a mod's graph never shares a layer of another kind, nor code a mod's (GMod)
++      if (it->second->isModLayer() != modLayer) {
++        Logger::err(str::format("[RTX Option]: Layer ", layerKey.toString(), " is not a ",
++                                modLayer ? "mod's" : "code", " layer; not acquired."));
++        return nullptr;
++      }
++      // NV-DXVK end
+       // Layer already exists - increment ref count and return
+       it->second->incrementRefCount();
+       return it->second.get();
+@@ -122,6 +134,10 @@ namespace dxvk {
+       layer = std::make_unique<RtxOptionLayer>(Config(), configPath, effectiveLayerKey, blendStrength, blendThreshold);
+     }
+     
++    // NV-DXVK start: a mod's layer applies only what a mod may set (GMod)
++    layer->m_modLayer = modLayer;
++    // NV-DXVK end
++
+     // Insert into the registry. Its file is read; what follows changes the registry and every option's layer
+     // values, which other threads read and write holding only the update mutex.
+     RtxOptionLayer* result = layer.get();
+@@ -136,9 +152,47 @@ namespace dxvk {
+       result->applyToAllOptions();
+     }
+     
++    // NV-DXVK start: say once which settings of a mod's file were refused or failed to parse (GMod)
++    if (modLayer) {
++      const auto refused = result->getRejectedEntries("");
++      if (!refused.empty()) {
++        std::string names;
++        constexpr size_t kNamed = 16;
++        for (size_t i = 0; i < refused.size() && i < kNamed; ++i) {
++          names += (i == 0 ? "" : ", ") + refused[i].first;
++        }
++        if (refused.size() > kNamed) {
++          names += str::format(" and ", refused.size() - kNamed, " more");
++        }
++        Logger::warn(str::format("[RTX Option]: The mod's layer '", layerName, "' applies only rendering options; ",
++                                 "refused or invalid: ", names, "."));
++      }
++    }
++    // NV-DXVK end
++
+     return result;
+   }
+ 
++  // NV-DXVK start: the layer a mod's Remix Logic graph acquires (GMod: Remix mods come from any subscribed Workshop item)
++  RtxOptionLayer* RtxOptionManager::acquireModLayer(
++    const std::string& configPath, const RtxOptionLayerKey& layerKey,
++    float blendStrength, float blendThreshold) {
++    std::string modsRoot;
++    const std::filesystem::path mods = util::RtxFileSys::path(util::RtxFileSys::Mods);
++    std::error_code error;
++    const std::filesystem::path root = mods.empty() ? std::filesystem::path() : std::filesystem::absolute(mods, error);
++    if (!error && !root.empty()) {
++      modsRoot = root.lexically_normal().u8string();
++    }
++    std::string reason;
++    if (!mod_layer_policy::configPathAllowed(configPath, modsRoot, &reason)) {
++      Logger::err(str::format("[RTX Option]: A mod's option layer was not loaded from '", configPath, "': ", reason, "."));
++      return nullptr;
++    }
++    return acquireLayer(configPath, layerKey, blendStrength, blendThreshold, false, nullptr, true);
++  }
++  // NV-DXVK end
++
+   bool RtxOptionManager::unregisterLayer(const RtxOptionLayer* layer) {
+     if (layer == nullptr) {
+       return false;
+diff --git a/src/dxvk/rtx_render/rtx_option_manager.h b/src/dxvk/rtx_render/rtx_option_manager.h
+index d0b4aec5f..79300297e 100644
+--- a/src/dxvk/rtx_render/rtx_option_manager.h
++++ b/src/dxvk/rtx_render/rtx_option_manager.h
+@@ -88,10 +88,20 @@ namespace dxvk {
+     //   - blendStrength/blendThreshold: Blending parameters (default 1.0/0.1)
+     //   - isSystemLayer: If true, validates priority is in system range; if false, clamps to dynamic range
+     //   - config: Optional pre-loaded config (if null and configPath is set, loads from file)
++    //   - modLayer: NV-DXVK (GMod): the layer applies only what a mod may set; see acquireModLayer
+     static RtxOptionLayer* acquireLayer(
+       const std::string& configPath, const RtxOptionLayerKey& layerKey,
+       float blendStrength = 1.0f, float blendThreshold = 0.1f,
+-      bool isSystemLayer = false, const Config* config = nullptr);
++      bool isSystemLayer = false, const Config* config = nullptr, bool modLayer = false);
++
++    // NV-DXVK start: the layer a mod's Remix Logic graph acquires (GMod: Remix mods come from any subscribed Workshop item)
++    // A dynamic layer, as acquireLayer makes one, but only from a config file in a mod's folder below rtx-remix/mods
++    // (rtx_mod_layer_policy.h), and it applies only the rendering options a mod may set and creates no dynamic options.
++    // nullptr when the path is refused, or when the key is a layer of another kind. Release it with releaseLayer.
++    static RtxOptionLayer* acquireModLayer(
++      const std::string& configPath, const RtxOptionLayerKey& layerKey,
++      float blendStrength, float blendThreshold);
++    // NV-DXVK end
+     
+     // Release a previously acquired layer. Decrements the reference count.
+     // When the count reaches zero, the layer is removed from the system.
+diff --git a/src/dxvk/rtx_render/rtx_remix_api.cpp b/src/dxvk/rtx_render/rtx_remix_api.cpp
+index 145b1e2db..a812ea221 100644
+--- a/src/dxvk/rtx_render/rtx_remix_api.cpp
++++ b/src/dxvk/rtx_render/rtx_remix_api.cpp
+@@ -1903,7 +1903,11 @@ namespace {
+     newSetting.setOptionMove(std::move(strKey), std::string{ value });
+     // NoSave options such as showUI are transient. A User-layer API write would otherwise
+     // override the Derived-layer Close/timeout action and leave the menu stuck open.
+-    option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer()));
++    // NV-DXVK start: a value that fails to parse is refused, not thrown through the API (GMod: any server's Lua calls it)
++    if (!option->readOption(newSetting, option->getTargetLayer(dxvk::RtxOptionLayer::getUserLayer()))) {
++      return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;
++    }
++    // NV-DXVK end
+ 
+     return REMIXAPI_ERROR_CODE_SUCCESS;
+   }
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index d683c046e..8b5124fea 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -364,6 +364,19 @@ exe = executable('test_secret_handoff', files('test_secret_handoff.cpp'),
+ test('test_secret_handoff', exe)
+ tests += exe
+ 
++# NV-DXVK start: a mod's option layer (GMod): the policy alone, then through the option manager
++exe = executable('test_mod_layer_policy', files('test_mod_layer_policy.cpp'),
++  win_subsystem: 'console', override_options: ['cpp_std='+dxvk_cpp_std])
++test('test_mod_layer_policy', exe)
++tests += exe
++
++exe = executable('test_mod_option_layer', files('test_mod_option_layer.cpp'),
++  include_directories: test_include_path, dependencies: [d3d9_dep, test_unit_deps],
++  link_with: [dxvk_lib], win_subsystem: 'console', override_options: ['cpp_std='+dxvk_cpp_std])
++test('test_mod_option_layer', exe, env: test_env)
++tests += exe
++# NV-DXVK end
++
+ # NV-DXVK start: Raytraced camera material packing coverage.
+ exe = executable('test_attenuation', files('test_attenuation.cpp'),
+   include_directories : test_include_path, dependencies : test_unit_deps, win_subsystem : 'console', override_options : ['cpp_std='+dxvk_cpp_std])
+diff --git a/tests/rtx/unit/test_mod_layer_policy.cpp b/tests/rtx/unit/test_mod_layer_policy.cpp
+new file mode 100644
+index 000000000..3e4670caf
+--- /dev/null
++++ b/tests/rtx/unit/test_mod_layer_policy.cpp
+@@ -0,0 +1,257 @@
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// What a Remix Logic graph in a mod may do with option layers (runtime patch 0101 of the GMod native loader project):
++// a config file only in its own folder below rtx-remix/mods, only rendering options, and a value that fails to parse
++// refused instead of thrown. Standalone: cl /EHsc /std:c++17 /W4 /WX test_mod_layer_policy.cpp
++
++#include "../../../src/dxvk/rtx_render/rtx_mod_layer_policy.h"
++
++#include <cstdint>
++#include <cstdio>
++#include <string>
++#include <vector>
++
++using namespace dxvk::mod_layer_policy;
++
++namespace {
++  int g_checks = 0;
++  int g_failures = 0;
++
++  void check(bool condition, const char* what, int line) {
++    ++g_checks;
++    if (!condition) {
++      ++g_failures;
++      std::printf("FAIL line %d: %s\n", line, what);
++    }
++  }
++#define CHECK(condition) check((condition), #condition, __LINE__)
++
++  const char* const kModFolder = "H:/Games/GarrysMod/rtx-remix/mods/mymod";
++  const char* const kModsRoot = "H:\\Games\\GarrysMod\\rtx-remix\\mods";
++
++  OptionFacts facts(const char* name, ValueKind kind) {
++    OptionFacts option;
++    option.name = name;
++    option.kind = kind;
++    return option;
++  }
++
++  OptionFacts ranged(const char* name, double minValue, double maxValue) {
++    OptionFacts option = facts(name, ValueKind::Int);
++    option.hasMin = true;
++    option.hasMax = true;
++    option.minValue = minValue;
++    option.maxValue = maxValue;
++    return option;
++  }
++
++  void testAuthoredPaths() {
++    for (const char* allowed : { "opts.conf", "./opts.conf", "sub/opts.conf", "sub\\opts.conf", "../shared/opts.conf",
++                                 "layers/indoor lighting.conf" }) {
++      CHECK(authoredPathAllowed(allowed));
++    }
++    std::string reason;
++    CHECK(!authoredPathAllowed("\\\\host\\share\\x.conf", &reason));
++    CHECK(!reason.empty());
++    for (const char* refused : { "", "/x.conf", "\\x.conf", "C:/x.conf", "c:\\x.conf", "C:x.conf", "//host/share/x.conf",
++                                 "\\\\?\\C:\\x.conf", "\\\\.\\pipe\\x", "omniverse://host/x.conf", "file:x.conf",
++                                 "opts.conf:stream", "op\tts.conf", "a|b.conf", "a*.conf", "a\"b.conf" }) {
++      CHECK(!authoredPathAllowed(refused));
++    }
++    CHECK(!authoredPathAllowed(std::string(5000, 'a')));
++  }
++
++  void testInsideTheModsFolder() {
++    CHECK(insideFolder("H:/Games/GarrysMod/rtx-remix/mods/mymod/opts.conf", kModFolder));
++    CHECK(insideFolder("h:\\games\\garrysmod\\RTX-REMIX\\mods\\MyMod\\sub\\opts.conf", kModFolder));
++    CHECK(insideFolder("H:/Games/GarrysMod/rtx-remix/mods/mymod/sub/../opts.conf", kModFolder));
++    for (const char* refused : {
++           "H:/Games/GarrysMod/rtx-remix/mods/mymod",                    // the folder itself
++           "H:/Games/GarrysMod/rtx-remix/mods/other/opts.conf",          // another mod
++           "H:/Games/GarrysMod/rtx-remix/mods/mymod/../other/opts.conf",
++           "H:/Games/GarrysMod/rtx-remix/mods/mymod/../../../user.conf",
++           "H:/Games/GarrysMod/rtx-remix/mods/mymod2/opts.conf",         // a longer name, not a folder below
++           "H:/Games/GarrysMod/rtx-remix/mods/mymod./opts.conf",         // Windows reads "mymod."
++           "H:/Games/GarrysMod/rtx-remix/mods/mymod/opts.conf:evil",     // a stream
++           "H:/Games/GarrysMod/user.conf", "C:/Windows/win.ini", "D:/Games/GarrysMod/rtx-remix/mods/mymod/opts.conf",
++           "//host/share/x.conf", "\\\\host\\share\\x.conf", "opts.conf" }) {
++      CHECK(!insideFolder(refused, kModFolder));
++    }
++    std::string reason;
++    CHECK(!insideFolder("H:/Games/GarrysMod/rtx-remix/mods/mymod/opts.conf", "", &reason));
++    CHECK(reason == "the mod's folder is unknown");
++    CHECK(parentFolder("H:/a/b/mod.usda") == "H:/a/b");
++    CHECK(parentFolder("H:\\a\\mod.usda") == "H:\\a");
++    CHECK(parentFolder("mod.usda").empty());
++    CHECK(joinedNormal("H:/Games/m", "./sub/../x.conf") == "h:/games/m/x.conf");
++    CHECK(joinedNormal("//nas/s/m", "x") == "//nas/s/m/x");
++    CHECK(joinedNormal("relative", "x").empty());
++    CHECK(joinedNormal("H:/m", "C:/x").empty());
++    CHECK(insideFolder(joinedNormal(kModFolder, "sub/opts.conf"), kModFolder));
++  }
++
++  void testConfigPaths() {
++    CHECK(configPathAllowed("H:/Games/GarrysMod/rtx-remix/mods/mymod/opts.conf", kModsRoot));
++    CHECK(configPathAllowed("h:/games/garrysmod/rtx-remix/mods/mymod/sub/x.txt", kModsRoot));
++    CHECK(configPathAllowed("H:\\Games\\GarrysMod\\rtx-remix\\mods\\mymod\\opts.conf", "H:/Games/GarrysMod/rtx-remix/mods/"));
++    CHECK(configPathAllowed("H:/Games/GarrysMod/rtx-remix/mods/mymod/opts.conf", "H:/Games/GarrysMod/./rtx-remix/mods"));
++    // The game on a share: its own share only.
++    CHECK(configPathAllowed("//NAS/Steam/GarrysMod/rtx-remix/mods/m/x.conf", "\\\\nas\\steam\\GarrysMod\\rtx-remix\\mods"));
++    CHECK(!configPathAllowed("//other/Steam/GarrysMod/rtx-remix/mods/m/x.conf", "\\\\nas\\steam\\GarrysMod\\rtx-remix\\mods"));
++    std::string reason;
++    CHECK(!configPathAllowed("\\\\host\\share\\x.conf", kModsRoot, &reason));
++    CHECK(reason == "the path is not a file in a mod's folder below rtx-remix/mods");
++    for (const char* refused : {
++           "", "opts.conf", "rtx-remix/mods/m/x.conf", "//host/share/rtx-remix/mods/m/x.conf",
++           "\\\\?\\H:\\Games\\GarrysMod\\rtx-remix\\mods\\m\\x.conf", "\\\\.\\pipe\\x",
++           "H:/Games/GarrysMod/rtx-remix/mods",                     // the folder itself
++           "H:/Games/GarrysMod/rtx-remix/mods/opts.conf",           // not in a mod's folder
++           "H:/Games/GarrysMod/rtx-remix/mods/m/../../../user.conf", // ".." refused outright
++           "H:/Games/GarrysMod/rtx-remix/mods/./m/x.conf",
++           "H:/Games/GarrysMod/rtx-remix/mods-evil/m/x.conf",
++           "H:/Games/GarrysMod/rtx-remix/mods/m/x.conf:ads",
++           "H:/Games/GarrysMod/rtx-remix/mods/m./x.conf", "H:/Games/GarrysMod/rtx-remix/mods/m /x.conf",
++           "C:/Windows/System32/x.conf", "D:/Games/GarrysMod/rtx-remix/mods/m/x.conf", "C:x.conf" }) {
++      CHECK(!configPathAllowed(refused, kModsRoot));
++    }
++    CHECK(!configPathAllowed("H:/Games/GarrysMod/rtx-remix/mods/m/x.conf", ""));
++    CHECK(!configPathAllowed("H:/Games/GarrysMod/rtx-remix/mods/m/x.conf", "rtx-remix/mods"));
++  }
++
++  void testOptionsAModMaySet() {
++    // The options the review named (finding 1), each refused whatever kind it is given: the 14 path options the GMod
++    // fixes keep from Lua (ADR 0112), the water rings' texture, the splash, captures, keys, the interface language,
++    // the replacement switches and the sky probe.
++    const char* const named[] = {
++      "rtx.atmosphere.moonAlbedoTexture", "rtx.atmosphere.moonNormalTexture", "rtx.atmosphere.starMapTexture",
++      "rtx.atmosphere.starMapGalaxyTexture", "rtx.atmosphere.starMapNebulaTexture", "rtx.baseGameModPathRegex",
++      "rtx.baseGameModRegex", "rtx.cameraSequence.filePath", "rtx.captureInstanceStageName",
++      "rtx.captureTimestampReplacement", "rtx.neuralRadianceCache.cudaDllDepsDirectoryPath",
++      "rtx.nsight.graphicsCaptureInstallPath", "rtx.nsight.graphicsCaptureOutputDir",
++      "rtx.nsight.graphicsCaptureOutputFile", "rtx.waterSim.rings.texture", "rtx.welcomeMessage",
++      "rtx.splashMessageDisplayTimeSeconds", "rtx.hideSplashMessage", "rtx.captureInstances", "rtx.captureMaxFrames",
++      "rtx.capture.correctBakedTransforms", "rtx.captureHotKey", "rtx.remixMenuKeyBinds", "rtx.crashHotkey",
++      "rtx.gpuCrashHotkey", "rtx.enableCrashHotkey", "rtx.freeCam.keyMoveForward", "rtx.gui.language",
++      "rtx.enableReplacementAssets", "rtx.enableReplacementLights", "rtx.enableReplacementMaterials",
++      "rtx.enableReplacementMeshes", "rtx.enableReplacementInstancerMeshRendering", "rtx.skyProbeSide",
++      "rtx.ignoreTextures", "rtx.showUI", "rtx.graph.enable", "rtx.enableRaytracing", "rtx.geometryAssetHashRuleString",
++      "rtx.gmod.fallbackMods", "rtx.neuralRadianceCache.enableCustomNetworkConfig", "rtx.automation.disableBlockingDialogBoxes",
++    };
++    for (const char* name : named) {
++      for (const ValueKind kind : { ValueKind::Bool, ValueKind::Float, ValueKind::String }) {
++        CHECK(!optionAllowed(facts(name, kind)));
++      }
++      CHECK(!optionAllowed(ranged(name, 0, 60)));
++    }
++    // What a mod's layer is for: the sky, the weather, fog, exposure, tone mapping, bloom, post effects.
++    for (const char* name : { "rtx.atmosphere.sunSize", "rtx.atmosphere.sunDiskEnable", "rtx.volumetrics.enable",
++                              "rtx.tonemap.exposureBias", "rtx.autoExposure.enabled", "rtx.postfx.vignetteIntensity",
++                              "rtx.weather.precipitation.intensity", "rtx.skyBrightness", "rtx.emissiveIntensity",
++                              "rtx.fogColorScale", "rtx.maxFogDistance", "rtx.enableFog", "rtx.fogIgnoreSky",
++                              "rtx.vertexColorStrength", "rtx.lightConversionIntensityFactor", "RTX.ATMOSPHERE.SUNSIZE" }) {
++      CHECK(optionAllowed(facts(name, ValueKind::Float)));
++      CHECK(optionAllowed(facts(name, ValueKind::Bool)));
++      CHECK(optionAllowed(facts(name, ValueKind::FloatVector)));
++    }
++    // Look-alike names are not listed ones.
++    CHECK(!optionAllowed(facts("rtx.atmospherex.sunSize", ValueKind::Float)));
++    CHECK(!optionAllowed(facts("rtx.skyBrightnessScale", ValueKind::Float)));
++    CHECK(!optionAllowed(facts("atmosphere.sunSize", ValueKind::Float)));
++    CHECK(!optionAllowed(facts("", ValueKind::Float)));
++    // In the listed namespaces: no text, list, key or integer vector; no debugging option; nothing named as a file.
++    for (const ValueKind kind : { ValueKind::String, ValueKind::HashSet, ValueKind::HashVector, ValueKind::VirtualKeys,
++                                  ValueKind::IntVector }) {
++      CHECK(!optionAllowed(facts("rtx.atmosphere.sunSize", kind)));
++    }
++    CHECK(!optionAllowed(facts("rtx.atmosphere.debugDispatchSkyLuts", ValueKind::Bool)));
++    CHECK(!optionAllowed(ranged("rtx.atmosphere.aerialPerspectiveSceneShadowDebug", 0, 2)));
++    CHECK(!optionAllowed(facts("rtx.atmosphere.cloudNoiseTexture", ValueKind::Float)));
++    CHECK(!optionAllowed(facts("rtx.postfx.lutFile", ValueKind::Float)));
++    // An integer only with a declared range of at most 1024 values: counts and sizes without one exhaust memory or
++    // hang the GPU, modes without one index past their tables.
++    CHECK(optionAllowed(ranged("rtx.atmosphere.dayOfYear", 1, 365)));
++    CHECK(optionAllowed(ranged("rtx.atmosphere.aerialPerspectiveLutResolution", 8, 256)));
++    CHECK(optionAllowed(ranged("rtx.bloom.steps", 1, 8)));
++    CHECK(optionAllowed(ranged("rtx.bloom.steps", 0, 1024)));
++    CHECK(!optionAllowed(ranged("rtx.bloom.steps", 0, 1025)));
++    CHECK(!optionAllowed(ranged("rtx.volumetrics.restirFroxelDepthSlices", 1, 65535)));
++    CHECK(!optionAllowed(ranged("rtx.bloom.steps", 8, 1)));  // a max below the min (an unsigned max read as -1)
++    CHECK(!optionAllowed(facts("rtx.atmosphere.cloudViewSamples", ValueKind::Int)));
++    CHECK(!optionAllowed(facts("rtx.weather.precipitation.maxParticles", ValueKind::Int)));
++    CHECK(!optionAllowed(facts("rtx.tonemap.tonemapOperator", ValueKind::Int)));
++    OptionFacts onlyMin = facts("rtx.postfx.motionBlurSampleCount", ValueKind::Int);
++    onlyMin.hasMin = true;
++    onlyMin.minValue = 1;
++    CHECK(!optionAllowed(onlyMin));
++    // Never the player's own settings or runtime state.
++    OptionFacts user = ranged("rtx.volumetrics.froxelDepthSlices", 1, 64);
++    user.userSetting = true;
++    CHECK(!optionAllowed(user));
++    OptionFacts userFloat = facts("rtx.postfx.motionBlurIntensity", ValueKind::Float);
++    userFloat.userSetting = true;
++    CHECK(!optionAllowed(userFloat));
++    OptionFacts runtime = facts("rtx.atmosphere.sunSize", ValueKind::Bool);
++    runtime.noSave = true;
++    CHECK(!optionAllowed(runtime));
++    std::string reason;
++    CHECK(!optionAllowed(facts("rtx.welcomeMessage", ValueKind::String), &reason));
++    CHECK(reason == "not a rendering option a mod may set");
++  }
++
++  // The file the review's reproduction loads through RtxOptionLayerAction: only the rendering option applies.
++  void testTheReviewsLayerFile() {
++    struct Entry { OptionFacts option; bool applies; };
++    const std::vector<Entry> file = {
++      { facts("rtx.ignoreTextures", ValueKind::HashSet), false },                              // = zz
++      { facts("rtx.neuralRadianceCache.cudaDllDepsDirectoryPath", ValueKind::String), false }, // = \\host\share
++      { facts("rtx.atmosphere.moonAlbedoTexture", ValueKind::String), false },                 // = \\host\share\m.dds
++      { facts("rtx.welcomeMessage", ValueKind::String), false },                               // = %s%s%s%s
++      { ranged("rtx.splashMessageDisplayTimeSeconds", 0, 60), false },                         // = 2147483647
++      { facts("rtx.captureHotKey", ValueKind::VirtualKeys), false },
++      { facts("rtx.atmosphere.sunSize", ValueKind::Float), true },                             // = 1.2
++    };
++    for (const Entry& entry : file) {
++      CHECK(optionAllowed(entry.option) == entry.applies);
++    }
++  }
++
++  void testValuesThatFailToParse() {
++    std::string error;
++    CHECK(!parsedWithoutThrow([]() { (void)std::stoull("zz", nullptr, 16); }, &error));
++    CHECK(!error.empty());
++    CHECK(parsedWithoutThrow([]() { (void)std::stoull("0x1F", nullptr, 16); }));
++    CHECK(!parsedWithoutThrow([]() { (void)std::stoull("99999999999999999999999", nullptr, 16); }, &error));
++    volatile int code = 42;  // read at run time, so the throw below is not seen to be certain
++    CHECK(!parsedWithoutThrow([&code]() { if (code != 0) { throw static_cast<int>(code); } }, &error));
++    CHECK(error == "an unknown error");
++    // As the runtime reads a hash list: into a copy, kept only whole, so a bad entry leaves the value as it was.
++    std::vector<uint64_t> value = { 1 };
++    std::vector<uint64_t> parsed = value;
++    const bool whole = parsedWithoutThrow([&parsed]() {
++      for (const char* text : { "0x2", "zz", "0x3" }) {
++        parsed.push_back(std::stoull(text, nullptr, 16));
++      }
++    });
++    if (whole) {
++      value = parsed;
++    }
++    CHECK(!whole);
++    CHECK(value.size() == 1 && value[0] == 1);
++  }
++}
++
++int main() {
++  testAuthoredPaths();
++  testInsideTheModsFolder();
++  testConfigPaths();
++  testOptionsAModMaySet();
++  testTheReviewsLayerFile();
++  testValuesThatFailToParse();
++  if (g_failures != 0) {
++    std::printf("FAILED mod layer policy: %d of %d checks\n", g_failures, g_checks);
++    return 1;
++  }
++  std::printf("PASS mod layer policy: %d checks\n", g_checks);
++  return 0;
++}
+diff --git a/tests/rtx/unit/test_mod_option_layer.cpp b/tests/rtx/unit/test_mod_option_layer.cpp
+new file mode 100644
+index 000000000..13126cebd
+--- /dev/null
++++ b/tests/rtx/unit/test_mod_option_layer.cpp
+@@ -0,0 +1,197 @@
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// A Remix Logic graph's option layer from a mod, through the real option manager (runtime patch 0101 of the GMod
++// native loader project): RtxOptionManager::acquireModLayer loads a config file only from a mod's folder below
++// rtx-remix/mods, the layer applies only rendering options, and a value that fails to parse is refused (here and
++// through readOption, the Remix API's path) instead of thrown. rtx_mod_layer_policy.h's own rules are in
++// test_mod_layer_policy.cpp.
++
++#include "../../../src/dxvk/rtx_render/rtx_option.h"
++#include "../../../src/dxvk/rtx_render/rtx_option_layer.h"
++#include "../../../src/dxvk/rtx_render/rtx_option_manager.h"
++#include "../../../src/util/config/config.h"
++#include "../../../src/util/util_filesys.h"
++
++#include <cstdio>
++#include <filesystem>
++#include <fstream>
++#include <string>
++#include <vector>
++
++namespace dxvk {
++  // Logger needed by some shared code used in this Unit Test. Without a level: a log file opened during static
++  // initialization asks RtxFileSys for its folder before RtxFileSys's own statics exist, and the mods folder the test
++  // needs would read empty (the runtime opens its log only after RtxFileSys::init).
++  Logger Logger::s_instance("test_mod_option_layer.log", LogLevel::None);
++
++namespace mod_option_layer_test {
++
++  int g_checks = 0;
++  int g_failures = 0;
++
++  void check(bool condition, const char* what, int line) {
++    ++g_checks;
++    if (!condition) {
++      ++g_failures;
++      std::printf("FAIL line %d: %s\n", line, what);
++    }
++  }
++#define CHECK(condition) check((condition), #condition, __LINE__)
++
++  class ModLayerTestOptions {
++  public:
++    // Allowed: a rendering float and a ranged integer in the sky's namespace.
++    RTX_OPTION("rtx.atmosphere", float, modLayerTestFloat, 1.0f, "A rendering value a mod's layer may set.");
++    RTX_OPTION_ARGS("rtx.atmosphere", int32_t, modLayerTestDay, 80, "A ranged integer a mod's layer may set.",
++      args.minValue = 1;
++      args.maxValue = 365);
++    // Refused: text named as a file, an integer without a range, the player's setting, a hash list and an option
++    // outside the rendering namespaces.
++    RTX_OPTION("rtx.atmosphere", std::string, modLayerTestTexture, "", "A path a mod's layer may not set.");
++    RTX_OPTION("rtx.atmosphere", int32_t, modLayerTestSamples, 32, "A count without a range.");
++    RTX_OPTION_ARGS("rtx.atmosphere", float, modLayerTestUserFloat, 1.0f, "The player's setting.",
++      args.flags = RtxOptionFlags::UserSetting);
++    RTX_OPTION("rtx", fast_unordered_set, modLayerTestHashes, {}, "A hash list.");
++    RTX_OPTION("rtx", float, modLayerTestScale, 1.0f, "Outside the rendering namespaces.");
++  };
++
++  void write(const std::filesystem::path& path, const std::string& text) {
++    std::ofstream stream(path, std::ios::binary | std::ios::trunc);
++    stream.write(text.data(), static_cast<std::streamsize>(text.size()));
++  }
++
++  void checkDefaults() {
++    CHECK(ModLayerTestOptions::modLayerTestFloat() == 1.0f);
++    CHECK(ModLayerTestOptions::modLayerTestDay() == 80);
++    CHECK(ModLayerTestOptions::modLayerTestTexture().empty());
++    CHECK(ModLayerTestOptions::modLayerTestSamples() == 32);
++    CHECK(ModLayerTestOptions::modLayerTestUserFloat() == 1.0f);
++    CHECK(!ModLayerTestOptions::modLayerTestHashes.containsHash(0x10));
++    CHECK(ModLayerTestOptions::modLayerTestScale() == 1.0f);
++  }
++
++  void run() {
++    RtxOptionLayer::initializeSystemLayers();
++    RtxOptionImpl::setInitialized(true);
++    RtxOptionManager::markOptionsWithCallbacksDirty();
++    RtxOptionManager::applyPendingValues(nullptr, true);
++    checkDefaults();
++
++    const std::filesystem::path mods = std::filesystem::absolute(util::RtxFileSys::path(util::RtxFileSys::Mods)).lexically_normal();
++    const std::filesystem::path folder = mods / "mod_option_layer_test";
++    std::filesystem::create_directories(folder);
++    const std::filesystem::path file = folder / "opts.conf";
++    write(file,
++          "rtx.atmosphere.modLayerTestFloat = 2.5\n"
++          "rtx.atmosphere.modLayerTestDay = 200\n"
++          "rtx.atmosphere.modLayerTestTexture = \\\\host.invalid\\share\\m.dds\n"
++          "rtx.atmosphere.modLayerTestSamples = 100000\n"
++          "rtx.atmosphere.modLayerTestUserFloat = 3.0\n"
++          "rtx.modLayerTestHashes = 0x10, zz\n"
++          "rtx.modLayerTestScale = 4.0\n");
++    write(mods / "opts.conf", "rtx.atmosphere.modLayerTestFloat = 7.0\n");
++
++    // Refused before any file is read: a share, a file elsewhere, a relative path, a file beside the mods rather
++    // than in a mod's folder, a way out with "..".
++    const std::vector<std::string> refused = {
++      "\\\\host.invalid\\share\\opts.conf", "C:\\Windows\\win.ini", "opts.conf", (mods / "opts.conf").u8string(),
++      (folder / ".." / ".." / "opts.conf").u8string(), (folder / "opts.conf:stream").u8string(),
++    };
++    for (const std::string& path : refused) {
++      const RtxOptionLayerKey key { 10000, path };
++      CHECK(RtxOptionManager::acquireModLayer(path, key, 1.0f, 0.1f) == nullptr);
++      CHECK(RtxOptionManager::getLayer(key) == nullptr);
++    }
++    RtxOptionManager::applyPendingValues(nullptr, false);
++    checkDefaults();
++
++    // A file in the mod's folder: only the rendering values apply; the rest count as rejected keys.
++    const std::string config = file.u8string();
++    const RtxOptionLayerKey key { 10000, config };
++    RtxOptionLayer* layer = RtxOptionManager::acquireModLayer(config, key, 1.0f, 0.1f);
++    CHECK(layer != nullptr);
++    if (layer == nullptr) {
++      return;
++    }
++    CHECK(layer->isModLayer());
++    RtxOptionManager::applyPendingValues(nullptr, false);
++    CHECK(ModLayerTestOptions::modLayerTestFloat() == 2.5f);
++    CHECK(ModLayerTestOptions::modLayerTestDay() == 200);
++    CHECK(ModLayerTestOptions::modLayerTestTexture().empty());
++    CHECK(ModLayerTestOptions::modLayerTestSamples() == 32);
++    CHECK(ModLayerTestOptions::modLayerTestUserFloat() == 1.0f);
++    CHECK(!ModLayerTestOptions::modLayerTestHashes.containsHash(0x10));
++    CHECK(ModLayerTestOptions::modLayerTestScale() == 1.0f);
++    for (const char* name : { "rtx.atmosphere.modLayerTestTexture", "rtx.atmosphere.modLayerTestSamples",
++                              "rtx.atmosphere.modLayerTestUserFloat", "rtx.modLayerTestHashes", "rtx.modLayerTestScale" }) {
++      CHECK(layer->isKeyRejected(name));
++    }
++    CHECK(!layer->isKeyRejected("rtx.atmosphere.modLayerTestFloat"));
++    // A second component on the same file shares the layer; code never takes a mod's layer.
++    CHECK(RtxOptionManager::acquireModLayer(config, key, 1.0f, 0.1f) == layer);
++    RtxOptionManager::releaseLayer(layer);
++    CHECK(RtxOptionManager::acquireLayer(config, key, 1.0f, 0.1f, false, nullptr) == nullptr);
++    // Reloading the file applies the same rules.
++    CHECK(layer->reload());
++    RtxOptionManager::applyPendingValues(nullptr, false);
++    CHECK(ModLayerTestOptions::modLayerTestFloat() == 2.5f);
++    CHECK(ModLayerTestOptions::modLayerTestScale() == 1.0f);
++    RtxOptionManager::releaseLayer(layer);
++    RtxOptionManager::applyPendingValues(nullptr, false);
++    CHECK(RtxOptionManager::getLayer(key) == nullptr);
++    checkDefaults();
++
++    // Any layer: a hash list that fails to parse is rejected whole, nothing thrown.
++    Config bad;
++    bad.setOption(std::string("rtx.modLayerTestHashes"), std::string("0x10, zz"));
++    bad.setOption(std::string("rtx.modLayerTestScale"), std::string("4.0"));
++    const RtxOptionLayerKey codeKey { 20000, "ModOptionLayerTestCode" };
++    const RtxOptionLayer* codeLayer = RtxOptionManager::acquireLayer("", codeKey, 1.0f, 0.1f, false, &bad);
++    CHECK(codeLayer != nullptr && !codeLayer->isModLayer());
++    if (codeLayer != nullptr) {
++      CHECK(codeLayer->isKeyRejected("rtx.modLayerTestHashes"));
++      RtxOptionManager::applyPendingValues(nullptr, false);
++      CHECK(!ModLayerTestOptions::modLayerTestHashes.containsHash(0x10));
++      CHECK(ModLayerTestOptions::modLayerTestScale() == 4.0f);
++      RtxOptionManager::releaseLayer(codeLayer);
++      RtxOptionManager::applyPendingValues(nullptr, false);
++    }
++
++    // The Remix API's path (SetConfigVariable reads with readOption): false and the layer as it was.
++    Config apiBad;
++    apiBad.setOption(std::string("rtx.modLayerTestHashes"), std::string("zz"));
++    CHECK(!ModLayerTestOptions::modLayerTestHashesObject().readOption(apiBad, RtxOptionLayer::getUserLayer()));
++    Config apiGood;
++    apiGood.setOption(std::string("rtx.modLayerTestHashes"), std::string("0x10"));
++    CHECK(ModLayerTestOptions::modLayerTestHashesObject().readOption(apiGood, RtxOptionLayer::getUserLayer()));
++    CHECK(!ModLayerTestOptions::modLayerTestHashesObject().readOption(apiBad, RtxOptionLayer::getUserLayer()));
++    RtxOptionManager::applyPendingValues(nullptr, false);
++    CHECK(ModLayerTestOptions::modLayerTestHashes.containsHash(0x10));
++
++    std::error_code error;
++    std::filesystem::remove_all(folder, error);
++    std::filesystem::remove(mods / "opts.conf", error);
++  }
++
++}  // namespace mod_option_layer_test
++}  // namespace dxvk
++
++int main() {
++  using namespace dxvk::mod_option_layer_test;
++  try {
++    run();
++  } catch (const dxvk::DxvkError& error) {
++    std::printf("FAILED mod option layer: %s\n", error.message().c_str());
++    return 1;
++  } catch (const std::exception& e) {
++    std::printf("FAILED mod option layer with an exception: %s\n", e.what());
++    return 1;
++  }
++  if (g_failures != 0) {
++    std::printf("FAILED mod option layer: %d of %d checks\n", g_failures, g_checks);
++    return 1;
++  }
++  std::printf("PASS mod option layer: %d checks\n", g_checks);
++  return 0;
++}
+-- 
+2.56.0.windows.1
+

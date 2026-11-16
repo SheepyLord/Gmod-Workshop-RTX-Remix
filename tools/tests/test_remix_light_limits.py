@@ -62,6 +62,23 @@ class RemixLightLimitTests(unittest.TestCase):
     def test_clients_hand_the_remix_api_finite_values(self):
         self.run_lua('client')
 
+    def test_a_distant_light_mutes_the_sun_for_the_session_only(self):
+        # A distant RT light had written 0 into the player's archived map-light Brightness and put it back later; a
+        # crash in between left the map's sun dark for good. Now a session-only mute through Light2RTX.SetEnvMuted.
+        self.run_lua('distant_sun')
+
+    def test_the_map_lights_read_the_sun_brightness_through_the_mute(self):
+        text = (LUA / 'remixlua/cl/remixapi/wrappers/cl_remix_api_map_lights.lua').read_text(encoding='utf-8')
+        self.assertEqual(text.count('env_brightness_mult:GetFloat()'), 1, 'only envBrightnessMult reads the setting')
+        self.assertIn('if next(envMuters) ~= nil then return 0 end', text)
+        self.assertGreaterEqual(text.count('envBrightnessMult()'), 3)
+        mute = text.split('function Light2RTX.SetEnvMuted(key, muted)', 1)[1].split('\nend', 1)[0]
+        self.assertIn('if (next(envMuters) ~= nil) ~= was then updateAllOfKind("env") end', mute)
+        self.assertNotIn('RunConsoleCommand', mute)
+        rt = (LUA / 'entities/remix_rt_light/cl_init.lua').read_text(encoding='utf-8')
+        self.assertNotIn('RunConsoleCommand("rtx_api_map_lights_env_brightness_mult"', rt)
+        self.assertNotIn('RunConsoleCommand(ENV_BRIGHTNESS_CVAR', rt)
+
 
 if __name__ == '__main__':
     unittest.main()

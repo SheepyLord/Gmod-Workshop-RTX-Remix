@@ -101,10 +101,9 @@ local) listed 30 findings in descending severity, each with evidence and a small
 
 ## Not done, and follow-ups
 
-- **A distant RT light sets each RTX client's archived `rtx_api_map_lights_env_brightness_mult` to 0 while it exists**
-  (put back when it goes and at shutdown; a crash in between leaves 0 for later sessions). Found by the fixes' Lua
-  agent, not in the review's list; the fix belongs in `cl_remix_api_map_lights.lua` (a session value instead of the
-  saved setting).
+- **A distant RT light set each RTX client's archived `rtx_api_map_lights_env_brightness_mult` to 0 while it existed**
+  (put back when it went and at shutdown; a crash in between left 0 for later sessions). Found by the fixes' Lua
+  agent, not in the review's list; fixed afterwards at the user's go-ahead (the last section).
 - **`PollJob` still gives a picker's file path to the server that opened the picker** while the player is connected
   to it (its import needs the path); closing it needs opaque file references through the import flow.
 - **The Model Hotloader's `animated_carriers_and_sharing` test fails at a deletion check with a cache path over 260
@@ -128,3 +127,28 @@ local) listed 30 findings in descending severity, each with evidence and a small
 Merged into `main` as `8b46432e` and pushed (`51ab2ecf..8b46432e`, ten LFS objects). The merge's hook built the package
 here and uploaded item 3829070317 as **`0.0.0-dev.20261116141607+791d3f2f`** (content digest `6746d885...`), its change
 note the changelog's new section; the push's hook found the inputs unchanged.
+
+## Follow-up: a distant RT light mutes the sun for the session only (2026-11-16)
+
+The user's go-ahead after the publish ("Yes, fix it here"), on the branch `distant-light-env-mute`, package only (the
+fixes' Lua).
+
+- **Before:** `entities/remix_rt_light/cl_init.lua` muted the map's environment (sun) lights while a distant RT light
+  existed by running `rtx_api_map_lights_env_brightness_mult 0` on every RTX client and putting the old value back
+  when the last one went or at `ShutDown`. That ConVar is the map lights' saved Brightness for directional lights
+  (archived): a crash in between left 0 for every later game, a player's change of the slider meanwhile was undone,
+  and any server could spawn a distant light (now under `sbox_maxsents`, finding 14).
+- **Now:** `cl_remix_api_map_lights.lua` keeps session-only mutes (`envMuters`, `Light2RTX.SetEnvMuted(key, muted)`,
+  `Light2RTX.EnvMuted()`); its sun lights take their brightness from `envBrightnessMult()` (0 while a mute is held,
+  else the saved setting), at creation, on each update and in `rtx_api_map_lights_info`, and are updated when the
+  first mute comes or the last goes. The RT light asks for the mute (`remix_rt_light`) while at least one distant light
+  exists and writes no setting; its `ShutDown` hook is gone. Without the map lights' API it changes nothing.
+- **A player whose sun stayed dark after such a crash** sets Brightness under Directional back to 1 (or presses its
+  Reset): the old 0 cannot be told from a choice, so it is not repaired automatically. The changelog says so.
+- **Tests:** `test_remix_light_limits.py`: the harness's new `distant_sun` scenario (one mute, not one a frame; two
+  distant lights keep it until both are gone; the saved setting, 1.7, never written, also without `Light2RTX`; no
+  `ShutDown` hook), which fails on the file before the fix, and a source check of the map lights (only
+  `envBrightnessMult` reads the setting; `SetEnvMuted` updates the sun lights and runs no command), which fails on the
+  file before the fix too. In the PoC (`out/msep/poc_review.py` with `out/msep/poc/distant_probe.lua`, evidence
+  `out/qa-poc/review-fixes/distant-01`): the saved setting read `1.000000` before, with a distant RT light out and after
+  the cleanup; `Light2RTX.EnvMuted()` was false, true, false.

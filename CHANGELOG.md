@@ -6,6 +6,14 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A distant RT light no longer changes your saved map-light setting (2026-11-16)
+
+- **A distant RT light now mutes the map's sun for the session only.** It used to set the map lights' Brightness for
+  directional lights (Utilities → RTX Remix - API Lights → Map) to 0 in your saved settings while it existed and put
+  the old value back afterwards, so a crash in between left the map's sun dark in every later game, and any server
+  could spawn one. Your setting is no longer touched. If your map's sun stayed dark after such a crash, set that
+  Brightness back to 1 (or press Reset under Directional).
+
 ### The repository review of 2026-11-16: what a server or a Workshop item can reach, and crashes fixed
 
 - **A server can no longer change your Remix settings beyond what the RTX package itself sets.** Its scripts could set

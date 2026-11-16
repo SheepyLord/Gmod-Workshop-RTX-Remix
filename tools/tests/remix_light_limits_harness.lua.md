@@ -38,6 +38,11 @@ The folder holds the converted files under short names (`rt_shared.lua`, `rt_ini
   normal projected texture as it was; the light entity's client creates and updates each light type with finite
   values within the limits from crafted networked values, keeps a bonemerged light at its bone when its offsets are
   not numbers, and passes a valid light through unchanged.
+- `distant_sun` (the follow-up of 2026-11-16): a distant RT light asks a stand-in `Light2RTX.SetEnvMuted` to mute the
+  map's sun once, not every frame; a second distant light keeps the mute until both are gone (one removed, the other
+  switched to a sphere); the player's saved `rtx_api_map_lights_env_brightness_mult` (1.7 here) is never written, also
+  without `Light2RTX`; the file registers no ShutDown hook that puts a setting back. Against the file before the fix it
+  fails at that hook.
 
 Prints `PASS <scenario>`; exit 1 with `FAIL: <reason>` on stderr otherwise. Against the files before the fix every
 scenario fails (the client one with `gmod_light brightness inf size 256 base.radiance.y is nan`, the reviewer's

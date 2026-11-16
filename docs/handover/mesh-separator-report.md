@@ -89,7 +89,10 @@ In the PoC (gm_construct, RTX on, 1920x1080; `out/qa-poc/mesh-separator`):
 ## Limits
 
 - **The highlight under RTX** is drawn on the screen, through the model (no depth test), at most about 6,000 triangles a
-  frame, evenly spread over a larger selection. Outside RTX it is drawn on the model.
+  frame, evenly spread over a larger selection. Outside RTX it is drawn on the model. On the screen it is slow, about
+  4 microseconds a triangle: the guard's slow-hook report measured `MMDHL.SeparatorOverlay` at 17.0 ms of every frame in
+  run 3 (a 360-triangle piece selected, the character's hair under the aim) and 18.1 ms in run 4 (the citizen ragdoll's
+  body selected, 4,427 triangles), worst 46 and 61 ms, so a large selection costs frame rate while the tool is out.
 - **A character's piece** draws with the character's own material where the character's materials archive exists on
   that computer; elsewhere with its embedded texture, without its RTX PBR.
 - **The selection is made on the pose the model had when it was clicked**; a model that moved is read again at the next
@@ -99,3 +102,20 @@ In the PoC (gm_construct, RTX on, 1920x1080; `out/qa-poc/mesh-separator`):
 - **On a server** a new piece needs an administrator to share it before it is placed, as any imported prop.
 - **Not tested in the game**: multiplayer (ownership, sharing), saves and dupes of a piece (ordinary Hotloader props), the
   brush, box and lasso by hand (the harness covers the engine), the 3D highlight outside RTX.
+
+## Gate
+
+`tools\test.ps1 -Config Release` on the branch (`d4d32578`): "All checks passed" (repo conventions OK; C++ 35 of 35;
+Python 2,029 tests in `tools`, 1 skipped, 29 in `gmapack`, 26 in `steam`). The run before it (`6eaef0dd`) had two
+failures: the render guard's list of bundled files lacked the separator's five modules and its tool, and
+`props/render.lua` called GMod's `isstring`, which the renderer's LuaJIT harness does not have; `d4d32578` fixes both.
+The guard blocked no separator call in the four PoC runs (no "blocked" line names its files), so the list changes
+nothing that was tested. The Hotloader's own C++ test `mesh_prop` is not part of the gate; it ran as above.
+
+## Published
+
+`main` was fast-forwarded to `d4d32578` (the branch's two commits) and pushed (`b96c086f..d4d32578`, four LFS objects,
+6.2 MB: the Hotloader's natives). The merge's hook built the package from `packages/` and uploaded item 3829070317 as
+**0.0.0-dev.20261116105136+d8d8bbc3** (2,301,138,808 bytes, content digest `9abe4f82...`), its change note the
+changelog's new entries; the push's hook found the inputs unchanged. The package differs from the one run 4 used only by
+the two gate fixes. Not yet seen in the field: a running game keeps the previous Hotloader until it restarts.

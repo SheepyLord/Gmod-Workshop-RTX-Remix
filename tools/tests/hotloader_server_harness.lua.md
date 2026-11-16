@@ -10,10 +10,13 @@ luajit tools\tests\hotloader_server_harness.lua <scenario> packages\model-hotloa
 ```
 
 The slices file holds `-- slice <name>` ... `-- end <name>` blocks: `sharing` (`mmdhl.CanEdit`,
-`mmdhl.OwnsEntity`) and `carrier` (the `mmdhl_collision_mesh` receiver).
+`mmdhl.OwnsEntity`), `rigs` (`sharing.lua`'s arms previews, saved-rig pruning and map-start restore) and `carrier`
+(the `mmdhl_collision_mesh` receiver).
 
 Scenarios: `remove` (loads `server.lua`), `attach` (`props/server.lua`), `mesh` (the carrier slice), `scene`
-(`scene_sharing.lua` as the client).
+(`scene_sharing.lua` as the client); from the review of 2026-11-16 `replace_burst`, `reset` (also
+`physics_reset.lua`), `dupe_factory`, `spawn_quantize` (`server.lua`), `separator_place` (`separator/server.lua`) and
+`rigs` (the rigs slice).
 
 **Output:** `PASS <scenario>`, exit 0; a failed check raises `FAIL <scenario>: <why>` (exit 1).
 **Writes:** nothing on disk.

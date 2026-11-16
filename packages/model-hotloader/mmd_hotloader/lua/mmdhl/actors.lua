@@ -270,11 +270,17 @@ if SERVER then
   -- Every request is answered: the arms editor waits for its reply.
   local function reply(rig,err)
    if not IsValid(p) then return end
-   if rig then mmdhl.PublishRig(rig) end
+   -- Served to clients this session, never saved (review finding 4).
+   if rig then mmdhl.PublishPreviewRig(rig) end
    net.Start('mmdhl_arms_preview') net.WriteUInt(request,16) net.WriteString(rig and rig.key or '') net.WriteString(err or '') net.Send(p)
   end
   if not mmdhl.CanUseAsset(p,id) then reply(nil,L'share.error.model_not_approved') return end
   if RealTime()<(p.MMDHLArmsAt or 0) then reply(nil,L'actors.error.arms_preview_wait') return end p.MMDHLArmsAt=RealTime()+1
+  -- Each preview writes a carrier on the server's disk: thirty a map per player on a server (administrators: any).
+  if not game.SinglePlayer() and not p:IsAdmin() then
+   p.MMDHLArmsPreviews=(p.MMDHLArmsPreviews or 0)+1
+   if p.MMDHLArmsPreviews>30 then reply(nil,L'actors.error.arms_preview_wait') return end
+  end
   local clean=mmdhl.CleanArmsParts(util.JSONToTable(raw))
   mmdhl.LoadAsset(id,function(info,err)
    if not info then reply(nil,err) return end

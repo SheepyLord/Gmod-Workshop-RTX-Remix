@@ -57,6 +57,22 @@ class CombineTests(unittest.TestCase):
     def manifest(self, folder: Path) -> dict:
         return json.loads((folder / 'native' / 'manifest.json').read_text(encoding='utf-8'))
 
+    def test_the_combined_manifest_is_compact_and_within_the_loaders_limit(self):
+        # Review finding 30 (2026-11-16): the manifest is written compactly, and a union past the loader's 1 MiB is
+        # refused here rather than by every player's loader.
+        self.combine([self.runtime, self.fixes], gma=None)
+        text = (self.root / 'out' / 'native' / 'manifest.json').read_text(encoding='utf-8')
+        self.assertNotIn('\n ', text)
+        self.assertEqual(json.loads(text), self.manifest(self.root / 'out'))
+        limit = pw.MANIFEST_LIMIT
+        pw.MANIFEST_LIMIT = 64
+        try:
+            with self.assertRaisesRegex(pw.CombineError, 'the loader reads at most 64'):
+                self.combine([self.runtime, self.fixes], out=self.root / 'small', gma=None)
+        finally:
+            pw.MANIFEST_LIMIT = limit
+        self.assertEqual(pw.MANIFEST_LIMIT, 1 << 20)
+
     def test_two_folders_become_one_package_and_archive(self):
         summary = self.combine([self.runtime, self.fixes])
         m = self.manifest(self.root / 'out')

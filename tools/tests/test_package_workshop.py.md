@@ -9,6 +9,7 @@ cd tools; python -m unittest tests.test_package_workshop
 
 | Test | Checks |
 |---|---|
+| the combined manifest is compact and within the loader's limit | review finding 30 (2026-11-16): `native/manifest.json` has no indentation and parses to the merged manifest; with `MANIFEST_LIMIT` lowered to 64 bytes the combine is refused ("the loader reads at most 64"); the limit is 1 MiB |
 | two folders become one package and archive | the merged manifest: kinds, `requires_loader`, `requires_remix`, the runtime, root files, patch sets and session variables; every file's bytes; `addon.json`; the archive's entries and SHA-256 |
 | an archive part is read in place | a `.gma` part gives the same digest as its folder |
 | the digest ignores version and name but not content | same digest for two versions; a changed file changes it |

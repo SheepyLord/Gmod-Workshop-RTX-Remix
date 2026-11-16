@@ -16,6 +16,9 @@ cd tools; python -m unittest tests.test_publish_workshop
 | Test | Checks |
 |---|---|
 | the background run shares one hidden console | `--background` relaunches without that flag, with `CREATE_NO_WINDOW` and never `DETACHED_PROCESS` |
+| every repository path a part names is a publish input | review finding 15 (2026-11-16): the four paths that were missing are in `REPO_INPUTS`; `uncovered_inputs` of the real configuration is empty; a part naming `docs` is uncovered and stops `publish()` before any upload |
+| an input changed during the build stops the upload | finding 29: a build that edits a part's folder makes `publish()` raise with nothing recorded or uploaded |
+| a package nlctl did not check is not uploaded | finding 30: a build whose summary has no `validated_by` is refused before the upload (both test classes relax this only where no `nlctl.exe` is built, a `-SkipNative` run) |
 | first run uploads, then unchanged inputs stop early | one upload; `published.json`; the change notes name the version; the second run uploads nothing |
 | changed content uploads again | a changed file in a part uploads a new version |
 | same content with new input times uploads nothing | a rebuild with the same digest is `unchanged-content` and keeps the new fingerprint |

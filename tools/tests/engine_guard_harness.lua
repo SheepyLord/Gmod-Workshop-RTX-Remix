@@ -19,7 +19,8 @@ function AddCSLuaFile() end
 function MsgN(text) logs[#logs + 1] = text end
 function GetConVar(name)
     if convars[name] == nil then return nil end
-    return { GetString = function() return convars[name] end }
+    return { GetString = function() return convars[name] end,
+        GetBool = function() local v = tonumber(convars[name]) return v ~= nil and v ~= 0 end }
 end
 local function status(version, outcome)
     return '{"schema":1,"loader_version":"' .. version .. '"\n"activation":{"outcome":"' .. outcome .. '"}}'
@@ -143,6 +144,31 @@ elseif scenario == "server" then
     calls, catalogReads = {}, 0
     boot("server")
     assert(catalogReads == 1 and calls[1]:find("^message Garry's Mod is not finishing its start|"), calls[1])
+elseif scenario == "cheats" then
+    -- Review finding 16: a multiplayer game started outside the New Game screen gets sv_cheats 0 back from the server;
+    -- single-player keeps 1 (its rendering settings need it), and a start without RTX is left alone.
+    local ran = {}
+    function RunConsoleCommand(name, value) ran[#ran + 1] = name .. " " .. tostring(value) end
+    convars.sv_cheats = "1"
+    rtx()
+    game = { SinglePlayer = function() return false end, MaxPlayers = function() return 8 end }
+    boot("server")
+    assert(#ran == 1 and ran[1] == "sv_cheats 0", "a multiplayer RTX start kept cheats: " .. table.concat(ran, ","))
+    ran = {}
+    boot("client")
+    assert(#ran == 0, "the client realm set a server variable")
+    game.SinglePlayer, game.MaxPlayers = function() return true end, function() return 1 end
+    boot("server")
+    assert(#ran == 0, "single-player lost the cheats its rendering settings need")
+    game.SinglePlayer, game.MaxPlayers = function() return false end, function() return 8 end
+    convars.sv_cheats = "0"
+    boot("server")
+    assert(#ran == 0, "set again although already off")
+    convars.sv_cheats = "1"
+    data["native-loader/status.json"] = status("0.16.0", "inactive")
+    data["native-loader/rtx-session.txt"] = nil
+    boot("server")
+    assert(#ran == 0, "a start without RTX was changed")
 elseif scenario == "already-loaded" then
     -- The early view loaded the module and made the first call: the autorun neither loads nor sets again.
     rtx()

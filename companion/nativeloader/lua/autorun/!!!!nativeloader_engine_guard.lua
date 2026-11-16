@@ -42,6 +42,15 @@ local isRTXStart = rtxStart()
 NativeLoaderRTXStart = function() return isRTXStart end
 if not isRTXStart then return end
 
+-- Review finding 16: an RTX start sets sv_cheats 1 for its rendering settings (the loader's session file). GMod's New
+-- Game screen sets it back to 0 for a game with more than one slot; a multiplayer game started another way (the command
+-- line, the console) kept it, and every player who joined had cheats. The server sets it back as the menu does. A
+-- single-player game keeps it.
+if SERVER and game and game.SinglePlayer and not game.SinglePlayer() and game.MaxPlayers and game.MaxPlayers() > 1 then
+    local cheats = GetConVar("sv_cheats")
+    if cheats and cheats:GetBool() then RunConsoleCommand("sv_cheats", "0") end
+end
+
 local guard = rawget(_G, "nlengineguard")
 if type(guard) ~= "table" then
     local loaded = pcall(require, "nlengineguard")

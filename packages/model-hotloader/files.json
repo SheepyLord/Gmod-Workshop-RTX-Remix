@@ -42,20 +42,20 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:22+00:00"
   },
   "mmd_hotloader/resource/localization/ja/mmdhl.properties": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\resource\\localization\\ja\\mmdhl.properties",
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:22+00:00"
   },
   "mmd_hotloader/lua/weapons/gmod_tool/stools/mmdhl_prop.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\translation-review\\packages\\model-hotloader\\mmd_hotloader\\lua\\weapons\\gmod_tool\\stools\\mmdhl_prop.lua",
@@ -72,10 +72,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:23+00:00"
   },
   "mmd_hotloader/lua/mmdhl/native_render.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\hotloader-depth\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\native_render.lua",
@@ -122,40 +122,40 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:21+00:00"
   },
   "mmd_hotloader/resource/localization/ko/mmdhl.properties": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\resource\\localization\\ko\\mmdhl.properties",
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:22+00:00"
   },
   "mmd_hotloader/resource/localization/zh-cn/mmdhl.properties": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\resource\\localization\\zh-cn\\mmdhl.properties",
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:23+00:00"
   },
   "mmd_hotloader/resource/localization/zh-tw/mmdhl.properties": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\resource\\localization\\zh-tw\\mmdhl.properties",
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:24+00:00"
   },
   "mmd_hotloader/lua/mmdhl/workshop.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r5\\out\\tmp\\stage-r5-mmdhl2\\workshop.lua",
@@ -762,10 +762,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
-    "dirty": true
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
+    "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:20+00:00"
   },
   "mmd_hotloader/lua/mmdhl/separator/server.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\separator\\server.lua",
@@ -782,20 +782,20 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
-    "dirty": true
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
+    "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:21+00:00"
   },
   "mmd_hotloader/lua/weapons/gmod_tool/stools/mmdhl_separator.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\lua\\weapons\\gmod_tool\\stools\\mmdhl_separator.lua",
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "57ef35ea57f1d29c031b9e90423ca851e024d0a1",
+    "commit": "db1c67e4e3363c4dd5ccb77855c9ba2c3eaa069a",
     "dirty": false
    },
-   "imported": "2026-11-16T10:26:53+00:00"
+   "imported": "2026-11-16T11:13:21+00:00"
   }
  },
  "files": {
@@ -1374,15 +1374,15 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/separator/client.lua": {
-   "size": 26591,
-   "sha256": "2dc9b48d2e36ebc38c08215b67a4580ea38785ed9134a6ed40d2bf4c29b2a6e6",
-   "mtime_ns": 1794824287629153000,
+   "size": 20849,
+   "sha256": "eb42b572e148552a3a11e0c0cbae22045f52395889abe44736632085a115936c",
+   "mtime_ns": 1794827565344705300,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/separator/editor.lua": {
-   "size": 18366,
-   "sha256": "1bb8c5fb009661b6e6b3598150f113e984dcdd6d73633f27b0ed76f8b8ba588d",
-   "mtime_ns": 1794824790541489400,
+   "size": 18522,
+   "sha256": "3d575d1ec630a0dc4f5eb1d49615e0f23846ca19f438554186ffd2e726889492",
+   "mtime_ns": 1794827565345708000,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/separator/mesh.lua": {
@@ -1464,9 +1464,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/weapons/gmod_tool/stools/mmdhl_separator.lua": {
-   "size": 4268,
-   "sha256": "f9e18da5409e74dcc42c56c2d04b3394e6464c1b3fb21d1be144a649f9a51dc9",
-   "mtime_ns": 1794822671445237100,
+   "size": 3712,
+   "sha256": "ab1096b5ebd966b9587bf59cafe97ebd398d68c5767df6d27e0e2869095948bf",
+   "mtime_ns": 1794827565344705300,
    "stored": "plain"
   },
   "mmd_hotloader/lua/weapons/weapon_mmdhl.lua": {
@@ -1514,45 +1514,45 @@
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/en/mmdhl.properties": {
-   "size": 356779,
-   "sha256": "a7f4c97a0811aab23047af97ada0a7d00ce7844fd6b069222050f5b2d2a3eca4",
-   "mtime_ns": 1794823522206271200,
+   "size": 356331,
+   "sha256": "aeece6e7df158003b24e1c88c31d5a2ac833cbff2849e957ede7cb6895955a8d",
+   "mtime_ns": 1794827586180394700,
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/fr/mmdhl.properties": {
-   "size": 303009,
-   "sha256": "9026e64bcef1762f947f4ac61ec6d1dcb06366c0400118a76a19142fb7adf544",
-   "mtime_ns": 1794823522211500600,
+   "size": 302552,
+   "sha256": "c066e7b168c5012f5dbb313e728891f6eb15b381773856bb93c317bd9a1d9971",
+   "mtime_ns": 1794827586182896700,
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/ja/mmdhl.properties": {
-   "size": 331392,
-   "sha256": "2dbbaf262071abac75312307d80623b80c32dbd68dbbae815b7155c922acab0c",
-   "mtime_ns": 1794823522209821900,
+   "size": 330876,
+   "sha256": "ae67f92a855e66044f64341cadca63fd17e79a2334d5b16cff5c98f6160764f8",
+   "mtime_ns": 1794827586194939300,
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/ko/mmdhl.properties": {
-   "size": 305749,
-   "sha256": "f08d13f9b6e0296da7097b4418c96688ccd41ed3f9e57cfd6c1c421411ee60d9",
-   "mtime_ns": 1794823522211500600,
+   "size": 305287,
+   "sha256": "be5624b091d475c695638697af3bdba6f545d709d5e613f1b09a9abb1ede0f56",
+   "mtime_ns": 1794827586197945300,
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/ru/mmdhl.properties": {
-   "size": 368716,
-   "sha256": "91460dff165d47a3060dc7dcf38e1bfda9714d4727cb7d22e39336cf945d9fcc",
-   "mtime_ns": 1794823522213043300,
+   "size": 368118,
+   "sha256": "07456605e35f29212de451b0bb9f2b4d5ab9692be34f01c02df2246ce7e2a6bc",
+   "mtime_ns": 1794827586200946000,
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/zh-cn/mmdhl.properties": {
-   "size": 277991,
-   "sha256": "ab8dbafca2bc863f9d149ed3e1ed5bd046686417bbcafc205f6a4fceaaa93604",
-   "mtime_ns": 1794823522207778700,
+   "size": 277562,
+   "sha256": "f4813158872915cec2a94287005080e9d186303cae7650da4c73afbf2b2bf116",
+   "mtime_ns": 1794827586203449000,
    "stored": "plain"
   },
   "mmd_hotloader/resource/localization/zh-tw/mmdhl.properties": {
-   "size": 277719,
-   "sha256": "fd7ee542a6bba23217c548042240796ea81ea9ebfc3a7c8e2411be1e2de93bbd",
-   "mtime_ns": 1794823522208291700,
+   "size": 277290,
+   "sha256": "2e9b1e79366e8ecac2d9b33cf758da9a64f75219e2c3fa140f4f3be0744db15f",
+   "mtime_ns": 1794827586205454100,
    "stored": "plain"
   },
   "mmd_hotloader/shaders/fxc/mmdhl_ps20b.vcs": {

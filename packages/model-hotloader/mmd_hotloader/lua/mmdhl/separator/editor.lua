@@ -228,14 +228,18 @@ function S.OpenEditor()
  heading(L'separator.editor.select_with')
  local tools=side:Add('DPanel') tools:Dock(TOP) tools:SetTall(s(66)) tools:SetPaintBackground(false)
  local buttons={}
- local function choose(tool) view.tool=tool for id,b in pairs(buttons) do b.Selected=id==tool end end
+ -- The way to select is kept for the next time the editor opens (mmdhl_separator_mode).
+ local function choose(tool)
+  view.tool=tool for id,b in pairs(buttons) do b.Selected=id==tool end
+  if setting('mode','piece')~=tool then RunConsoleCommand('mmdhl_separator_mode',tool) end
+ end
  local labels={piece=L'separator.editor.tool_piece',part=L'separator.editor.tool_part',brush=L'separator.editor.tool_brush',box=L'separator.editor.tool_box',lasso=L'separator.editor.tool_lasso'}
  for _,t in ipairs({'piece','part','brush','box','lasso'}) do buttons[t]=UI.button(tools,labels[t],function() choose(t) end,s(30),f.Body) end
  tools.PerformLayout=function(_,w)
   local order={'piece','part','brush','box','lasso'} local third=math.floor((w-s(12))/3)
   for i,t in ipairs(order) do local row,col=math.floor((i-1)/3),(i-1)%3 buttons[t]:SetPos(col*(third+s(6)),row*s(36)) buttons[t]:SetSize(third,s(30)) end
  end
- choose(setting('mode','piece')=='brush' and 'brush' or setting('mode','piece')=='part' and 'part' or 'piece')
+ choose(labels[setting('mode','piece')] and setting('mode','piece') or 'piece')
  local through=UI.checkbox(side,L'separator.editor.through',nil,f.Body,s(26)) through:Dock(TOP)
  through.OnChange=function(_,v) view.through=v==true end
  local brush=side:Add('DNumSlider') brush:Dock(TOP) brush:SetTall(s(30)) brush:SetText(L'tool.separator.brush_size') brush:SetMinMax(.25,32) brush:SetDecimals(2) brush:SetConVar('mmdhl_separator_brush') brush:SetDark(true) brush.Label:SetFont(f.Body)

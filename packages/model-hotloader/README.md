@@ -72,3 +72,7 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   (`props/server.lua`); the new worker call in the install check's guard (`mmdhl/installation.lua`,
   `overrides/installation.lua`); 63 texts in the seven catalogs; the natives' `mesh` job and the bindings
   `SeparatorMesh` and `PropFromMesh` (`source/separator.patch`).
+- **2026-11-16, the separator's selection in its editor only**
+  ([ADR 0233](../../docs/decisions/0233-the-mesh-separator-selects-in-its-editor.md)): a left click opens the editor and nothing is drawn on the model in the
+  world (`mmd_hotloader/lua/mmdhl/separator/client.lua`, the tool, `separator/editor.lua`); seven texts fewer in the
+  seven catalogs.

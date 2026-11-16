@@ -8,6 +8,10 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ### Mesh Separator: take a piece off a model as a prop of its own (the user's request of 2026-11-16)
 
+- **Mesh Separator: a left click now opens the editor** for the model you aim at, and you select the piece there.
+  Nothing is drawn on the model in the world any more: under RTX that highlight could cut the frame rate to a half or
+  a quarter with a large selection (a citizen ragdoll's body cost about 20 ms a frame, a whole character about 50 ms).
+  Right click and reload no longer do anything ([ADR 0233](docs/decisions/0233-the-mesh-separator-selects-in-its-editor.md)).
 - **A new tool, Mesh Separator (Construction, beside Static Prop), takes a piece off a model and makes it a prop with
   its own physics**, such as a hairpin off a character. It works on Model Hotloader characters and on props, ragdolls
   and NPCs. Left click selects the piece you aim at and right click takes it away; the tool can also select a whole

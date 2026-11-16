@@ -9316,3 +9316,8 @@ merge of patch 0093. Left as they were.
   garbage-collector cycles had passed; `cl_29_mesh_preparation.lua` 15-38 steps the collector through two cycles,
   never a full collection). The separator steps two cycles (at most 0.5 s) after letting a model's result go and
   before reading another.
+- **One draw call a triangle is expensive under RTX Remix.** The separator's screen overlay drew each triangle with its
+  own `surface.DrawPoly` in `HUDPaint` (ADR 0232). In the PoC at 1920x1080 (gm_construct, RTX on) the hook averaged
+  1.5 ms for 252 triangles, 22.9 ms for 4,427 (frames 37.3 ms instead of 16.6) and 50.5 ms for about 6,000 (frames
+  65.7 ms): 4 to 8 microseconds a triangle; the guard's slow-hook report had named it at 17-18 ms. ADR 0233 removed it
+  rather than batching its triangles into few draws.

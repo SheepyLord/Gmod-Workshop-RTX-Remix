@@ -212,49 +212,26 @@ function S.Target(ent,force)
 end
 function S.Clear() local t=S.target if t then M.Clear(t.snap) hook.Run('MMDHL.SeparatorChanged') end end
 function S.Count() local t=S.target return t and IsValid(t.ent) and t.snap.count or 0 end
--- The piece under the player's aim, or its whole part, added or taken away.
-function S.Pick(add,part)
- local target=S.target if not target or not IsValid(target.ent) then return false end
- local s=target.snap
- local ply=LocalPlayer() local o,d=ply:EyePos(),ply:GetAimVector()
- local list
- if part then local t=M.Raycast(s,o.x,o.y,o.z,d.x,d.y,d.z,S.Reach) list=t and M.PartTriangles(s,s.part[t])
- else list=M.PieceAt(s,o.x,o.y,o.z,d.x,d.y,d.z,S.Reach) end
- if not list then notification.AddLegacy(L'separator.missed',NOTIFY_HINT,3) return false end
- if add then M.Add(s,list) else M.Remove(s,list) end
- hook.Run('MMDHL.SeparatorChanged')
- return true
-end
+-- The server's answer to a click: the model to work on (the one aimed at, or the one being worked on when the aim
+-- passes its body), opened in the editor, where the selection is made. Nothing is drawn on the model in the world:
+-- drawn on the screen under RTX Remix it cost 20 to 50 ms a frame with a few thousand triangles (ADR 0233).
 net.Receive('mmdhl_separator_target',function()
- local ent=net.ReadEntity() local action=net.ReadUInt(2)
+ local ent=net.ReadEntity() net.ReadUInt(2)
  if not IsValid(ent) then return end
  local target,err=S.Target(ent)
  if not target then notification.AddLegacy(tostring(err),NOTIFY_ERROR,6) return end
- if action==3 then if S.OpenEditor then S.OpenEditor() end return end
- local mode=setting('mode','piece')
- if mode=='brush' then return end
- S.Pick(action==1,mode=='part')
+ if S.OpenEditor then S.OpenEditor() end
 end)
-
--- The brush: while the left (add) or right (take away) button is held with the tool out, the triangles around the
--- point aimed at on the model.
-hook.Add('Think','MMDHL.SeparatorBrush',function()
- if not toolActive() or setting('mode','piece')~='brush' or vgui.CursorVisible() or not system.HasFocus() then return end
- local target=S.target if not target or not IsValid(target.ent) then return end
- local add,remove=input.IsMouseDown(MOUSE_LEFT),input.IsMouseDown(MOUSE_RIGHT)
- if not add and not remove then return end
- if (S.nextBrush or 0)>RealTime() then return end S.nextBrush=RealTime()+1/30
- local ply=LocalPlayer() local o,d=ply:EyePos(),ply:GetAimVector()
- local s=target.snap
- local t,_,x,y,z=M.Raycast(s,o.x,o.y,o.z,d.x,d.y,d.z,S.Reach)
- if not t then return end
- local list=M.Sphere(s,x,y,z,math.Clamp(tonumber(setting('brush','4')) or 4,.25,64))
- if add then M.Add(s,list) else M.Remove(s,list) end
+-- A model that is gone takes its snapshot with it (its mesh result settles before the next model is read).
+hook.Add('Think','MMDHL.SeparatorTarget',function()
+ local target=S.target
+ if not target or IsValid(target.ent) then return end
+ S.target=nil S.dropped=target.snap.verts~=nil
  hook.Run('MMDHL.SeparatorChanged')
 end)
 
--- The selection on the model: translucent triangles drawn after the translucent pass, with the same material the
--- Advanced Bodygroup Tool's highlight uses under RTX Remix.
+-- The selection's meshes for the editor's view: translucent triangles, with the same material the Advanced Bodygroup
+-- Tool's highlight uses.
 local highlight=CreateMaterial('mmdhl_separator_highlight_v1','UnlitGeneric',{['$basetexture']='vgui/white',['$vertexcolor']='1',['$vertexalpha']='1',['$translucent']='1',['$nocull']='1'})
 S.HighlightMaterial=highlight
 local function buildMeshes(s,list,color)
@@ -270,102 +247,6 @@ local function buildMeshes(s,list,color)
  return meshes
 end
 S.BuildMeshes=buildMeshes
-local drawn={meshes={}}
-local function selectionMeshes(s)
- if drawn.snap==s and drawn.revision==s.revision then return drawn.meshes end
- for _,m in ipairs(drawn.meshes) do P.RetireMesh(m) end
- drawn={snap=s,revision=s.revision,meshes=buildMeshes(s,M.List(s),Color(255,150,40,140))}
- return drawn.meshes
-end
-local hover={meshes={}}
--- The piece or part under the aim, built once for each one aimed at (h.list makes its triangle list).
-local function hoverMeshes(s,h)
- if hover.snap==s and hover.key==h.key then return hover.meshes end
- for _,m in ipairs(hover.meshes) do P.RetireMesh(m) end
- local list=h.list()
- hover={snap=s,key=h.key,meshes=list and #list<=60000 and buildMeshes(s,list,Color(90,200,255,90)) or {}}
- return hover.meshes
-end
-hook.Add('Think','MMDHL.SeparatorHover',function()
- if (S.nextHover or 0)>RealTime() then return end S.nextHover=RealTime()+.05
- local target=S.target
- if not target or not IsValid(target.ent) or not toolActive() or vgui.CursorVisible() then S.hover=nil return end
- local mode=setting('mode','piece')
- local ply=LocalPlayer() local o,d=ply:EyePos(),ply:GetAimVector()
- local s=target.snap
- local t,_,x,y,z=M.Raycast(s,o.x,o.y,o.z,d.x,d.y,d.z,S.Reach)
- if not t then S.hover=nil return end
- if mode=='brush' then S.hover={brush=Vector(x,y,z)} return end
- if mode=='part' then S.hover={key='part'..s.part[t],list=function() return M.PartTriangles(s,s.part[t]) end}
- else
-  if not s.island then M.Islands(s) end
-  local i=s.island[t]
-  S.hover={key='piece'..i,list=function() return s.islandTris[i] end}
- end
-end)
--- Under RTX Remix the path tracer draws those meshes as a white coating (vertex colours are not its albedo), so there
--- the selection, the piece under the aim and the brush are drawn on the screen instead, in the interface pass: each
--- selected triangle projected (at most about 6,000 a frame, evenly spread), seen through the model.
-local function remix() return mmdhl.UsesRemixPreview and mmdhl.UsesRemixPreview() or false end
-local listed,hovered={},{}
-local function selectionList(s)
- if listed.snap~=s or listed.revision~=s.revision then listed={snap=s,revision=s.revision,list=M.List(s)} end
- return listed.list
-end
-local function overlay(s,list,color)
- if not list or #list==0 then return end
- local pos,tri,cache=s.pos,s.tri,{}
- local function screen(v)
-  local c=cache[v] if c~=nil then return c end
-  local o=v*3 local p=Vector(pos[o-2],pos[o-1],pos[o]):ToScreen()
-  c=p.visible and p or false cache[v]=c return c
- end
- draw.NoTexture() surface.SetDrawColor(color.r,color.g,color.b,color.a)
- for i=1,#list,math.max(1,math.ceil(#list/6000)) do
-  local o=list[i]*3
-  local a,b,c=screen(tri[o-2]),screen(tri[o-1]),screen(tri[o])
-  if a and b and c then
-   -- surface.DrawPoly draws clockwise polygons (screen y grows downwards).
-   if (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0 then a,c=c,a end
-   surface.DrawPoly({{x=a.x,y=a.y},{x=b.x,y=b.y},{x=c.x,y=c.y}})
-  end
- end
-end
-hook.Add('HUDPaint','MMDHL.SeparatorOverlay',function()
- local target=S.target
- if not target or not IsValid(target.ent) or not remix() or (not toolActive() and not IsValid(S.editor)) then return end
- local s=target.snap
- overlay(s,selectionList(s),Color(255,150,40,90))
- local h=S.hover
- if h and h.key then
-  if hovered.snap~=s or hovered.key~=h.key then hovered={snap=s,key=h.key,list=h.list()} end
-  overlay(s,hovered.list,Color(90,200,255,70))
- end
- if h and h.brush then
-  local centre=h.brush:ToScreen()
-  local edge=(h.brush+EyeAngles():Right()*math.Clamp(tonumber(setting('brush','4')) or 4,.25,64)):ToScreen()
-  if centre.visible then surface.DrawCircle(centre.x,centre.y,math.max(2,math.abs(edge.x-centre.x)),255,190,90,220) end
- end
-end)
-hook.Add('PostDrawTranslucentRenderables','MMDHL.SeparatorHighlight',function(depth,sky)
- if depth or sky then return end
- local target=S.target
- if not target then return end
- if not IsValid(target.ent) then S.target=nil S.dropped=target.snap.verts~=nil hook.Run('MMDHL.SeparatorChanged') return end
- if not toolActive() and not IsValid(S.editor) then return end
- if remix() then return end
- local s=target.snap
- render.SetMaterial(highlight)
- render.DepthRange(0,.9995)
- for _,m in ipairs(selectionMeshes(s)) do m:Draw() end
- local h=S.hover
- if h and h.key then for _,m in ipairs(hoverMeshes(s,h)) do m:Draw() end end
- render.DepthRange(0,1)
- if h and h.brush then
-  local r=math.Clamp(tonumber(setting('brush','4')) or 4,.25,64)
-  render.DrawWireframeSphere(h.brush,r,12,8,Color(255,190,90,200),true)
- end
-end)
 
 -- The name a piece gets: its model's and the part most of it comes from.
 function S.DefaultName(target)

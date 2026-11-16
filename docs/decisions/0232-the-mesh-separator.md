@@ -1,6 +1,7 @@
 # 0232: The mesh separator: a piece of a model becomes a Hotloader static prop
 
-- Status: Accepted 2026-11-16 (the user's request and answers; the checks in the report)
+- Status: Accepted 2026-11-16 (the user's request and answers; the checks in the report). **Superseded in part by
+  [0233](0233-the-mesh-separator-selects-in-its-editor.md)**: the selection is made in the editor only; nothing is drawn on the model in the world.
 - Decided by: the user, through the design questions of 2026-11-16 ("Plan and implement a mesh seperator in gmod, ask me
   question to build the idea. It should allow user pick a or a part of a mesh on vanilla and imported mmdhl model to
   allow spawning that part of the mesh as prop with physics model generated. (For example: detach a hairpin from

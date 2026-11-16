@@ -6,6 +6,10 @@ as prop with physics model generated. (For example: detach a hairpin from charac
 of questions ([ADR 0232](../decisions/0232-the-mesh-separator.md), [plan](mesh-separator-plan.md)). Branch
 `mesh-separator`, by Claude; everything is in the Model Hotloader's part (`packages/model-hotloader`, MIT).
 
+Update, the same day ([ADR 0233](../decisions/0233-the-mesh-separator-selects-in-its-editor.md)): after testing the separator, the user had its selection made in
+the editor only. A left click opens the editor for the model aimed at, right click and reload do nothing, and nothing
+is drawn on the model in the world; the last section has the measurements and checks.
+
 ## What the player gets
 
 - **Mesh Separator** in the tool menu (Construction, beside Static Prop). Left click selects the piece under the
@@ -119,3 +123,45 @@ nothing that was tested. The Hotloader's own C++ test `mesh_prop` is not part of
 **0.0.0-dev.20261116105136+d8d8bbc3** (2,301,138,808 bytes, content digest `9abe4f82...`), its change note the
 changelog's new entries; the push's hook found the inputs unchanged. The package differs from the one run 4 used only by
 the two gate fixes. Not yet seen in the field: a running game keeps the previous Hotloader until it restarts.
+
+## Selection in the editor only (ADR 0233)
+
+The user, after testing the separator: "Instead of drawing overlay in world, makes it directly open the editor when left
+click, skip the in world overlay entirely. Remove the in world overlay. Thus the slow overlay issue is mitigated."
+
+What the overlay cost (PoC, gm_construct, RTX on, 1920x1080, the published package; `out/msep/poc/overlay_probe.lua`
+timed its `HUDPaint` hook over 300 frames for each selection; evidence in `out/qa-poc/separator-overlay/01-before`):
+
+| Selection | Hook average (median, 95th percentile) | Frame time |
+|---|---|---|
+| The oil drum, 252 triangles | 1.5 ms (1.0, 5.4) | 16.6 ms |
+| The citizen ragdoll's body, 4,427 triangles | 22.9 ms (18.8, 43.3) | 37.3 ms |
+| All of Character A, 209,152 triangles (about 6,000 drawn) | 50.5 ms (39.6, 82.5) | 65.7 ms |
+
+What changed:
+
+- `separator/client.lua`: the server's answer to a click opens the editor; the world's brush and hover, the RTX screen
+  overlay and the highlight outside RTX are gone, with `S.Pick`; a Think hook lets a removed model's snapshot go, as the
+  highlight's hook did; `S.BuildMeshes` and `S.HighlightMaterial` stay for the editor.
+- The tool (`stools/mmdhl_separator.lua`): a left click only, which sends the editor (action 3); no right click or
+  reload; the panel without the way a click selects and the brush size.
+- `separator/editor.lua`: keeps its way to select in `mmdhl_separator_mode` for the next time it opens.
+- The seven catalogs: the left click's line is each language's line for opening the editor on the model aimed at (the
+  old reload line); seven texts gone (the right click, reload, the way a click selects and its three choices, the world
+  pick's miss): 2,089 keys each.
+
+Checks:
+
+- Offline: the three Lua files compile under LuaJIT; `tools/check_addon_i18n.py` finds 0 problems;
+  `test_separator_mesh`, `test_render_guard_addons` and `test_hotloader_props_render` pass.
+- In the PoC (`out/msep/poc_editor.py` with `out/msep/poc/editor_probe.lua`, the branch's package; evidence in
+  `out/qa-poc/separator-editor/01-branch`):
+  - the hooks of the world overlay, the highlight, the hover and the world brush are gone, the target's cleanup is there,
+    and the tool's line reads "Open the editor for the model you aim at";
+  - the tool's own `LeftClick`, with a trace at the citizen ragdoll, opened the editor on it (a scripted `+attack` while
+    aiming at it did not reach the tool within 4 s; the toolgun's primary attack calls `LeftClick` as before);
+  - the ragdoll's mouth (224 triangles), selected in the editor, detached and was placed ("Placed QA editor piece.");
+  - a click on the world reopened the editor on the ragdoll; a click on the drum opened it on the drum, and removing the
+    drum cleared the target;
+  - with the tool out, the editor closed and all of Character A selected, frames averaged 15.5 ms over 300 (65.7 ms with
+    the overlay); the screenshot shows nothing drawn on the model.

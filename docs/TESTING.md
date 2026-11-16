@@ -3612,3 +3612,10 @@ skin conventions on stock models; a piece taken off each with the tool's code, d
 it was) and the rest pose (placed at the aim), the props' render state and source materials, a dropped piece's physics,
 the editor's projection against its own rays and a box drawn around the selection's projected bounds, screenshots of the
 highlight, the pieces and the editor.
+
+ADR 0233 (the selection in the editor only): `out/msep/poc_editor.py` with `out/msep/poc/editor_probe.lua` (scratch;
+evidence in `out/qa-poc/separator-editor`) checks that the world overlay's hooks are gone, that the tool's left click
+opens the editor on the model (and on the model being worked on after a click on the world), that a piece selected
+there detaches and is placed, that a removed model clears the target, and the frame time with the tool out and all of
+a character selected; `out/msep/poc_overlay.py` with `out/msep/poc/overlay_probe.lua` timed the removed overlay. The
+separator now has 57 texts in each catalog.

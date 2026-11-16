@@ -35,8 +35,8 @@ exit $LASTEXITCODE
 class ToPBRScopeTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """to_pbr.cpp and to_pbr.h are topbr-publish's copies (no patch between changed them) with this patch applied;
-        the header and the regression are its added lines. pins.json builds the module with it last, right after
-        eye-texgen."""
+        the header and the regression are its added lines. pins.json builds the module with it right after eye-texgen
+        (lua-guards, the fifteenth, follows it)."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), FILES)
         for path in FILES[:2]:
@@ -45,8 +45,7 @@ class ToPBRScopeTests(unittest.TestCase):
             self.assertEqual(added(patch, path), text(FOLDER / path).rstrip('\n').split('\n'), path)
         patches = json.loads((REPO / 'tools/ci/pins.json').read_text(encoding='utf-8'))['fixes']['patches']
         eye = 'packages/fixes/licenses/oversized-skinning/eye-texgen/eye-texgen.patch'
-        self.assertEqual(patches[-1], PATCH.relative_to(REPO).as_posix())
-        self.assertEqual(patches.index(patches[-1]), patches.index(eye) + 1)
+        self.assertEqual(patches.index(PATCH.relative_to(REPO).as_posix()), patches.index(eye) + 1)
 
     def test_every_queue_takes_only_the_players_range(self):
         """The three places that queue world conversion ask the range; the worker drops what a narrower range left

@@ -6,6 +6,27 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## What any server's Lua may ask of the fixes' module (2026-11-16)
+
+The repository review of 2026-11-16, findings 2, 7 and 24 (the user approved fixing every finding). Imported with
+`inputs.py --file`; every other indexed input is unchanged.
+
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,655,040 bytes, SHA-256 `bbee8323...c5d6f214`): the public base with the
+  fifteen patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The fifteenth,
+  [lua-guards.patch](licenses/oversized-skinning/lua-guards/lua-guards.patch) ([source, tests](licenses/oversized-skinning/lua-guards/README.md)):
+  - `RemixConfig.SetConfigVariable` takes only the Remix options the RTX package's own Lua and data set (the sky, the
+    weather and the fog, the tone curve, the game's lights, the session's texture lists, the RTX Remix tab's settings,
+    the default map config's light settings, RTX Water, ARC9, the bullet break simulator, VR), with values that name no
+    drive, root, network path or parent folder and hash lists that hold hashes only. Captures, the replacement
+    switches, the sky probe's size, key bindings and crash hotkeys, the profiler, the splash and every path option
+    (now with `rtx.waterSim.rings.texture`) stay with `rtx.conf` and the Remix menu; a map config or add-on asking for
+    another option gets `false` and a console line.
+  - ToPBR's game-map actions ("options", "maps") and its automatic resolution read only the character's own model: an
+    existing `.pmx` file the module's reader takes, one of whose materials draws the base texture. Every refusal gives
+    Lua the same text, the reason goes to the console, and a manual choice takes only images its folder lists.
+  - `RTX_ReloadModelsAfterHardwareSkinningSettings` flushes only while the material system is single-threaded, at most
+    twice for one map, and returns whether it ran.
+
 ## The Imported game PBR page says what Remix draws (2026-11-16)
 
 The user's report ([report](../../docs/handover/pbr-page-dance-music-report.md)): the page did not work and said nothing useful about a

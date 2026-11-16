@@ -431,7 +431,9 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
   Every texture is sized by where it shows on the map, so the main floors and walls keep 4096 within one
   3.85 GB item. New in the workshop-content-pack skill: `repbr_map_mod.py`, `map_usage.py`, per-map rules
-  files (`rules/`), their tests, step 6 of "Another author's map mod" and pitfall 35. `usd_refs.prim_spans`
+  files (`rules/`), their tests, step 6 of "Another author's map mod" and pitfall 35. Uploaded at the
+  user's request as hidden Workshop items (2026-11-15): Valley View Mall RTX 3840655317, Funkis RTX
+  3840655643, Country Estate RTX 3840656009. `usd_refs.prim_spans`
   now gives each material only the inputs inside its own braces, which `retune_roughness.py` uses too.
 - **workshop-content-pack skill:** "Another author's map mod (ModDB)"; `rekey_mod_hashes.py` (XXH3 to XXH64, and
   which hash a mod uses), `vtf_hash.py` (both hashes of every VTF in map items, legacy .bin, BSP pakfiles and VPKs),

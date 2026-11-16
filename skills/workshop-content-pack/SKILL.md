@@ -1,6 +1,6 @@
 ---
 name: workshop-content-pack
-description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed; another author's map mod (ModDB, with the author's permission) is matched to its map by texture hashes, re-keyed from Remix's default XXH3 texture hash to the package's XXH64 with rekey_mod_hashes.py when needed, and fitted under one item with fit_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
+description: Build, check, upload and update a native-loader content pack on the Steam Workshop - one hidden item holding a Model Hotloader character package (mmdhl_<name>) with its rpai PBR mod (pbr_<name>), package id <name>-rtx, or a remastered map's Lua add-on and Remix mod - that the GMod native loader deploys for players who subscribe; a map remaster bigger than one item (about 4 GB) is split by map into items with fit_map_mod.py; a map's old Astra RTX companion (made for the Astra startup loader and AstraRTXBridge, data_static/astra/<map>/rtx/startup.json) is converted with astra_companion.py; a map's finished Remix mod from the classic RTXLauncher install (one or several rtx-remix\mods folders, no Lua: Poolday, SafeHouse) is ported into one <map>_rtx mod with port_classic_mods.py, keeping what each hash showed; another author's map mod (ModDB, with the author's permission) is matched to its map by texture hashes, re-keyed from Remix's default XXH3 texture hash to the package's XXH64 with rekey_mod_hashes.py when needed, and fitted under one item with fit_mod.py. Covers the naming rule (the character's own name only), live hashes, hotloader_export.py or the offline mmdhl_pack.py, staging referenced DDS, package_content.py, nlctl, check_pack.py, a PoC check, the icon, the description with Required items, gmpublish create (hidden) and update -id, and post-upload checks. Use it whenever a character, model or map with its PBR is to be packed, uploaded or updated on the Workshop, or for gmpublish, hidden items, Required items, a Model Hotloader package, a pack's deployment, or items 3829348717, 3829892354, 3830769477, 3797839157, 3803057911, 3838671223, 3838671355, 3840655317, 3840655643, 3840656009. Not for the RTX package itself (item 3829070317, published by tools/publish_workshop.py).
 ---
 
 # Workshop content packs for Garry's Mod RTX
@@ -23,7 +23,8 @@ Items made this way (all hidden; dates UTC):
 
 Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3836505482 and 3836505733 the
 Backrooms remaster ("A remaster larger than one item"), 3838671223 Pool Day RTX and 3838671355 Safehouse
-RTX (hidden; "A classic install's map mod"), 3797839157 and 3803057911 the two converted
+RTX (hidden; "A classic install's map mod"), 3840655317 Valley View Mall RTX, 3840655643 Funkis RTX and
+3840656009 Country Estate RTX (hidden; "Another author's map mod (ModDB)"), 3797839157 and 3803057911 the two converted
 Astra companions (public; "An Astra companion"), 3829070317 the RTX package. The
 last builds are in the main checkout's `out\packages\guinaifen`, `out\packages\robin` and
 `out\packages\evernight-march7th` (each with a `pre-c16` copy of the earlier archive and layers).
@@ -596,9 +597,9 @@ folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 
 | Package | Map item | Mod (author) | Hash | Archive |
 |---|---|---|---|---|
-| `valley-view-mall-rtx` | 3624445216 gm_vvmall | ValleyViewMallRTX (skurtyyskirts) | re-keyed 418/420 | made again by class 2026-11-15 (step 6, `rules/vvmall.json`): 3,849,358,511 bytes, `298bf1ee...`; the round-2 fit (3,848,099,905, `86cedf98...`) kept as `valley-view-mall-rtx.round2.gma` |
-| `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | made again by class 2026-11-15 (`rules/funkis.json`): 3,849,371,569, `0c6d15f0...`; round 2 3,849,898,264, `157c65eb...` |
-| `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | made again by class 2026-11-15 (`rules/estate.json`): 3,849,341,493, `8fe2116a...`; round 2 3,848,492,875, `54030f28...` |
+| `valley-view-mall-rtx` | 3624445216 gm_vvmall | ValleyViewMallRTX (skurtyyskirts) | re-keyed 418/420 | made again by class 2026-11-15 (step 6, `rules/vvmall.json`): 3,849,358,511 bytes, `298bf1ee...`, hidden item **3840655317**; the round-2 fit (3,848,099,905, `86cedf98...`) kept as `valley-view-mall-rtx.round2.gma` |
+| `funkis-rtx` | 3380651069 gm_funkis | FunkisRTX (skurtyyskirts) | re-keyed 440/448 | made again by class 2026-11-15 (`rules/funkis.json`): 3,849,371,569, `0c6d15f0...`, hidden item **3840655643**; round 2 3,849,898,264, `157c65eb...` |
+| `country-estate-rtx` | 3394600058 rp_countryestatev1 | CountryEstateV1RTX (skurtyyskirts) | re-keyed 402/413 | made again by class 2026-11-15 (`rules/estate.json`): 3,849,341,493, `8fe2116a...`, hidden item **3840656009**; round 2 3,848,492,875, `54030f28...` |
 | `bigcity-rtx` | 105982362 gm_bigcity | BigCityRTX (skurtyyskirts) | XXH64 | 3,848,266,155, from 3.99 GB, `97dfbbae...`; the user uploaded it as item 3839835474, then rejected its plastic look. Since 2026-11-14 the item holds the `retune_roughness.py --restore-grain` build: 3,848,266,837 bytes, `a39206e5...` (pitfall 34). The update before it, `38aad5cd...`, had blotchy gloss on `building_template006b`'s panels |
 | `jupiter-underground-rtx` | 2381557019 | Jupiter (HamzaPOPO) | XXH64 | 3,037,424,854, `8513b8da...` |
 | `abandoned-mall-rtx` | 2878375438 | Abandoned | XXH64 | 1,605,512,947, `5e2768f6...` |
@@ -607,6 +608,12 @@ folder keeps the first upload as `pool-day-rtx.uploaded-3838671223.gma`):
 | `old-russian-sauna-rtx` | 2847541813 gm_banya | Cabin | XXH64 | 804,494,155, `665dd25a...` |
 | `backrooms-rtx` | 2732733089 gm_backrooms, gm_backrooms_classic | Backroom | XXH64 | 335,002,917, `b757a24e...` |
 | `dark-forest-rtx` | 3284067939 | dark forest | XXH64 | 191,609,744, `ec63228c...` |
+
+On 2026-11-15, at the user's request ("Upload hidden"), the three packs made again by class went up as
+hidden items from the PoC root (`gmpublish create`, 51-56 s each for 3.85 GB; each build folder keeps its
+`gmpublish-create.log` and `icon.jpg`, an in-game shot of the new build): Valley View Mall RTX 3840655317,
+Funkis RTX 3840655643, Country Estate RTX 3840656009. The page descriptions (each build's
+`description.txt`), the Required items (the map and 3829070317) and visibility are the user's.
 
 ## Scripts
 

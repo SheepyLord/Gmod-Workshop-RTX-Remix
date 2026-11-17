@@ -155,3 +155,11 @@ deleting or overwriting another owner's file, removing only its own pid and toke
   between waits for the next task. The two pools using it are off the frame's path.
 - **An upstream merge** that changes `util_threadpool.h` meets 0105's few lines; `util_worker_idle.h` and the unit test
   are the fork's own.
+
+## Published
+
+Merged into `load-speedup-3` (`2ef7ee21`) and with it into `main` as `ff2343ef`, after the full Release gate passed on
+the merged state, and pushed (`cf8d7137..ff2343ef`). The merge's hook uploaded item 3829070317 as
+**`0.0.0-dev.20261117102000+a8e6cb04`** (content digest `52682d8a...`); its change note carries this change's
+changelog section with round 3's. The field game takes the new `d3d9.dll` at its next start; the workers' idle sleep
+has not been run in the field.

@@ -111,3 +111,12 @@ main thread was 44-63 % busy in several slices against 95-100 % warm) and are no
   `poc/pngrealm2`), the tools (`with_poc_lock.py`, `purge_list.py`, the probes), the field's lists and callback files
   moved out of the field (`field-data/`); the runs in `out/load-speedup-2/runs/r3-*`.
 - The worktree's `out/ls3-package` (the package used in the field).
+
+## Published
+
+Under the standing permission (AGENTS.md rule 5: `main` pushed and item 3829070317 updated once `tools\test.ps1`
+passes), merged into `main` together with `remix-workers` (S1) as `ff2343ef` and pushed (`cf8d7137..ff2343ef`, five
+LFS objects, 71 MB). The merge's hook built the package here and uploaded item 3829070317 as
+**`0.0.0-dev.20261117102000+a8e6cb04`**: content digest `52682d8a...`, Steam sending a 33.7 MB delta of the 2.2 GB
+archive; its one change note is the changelog's two new sections, this round's and the geometry workers'. The push's
+hook found the inputs unchanged. The field game deploys it at its next start, with the new `d3d9.dll`.

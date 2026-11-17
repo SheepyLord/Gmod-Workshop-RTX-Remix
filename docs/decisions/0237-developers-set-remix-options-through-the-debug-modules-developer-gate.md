@@ -1,8 +1,8 @@
 # 0237: Developers set Remix options through the debug module's developer gate
 
-- Status: Proposed 2026-11-16, awaiting the user's approval before the merge
+- Status: Accepted 2026-11-16 (the user approved the merge: "Yes, merge")
 - Decided by: the agents, on the parent session's task ("Developer debug views can no longer be set from Lua, and that
-  should be fixed without reopening what ADR 0234 closed"); the user approves the merge. Package only: the loader
+  should be fixed without reopening what ADR 0234 closed"); the user approved the merge. Package only: the loader
   (`winmm.dll`) and `RTXFixesBinary` are not changed.
 - Supersedes in part: [0234](0234-what-a-server-a-workshop-item-and-lua-may-reach.md), decision 1's sentence
   "developers use the debug module's `RTXDebug.Remix.SetConfig` in a local single-player game": it did not hold, and

@@ -25,6 +25,24 @@ Versions follow the loader's CMake project version once it ships; until then eve
 - Each has a switch, all on: `nativeloader_load_accel_arc9`, `nativeloader_load_accel_callbacks`,
   `nativeloader_load_accel_prefetch`.
 
+### RTX Remix no longer keeps two processor cores busy (2026-11-17)
+
+- **RTX Remix no longer keeps two processor cores busy all the time.** Its two geometry workers looked for work
+  without ever waiting, from a few seconds after the start to the end of the game, in the main menu too: on a computer
+  with six or eight cores that took a third or a quarter of the processor from the game, its map loads and the
+  graphics driver, and cost power and heat. They now sleep when no draw has come for a millisecond and wake as soon as
+  one does. In the main menu they use no processor time any more (two full cores before; the whole game about 0.6 of a
+  core instead of 2.6). In a map at 4K, where the game waits for the graphics card between frames, they use 40 % of a
+  core each instead of 100 %, in VR 24 %; at very high frame rates, with draws coming all the time, about 91 %. Frames
+  are not slower: in a 4K test on gm_construct the median frame was 2.6 % shorter and long stalls rarer, at 1280x720
+  the same as before, and VR kept its frame rate on a Valve Index
+  ([ADR 0243](docs/decisions/0243-the-geometry-workers-sleep-when-idle.md)).
+- Runtime patch 0105 (`util_worker_idle.h`, a few lines in `util_threadpool.h`): an idle low-latency worker polls for
+  1 ms after its last task, then waits on a condition variable; a draw wakes a worker only when one sleeps, and no
+  wake-up is lost. The Release gate builds the runtime's own worker pool from the fork's base and the patches and
+  checks that idle workers use no CPU and that a task wakes them
+  (`tools/tests/test_runtime_remix_workers.py`).
+
 ### Faster map loads with many imported characters (2026-11-16)
 
 - **Map loads are about a minute shorter in a game with many Model Hotloader characters.** In a test game with 787

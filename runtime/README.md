@@ -1,5 +1,25 @@
 # runtime/
 
+Patch `0105-The-geometry-workers-sleep-when-idle-instead-of-poll.patch` (S1 of the second load speed-up plan, the
+user's request of 2026-11-17 to do its remaining items; [ADR 0243](../docs/decisions/0243-the-geometry-workers-sleep-when-idle.md),
+[report](../docs/handover/remix-workers-report.md); fork branch `claude/remix-workers`, commit `0165da89b` on 0104's
+`8cd421cd8`): the geometry workers sleep when idle. `D3D9Rtx::GeometryProcessor` (`d3d9_rtx.h:220`) is the one
+`WorkerThreadPool` in low-latency mode, whose idle workers polled their queues, tried to steal and yielded without end:
+the two `geometry-processing` threads kept a core busy each from their first task to the end of the game, in the main
+menu too. An idle low-latency worker now polls as before for `kWorkerSpinWindow` (1 ms) after its last task, then
+sleeps on a condition variable until a task is counted or the pool stops; `Schedule` reads an atomic count of sleepers
+after the push and the task count's increment and notifies under the lock only when one sleeps; a worker counts itself
+before it tests for work under that lock, so no wake-up is lost; the destructor wakes the sleepers. The high-latency
+mode (the ray tracing pipelines' and the asset exporter's pools) is unchanged. The logic is in the self-contained
+`src/util/util_worker_idle.h` (`WorkerSpin`, `WorkerSleep`); `util_threadpool.h` gains a few marked lines, the fork's
+`docs/fork-touchpoints.md` an entry; `tests/rtx/unit/test_worker_idle.cpp` (156 checks) is compiled from the patch by
+the Release gate, which also compiles upstream's pool from the base commit and patches 0001-0105 and runs it (with a
+local clone of the fork; [test_runtime_remix_workers.py](../tools/tests/test_runtime_remix_workers.py.md)). Upstream's
+own `util_threadpool` test (8 workers, 2,000 tasks, cancellations) passes with it. Exported alone (`format-patch -1
+--start-number 105 --zero-commit`) and built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src`
+(0001-0105): **`d3d9.dll` 479,886,336 bytes, SHA-256 `541806a9fa1f00504c2a24ea0e0f707a0a051bf12108b9355ef8f6735a64262c`**
+(70,854,432 bytes xz in Git LFS). No loader (`winmm.dll`) change.
+
 Patches 0101-0104 fix the runtime's findings of the repository review of 2026-11-16 (`out/review/repository-review.md`
 in the main checkout: findings 1, 10 and 17; the user approved fixing every finding) and what the PoC smoke test of
 those fixes found (0104). Fork branch `claude/review-runtime`: `aa92fe27a` (0101), `e5c5cae45` (0102), `ffaa14878`

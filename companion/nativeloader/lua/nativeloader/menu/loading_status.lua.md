@@ -59,6 +59,18 @@ wait should take, learned from the loads before.
   [`load_accel.lua`](load_accel.lua.md) has loaded the `nlfsaccel` module (`NativeLoaderLoadAccel`), the status line
   goes on with "  ·  N file lookups answered from memory" (translated), counted from the load's start, and the
   summary ends with "; the load accelerator answered N file lookups from memory".
+- **The slowest Lua callbacks (ADR 0241).** The summary also names, after the files, "Lua callbacks that ran longest:
+  net mmdhl_catalog (Model Hotloader, 94 calls) 51.2 s, server hook ..." : the three longest of at least half a second
+  from the load accelerator add-on's `data/nativeloader/load_callbacks_client.txt` and `_server.txt`
+  ([load_callbacks.lua](../../../../../fs_accel/addon/lua/nlloadaccel/load_callbacks.lua.md)), when their first line's
+  start time is not before this load's (`os.time()` when it began, 2 s of slack); the add-on, else the file's name.
+- **What a load reads, read ahead (ADR 0242).** With the module (`PrefetchRecord` in it) and the read-ahead on (no
+  `data/nativeloader/load_accel_prefetch_off.txt`): each load starts a record of what it reads (`PrefetchRecord(true)`);
+  once the map is named, a map other than the one read ahead last is read ahead from its list (`Prefetch(map)`, once a
+  load); a load timed to its end saves its record as its map's list (`PrefetchSave(map, first)`: a game's first load is
+  also the list the next menu start reads ahead) and prints `[nativeloader] load accelerator: what this load read is
+  listed for the next load of <map> (N files, M MB)`; any other load drops its record. The summary says what the last
+  read-ahead read: "; read ahead: M MB of N files from the list of <map>".
 - **Off switch.** `nativeloader_load_overlay 0` (archived): no overlay, no summary and nothing timed or written. The
   words are translated from the companion's catalog (`nativeloader_language`, read from the copy the companion keeps
   for the menu in `data/nativeloader_companion/language.txt` since the menu realm cannot see that client convar, else

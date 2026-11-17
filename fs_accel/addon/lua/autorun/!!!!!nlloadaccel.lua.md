@@ -19,8 +19,14 @@ In the server and the client realm it:
    `nativeloader_load_accel_verify` (not archived; 1 turns the checks on). The menu realm cannot see a client realm's
    Lua convar (RESEARCH, R24), so the client keeps "off" for the companion's menu script as
    `data/nativeloader/load_accel_off.txt` (written while the convar is 0, removed when it is 1, at once on a change).
-   Then, when on, it loads the `nlfsaccel` module ([`fs_accel`](../../../README.md)) when `util.IsBinaryModuleInstalled`
-   finds it.
+   It also creates `nativeloader_load_accel_prefetch` (archived, default 1; ADR 0242), whose 0 the client keeps for the
+   menu realm as `data/nativeloader/load_accel_prefetch_off.txt` the same way: the menu realm records each load's
+   reads and reads them ahead. Then, when on, it includes the third round's Lua files, each with its own switch, before
+   any module (sent to clients with `AddCSLuaFile`): [`nlloadaccel/load_callbacks.lua`](../nlloadaccel/load_callbacks.lua.md)
+   first (ADR 0241: the load's hooks, timers and net receivers timed, the slowest named), then
+   [`nlloadaccel/arc9_icons.lua`](../nlloadaccel/arc9_icons.lua.md) (ADR 0240: ARC9's attachment icons decoded when
+   first drawn). Then it loads the `nlfsaccel` module ([`fs_accel`](../../../README.md)) when
+   `util.IsBinaryModuleInstalled` finds it.
 2. Calls `Install()` for the module's file lookup hooks (part A). They are hooked once per process: normally at menu
    start already, by the companion's [`load_accel.lua`](../../../../companion/nativeloader/lua/nativeloader/menu/load_accel.lua.md),
    which this only adopts (the other realm's copy of the module likewise). The module leaves them out once after a

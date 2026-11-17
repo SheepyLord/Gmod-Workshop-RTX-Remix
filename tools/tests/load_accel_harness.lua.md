@@ -2,7 +2,8 @@
 
 Runs the load accelerator's Lua (R26) under LuaJIT with a mocked GMod (convars, `file`, `timer`, `hook`, `cvars`,
 `util.IsBinaryModuleInstalled`, `engine.GetAddons`/`GetGames`, `game.IsDedicated`, `SysTime`, `IsInLoading`,
-`require`) and a mocked `nlfsaccel` module whose index gives GMod's answers unless a scenario says otherwise.
+`require`; `AddCSLuaFile` and `include` only noted: the third round's `load_callbacks.lua` and `arc9_icons.lua` have
+harnesses of their own) and a mocked `nlfsaccel` module whose index gives GMod's answers unless a scenario says otherwise.
 Arguments: the add-on's autorun ([`!!!!!nlloadaccel.lua`](../../fs_accel/addon/lua/autorun/!!!!!nlloadaccel.lua.md)),
 the companion's menu script ([`load_accel.lua`](../../companion/nativeloader/lua/nativeloader/menu/load_accel.lua.md)),
 a scenario.
@@ -27,6 +28,8 @@ a scenario.
 | `menu-left-out` | the module leaves the hooks out: one line with its reason, `NativeLoaderLoadAccel` stays false, no `Think` hook |
 | `menu-off` | the client's off file present: nothing loaded, one line |
 | `menu-not-menu` | outside the menu realm: nothing loaded |
+| `menu-prefetch` | ADR 0242: the menu script asks the module to read the last list ahead (`Prefetch()` with no map) and tells the overlay which map's list it reads (`NativeLoaderLoadAccelPrefetched`) |
+| `menu-prefetch-off` | the add-on's read-ahead switch off (its file): nothing read ahead |
 
 Every scenario but two runs as an RTX start of loader 0.16.0 (a mocked `status.json` and the held
 `rtx-session.txt`); `not-rtx` (no report) and `not-rtx-marker` (the report, but no marker) check that the add-on

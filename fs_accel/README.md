@@ -52,6 +52,20 @@ once.
   once, as GMod does; a wildcard in the folder part of a pattern is left to GMod. The add-on replaces `file.Find` for
   add-on titles only, after a self-test against GMod's own answers.
 
+- **E: what a load reads, read ahead for the next load** ([ADR 0242](../docs/decisions/0242-what-a-load-reads-read-ahead-for-the-next.md)).
+  While the companion's load overlay records a map load (`PrefetchRecord`), a hook on `filesystem_stdio.dll`'s
+  `ReadFile` import notes which 64 KiB blocks of which file the load reads, in the order the files are first read: the
+  offset from the `OVERLAPPED`, or for a synchronous read the handle's position asked before the read; the file from
+  the `CreateFile` hooks or, for a handle opened before the record (the Workshop's archives), from Windows
+  (`GetFinalPathNameByHandleW`). When the load has reached the game the overlay saves the record
+  (`PrefetchSave`) as `garrysmod/data/nativeloader/prefetch/<map>.lst` (Lua cannot write that extension; files on
+  local fixed drives only, not `garrysmod/cache` or `garrysmod/data`, 8 GiB at most) and, for a game's first load,
+  `last.txt`. `Prefetch([map])` reads a list's blocks on a thread of its own: each file opened only when it is a plain
+  file on a local fixed drive of the size the list names, its reads at low I/O priority (`IoPriorityHintLow`),
+  1 MiB at a time into a buffer it discards, at most a quarter of the memory or 4 GiB; a later prefetch supersedes
+  it. The companion reads the last first load's list ahead at menu start and a load's own map's once it is named.
+  Only the copy that installed the hooks records (the menu realm's).
+
 | File | Purpose |
 |---|---|
 | `CMakeLists.txt` | `nl_fs_accel` (static: the paths, the cache, the hooks, the index), the client and server modules, `nl_fs_accel_tests` |
@@ -59,8 +73,12 @@ once.
 | `path_rules.cpp` | Which paths the cache may answer for (`normalize`), GMod's add-on wildcards (`wildcard_match`) |
 | `loose_cache.cpp` | A: the cached folders, their listings and verdicts (`LooseCache`), the watcher thread (`Watcher`) |
 | `hooks.cpp` | A: the import hooks on `filesystem_stdio.dll` (chained, once per process, the other copy's hooks recognised by the `nl_fs_accel_v1` export), verify mode, the counters, the start-up marker and `settle()`, `install()` |
+| `prefetch.cpp` | E: the record of a load's reads (`record_start`, `opened`, `read`, `record_list`), the list file (`save_list`, `load_list`), the read-ahead thread (`start`, `status`, `default_budget`, `wait`) |
 | `addon_index.cpp` | B: finding `Addon::FileSystem`, reading GMod's table under SEH, the index and the search (`AddonIndex`) |
-| `module.cpp` | `gmod13_open`: the `nlfsaccel` Lua table (`Install`, `Status` (with `links`, the links and junctions cached), `SetEnabled`, `SetVerify`, `FindInAddon`, `Invalidate`, `CountFind`, `Settled`) |
+| `module.cpp` | `gmod13_open`: the `nlfsaccel` Lua table (`Install`, `Status` (with `links`, the links and junctions cached), `SetEnabled`, `SetVerify`, `FindInAddon`, `Invalidate`, `CountFind`, `Settled`; E: `PrefetchRecord`, `PrefetchSave`, `Prefetch`, `PrefetchStatus`, in the copy that installed the hooks) |
 | `tests/test_loose.cpp` | The path rules and wildcards; the cache's verdicts against Windows' own answers on generated trees; junctions (live, to a missing folder whose parent exists, to one several missing folders deep) and, where the account may make one, a directory symbolic link, against Windows' answers; links that are not cached; a change behind a link that drops it; a folder with a name Windows could fold differently; the hook bodies (answered without the next function, the rest passed on, writes drop a folder, off); the watcher (a change seen, read, the folder dropped, the others answered again); the start-up marker (its own, a running process's, a gone one's, a reused id, text that is no marker) |
+| `tests/test_prefetch.cpp` | E: list names; a record of synchronous and overlapped reads (blocks, first-read order, a handle opened before the record, the cache folder and unread files left out, the budget); the list's round trip and what it refuses (another file, relative and network paths); a read-ahead within its budget, clipped at the file's end, passing over a file of another size and a missing one |
 | `tests/test_index.cpp` | The index against a table laid out as GMod's (built with the same C++ library): directories and files per add-on, a title shared by two add-ons (each name once), a mount that owns nothing, wildcards (one in the folder part left to GMod), case and slashes, a rebuild after a change but not twice within 2 s, a remount with every size the same, a table that does not hold together, a tree link pointing back at its node |
+| `addon/lua/nlloadaccel/load_callbacks.lua` | D2 ([ADR 0241](../docs/decisions/0241-the-load-overlay-names-the-slowest-lua-callbacks.md)): the hooks, timers and net receivers of a map load timed and the slowest named ([its documentation](addon/lua/nlloadaccel/load_callbacks.lua.md)) |
+| `addon/lua/nlloadaccel/arc9_icons.lua` | F ([ADR 0240](../docs/decisions/0240-arc9s-attachment-icons-decoded-when-first-drawn.md)): ARC9's attachment icons decoded when first drawn ([its documentation](addon/lua/nlloadaccel/arc9_icons.lua.md)) |
 | `addon/lua/autorun/!!!!!nlloadaccel.lua` | The add-on: loads the module in the server and client realms, adopts A (or installs it), replaces `file.Find` for add-on titles after a self-test, the checks, the off file for the menu realm, `Settled()` and the tally after a load ([its documentation](addon/lua/autorun/!!!!!nlloadaccel.lua.md)) |

@@ -513,6 +513,13 @@ builds its library once for a catalog burst, decodes manifests and rigs once and
 the map runs in a game a player hosts ([ADR 0238](decisions/0238-the-hotloaders-map-start-work-once-and-after-the-map-runs.md);
 [report](handover/load-speedup-2-report.md)).
 
+The third load speed-up round (2026-11-17): the accelerator's module records which blocks of which files a map load
+reads and reads them ahead for the next load ([ADR 0242](decisions/0242-what-a-load-reads-read-ahead-for-the-next.md));
+its add-on decodes ARC9's attachment icons when first drawn
+([ADR 0240](decisions/0240-arc9s-attachment-icons-decoded-when-first-drawn.md)) and names a load's slowest hooks,
+timers and net receivers, which the load overlay's end line repeats
+([ADR 0241](decisions/0241-the-load-overlay-names-the-slowest-lua-callbacks.md); [report](handover/load-speedup-3-report.md)).
+
 R28: the engine guard gains [`crash_report.cpp`](../engine_guard/README.md) (Windows Error Reporting's snapshot of the
 game switched off in every realm, [ADR 0142](decisions/0142-no-crash-snapshot-of-the-game.md)). The companion's render
 guard ([`_nativeloader_guard.lua`](../companion/nativeloader/lua/autorun/_nativeloader_guard.lua.md)) stops periodic

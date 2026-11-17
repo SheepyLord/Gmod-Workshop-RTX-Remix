@@ -9,6 +9,7 @@ the load's estimate from the loads before.
 
 - `LoadingStatusTests` runs [`loading_status_harness.lua`](loading_status_harness.lua.md) under LuaJIT, one scenario per
   test (two for the settling phase's interruptions, two for "no module" and "not the menu"; skipped without LuaJIT).
+- The third load speed-up round's scenarios: `callbacks` (ADR 0241), `prefetch` and `prefetch-off` (ADR 0242).
 - `GModSyntaxTests` reads every companion menu script for `continue` used as a name (`x.continue`, `continue = ...`,
   `[continue]`): GMod's Lua makes it a keyword, so such a script compiles under LuaJIT but not in the game, as the R24
   notice's text table did before this check. A self-test proves the check finds that mistake and allows `continue` as

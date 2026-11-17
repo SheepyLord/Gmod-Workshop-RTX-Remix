@@ -6,6 +6,25 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### ARC9's icons out of the load, the load's slow add-ons named, a load's files read ahead (2026-11-17)
+
+- **Map loads no longer decode ARC9's attachment icons.** With ARC9 weapons installed, the attachment icons (about a
+  thousand in a test game with 787 add-ons) are decoded the first time ARC9's menus show them instead of while a map
+  loads. The server's part of a modern_house load took 8.4 s instead of 9.4 s, gm_construct's 10.7 s instead of
+  12.2 s ([ADR 0240](docs/decisions/0240-arc9s-attachment-icons-decoded-when-first-drawn.md)). The first opening of an
+  ARC9 menu with many icons may hitch once.
+- **The end-of-load line names the add-ons that held the load in a hook, a timer or a net message**, not only the Lua
+  files that ran longest ("Lua callbacks that ran longest: ..."), also in the console of each realm and in
+  `data/nativeloader/load_callbacks_client.txt` and `_server.txt`
+  ([ADR 0241](docs/decisions/0241-the-load-overlay-names-the-slowest-lua-callbacks.md)).
+- **What a map load reads is read ahead for the next one.** The load accelerator remembers which parts of which files
+  each load read (`data/nativeloader/prefetch`) and reads them ahead at low priority at the main menu and when a
+  remembered map loads, so that a load after a restart of the computer finds more of its files in memory
+  ([ADR 0242](docs/decisions/0242-what-a-load-reads-read-ahead-for-the-next.md)). The console says what was listed and
+  what was read ahead.
+- Each has a switch, all on: `nativeloader_load_accel_arc9`, `nativeloader_load_accel_callbacks`,
+  `nativeloader_load_accel_prefetch`.
+
 ### Faster map loads with many imported characters (2026-11-16)
 
 - **Map loads are about a minute shorter in a game with many Model Hotloader characters.** In a test game with 787

@@ -3748,3 +3748,22 @@ separator now has 57 texts in each catalog.
   in the `NL_ACCEL` line). Put the config back byte for byte; a control run with the Workshop package also puts the
   Workshop's version back in place.
 
+## The third load speed-up round (2026-11-17)
+
+- **C++ (CTest):** `nl_fs_accel_tests` ([fs_accel](../fs_accel/README.md), `tests/test_prefetch.cpp`): list names; a
+  record of synchronous and overlapped reads on generated files (the blocks, first-read order, a handle opened before
+  the record named by Windows, the cache folder and unread files left out, the budget); the list's round trip and what
+  it refuses; a read-ahead within its budget, clipped at a file's end, passing over a file of another size and a missing
+  one.
+- **Lua under LuaJIT:** [`test_arc9_icons.py`](../tools/tests/test_arc9_icons.py.md) (ADR 0240: client, through the
+  render guard's wrapper, server, ARC9's entity generator, off), [`test_load_callbacks.py`](../tools/tests/test_load_callbacks.py.md)
+  (ADR 0241: client and server timing, naming, the file and the originals put back, off),
+  [`test_loading_status.py`](../tools/tests/test_loading_status.py.md) (`callbacks`, `prefetch`, `prefetch-off`) and
+  [`test_load_accel.py`](../tools/tests/test_load_accel.py.md) (`menu-prefetch`, `menu-prefetch-off`).
+- **Field** (the main checkout's `out/load-speedup-2/tools/field_run.py`, as in the second round, with the branch's
+  `.gma` under `allow.local`): a warm start (`modern_house,gm_construct`) checks the console's new lines (`ARC9
+  attachment icons not decoded` / `left to be decoded when first drawn`, `Lua callbacks that ran longest`, `what this
+  load read is listed`, `reading ahead`) and the phases (`phase_table.py`). A cold A/B for the read-ahead: `--hold-lists
+  --purge-list <the lists>` (no read-ahead; the files the lists name dropped from Windows' cache under the lock with
+  `out/load-speedup-3/tools/purge_list.py`) against `--purge-list <the lists>` (the lists read ahead at menu start).
+

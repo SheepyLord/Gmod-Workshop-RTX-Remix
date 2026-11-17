@@ -9530,3 +9530,37 @@ high), warm, with `out/load-speedup-2/tools` of the main checkout (the plan and 
   56.8 -> 2.5 s, settling 5.8 -> 4.9 s); gm_construct after it 88.2 s -> 28.7 s. The load overlay still names
   `library.lua` (2.3-2.5 s: one build decoding the 206 manifests in each map's new client Lua state) among the slowest
   Lua files.
+
+## The third load speed-up round (2026-11-17, Claude; [ADR 0240](decisions/0240-arc9s-attachment-icons-decoded-when-first-drawn.md), [ADR 0241](decisions/0241-the-load-overlay-names-the-slowest-lua-callbacks.md), [ADR 0242](decisions/0242-what-a-load-reads-read-ahead-for-the-next.md))
+
+- **GMod's PNG materials are cached by flags and path for the whole process** (PoC, 2026-11-17):
+  `Material("icon16/zoom_out.png", "mips smooth")` is the material `0001010icon16/zoom_out` (`UnlitGeneric`, `$flags`
+  48 = vertex colour and vertex alpha), its texture the same name; without flags `icon16/zoom_out`. A second call took
+  0.002 ms (the first 0.14 ms for 16x16 icons) and returns another userdata for the same material. The cache is the
+  material system's, which both realms of a game this computer hosts share: 30 `gui/*.png` (1.1 MB) the server realm
+  had decoded (`lua_run` typed in the console) cost the client 0.10 ms, 10 fresh `icon32/*.png` (18 KB) 2.40 ms.
+  `RunConsoleCommand("lua_run", ...)` from client Lua is blocked ("Command is blocked!").
+- **ARC9's attachments** (base, Workshop 2910505837): `lua/arc9/shared/sh_atts.lua` defines `ARC9.LoadAtts` (line 158)
+  and calls it at the end of the file (line 361): every `arc9/common/attachments/*.lua` and `attachments_bulk/*.lua` is
+  included in both realms, and each sets `ATT.Icon = Material("<icon>.png", "mips smooth")`. In the user's
+  subscriptions: 7 archives with attachment files, 154 files with `Material` calls, 1,722 calls, 1,481 PNG, 853
+  distinct (flags: "mips smooth" 1,269, none 139, "smooth" 39, "mips" 33). `arc9_atts_generate_entities` defaults to 0
+  (`sh_0_convar.lua`); when on, `sh_atts.lua:126` reads each icon's texture name at load. In a modern_house load (round
+  2's package) the server realm spent about 2.5 s in `sh_atts.lua`, `resources.dll` (PNG decoding) 67 % of a 2 s slice.
+- **A tail call leaves no frame**: an attachment file that did `return Material(...)` would not be on the stack when
+  `Material` looks for it (`debug.getinfo`); ARC9's files assign.
+- **`filesystem_stdio.dll` imports** (dumpbin): `ReadFile`, `SetFilePointer`, `SetFilePointerEx`,
+  `GetOverlappedResult`, `CreateFileMappingA`, `CreateFileA/W` from KERNEL32: its reads can be hooked like its opens.
+- **What a load reads through it** (round 3's record, warm): modern_house 85,869 reads of 1,962 files, 1,836 MB in
+  64 KiB blocks; gm_construct after it 122,677 reads, 672 files, 1,749 MB. The menu's read-ahead of modern_house's list:
+  1,765 MB of 1,961 files.
+- **The slowest callbacks of a load** (round 3's D2, warm): server `hook InitPostEntity MMDHL.RestorePublishedActors`
+  1.4-1.9 s (`mmd_hotloader/lua/mmdhl/sharing.lua:295`), client `net mmdhl_actor_registration` 0.8-0.9 s (151 calls,
+  `actors.lua:516`), `hook Think BBS.ProcessRagdollMeshPrewarm` 2.3-2.4 s (214-278 calls, Bullet Break Simulator's
+  `cl_30_overlay.lua:2827`), `hook InitPostEntity RTXReady_MaterialFixer` 0.6 s, `hook Think
+  RTXMaterialPipeline_ProcessQueue` 0.8 s.
+- **Field results** (warm, `r3-w2` against round 2's `ab2`): modern_house 25.9 s against 25.5 s (server phase 8.4
+  against 9.4 s, client 11.4 against 10.5 s), gm_construct after it 27.8 against 30.8 s (server 10.7 against 12.2 s).
+  A warm load needs a quiet machine: after builds and 15 GB of copies by other agents, two runs had the main thread
+  only 44-63 % busy in several slices (waiting on the disk) and took 38-42 s.
+

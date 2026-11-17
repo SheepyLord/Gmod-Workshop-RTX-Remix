@@ -9468,7 +9468,10 @@ merge of patch 0093. Left as they were.
 - **`remixapi_SetConfigVariable` writes the runtime's User layer** (`readOption` into
   `getTargetLayer(getUserLayer())`), as `RemixConfig` did: the Remix menu's "Save Settings" keeps what is set there. A
   name that is not an `RtxOption` goes to `RtxOptionManager::queueDynamicValue`, which refuses names outside its dynamic
-  namespaces. `rtx.debugView.debugViewIdx` is an ordinary `uint32_t` option (`rtx_debug_view.h:107`); 0 is off, 23 is
+  namespaces (`validateDynamicKey`: `NotOwned`). A value that does not parse, a malformed hash list included, is
+  refused, not thrown: `readOption` reads through runtime patch 0101's `readValueWithoutThrow`
+  (`rtx_option.cpp:453-480`), and returns false without a layer. So the debug module's API route needs no hash check
+  of its own. `rtx.debugView.debugViewIdx` is an ordinary `uint32_t` option (`rtx_debug_view.h:107`); 0 is off, 23 is
   `DEBUG_VIEW_ALBEDO` (`shaders/rtx/utility/debug_view_indices.h:53`).
 - **`build_modules.ps1 -Only rtxdebug` under a path with `!` and garrysmod_common on another drive fails:** the
   `!`-path branch builds each `ProjectReference` from `Join-Path <project folder> <reference>`, and premake writes an

@@ -71,7 +71,8 @@ only warning in the module's own project is the old `INVALID_HANDLE_VALUE` redef
     single-player, sv_cheats 1 and -insecure"; the three captures within 1.0/255.
   - Both quit normally (exit 0) and wrote the field's settings back. The PoC's `config.json` was put back byte for byte
     (SHA-256 `b730e681...`), the six JPEGs removed from its `screenshots` folder, the lock released.
-- **The Release gate** on the branch: see the commit's message and the session's notes.
+- **The Release gate** (`tools\test.ps1 -Config Release` with `NL_FIXES_CLONE`, on the branch's `a4c4aa4d` in a short
+  worktree, `out\worktrees\dbgv`): CTest 35 of 35, 2,107 Python tests OK (one skipped, as before), all checks passed.
 
 ## Not checked
 

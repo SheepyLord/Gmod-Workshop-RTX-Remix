@@ -1,0 +1,628 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Tue, 17 Nov 2026 00:33:55 -0700
+Subject: [PATCH] The geometry workers sleep when idle instead of polling for
+ good
+
+WorkerThreadPool's low-latency mode, which only the geometry workers use (D3D9Rtx::GeometryProcessor,
+d3d9_rtx.h:220), let an idle worker poll its queue, try to steal and yield without end: the two
+geometry-processing threads each kept a core at 100 % from their first task to the end of the process,
+in the main menu too (GMod). An idle low-latency worker now polls as before for kWorkerSpinWindow (1 ms)
+after its last task, so the draws within a frame keep their latency, and then sleeps on a condition
+variable until a task is counted or the pool stops. Schedule wakes a sleeper only when one sleeps: it
+reads an atomic count of sleepers after the push and the task count's increment, and notifies under the
+lock; a worker counts itself before it tests for work under that lock, so no wake-up is lost. The
+destructor wakes the sleepers. The high-latency mode and the other pools are unchanged.
+
+util_worker_idle.h is self-contained (WorkerSpin, WorkerSleep); tests/rtx/unit/test_worker_idle.cpp
+covers the window, a sleeper's wake and stop, a pool shaped like this one (idle workers sleep, a task
+wakes them, tasks at the window's edge, workers that cannot steal) and stops with sleeping or polling
+workers.
+---
+ docs/fork-touchpoints.md            |  24 +++
+ src/util/meson.build                |   1 +
+ src/util/util_threadpool.h          |  50 ++++-
+ src/util/util_worker_idle.h         | 104 ++++++++++
+ tests/rtx/unit/meson.build          |   7 +
+ tests/rtx/unit/test_worker_idle.cpp | 293 ++++++++++++++++++++++++++++
+ 6 files changed, 475 insertions(+), 4 deletions(-)
+ create mode 100644 src/util/util_worker_idle.h
+ create mode 100644 tests/rtx/unit/test_worker_idle.cpp
+
+diff --git a/docs/fork-touchpoints.md b/docs/fork-touchpoints.md
+index 3fe0b99f0..acc08f790 100644
+--- a/docs/fork-touchpoints.md
++++ b/docs/fork-touchpoints.md
+@@ -4114,3 +4114,27 @@ re-check.
+   merged build, as `test_documentation` and `test_graph_documentation` require.
+ - **`submodules/rtxdi`** - merge of the RemixProjGroup volumetrics changes (`3b39a7c7`) and NVIDIA's
+   light identity resolve (`83616205`). The two touch disjoint files.
++
++---
++
++## Workstream - idle geometry workers sleep (GMod native loader runtime patch 0105 - 2026-11-17, CPU)
++
++`WorkerThreadPool`'s low-latency mode, which only the geometry workers use
++(`D3D9Rtx::GeometryProcessor`), let an idle worker poll its queue, try to steal and
++yield without end, so each of the two workers kept a core at 100 % from its first
++task to the end of the process, in menus too. An idle low-latency worker now polls
++for `kWorkerSpinWindow` (1 ms) after its last task, then sleeps on a condition
++variable until a task is counted or the pool stops; `Schedule` wakes a sleeper only
++when one sleeps. The high-latency mode and the other pools are unchanged.
++
++- **`src/util/util_threadpool.h`** - inline tweak (hook-shaped: the logic is in the
++  fork-owned header below).
++  *`processWork`'s idle step calls `WorkerSpin`/`WorkerSleep`; `Schedule` calls
++  `wake` after the push and the task count's increment; the destructor calls `stop`;
++  one `IdleSleep` member, `Nop` in high-latency pools.*
++- **`src/util/util_worker_idle.h`** - fork-owned file (new, standard library only).
++  *The spin window, the sleeper count and the sleep and wake protocol.*
++- **`src/util/meson.build`**, **`tests/rtx/unit/meson.build`** - inline tweak.
++  *List the header and `test_worker_idle`.*
++
++No RTX_OPTION, CB, or binding changes - `RtxOptions.md` regen not required.
+diff --git a/src/util/meson.build b/src/util/meson.build
+index f5f0a4042..79e70a6e8 100644
+--- a/src/util/meson.build
++++ b/src/util/meson.build
+@@ -59,6 +59,7 @@ util_src = files([
+ 
+   'util_threadpool.h',
+   'util_atomic_queue.h',
++  'util_worker_idle.h',
+ 
+   'util_renderprocessor.h',
+   
+diff --git a/src/util/util_threadpool.h b/src/util/util_threadpool.h
+index f8684e5e7..32dc9129e 100644
+--- a/src/util/util_threadpool.h
++++ b/src/util/util_threadpool.h
+@@ -37,6 +37,9 @@
+ #include "util_fastops.h"
+ #include "util_bit.h"
+ #include "sync/sync_spinlock.h"
++// NV-DXVK start: an idle low-latency worker sleeps after a short spin window (GMod)
++#include "util_worker_idle.h"
++// NV-DXVK end
+ 
+ namespace dxvk {
+   const size_t kLambdaStorageCapacity = 256;
+@@ -275,6 +278,8 @@ namespace dxvk {
+     *  WorkStealing: Enables the work stealing features of the scheduler
+     *  LowLatency: Enables the low-latency mode where workers will spin instead of
+     *              waiting for tasks on a conditional variable
++    *              (GMod: for kWorkerSpinWindow after their last task, then they
++    *              sleep until a task is scheduled; see util_worker_idle.h)
+     *  (ctor)workerName: Name given to threads with the pattern: workerName(N)
+     * 
+     *  Example usage:
+@@ -291,6 +296,9 @@ namespace dxvk {
+     struct Nop { };
+     using OnAddCondition = std::conditional_t<LowLatency, Nop, dxvk::condition_variable>;
+     using TaskMutex = std::conditional_t<LowLatency, Nop, dxvk::mutex>;
++    // NV-DXVK start: where idle low-latency workers sleep once their spin window is over (GMod)
++    using IdleSleep = std::conditional_t<LowLatency, WorkerSleep<dxvk::mutex, dxvk::condition_variable>, Nop>;
++    // NV-DXVK end
+ 
+   public:
+     WorkerThreadPool(uint8_t numThreads, const char* workerName = "Nameless Worker Thread") 
+@@ -324,6 +332,11 @@ namespace dxvk {
+         std::unique_lock<TaskMutex> lock(m_taskMutex);
+         m_condOnAdd.notify_all();
+       }
++      // NV-DXVK start: sleeping low-latency workers wake and see the stop (GMod)
++      if constexpr (LowLatency) {
++        m_idleSleep.stop();
++      }
++      // NV-DXVK end
+ 
+       for (auto& worker : m_workerThreads) {
+         worker.join();
+@@ -388,6 +401,12 @@ namespace dxvk {
+         }
+ 
+         ++m_numTasks;
++
++        // NV-DXVK start: a sleeping low-latency worker wakes, only once the task is queued and counted (GMod)
++        if constexpr (LowLatency) {
++          m_idleSleep.wake(!WorkStealing);
++        }
++        // NV-DXVK end
+       }
+ 
+       return future;
+@@ -403,6 +422,9 @@ namespace dxvk {
+ 
+   private:
+     void processWork(const uint32_t workerId) {
++      // NV-DXVK start: a low-latency worker's rounds without a task (GMod)
++      WorkerSpin spin;
++      // NV-DXVK end
+       while (true) {
+         // Using a conditional wait in high-latency mode
+         if constexpr (!LowLatency) {
+@@ -418,13 +440,19 @@ namespace dxvk {
+         }
+ 
+         // Try executing a task from our queue
+-        if (executeTask(workerId))
++        if (executeTask(workerId)) {
++          // NV-DXVK start: the spin window starts again after each task (GMod)
++          spin.worked();
++          // NV-DXVK end
+           continue;
++        }
+ 
++        // NV-DXVK start: declared out here for the idle step below (GMod)
++        bool workStolen = false;
++        // NV-DXVK end
+         if (WorkStealing) {
+           // There's no work to do!
+           // Steal work from other queues
+-          bool workStolen = false;
+           for (uint32_t i = 1; i < m_numThread; i++) {
+             const uint32_t victim = (workerId + i) % m_numThread;
+             if (executeTask(victim)) {
+@@ -432,12 +460,23 @@ namespace dxvk {
+               break;
+             }
+           }
++        }
+ 
+-          // If nothing to steal, yield this thread
+-          if (!workStolen && LowLatency) {
++        // NV-DXVK start: a low-latency worker that found nothing yields while its spin window lasts, as it always did,
++        // then sleeps until a task is counted or the pool stops (GMod: each idle worker kept a core busy for good)
++        if constexpr (LowLatency) {
++          if (workStolen) {
++            spin.worked();
++          } else if (spin.keepPolling()) {
++            // If nothing to steal, yield this thread
+             std::this_thread::yield();
++          } else {
++            m_idleSleep.sleep([this] {
++              return m_numTasks > 0 || m_stopWork.load();
++            });
+           }
+         }
++        // NV-DXVK end
+       }
+     }
+ 
+@@ -478,6 +517,9 @@ namespace dxvk {
+     // Used conditionally to wait for tasks in high-latency mode
+     TaskMutex m_taskMutex;
+     OnAddCondition m_condOnAdd;
++    // NV-DXVK start: used in low-latency mode once a worker's spin window is over (GMod)
++    IdleSleep m_idleSleep;
++    // NV-DXVK end
+ 
+     // Used to synchronize intra-thread stealing
+     sync::Spinlock m_threadMutex;
+diff --git a/src/util/util_worker_idle.h b/src/util/util_worker_idle.h
+new file mode 100644
+index 000000000..34a47b841
+--- /dev/null
++++ b/src/util/util_worker_idle.h
+@@ -0,0 +1,104 @@
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++#pragma once
++
++// NV-DXVK: how an idle worker of a low-latency WorkerThreadPool waits (runtime patch 0105 of the GMod native loader
++// project). Self-contained (the standard library only), so the project's gate compiles and runs
++// tests/rtx/unit/test_worker_idle.cpp against it; util_threadpool.h is the pool's side.
++//
++// The pool's low-latency mode, which the geometry workers use (D3D9Rtx::GeometryProcessor), let an idle worker poll
++// its queue, try to steal and yield without end: each worker kept a whole core busy from its first task to the end of
++// the process, in the main menu too. A worker now polls as before for kWorkerSpinWindow after its last task, so the
++// draws of a frame keep their latency, and then sleeps until a task is counted or the pool stops.
++
++#include <atomic>
++#include <chrono>
++#include <cstdint>
++#include <mutex>
++
++namespace dxvk {
++
++  // How long an idle low-latency worker keeps polling after its last task before it sleeps. Long against waking a
++  // sleeping thread (tens of microseconds), so a pause between draws that ends with a wake-up grows by a few percent at
++  // most, and short against a frame (4 to 16 ms), so the workers sleep between the frames' draws and in menus.
++  inline constexpr std::chrono::microseconds kWorkerSpinWindow { 1000 };
++
++  // One worker's rounds without a task: when its window started.
++  class WorkerSpin {
++  public:
++    using Clock = std::chrono::steady_clock;
++
++    // The worker ran a task: its next round without one starts a new window.
++    void worked() {
++      m_idle = false;
++    }
++
++    // A round found no task: true while the window lasts (the worker yields and polls again), false once it is over.
++    // A worker woken from its sleep keeps its old window, so a wake-up that finds no task sleeps again at once.
++    bool keepPolling() {
++      return keepPolling(Clock::now());
++    }
++
++    bool keepPolling(Clock::time_point now) {
++      if (!m_idle) {
++        m_idle = true;
++        m_since = now;
++      }
++      return now - m_since < kWorkerSpinWindow;
++    }
++
++  private:
++    bool m_idle = false;
++    Clock::time_point m_since {};
++  };
++
++  // Where the workers sleep once their window is over. Mutex and Condition are the pool's own kinds (dxvk::mutex and
++  // dxvk::condition_variable); the unit test uses the standard ones.
++  template<typename Mutex, typename Condition>
++  class WorkerSleep {
++  public:
++    // A worker: sleeps until ready() holds (a task counted, or the pool stopping). It counts itself as a sleeper before
++    // ready() is tested under the lock, and wake() reads that count after the scheduler counted its task, both
++    // sequentially consistent: either ready() sees the task, or wake() sees the sleeper and notifies under the lock,
++    // which the sleeper holds from its test until it waits. No task is left waiting for a worker that sleeps.
++    template<typename Ready>
++    void sleep(const Ready& ready) {
++      std::unique_lock<Mutex> lock(m_mutex);
++      m_sleepers.fetch_add(1);
++      m_condition.wait(lock, ready);
++      m_sleepers.fetch_sub(1);
++    }
++
++    // The scheduler, after it queued and counted a task: wakes one sleeper, or every sleeper for workers that cannot
++    // take each other's tasks. While no worker sleeps it reads one atomic and takes no lock.
++    void wake(bool all) {
++      if (m_sleepers.load() == 0) {
++        return;
++      }
++      std::lock_guard<Mutex> lock(m_mutex);
++      if (all) {
++        m_condition.notify_all();
++      } else {
++        m_condition.notify_one();
++      }
++    }
++
++    // The pool stops, its flag already set: every sleeper wakes and sees it.
++    void stop() {
++      std::lock_guard<Mutex> lock(m_mutex);
++      m_condition.notify_all();
++    }
++
++    // Workers asleep or about to sleep.
++    uint32_t sleepers() const {
++      return m_sleepers.load();
++    }
++
++  private:
++    Mutex m_mutex;
++    Condition m_condition;
++    std::atomic<uint32_t> m_sleepers { 0 };
++  };
++
++}
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index 8b5124fea..0a824c6d4 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -377,6 +377,13 @@ test('test_mod_option_layer', exe, env: test_env)
+ tests += exe
+ # NV-DXVK end
+ 
++# NV-DXVK start: an idle low-latency worker sleeps after its spin window (GMod)
++exe = executable('test_worker_idle', files('test_worker_idle.cpp'),
++  win_subsystem: 'console', override_options: ['cpp_std='+dxvk_cpp_std])
++test('test_worker_idle', exe)
++tests += exe
++# NV-DXVK end
++
+ # NV-DXVK start: Raytraced camera material packing coverage.
+ exe = executable('test_attenuation', files('test_attenuation.cpp'),
+   include_directories : test_include_path, dependencies : test_unit_deps, win_subsystem : 'console', override_options : ['cpp_std='+dxvk_cpp_std])
+diff --git a/tests/rtx/unit/test_worker_idle.cpp b/tests/rtx/unit/test_worker_idle.cpp
+new file mode 100644
+index 000000000..c4b12f28f
+--- /dev/null
++++ b/tests/rtx/unit/test_worker_idle.cpp
+@@ -0,0 +1,293 @@
++/*
++* Copyright (c) 2026, the GMod native loader project. MIT licence, as the runtime this file belongs to.
++*/
++// How an idle worker of a low-latency WorkerThreadPool waits (runtime patch 0105 of the GMod native loader project):
++// it polls for kWorkerSpinWindow after its last task, then sleeps until a task is counted or the pool stops.
++// Standalone: cl /EHsc /std:c++17 /W4 /WX test_worker_idle.cpp
++
++#include "../../../src/util/util_worker_idle.h"
++
++#include <atomic>
++#include <chrono>
++#include <condition_variable>
++#include <cstdint>
++#include <cstdio>
++#include <deque>
++#include <functional>
++#include <memory>
++#include <mutex>
++#include <random>
++#include <thread>
++#include <vector>
++
++using namespace dxvk;
++
++namespace {
++  int g_checks = 0;
++  int g_failures = 0;
++
++  void check(bool condition, const char* what, int line) {
++    ++g_checks;
++    if (!condition) {
++      ++g_failures;
++      std::printf("FAIL line %d: %s\n", line, what);
++    }
++  }
++#define CHECK(condition) check((condition), #condition, __LINE__)
++
++  using Clock = WorkerSpin::Clock;
++  using Sleep = WorkerSleep<std::mutex, std::condition_variable>;
++  using std::chrono::microseconds;
++  using std::chrono::milliseconds;
++
++  // Waits up to `limit` for `done()`; true if it came.
++  template<typename Done>
++  bool waitFor(Done done, milliseconds limit) {
++    const Clock::time_point end = Clock::now() + limit;
++    while (!done()) {
++      if (Clock::now() > end) {
++        return false;
++      }
++      std::this_thread::sleep_for(microseconds(200));
++    }
++    return true;
++  }
++
++  // A pool shaped like WorkerThreadPool's low-latency mode (util_threadpool.h): a queue per worker, the task count
++  // incremented after the push and before the wake, stealing (or not), and the idle step of patch 0105.
++  class MiniPool {
++  public:
++    explicit MiniPool(uint32_t workers, bool stealing = true)
++    : m_stealing(stealing) {
++      for (uint32_t i = 0; i < workers; ++i) {
++        m_queues.push_back(std::make_unique<Queue>());
++      }
++      for (uint32_t i = 0; i < workers; ++i) {
++        m_threads.emplace_back([this, i] { run(i); });
++      }
++    }
++
++    ~MiniPool() {
++      m_stop = true;
++      m_sleep.stop();
++      for (std::thread& thread : m_threads) {
++        thread.join();
++      }
++    }
++
++    void schedule(std::function<void()> task) {
++      Queue& queue = *m_queues[m_next++ % m_queues.size()];
++      {
++        std::lock_guard<std::mutex> lock(queue.mutex);
++        queue.tasks.push_back(std::move(task));
++      }
++      ++m_count;
++      m_sleep.wake(!m_stealing);
++    }
++
++    uint32_t sleepers() const {
++      return m_sleep.sleepers();
++    }
++
++    // Rounds that found no task and yielded: what an idle worker spends its core on.
++    uint64_t polls() const {
++      return m_polls.load();
++    }
++
++  private:
++    struct Queue {
++      std::mutex mutex;
++      std::deque<std::function<void()>> tasks;
++    };
++
++    bool runOne(uint32_t index) {
++      std::function<void()> task;
++      {
++        Queue& queue = *m_queues[index];
++        std::lock_guard<std::mutex> lock(queue.mutex);
++        if (queue.tasks.empty()) {
++          return false;
++        }
++        task = std::move(queue.tasks.front());
++        queue.tasks.pop_front();
++        --m_count;
++      }
++      task();
++      return true;
++    }
++
++    void run(uint32_t id) {
++      WorkerSpin spin;
++      while (true) {
++        if (m_stop) {
++          return;
++        }
++        if (runOne(id)) {
++          spin.worked();
++          continue;
++        }
++        bool stolen = false;
++        if (m_stealing) {
++          for (uint32_t i = 1; i < m_queues.size() && !stolen; ++i) {
++            stolen = runOne((id + i) % static_cast<uint32_t>(m_queues.size()));
++          }
++        }
++        if (stolen) {
++          spin.worked();
++        } else if (spin.keepPolling()) {
++          ++m_polls;
++          std::this_thread::yield();
++        } else {
++          m_sleep.sleep([this] { return m_count > 0 || m_stop.load(); });
++        }
++      }
++    }
++
++    const bool m_stealing;
++    std::vector<std::unique_ptr<Queue>> m_queues;
++    std::vector<std::thread> m_threads;
++    std::atomic<uint32_t> m_count { 0 };
++    std::atomic<bool> m_stop { false };
++    uint32_t m_next = 0;
++    std::atomic<uint64_t> m_polls { 0 };
++    Sleep m_sleep;
++  };
++
++  void testTheWindow() {
++    const Clock::time_point t0 = Clock::now();
++    WorkerSpin spin;
++    // The first round without a task starts the window; the worker polls until it is over.
++    CHECK(spin.keepPolling(t0));
++    CHECK(spin.keepPolling(t0 + kWorkerSpinWindow / 2));
++    CHECK(spin.keepPolling(t0 + kWorkerSpinWindow - microseconds(1)));
++    CHECK(!spin.keepPolling(t0 + kWorkerSpinWindow));
++    // A worker woken without a task keeps its old window: it sleeps again at once.
++    CHECK(!spin.keepPolling(t0 + kWorkerSpinWindow * 5));
++    // A task starts a new window at the next empty round.
++    spin.worked();
++    CHECK(spin.keepPolling(t0 + kWorkerSpinWindow * 5));
++    CHECK(spin.keepPolling(t0 + kWorkerSpinWindow * 6 - microseconds(1)));
++    CHECK(!spin.keepPolling(t0 + kWorkerSpinWindow * 6));
++    // Long against a thread's wake-up, short against a frame.
++    CHECK(kWorkerSpinWindow >= microseconds(500));
++    CHECK(kWorkerSpinWindow <= milliseconds(2));
++  }
++
++  void testASleeperWakesForATaskAndAtStop() {
++    Sleep sleep;
++    std::atomic<uint32_t> count { 0 };
++    std::atomic<bool> stop { false };
++    std::atomic<int> woken { 0 };
++    std::thread sleeper([&] {
++      sleep.sleep([&] { return count > 0 || stop.load(); });
++      ++woken;
++      --count;
++      sleep.sleep([&] { return count > 0 || stop.load(); });
++      ++woken;
++    });
++    CHECK(waitFor([&] { return sleep.sleepers() == 1; }, milliseconds(2000)));
++    // No task: it stays asleep.
++    std::this_thread::sleep_for(milliseconds(20));
++    CHECK(woken == 0);
++    // A task counted, then the wake: it wakes.
++    ++count;
++    sleep.wake(false);
++    CHECK(waitFor([&] { return woken == 1; }, milliseconds(2000)));
++    CHECK(waitFor([&] { return sleep.sleepers() == 1; }, milliseconds(2000)));
++    // The stop flag, then stop(): it wakes again and ends.
++    stop = true;
++    sleep.stop();
++    CHECK(waitFor([&] { return woken == 2; }, milliseconds(2000)));
++    sleeper.join();
++    CHECK(sleep.sleepers() == 0);
++    // A wake without sleepers does nothing.
++    sleep.wake(false);
++    sleep.wake(true);
++    CHECK(sleep.sleepers() == 0);
++  }
++
++  void testIdleWorkersSleepAndWakeForEachTask() {
++    MiniPool pool(2);
++    std::atomic<uint32_t> ran { 0 };
++    for (int i = 0; i < 5000; ++i) {
++      pool.schedule([&ran] { ++ran; });
++    }
++    CHECK(waitFor([&] { return ran == 5000; }, milliseconds(5000)));
++    // Past their window both workers sleep, and an idle worker no longer polls.
++    CHECK(waitFor([&] { return pool.sleepers() == 2; }, milliseconds(2000)));
++    const uint64_t polls = pool.polls();
++    std::this_thread::sleep_for(milliseconds(50));
++    CHECK(pool.polls() == polls);
++    // A task scheduled while both sleep runs, each time.
++    for (int i = 0; i < 50; ++i) {
++      CHECK(waitFor([&] { return pool.sleepers() == 2; }, milliseconds(2000)));
++      const uint32_t before = ran;
++      pool.schedule([&ran] { ++ran; });
++      CHECK(waitFor([&] { return ran == before + 1; }, milliseconds(2000)));
++    }
++  }
++
++  void testNoTaskIsLeftAtTheWindowsEdge() {
++    // Tasks after pauses on both sides of the window, so the scheduler often counts a task just as a worker goes to
++    // sleep. Every task runs.
++    MiniPool pool(2);
++    std::atomic<uint32_t> ran { 0 };
++    std::mt19937 random(105);
++    std::uniform_int_distribution<int> pause(0, 2 * static_cast<int>(kWorkerSpinWindow.count()));
++    const int tasks = 600;
++    for (int i = 0; i < tasks; ++i) {
++      const Clock::time_point until = Clock::now() + microseconds(pause(random));
++      while (Clock::now() < until) {
++      }
++      pool.schedule([&ran] { ++ran; });
++    }
++    CHECK(waitFor([&] { return ran == static_cast<uint32_t>(tasks); }, milliseconds(5000)));
++  }
++
++  void testWorkersThatCannotStealAllWake() {
++    // Without stealing a task waits for its own worker, so wake() wakes every sleeper.
++    MiniPool pool(3, false);
++    std::atomic<uint32_t> ran { 0 };
++    CHECK(waitFor([&] { return pool.sleepers() == 3; }, milliseconds(2000)));
++    for (int i = 0; i < 30; ++i) {
++      pool.schedule([&ran] { ++ran; });
++      CHECK(waitFor([&] { return ran == static_cast<uint32_t>(i + 1); }, milliseconds(2000)));
++    }
++  }
++
++  void testAPoolStopsWithSleepingOrPollingWorkers() {
++    {
++      auto pool = std::make_unique<MiniPool>(4);
++      CHECK(waitFor([&] { return pool->sleepers() == 4; }, milliseconds(2000)));
++      const Clock::time_point start = Clock::now();
++      pool.reset();
++      CHECK(Clock::now() - start < milliseconds(1000));
++    }
++    {
++      // Right after a task, inside the window.
++      auto pool = std::make_unique<MiniPool>(2);
++      std::atomic<uint32_t> ran { 0 };
++      pool->schedule([&ran] { ++ran; });
++      CHECK(waitFor([&] { return ran == 1; }, milliseconds(2000)));
++      const Clock::time_point start = Clock::now();
++      pool.reset();
++      CHECK(Clock::now() - start < milliseconds(1000));
++    }
++  }
++}
++
++int main() {
++  testTheWindow();
++  testASleeperWakesForATaskAndAtStop();
++  testIdleWorkersSleepAndWakeForEachTask();
++  testNoTaskIsLeftAtTheWindowsEdge();
++  testWorkersThatCannotStealAllWake();
++  testAPoolStopsWithSleepingOrPollingWorkers();
++
++  if (g_failures != 0) {
++    std::printf("FAIL worker idle: %d of %d checks\n", g_failures, g_checks);
++    return 1;
++  }
++  std::printf("PASS worker idle: %d checks\n", g_checks);
++  return 0;
++}

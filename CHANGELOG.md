@@ -6,6 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Linlong's RTX PBR: one hair colour and a stronger effect (2026-11-16)
+
+- **Linlong's hair is one even colour under RTX.** Her hair texture paints cream, pink and orange-brown blocks on
+  separate pieces of the hair, which showed as hard-edged patches wherever it twisted or lay in clumps. RTX now
+  draws an evened copy in her main cream tone, with the strand detail kept
+  ([ADR 0236](docs/decisions/0236-linlongs-pbr-an-evened-hair-texture-and-stronger-maps.md)).
+- **Her PBR is stronger and easier to see:** the weave and canvas of her outfit stand out (its normal maps at three
+  times their strength), her hair has highlights along the strands, and her hair, leaves and badge are glossier.
+- The `mmd-remix-pbr` skill gains `scripts/even_albedo.py` (a sheet's colour blocks evened to one tone) and notes on
+  testing a character a pack already covers in a running game.
+
 ### A window when RTX Remix is left in the game without its loader (2026-11-16)
 
 - **If you delete the native loader (`bin\win64\winmm.dll`) while RTX Remix is still installed, a window now says

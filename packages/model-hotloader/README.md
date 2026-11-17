@@ -10,7 +10,7 @@ Its origin is [SheepyLord/Gmod-Model-Hotloader-with-Vulkan](https://github.com/S
 | `mmd_hotloader/` | The add-on, deployed as `garrysmod/addons/mmd_hotloader` |
 | `overrides/installation.lua` | Replaces the add-on's install check (`tools/workshop.json` `--addon-file`): game-build findings only in diagnostics ([ADR 0125](../../docs/decisions/0125-hotloader-game-build-findings-are-diagnostics.md)) |
 | `bin/` | The natives, deployed to `garrysmod/lua/bin`: `gmcl_`/`gmsv_mmdhl_win64.dll`, `mmdhl_runtime_win64.dll`, the import worker `mmdhl_worker.exe`, CoACD's `lib_coacd.dll` (its wheel's DLL), and `mmdhl-native-release.json` |
-| `mods/mmdhl_pbr_linlong/` | RTX Remix PBR materials for Linlong, the character the add-on comes with (`mmd_hotloader/data_static/mmdhl`), deployed to `rtx-remix/mods/mmdhl_pbr_linlong` (`--mod`): the user's pack of 2026-11-16, made with rpai ([ADR 0231](../../docs/decisions/0231-linlongs-rtx-pbr-ships-with-the-model-hotloader.md)) |
+| `mods/mmdhl_pbr_linlong/` | RTX Remix PBR materials for Linlong, the character the add-on comes with (`mmd_hotloader/data_static/mmdhl`), deployed to `rtx-remix/mods/mmdhl_pbr_linlong` (`--mod`): the user's pack of 2026-11-16, made with rpai ([ADR 0231](../../docs/decisions/0231-linlongs-rtx-pbr-ships-with-the-model-hotloader.md)); its hair texture evened and its maps made stronger the same day ([ADR 0236](../../docs/decisions/0236-linlongs-pbr-an-evened-hair-texture-and-stronger-maps.md)) |
 | `source/` | The natives' source ([Source.md](source/Source.md)): the origin's commit with its author's staged changes, and this repository's changes as patches |
 
 ## The natives
@@ -63,6 +63,11 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   `linlong-rtx` pack (normal, roughness and emissive maps at 2048 for her outfit, hair and flowers), unchanged, as
   `mods/mmdhl_pbr_linlong`. Her PMX's terms forbid redistribution; the user chose to ship it in the public package
   anyway, as the model itself has been. The pack's copy of her model files is the add-on's own and is not stored again.
+- **2026-11-16, Linlong's PBR retuned** ([report](../../docs/handover/linlong-pbr-tune-report.md),
+  [ADR 0236](../../docs/decisions/0236-linlongs-pbr-an-evened-hair-texture-and-stronger-maps.md)): `mods/mmdhl_pbr_linlong` made again with rpai from her
+  per-model preset (`skills/mmd-remix-pbr/tool/presets/models/linlong_801f3bcf.json`): evened copies of her
+  two hair sheets as their albedo, the outfit's game normal maps at 3.0, hair at 2.4 with anisotropy along the
+  strands, glossier materials; 28 DDS at 2048 (117 MB).
 - **2026-11-16, the mesh separator** ([report](../../docs/handover/mesh-separator-report.md),
   [ADR 0232](../../docs/decisions/0232-the-mesh-separator.md)): the Mesh Separator tool
   (`mmd_hotloader/lua/weapons/gmod_tool/stools/mmdhl_separator.lua`) and `mmd_hotloader/lua/mmdhl/separator/` (the

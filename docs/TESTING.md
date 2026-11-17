@@ -3691,3 +3691,15 @@ separator now has 57 texts in each catalog.
   one after `winmm.dll` alone was deleted (the package removed, 1,910 files; 560 × 198 px, sent by the server to a
   client realm in which the companion never ran); in a two-slot listen game (`out\msep\poc_leftovers_listen.py`) the
   host saw both, by screenshot ([report](handover/leftovers-popup-report.md)).
+
+## Linlong's PBR retuned (Claude, ADR 0236)
+
+- No test in the gate: the layer is content. In the user's field game (4K, RTX), through rpai's console bridge and a
+  camera framed on her bones: her live texture hashes equal the pack's predictions (9 of 9 drawn sheets); a plain red
+  hair albedo removed the hair's blocks; one capture run of the shipped layer, no layer, S, SP and AI (three views,
+  the shipped state again at the end) measured the change against no layer and the fine relief (band-passed
+  lightness): shipped 2.6-4.7/255 and +2-5%, SP 3.7-6.0/255 and +6-10%, against 1.6-3.6/255 between two shots of the
+  shipped state. Variants were swapped into the shipped mod's own layer and both of its text files put back byte for
+  byte ([report](handover/linlong-pbr-tune-report.md)).
+- `skills/mmd-remix-pbr/scripts/even_albedo.py` reproduces the tested hair copies byte for byte; `tools\inputs.py
+  verify` checks the part's new files.

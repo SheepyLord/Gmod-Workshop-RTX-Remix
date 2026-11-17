@@ -1,5 +1,5 @@
 # The load accelerator (R26, ADR 0140): a client and a server binary module from one source.
-add_library(nl_fs_accel STATIC path_rules.cpp loose_cache.cpp hooks.cpp addon_index.cpp)
+add_library(nl_fs_accel STATIC path_rules.cpp loose_cache.cpp hooks.cpp addon_index.cpp prefetch.cpp)
 target_include_directories(nl_fs_accel PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(nl_fs_accel PRIVATE nl_build_options)
 
@@ -15,7 +15,7 @@ foreach(realm IN ITEMS client server)
   set_target_properties(nl_fs_accel_${realm} PROPERTIES OUTPUT_NAME ${prefix}_nlfsaccel_win64 PREFIX "")
 endforeach()
 
-add_executable(nl_fs_accel_tests ../loader/tests/test_main.cpp tests/test_loose.cpp tests/test_index.cpp)
+add_executable(nl_fs_accel_tests ../loader/tests/test_main.cpp tests/test_loose.cpp tests/test_index.cpp tests/test_prefetch.cpp)
 target_include_directories(nl_fs_accel_tests PRIVATE ../loader/tests)
 target_link_libraries(nl_fs_accel_tests PRIVATE nl_fs_accel nl_build_options)
 add_test(NAME nl_fs_accel_tests COMMAND nl_fs_accel_tests)

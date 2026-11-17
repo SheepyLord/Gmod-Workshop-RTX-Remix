@@ -61,7 +61,35 @@ end
 remember(enabled:GetBool())
 cvars.AddChangeCallback("nativeloader_load_accel", function(_, _, value) remember(tobool(value)) end, "nlloadaccel_off")
 
+-- ADR 0242: the read-ahead of what a load reads (the menu realm records, lists and reads ahead) has its own switch,
+-- which reaches the menu realm as a file as well.
+local prefetchSwitch = CreateConVar("nativeloader_load_accel_prefetch", "1", FCVAR_ARCHIVE,
+    "Read ahead what the last map load read, at the menu and when a map with a list loads (0: off, from the next start)")
+local PREFETCH_OFF_FILE = "nativeloader/load_accel_prefetch_off.txt"
+local function rememberPrefetch(on)
+    if not CLIENT then return end
+    if on then
+        if file.Exists(PREFETCH_OFF_FILE, "DATA") then file.Delete(PREFETCH_OFF_FILE) end
+    elseif not file.Exists(PREFETCH_OFF_FILE, "DATA") then
+        file.CreateDir("nativeloader")
+        file.Write(PREFETCH_OFF_FILE, "nativeloader_load_accel_prefetch 0: no read-ahead from the next start\n")
+    end
+end
+rememberPrefetch(prefetchSwitch:GetBool())
+cvars.AddChangeCallback("nativeloader_load_accel_prefetch", function(_, _, value) rememberPrefetch(tobool(value)) end,
+    "nlloadaccel_prefetch_off")
+
 if not enabled:GetBool() then return end
+
+-- The third round (ADR 0241, ADR 0240): the load's slowest hooks, timers and net receivers named, ARC9's attachment
+-- icons decoded when first drawn. Lua only: they run without the module too, each with its own off switch.
+if SERVER then
+    AddCSLuaFile("nlloadaccel/load_callbacks.lua")
+    AddCSLuaFile("nlloadaccel/arc9_icons.lua")
+end
+include("nlloadaccel/load_callbacks.lua")
+include("nlloadaccel/arc9_icons.lua")
+
 if not (util.IsBinaryModuleInstalled and util.IsBinaryModuleInstalled("nlfsaccel")) then return end
 local loaded, problem = pcall(require, "nlfsaccel")
 if not loaded or not istable(nlfsaccel) then

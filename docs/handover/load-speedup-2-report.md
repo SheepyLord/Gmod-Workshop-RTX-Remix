@@ -115,3 +115,12 @@ client's `InitPostEntity` 59.3 -> 2.5 / 2.3, settling 3.9 -> 4.9 / 3.2 (control 
 tests OK (one skipped, as before), all checks passed. Its first run, on `457e4994`, failed one test
 (`test_vr_review_docs`: the shared decision index may only gain table rows, and notes had been appended to the entries
 of 0099 and 0140); the notes were taken out, since the new rows and the ADRs say what they supersede.
+
+## Published
+
+Under the standing permission (AGENTS.md rule 5: `main` pushed and item 3829070317 updated once `tools\test.ps1`
+passes), merged into `main` as `6596942e` and pushed (`f438dffe..6596942e`, two LFS objects, 235 KB). The merge's hook
+built the package here and uploaded item 3829070317 as **`0.0.0-dev.20261117062035+0e16daa5`**: content digest
+`0c8273a5...`, the same as the package tested in the field (`0.0.0-dev.20261117054848+ca29d671`; only the version
+differs), Steam sending a 9.7 MB delta; its change note is the changelog's new section (1,649 characters). The push's
+hook found the inputs unchanged. The field game deploys it at its next start.

@@ -178,14 +178,14 @@
    "imported": "2026-11-16T10:26:53+00:00"
   },
   "mmd_hotloader/lua/mmdhl/actors.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\actors.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\ls2\\out\\tmp\\hl-lua\\actors.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/ls2",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "681901f2e8b794f131127baaaa3292a61ef000b7",
+    "commit": "b8cd592caa011efc1b0b81717de45fe6479adb7f",
     "dirty": false
    },
-   "imported": "2026-11-16T13:27:23+00:00"
+   "imported": "2026-11-17T05:48:33+00:00"
   },
   "mmd_hotloader/lua/mmdhl/morph_geometry.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r10-hotloader\\out\\r10\\stage\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\morph_geometry.lua",
@@ -208,14 +208,14 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "mmd_hotloader/lua/mmdhl/library.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\library.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\ls2\\out\\tmp\\hl-lua\\library.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/ls2",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
-    "dirty": true
+    "commit": "b8cd592caa011efc1b0b81717de45fe6479adb7f",
+    "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-17T05:48:33+00:00"
   },
   "mmd_hotloader/lua/mmdhl/materials.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r15\\out\\r15\\stage\\materials.lua",
@@ -238,14 +238,14 @@
    "imported": "2026-11-03T11:52:57+00:00"
   },
   "mmd_hotloader/lua/mmdhl/sharing.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\sharing.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\ls2\\out\\tmp\\hl-lua\\sharing.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/ls2",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "681901f2e8b794f131127baaaa3292a61ef000b7",
+    "commit": "b8cd592caa011efc1b0b81717de45fe6479adb7f",
     "dirty": false
    },
-   "imported": "2026-11-16T13:27:23+00:00"
+   "imported": "2026-11-17T05:48:33+00:00"
   },
   "source": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r16\\out\\r16\\hotloader-stage",
@@ -1286,9 +1286,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/actors.lua": {
-   "size": 46117,
-   "sha256": "2eb7b03d647c27c51e122e2181ba8cf6570dc81e3827d679463e535a78fd50eb",
-   "mtime_ns": 1794832825432150400,
+   "size": 49412,
+   "sha256": "bb7c6863aa1a68e16e2fbdaea28096881cd21304d24f47e833d172f8609f8113",
+   "mtime_ns": 1794894513298906000,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/bodygroups.lua": {
@@ -1406,9 +1406,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/library.lua": {
-   "size": 66976,
-   "sha256": "ec5f5d290e13de00ed5f1d6dcb76bbbeaffb7fdc976a5ff857bf27da3b294cd8",
-   "mtime_ns": 1794833923216153800,
+   "size": 68326,
+   "sha256": "d1c6c323db0ccc7e44b002156930c6e313dc8cab5217c1ff36e6252cf2c1ebbe",
+   "mtime_ns": 1794894513321001400,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/materials.lua": {
@@ -1622,9 +1622,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/sharing.lua": {
-   "size": 36104,
-   "sha256": "2b2f1cfec952ca1e640dd6ef2e9ab59e40ccf8f62446400a7371bd7f257f9a6a",
-   "mtime_ns": 1794832826563216900,
+   "size": 37443,
+   "sha256": "9f34f78a52abf2fb2ae3b89495f47d4e58be5f4795504ca7de6e10b6b36d43cf",
+   "mtime_ns": 1794894513343019900,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/terms.lua": {

@@ -23,7 +23,7 @@
 
 namespace {
 
-constexpr const char* kVersion = "0.2.1";
+constexpr const char* kVersion = "0.2.2";
 constexpr const char* kRemixApiVersion = "0.1000.1";
 
 GarrysMod::Lua::ILuaBase* g_lua = nullptr;
@@ -39,7 +39,8 @@ ICvar* ResolveCvar() {
     return g_cvar;
 }
 
-// RTXFixesBinary registers RemixConfig; the Remix functions forward to it.
+// RTXFixesBinary registers RemixConfig; the Remix functions forward to it, or, behind the
+// developer gate, write option values through the Remix API itself (render_policy.h).
 bool RemixLuaApiPresent(GarrysMod::Lua::ILuaBase* lua) {
     lua->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
     lua->GetField(-1, "RemixConfig");

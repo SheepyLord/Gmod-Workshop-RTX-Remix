@@ -2,7 +2,8 @@
 
 Developer introspection module for Garry's Mod RTX Remix, including multiplayer client diagnostics.
 The DLL is independent of `RTXFixesBinary`; it uses the existing `RemixConfig`,
-`RemixResource`, and `RemixMaterial` Lua APIs when that module is loaded. It is
+`RemixResource`, and `RemixMaterial` Lua APIs when that module is loaded, and, behind
+the developer gate, the Remix API of the runtime (`d3d9.dll`) for option writes. It is
 compiled against the fork's Remix API headers at version **0.1000.1** and is
 64-bit only.
 
@@ -35,13 +36,14 @@ the contents of `addon/` to `garrysmod/addons/rtx_debug/`. Replace the DLL only
 while the game is closed or before a map has loaded it: a loaded module locks
 the file. New addon folders are mounted when the game starts.
 
-Read-only client diagnostics and local Remix configuration work without `-insecure`,
-including on a multiplayer server with `sv_allowcslua 0`, once the RTX package's verified
-client bootstrap has loaded this addon. The addon loads the DLL with `require("rtxdebug")`.
-`RTXDebug.Status()` distinguishes the full developer mutation gate from the client rendering gate.
-Arbitrary Lua evaluation, engine/gameplay mutations, memory and detours still require local
-single-player, `sv_cheats 1` and `-insecure`. The module decides single-player from the engine
-client's own connection, never from Lua. A remote server realm is unavailable locally.
+Read-only client diagnostics and local Remix configuration of `RemixConfig`'s options work
+without `-insecure`, including on a multiplayer server with `sv_allowcslua 0`, once the RTX
+package's verified client bootstrap has loaded this addon. The addon loads the DLL with
+`require("rtxdebug")`. `RTXDebug.Status()` distinguishes the full developer mutation gate from the
+client rendering gate. Arbitrary Lua evaluation, engine/gameplay mutations, memory and detours, and
+Remix options outside `RemixConfig`'s list (debug views, the replacement switches), still require
+local single-player, `sv_cheats 1` and `-insecure`. The module decides single-player from the
+engine client's own connection, never from Lua. A remote server realm is unavailable locally.
 
 ## Conventions
 
@@ -67,7 +69,16 @@ client's own connection, never from Lua. A remote server realm is unavailable lo
 - Local Remix-only writes have their own gate: the module's live client realm (the state that
   lua_shared reports as the client's, not the `CLIENT_DLL`/`SERVER` globals), the game thread,
   and an available RemixConfig.SetConfigVariable function. Without the full developer gate,
-  only `rtx.*` option keys are accepted. This does not change server cvars or enable Lua Eval.
+  only `rtx.*` option keys are accepted, and they go to `RemixConfig.SetConfigVariable`, which
+  takes only the options the RTX package's own Lua sets (the native loader's ADR 0234): a remote
+  server's scripts and an add-on in an ordinary game reach no more here than there. This does not
+  change server cvars or enable Lua Eval.
+- Behind the full developer gate the module writes `rtx.*` options through the Remix API itself
+  (`remixapi_InitializeLibrary`, exported by the runtime's `d3d9.dll`, asked once at the first such
+  write; never `Startup` or `Shutdown`), so debug views and the other options `RemixConfig` refuses
+  to every Lua stay available to developers (ADR 0237). `Policy::RouteConfig` in
+  `source/render_policy.h` decides the route; a restore goes back the way its value went in
+  (`Policy::RestoreThroughApi`), even after the gate has closed.
 - Addresses and 64-bit values are hex strings, which Lua numbers cannot hold exactly.
 - Realms are `"client"`, `"server"` (the listen server in single-player) and `"menu"`.
   Results from other realms are copied as plain data: vectors and angles become
@@ -106,12 +117,12 @@ RTXDebug.Lua.GCStats("client")
 
 RTXDebug.Remix.Vram()
 RTXDebug.Remix.ConfigFile("rtx.graphicsPreset")  -- the rtx.conf value, not the live one
-RTXDebug.Remix.SetConfig("rtx.graphicsPreset", "3", "2")  -- client rendering gate; explicit restore value
+RTXDebug.Remix.SetConfig("rtx.graphicsPreset", "3", "2")  -- RemixConfig's options, or any rtx.* behind the developer gate; explicit restore value
 RTXDebug.Remix.RestoreConfig("rtx.graphicsPreset")
-RTXDebug.Remix.SessionConfig("rtx.graphicsPreset")
-RTXDebug.Remix.Overrides()
+RTXDebug.Remix.SessionConfig("rtx.graphicsPreset")   -- last_set_value, restore_value, route
+RTXDebug.Remix.Overrides()                           -- key, last_set_value, restore_value, route ("remixconfig" or "remix_api")
 RTXDebug.Remix.DebugViewFile()
-RTXDebug.Remix.SetDebugView(3, 0)                -- client rendering gate; index, restore index
+RTXDebug.Remix.SetDebugView(23, 0)               -- developer gate (RemixConfig refuses debug views); index, restore index
 RTXDebug.Remix.MaterialHashes("models/debug/debugwhite")
 RTXDebug.Remix.FindMaterialByHash("0x29BF18C8B6EC2F40")  -- {materials, revision}
 RTXDebug.Remix.TrackedTextures()
@@ -168,11 +179,13 @@ order and reports anything it could not restore, such as a write whose bytes
 were changed by something else. Patch definitions survive it.
 
 The addon calls `RestoreAll()` from the `ShutDown` hook (map change, disconnect,
-quit). That matters for Remix overrides: they go through `RemixConfig`, which stops
+quit). That matters for Remix overrides set through `RemixConfig`, which stops
 working once RTXFixesBinary has closed. On unload the module restores whatever is
-still recorded, but it skips Remix overrides if RTXFixesBinary is already gone and
-logs that they stay in effect until the game restarts. Lua code run through
-`Lua.Eval` and commands run through `Engine.Exec` are outside this ledger.
+still recorded, but it skips those overrides if RTXFixesBinary is already gone and
+logs that they stay in effect until the game restarts. Overrides written through the
+Remix API (behind the developer gate) are restored through it, whatever the gate or
+RTXFixesBinary says by then. Lua code run through `Lua.Eval` and commands run through
+`Engine.Exec` are outside this ledger.
 
 ## External request protocol
 
@@ -206,8 +219,9 @@ No network listener is opened.
 GMod (`lupa` required; it uses LuaJIT when lupa has it). `python -m unittest
 discover -s tests` also runs the external client's target-selection tests.
 `tests/render_policy_test.cpp` and `tests/session_policy_test.cpp` check the
-rendering and mutation gates: compile each with a C++17 compiler (for example
-`cl /std:c++17 /EHsc /W4`) and run it.
+rendering and mutation gates and where a Remix option write goes (`RemixConfig` or the
+Remix API): compile each with a C++17 compiler (for example `cl /std:c++17 /EHsc /W4`)
+and run it.
 
 ## Lifecycle
 

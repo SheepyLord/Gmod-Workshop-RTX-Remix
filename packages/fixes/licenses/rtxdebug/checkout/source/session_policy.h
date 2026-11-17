@@ -24,9 +24,9 @@ inline bool IsLocalSinglePlayer(const SessionFacts& facts) {
 }
 
 // The developer mutation gate (Lua.Eval, convar writes and console commands, memory,
-// detours, and Remix options outside rtx.*): the game thread of an open module, the
-// -insecure launch option on the process command line, local single-player as above, and
-// sv_cheats 1.
+// detours, and Remix options written through the Remix API, beyond RemixConfig's list:
+// render_policy.h): the game thread of an open module, the -insecure launch option on the
+// process command line, local single-player as above, and sv_cheats 1.
 inline bool CanMutate(bool mainThread, bool closing, bool insecureLaunch,
                       bool localSinglePlayer, bool cheats) {
     return mainThread && !closing && insecureLaunch && localSinglePlayer && cheats;

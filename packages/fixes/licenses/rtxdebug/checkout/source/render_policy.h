@@ -24,6 +24,30 @@ inline bool CanSetConfig(bool fullMutation, bool rendering, std::string_view key
     return fullMutation || (rendering && IsRenderingOption(key));
 }
 
+// Where a Remix option write goes. RTXFixesBinary's RemixConfig.SetConfigVariable takes only
+// the options the RTX package's own Lua sets (the native loader's ADR 0234): any server's client
+// scripts and any add-on reach it. Behind the developer mutation gate (session_policy.h: local
+// single-player decided natively, sv_cheats 1, -insecure) the module writes through the Remix
+// API itself, so the options RemixConfig refuses to every Lua (debug views, the replacement
+// switches) stay a developer's tools (the native loader's ADR 0237). Without that gate the
+// client rendering gate forwards to RemixConfig, whose list decides: a remote server or an
+// add-on in an ordinary game reaches no more through this module than through RemixConfig.
+// The runtime's options are all rtx.*, and RemixConfig refuses every other name, so the module
+// does too.
+enum class ConfigRoute { Refused, RemixConfig, RemixApi };
+
+inline ConfigRoute RouteConfig(bool fullMutation, bool rendering, std::string_view key) {
+    if (!CanSetConfig(fullMutation, rendering, key) || !IsRenderingOption(key)) return ConfigRoute::Refused;
+    return fullMutation ? ConfigRoute::RemixApi : ConfigRoute::RemixConfig;
+}
+
+// A restore goes back the way the value went in. Once the module has written an option through
+// the Remix API, only the API can put it back (RemixConfig may refuse that option), whatever the
+// gates say by then: restoring undoes only the module's own change, to the value it recorded.
+inline bool RestoreThroughApi(bool earlierThroughApi, ConfigRoute route) {
+    return earlierThroughApi || route == ConfigRoute::RemixApi;
+}
+
 // Convar names that RTXDebug.Engine.GetConVar may read outside local single-player. Outside a
 // local game a remote server's client scripts can reach this module, so there GetConVar is limited
 // to the rendering surface a multiplayer RTX session inspects; every other convar is refused, and

@@ -69,16 +69,19 @@ pool floor hidden in the user's game (2026-10-26).
 
 - Report the counts: textures, predicted, matched live, live-only, left without a replacement and why.
 - Flip the mod in the running game from the same camera: `stock.py on`/`off` (it also takes the addon out)
-  or, in a local single-player game, the debug module's
+  or, in a local single-player game behind the debug module's developer gate (started with `-insecure`, with
+  `sv_cheats 1`; the repository's ADR 0237), the debug module's
   `RTXDebug.Remix.SetConfig("rtx.enableReplacementMaterials", "False", "True")` and
   `RTXDebug.Remix.RestoreConfig("rtx.enableReplacementMaterials")`. `RemixConfig.SetConfigVariable` refuses the
   replacement switches since the review of 2026-11-16 (the fixes' option allowlist: any server's Lua reaches it).
 - Roughness overrides that are hard to see in shading show in Remix debug view 89 (primary perceptual
-  roughness): with the debug module under `sv_cheats 1`, `Remix.SetDebugView(89, 0)`, undone with
-  `Remix.RestoreConfig("rtx.debugView.debugViewIdx")` (used for character hair, 2026-10-26). The debug
-  module 0.2.1 (`RTXDebug.Remix.SetDebugView(idx, restore)`) needs no `sv_cheats` where it may configure
-  rendering. Views used on lestnicha3: 23 albedo after the texture-stage ops (tints included), 32 raw
-  albedo, 18 vertex colour, 22 material type, 89 roughness, 277 geometry hash, 812 height.
+  roughness): behind the debug module's developer gate (a local single-player game started with `-insecure`, with
+  `sv_cheats 1`), `Remix.SetDebugView(89, 0)`, undone with `Remix.RestoreConfig("rtx.debugView.debugViewIdx")`
+  (used for character hair, 2026-10-26). `RemixConfig` refuses debug views to every Lua since the review of
+  2026-11-16; the debug module 0.2.2 writes them through the Remix API behind that gate only (ADR 0237), and
+  without it `SetDebugView` returns nil and a message naming the gate. `RTXDebug.Remix.Overrides()` gives each
+  override's route (`remix_api` or `remixconfig`). Views used on lestnicha3: 23 albedo after the texture-stage
+  ops (tints included), 32 raw albedo, 18 vertex colour, 22 material type, 89 roughness, 277 geometry hash, 812 height.
   `RTXDebug.SessionConfig(key)` returns only what the module itself set (nil otherwise), not a live value.
 
 ## Tints, detail passes and texture categories

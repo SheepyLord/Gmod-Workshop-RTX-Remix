@@ -59,7 +59,7 @@
   "rtxdebug": {
     "source": "packages/fixes/licenses/rtxdebug/checkout",
     "repository": "https://github.com/SheepyLord/garrys-mod-rtx-debug-module.git",
-    "commit": "359b51bcd15eef18dfdb45482367ef43ffcf71c7"
+    "commit": "4fa8ab6d59e3003a8e4b1b7fd15f6373a8656575"
   },
   "advmat_bridge": {
     "source": "packages/advanced-material-editor/source/rtx_bridge",

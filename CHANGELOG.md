@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Remix's debug views from the RTX debug module again, for developers (2026-11-16)
+
+- **Nothing changes in an ordinary game:** servers and add-ons still cannot switch Remix's debug views, captures or
+  replacements, as since the security review of 2026-11-16.
+- **For developers:** in a single-player game started with `-insecure` and with `sv_cheats 1`, the RTX debug module
+  can set Remix's debug views and the other developer options again: `RTXDebug.Remix.SetDebugView(23, 0)` shows the
+  albedo view, `RTXDebug.Remix.RestoreConfig("rtx.debugView.debugViewIdx")` puts it back, and
+  `RTXDebug.Remix.SetConfig` takes any Remix option. Since the review the module had passed these through the same
+  list that refuses them to every add-on, so they did nothing
+  ([ADR 0237](docs/decisions/0237-developers-set-remix-options-through-the-debug-modules-developer-gate.md)).
+- The debug module (0.2.2) writes them through the Remix runtime's own interface behind its developer gate; without
+  that gate its message says what is needed. The Release gate now builds and runs the module's own policy tests and
+  checks its source copy against its patches and record (`tools/tests/test_rtxdebug.py`); a QA probe
+  (`tools/qa/debug_view_probe.lua`) checks a debug view in a test game.
+
 ### Linlong's RTX PBR: one hair colour and a stronger effect (2026-11-16)
 
 - **Linlong's hair is one even colour under RTX.** Her hair texture paints cream, pink and orange-brown blocks on

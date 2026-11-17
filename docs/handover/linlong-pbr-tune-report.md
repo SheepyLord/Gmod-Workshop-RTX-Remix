@@ -58,3 +58,11 @@ hair, and shipped, S and SP on the skirt. The user chose the even cream hair and
   use); the layer itself was checked in that game as variant SP.
 - 1080p, other maps and lighting, and the PoC.
 - Linlong standing or dancing: she lay on the floor in the user's scene throughout (face down, then face up).
+
+## Published
+
+Merged into `main` as `4a093eb5` and pushed (`bcd791f1..4a093eb5`, 17 LFS objects, 38 MB: the four anisotropy maps
+are one file). The merge's hook built the package here and uploaded item 3829070317 as
+**`0.0.0-dev.20261117034806+58651f23`** (content digest `d306ef16...`, the same as the branch's local build), its change
+note the changelog's new section; the push's hook found the inputs unchanged. The field game deploys it at its next
+start.

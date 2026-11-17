@@ -106,6 +106,21 @@ body is in it. Do not change morphs or part visibility to hide it either: uncrop
 user's untouched morph state are what make the AABB shots comparable. Leave `crop` out of
 `views.json`; a zoomed inset for inspection may sit next to the full frame, never replace it.
 
+## A character a pack already covers
+
+- **A variant in `ai_pbr` does not take over** the hashes another mod already supplies in a running game
+  (2026-11-16, Linlong, whose maps ship in the RTX package's `mmdhl_pbr_linlong`): `ai_pbr` comes first in path
+  order, yet after its reload a uniform hair albedo published there changed nothing; the runtime keeps a hash with
+  the mod that had it (the repository's RESEARCH.md, R11-A: no priority is guaranteed at an asynchronous swap).
+  Swap the variants into the owning mod's own layer instead (`abtest.py capture --mod <that mod>`, the layer named
+  as the model key), with texture paths that reach the variants' DDS. Back up its `mod.usda` and layer first and
+  put both back byte for byte: the loader checks the package's files by hash. A plain red albedo on the sheet is a
+  quick proof that a swap applies.
+- **Give each swap 20 s** before the first shot: once, 14 s showed the previous state.
+- **Remix debug views cannot be set from Lua** since the repository's ADR 0234: `RemixConfig` refuses
+  `rtx.debugView.debugViewIdx`, and the debug module's `RTXDebug.Remix.SetDebugView` goes through it (it returns
+  nil and a message, no Lua error). Test with variant layers (a plain albedo, a flat normal map) instead.
+
 ## AABB capture
 
 1. Build one complete model layer per variant.

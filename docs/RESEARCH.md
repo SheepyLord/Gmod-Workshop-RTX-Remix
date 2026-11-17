@@ -9431,3 +9431,24 @@ merge of patch 0093. Left as they were.
   the companion's windows use their own `extended` Tahoma fonts scaled by `ScrH() / 1080`.
 - **The menu realm can delete a data file**: `file.Delete` worked there (the multiplayer cheats request of the review's
   finding 16 was carried out once per session); only `file.Write` fails in the menu realm.
+
+## Linlong's PBR retuned (2026-11-16, Claude; [ADR 0236](decisions/0236-linlongs-pbr-an-evened-hair-texture-and-stronger-maps.md))
+
+- **Her hair's colour blocks are painted in its texture:** `hair1.png` and `hair2.png` (2048, opaque) hold cream,
+  pink and orange-brown blocks on separate islands (broad L* spread 3.6 and 4.6 at a 28-texel blur). In the field game
+  they showed the same with her PBR layer, without it and with flat normal maps; with a plain red albedo on both
+  sheets her hair was evenly red.
+- **A mod first in path order does not take over a hash in a running game:** a test layer for her hair in `ai_pbr`
+  (which sorts before `mmdhl_pbr_linlong`) changed nothing after `ai_pbr`'s reload, while the same change in
+  `mmdhl_pbr_linlong`'s own layer showed within 20 s (once not within 14 s). It matches R11-A's finding that no
+  priority is guaranteed at an asynchronous swap.
+- **No Remix debug view from Lua since ADR 0234:** `RemixConfig.SetConfigVariable("rtx.debugView.debugViewIdx", ...)`
+  is refused, and the debug module's `RTXDebug.Remix.SetDebugView` and `SetConfig` call it (`remix_debug.cpp`
+  `ApplyConfig`), so they return nil and a message (no Lua error) and the view stays. ADR 0234's note that developers
+  use `RTXDebug.Remix.SetConfig` does not hold for debug views.
+- **The field game runs without `-condebug`:** no `console.log` to read; a `jpeg` screenshot is found as the new file
+  in `garrysmod/screenshots` (3840 x 2160, about 3 MB at quality 95).
+- **rpai's AI relief at 2048 without upscaling is weaker than her game's normal maps:** fine relief +1-2% against no
+  layer, the game maps +2-5% at strength 1.0 and +6-10% at 3.0 (three views).
+- **Her mod after the change:** 28 DDS at 2048 (10 normal, 10 roughness, 2 albedo, 4 anisotropy, 2 emissive),
+  117,454,792 bytes; 20 new Git LFS objects, 37,570,900 bytes stored.

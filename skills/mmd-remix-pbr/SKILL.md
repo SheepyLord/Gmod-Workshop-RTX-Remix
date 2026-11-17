@@ -205,6 +205,7 @@ torch with CUDA, the PBRify weights, the Remix Toolkit's NVTT exporter and wheth
 | `& $py scripts\package_characters.py --dest <dir> --character <Name>=<key>[=<pmx>] ...` | package characters for reuse (not a Workshop pack) |
 | `& $py scripts\set_adaptive_emission.py --mod <copy> --multiplier 25 --dry-run` | adaptive eye emission in an existing pack; omit `--dry-run` to apply |
 | `& $py scripts\recolour_skin.py --src <sheet> --ref <images> --out <png> --pmx <pmx> --materials 0,1` | skin tone matched to a reference (on request only), used through `albedo_source` |
+| `& $py scripts\even_albedo.py --sheet <sheet> [--sheet <sheet>] --out-dir <dir>` | a sheet's colour blocks on separate islands evened to one tone, strand detail kept (on request), used through `albedo_source` |
 | `& $py scripts\hotloader_export.py ...`, `scripts\stage_pbr_mod.py ...` | Workshop pack inputs: see workshop-content-pack |
 
 The model key is `<english name slug>_<asset id[:8]>` (`rpai status` lists them; a compiled model's is

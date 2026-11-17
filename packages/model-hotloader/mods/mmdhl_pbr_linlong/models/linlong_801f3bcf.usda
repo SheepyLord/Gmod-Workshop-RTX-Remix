@@ -15,10 +15,10 @@ over "RootNode"
                 uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
                 bool inputs:preload_textures = 1
-                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/af1af1e11b22d453_2d19c4b8.n.rtex.dds@ (
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/af1af1e11b22d453_4a5a2ec9.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/af1af1e11b22d453_46d95ac3.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/af1af1e11b22d453_33e2c761.r.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -32,10 +32,16 @@ over "RootNode"
                 uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
                 bool inputs:preload_textures = 1
-                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_cb58efb6.n.rtex.dds@ (
+                asset inputs:diffuse_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_7747be35.a.rtex.dds@ (
+                    colorSpace = "auto"
+                )
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_bb55516d.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_eff12b33.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_1ae4dba0.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:anisotropy_texture = @../textures/linlong_801f3bcf/1c36828ba5f18dda_7c846b7f.an.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -52,7 +58,10 @@ over "RootNode"
                 asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/8236dbc8bd29ac24_b31b947d.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/8236dbc8bd29ac24_2c175158.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/8236dbc8bd29ac24_5ce8aa34.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:anisotropy_texture = @../textures/linlong_801f3bcf/8236dbc8bd29ac24_7c846b7f.an.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -112,10 +121,10 @@ over "RootNode"
                 uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
                 bool inputs:preload_textures = 1
-                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/cfc4cd03f26360d2_ca5cac7c.n.rtex.dds@ (
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/cfc4cd03f26360d2_60e50696.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/cfc4cd03f26360d2_3ec1eb05.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/cfc4cd03f26360d2_094e3ac0.r.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -129,10 +138,16 @@ over "RootNode"
                 uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
                 bool inputs:preload_textures = 1
-                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_d1d87462.n.rtex.dds@ (
+                asset inputs:diffuse_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_1d8d033a.a.rtex.dds@ (
+                    colorSpace = "auto"
+                )
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_fe3f7acd.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_26468e45.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_baeb8075.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:anisotropy_texture = @../textures/linlong_801f3bcf/bf21464dff9a9e06_7c846b7f.an.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -149,7 +164,10 @@ over "RootNode"
                 asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/419c39f47edea046_b150974b.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/419c39f47edea046_5d98b57b.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/419c39f47edea046_d53dd466.r.rtex.dds@ (
+                    colorSpace = "raw"
+                )
+                asset inputs:anisotropy_texture = @../textures/linlong_801f3bcf/419c39f47edea046_7c846b7f.an.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -163,10 +181,10 @@ over "RootNode"
                 uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
                 bool inputs:preload_textures = 1
-                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/ff75fb5ae563d643_db6f3e88.n.rtex.dds@ (
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/ff75fb5ae563d643_97622d3c.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/ff75fb5ae563d643_911f2407.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/ff75fb5ae563d643_19ee9f33.r.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0
@@ -180,10 +198,10 @@ over "RootNode"
                 uniform asset info:mdl:sourceAsset = @AperturePBR_Opacity.mdl@
                 uniform token info:mdl:sourceAsset:subIdentifier = "AperturePBR_Opacity"
                 bool inputs:preload_textures = 1
-                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/09c5316261c2c5f9_15c74b32.n.rtex.dds@ (
+                asset inputs:normalmap_texture = @../textures/linlong_801f3bcf/09c5316261c2c5f9_8e5a097e.n.rtex.dds@ (
                     colorSpace = "raw"
                 )
-                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/09c5316261c2c5f9_73886d6e.r.rtex.dds@ (
+                asset inputs:reflectionroughness_texture = @../textures/linlong_801f3bcf/09c5316261c2c5f9_9e3e0719.r.rtex.dds@ (
                     colorSpace = "raw"
                 )
                 int inputs:encoding = 0

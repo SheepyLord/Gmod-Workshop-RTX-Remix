@@ -301,6 +301,13 @@ Presets:
   Evernight's peach background fill (b* 9.3, against 6.0 on the mesh) made the body cool.
   Evernight (2026-10-30): skin Lab 94.2/5.0/6.0 → 94.2/2.0/1.2 against the reference's
   91.6/1.5/1.0, lightness spread unchanged.
+* **`scripts/even_albedo.py`** evens out colour blocks a sheet paints on separate UV islands (Linlong's hair,
+  2026-11-16: cream, pink and orange-brown islands met in hard edges wherever her hair twisted or lay in clumps;
+  a plain red test albedo in game removed every block, so they were the texture's, not the light's). In CIELAB
+  the lightness keeps its fine detail (the sheet minus a 28-texel blur) around one main tone measured from the
+  sheets together, plus 15% of the broad shading; a*/b* keep 35% of their fine detail. Linlong: main tone
+  84.7/2.2/13.9, broad L* spread 3.6 and 4.6 down to 1.0. The ends' colour goes with the blocks, so it is made on
+  the user's request (`scripts/even_albedo.py.md`).
 
 ### The model's own normal maps, per-texture classes, subsurface scattering
 

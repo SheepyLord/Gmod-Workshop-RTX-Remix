@@ -3735,9 +3735,9 @@ separator now has 57 texts in each catalog.
   decoded once; the shipped `sharing.lua`'s receivers, `readRig` and the host-only `HostReady`);
   [`test_mmd_lazy_load.py`](../tools/tests/test_mmd_lazy_load.py.md) (the warm characters queued in a game a player
   hosts, `server_dedicated` and `server_host_ready`).
-- **C++ (CTest):** `nl_fs_accel_tests`: junctions (live, relative, to a missing target, below a missing parent) and,
-  where the account may create them, directory symbolic links, each answer compared with Windows' own for opens and
-  attribute queries; links that are not cached (a file target, too many); a change behind a link drops that link and
+- **C++ (CTest):** `nl_fs_accel_tests`: junctions (live, to a missing folder whose parent exists, to one several
+  missing folders deep) and, where the account may create one, an absolute directory symbolic link, each answer
+  compared with Windows' own for opens and attribute queries; links that are not cached (a file target, too many); a change behind a link drops that link and
   only it.
 - **Field** (the user's game, with their standing permission; the main checkout's `out/load-speedup-2/tools`):
   back up `native-loader/config.json`, add the branch's `.gma` under `allow.local` (it outranks the Workshop copy;

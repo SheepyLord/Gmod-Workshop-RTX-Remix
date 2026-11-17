@@ -208,7 +208,7 @@ Each with the reason it lost.
 - [0096: Draw-gated character classification and an opt-in memory census](0096-demand-loaded-character-classification-and-memory-census.md).
 - [0097: Persistent manual eye-white choices for spawned characters](0097-manual-eye-white-materials.md).
 - [0098: Compact imported game maps, no session budget for them, and recipe-keyed reuse](0098-compact-imported-game-maps-and-recipe-keys.md).
-- [0099: Saved characters load on first use; the most recently used stay ready](0099-saved-characters-load-on-first-use.md) (R13-A; supersedes the publication rule of 0090; superseded in part by 0238: in a game a player hosts, the characters kept ready are made ready once the map runs).
+- [0099: Saved characters load on first use; the most recently used stay ready](0099-saved-characters-load-on-first-use.md) (R13-A; supersedes the publication rule of 0090).
 - [0100: One copy of each game texture, idle image release and replacement textures under pressure](0100-one-copy-and-idle-release-of-game-textures.md).
 - [0101: Memory profiles that scale with the computer](0101-memory-profiles.md).
 - [0102: Character PBR maps stay preloaded](0102-character-pbr-maps-stay-preloaded.md) (R13-P: streaming them is visible at every first appearance; superseded in part by 0103).
@@ -293,7 +293,7 @@ Each with the reason it lost.
   folders answered from directory listings and `file.Find(pattern, <add-on title>)` from an index of GMod's add-on
   table, by a package part, in RTX starts (without RTX the loader hides the package's add-ons; running there needs a
   loader change, not made); a native start-up marker; the bullet-break simulator's rebuild on every start removed;
-  what was dropped from the plan and why. Superseded in part by 0239 (links, junctions and the `mmdhl_*` folders are cached).
+  what was dropped from the plan and why.
 - [0141: "Depth-only" colour targets become colour targets; a refused base texture draws nothing](0141-depth-only-colour-targets-and-refused-base-textures.md)
   (R27, amends 0086): under RTX a `MATERIAL_RT_DEPTH_ONLY` request in an 8-bit colour format is allocated as a colour
   target with its own depth buffer (HUD Mk.2's full-screen HUD target); a material Lua created whose `$basetexture`

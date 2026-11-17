@@ -88,3 +88,13 @@ only warning in the module's own project is the old `INVALID_HANDLE_VALUE` redef
   logs) and `out\dbgview` there (a first scratch clone, unused: the safety check stopped its removal); both git-ignored.
 - If `RTXFixesBinary` moves to newer Remix headers, the debug module moves with it: its `static_assert` names the
   version, and `test_rtxdebug.py` checks it initializes with its own headers.
+
+## Published
+
+Approved by the user ("Yes, merge"), merged into `main` as `05b901dd` and pushed (`ff3edf55..05b901dd`, one LFS object,
+172 KB). The merge's hook built the package here and uploaded item 3829070317 as
+**`0.0.0-dev.20261117045710+91b90b73`** (content digest `2d4cf7ed...`), its change note the changelog's new section; the
+push's hook found the inputs unchanged. Against the branch's PoC build (digest `ee9ff917...`) it differs only in the
+debug module's source copy that ships beside it (`addons/rtx_debug/source`: patch 0004 added, `provenance.json` and
+`Source.md` updated after that build) and the manifest that lists them; the module and every other file are the same.
+The field game deploys it at its next start.

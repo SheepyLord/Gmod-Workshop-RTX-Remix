@@ -5,7 +5,7 @@ The user's items (2026-11-04), verbatim:
 > 43. Develop a more robust way to hide 目影 in IMPORTED MODELS automatically.
 >
 > 44. Further improve the handling of materials with alpha (related to Alphatest). For example,
-> E:\G\Upload\laevatain_rc\Endfield-Laevatain明日方舟终末地-莱万汀 (I removed Alphatest to make it look
+> <Laevatain's source folder> (I removed Alphatest to make it look
 > correct) has wrong Alpha on hair. You are allowed to switch away from Alphatest if needed.
 >
 > Make the most recent loader release after this. This will be the release candidate.

@@ -19,7 +19,8 @@ run with exit 1 and the reason on stderr, before anything is written.
 ```python
 import model_names
 model_names.find("阿芙2.0", "name")      # ["version or edition tag '2.0'"]
-model_names.find("pbr_robin_r18", "slug")  # ["rating tag 'r18'"]
+model_names.find("pbr_alf_2_0", "slug")    # ["version tag '2_0'"]
+model_names.strip("阿芙2.0")                # "阿芙": rpai makes its model key from this
 model_names.refusal("--character name", "Robin")   # None: clean
 ```
 

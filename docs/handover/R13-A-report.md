@@ -29,7 +29,7 @@ Times are UTC on 2026-11-03. Evidence is in the worktree's `out\r13-a\` (run fol
   Player Model window, a dupe, a save and its load, removal, a map change with a new spawn, and a
   listen server; no error models, no Lua errors, no "missing model".
 - First spawns of a character that is not ready take what its precache costs: up to about 0.6 s for
-  most characters, about 0.9-1.9 s for the largest (阮·梅 R18: 4.0 s ready, 4.9-6.0 s cold, both
+  most characters, about 0.9-1.9 s for the largest (Ruan Mei: 4.0 s ready, 4.9-6.0 s cold, both
   including its presentation).
 - **A PoC session changes the user's game settings through Steam Cloud** (found while explaining a
   player model that survived the `config.cfg` restore). The driver now ends every session with the
@@ -205,15 +205,15 @@ agree with the later runs; they are kept as supporting evidence only.
 
 | Route | Current | R13-A high | R13-A recommended | R13-A minimum |
 |---|---:|---:|---:|---:|
-| NPC tab, the newest character (阮·梅 R18; ready except on the minimum) | 4,039 ms | 3,989 ms | 3,865 ms | 4,925 ms |
+| NPC tab, the newest character (Ruan Mei; ready except on the minimum) | 4,039 ms | 3,989 ms | 3,865 ms | 4,925 ms |
 | NPC tab, a character not ready (真珠) | 528 ms | 614 ms | 509 ms | 519 ms |
 | hotloader menu, NPC (Evanescia) | 1,071 ms | 1,155 ms | 1,115 ms | 1,145 ms |
-| hotloader menu, ragdoll (大国主 R18) | 3,059 ms | 3,524 ms | 3,497 ms | 3,515 ms |
+| hotloader menu, ragdoll (大国主) | 3,059 ms | 3,524 ms | 3,497 ms | 3,515 ms |
 | player model (三月七) | 1,108 ms | 1,671 ms | 1,092 ms | 1,661 ms |
 | NPC tab after a map change (昔涟) | 900 ms | 983 ms | | 1,037 ms |
 
 In the current package every character was precached at map start, so these are presentation times;
-R13-A adds the precache of a character that is not ready. The largest (阮·梅 R18) costs 0.9 s on the
+R13-A adds the precache of a character that is not ready. The largest (Ruan Mei) costs 0.9 s on the
 minimum profile (run 17; 1.9 s in run 10, whose precache alone took 1,979 ms); most cost up to
 0.6 s. Runs differ by a few hundred milliseconds on the same route (the recommended column is run 11,
 which stopped at the save step).

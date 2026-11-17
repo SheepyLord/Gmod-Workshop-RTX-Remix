@@ -97,7 +97,7 @@ marked **inferred** follow from the code but were not observed.
   installed the model from that build and wrote the library entry `library\<asset>.json` with
   `"name": "Robin (知更鸟)"`; it writes that file only if it does not exist (`writeIfMissing`), so no
   later build changes it. (3) For an English reader, a non-ASCII name is replaced by the PMX's ASCII
-  English name from the terms record (`names.lua`), and 知更鸟.pmx calls itself `Robin R18`.
+  English name from the terms record (`names.lua`), and 知更鸟.pmx's English name carries a rating tag.
 - **Fix.** Give the item a plain ASCII name from the first upload. For an install that already has the
   entry: the user renames the model in Model Hotloader, or, at the user's request, with GMod closed and
   the file backed up, set `name` in the library entry (Model Hotloader keeps entries in memory and can
@@ -105,11 +105,11 @@ marked **inferred** follow from the code but were not observed.
 - **Same mechanism.** Presets, the default preset, spawn size, arm parts, fit and terms of an installed
   model never change with a new build either.
 
-### 8. Guinaifen shows as "New MMD Model" to English readers (inferred)
+### 8. Guinaifen shows under the PMX editor's default name to English readers (inferred)
 
-The item name `Guinaifen (桂乃芬)` is non-ASCII and her PMX's English name is `New MMD Model`; the
-field install's library and terms records hold exactly those (read 2026-10-31). By `names.lua` an
-English reader sees `New MMD Model`. Not looked at in game. The cure is the one of pitfall 7: an ASCII
+The item name `Guinaifen (桂乃芬)` is non-ASCII and her PMX's English name is the PMX editor's
+default; the field install's library and terms records hold exactly those (read 2026-10-31). By
+`names.lua` an English reader sees that default name. Not looked at in game. The cure is the one of pitfall 7: an ASCII
 name in a rebuild only reaches new installs; the existing entry needs a rename in game. The user kept
 the name (2026-11-01): Guinaifen's updates pass `check_pack.py --keep-name 1c2ed2fc`, which reports it
 as a warning.
@@ -123,12 +123,11 @@ as a warning.
   With `hotloader_export.py` the library's names travel as they are: rename the preset in Model
   Hotloader's bodygroup editor first (ask the user), or use the offline packer.
 
-### 10. "r18" in names (Robin's first build)
+### 10. A rating tag in names (Robin's first build)
 
-The first build used `mmdhl_robin_r18`, `pbr_robin_r18`, package id `robin-r18-rtx`, title "Robin R18
-RTX (native loader package)" and display name `Robin R18 (知更鸟)`. The user asked for `pbr_robin`
-only and the name `Robin`. Use plain names everywhere a player sees them or a folder is deployed; the
-rpai layer key (`robin_r18_f9c3e4b4.usda`) is only a file inside the mod and may keep its name.
+The first build carried the PMX's rating tag in the add-on and mod folder names, the package id, the
+title and the display name. The user asked for `pbr_robin` only and the name `Robin`. Use plain names
+everywhere a player sees them or a folder is deployed, and in rpai's layer keys (`robin_f9c3e4b4.usda`).
 Changing the package id between builds is fine: the loader replaces the old deployment. The user made
 it a general rule on 2026-11-08 (pitfall 24).
 
@@ -266,7 +265,7 @@ map remaster whose Lua only makes sense with Remix uses it (Modern House RTX).
 ### 24. A name with a game, version or author tag (the user, 2026-11-08)
 
 - **Symptom.** A display name, folder, package id, title or description that says where the model
-  came from or which version it is: `鸣潮-千咲`, `星穹铁道-桂乃芬`, `阿芙2.0`, `Alf 合体7`, `Robin R18`,
+  came from or which version it is: `鸣潮-千咲`, `星穹铁道-桂乃芬`, `阿芙2.0`, `Alf 合体7`,
   `[Arknights] Texas`. Model Hotloader names an import after its PMX (or the user's library entry), so
   such names arrive with the model.
 - **Cause.** Source folders and PMX files are named `<game>-<character><version>_By_<author>`; copying

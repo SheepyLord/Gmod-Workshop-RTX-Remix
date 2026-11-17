@@ -12,7 +12,7 @@ The user's requests, after R9 (numbered as the user numbered them):
   (note this repo might have some misinformation for left and right), context is: [MMD VMD] Built
   animation: mmd_vmd_npc/built/motion_35e2c448ff_c541b3669b_mmd_94ac7b53f627cfeb_gui_nai_fen_3335225749_tw0_ht0_eye0_sp0.json,
   "笑い" is incorrectly assigned to eye_blink_happy_left. There are a lot of assignment mistakes, also
-  observable in Robin model. Since both the original model (E:\G\Upload\1_fin\Guinevere\1_PMX\星穹铁道-桂乃芬)
+  observable in Robin model. Since both the original model (<Guinaifen's source folder>)
   and mmd (nanoem) https://github.com/hkrn/nanoem is available, please figure out a better facial
   expression mapping for mmd importer models, you can sample models on E:\G\Upload." A screenshot of
   the motion importer's manual flex mapping showed MMD morph `笑い`, assigned flex `eye_blink_happy`,

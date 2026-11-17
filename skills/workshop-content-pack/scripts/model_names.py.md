@@ -16,7 +16,13 @@ import model_names
 model_names.find("鸣潮-千咲")          # ["game tag '鸣潮'", "<prefix>-<name> folder form '潮-千'"]
 model_names.find("Chisa")              # []
 model_names.refusal("item name", "阿芙2.0")   # one line for stderr, or None when the name is clean
+model_names.strip("阿芙2.0")           # "阿芙": the name without its tags, folded
 ```
+
+`strip(text)` takes out what `find` reports (a bracketed tag, a game or franchise, an author's mark and
+everything after `by`, `@` or 作者, a rating or format word, a version or edition) and folds the rest
+(NFKC, lower case, runs of separators made one space). It makes identifiers, not display names: pack
+words stay. The mmd-remix-pbr skill's rpai makes its model key from it (`robin_f9c3e4b4`).
 
 ## What it refuses
 
@@ -26,7 +32,7 @@ model_names.refusal("item name", "阿芙2.0")   # one line for stderr, or None w
 | `<prefix>-<name>` folder form | two non-ASCII runs joined by `-`, `_` or a dash (`‐ ‑ ‒ – — ― −`); the middle dot (阮·梅) and the long-vowel mark (ー) are not separators | 鸣潮-千咲, 星穹铁道-桂乃芬, 库拉蒂—骑士 |
 | version or edition | dotted numbers; `v`, `ver`, `version` before a digit (not after a Latin letter); 合体/合體 and a number; `<n>版`, 版本, 第…版/代, 周年; a number right after a non-ASCII name; a lone number after a Latin word | 2.0, 1.0.3, v2, Ver.3, V4X, 合体7, 千咲2, Robin 2 |
 | author or uploader | the word `by` (also `1.0by_x`), `@`, 作者, 配布, 改模, 模型, 制作, 製作, 改変, a Latin or digit before 式 | by_mobius, By Alicia, Tda式 |
-| rating or format | `R18`, `R-18`, `18+`; the words MMD, PMX, PMD, NSFW | Robin R18, New MMD Model |
+| rating or format | `R18`, `R-18`, `18+`; the words MMD, PMX, PMD, NSFW | a name followed by R18, New MMD Model |
 | bracketed | any `[ ]`, `【 】`, `〔 〕`, `《 》`, `「 」`, `『 』`, `〖 〗`, `〘 〙` | [Arknights] Texas, 【原神】 |
 | pack words (kind `name` only) | RTX, PBR, Remix, Hotloader, Workshop, pack, package, model, addon | Chisa RTX |
 

@@ -18,7 +18,7 @@ Items made this way (all hidden; dates UTC):
 |---|---|---|---|---|
 | 3829348717 | `guinaifen-rtx` | Guinaifen: Model Hotloader package + 18 PBR materials, 44 DDS (about 696 MB) | `0.0.0-dev.202611010517+7ccac1bb`, 2026-11-02 (C-16 adaptive eye emission) | display name `Guinaifen (桂乃芬)` kept by the user (2026-11-01): updates pass `check_pack.py --keep-name 1c2ed2fc` |
 | 3829347093 | `guinaifen-rtx` | the first build of the same pack | 2026-10-29 | a hidden duplicate: never delete it, never subscribe to it |
-| 3829892354 | `robin-rtx` | Robin: preset `Default`, name `Robin`, 17 materials, 30 DDS (about 453 MB) | `0.0.0-dev.202611010515+3a6d9e61`, 2026-11-01 (C-16) | the Workshop page title is still the creation's `Robin R18 RTX (native loader package)`: only the owner can rename it on the page (to `Robin (Model Hotloader + RTX PBR)` by the naming rule) |
+| 3829892354 | `robin-rtx` | Robin: preset `Default`, name `Robin`, 17 materials, 30 DDS (about 453 MB) | `0.0.0-dev.202611010515+3a6d9e61`, 2026-11-01 (C-16) | the Workshop page title is still the creation's, with the PMX's rating tag: only the owner can rename it on the page (to `Robin (Model Hotloader + RTX PBR)` by the naming rule) |
 | 3830769477 | `evernight-march7th-rtx` | Evernight and March 7th: two models, two layers (about 1.22 GB) | `0.0.0-dev.202611010518+103fde9b`, 2026-11-01 (C-16) | display names `Evernight` and `March 7th` with both terms records since the R5 rebuild (uploaded 2026-10-31 22:13 UTC); Evernight's terms forbid redistribution: stays hidden |
 
 Related: 3829275998 Modern House RTX (a map remaster, ADR 0023), 3836505482 and 3836505733 the
@@ -84,8 +84,8 @@ HSR, WuWa, Genshin, ZZZ, `[Arknights]`), a version, build or edition tag (`2.0`,
 tag (`R18`, `NSFW`, `MMD`, `PMX`), a bracketed tag, and pack words in a display name. The rule is code:
 `scripts/model_names.py`. `mmdhl_pack.py` and `pbr_mod.py` (and mmd-remix-pbr's `hotloader_export.py`,
 `stage_pbr_mod.py`, `package_characters.py`) refuse a tagged name with exit 1 before writing anything;
-`check_pack.py` reports one as an error. An rpai layer key inside the mod (`robin_r18_f9c3e4b4.usda`)
-is rpai's identifier, may keep its form and is never shown as a name.
+`check_pack.py` reports one as an error. An rpai layer key inside the mod (`robin_f9c3e4b4.usda`)
+is rpai's identifier: it follows the rule too and is never shown as a name.
 
 ## What a pack holds
 
@@ -158,8 +158,7 @@ $B     = "$repo\out\packages\<n>"                              # the build folde
    this pack (the table above, `$B\gmpublish-create.log`, the user); if there is one, follow "Updating
    an item". Check `git -C $repo status --short` and that `$B` is new. Load the mmd-remix-pbr skill.
    Find the layers: `rpai status` names rpai's live mod; on 2026-11-08 the field's `ai_pbr` holds none
-   of the four packed imports' keys (`new_mmd_model_1c2ed2fc`, `robin_r18_f9c3e4b4`,
-   `evernight_cf3eec2f`, `model_e2c25f9e`): their current layers are in the builds
+   of the four packed imports' keys (Guinaifen's, Robin's, Evernight's and March 7th's): their current layers are in the builds
    (`$B\pbr_<n>`) and deployed as the field's `rtx-remix\mods\pbr_<n>`. `GarrysMod_RTX_c` holds none.
 2. **Refresh the live hashes.** In the running game, in a map, the model spawned with every part shown
    that should get PBR: `rpai hashes "<pmx>"` (mmd-remix-pbr's `reveal_hashes.py` shows hidden parts and

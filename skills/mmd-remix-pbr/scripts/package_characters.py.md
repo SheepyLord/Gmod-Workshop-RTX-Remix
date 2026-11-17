@@ -4,9 +4,9 @@ Packages published rpai characters into a folder for reuse (a drop-in Remix mod 
 maps, AI cache and settings). Not a Workshop pack: that is the workshop-content-pack skill.
 
 ```powershell
-& $py package_characters.py --dest "H:\path\to\package" `
-    --character Guinevere=new_mmd_model_9cdc990f="E:\...\桂乃芬.pmx" `
-    --character Hyacine=hyacine_r18_6ca2dcc3
+& $py package_characters.py --dest "<folder>\package" `
+    --character Guinevere=model_9cdc990f="<models>\...\桂乃芬.pmx" `
+    --character Hyacine=hyacine_6ca2dcc3
 ```
 
 Layout:
@@ -30,7 +30,7 @@ package.json, README.md
 | `--update` | allow writing into a non-empty destination (a hand-written README stays) |
 
 **Names.** The user's rule (2026-11-08) through [model_names.py](model_names.py.md): a NAME carrying a
-game, version, author, rating or pack tag (`鸣潮-千咲`, `阿芙2.0`, `Robin R18`, `Chisa RTX`) is refused
+game, version, author, rating or pack tag (`鸣潮-千咲`, `阿芙2.0`, `Alf 合体7`, `Chisa RTX`) is refused
 with exit 1 before anything is read or written. Give the character's name as the user uses it.
 
 Published USD layers are copied and checked **byte for byte**, preserving all shader inputs, including

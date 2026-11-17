@@ -24,4 +24,13 @@ Run from `tools\`: `python -m unittest discover -s tests` (or `tools\test.ps1`).
 - `test_packages_name_no_windows_account_folder` (review finding 19): a Windows account folder in a text file under
   `packages/` fails, written with backslashes in Markdown, with doubled backslashes and in lower case in JSON, or
   with slashes in Lua, each reported with its file and line; the placeholders `NAME~1` and `me` (two comments in the
-  native sources), `<account>` and `%USERNAME%`, a binary file, an `.xz` file and a path outside `packages/` pass.
+  native sources), `<account>` and `%USERNAME%`, a binary file, an `.xz` file and a placeholder outside `packages/`
+  pass.
+- `test_no_file_names_a_windows_account_folder` (AGENTS.md rule 10): the same pattern fails in a doc and a script's
+  notes outside `packages/`; `%USERPROFILE%`, `<user>`, `Someone` with punctuation after it and a one-letter name
+  cut by a C escape pass.
+- `test_the_account_running_the_check_is_named_nowhere`: with `_account_names` patched, the account's name as a
+  word in a doc and its 8.3 form under `packages/` fail, without the problem repeating the name; longer words that
+  contain the name pass.
+- `test_short_and_common_account_names_are_not_looked_for`: `_account_names` drops `runneradmin`, `me`, `dev`
+  and keeps a user name and a profile folder of five or more characters.

@@ -62,7 +62,7 @@ characters again. Evidence: `out/r13/int/final-*` in this worktree.
 - On the minimum profile the runtime released 2,770 CPU copies and 48 idle images (game textures
   2.45 -> 1.91 GB). The images came back on use (42 re-uploads), with the characters looking the same
   (`final-min-low/npc-tab-newest-again.png`).
-- First spawns from the NPC tab: the largest character (阮·梅 R18, 1.2 GB of textures) took 4.0 s
+- First spawns from the NPC tab: the largest character (Ruan Mei, 1.2 GB of textures) took 4.0 s
   when ready and 6.0 s cold on the minimum. The others took 0.5-2.1 s. Once loaded, a character
   spawns again in about 0.05 s.
 - Every session quit normally with its settings put back. One earlier recommended session crashed in

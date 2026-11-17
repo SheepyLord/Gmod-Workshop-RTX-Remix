@@ -252,11 +252,13 @@ itself holds far less (working set about 11 GB idle in the field, against 18 GB 
   manifest `sourceHash` (the SHA-256 of the PMX), so a moved or renamed folder still works;
   `--asset <id8>` binds a PMX to a given import. `assets\<id>\model.bin` is the source PMX byte for
   byte, so a lost PMX can be rebuilt from it (March 7th, tool README).
-- The model key is `<english name slug>_<asset id[:8]>` (`config.model_key`), for example
-  `new_mmd_model_9cdc990f`; a compiled model's is `<name>_<sha1 of the model path>[:8]`. Work files go
-  to `%USERPROFILE%\.rpai\work\<key>`, and the per-model preset is `tool/presets/models/<key>.json`.
-  The key is an identifier, not a name: it can carry the PMX's tags (`robin_r18_f9c3e4b4`), which the
-  naming rule keeps out of names (SKILL.md, "Names").
+- The model key is `<english name slug>_<asset id[:8]>` (`config.model_key`), the slug made from the
+  English name without the naming rule's tags (`model_names.strip`; SKILL.md, "Names"), for example
+  `robin_f9c3e4b4`; the PMX editor's default English name gives `model_9cdc990f`. A compiled model's key
+  is `<name>_<sha1 of the model path>[:8]`. Work files go to `%USERPROFILE%\.rpai\work\<key>`, and the
+  per-model preset is `tool/presets/models/<key>.json`. Keys made before 2026-11-17 kept the tags
+  (`config.legacy_model_key`): rpai moves such a work folder to the new key, still reads a preset
+  named after the old key and replaces the old layer at the next publish.
 - The same PMX imported twice is two assets, two keys and one set of hashes: the key that sorts first
   wins every shared hash (tool README, "Remaking a layer").
 - Part visibility, the camera and morphs: see `testing-protocol.md`.

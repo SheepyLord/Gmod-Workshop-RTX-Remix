@@ -9,6 +9,8 @@ and the names written into records (mod.usda doc strings, package READMEs, descr
 
     find(text, kind)              the reasons text breaks the rule; an empty list when it is clean
     refusal(label, text, kind)    one line for stderr, or None
+    strip(text)                   text without its tags, for an identifier made from a name (rpai's
+                                  model key): strip("阿芙2.0") == "阿芙"
 
 Kinds:
     "name"   a display name or an item name: every tag below, and pack words (RTX, PBR, Remix,
@@ -142,6 +144,48 @@ def find(text: str, kind: str = "name") -> list:
     if match:
         found.append("<prefix>-<name> folder form %r" % match.group(0))
     return found
+
+
+# What strip() takes out besides the patterns above: whole game titles before their short forms, and
+# versions with what is glued to them (Ver1.04, V4X, 1.0.3).
+STRIP_GAMES = tuple(sorted(GAMES_LATIN + ("genshin impact", "honkai impact 3rd", "honkai impact",
+                                          "honkai star rail", "zenless zone zero", "arknights endfield"),
+                           key=len, reverse=True))
+STRIP_VERSIONS = (
+    re.compile(r"(?<![a-z])v(?:er(?:sion)?)?\s*\.?\s*\d+(?:\.\d+)*[a-z]*"),   # v1.2, ver.3, ver1.04, v4x
+    re.compile(r"\d+(?:\.\d+)+"),                                             # 2.0, 1.0.3
+    re.compile(r"合[体體]\s*\d+"),                                            # 合体7
+    re.compile(r"\d+\s*版|版本|第\s*\S{1,3}\s*[版代弾弹期]|周年"),               # 2版, 版本, 第二版, 三周年
+    re.compile(r"(?<=[^\x00-\x7f])\s*\d+\s*$"),                               # 千咲2
+    re.compile(r"(?<=[a-z])\s+\d+\s*$"),                                      # robin 2
+)
+STRIP_SEPARATORS = re.compile(r"[\s_\-‐‑‒–—―−]+")
+
+
+def strip(text: str) -> str:
+    """`text` with the tags find() reports taken out, for an identifier made from a name (rpai's model key):
+    a bracketed tag, a game or franchise, an author's mark and everything after "by", "@" or 作者, a
+    rating or format word and a version or edition. The rest is folded (NFKC, lower case), runs of
+    separators made one space. strip("鸣潮-千咲") == "千咲", strip("阿芙2.0") == "阿芙",
+    strip("风堇1.0by_mobius") == "风堇", strip("New MMD Model") == "new model"."""
+    folded = BRACKETS.sub(" ", _fold(text))
+    for tag in GAMES_CJK:
+        folded = folded.replace(tag, " ")
+    for pattern in AUTHORS:
+        match = pattern.search(folded)
+        if match is None:
+            continue
+        if match.re.groups:
+            folded = folded[:match.start(1)] + " " + folded[match.end(1):]
+        else:
+            folded = folded[:match.start()]
+    folded = R18.sub(" ", folded)
+    for words in STRIP_GAMES + FORMAT_WORDS:
+        spaced = r"[\s_\-.]+".join(re.escape(w) for w in words.split())
+        folded = re.sub(r"(?<![a-z0-9])" + spaced + r"(?![a-z0-9])", " ", folded)
+    for pattern in STRIP_VERSIONS:
+        folded = pattern.sub(" ", folded)
+    return STRIP_SEPARATORS.sub(" ", folded).strip(" .,()")
 
 
 def refusal(label: str, text: str, kind: str = "name"):

@@ -10,7 +10,7 @@ each with a `.md`; depth is in `references/`.
 |---|---|---|---|
 | [3829348717](https://steamcommunity.com/sharedfiles/filedetails/?id=3829348717) | `guinaifen-rtx` `0.0.0-dev.202611010517+7ccac1bb` (2026-11-02) | Guinaifen (桂乃芬.pmx), 18 PBR materials, 44 DDS; about 696 MB | 2026-10-29: the user published the agent's build as this item; the agent added two texture hashes. 2026-11-02: the C-16 adaptive eye emission on her two face materials; her display name `Guinaifen (桂乃芬)` kept at the user's word (`check_pack.py --keep-name 1c2ed2fc`) |
 | [3829347093](https://steamcommunity.com/sharedfiles/filedetails/?id=3829347093) | `guinaifen-rtx` (first build) | the same pack, before the hash fix | the agent's first upload; a hidden duplicate that stays (nothing is deleted until the project is done) |
-| [3829892354](https://steamcommunity.com/sharedfiles/filedetails/?id=3829892354) | `robin-rtx` `0.0.0-dev.202611010515+3a6d9e61` (2026-11-01) | Robin (知更鸟.pmx), preset `Default`, 17 materials, 30 DDS; about 453 MB | 2026-10-30: created as `robin-r18-rtx`, renamed (`mmdhl_robin`, `pbr_robin`), display name `Robin`. 2026-11-01: C-16, description brought to the rules. The Workshop title set at creation (with "R18") cannot be changed by `update`: the owner renames it on the page |
+| [3829892354](https://steamcommunity.com/sharedfiles/filedetails/?id=3829892354) | `robin-rtx` `0.0.0-dev.202611010515+3a6d9e61` (2026-11-01) | Robin (知更鸟.pmx), preset `Default`, 17 materials, 30 DDS; about 453 MB | 2026-10-30: created with the PMX's rating tag in its package id, renamed (`robin-rtx`, `mmdhl_robin`, `pbr_robin`), display name `Robin`. 2026-11-01: C-16, description brought to the rules. The Workshop title set at creation (with that tag) cannot be changed by `update`: the owner renames it on the page |
 | [3830769477](https://steamcommunity.com/sharedfiles/filedetails/?id=3830769477) | `evernight-march7th-rtx` `0.0.0-dev.202611010518+103fde9b` (2026-11-01) | Evernight and March 7th, two layers; about 1.22 GB | 2026-10-31: the first pack made with `hotloader_export.py` and `stage_pbr_mod.py` (display names 長夜月 and 三月七, no terms for March 7th); download identical to the build. 2026-10-31 22:13: rebuilt for R5 with `Evernight`, `March 7th` and both terms records, checked on the PoC, updated. 2026-11-01: C-16 (only `native/manifest.json` and the layers changed) |
 
 Builds: the main checkout's `out\packages\guinaifen`, `out\packages\robin` (the first Robin build in
@@ -39,8 +39,8 @@ Builds: the main checkout's `out\packages\guinaifen`, `out\packages\robin` (the 
   `check_pack.py`.
 - **Inferred from code, not observed:** a requires-Remix character pack lets a standalone Model
   Hotloader delete and reinstall the model around starts without RTX; `ai_pbr` hides the packaged
-  layer on the author's machine; English readers see Guinaifen as "New MMD Model" (her PMX's English
-  name); Model Hotloader shows no Workshop page button for loader-deployed packages; the takeover of
+  layer on the author's machine; English readers see Guinaifen under the PMX editor's default English
+  name; Model Hotloader shows no Workshop page button for loader-deployed packages; the takeover of
   the author's own import (`references/pitfalls.md` 25).
 - **The user's decisions:** whether character packs use `--requires-remix` (Guinaifen and Robin did,
   Evernight did not); making anything public (R18 content; the models' terms, Evernight's forbids

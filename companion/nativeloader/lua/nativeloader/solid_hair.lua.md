@@ -27,7 +27,7 @@ for Laevatain was to remove `$alphatest`.
 Field library, 2026-11-04 (read only): Laevatain's hair is clear 3.6 %, low 1.6 %, partial 5.0 %; the
 partial texels of the hair textures lie in regions over 16 texels wide (85-100 % of them), not in
 anti-aliased strand edges. Solid by this rule: the Endfield hair of Laevatain, JEPT and Yvonne, and a few
-other models whose hair has partial alpha below half (Tda式初音ミクV4X, 芙提雅, 薇薇安, 克罗瑞娜, 卜卜, 娜娜莉). Not solid:
+other models whose hair has partial alpha below half (初音ミク, 芙提雅, 薇薇安, 克罗瑞娜, 卜卜, 娜娜莉). Not solid:
 cut-out hair (刻晴, clear 12.9 %), binary alpha (雅珂达, low 0.006 %), hair whose partial alpha is all above
 half (露娜拉), and see-through hair (灵可's bangs, partial 21 %). Tested by
 [`imported_parts_harness.lua`](../../../../tools/tests/imported_parts_harness.lua.md).

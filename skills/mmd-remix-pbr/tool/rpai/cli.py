@@ -53,12 +53,21 @@ class Context:
             # deleted, and Guinevere's byte-identical PMX now rebuilds her layer (2026-10-26).
             self.asset = load_asset(self.game_root, self.pmx_path, resolve_asset(self.game_root, args.asset)
                                     if getattr(args, "asset", None) else None)
-        self.key = config.model_key(self.asset.asset_id, self.model.name_en or self.model.name)
+        name = self.model.name_en or self.model.name
+        self.key = config.model_key(self.asset.asset_id, name)
+        # Keys made before 2026-11-17 kept the name's tags: the work folder moves to the new key here, a
+        # published layer is replaced at the next publish, a preset is still read.
+        legacy = config.legacy_model_key(self.asset.asset_id, name)
+        self.legacy_key = legacy if legacy != self.key else None
         self.work = config.WORK / self.key
+        if adopt_legacy_work(config.WORK, self.key, self.legacy_key):
+            log(f"work    moved {legacy} to {self.key} (keys no longer carry the name's tags)")
         self.work.mkdir(parents=True, exist_ok=True)
         # Order: --settings files, then this model's own presets file, then flags.
         self.settings = config.Settings.load([Path(p) for p in (getattr(args, "settings", None) or [])])
-        own = config.model_presets(self.key)
+        own = model_preset(self.key, self.legacy_key)
+        if self.legacy_key and own == config.model_presets(self.legacy_key):
+            log(f"note    the preset still has the old key's name: rename it to {self.key}.json")
         if own.exists():
             self.settings.merge_file(own)
         for name in ("mod_name", "max_size", "upscaler", "height", "displacement", "emissive_intensity",
@@ -82,6 +91,25 @@ class Context:
 
     def write(self, name: str, data: dict) -> None:
         (self.work / name).write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def adopt_legacy_work(work_root: Path, key: str, legacy_key: str | None) -> bool:
+    """Rename the work folder of a model's key before 2026-11-17 to its key now, when only the old one exists."""
+    if not legacy_key:
+        return False
+    old, new = work_root / legacy_key, work_root / key
+    if old.is_dir() and not new.exists():
+        old.rename(new)
+        return True
+    return False
+
+
+def model_preset(key: str, legacy_key: str | None) -> Path:
+    """The model's own presets file: the key's, else one still named after the old key, else the key's (absent)."""
+    own = config.model_presets(key)
+    if not own.exists() and legacy_key and config.model_presets(legacy_key).exists():
+        return config.model_presets(legacy_key)
+    return own
 
 
 def resolve_asset(game_root: Path, prefix: str) -> str:
@@ -450,6 +478,12 @@ def cmd_publish(ctx: Context) -> None:
         dds.encode(jobs, log=log)
     usda.write_model_layer(mod_dir / "models" / f"{ctx.key}.usda", materials, ctx.settings.displacement,
                            f"Remix PBR AI layer for {ctx.key} (asset {ctx.asset.asset_id[:16]})")
+    legacy_key = getattr(ctx, "legacy_key", None)
+    old_layer = mod_dir / "models" / f"{legacy_key}.usda" if legacy_key else None
+    if old_layer and old_layer.exists():
+        old_layer.unlink()
+        _prune(mod_dir / "textures" / legacy_key, set())
+        log(f"replaced the layer {legacy_key} (this model's key before 2026-11-17)")
     layers = usda.write_mod_root(mod_dir)
     if not ctx.args.no_prune:
         _prune(texture_dir, keep)
@@ -497,11 +531,14 @@ def cmd_remove(ctx: Context) -> None:
     from . import usda
 
     mod_dir = ctx.mod_dir()
-    layer = mod_dir / "models" / f"{ctx.key}.usda"
-    if layer.exists():
-        layer.unlink()
+    keys = [key for key in (ctx.key, getattr(ctx, "legacy_key", None)) if key]
+    for key in keys:
+        layer = mod_dir / "models" / f"{key}.usda"
+        if layer.exists():
+            layer.unlink()
     usda.write_mod_root(mod_dir)
-    _prune(mod_dir / "textures" / ctx.key, set())
+    for key in keys:
+        _prune(mod_dir / "textures" / key, set())
     log(f"removed {ctx.key} from {mod_dir.name}")
 
 
@@ -563,12 +600,14 @@ def cmd_compare(ctx: Context) -> None:
     if not ctx.bridge:
         raise SystemExit("compare needs the running game")
     mod_dir = ctx.mod_dir()
-    if not (mod_dir / "models" / f"{ctx.key}.usda").exists():
+    published = {key for key in (ctx.key, getattr(ctx, "legacy_key", None))
+                 if key and (mod_dir / "models" / f"{key}.usda").exists()}
+    if not published:
         raise SystemExit("this model is not published yet")
     settle = ctx.args.settle
     ctx.bridge.console("jpeg_quality 95")
     try:
-        _reload_and_wait(ctx, lambda: usda.write_mod_root(mod_dir, exclude={ctx.key}), settle)
+        _reload_and_wait(ctx, lambda: usda.write_mod_root(mod_dir, exclude=published), settle)
         before = _screenshot(ctx, "without AI maps")
     finally:
         _reload_and_wait(ctx, lambda: usda.write_mod_root(mod_dir), settle)

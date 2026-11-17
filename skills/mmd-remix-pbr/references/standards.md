@@ -167,7 +167,7 @@ holds. A look tested on request but not kept lives in `tool/presets/on_request/`
 loaded automatically; `--settings <file>` applies it again when the user asks.
 
 **Guinaifen's body relief (tested on request, then reverted at the user's request).** Recipe and
-evidence: `tool/presets/on_request/new_mmd_model_1c2ed2fc_body_skin.json`. `textures.Body.png` names
+evidence: `tool/presets/on_request/model_1c2ed2fc_body_skin.json`. `textures.Body.png` names
 `normal_map` with a per-texture skin preset (`original 0`, roughness 0.55, `normal` 12), and the
 upper neck on the cloth atlas gets the same roughness so the join matches. Her map was flattened
 (R == G) and is rebuilt by `compose.relief_normals`. Two AABB rounds (front views on a face-up
@@ -207,10 +207,10 @@ room without going dark. So the type follows each character's paint and what the
 | Character (preset) | Metal on the mesh | F0 | Type | Roughness |
 | --- | --- | --- | --- | --- |
 | Robin, compiled port (`robin_69c55742`) | champagne gold: halo, stars, crescents, bands | 0.43-0.47 | satin champagne gold, f0 0.74 carried over from the Robin import (same art; not measured in game) | 0.30 (was 0.12) |
-| Robin, Model Hotloader import (`robin_r18_f9c3e4b4`) | champagne gold: piping, stars, treble clef, halo | 0.34-0.39 | satin champagne gold, reflectance lifted to real gold's (f0 0.74, measured below) | 0.30 |
-| Guinaifen / Guinevere (`new_mmd_model_1c2ed2fc`, `_9cdc990f`) | yellow gold thread embroidery and trim (35% of the skirt sheet), brass gong, jewelry | 0.23-0.32 | satin yellow gold | 0.32 (was 0.12) |
-| Kafka (`new_mmd_model_4ab9d7e3`) | dark bronze brackets and shields, earring hooks; tan web embroidery | 0.17-0.20; 0.44 | satin antique bronze | 0.36 (was 0.12) |
-| Firefly (`firefly_r18_0d01d7d3`) | pale brass fittings and bells; hidden bunny trim in white silver | 0.31; 0.97 | satin pale brass; polished silver | 0.30 (was 0.12); 0.12 |
+| Robin, Model Hotloader import (`robin_f9c3e4b4`) | champagne gold: piping, stars, treble clef, halo | 0.34-0.39 | satin champagne gold, reflectance lifted to real gold's (f0 0.74, measured below) | 0.30 |
+| Guinaifen / Guinevere (`model_1c2ed2fc`, `_9cdc990f`) | yellow gold thread embroidery and trim (35% of the skirt sheet), brass gong, jewelry | 0.23-0.32 | satin yellow gold | 0.32 (was 0.12) |
+| Kafka (`model_4ab9d7e3`) | dark bronze brackets and shields, earring hooks; tan web embroidery | 0.17-0.20; 0.44 | satin antique bronze | 0.36 (was 0.12) |
+| Firefly (`firefly_0d01d7d3`) | pale brass fittings and bells; hidden bunny trim in white silver | 0.31; 0.97 | satin pale brass; polished silver | 0.30 (was 0.12); 0.12 |
 | Castorice (`castorice_7b47f232`) | small yellow gold brooch (0.3% of 上衣.png); near-black glove spikes | 0.55; 0.03 | polished gold jewelry; gunmetal | 0.12 (kept) |
 | Cyrene (`cyrene_dd112b38`) | silver headdress, spade frames, chain | 0.73-0.85 | polished silver | 0.12 (kept) |
 | Hyacine (defaults, no preset) | rose gold ornaments; silver collar ring and bell | 0.32; 0.78 | satin rose gold and silver | 0.28 (kept, the default metal) |
@@ -219,7 +219,7 @@ room without going dark. So the type follows each character's paint and what the
 Satin values sit at the default metal standard (0.28) rather than the aggressive 0.12, with the AI
 roughness variation at 0.5.
 
-**Measured in game on the Robin import (`robin_r18_f9c3e4b4`, 2026-10-26).** Bracketed capture A (original Remix), P (polished
+**Measured in game on the Robin import (`robin_f9c3e4b4`, 2026-10-26).** Bracketed capture A (original Remix), P (polished
 0.12), S (satin 0.30, published), A2 (original again), 6 views shot twice; repeat noise 0.5-1.0/255
 on the model (2.7 in the distant full view), drift A2 - A 1.6-3.3. Gold pixels picked by colour on
 the original frame, against the mean of A and A2:

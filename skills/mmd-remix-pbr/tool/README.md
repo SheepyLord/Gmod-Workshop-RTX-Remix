@@ -6,7 +6,7 @@ for Garry's Mod RTX with models imported through **Model Hotloader** (PMX/PMD),
 and tested first on Hyacine (78 materials, 19 textures).
 
 ```
-rpai run "E:\G\Upload\Hyacine\1_PMX\风堇1.0by_mobius\风堇1.0.pmx"
+rpai run "<models>\Hyacine\Hyacine.pmx"
 ```
 
 ## What it does
@@ -238,7 +238,7 @@ a multiple of the albedo; 0 when absent), `delight` (fraction of broad painted s
 from the albedo; 0 when absent), `aniso` (Remix anisotropy -1..1 along the texture axes, published
 as `anisotropy_texture`; 0 and no map when absent; negative stretches highlights along V, e.g. down
 a leg), `f0` (lift the class's median linear luminance on the mesh to this reflectance, one factor
-per sheet up to 3x, the albedo then published; 0 when absent; opt-in: on Robin (`robin_r18_f9c3e4b4`), f0 0.74 brought
+per sheet up to 3x, the albedo then published; 0 when absent; opt-in: on Robin (`robin_f9c3e4b4`), f0 0.74 brought
 satin gold from 12-25% under the original brightness to -10%..+4%, at the cost of a paler halo; see
 `references/standards.md`) and
 `original` (1 = leave these texels to Remix; a sheet made only of such classes gets no override).
@@ -276,7 +276,7 @@ Presets:
 * `--settings` can be given several times; later files win, and a file can `include` others.
 * **Per-model presets:** `presets/models/<model key>.json` is merged automatically for that model,
   after `--settings` and before command-line flags. Use it for class pins (`_materials`) and a
-  model's style. Example: `presets/models/firefly_r18_0d01d7d3.json` includes the aggressive preset
+  model's style. Example: `presets/models/firefly_0d01d7d3.json` includes the aggressive preset
   and pins seven materials.
 * **Per-texture size:** `"textures": {"丝袜.png": {"max_size": "source"}}` (or a number) lifts the
   4096 cap for one sheet. The albedo is then published at that size, replacing the game's copy.
@@ -483,8 +483,8 @@ models.
 
 ## Results on Guinaifen (2026-10-25, re-import of Guinevere's model)
 
-The same character re-imported from another folder is a new model key (`new_mmd_model_1c2ed2fc`),
-but its textures are byte-identical, so it shares every Remix hash with `new_mmd_model_9cdc990f` and
+The same character re-imported from another folder is a new model key (`model_1c2ed2fc`),
+but its textures are byte-identical, so it shares every Remix hash with `model_9cdc990f` and
 its layer (alphabetically first) wins for all 13 overrides.
 
 * **Stocking seam crease fixed** (see [UV island borders](#uv-island-borders-gutters)). Near-border
@@ -497,7 +497,7 @@ its layer (alphabetically first) wins for all 13 overrides.
   into an effective 0.42. Measured but not chosen: the aggressive 0.30 (wet latex, orange-peel
   highlights), 0.34 with `aniso` -0.6 (highlight stretched down the leg), and that with AI normals
   0.7 (cleanest streaks). Sheets and metrics:
-  `%USERPROFILE%\.rpai\work\new_mmd_model_1c2ed2fc\aabb_stockings_20261025\`. The variant layers
+  `%USERPROFILE%\.rpai\work\model_1c2ed2fc\aabb_stockings_20261025\`. The variant layers
   saved there are records only: their stocking DDS files were pruned when B was published.
 * **Body skin from the model's own normal map, tested on request and reverted at the user's request**
   (the live layer is back to the post-stocking state, body skin left to Remix). The flattened
@@ -506,12 +506,12 @@ its layer (alphabetically first) wins for all 13 overrides.
   clavicle line read as shape. Subsurface scattering was rejected (artifacts and a neck seam, see
   runtime-notes). The side seams of the body first showed a slit (line contrast 1.9-2.8 at the
   flanks); the border handling in `relief_normals` brought it to the original's 0.0. The recipe is
-  kept unapplied in `presets/on_request/new_mmd_model_1c2ed2fc_body_skin.json`; sheets are in
+  kept unapplied in `presets/on_request/model_1c2ed2fc_body_skin.json`; sheets are in
   `aabb_skin_20261025\` in the same work folder (`round3_*` for the seam fix).
 
 ## Results on Kafka, Cyrene and Castorice (2026-10-25, aggressive)
 
-Three ragdolls in one scene: Kafka (`new_mmd_model_4ab9d7e3`, 13 overrides), Cyrene
+Three ragdolls in one scene: Kafka (`model_4ab9d7e3`, 13 overrides), Cyrene
 (`cyrene_dd112b38`, 17) and Castorice (`castorice_7b47f232`, 17). The game had Cyrene and
 Castorice imported from their `_NoBDSM` PMX files; the copies the user provided are Blender
 re-exports with identical UVs, materials and byte-identical textures, so rpai ran on the imported
@@ -543,7 +543,7 @@ each for the others (mostly 4096 or 8192 sheets, only downscaled).
 
 ## Results on Robin, the Model Hotloader import (2026-10-26, aggressive)
 
-Robin as an MMD import (`知更鸟.pmx`, `robin_r18_f9c3e4b4`, Model Hotloader), whose outfit atlas is
+Robin as an MMD import (`知更鸟.pmx`, `robin_f9c3e4b4`, Model Hotloader), whose outfit atlas is
 the same art as the compiled port's body sheet (`robin_69c55742`). 83 materials, 20 sheets; 14 hashes live, 6 predicted for
 hidden parts. Seven sheets are byte-identical to ones earlier layers already override, and this
 layer sorts last, so only her own 13 were generated (`--only`); the AI stage took 222 s. The
@@ -553,8 +553,8 @@ the outfit atlas (cloth by the texture name). Gold piping painted on the dress b
 colour; her gold is satin champagne (0.30) by the gold-type decision.
 
 Measured in game the next session (bracketed A, P polished, S satin, A2; 6 views twice; repeat
-noise 0.5-1.0/255, drift 1.6-3.3; `%USERPROFILE%\.rpai\work\robin_r18_f9c3e4b4\aabb_20261026\`,
-`robin_r18_gold_types.jpg`): the published layer changes the model by 3.6-6.7/255 per view against
+noise 0.5-1.0/255, drift 1.6-3.3; `%USERPROFILE%\.rpai\work\robin_f9c3e4b4\aabb_20261026\`,
+its gold-type sheet): the published layer changes the model by 3.6-6.7/255 per view against
 the mean of both originals. Iris +27.2 (eye standard), face +4.6, white dress +4.1, purple bodice
 +6.9; body skin +1.4 to +2.0 against drift up to +3.0 (unchanged, as the standard requires). Gold
 pixels: satin -19% (halo) to -25% (torso), polished -37% to -45%, with equal highlight peaks; the
@@ -565,7 +565,7 @@ halo as its cost.
 
 ## Re-imports whose source folder is gone (`--asset`)
 
-Guinaifen's import (`new_mmd_model_1c2ed2fc`) wins every hash it shares with Guinevere's, but her
+Guinaifen's import (`model_1c2ed2fc`) wins every hash it shares with Guinevere's, but her
 source folder was deleted. `rpai <command> <Guinevere's 桂乃芬.pmx> --asset 1c2ed2fc` binds the
 byte-identical PMX to her import (same key, same preset). The raw AI cache is named after the
 source path, so it was renamed to the new path's signature after checking every texture's
@@ -594,7 +594,7 @@ Measured on the sets: authored normals are DirectX (curl 1.9-3.1x lower); skin i
 (ID red 0, `_m` R and B 0); metal 0.5-9 %. A set whose LightMap is `T_Linear_Gray` (Elyms fashion 1's
 mechanical sheet) gets its normal map only.
 
-## Remaking a layer (2026-11-06, Firefly: `firefly_r18_0d01d7d3` remade as `firefly_r18_32c908bc`)
+## Remaking a layer (2026-11-06, Firefly: `firefly_0d01d7d3` remade as `firefly_32c908bc`)
 
 The same PMX imported twice (two Model Hotloader assets, 0d01d7d3 and 32c908bc, identical materials and
 textures) gives two model keys and one set of Remix hashes. The key that sorts first wins every shared
@@ -613,7 +613,7 @@ of `mmd/t/<sha16>`. `hotloader.load_asset` read only `mmd/t/`, so Ruan Mei's 819
 the live query finds them by material name as before. A sheet that large can be capped per texture
 (`"丝袜.png": {"max_size": 8192}`: the legs are small cells of a sparse sheet; 4096 would blur them).
 Jingliu and Ruan Mei were done without AABB on the user's request: their per-model presets
-(`new_mmd_model_381e8c1b`, `new_mmd_model_4762774c`) state what each part is for and why.
+(`model_381e8c1b`, `model_4762774c`) state what each part is for and why.
 
 ## Results on Robin (2026-10-25, aggressive, a compiled addon)
 

@@ -36,13 +36,17 @@ XXH3), prints it with the file and line that decided it, and records both in `ha
 offline. Earlier live hashes are reused only from a record with the same `obsolete_hash`, so the records
 written from 2026-10-29 to 2026-11-08 (`false`) are not reused once; the predictions now equal those hashes.
 
-The model key is `config.model_key`: a slug of the PMX's English name (else its name) and the asset
-id's first 8 digits. It is an internal identifier (work folder, preset file, layer file name), never a
-display name: it can carry tags such as `r18` that the naming rule keeps out of names.
+The model key is `config.model_key`: a slug of the PMX's English name (else its name) without the
+naming rule's tags, and the asset id's first 8 digits. It is an internal identifier (work folder, preset
+file, layer file name), never a display name. A model whose key before 2026-11-17
+(`config.legacy_model_key`) kept a tag is moved over on first use: its work folder is renamed to the new
+key (when no folder of that name exists yet), a preset still named after the old key is read (with a
+note to rename it), `publish` deletes the old key's layer and its DDS folder after writing the new layer,
+`remove` deletes both keys' layers, and `compare` hides either.
 
 ## Side effects
 
-The `rpai` command. Work files go to `RPAI_HOME\work\<model key>`; `publish` writes the game's `rtx-remix\mods\ai_pbr` (layers, DDS, an atomically rewritten `mod.usda`) and prunes DDS files no layer references unless `--no-prune`; `hashes`, `compare` and `generate` talk to the running game through `gamebridge.py`. It never writes `rtx.conf`, `user.conf` or `!advanced_material_editor`.
+The `rpai` command. Work files go to `RPAI_HOME\work\<model key>` (an old key's folder is renamed to it); `publish` writes the game's `rtx-remix\mods\ai_pbr` (layers, DDS, an atomically rewritten `mod.usda`) and prunes DDS files no layer references unless `--no-prune`; `hashes`, `compare` and `generate` talk to the running game through `gamebridge.py`. It never writes `rtx.conf`, `user.conf` or `!advanced_material_editor`.
 
 ## Exit codes
 

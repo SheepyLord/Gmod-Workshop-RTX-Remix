@@ -104,7 +104,7 @@ The Welcome page also shows `rtx_on.jpg` (a view of the game, no badges).
   Page Down paged the developer menu to its Settings Management section. Keys also reach the game's binds:
   an End press quit the game (the field's `config.cfg`, which `poc_session.py` uses, binds End to `quit`).
   The user's own mouse was never moved.
-- Characters: 鳴潮_白蓮 and Karin from the PoC's own library, spawned as frozen citizens; the External Models
+- Characters: Baizhi and Karin from the PoC's own library, spawned as frozen citizens; the External Models
   window and the eye-white chooser were narrowed so their badges fit beside them in 900 pixels.
 
 ## Translations
@@ -171,7 +171,7 @@ Before the first session the PoC's
 `native-loader\config.json`, `cl.db`, `garrysmod\data` (the big asset and texture folders by listing),
 spawn icons, saves and the ToPBR cache were saved (`out\r14-guide\poc_state.py`); afterwards 12 changed
 files were put back and 25 the sessions added (the two characters' rigs and names, the use history, the
-converted game maps of Karin and 鳴潮_白蓮) were moved into `out\r14-guide\s1\poc-before\added`. The config is
+converted game maps of Karin and Baizhi) were moved into `out\r14-guide\s1\poc-before\added`. The config is
 byte-identical to before (the Workshop item, `remix.enabled` true, `require_insecure` true). Every session
 ended with the field game's own settings (`settings_back: restored`). The field install was not touched.
 

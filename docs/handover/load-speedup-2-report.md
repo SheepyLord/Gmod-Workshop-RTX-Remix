@@ -109,4 +109,9 @@ client's `InitPostEntity` 59.3 -> 2.5 / 2.3, settling 3.9 -> 4.9 / 3.2 (control 
   and deployment (L1, L2; need the user's approval), the overlay naming slow hooks (D2), Remix's spinning geometry
   workers (S1).
 
-GATE
+## The gate
+
+`tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` in this worktree, on `a51d6bf0`: CTest 35 of 35, 2,111 Python
+tests OK (one skipped, as before), all checks passed. Its first run, on `457e4994`, failed one test
+(`test_vr_review_docs`: the shared decision index may only gain table rows, and notes had been appended to the entries
+of 0099 and 0140); the notes were taken out, since the new rows and the ADRs say what they supersede.

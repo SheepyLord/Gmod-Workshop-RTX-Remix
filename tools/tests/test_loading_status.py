@@ -89,6 +89,17 @@ class LoadingStatusTests(unittest.TestCase):
     def test_the_estimator_records_bounds_and_estimates(self):
         self.run_case('eta')
 
+    # ADR 0241 and ADR 0242 (the third load speed-up round).
+
+    def test_the_end_line_names_the_loads_slowest_lua_callbacks(self):
+        self.run_case('callbacks')
+
+    def test_each_load_is_recorded_listed_and_its_map_read_ahead(self):
+        self.run_case('prefetch')
+
+    def test_the_read_ahead_switch_turns_recording_and_reading_off(self):
+        self.run_case('prefetch-off')
+
 
 class GModSyntaxTests(unittest.TestCase):
     """GMod's Lua makes `continue` a keyword: a field or variable of that name compiles under LuaJIT but not in the

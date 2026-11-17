@@ -28,6 +28,17 @@ if not installed then
     return
 end
 NativeLoaderLoadAccel = accel
+
+-- ADR 0242: while the menu is up, the module reads ahead what the last first load of a game read (its list in
+-- data/nativeloader/prefetch, which loading_status.lua has the module record and save), so that the next load finds it
+-- in Windows' file cache. nativeloader_load_accel_prefetch 0 (the add-on's) reaches this realm as a file.
+if isfunction(accel.Prefetch) and not (isfunction(file.Exists) and file.Exists("nativeloader/load_accel_prefetch_off.txt", "DATA")) then
+    local ok, started, map = pcall(accel.Prefetch)
+    if ok and started then
+        NativeLoaderLoadAccelPrefetched = map
+        MsgN("[nativeloader] load accelerator (menu): reading ahead what the last load of " .. tostring(map) .. " read")
+    end
+end
 local status = accel.Status()
 local links = tonumber(status.links) or 0
 MsgN("[nativeloader] load accelerator (menu): " .. tostring(status.roots or 0) .. " loose add-on folders cached" ..

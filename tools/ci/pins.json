@@ -218,14 +218,14 @@
         "fs_accel/addon"
       ],
       "packaged": {
-        "sha256": "caf718897e744790501d0aff9e0ed0f03632014bd0f266c842db0f54b50e9011",
+        "sha256": "63f3edf70123bf6aea532b38c965af73765feb55a020674665375e559135dc0d",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "fs_accel": "fe80cd9dc50be91e96ac503ce265c9ee03d93671e0f5b199289202c3c03ea0c4",
+          "fs_accel": "b947167c4287c01faca24155fac97fbff67613794a43a6b4d8bd850b71d54807",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "e2db2adcb38b654c6ee12f489fbf0d0c6bbb0bb4",
+        "commit": "dcfad68c2c39757d42476f149ecdbd7e72b01f0e",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }
@@ -246,14 +246,14 @@
         "fs_accel/addon"
       ],
       "packaged": {
-        "sha256": "9d3e3e73132dbdecaf65761ef977dc766938d5c0ecce8ded999fcb90d6ad0056",
+        "sha256": "1dfbbed9de3078c441854e41fd4b3319fed000cd996e9578c1f320222c4343d8",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "fs_accel": "fe80cd9dc50be91e96ac503ce265c9ee03d93671e0f5b199289202c3c03ea0c4",
+          "fs_accel": "b947167c4287c01faca24155fac97fbff67613794a43a6b4d8bd850b71d54807",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "e2db2adcb38b654c6ee12f489fbf0d0c6bbb0bb4",
+        "commit": "dcfad68c2c39757d42476f149ecdbd7e72b01f0e",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "imported: built from these sources"
       }

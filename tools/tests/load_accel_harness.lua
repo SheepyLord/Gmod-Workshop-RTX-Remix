@@ -26,6 +26,9 @@ function istable(v) return type(v) == "table" end
 function isfunction(v) return type(v) == "function" end
 function tobool(v) return v ~= nil and v ~= false and v ~= "0" and v ~= 0 end
 FCVAR_ARCHIVE, FCVAR_NONE = 128, 0
+-- The third round's files (load_callbacks.lua, arc9_icons.lua) have harnesses of their own: here only noted.
+function AddCSLuaFile(path) note("AddCSLuaFile " .. tostring(path)) end
+function include(path) note("include " .. tostring(path)) end
 string.Comma = function(n) return tostring(n) end
 function print(text) note("print " .. tostring(text)) end
 function MsgN(text) note("print " .. tostring(text)) end
@@ -119,6 +122,14 @@ end
 if scenario:sub(1, 5) == "menu-" then
     MENU_DLL = scenario ~= "menu-not-menu" or nil
     if scenario == "menu-off" then files[OFF_FILE] = "nativeloader_load_accel 0" end
+    -- ADR 0242: the module reads the last first load's list ahead at menu start, unless the add-on's switch is off.
+    if scenario == "menu-prefetch" or scenario == "menu-prefetch-off" then
+        module.Prefetch = function(map)
+            note("prefetch " .. tostring(map))
+            return true, "gm_construct"
+        end
+        if scenario == "menu-prefetch-off" then files["nativeloader/load_accel_prefetch_off.txt"] = "off" end
+    end
     dofile(menu_source)
     if scenario == "menu-install" then
         eq(installed, true, "installed at menu start")
@@ -156,6 +167,13 @@ if scenario:sub(1, 5) == "menu-" then
         assert(find("off (nativeloader_load_accel 0)"), list())
     elseif scenario == "menu-not-menu" then
         eq(find("require"), nil, "nothing loaded")
+    elseif scenario == "menu-prefetch" then
+        assert(find("prefetch nil"), "the last list, whatever map it is: " .. list())
+        assert(find("reading ahead what the last load of gm_construct read"), list())
+        eq(NativeLoaderLoadAccelPrefetched, "gm_construct", "the overlay is told which map's list is read")
+    elseif scenario == "menu-prefetch-off" then
+        eq(find("prefetch "), nil, "switched off: " .. list())
+        eq(NativeLoaderLoadAccelPrefetched, nil)
     else
         error("unknown scenario " .. scenario)
     end

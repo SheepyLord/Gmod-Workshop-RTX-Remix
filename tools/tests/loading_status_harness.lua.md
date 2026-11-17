@@ -38,5 +38,12 @@ Usage: `luajit loading_status_harness.lua <repo root> <scenario>`; prints `PASS 
   is recorded with its server), `eta` (the estimator alone: medians, clipping, map and server names, the file's round
   trip and the lines it leaves out, numbers out of any real range in a hand-edited file, the bounds per map and in all, one load or two, an outlier, the newest five, the
   add-on scaling, the first-load factor, the size fit over four maps and the clamps).
+- The third load speed-up round: `callbacks` (ADR 0241: the client's and the server's
+  `data/nativeloader/load_callbacks_<realm>.txt` of this load give the end line's "Lua callbacks that ran longest",
+  the three longest of half a second or more across both, with the add-on or the file; a file of an earlier load is
+  left out), `prefetch` (ADR 0242: a mocked module's `PrefetchRecord` at each load's start, `Prefetch` once for a map
+  not read ahead at menu start, `PrefetchSave(map, first)` when a load reached the game with its line and the end
+  line's "read ahead", `PrefetchRecord(false)` for a load without a game) and `prefetch-off` (the add-on's switch as
+  `data/nativeloader/load_accel_prefetch_off.txt`: nothing asked of the module).
 
 No files are read or written besides the script. Run by [`test_loading_status.py`](test_loading_status.py.md).

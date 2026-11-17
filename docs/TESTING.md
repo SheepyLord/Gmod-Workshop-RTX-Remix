@@ -3748,3 +3748,48 @@ separator now has 57 texts in each catalog.
   in the `NL_ACCEL` line). Put the config back byte for byte; a control run with the Workshop package also puts the
   Workshop's version back in place.
 
+## The third load speed-up round (2026-11-17)
+
+- **C++ (CTest):** `nl_fs_accel_tests` ([fs_accel](../fs_accel/README.md), `tests/test_prefetch.cpp`): list names; a
+  record of synchronous and overlapped reads on generated files (the blocks, first-read order, a handle opened before
+  the record named by Windows, the cache folder and unread files left out, the budget); the list's round trip and what
+  it refuses; a read-ahead within its budget, clipped at a file's end, passing over a file of another size and a missing
+  one.
+- **Lua under LuaJIT:** [`test_arc9_icons.py`](../tools/tests/test_arc9_icons.py.md) (ADR 0240: client, through the
+  render guard's wrapper, server, ARC9's entity generator, off), [`test_load_callbacks.py`](../tools/tests/test_load_callbacks.py.md)
+  (ADR 0241: client and server timing, naming, the file and the originals put back, off),
+  [`test_loading_status.py`](../tools/tests/test_loading_status.py.md) (`callbacks`, `prefetch`, `prefetch-off`) and
+  [`test_load_accel.py`](../tools/tests/test_load_accel.py.md) (`menu-prefetch`, `menu-prefetch-off`).
+- **Field** (the main checkout's `out/load-speedup-2/tools/field_run.py`, as in the second round, with the branch's
+  `.gma` under `allow.local`): a warm start (`modern_house,gm_construct`) checks the console's new lines (`ARC9
+  attachment icons not decoded` / `left to be decoded when first drawn`, `Lua callbacks that ran longest`, `what this
+  load read is listed`, `reading ahead`) and the phases (`phase_table.py`). A cold A/B for the read-ahead: `--hold-lists
+  --purge-list <the lists>` (no read-ahead; the files the lists name dropped from Windows' cache under the lock with
+  `out/load-speedup-3/tools/purge_list.py`) against `--purge-list <the lists>` (the lists read ahead at menu start).
+
+## The geometry workers sleep when idle (runtime patch 0105, ADR 0243)
+
+- **Gate:** [`test_runtime_remix_workers.py`](../tools/tests/test_runtime_remix_workers.py.md): the helper's unit test
+  compiled from the patch with MSVC (`/W4 /WX`, 156 checks: the window, a sleeper's wake and stop, a pool shaped like
+  the runtime's that sleeps when idle and wakes for each task, tasks at the window's edge, workers that cannot steal,
+  stops); with a local clone of the fork, `src/util`'s headers rebuilt from the base commit and patches 0001-0105 and
+  a harness compiled against the real `util_threadpool.h` with the runtime's flags: 20,000 tasks, the idle workers'
+  CPU time below 50 ms in 500 ms (`GetThreadTimes`), 200 tasks each to two sleeping workers (median wake-up printed),
+  1,500 tasks at the window's edge, stops with sleeping and polling workers; the same harness before 0105 fails only
+  the idle check (about 1,000 ms of CPU in the 500 ms); the patch's wiring and the untouched high-latency mode.
+- **The runtime's unit suite** (`meson test -C _CompRelease_x64 --suite dxvk` in the fork tree): `test_worker_idle`
+  and upstream's `util_threadpool` (8 workers, 2,000 tasks, cancellations) pass. `test_remix_api_version` fails there
+  with 0xC0000139 because the build folder has no `d3d9.dll` beside the test and Windows loads System32's first (it
+  passes beside the built DLL); `test_remix_categories` cannot load `d3d9.dll` in its process, as before.
+- **PoC:** [`tools/qa/remix_workers_session.py`](../tools/qa/remix_workers_session.py.md) with the package before and
+  after (they differ only in `d3d9.dll`), alternating ABBA: the `geometry-processing` threads' CPU time in the main
+  menu at start, in gm_construct (fixed camera, no HUD, `fps_max 0`) and back in the menu, at 1280x720; frame times
+  over 60 s in the map at 1280x720 (CPU-bound) and 3840x2160 (GPU-bound). Run it on a quiet machine (no build, no
+  other game; each session records the machine's busy share and such processes); it holds `out\r10\poc.lock` for one
+  session at a time (exclusive create, then a gap so a waiting field run or lab goes next) and puts the PoC's
+  `config.json` and GMod's video settings back before each release.
+- **VR:** `tools/vr_session.py --package <A or B> --evidence <new folder> --seconds 60` on the Index, alternating:
+  its `summary.json` `steady` window gives the pairs a second, reprojection, drops, GPU and render-thread CPU per pair;
+  the workers' CPU over that window comes from reading the game's threads meanwhile (`GetThreadTimes`, as
+  `remix_workers_session.py` does) and timing the probe's records in `console.log`.
+

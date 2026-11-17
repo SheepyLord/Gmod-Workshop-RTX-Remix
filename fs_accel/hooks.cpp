@@ -21,6 +21,7 @@ using CreateA = HANDLE(WINAPI*)(LPCSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWO
 using CreateW = HANDLE(WINAPI*)(LPCWSTR, DWORD, DWORD, LPSECURITY_ATTRIBUTES, DWORD, DWORD, HANDLE);
 using AttributesA = BOOL(WINAPI*)(LPCSTR, GET_FILEEX_INFO_LEVELS, LPVOID);
 using AttributesW = BOOL(WINAPI*)(LPCWSTR, GET_FILEEX_INFO_LEVELS, LPVOID);
+using ReadFn = BOOL(WINAPI*)(HANDLE, LPVOID, DWORD, LPDWORD, LPOVERLAPPED);
 
 using ShutdownProbe = BOOLEAN(NTAPI*)();
 
@@ -35,6 +36,7 @@ struct Global {
   CreateW next_create_w = nullptr;
   AttributesA next_attributes_a = nullptr;
   AttributesW next_attributes_w = nullptr;
+  ReadFn next_read = nullptr;  // E (ADR 0242): the record of a load's reads
   Counters own_counters;
   Counters* counters = &own_counters;
   bool attempted = false;
@@ -123,7 +125,13 @@ HANDLE WINAPI hook_create_a(LPCSTR name, DWORD access, DWORD sharing, LPSECURITY
     SetLastError(error_of(verdict));
     return INVALID_HANDLE_VALUE;
   }
-  return g.next_create_a(name, access, sharing, security, disposition, flags, template_file);
+  const HANDLE file = g.next_create_a(name, access, sharing, security, disposition, flags, template_file);
+  if (file != INVALID_HANDLE_VALUE && prefetch::recording()) {
+    const DWORD error = GetLastError();
+    prefetch::opened(file, name);
+    SetLastError(error);
+  }
+  return file;
 }
 
 HANDLE WINAPI hook_create_w(LPCWSTR name, DWORD access, DWORD sharing, LPSECURITY_ATTRIBUTES security, DWORD disposition,
@@ -143,7 +151,24 @@ HANDLE WINAPI hook_create_w(LPCWSTR name, DWORD access, DWORD sharing, LPSECURIT
     SetLastError(error_of(verdict));
     return INVALID_HANDLE_VALUE;
   }
-  return g.next_create_w(name, access, sharing, security, disposition, flags, template_file);
+  const HANDLE file = g.next_create_w(name, access, sharing, security, disposition, flags, template_file);
+  if (file != INVALID_HANDLE_VALUE && prefetch::recording()) {
+    const DWORD error = GetLastError();
+    prefetch::opened(file, name);
+    SetLastError(error);
+  }
+  return file;
+}
+
+// E (ADR 0242): while a load is recorded, which blocks of which file it reads (the offset asked before the read).
+BOOL WINAPI hook_read(HANDLE file, LPVOID buffer, DWORD bytes, LPDWORD got, LPOVERLAPPED overlapped) {
+  Global& g = global();
+  if (prefetch::recording()) {
+    const DWORD error = GetLastError();
+    prefetch::read(file, bytes, overlapped);
+    SetLastError(error);
+  }
+  return g.next_read(file, buffer, bytes, got, overlapped);
 }
 
 BOOL WINAPI hook_attributes_a(LPCSTR name, GET_FILEEX_INFO_LEVELS level, LPVOID data) {
@@ -386,6 +411,7 @@ InstallResult install_locked(Global& g) {
   const auto create_w = import_slots(filesystem, "CreateFileW");
   const auto attributes_a = import_slots(filesystem, "GetFileAttributesExA");
   const auto attributes_w = import_slots(filesystem, "GetFileAttributesExW");
+  const auto reads = import_slots(filesystem, "ReadFile");  // E: optional (without it a load is not recorded)
   if (create_a.empty() || create_w.empty() || attributes_a.empty() || attributes_w.empty()) {
     result.reason = "filesystem_stdio.dll does not import CreateFileA/W and GetFileAttributesExA/W";
     return result;
@@ -408,7 +434,7 @@ InstallResult install_locked(Global& g) {
     }
     return true;
   };
-  if (!same(create_a) || !same(create_w) || !same(attributes_a) || !same(attributes_w)) {
+  if (!same(create_a) || !same(create_w) || !same(attributes_a) || !same(attributes_w) || (!reads.empty() && !same(reads))) {
     result.reason = "an import of filesystem_stdio.dll is bound to two different functions";
     return result;
   }
@@ -439,6 +465,7 @@ InstallResult install_locked(Global& g) {
   g.next_create_w = reinterpret_cast<CreateW>(*create_w.front());
   g.next_attributes_a = reinterpret_cast<AttributesA>(*attributes_a.front());
   g.next_attributes_w = reinterpret_cast<AttributesW>(*attributes_w.front());
+  if (!reads.empty()) g.next_read = reinterpret_cast<ReadFn>(*reads.front());
   if (const HMODULE ntdll = GetModuleHandleW(L"ntdll.dll")) {
     g.shutting_down = reinterpret_cast<ShutdownProbe>(GetProcAddress(ntdll, "RtlDllShutdownInProgress"));
   }
@@ -450,6 +477,9 @@ InstallResult install_locked(Global& g) {
   for (void** slot : create_w) all &= write_slot(slot, reinterpret_cast<void*>(&hook_create_w));
   for (void** slot : attributes_a) all &= write_slot(slot, reinterpret_cast<void*>(&hook_attributes_a));
   for (void** slot : attributes_w) all &= write_slot(slot, reinterpret_cast<void*>(&hook_attributes_w));
+  if (g.next_read) {
+    for (void** slot : reads) all &= write_slot(slot, reinterpret_cast<void*>(&hook_read));
+  }
   if (marked && !clear_later(marker, self, g.counters)) clear_marker(marker, self);
   result.installed = true;
   result.reason = all ? "installed" : "installed, but a slot could not be written";
@@ -529,6 +559,8 @@ bool clear_marker(const std::wstring& path, const ProcessStamp& self) noexcept {
   if (!read_marker(path, written) || written.pid != self.pid || written.created != self.created) return false;
   return DeleteFileW(path.c_str()) != FALSE;
 }
+
+std::wstring garrysmod_folder() { return game_garrysmod(); }
 
 Counters& counters() noexcept { return *global().counters; }
 

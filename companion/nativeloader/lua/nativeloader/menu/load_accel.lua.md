@@ -19,6 +19,12 @@ without RTX run neither (the RTX client module is not loaded, and the loader lea
   (`IsInLoading()` true, then false), on any server; the add-on does too, where its client Lua runs.
 - Sets `NativeLoaderLoadAccel` to the module's table, which `loading_status.lua` reads for the load overlay's status
   line ("N file lookups answered from memory", counted from the load's start) and the end-of-load console summary.
+- ADR 0242: asks the module to read ahead what the last first load of a game read (`Prefetch()`: the list named by
+  `data/nativeloader/prefetch/last.txt`, which the module writes when `loading_status.lua` saves a game's first load),
+  on a thread of the module's own at low I/O priority while the menu is up, unless
+  `data/nativeloader/load_accel_prefetch_off.txt` is there (the add-on's `nativeloader_load_accel_prefetch 0`). Sets
+  `NativeLoaderLoadAccelPrefetched` to that map, so the overlay does not start it again, and prints
+  `[nativeloader] load accelerator (menu): reading ahead what the last load of <map> read`.
 
 Prints one line: `[nativeloader] load accelerator (menu): F loose add-on folders cached` (followed by `, L of them
 links or junctions` when there are any, [ADR 0239](../../../../../docs/decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md)), or why it did not install,

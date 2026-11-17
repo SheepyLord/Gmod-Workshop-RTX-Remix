@@ -407,6 +407,66 @@ local function comma(number)
     local text = tostring(math.floor(number))
     return isfunction(string.Comma) and string.Comma(text) or text
 end
+
+-- What a load reads, read ahead for the next (ADR 0242): the load accelerator's module records each load from its
+-- start and, once it reached the game, saves the record as that map's list; a load of a map that has a list starts
+-- reading it ahead as soon as the map is known (load_accel.lua reads the last first load's list at menu start). Off with
+-- the add-on's nativeloader_load_accel_prefetch 0, which reaches this realm as a file.
+local function prefetchAccel()
+    local accel = NativeLoaderLoadAccel
+    if not istable(accel) or not isfunction(accel.PrefetchRecord) then return nil end
+    if isfunction(file.Exists) and file.Exists("nativeloader/load_accel_prefetch_off.txt", "DATA") then return nil end
+    return accel
+end
+local prefetchedMap = nil -- the map whose list was read ahead last (not again while it may still run)
+local prefetchTried = nil -- this load's map, once asked for
+local function prefetchMap(map)
+    prefetchedMap = prefetchedMap or rawget(_G, "NativeLoaderLoadAccelPrefetched")
+    if not isstring(map) or map == "" or map == prefetchedMap or map == prefetchTried then return end
+    prefetchTried = map
+    local accel = prefetchAccel()
+    if not accel then return end
+    local ok, started = pcall(accel.Prefetch, map)
+    if ok and started then prefetchedMap = map end
+end
+
+-- The Lua callbacks (hooks, timers, net receivers) that ran longest in this load, as the load accelerator's add-on
+-- times them in the client and server realms (ADR 0241, load_callbacks.lua): data/nativeloader/load_callbacks_<realm>.txt
+-- written during this load (its first line's start time), the three longest of both of at least 0.5 s.
+local loadWall = 0 -- os.time() when this load began
+local function slowCallbacks()
+    local found = {}
+    for _, realm in ipairs({ "client", "server" }) do
+        local ok, text = pcall(file.Read, "nativeloader/load_callbacks_" .. realm .. ".txt", "DATA")
+        if ok and isstring(text) then
+            local first = true
+            for line in text:gmatch("[^\n]+") do
+                if first then
+                    first = false
+                    local began = tonumber(line:match("^load (%d+)"))
+                    if not began or began < loadWall - 2 then break end
+                else
+                    local seconds, calls, _, kind, name, source, owner =
+                        line:match("^([%d.]+)\t(%d+)\t([%d.]+)\t([^\t]*)\t([^\t]*)\t([^\t]*)\t?([^\t]*)$")
+                    seconds = tonumber(seconds)
+                    if seconds and seconds >= 0.5 then
+                        found[#found + 1] = { seconds = seconds, calls = tonumber(calls) or 0, realm = realm,
+                            text = (realm == "server" and "server " or "") .. kind .. " " .. name,
+                            from = (owner ~= "" and owner) or (source:match("([^/]+:%d+)$") or source) }
+                    end
+                end
+            end
+        end
+    end
+    table.sort(found, function(a, b) return a.seconds > b.seconds end)
+    local parts = {}
+    for i = 1, math.min(3, #found) do
+        local item = found[i]
+        parts[#parts + 1] = string.format("%s (%s, %d call%s) %.1f s", item.text, item.from, item.calls,
+            item.calls == 1 and "" or "s", item.seconds)
+    end
+    return parts
+end
 local heading, headingAt = nil, 0 -- from GameDetails, which may come just before the load is seen
 local details = nil -- the map and server GameDetails named, with the heading
 local hosted = false -- this load starts its own server here (a single-player game or a listen server)
@@ -497,6 +557,7 @@ local function applyDetails(named)
     if current.map == named.map and current.joined == named.joined and current.server == server then return false end
     current.map, current.joined, current.server = named.map, named.joined, server
     current.size = mapSize(named.map)
+    prefetchMap(named.map)
     return true
 end
 
@@ -534,9 +595,21 @@ local function report(summary, load, after, ending)
     end
     local accel = accelStatus()
     local answered = accel and tonumber(accel.answered) and (accel.answered - answeredAtStart) or 0
+    local okCallbacks, callbacks = pcall(slowCallbacks)
+    if not okCallbacks then callbacks = {} end
+    local ahead = ""
+    local recorder = prefetchAccel()
+    if recorder and isfunction(recorder.PrefetchStatus) then
+        local okStatus, status = pcall(recorder.PrefetchStatus)
+        if okStatus and istable(status) and (tonumber(status.bytes) or 0) > 0 then
+            ahead = string.format("; read ahead: %.0f MB of %d files from the list of %s", status.bytes / 1048576,
+                tonumber(status.files) or 0, tostring(status.list):match("([^\\/]+)%.lst$") or "a load")
+        end
+    end
     MsgN("[nativeloader] " .. timing ..
         (#busy > 0 and ("; the main thread: " .. table.concat(busy, ", ")) or "") ..
         (#parts > 0 and ("; Lua files that ran longest: " .. table.concat(parts, ", ")) or "") ..
+        (#callbacks > 0 and ("; Lua callbacks that ran longest: " .. table.concat(callbacks, ", ")) or "") .. ahead ..
         (answered > 0 and ("; the load accelerator answered " .. comma(answered) .. " file lookups from memory") or ""))
     NativeLoaderLoadStatus.last = summary
 end
@@ -559,12 +632,31 @@ local function finish(ending, now)
         save()
     end
     if ok then report(summary, load, after, ending) end
+    -- ADR 0242: a load that reached the game lists what it read for the next load of its map (a game's first load
+    -- also for the next menu start); any other drops its record.
+    local recorder = prefetchAccel()
+    if recorder then
+        if timed and load and load.map and load.map ~= "" and not playingDemo() then
+            local fine, saved, files, bytes, reads = pcall(recorder.PrefetchSave, load.map, load.first == true)
+            if fine and saved then
+                MsgN(string.format("[nativeloader] load accelerator: what this load read is listed for the next load of %s " ..
+                    "(%d files, %.0f MB%s)", load.map, tonumber(files) or 0, (tonumber(bytes) or 0) / 1048576,
+                    tonumber(reads) and string.format(", %d reads", reads) or ""))
+            end
+        else
+            pcall(recorder.PrefetchRecord, false)
+        end
+    end
 end
 
 local function begin()
     phase, lastStatus, settle = "loading", nil, nil
     local accel = accelStatus()
     answeredAtStart = accel and tonumber(accel.answered) or 0
+    loadWall = os.time()
+    prefetchTried = nil
+    local recorder = prefetchAccel()
+    if recorder then pcall(recorder.PrefetchRecord, true) end
     NativeLoaderLoadStatus.loads = NativeLoaderLoadStatus.loads + 1
     local fresh = heading ~= nil and SysTime() - headingAt < 10
     if not fresh then hosted, details = false, nil end

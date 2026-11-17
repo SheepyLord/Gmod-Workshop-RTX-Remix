@@ -6,14 +6,42 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
-### rpai's model keys without tags (2026-11-17; skills only, no loader or package change)
+### ARC9's icons out of the load, the load's slow add-ons named, a load's files read ahead (2026-11-17)
 
-- The `mmd-remix-pbr` skill's rpai makes a model's key from the PMX's English name without the naming rule's tags (a
-  game, version, author, rating or format word), as the skills' names already were: `robin_f9c3e4b4`, and
-  `model_1c2ed2fc` for the PMX editor's default English name. A model keyed the old way moves over the next time rpai
-  runs on it: its work folder is renamed, a preset still named the old way is read, and its published layer is
-  replaced at the next publish. The per-model presets and the skills' examples use the new keys and the characters'
-  own names; `model_names.strip` gives a name without its tags.
+- **Map loads no longer decode ARC9's attachment icons.** With ARC9 weapons installed, the attachment icons (about a
+  thousand in a test game with 787 add-ons) are decoded the first time ARC9's menus show them instead of while a map
+  loads. The server's part of a modern_house load took 8.4 s instead of 9.4 s, gm_construct's 10.7 s instead of
+  12.2 s ([ADR 0240](docs/decisions/0240-arc9s-attachment-icons-decoded-when-first-drawn.md)). The first opening of an
+  ARC9 menu with many icons may hitch once.
+- **The end-of-load line names the add-ons that held the load in a hook, a timer or a net message**, not only the Lua
+  files that ran longest ("Lua callbacks that ran longest: ..."), also in the console of each realm and in
+  `data/nativeloader/load_callbacks_client.txt` and `_server.txt`
+  ([ADR 0241](docs/decisions/0241-the-load-overlay-names-the-slowest-lua-callbacks.md)).
+- **What a map load reads is read ahead for the next one.** The load accelerator remembers which parts of which files
+  each load read (`data/nativeloader/prefetch`) and reads them ahead at low priority at the main menu and when a
+  remembered map loads, so that a load after a restart of the computer finds more of its files in memory
+  ([ADR 0242](docs/decisions/0242-what-a-load-reads-read-ahead-for-the-next.md)). The console says what was listed and
+  what was read ahead.
+- Each has a switch, all on: `nativeloader_load_accel_arc9`, `nativeloader_load_accel_callbacks`,
+  `nativeloader_load_accel_prefetch`.
+
+### RTX Remix no longer keeps two processor cores busy (2026-11-17)
+
+- **RTX Remix no longer keeps two processor cores busy all the time.** Its two geometry workers looked for work
+  without ever waiting, from a few seconds after the start to the end of the game, in the main menu too: on a computer
+  with six or eight cores that took a third or a quarter of the processor from the game, its map loads and the
+  graphics driver, and cost power and heat. They now sleep when no draw has come for a millisecond and wake as soon as
+  one does. In the main menu they use no processor time any more (two full cores before; the whole game about 0.6 of a
+  core instead of 2.6). In a map at 4K, where the game waits for the graphics card between frames, they use 40 % of a
+  core each instead of 100 %, in VR 24 %; at very high frame rates, with draws coming all the time, about 91 %. Frames
+  are not slower: in a 4K test on gm_construct the median frame was 2.6 % shorter and long stalls rarer, at 1280x720
+  the same as before, and VR kept its frame rate on a Valve Index
+  ([ADR 0243](docs/decisions/0243-the-geometry-workers-sleep-when-idle.md)).
+- Runtime patch 0105 (`util_worker_idle.h`, a few lines in `util_threadpool.h`): an idle low-latency worker polls for
+  1 ms after its last task, then waits on a condition variable; a draw wakes a worker only when one sleeps, and no
+  wake-up is lost. The Release gate builds the runtime's own worker pool from the fork's base and the patches and
+  checks that idle workers use no CPU and that a task wakes them
+  (`tools/tests/test_runtime_remix_workers.py`).
 
 ### Faster map loads with many imported characters (2026-11-16)
 

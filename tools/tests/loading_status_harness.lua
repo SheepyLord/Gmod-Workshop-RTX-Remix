@@ -619,6 +619,109 @@ elseif scenario == "eta" then
     near(unsized.load, 5 + 0.3 * 25, 0.001, "without a size: the maps' median")
     local absurd = Eta.estimate(loads({ 5000 }), { map = "gm_a" })
     eq(absurd.load, 900, "an estimate is never above 15 minutes for the load")
+elseif scenario == "callbacks" then
+    -- ADR 0241: the load accelerator's add-on lists each realm's slowest Lua callbacks of this load in
+    -- data/nativeloader/load_callbacks_<realm>.txt; the end line names the three longest of at least 0.5 s, and a file
+    -- of an earlier load is left out.
+    local files = {}
+    file.Read = function(path, where)
+        eq(where, "DATA", "file.Read's path")
+        return files[path]
+    end
+    run()
+    inLoading = true
+    think()
+    local began = os.time()
+    files["nativeloader/load_callbacks_client.txt"] = "load " .. began .. " client\n" ..
+        "51.200\t94\t0.600\tnet\tmmdhl_catalog\tlua/mmdhl/sharing.lua:385\tModel Hotloader\n" ..
+        "0.800\t1\t0.800\thook\tInitPostEntity Foo\taddons/foo/lua/autorun/foo.lua:12\t\n" ..
+        "0.300\t3\t0.200\ttimer\ttimer.Simple at lua/x.lua:1\tlua/x.lua:1\t\n"
+    files["nativeloader/load_callbacks_server.txt"] = "load " .. began .. " server\n" ..
+        "2.500\t1\t2.500\thook\tInitPostEntity Bar\tlua/bar.lua:4\tBar Mod\n"
+    GameDetails("Garry's Mod", "127.0.0.1", "gm_construct", 1)
+    clock = clock + 20
+    inLoading = false
+    think()
+    frames(2.1)
+    assert(has("end"), table.concat(calls, " | "))
+    assert(logs[1]:find("; Lua callbacks that ran longest: net mmdhl_catalog (Model Hotloader, 94 calls) 51.2 s, " ..
+        "server hook InitPostEntity Bar (Bar Mod, 1 call) 2.5 s, hook InitPostEntity Foo (foo.lua:12, 1 call) 0.8 s", 1, true), logs[1])
+    assert(not logs[1]:find("timer.Simple", 1, true), "under half a second is left out")
+    -- A file written before this load began is another load's.
+    files["nativeloader/load_callbacks_client.txt"] = "load " .. (began - 600) .. " client\n" ..
+        "9.000\t1\t9.000\tnet\told_one\tlua/old.lua:1\t\n"
+    files["nativeloader/load_callbacks_server.txt"] = nil
+    inLoading = true
+    think()
+    GameDetails("Garry's Mod", "127.0.0.1", "gm_construct", 1)
+    clock = clock + 20
+    inLoading = false
+    think()
+    frames(2.1)
+    assert(not logs[#logs]:find("old_one", 1, true), logs[#logs])
+    assert(not logs[#logs]:find("Lua callbacks", 1, true), logs[#logs])
+elseif scenario == "prefetch" or scenario == "prefetch-off" then
+    -- ADR 0242: each load is recorded from its start; a load that reached the game saves its record as its map's list
+    -- (the game's first load also as the list the next menu start reads ahead); a map with a list is read ahead once
+    -- it is known; a load without a game drops its record. Off: the add-on's switch as a file.
+    local accelCalls = {}
+    local exists = {}
+    file.Exists = function(path, where)
+        eq(where, "DATA", "file.Exists's path")
+        return exists[path] == true
+    end
+    if scenario == "prefetch-off" then exists["nativeloader/load_accel_prefetch_off.txt"] = true end
+    NativeLoaderLoadAccel = {
+        Status = function() return { answered = 0 } end,
+        PrefetchRecord = function(on) accelCalls[#accelCalls + 1] = "record " .. tostring(on) return true end,
+        PrefetchSave = function(map, last)
+            accelCalls[#accelCalls + 1] = "save " .. map .. " " .. tostring(last)
+            return true, 120, 3 * 1048576, 5000
+        end,
+        Prefetch = function(map)
+            accelCalls[#accelCalls + 1] = "prefetch " .. tostring(map)
+            if map == "gm_nolist" then return nil, "no list" end
+            return true, map
+        end,
+        PrefetchStatus = function() return { bytes = 2 * 1048576, files = 7, list = "C:\\g\\prefetch\\gm_construct.lst" } end,
+    }
+    NativeLoaderLoadAccelPrefetched = "gm_construct" -- load_accel.lua read that list ahead at menu start
+    run()
+    local function loadMap(map, reachGame)
+        inLoading = true
+        think()
+        GameDetails("Garry's Mod", "127.0.0.1", map, 1)
+        GameDetails("My Garry's Mod Server", "", map, 1, 1, "", "sandbox") -- named again late in the load
+        clock = clock + 20
+        if reachGame then
+            inLoading = false
+            think()
+            frames(2.1)
+        else
+            inGame, inLoading = false, false
+            think()
+            frames(1.2)
+            inGame = true
+        end
+    end
+    loadMap("gm_construct", true)
+    if scenario == "prefetch-off" then
+        eq(#accelCalls, 0, "nothing with the switch off: " .. table.concat(accelCalls, " | "))
+        assert(not logs[1]:find("read ahead", 1, true), logs[1])
+    else
+        -- The map read ahead at menu start is not asked for again; the game's first load is also the next start's list.
+        eq(table.concat(accelCalls, " | "), "record true | save gm_construct true")
+        assert(logs[1]:find("; read ahead: 2 MB of 7 files from the list of gm_construct", 1, true), logs[1])
+        assert(logs[2]:find("what this load read is listed for the next load of gm_construct (120 files, 3 MB, 5000 reads)", 1, true), logs[2])
+        -- A later load of another map: its list read ahead once (it is named twice); not the game's first load.
+        accelCalls = {}
+        loadMap("gm_flatgrass", true)
+        eq(table.concat(accelCalls, " | "), "record true | prefetch gm_flatgrass | save gm_flatgrass false")
+        -- A map without a list, then a load that ends without a game: asked once, and its record is dropped.
+        accelCalls = {}
+        loadMap("gm_nolist", false)
+        eq(table.concat(accelCalls, " | "), "record true | prefetch gm_nolist | record false")
+    end
 else
     error("unknown scenario " .. tostring(scenario))
 end

@@ -176,6 +176,9 @@ bool clear_marker(const std::wstring& path, const ProcessStamp& self) noexcept; 
 // A map has loaded with the hooks in: the marker comes off (20 s after the hooks went in, at the earliest).
 void settle() noexcept;
 
+// The game's "<root>\garrysmod" folder (from gmod.exe's path), or empty.
+std::wstring garrysmod_folder();
+
 // The counters of the copy that installed the hooks (this one or the other), or this copy's.
 Counters& counters() noexcept;
 void set_enabled(bool on) noexcept;
@@ -193,6 +196,70 @@ void* create_w(const wchar_t*, unsigned long, unsigned long, void*, unsigned lon
 int attributes_a(const char*, int, void*) noexcept;
 int attributes_w(const wchar_t*, int, void*) noexcept;
 }  // namespace testing
+
+// ---- E: what a load read, read ahead for the next one (prefetch.cpp, ADR 0242) -------------------------------------
+// While a map load is recorded, the import hooks on filesystem_stdio.dll's ReadFile (and the CreateFile hooks, which
+// name the handles) note which 64 KiB blocks of which file the load read, in the order the files were first read. The
+// record is saved as a list (garrysmod\data\nativeloader\prefetch\<map>.lst: Lua cannot write that extension); a
+// prefetch reads a list's blocks on a thread of its own at low I/O priority, so that the next load finds them in
+// Windows' file cache (a cold start after a reboot, or after the cache let them go).
+namespace prefetch {
+
+constexpr std::uint32_t kBlockShift = 16;  // 64 KiB blocks
+
+struct Range {
+  std::uint64_t first = 0;  // block
+  std::uint64_t count = 0;  // blocks
+};
+struct Entry {
+  std::wstring path;          // absolute "X:\..."
+  std::uint64_t size = 0;     // the file's size when saved; a file of another size is passed over
+  std::uint64_t written = 0;  // its last write time (FILETIME) when saved
+  std::vector<Range> ranges;
+};
+
+// A map name a list may have: 1-64 of A-Z a-z 0-9 _ - . (not starting with a dot), else empty.
+std::wstring list_name(std::string_view map);
+
+// The record. start() clears it and begins; stop() ends it (false: nothing was recording). Called by the hooks:
+// opened() when CreateFile gave a handle, read() before a ReadFile (offset from the OVERLAPPED, else the handle's
+// position, asked of Windows).
+void record_start() noexcept;
+bool record_stop() noexcept;
+bool recording() noexcept;
+void opened(void* handle, const char* name) noexcept;
+void opened(void* handle, const wchar_t* name) noexcept;
+void read(void* handle, std::uint64_t bytes, const void* overlapped) noexcept;
+// The record as a list, in first-read order: only files on a local fixed drive, not the game's cache\ folder (GMod
+// writes it during a load), at most `budget` bytes in all.
+std::vector<Entry> record_list(std::uint64_t budget);
+
+// A list file: written whole (a temporary file renamed over it) and read back; false with a reason.
+bool save_list(const std::wstring& path, const std::vector<Entry>& entries, std::string* why);
+bool load_list(const std::wstring& path, std::vector<Entry>& entries, std::string* why);
+
+// Reads a list's blocks on a thread of its own (a later start() supersedes it), at most `budget` bytes. Files that
+// are gone, of another size, not on a local fixed drive or not plain files are passed over.
+bool start(const std::wstring& list_path, std::uint64_t budget, std::string* why);
+struct Status {
+  bool recording = false;
+  std::uint64_t record_files = 0;
+  std::uint64_t record_blocks = 0;
+  std::uint64_t record_reads = 0;  // reads recorded
+  bool running = false;
+  std::uint64_t files = 0;    // files read ahead by the last prefetch
+  std::uint64_t bytes = 0;
+  std::uint64_t skipped = 0;  // files passed over
+  double seconds = 0;
+  std::string list;           // the last prefetch's list (UTF-8)
+};
+Status status();
+// The default budget: a quarter of the computer's memory, at most 4 GiB.
+std::uint64_t default_budget() noexcept;
+// Waits up to `ms` for a running prefetch to end (tests).
+bool wait(unsigned long ms) noexcept;
+
+}  // namespace prefetch
 
 // ---- B: the per-add-on find index (addon_index.cpp) --------------------------------------------------------------
 

@@ -23,6 +23,9 @@ once, first use through `SetModel` (the NPC tab, the player's model with its arm
 records), a map change, deletion, and the client: host entries published without mounting, names
 renewed without mounting, menu icons that never give `ModelImage` a model nobody showed, a
 `ClientsideModel` preview mounting its carrier, and a remote client that still mounts at registration.
+From [ADR 0238](../../docs/decisions/0238-the-hotloaders-map-start-work-once-and-after-the-map-runs.md): in a game a
+player hosts the chosen characters are published at the map's start and made ready once the map runs, one character
+a turn after the host's catalog request (`server_host_ready`), at once on a dedicated server (`server_dedicated`).
 
 Writes the snippet to a temporary folder in `out/tmp` and removes it. No game or installed data is
 touched. Requires LuaJIT (otherwise one explicit skip). Exit 0 on pass, nonzero on an assertion, a Lua

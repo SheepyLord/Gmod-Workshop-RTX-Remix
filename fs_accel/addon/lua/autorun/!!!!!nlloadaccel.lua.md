@@ -41,7 +41,9 @@ In the server and the client realm it:
    the client realm and on a dedicated server (a listen server's own `InitPostEntity` comes before its client has
    loaded), and in the client realm prints the load's tally:
    `[nativeloader] load accelerator (client): N file lookups answered from memory in F folders; M add-on searches
-   answered from the index` (and what the checks found, when they found anything).
+   answered from the index` (and what the checks found, when they found anything). When links or junctions are among
+   the folders cached ([ADR 0239](../../../../docs/decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md)),
+   the folder count is followed by ` (L links)`.
 
 `NLLOADACCEL` holds `{ find = <the replacement>, original = <GMod's file.Find> }` once it has run (false while it
 gave up). Inputs: the module, GMod's file system. Outputs: console lines; in the client realm the off file. Tested by

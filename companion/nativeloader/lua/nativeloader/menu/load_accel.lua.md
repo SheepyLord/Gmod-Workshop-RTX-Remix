@@ -20,5 +20,6 @@ without RTX run neither (the RTX client module is not loaded, and the loader lea
 - Sets `NativeLoaderLoadAccel` to the module's table, which `loading_status.lua` reads for the load overlay's status
   line ("N file lookups answered from memory", counted from the load's start) and the end-of-load console summary.
 
-Prints one line: `[nativeloader] load accelerator (menu): F loose add-on folders cached`, or why it did not install,
+Prints one line: `[nativeloader] load accelerator (menu): F loose add-on folders cached` (followed by `, L of them
+links or junctions` when there are any, [ADR 0239](../../../../../docs/decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md)), or why it did not install,
 or that it is off. Writes no files. Tested by [`test_load_accel.py`](../../../../../tools/tests/test_load_accel.py.md).

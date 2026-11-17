@@ -506,6 +506,13 @@ of GMod's add-on table. The companion's
 in RTX starts, and [`menu/loading_status.lua`](../companion/nativeloader/lua/nativeloader/menu/loading_status.lua.md)
 counts its answers in the load overlay. Recorded as repository builds ([`tools/ci/pins.json`](../tools/ci/pins.json)).
 
+The second load speed-up round (2026-11-16): the accelerator also caches junctions, directory symbolic links (a missing
+target answered "path not found", as Windows does) and the Model Hotloader's `mmdhl_*` character packs
+([ADR 0239](decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md)); the Model Hotloader
+builds its library once for a catalog burst, decodes manifests and rigs once and makes its warm characters ready once
+the map runs in a game a player hosts ([ADR 0238](decisions/0238-the-hotloaders-map-start-work-once-and-after-the-map-runs.md);
+[report](handover/load-speedup-2-report.md)).
+
 R28: the engine guard gains [`crash_report.cpp`](../engine_guard/README.md) (Windows Error Reporting's snapshot of the
 game switched off in every realm, [ADR 0142](decisions/0142-no-crash-snapshot-of-the-game.md)). The companion's render
 guard ([`_nativeloader_guard.lua`](../companion/nativeloader/lua/autorun/_nativeloader_guard.lua.md)) stops periodic

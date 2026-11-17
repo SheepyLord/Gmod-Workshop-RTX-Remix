@@ -6,6 +6,25 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Faster map loads with many imported characters (2026-11-16)
+
+- **Map loads are about a minute shorter in a game with many Model Hotloader characters.** In a test game with 787
+  Workshop add-ons and 206 imported characters, modern_house loaded in 26-30 s instead of 92-96 s, and gm_construct
+  after it in 29-31 s instead of 88-92 s. Each load had built the character library again for every character the server
+  listed (94 times, 3 GB of character data decoded); it is now built once, in single-player not at all for that list,
+  and each character's details and saved rig are decoded once
+  ([ADR 0238](docs/decisions/0238-the-hotloaders-map-start-work-once-and-after-the-map-runs.md)).
+- **The characters kept ready now load after the map is playable.** With a memory profile that keeps your most
+  recently used characters ready, they are made ready one at a time once the map runs (from 5 s after it starts, one
+  every 3 s) instead of during the load. Each is a brief pause, up to about 1.5 s for the largest character in the
+  test. Spawning one before its turn loads it first, a second or a few, as for any other saved character. A dedicated
+  server still loads them at the map's start.
+- **Fewer file lookups reach the disk during a load.** The load accelerator now also answers for add-on folders that
+  are links or junctions (also those whose folder no longer exists) and for the Model Hotloader's character packs: in
+  the same game the lookups that went on to Windows fell from about 880,000 to 76,000 per load
+  ([ADR 0239](docs/decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md)). The main
+  menu's console line says how many of its folders are links or junctions.
+
 ### Remix's debug views from the RTX debug module again, for developers (2026-11-16)
 
 - **Nothing changes in an ordinary game:** servers and add-ons still cannot switch Remix's debug views, captures or

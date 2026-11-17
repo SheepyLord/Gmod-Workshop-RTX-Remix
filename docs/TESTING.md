@@ -3727,3 +3727,24 @@ separator now has 57 texts in each catalog.
   (about 1/255). Without it: `can_mutate` false, `NL_DBG set nil | ...` naming the developer gate, and the three
   captures within noise of each other. Copy the JPEGs from the PoC's `garrysmod\screenshots` into the evidence and
   remove them there.
+
+## The second load speed-up round (2026-11-16)
+
+- **Lua under LuaJIT:** [`test_hotloader_library_refresh.py`](../tools/tests/test_hotloader_library_refresh.py.md)
+  (a single-player catalog builds nothing, a multiplayer catalog of 93 messages builds once after the tick, manifests
+  decoded once; the shipped `sharing.lua`'s receivers, `readRig` and the host-only `HostReady`);
+  [`test_mmd_lazy_load.py`](../tools/tests/test_mmd_lazy_load.py.md) (the warm characters queued in a game a player
+  hosts, `server_dedicated` and `server_host_ready`).
+- **C++ (CTest):** `nl_fs_accel_tests`: junctions (live, relative, to a missing target, below a missing parent) and,
+  where the account may create them, directory symbolic links, each answer compared with Windows' own for opens and
+  attribute queries; links that are not cached (a file target, too many); a change behind a link drops that link and
+  only it.
+- **Field** (the user's game, with their standing permission; the main checkout's `out/load-speedup-2/tools`):
+  back up `native-loader/config.json`, add the branch's `.gma` under `allow.local` (it outranks the Workshop copy;
+  `nlctl plan` shows it ACTIVE), run `field_run.py --name NAME --maps modern_house,gm_construct --gap 10 --end-running`
+  (it takes `out\r10\poc.lock`, ends a running field game with a console quit, puts `load_times.txt` and the game's
+  settings back), then `phase_table.py` and `busy_stretches.py` on the run; `--probe --extra-lua verify_on.lua` turns
+  the accelerator's verify mode on for the rest of the session (every answer compared with Windows: `disagreements`
+  in the `NL_ACCEL` line). Put the config back byte for byte; a control run with the Workshop package also puts the
+  Workshop's version back in place.
+

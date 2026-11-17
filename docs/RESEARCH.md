@@ -9491,3 +9491,42 @@ merge of patch 0093. Left as they were.
   (the RTX package's Lua does not set this option)` both for a direct call and for the module's forward.
 - **The developer gate in a PoC RTX start:** `+map gm_construct` with `+maxplayers 1` gives `single_player` true and
   `sv_cheats` true (the session's cvars); `-insecure` comes only from `--extra=-insecure`.
+
+## The second load speed-up round (2026-11-16, Claude; [ADR 0238](decisions/0238-the-hotloaders-map-start-work-once-and-after-the-map-runs.md), [ADR 0239](decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md))
+
+Measured in the user's field game (787 Workshop add-ons, 206 Model Hotloader characters, 93 approved, memory profile
+high), warm, with `out/load-speedup-2/tools` of the main checkout (the plan and every run's evidence are there:
+`PLAN.md`, `runs/`). Times are from the `map` command to the load overlay's end line.
+
+- **Every map load built the Hotloader's library about 94 times.** The client's `InitPostEntity` asks for the catalog;
+  the server sends one `mmdhl_catalog` message per approved character (`sharing.lua:221`), and the receiver called
+  `library.Refresh()` each time. A build reads and decodes every `manifest.json` (206 files, 32.5 MB): 19,364 reads,
+  3.05 GB of JSON, 51 s in `util.JSONToTable`, in one frame of 54 s after `InitPostEntity`. In single-player the build
+  does not use the catalog at all (`library.lua:132`, `if not game.SinglePlayer()`). After ADR 0238 the receivers ask
+  through `library.RequestRefresh()` (`library.lua:106`, one build on the next tick), and not in single-player
+  (`sharing.lua:380`); manifests are kept with their size and time (`library.lua:94`).
+- **The server decoded every saved rig twice at a map start**: `PruneRigs` and the restoration
+  (`MMDHL.RestorePublishedActors`) each read the 298 approved rigs' `rig.json` (about 230 KB each, about 1 s a pass);
+  they now share one table (`sharing.lua:269`, `readRig`).
+- **The warm characters** (ten for "high", 3.9 GiB of material archives here) were mounted and precached in the load,
+  about 4 s of the server's phase and part of the client's precache. In a game a player hosts they are now queued and
+  made ready from `WARM_FIRST` (5 s) after the host's catalog request, one character each `WARM_EVERY` (3 s), with a
+  `WARM_FALLBACK` of 90 s (`actors.lua:743-784`; the catalog command calls `HostReady`, `sharing.lua:402-407`).
+- **The loose folders**: 53 directly in `garrysmod/addons` on 2026-11-16, of them 8 junctions or directory links (4 with
+  a target that no longer exists) and 4 `mmdhl_*` character packs, which the loader deploys before the game starts
+  (nothing writes into them while it runs). Before ADR 0239 the accelerator cached 42 roots (the 41 plain folders and
+  `garrysmod/workshop`), now 54 (its menu line: "54 loose add-on folders cached, 8 of them links or junctions"); per
+  first map load 4.49-4.53
+  million file calls reached its hooks, 3.63 million were answered and 0.86-0.90 million went on to Windows. With them
+  cached: 3.84 million calls, 3.76 million answered, 75,588 went on (91 % fewer); no folder was dropped.
+- **Windows' answers through a junction whose target is missing**: the junction itself exists (its attributes are
+  read, it is a reparse point); every path below it fails with `ERROR_PATH_NOT_FOUND` (3), for `CreateFileW` and
+  `GetFileAttributesExW` alike, checked by `fs_accel/tests/test_loose.cpp` on generated trees. A directory symbolic link
+  needs a privilege this account lacks (the tests then use junctions only); a relative link's target is resolved
+  against the link's folder (`SYMLINK_FLAG_RELATIVE`, 1). `WaitForMultipleObjects` takes 64 handles, so the watcher
+  takes at most 48 links (`loose_cache.cpp:40`).
+- **The result** (the branch's package as a local package, `allow.local`; its first start deployed it in 13.3 s with
+  232 changes): modern_house 92.4 s -> 29.8 s (server 16.6 -> 11.3 s, client 15.6 -> 11.1 s, after `InitPostEntity`
+  56.8 -> 2.5 s, settling 5.8 -> 4.9 s); gm_construct after it 88.2 s -> 28.7 s. The load overlay still names
+  `library.lua` (2.3-2.5 s: one build decoding the 206 manifests in each map's new client Lua state) among the slowest
+  Lua files.

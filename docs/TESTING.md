@@ -3703,3 +3703,27 @@ separator now has 57 texts in each catalog.
   byte ([report](handover/linlong-pbr-tune-report.md)).
 - `skills/mmd-remix-pbr/scripts/even_albedo.py` reproduces the tested hair copies byte for byte; `tools\inputs.py
   verify` checks the part's new files.
+
+## Debug views through the debug module's developer gate (Claude, ADR 0237)
+
+- **In the gate.** [`test_rtxdebug.py`](../tools/tests/test_rtxdebug.py.md) compiles and runs the debug module's
+  `render_policy_test.cpp` and `session_policy_test.cpp` (`/W4 /WX`). The first is the regression: behind the
+  developer gate a debug view goes through the Remix API, without it to `RemixConfig` (also for a remote insecure
+  server with `sv_cheats 1`, a local game without `-insecure`, and one with `sv_cheats 0`); a copy of the route that
+  sends every write to `RemixConfig` (the module before patch 0004) fails it, and so does one that sends every write
+  to the API. The test also checks that the checkout is its four patches' result, that `provenance.json` and
+  `tools/ci/pins.json` record it, that the fixes part stores the recorded build, and that the module calls only
+  `SetConfigVariable` on the interface it initializes with its own headers.
+- **In the PoC.** Hold `out\r10\poc.lock`, install a package built from the branch (`build_package.py --out
+  out\dbgview\pkg`; the PoC's `config.json` is kept by `--replace-config` and put back afterwards), and run two
+  sessions on gm_construct with `--addons`, `--camera 823,-657,-79,0,0,0`, `--hide-hud`, the sky held (`--console
+  "nativeloader_sky_time_passes 0"`, `"nativeloader_sky_time noon"`, `"nativeloader_weather_seconds 0"`,
+  `"nativeloader_weather clear"`; the driver writes the field's settings back before the quit) and
+  `--lua tools\qa\debug_view_probe.lua --lua-shots 240 --screenshots 0`: one with `--extra=-insecure`, one without
+  (a first `--lua` file that sets `NL_DBG_PREFIX` keeps the second run's JPEGs apart).
+- **What to check.** With `-insecure`: `NL_DBG status` has `can_mutate` true, `NL_DBG remixconfig false`,
+  `NL_DBG set true` with the override's `route` `remix_api`, `NL_DBG restore true`; the `view23` capture differs from
+  `before` by tens of levels (56.7/255 per pixel on 2026-11-16) and `restored` matches `before` within capture noise
+  (about 1/255). Without it: `can_mutate` false, `NL_DBG set nil | ...` naming the developer gate, and the three
+  captures within noise of each other. Copy the JPEGs from the PoC's `garrysmod\screenshots` into the evidence and
+  remove them there.

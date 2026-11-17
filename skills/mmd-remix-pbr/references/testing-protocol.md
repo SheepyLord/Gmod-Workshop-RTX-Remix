@@ -117,9 +117,13 @@ user's untouched morph state are what make the AABB shots comparable. Leave `cro
   put both back byte for byte: the loader checks the package's files by hash. A plain red albedo on the sheet is a
   quick proof that a swap applies.
 - **Give each swap 20 s** before the first shot: once, 14 s showed the previous state.
-- **Remix debug views cannot be set from Lua** since the repository's ADR 0234: `RemixConfig` refuses
-  `rtx.debugView.debugViewIdx`, and the debug module's `RTXDebug.Remix.SetDebugView` goes through it (it returns
-  nil and a message, no Lua error). Test with variant layers (a plain albedo, a flat normal map) instead.
+- **Remix debug views need the debug module's developer gate** (the repository's ADR 0237): a local single-player
+  game started with `-insecure` and with `sv_cheats 1` (an RTX start with `+map` has it; the New Game screen sets it
+  to 0: type `sv_cheats 1`). Then `RTXDebug.Remix.SetDebugView(23, 0)` shows the albedo view (89 roughness, 32 raw
+  albedo) and `RTXDebug.Remix.RestoreConfig("rtx.debugView.debugViewIdx")` puts it back. `RemixConfig` refuses
+  `rtx.debugView.debugViewIdx` to every Lua (ADR 0234); without the gate `SetDebugView` returns nil and a message
+  naming it (no Lua error). `-insecure` in the field game's launch options is the user's call: ask, or test with
+  variant layers (a plain albedo, a flat normal map) instead.
 
 ## AABB capture
 

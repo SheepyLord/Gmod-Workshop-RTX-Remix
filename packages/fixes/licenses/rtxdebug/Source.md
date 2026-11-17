@@ -1,4 +1,4 @@
-# RTXDebug 0.2.1 source and build provenance
+# RTXDebug 0.2.2 source and build provenance
 
 This directory is documentation/corresponding source, not a second package input. The runtime
 inputs remain packages/fixes/modules/gmcl_rtxdebug_win64.dll and source/debug/addon. The native
@@ -8,9 +8,10 @@ module source, public external RPC client and tests are all included in checkout
 
 - Origin: https://github.com/SheepyLord/garrys-mod-rtx-debug-module.git
 - Base: ff009d71a5c3d22cd5c400941fb09e7e905b8a73 (the origin's main).
-- Patched source: 359b51bcd15eef18dfdb45482367ef43ffcf71c7, on top of
-  bc0c698c1b55f3ceb3ec4d2d573a81d100f52fea and 6105f0b545145dc7781f7ae94af76619c2a6e3d4. None of
-  the patched commits is on the origin; the three patches below reproduce them from the base.
+- Patched source: 4fa8ab6d59e3003a8e4b1b7fd15f6373a8656575, on top of
+  359b51bcd15eef18dfdb45482367ef43ffcf71c7, bc0c698c1b55f3ceb3ec4d2d573a81d100f52fea and
+  6105f0b545145dc7781f7ae94af76619c2a6e3d4. None of the patched commits is on the origin; the four
+  patches below reproduce them from the base.
 - checkout/ is the complete tracked text tree at the patched commit; it is already patched.
   Its .gitattributes is stored byte-for-byte as gitattributes.upstream so that its rules cannot
   override this repository's no-conversion package policy. provenance.json records that path alias.
@@ -21,8 +22,12 @@ module source, public external RPC client and tests are all included in checkout
     native single-player decision for the developer mutation gate (see below), version 0.2.1.
   - 0003-Restrict-read-only-diagnostics-to-local-single-playe.patch (bc0c698 to 359b51b): gate the
     information-disclosure read-only queries on local single-player (see below).
-  Applied with `git apply` to the base's tree, the three reproduce checkout/ byte for byte.
-- provenance.json lists the SHA-256 and size of every source file, all three patches, dependency
+  - 0004-Write-Remix-options-through-the-Remix-API-behind-the.patch (359b51b to 4fa8ab6): behind
+    the developer gate, Remix option writes go through the Remix API instead of RemixConfig, whose
+    list refuses debug views since the native loader's ADR 0234 (see below), version 0.2.2.
+  Applied with `git apply` to the base's tree, the four reproduce checkout/ byte for byte
+  (`tools/tests/test_rtxdebug.py` checks it in the Release gate).
+- provenance.json lists the SHA-256 and size of every source file, all four patches, dependency
   pins, the tested DLL and the engine vtable slots the gate calls. No binaries, generated projects,
   PDBs or intermediate files are stored here.
 
@@ -58,17 +63,23 @@ This is the invocation used for the tested module. Keep worktrees, dependencies 
 under this project's out directory during agent work. Link/PDB stamps and build paths can change
 the resulting binary hash; source reproducibility does not claim byte-identical PE output.
 
-Tested artifact: gmcl_rtxdebug_win64.dll 0.2.1, 428032 bytes, SHA-256
-73edd9156bd155e4d9cb70cd75f07da798364b89ea146326f983927218f58e91 (a full rebuild of the module
-project with the invocation above).
+Tested artifact: gmcl_rtxdebug_win64.dll 0.2.2, 430592 bytes, SHA-256
+29b1168932dcbe54210f19c36e329043f4aaef743e6ba3546f2e4fce8914abc3, built by
+`tools\ci\build_modules.ps1 -Only rtxdebug` from checkout/ under a `subst` drive alias of the work
+folder (no exclamation mark, so the solution build; the fixes' public/include at the pinned base,
+garrysmod_common a854f23, premake 5.0.0-beta2, MSVC 14.44.35207, SDK 10.0.26100.0). The 0.2.1
+artifact was 428032 bytes, SHA-256 73edd9156bd155e4d9cb70cd75f07da798364b89ea146326f983927218f58e91.
 
 ## Offline checks
 
 Python 3.12 and lupa 2.8 ran `python -m unittest discover -s tests -v`: 20 cases passed. Compile
 tests/render_policy_test.cpp and tests/session_policy_test.cpp with a C++17 compiler (MSVC
 `/std:c++17 /EHsc /W4 /WX`) and execute them: the renderer policy checks (including the
-IsRenderingConVar allowlist) and the mutation gate checks pass. A copy of the session policy that
-ignores the loopback condition fails the remote-server cases. The protocol tests cover PID-bound
+IsRenderingConVar allowlist and, since 0.2.2, the Remix write route composed with the session gate)
+and the mutation gate checks pass. A copy of the session policy that ignores the loopback condition
+fails the remote-server cases; a copy of the route that sends every write to RemixConfig (0.2.1's
+behaviour) fails the developer-gate cases, and one that sends every write to the Remix API fails
+the RemixConfig cases. The Release gate compiles and runs both (`tools/tests/test_rtxdebug.py`). The protocol tests cover PID-bound
 requests and the target-selection tests refuse ambiguous clients without controlling any game
 windows. Run scratch under out/tmp via TEMP/TMP.
 
@@ -84,12 +95,34 @@ this DLL has not been run yet.
 
 Read-only client diagnostics remain available after the verified RTX client payload loads.
 Remix.SetConfig and SetDebugView accept local rtx.* renderer options in the module's current client
-realm, on its game thread, with a live RemixConfig API. These do not require single-player,
-sv_cheats or -insecure. They retain explicit restore values and the owned override ledger.
+realm, on its game thread, with a live RemixConfig API, and forward them to
+RemixConfig.SetConfigVariable. These do not require single-player, sv_cheats or -insecure; since the
+native loader's ADR 0234 RemixConfig takes only the options the RTX package's own Lua sets, so
+without the developer gate that list decides. They retain explicit restore values and the owned
+override ledger.
 
 Lua.Eval, engine/gameplay mutations, memory access and detours retain the original developer gate:
 local single-player, sv_cheats 1 and -insecure. The remote server realm is not exposed locally.
 The module does not enable sv_allowcslua or load unrelated client code.
+
+Patch 0004 (0.2.2, the native loader's ADR 0237): behind that developer gate, Remix.SetConfig and
+SetDebugView write rtx.* options through the Remix API itself (remixapi_InitializeLibrary from the
+runtime's d3d9.dll, asked once at the first such write, with the headers RTXFixesBinary and RTX
+Water use, 0.1000.1; never Startup or Shutdown), so debug views and the replacement switches, which
+RemixConfig refuses to every Lua, are a developer's again. Policy::RouteConfig in render_policy.h
+decides the route; a restore goes back the way its value went in, even after the gate has closed
+(Policy::RestoreThroughApi); Overrides and SessionConfig name each override's route. A remote
+server cannot open the gate (the loopback check above), and an ordinary game has no -insecure.
+
+0.2.2 was checked in the PoC on 2026-11-16 (gm_construct, single-player, a pinned camera, a package
+built from this repository with this DLL, loader 0.16.0). Started with -insecure: Status reported
+can_mutate true and sv_cheats true; RemixConfig.SetConfigVariable still refused
+rtx.debugView.debugViewIdx; SetDebugView(23, 0) returned true on the remix_api route, and the Source
+jpeg of the albedo view differed from view 0 by 56.7/255 per pixel (55.3 over 32-pixel blocks);
+RestoreConfig returned true and the next capture was within 1.0/255 of the first (capture noise).
+Started without -insecure: can_mutate false, SetDebugView returned nil and the message naming the
+developer gate, and the three captures stayed within 1.0/255 of each other. Both games quit
+normally.
 
 Since 0.2.1 the gate reads nothing from Lua. 0.2.0 asked the client realm's game.SinglePlayer,
 which a remote server's client scripts can replace, and the server replicates sv_cheats: for a

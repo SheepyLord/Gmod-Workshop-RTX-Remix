@@ -43,7 +43,11 @@ tools\ci\build_modules.ps1 -Only advmat -Out out\ci\built-advmat
    `--remixinclude=<fixes>/public/include`, MSBuild of the solution's `gmcl_rtxdebug` Release/x64. Under a
    path with `!` (this machine's repository path) the pinned generator writes a wrong absolute IntDir: the
    helper libraries are built first, then the module with `BuildProjectReferences=false` and a relative
-   `IntDir` (as `Source.md` there records).
+   `IntDir` (as `Source.md` there records). That branch joins each project reference onto the project's
+   folder, so it fails (`MSB1009`) when `-GmodCommon` is on another drive, where premake writes absolute
+   references: give `-Work` and `-Out` on a `subst` alias without `!` instead (the solution build). `-Only
+   rtxdebug` alone needs `<Work>\fixes\public\include` already there (a sparse checkout of the fixes' `/public/`
+   at the pinned base serves: the patches do not change it).
 5. **The bridge:** CMake (Visual Studio 17 2022, x64) of
    `packages/advanced-material-editor/source/rtx_bridge` with `ADVMAT_RTX_BUILD_GMOD_MODULE=ON` and its
    tests, Release build, then its tests. They run with a short `TEMP` (the runner's, or this

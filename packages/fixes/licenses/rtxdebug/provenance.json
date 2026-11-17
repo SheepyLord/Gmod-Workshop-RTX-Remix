@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/SheepyLord/garrys-mod-rtx-debug-module.git",
   "base_commit": "ff009d71a5c3d22cd5c400941fb09e7e905b8a73",
-  "source_commit": "359b51bcd15eef18dfdb45482367ef43ffcf71c7",
+  "source_commit": "4fa8ab6d59e3003a8e4b1b7fd15f6373a8656575",
   "patches": [
     {
       "file": "0001-Support-multiplayer-client-rendering-diagnostics-wit.patch",
@@ -23,6 +23,13 @@
       "sha256": "fee2f34485ad6d07ecfe75908eaccecdd3447bf2d8680b9eb08a77ab60c40b2e",
       "applies_to": "bc0c698c1b55f3ceb3ec4d2d573a81d100f52fea",
       "result": "359b51bcd15eef18dfdb45482367ef43ffcf71c7"
+    },
+    {
+      "file": "0004-Write-Remix-options-through-the-Remix-API-behind-the.patch",
+      "size": 36558,
+      "sha256": "3fbaec525de39bf99a15e9210ffdfb98ed1183424965edc551150fe39c637dbf",
+      "applies_to": "359b51bcd15eef18dfdb45482367ef43ffcf71c7",
+      "result": "4fa8ab6d59e3003a8e4b1b7fd15f6373a8656575"
     }
   ],
   "complete_checkout": {
@@ -31,8 +38,8 @@
       "sha256": "8943f2b2e703a817248579d84eb3893d922ce634a5da41f3b4ce0cea994146a8"
     },
     "README.md": {
-      "size": 12022,
-      "sha256": "4a8970b3198709df1448de7be9a24cbda0117ea1c1b45265ba766e3503f14afd"
+      "size": 13420,
+      "sha256": "2dc6f8b94292543126a94215a5afea055ac2cd06278d7851e724496c32e8bfbe"
     },
     "addon/lua/autorun/client/rtx_debug.lua": {
       "size": 5213,
@@ -95,32 +102,32 @@
       "sha256": "cf08614848faeaf223baa8c24949bc458eafa49c615e1c26421614b51951d2e1"
     },
     "source/module.cpp": {
-      "size": 8593,
-      "sha256": "46f3edf21152f7c0ee1df0fd158ea8f070bbdb82773bee82a1291f2d00a62854"
+      "size": 8695,
+      "sha256": "02c31bb05b72ff2dc022f2388b7afce9fadaa65a0282380abb81720d643555ff"
     },
     "source/remix/remix_debug.cpp": {
-      "size": 12271,
-      "sha256": "5b69a40010d7bbd18ec514d2479bf4dd9a9fb54a2fd0d99a27d0da769bc57ccd"
+      "size": 16281,
+      "sha256": "91887c17e0153890206776ab1993a00ca0c60de03d4601a218931e96e7e28520"
     },
     "source/remix/remix_debug.h": {
-      "size": 760,
-      "sha256": "65487ab0c05769a561ada7096681c002c12c5fb5a4458228d79ec97ab237202e"
+      "size": 920,
+      "sha256": "09119b5b00966db2a9588f013dee5e180e8b7f99442de071d8a10740de3a4365"
     },
     "source/render_policy.h": {
-      "size": 2237,
-      "sha256": "4c47b9e22b64fca9e1a1b12bf0e6ec9546b3128eb701b326347163e456303742"
+      "size": 3867,
+      "sha256": "0df1d998b7d0326e1718dbae079e3685f0e3ad0795c19ee1fd2eb1d92f2fad10"
     },
     "source/render_policy.h.md": {
-      "size": 606,
-      "sha256": "47cf59f8230f2754b76de2401dc03e4d1affbc7d48de3d32c26a0e94441449f2"
+      "size": 1034,
+      "sha256": "119047fbcefd92da9011d13c61387a984ce4f634c7e3d250ec0a6917e30b9c11"
     },
     "source/session_policy.h": {
-      "size": 1808,
-      "sha256": "0fd07262e8c3a8e0773bb31f5f38b13174f4c1389d4a6b23cd6aa0e5604b8910"
+      "size": 1868,
+      "sha256": "5f4baa2f1aa8348f9102e2fc9dcdbdf4f0e76e5b3da0c2c6d80ee666265f041c"
     },
     "source/session_policy.h.md": {
-      "size": 479,
-      "sha256": "303a7709dc791801da4069c27da74709a131f24299f86c587bb7eacc6bd64cd9"
+      "size": 640,
+      "sha256": "5cc4441f4bed62e365b5a6f3bedc349c8afe364bd4f4e8ed40a8796826d69066"
     },
     "source/transport/transport.cpp": {
       "size": 2660,
@@ -131,12 +138,12 @@
       "sha256": "042409e9c6a90d06935d3bf573bdffdffe79ad88a2a13ccc2b73242062c4054b"
     },
     "tests/render_policy_test.cpp": {
-      "size": 1475,
-      "sha256": "00ac506e1895ad8d2bbda1b7feff5c71dd9cce2836c0fef03c40f8c04c4dca46"
+      "size": 6553,
+      "sha256": "03dcdc3314f1fcc2b4fcbf3f3bedec59727ca8b48d606d27942c5977bd89de29"
     },
     "tests/render_policy_test.cpp.md": {
-      "size": 322,
-      "sha256": "05bae9d088ac0b76ba72c2190ab04bab7f71af0d4866c08f9222cc0cd6dacf43"
+      "size": 1126,
+      "sha256": "785ac7f8bc1e8cf21613bd0ddd826c59e49924afe8bb7c71db50ee4b50b8b81b"
     },
     "tests/session_policy_test.cpp": {
       "size": 3163,
@@ -199,9 +206,9 @@
   },
   "built_artifact": {
     "name": "gmcl_rtxdebug_win64.dll",
-    "version": "0.2.1",
-    "size": 428032,
-    "sha256": "73edd9156bd155e4d9cb70cd75f07da798364b89ea146326f983927218f58e91"
+    "version": "0.2.2",
+    "size": 430592,
+    "sha256": "29b1168932dcbe54210f19c36e329043f4aaef743e6ba3546f2e4fce8914abc3"
   },
   "vtable_checks": {
     "note": "Slots the native single-player check calls, found through RTTI in GMod x64 engine.dll",

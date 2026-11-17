@@ -4,4 +4,6 @@ Pure developer mutation gate. `IsLocalSinglePlayer` decides single-player from f
 reads natively from the engine client (`IsConnected`, `GetNetChannelInfo()->IsLoopback()`,
 `GetMaxClients`, `IsPlayingDemo`), never from a Lua state, which a remote server's client scripts
 can change. `CanMutate` combines it with the game thread, an open module, `-insecure` from the
-process command line and `sv_cheats`. Tested by tests/session_policy_test.cpp.
+process command line and `sv_cheats`. Behind it the module also writes Remix options through the
+Remix API (render_policy.h, `RouteConfig`). Tested by tests/session_policy_test.cpp, and with the
+write route by tests/render_policy_test.cpp.

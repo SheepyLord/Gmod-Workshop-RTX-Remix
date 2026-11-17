@@ -1,0 +1,626 @@
+From 4fa8ab6d59e3003a8e4b1b7fd15f6373a8656575 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Mon, 16 Nov 2026 21:11:37 -0700
+Subject: [PATCH] Write Remix options through the Remix API behind the
+ developer gate
+
+RTXFixesBinary's RemixConfig.SetConfigVariable takes only the options the
+RTX package's own Lua sets (the native loader's ADR 0234): any server's
+client scripts and any add-on reach it. Remix.SetConfig and SetDebugView
+wrote through that function whatever gate the call had passed, so debug
+views and the replacement switches were refused to developers too.
+
+Behind the developer mutation gate (local single-player decided natively,
+sv_cheats 1, -insecure) the module now writes rtx.* options through the
+Remix API itself: d3d9.dll's remixapi_InitializeLibrary, asked once at the
+first such write, initialized with the headers RTXFixesBinary and RTX
+Water use (0.1000.1), never Startup or Shutdown. Without that gate the
+client rendering gate still forwards to RemixConfig, whose list decides;
+names that are not rtx.* options are refused on both routes
+(Policy::RouteConfig). A restore goes back the way its value went in,
+even after the gate has closed (Policy::RestoreThroughApi), and at the
+module's close a value written through the API is restored through it
+even when RTXFixesBinary is gone. Overrides and SessionConfig name each
+override's route. Version 0.2.2 (the native loader's ADR 0237).
+
+render_policy_test.cpp checks the route composed with the session gate:
+a copy of the policy that sends every write to RemixConfig (the module
+before this change) fails it, and so does one that sends every write to
+the API.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ README.md                       |  52 +++++++++-----
+ source/module.cpp               |   5 +-
+ source/remix/remix_debug.cpp    | 119 ++++++++++++++++++++++++++------
+ source/remix/remix_debug.h      |  10 +--
+ source/render_policy.h          |  24 +++++++
+ source/render_policy.h.md       |  12 ++--
+ source/session_policy.h         |   6 +-
+ source/session_policy.h.md      |   4 +-
+ tests/render_policy_test.cpp    |  96 +++++++++++++++++++++++---
+ tests/render_policy_test.cpp.md |  15 +++-
+ 10 files changed, 277 insertions(+), 66 deletions(-)
+
+diff --git a/README.md b/README.md
+index 1b2bc5a..70f663f 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,8 @@
+ 
+ Developer introspection module for Garry's Mod RTX Remix, including multiplayer client diagnostics.
+ The DLL is independent of `RTXFixesBinary`; it uses the existing `RemixConfig`,
+-`RemixResource`, and `RemixMaterial` Lua APIs when that module is loaded. It is
++`RemixResource`, and `RemixMaterial` Lua APIs when that module is loaded, and, behind
++the developer gate, the Remix API of the runtime (`d3d9.dll`) for option writes. It is
+ compiled against the fork's Remix API headers at version **0.1000.1** and is
+ 64-bit only.
+ 
+@@ -35,13 +36,14 @@ the contents of `addon/` to `garrysmod/addons/rtx_debug/`. Replace the DLL only
+ while the game is closed or before a map has loaded it: a loaded module locks
+ the file. New addon folders are mounted when the game starts.
+ 
+-Read-only client diagnostics and local Remix configuration work without `-insecure`,
+-including on a multiplayer server with `sv_allowcslua 0`, once the RTX package's verified
+-client bootstrap has loaded this addon. The addon loads the DLL with `require("rtxdebug")`.
+-`RTXDebug.Status()` distinguishes the full developer mutation gate from the client rendering gate.
+-Arbitrary Lua evaluation, engine/gameplay mutations, memory and detours still require local
+-single-player, `sv_cheats 1` and `-insecure`. The module decides single-player from the engine
+-client's own connection, never from Lua. A remote server realm is unavailable locally.
++Read-only client diagnostics and local Remix configuration of `RemixConfig`'s options work
++without `-insecure`, including on a multiplayer server with `sv_allowcslua 0`, once the RTX
++package's verified client bootstrap has loaded this addon. The addon loads the DLL with
++`require("rtxdebug")`. `RTXDebug.Status()` distinguishes the full developer mutation gate from the
++client rendering gate. Arbitrary Lua evaluation, engine/gameplay mutations, memory and detours, and
++Remix options outside `RemixConfig`'s list (debug views, the replacement switches), still require
++local single-player, `sv_cheats 1` and `-insecure`. The module decides single-player from the
++engine client's own connection, never from Lua. A remote server realm is unavailable locally.
+ 
+ ## Conventions
+ 
+@@ -67,7 +69,16 @@ client's own connection, never from Lua. A remote server realm is unavailable lo
+ - Local Remix-only writes have their own gate: the module's live client realm (the state that
+   lua_shared reports as the client's, not the `CLIENT_DLL`/`SERVER` globals), the game thread,
+   and an available RemixConfig.SetConfigVariable function. Without the full developer gate,
+-  only `rtx.*` option keys are accepted. This does not change server cvars or enable Lua Eval.
++  only `rtx.*` option keys are accepted, and they go to `RemixConfig.SetConfigVariable`, which
++  takes only the options the RTX package's own Lua sets (the native loader's ADR 0234): a remote
++  server's scripts and an add-on in an ordinary game reach no more here than there. This does not
++  change server cvars or enable Lua Eval.
++- Behind the full developer gate the module writes `rtx.*` options through the Remix API itself
++  (`remixapi_InitializeLibrary`, exported by the runtime's `d3d9.dll`, asked once at the first such
++  write; never `Startup` or `Shutdown`), so debug views and the other options `RemixConfig` refuses
++  to every Lua stay available to developers (ADR 0237). `Policy::RouteConfig` in
++  `source/render_policy.h` decides the route; a restore goes back the way its value went in
++  (`Policy::RestoreThroughApi`), even after the gate has closed.
+ - Addresses and 64-bit values are hex strings, which Lua numbers cannot hold exactly.
+ - Realms are `"client"`, `"server"` (the listen server in single-player) and `"menu"`.
+   Results from other realms are copied as plain data: vectors and angles become
+@@ -106,12 +117,12 @@ RTXDebug.Lua.GCStats("client")
+ 
+ RTXDebug.Remix.Vram()
+ RTXDebug.Remix.ConfigFile("rtx.graphicsPreset")  -- the rtx.conf value, not the live one
+-RTXDebug.Remix.SetConfig("rtx.graphicsPreset", "3", "2")  -- client rendering gate; explicit restore value
++RTXDebug.Remix.SetConfig("rtx.graphicsPreset", "3", "2")  -- RemixConfig's options, or any rtx.* behind the developer gate; explicit restore value
+ RTXDebug.Remix.RestoreConfig("rtx.graphicsPreset")
+-RTXDebug.Remix.SessionConfig("rtx.graphicsPreset")
+-RTXDebug.Remix.Overrides()
++RTXDebug.Remix.SessionConfig("rtx.graphicsPreset")   -- last_set_value, restore_value, route
++RTXDebug.Remix.Overrides()                           -- key, last_set_value, restore_value, route ("remixconfig" or "remix_api")
+ RTXDebug.Remix.DebugViewFile()
+-RTXDebug.Remix.SetDebugView(3, 0)                -- client rendering gate; index, restore index
++RTXDebug.Remix.SetDebugView(23, 0)               -- developer gate (RemixConfig refuses debug views); index, restore index
+ RTXDebug.Remix.MaterialHashes("models/debug/debugwhite")
+ RTXDebug.Remix.FindMaterialByHash("0x29BF18C8B6EC2F40")  -- {materials, revision}
+ RTXDebug.Remix.TrackedTextures()
+@@ -168,11 +179,13 @@ order and reports anything it could not restore, such as a write whose bytes
+ were changed by something else. Patch definitions survive it.
+ 
+ The addon calls `RestoreAll()` from the `ShutDown` hook (map change, disconnect,
+-quit). That matters for Remix overrides: they go through `RemixConfig`, which stops
++quit). That matters for Remix overrides set through `RemixConfig`, which stops
+ working once RTXFixesBinary has closed. On unload the module restores whatever is
+-still recorded, but it skips Remix overrides if RTXFixesBinary is already gone and
+-logs that they stay in effect until the game restarts. Lua code run through
+-`Lua.Eval` and commands run through `Engine.Exec` are outside this ledger.
++still recorded, but it skips those overrides if RTXFixesBinary is already gone and
++logs that they stay in effect until the game restarts. Overrides written through the
++Remix API (behind the developer gate) are restored through it, whatever the gate or
++RTXFixesBinary says by then. Lua code run through `Lua.Eval` and commands run through
++`Engine.Exec` are outside this ledger.
+ 
+ ## External request protocol
+ 
+@@ -206,8 +219,9 @@ No network listener is opened.
+ GMod (`lupa` required; it uses LuaJIT when lupa has it). `python -m unittest
+ discover -s tests` also runs the external client's target-selection tests.
+ `tests/render_policy_test.cpp` and `tests/session_policy_test.cpp` check the
+-rendering and mutation gates: compile each with a C++17 compiler (for example
+-`cl /std:c++17 /EHsc /W4`) and run it.
++rendering and mutation gates and where a Remix option write goes (`RemixConfig` or the
++Remix API): compile each with a C++17 compiler (for example `cl /std:c++17 /EHsc /W4`)
++and run it.
+ 
+ ## Lifecycle
+ 
+diff --git a/source/module.cpp b/source/module.cpp
+index 6e05cdb..d859ed1 100644
+--- a/source/module.cpp
++++ b/source/module.cpp
+@@ -23,7 +23,7 @@
+ 
+ namespace {
+ 
+-constexpr const char* kVersion = "0.2.1";
++constexpr const char* kVersion = "0.2.2";
+ constexpr const char* kRemixApiVersion = "0.1000.1";
+ 
+ GarrysMod::Lua::ILuaBase* g_lua = nullptr;
+@@ -39,7 +39,8 @@ ICvar* ResolveCvar() {
+     return g_cvar;
+ }
+ 
+-// RTXFixesBinary registers RemixConfig; the Remix functions forward to it.
++// RTXFixesBinary registers RemixConfig; the Remix functions forward to it, or, behind the
++// developer gate, write option values through the Remix API itself (render_policy.h).
+ bool RemixLuaApiPresent(GarrysMod::Lua::ILuaBase* lua) {
+     lua->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
+     lua->GetField(-1, "RemixConfig");
+diff --git a/source/remix/remix_debug.cpp b/source/remix/remix_debug.cpp
+index cf6ce6b..e1ac483 100644
+--- a/source/remix/remix_debug.cpp
++++ b/source/remix/remix_debug.cpp
+@@ -32,6 +32,8 @@ struct ConfigOverride {
+     std::string key;
+     std::string currentValue;
+     std::string restoreValue;
++    // Written through the Remix API at least once: restored through it (Policy::RestoreThroughApi).
++    bool throughApi = false;
+ };
+ 
+ constexpr const char* kDebugViewKey = "rtx.debugView.debugViewIdx";
+@@ -40,6 +42,52 @@ constexpr const char* kGameThreadError = "RTXDebug Remix calls require the game
+ constexpr const char* kRemixModule = "gmcl_RTXFixesBinary_win64.dll";
+ std::vector<ConfigOverride> g_configOverrides;
+ 
++// Behind the developer gate the module writes through the Remix API itself (render_policy.h,
++// RouteConfig): RemixConfig.SetConfigVariable takes only the options the RTX package's own Lua
++// sets. The runtime's d3d9.dll exports remixapi_InitializeLibrary, which fills an interface of
++// function pointers; the module asks for it once, at its first such write. It never calls
++// Startup or Shutdown: the game owns the device, RTXFixesBinary the API's use. The runtime keeps
++// the most recent initialize's version for the whole process; this module is built with the
++// headers RTXFixesBinary and RTX Water are built with (the patched fixes checkout's
++// public/include, 0.1000.1: the static_assert above), so that version stays what they asked for.
++remixapi_Interface g_api{};
++bool g_apiReady = false;
++
++bool RemixApi(std::string& error) {
++    if (g_apiReady) return true;
++    const HMODULE runtime = GetModuleHandleW(L"d3d9.dll");
++    const auto initialize = runtime
++        ? reinterpret_cast<PFN_remixapi_InitializeLibrary>(GetProcAddress(runtime, "remixapi_InitializeLibrary"))
++        : nullptr;
++    if (!initialize) {
++        error = "the Remix runtime is not loaded (d3d9.dll has no remixapi_InitializeLibrary)";
++        return false;
++    }
++    remixapi_InitializeLibraryInfo info{};
++    info.sType = REMIXAPI_STRUCT_TYPE_INITIALIZE_LIBRARY_INFO;
++    info.version = REMIXAPI_VERSION_MAKE(REMIXAPI_VERSION_MAJOR, REMIXAPI_VERSION_MINOR, REMIXAPI_VERSION_PATCH);
++    remixapi_Interface api{};
++    const remixapi_ErrorCode code = initialize(&info, &api);
++    if (code != REMIXAPI_ERROR_CODE_SUCCESS || !api.SetConfigVariable) {
++        error = "remixapi_InitializeLibrary failed (" + std::to_string(static_cast<int>(code)) + ")";
++        return false;
++    }
++    g_api = api;
++    g_apiReady = true;
++    return true;
++}
++
++bool ApplyThroughApi(const std::string& key, const std::string& value, std::string& error) {
++    if (!RemixApi(error)) return false;
++    const remixapi_ErrorCode code = g_api.SetConfigVariable(key.c_str(), value.c_str());
++    if (code != REMIXAPI_ERROR_CODE_SUCCESS) {
++        error = "the Remix runtime refused the value (remixapi error " + std::to_string(static_cast<int>(code))
++            + "): an unknown option or a value it cannot read";
++        return false;
++    }
++    return true;
++}
++
+ bool PushRemixFunction(ILuaBase* lua, const char* table, const char* function) {
+     lua->PushSpecial(GarrysMod::Lua::SPECIAL_GLOB);
+     lua->GetField(-1, table);
+@@ -84,21 +132,42 @@ int Forward(ILuaBase* lua, const char* table, const char* function,
+ }
+ 
+ bool ApplyConfig(ILuaBase* lua, const std::string& key, const std::string& value, std::string& error) {
++    if (!lua) {
++        error = "Lua is unavailable";
++        return false;
++    }
+     if (!CallRemix(lua, "RemixConfig", "SetConfigVariable", {key.c_str(), value.c_str()}, 1, error))
+         return false;
+     const bool success = lua->IsType(-1, GarrysMod::Lua::Type::Bool) && lua->GetBool(-1);
+     lua->Pop();
+-    if (!success) error = "Remix rejected the config value";
++    if (!success) {
++        error = "RemixConfig refused the option or its value (the console says why); options outside its list "
++            "need the developer gate: local single-player, sv_cheats 1 and -insecure";
++    }
+     return success;
+ }
+ 
++// Writes or restores one value the way the ledger says it goes.
++bool Apply(ILuaBase* lua, const std::string& key, const std::string& value, bool throughApi, std::string& error) {
++    return throughApi ? ApplyThroughApi(key, value, error) : ApplyConfig(lua, key, value, error);
++}
++
++const char* RouteName(bool throughApi) {
++    return throughApi ? "remix_api" : "remixconfig";
++}
++
+ int SetSessionConfig(ILuaBase* lua, const std::string& key,
+     const std::string& value, const std::string& restoreValue) {
+-    if (!IsMainThread() || !Policy::CanSetConfig(CanMutate(), lua == Lua() && CanConfigureRendering(), key)) {
++    if (!IsMainThread()) return PushError(lua, kGameThreadError);
++    if (key.empty()) return PushError(lua, "Remix option key cannot be empty");
++    const Policy::ConfigRoute route =
++        Policy::RouteConfig(CanMutate(), lua == Lua() && CanConfigureRendering(), key);
++    if (route == Policy::ConfigRoute::Refused) {
+         return PushError(lua,
+-            "Remix writes require the client rendering context and an rtx.* option, or the local developer mutation gate");
++            "Remix writes take an rtx.* option, in the client rendering context (RemixConfig's options) "
++            "or behind the developer gate (local single-player, sv_cheats 1 and -insecure)");
+     }
+-    if (key.empty()) return PushError(lua, "Remix option key cannot be empty");
++    const bool throughApi = route == Policy::ConfigRoute::RemixApi;
+ 
+     ConfigOverride* existing = nullptr;
+     for (auto& entry : g_configOverrides) {
+@@ -111,13 +180,15 @@ int SetSessionConfig(ILuaBase* lua, const std::string& key,
+         return PushError(lua, "Restore value differs from the session baseline");
+ 
+     std::string error;
+-    if (!ApplyConfig(lua, key, value, error)) return PushError(lua, error);
++    if (!Apply(lua, key, value, throughApi, error)) return PushError(lua, error);
+     if (existing) {
+         existing->currentValue = value;
++        existing->throughApi = Policy::RestoreThroughApi(existing->throughApi, route);
+     } else {
+-        g_configOverrides.push_back({key, value, restoreValue});
++        g_configOverrides.push_back({key, value, restoreValue, throughApi});
+     }
+-    Msg("[RTXDebug] Remix config %s set for this session\n", key.c_str());
++    Msg("[RTXDebug] Remix config %s set for this session%s\n", key.c_str(),
++        throughApi ? " (through the Remix API: developer gate)" : "");
+     lua->PushBool(true);
+     return 1;
+ }
+@@ -187,6 +258,7 @@ LUA_FUNCTION_STATIC(RemixSessionConfig) {
+         LUA->CreateTable();
+         SetString(LUA, "last_set_value", entry.currentValue);
+         SetString(LUA, "restore_value", entry.restoreValue);
++        SetString(LUA, "route", RouteName(entry.throughApi));
+         return 1;
+     }
+     LUA->PushNil();
+@@ -201,12 +273,14 @@ LUA_FUNCTION_STATIC(RemixOverrides) {
+         SetString(LUA, "key", entry.key);
+         SetString(LUA, "last_set_value", entry.currentValue);
+         SetString(LUA, "restore_value", entry.restoreValue);
++        SetString(LUA, "route", RouteName(entry.throughApi));
+         SetArrayValue(LUA, index++);
+     }
+     return 1;
+ }
+ 
+-// Restoring only undoes this module's own change, so it needs no mutation gate.
++// Restoring only undoes this module's own change, so it needs no mutation gate. It goes back
++// the way the value went in (render_policy.h, RestoreThroughApi).
+ LUA_FUNCTION_STATIC(RemixRestoreConfig) {
+     if (!LUA->IsType(1, GarrysMod::Lua::Type::String))
+         return PushError(LUA, "RestoreConfig expects an option key string");
+@@ -215,7 +289,7 @@ LUA_FUNCTION_STATIC(RemixRestoreConfig) {
+     for (auto it = g_configOverrides.begin(); it != g_configOverrides.end(); ++it) {
+         if (it->key != key) continue;
+         std::string error;
+-        if (!ApplyConfig(LUA, it->key, it->restoreValue, error)) return PushError(LUA, error);
++        if (!Apply(LUA, it->key, it->restoreValue, it->throughApi, error)) return PushError(LUA, error);
+         Msg("[RTXDebug] Restored Remix config %s\n", it->key.c_str());
+         g_configOverrides.erase(it);
+         LUA->PushBool(true);
+@@ -291,8 +365,8 @@ size_t ActiveOverrides() {
+ int RestoreAll(ILuaBase* lua, std::vector<std::string>& failures) {
+     int restored = 0;
+     for (auto it = g_configOverrides.rbegin(); it != g_configOverrides.rend(); ++it) {
+-        std::string error = "Lua is unavailable";
+-        if (lua && ApplyConfig(lua, it->key, it->restoreValue, error)) {
++        std::string error;
++        if (Apply(lua, it->key, it->restoreValue, it->throughApi, error)) {
+             Msg("[RTXDebug] Restored Remix config %s\n", it->key.c_str());
+             ++restored;
+         } else {
+@@ -307,20 +381,23 @@ void Shutdown(ILuaBase* lua) {
+     if (g_configOverrides.empty()) return;
+     // The companion addon restores overrides from the ShutDown hook. If some
+     // are left, RemixConfig can only be called while RTXFixesBinary is loaded:
+-    // after its own close it no longer has a config manager.
+-    if (!lua || !GetModuleHandleA(kRemixModule)) {
+-        for (const auto& entry : g_configOverrides) {
++    // after its own close it no longer has a config manager. A value written
++    // through the Remix API goes back through it: the API is the runtime's.
++    const bool remixConfig = lua && GetModuleHandleA(kRemixModule);
++    for (auto it = g_configOverrides.rbegin(); it != g_configOverrides.rend(); ++it) {
++        if (!it->throughApi && !remixConfig) {
+             Warning("[RTXDebug] Remix config %s was not restored (RTXFixesBinary is gone); "
+                 "it stays at '%s' until the game restarts\n",
+-                entry.key.c_str(), entry.currentValue.c_str());
++                it->key.c_str(), it->currentValue.c_str());
++            continue;
+         }
+-        g_configOverrides.clear();
+-        return;
++        std::string error;
++        if (Apply(lua, it->key, it->restoreValue, it->throughApi, error))
++            Msg("[RTXDebug] Restored Remix config %s\n", it->key.c_str());
++        else
++            Warning("[RTXDebug] Failed to restore Remix config %s: %s\n", it->key.c_str(), error.c_str());
+     }
+-    std::vector<std::string> failures;
+-    RestoreAll(lua, failures);
+-    for (const std::string& failure : failures)
+-        Warning("[RTXDebug] Failed to restore %s\n", failure.c_str());
++    g_configOverrides.clear();
+ }
+ 
+ } // namespace RTXDebug::Remix
+diff --git a/source/remix/remix_debug.h b/source/remix/remix_debug.h
+index 3a3bdbe..f235daf 100644
+--- a/source/remix/remix_debug.h
++++ b/source/remix/remix_debug.h
+@@ -16,12 +16,14 @@ bool Register(GarrysMod::Lua::ILuaBase* lua);
+ // Session overrides that still have to be restored.
+ size_t ActiveOverrides();
+ 
+-// Restores every session override through RemixConfig. Call it while
+-// RTXFixesBinary is still loaded. Returns how many were restored and appends a
+-// message for each one that could not be.
++// Restores every session override the way it was written: through RemixConfig
++// (call it while RTXFixesBinary is still loaded) or, for a value written behind
++// the developer gate, through the Remix API. Returns how many were restored and
++// appends a message for each one that could not be.
+ int RestoreAll(GarrysMod::Lua::ILuaBase* lua, std::vector<std::string>& failures);
+ 
+-// Module close: restores what is left if RTXFixesBinary is still usable.
++// Module close: restores what is left; RemixConfig's values only if
++// RTXFixesBinary is still usable, the Remix API's in any case.
+ void Shutdown(GarrysMod::Lua::ILuaBase* lua);
+ 
+ } // namespace RTXDebug::Remix
+diff --git a/source/render_policy.h b/source/render_policy.h
+index 5d17e52..4376755 100644
+--- a/source/render_policy.h
++++ b/source/render_policy.h
+@@ -24,6 +24,30 @@ inline bool CanSetConfig(bool fullMutation, bool rendering, std::string_view key
+     return fullMutation || (rendering && IsRenderingOption(key));
+ }
+ 
++// Where a Remix option write goes. RTXFixesBinary's RemixConfig.SetConfigVariable takes only
++// the options the RTX package's own Lua sets (the native loader's ADR 0234): any server's client
++// scripts and any add-on reach it. Behind the developer mutation gate (session_policy.h: local
++// single-player decided natively, sv_cheats 1, -insecure) the module writes through the Remix
++// API itself, so the options RemixConfig refuses to every Lua (debug views, the replacement
++// switches) stay a developer's tools (the native loader's ADR 0237). Without that gate the
++// client rendering gate forwards to RemixConfig, whose list decides: a remote server or an
++// add-on in an ordinary game reaches no more through this module than through RemixConfig.
++// The runtime's options are all rtx.*, and RemixConfig refuses every other name, so the module
++// does too.
++enum class ConfigRoute { Refused, RemixConfig, RemixApi };
++
++inline ConfigRoute RouteConfig(bool fullMutation, bool rendering, std::string_view key) {
++    if (!CanSetConfig(fullMutation, rendering, key) || !IsRenderingOption(key)) return ConfigRoute::Refused;
++    return fullMutation ? ConfigRoute::RemixApi : ConfigRoute::RemixConfig;
++}
++
++// A restore goes back the way the value went in. Once the module has written an option through
++// the Remix API, only the API can put it back (RemixConfig may refuse that option), whatever the
++// gates say by then: restoring undoes only the module's own change, to the value it recorded.
++inline bool RestoreThroughApi(bool earlierThroughApi, ConfigRoute route) {
++    return earlierThroughApi || route == ConfigRoute::RemixApi;
++}
++
+ // Convar names that RTXDebug.Engine.GetConVar may read outside local single-player. Outside a
+ // local game a remote server's client scripts can reach this module, so there GetConVar is limited
+ // to the rendering surface a multiplayer RTX session inspects; every other convar is refused, and
+diff --git a/source/render_policy.h.md b/source/render_policy.h.md
+index a5ac45e..244b66d 100644
+--- a/source/render_policy.h.md
++++ b/source/render_policy.h.md
+@@ -3,7 +3,11 @@
+ Pure client-rendering configuration boundary. Local renderer changes require the module's client
+ realm, the game thread, an open module and Remix API availability. Only syntactically valid rtx.*
+ keys are accepted without the existing full single-player developer mutation gate. No cvar,
+-server, Lua execution, memory or detour authority is granted. `IsRenderingConVar` is the short
+-allowlist of convar name prefixes (`rtx`, `r_`, `mat_`, `cl_draw`) that `Engine.GetConVar` may read
+-outside local single-player; every other convar name is refused there. Tested by
+-render_policy_test.cpp.
++server, Lua execution, memory or detour authority is granted. `RouteConfig` says where a Remix
++option write goes: behind the developer gate (session_policy.h) through the Remix API, so the
++options `RemixConfig.SetConfigVariable` refuses to every Lua (debug views, the replacement
++switches) can be set; under the client rendering gate alone to `RemixConfig`, whose list decides;
++names that are not `rtx.*` options nowhere. `RestoreThroughApi` keeps a restore on the route its
++value went in. `IsRenderingConVar` is the short allowlist of convar name prefixes (`rtx`, `r_`,
++`mat_`, `cl_draw`) that `Engine.GetConVar` may read outside local single-player; every other convar
++name is refused there. Tested by render_policy_test.cpp.
+diff --git a/source/session_policy.h b/source/session_policy.h
+index db55370..0050bb8 100644
+--- a/source/session_policy.h
++++ b/source/session_policy.h
+@@ -24,9 +24,9 @@ inline bool IsLocalSinglePlayer(const SessionFacts& facts) {
+ }
+ 
+ // The developer mutation gate (Lua.Eval, convar writes and console commands, memory,
+-// detours, and Remix options outside rtx.*): the game thread of an open module, the
+-// -insecure launch option on the process command line, local single-player as above, and
+-// sv_cheats 1.
++// detours, and Remix options written through the Remix API, beyond RemixConfig's list:
++// render_policy.h): the game thread of an open module, the -insecure launch option on the
++// process command line, local single-player as above, and sv_cheats 1.
+ inline bool CanMutate(bool mainThread, bool closing, bool insecureLaunch,
+                       bool localSinglePlayer, bool cheats) {
+     return mainThread && !closing && insecureLaunch && localSinglePlayer && cheats;
+diff --git a/source/session_policy.h.md b/source/session_policy.h.md
+index 218829d..98aceb1 100644
+--- a/source/session_policy.h.md
++++ b/source/session_policy.h.md
+@@ -4,4 +4,6 @@ Pure developer mutation gate. `IsLocalSinglePlayer` decides single-player from f
+ reads natively from the engine client (`IsConnected`, `GetNetChannelInfo()->IsLoopback()`,
+ `GetMaxClients`, `IsPlayingDemo`), never from a Lua state, which a remote server's client scripts
+ can change. `CanMutate` combines it with the game thread, an open module, `-insecure` from the
+-process command line and `sv_cheats`. Tested by tests/session_policy_test.cpp.
++process command line and `sv_cheats`. Behind it the module also writes Remix options through the
++Remix API (render_policy.h, `RouteConfig`). Tested by tests/session_policy_test.cpp, and with the
++write route by tests/render_policy_test.cpp.
+diff --git a/tests/render_policy_test.cpp b/tests/render_policy_test.cpp
+index ac909c8..d862a6b 100644
+--- a/tests/render_policy_test.cpp
++++ b/tests/render_policy_test.cpp
+@@ -1,24 +1,102 @@
+ #include "../source/render_policy.h"
++#include "../source/session_policy.h"
++
+ #include <iostream>
++#include <string>
++
++namespace {
++
++int g_failures = 0;
++
++void Expect(bool condition, const char* what) {
++    if (condition) return;
++    std::cout << "FAIL: " << what << "\n";
++    ++g_failures;
++}
++
++// What the engine reports in a game the player started themselves, and on a remote server.
++RTXDebug::Policy::SessionFacts Session(bool loopback) {
++    RTXDebug::Policy::SessionFacts facts;
++    facts.connected = true;
++    facts.netChannel = true;
++    facts.loopback = loopback;
++    facts.demoPlayback = false;
++    facts.maxClients = 1;
++    return facts;
++}
++
++} // namespace
+ 
+ int main() {
+     using namespace RTXDebug::Policy;
+-    if (!CanConfigureRendering(true, false, true, true)) return 1;
+-    if (CanConfigureRendering(false, false, true, true) || CanConfigureRendering(true, true, true, true)
+-        || CanConfigureRendering(true, false, false, true) || CanConfigureRendering(true, false, true, false)) return 1;
++    Expect(CanConfigureRendering(true, false, true, true), "the client rendering gate opens in the client realm");
++    Expect(!CanConfigureRendering(false, false, true, true) && !CanConfigureRendering(true, true, true, true)
++        && !CanConfigureRendering(true, false, false, true) && !CanConfigureRendering(true, false, true, false),
++        "the client rendering gate needs the game thread, an open module, the client realm and RemixConfig");
+     for (const auto key : {"rtx.pathMaxBounces", "rtx.showUI", "rtx.debugView.debugViewIdx"})
+-        if (!CanSetConfig(false, true, key)) return 1;
++        Expect(CanSetConfig(false, true, key), "the rendering gate takes rtx.* names");
+     for (const auto key : {"sv_cheats", "sv_allowcslua", "dxvk.foo", "rtx.", "rtx.foo;exec", "rtx.foo\nbar"})
+-        if (CanSetConfig(false, true, key)) return 1;
+-    if (CanSetConfig(false, false, "rtx.pathMaxBounces")) return 1;
+-    if (!CanSetConfig(true, false, "existing_single_player_option")) return 1;
++        Expect(!CanSetConfig(false, true, key), "the rendering gate refuses other names");
++    Expect(!CanSetConfig(false, false, "rtx.pathMaxBounces"), "no gate, no write");
++    Expect(CanSetConfig(true, false, "existing_single_player_option"), "the developer gate passes any call");
++
++    // ADR 0237: where a Remix option write goes. The regression: SetDebugView behind the developer
++    // gate reached RemixConfig.SetConfigVariable, whose list (ADR 0234) refuses debug views, so the
++    // view never changed. Behind that gate the module writes through the Remix API.
++    const char* const debugView = "rtx.debugView.debugViewIdx";
++    Expect(RouteConfig(true, true, debugView) == ConfigRoute::RemixApi,
++        "behind the developer gate a debug view goes through the Remix API, not RemixConfig");
++    Expect(RouteConfig(true, false, debugView) == ConfigRoute::RemixApi,
++        "the developer gate does not need RemixConfig");
++    for (const auto key : {"rtx.enableReplacementMaterials", "rtx.debugView.displayType", "rtx.pathMaxBounces"})
++        Expect(RouteConfig(true, true, key) == ConfigRoute::RemixApi, "behind the developer gate every rtx.* option goes through the API");
++    // Without the developer gate RemixConfig decides, as it does for any other Lua: a remote
++    // server's client scripts and an add-on in an ordinary game get no more than RemixConfig gives.
++    for (const auto key : {debugView, "rtx.enableReplacementMaterials", "rtx.pathMaxBounces"}) {
++        Expect(RouteConfig(false, true, key) == ConfigRoute::RemixConfig,
++            "without the developer gate an rtx.* write goes to RemixConfig, whose list decides");
++        Expect(RouteConfig(false, false, key) == ConfigRoute::Refused, "without either gate a write is refused");
++    }
++    // Names that are not runtime options: refused whatever the gates (the runtime's options are
++    // all rtx.*, and RemixConfig refuses every other name).
++    const std::string tooLong = "rtx." + std::string(253, 'a');
++    for (const std::string key : {std::string("sv_cheats"), std::string("existing_single_player_option"),
++             std::string("dxvk.foo"), std::string("rtx."), std::string("rtx.foo;exec"), std::string("rtx.foo\nbar"),
++             std::string(), tooLong}) {
++        Expect(RouteConfig(true, true, key) == ConfigRoute::Refused, "the developer gate refuses names that are not rtx.* options");
++        Expect(RouteConfig(false, true, key) == ConfigRoute::Refused, "the rendering gate refuses names that are not rtx.* options");
++    }
++
++    // The gates composed as the module composes them (session_policy.h): a remote server that runs
++    // with sv_cheats 1 for a player launched with -insecure, and tells its scripts they are in
++    // single-player, still reaches only RemixConfig; a local game opens the API route only with
++    // -insecure and sv_cheats 1, so an add-on's Lua in an ordinary local game stays with RemixConfig.
++    const bool remoteGate = CanMutate(true, false, true, IsLocalSinglePlayer(Session(false)), true);
++    Expect(RouteConfig(remoteGate, true, debugView) == ConfigRoute::RemixConfig,
++        "a remote insecure server with sv_cheats 1 cannot reach the Remix API route");
++    const bool localSinglePlayer = IsLocalSinglePlayer(Session(true));
++    Expect(RouteConfig(CanMutate(true, false, true, localSinglePlayer, true), true, debugView) == ConfigRoute::RemixApi,
++        "local single-player with -insecure and sv_cheats 1 writes a debug view through the Remix API");
++    Expect(RouteConfig(CanMutate(true, false, false, localSinglePlayer, true), true, debugView) == ConfigRoute::RemixConfig,
++        "a local game without -insecure leaves the debug view to RemixConfig");
++    Expect(RouteConfig(CanMutate(true, false, true, localSinglePlayer, false), true, debugView) == ConfigRoute::RemixConfig,
++        "a local game with sv_cheats 0 leaves the debug view to RemixConfig");
++
++    // A restore goes back the way the value went in, whatever the gates say by then.
++    Expect(RestoreThroughApi(false, ConfigRoute::RemixApi), "a value written through the API is restored through it");
++    Expect(!RestoreThroughApi(false, ConfigRoute::RemixConfig), "a value written through RemixConfig is restored through it");
++    Expect(RestoreThroughApi(true, ConfigRoute::RemixConfig),
++        "once written through the API, a value is restored through it after a later RemixConfig write");
++
+     // The rendering-convar allowlist for Engine.GetConVar outside local single-player.
+     for (const auto name : {"r_drawworld", "mat_queue_mode", "rtx_conf", "rtxSomething",
+                             "cl_drawhud", "cl_drawviewmodel", "R_SHADOWS", "Mat_Fullbright"})
+-        if (!IsRenderingConVar(name)) return 1;
++        Expect(IsRenderingConVar(name), "a rendering convar is readable");
+     for (const auto name : {"sv_cheats", "sv_allowcslua", "rcon_password", "cl_name", "net_graph",
+                             "", "mat_x;quit", "mat x", "server_rtx", "notrtx"})
+-        if (IsRenderingConVar(name)) return 1;
++        Expect(!IsRenderingConVar(name), "another convar is not readable");
++
++    if (g_failures) return 1;
+     std::cout << "Rendering policy tests passed\n";
+     return 0;
+ }
+diff --git a/tests/render_policy_test.cpp.md b/tests/render_policy_test.cpp.md
+index 9d75458..66004e2 100644
+--- a/tests/render_policy_test.cpp.md
++++ b/tests/render_policy_test.cpp.md
+@@ -1,5 +1,14 @@
+ # render_policy_test.cpp
+ 
+-Standalone CPU check of the actual render_policy.h functions. It covers off-thread/closing/wrong
+-realm/missing API refusal, valid renderer options, server cvar and malformed-key rejection, and the
+-separate full developer gate. Compile with a C++17 compiler. No game, GPU, file or network access.
++Standalone CPU check of the actual render_policy.h functions, with session_policy.h's gate. It
++covers off-thread/closing/wrong realm/missing API refusal, valid renderer options, server cvar and
++malformed-key rejection, and the separate full developer gate. The write route is the regression
++for debug views (ADR 0237): behind the developer gate `rtx.debugView.debugViewIdx` and every other
++`rtx.*` option go through the Remix API, not `RemixConfig`; without that gate they go to
++`RemixConfig`, whose list decides, also for a remote insecure server with `sv_cheats 1` and for a
++local game without `-insecure` or with `sv_cheats 0`; names that are not `rtx.*` options are
++refused either way; a value written through the API is restored through it. A copy of the policy
++that sends every write to `RemixConfig` (the module before the fix) fails the developer-gate cases,
++and a copy that sends every write to the API fails the RemixConfig cases. Compile with a C++17
++compiler (MSVC `/std:c++17 /EHsc /W4 /WX`) and run it; exit 0 when every check passes, 1 otherwise.
++No game, GPU, file or network access.
+-- 
+2.56.0.windows.1
+

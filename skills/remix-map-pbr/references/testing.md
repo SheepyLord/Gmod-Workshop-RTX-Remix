@@ -87,7 +87,8 @@ what was wrong was fixed and shot again (`v1` to `v19` on gm_poolrooms, `wip2` t
   replacement materials on, the engine settings applied, the addon reloaded). Since the review of 2026-11-16
   `RemixConfig.SetConfigVariable` refuses the replacement switches (and every option the RTX package's own Lua does
   not set): a `stock.py` that sets them through it must use the debug module's `RTXDebug.Remix.SetConfig` and
-  `RestoreConfig` in a local single-player game instead.
+  `RestoreConfig` instead, in a local single-player game started with `-insecure` and with `sv_cheats 1` (the
+  module's developer gate, the repository's ADR 0237).
 - gm_poolrooms took its `before` tour from stock Remix before anything was installed.
 - `python compare.py <after> [before]` reads `gallery.json` (`"gallery"`: cameras for the gallery, entries
   like `time_dusk/ext_lawn` taking a shot from another label; `"compare"`: cameras for pairs) and writes

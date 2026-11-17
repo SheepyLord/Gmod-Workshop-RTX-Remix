@@ -9452,3 +9452,39 @@ merge of patch 0093. Left as they were.
   layer, the game maps +2-5% at strength 1.0 and +6-10% at 3.0 (three views).
 - **Her mod after the change:** 28 DDS at 2048 (10 normal, 10 roughness, 2 albedo, 4 anisotropy, 2 emissive),
   117,454,792 bytes; 20 new Git LFS objects, 37,570,900 bytes stored.
+
+## Debug views through the debug module's developer gate (2026-11-16, Claude; [ADR 0237](decisions/0237-developers-set-remix-options-through-the-debug-modules-developer-gate.md))
+
+- **The runtime keeps one Remix API version for the whole process:** `remixapi_InitializeLibrary`
+  (`src/dxvk/rtx_render/rtx_remix_api.cpp`, about line 3097 at runtime patch 0104) sets `s_apiVersion` to the caller's
+  version ("the most recent initialize wins"), and material creation reads it (texture transforms only at 0.1000.2 and
+  later, the DLSS control mask at 0.1000.1). `RTXFixesBinary` (`remix::lib::loadRemixDllAndInitialize`) and RTX Water
+  (`GetProcAddress` + `init`) both initialize with the fixes fork's `public/include` (0.1000.1); the debug module 0.2.2
+  uses the same headers, so its initialize leaves the version as they set it. Initializing twice is otherwise harmless:
+  it only fills the caller's interface.
+- **A 0.1000.1 client's interface lines up with the 0.1000.2 runtime:** the first 39 slots of `remixapi_Interface` are
+  the same in both headers (`SetConfigVariable` is slot 13); 0.1000.2 appended `SetWaterSim` and `AddWaterDisturbance`,
+  and `writeClientInterface` copies a 0.1000.1 client only up to `SetWaterSim` (`util_remix_api_version.h`).
+- **`remixapi_SetConfigVariable` writes the runtime's User layer** (`readOption` into
+  `getTargetLayer(getUserLayer())`), as `RemixConfig` did: the Remix menu's "Save Settings" keeps what is set there. A
+  name that is not an `RtxOption` goes to `RtxOptionManager::queueDynamicValue`, which refuses names outside its dynamic
+  namespaces. `rtx.debugView.debugViewIdx` is an ordinary `uint32_t` option (`rtx_debug_view.h:107`); 0 is off, 23 is
+  `DEBUG_VIEW_ALBEDO` (`shaders/rtx/utility/debug_view_indices.h:53`).
+- **`build_modules.ps1 -Only rtxdebug` under a path with `!` and garrysmod_common on another drive fails:** the
+  `!`-path branch builds each `ProjectReference` from `Join-Path <project folder> <reference>`, and premake writes an
+  absolute `E:\...` reference when garrysmod_common is on another drive (`MSB1009`, a path joined onto the project
+  folder). A `subst` alias of the work folder (no `!`) takes the solution build, which resolves them. `-Only rtxdebug`
+  also needs `<Work>\fixes\public\include`: a `--shared` sparse checkout of `/public/` at the fixes' pinned base serves
+  (its tree, `7165af4d`, is the patched tree's `public`).
+- **Git Bash rewrites `/public/`** in `git sparse-checkout set --no-cone /public/` to `C:/Program Files/Git/public/`;
+  `MSYS_NO_PATHCONV=1` keeps it.
+- **`jpeg` from client Lua works in an RTX start:** `LocalPlayer():ConCommand("jpeg <name> 95")` wrote
+  `garrysmod/screenshots/<name>.jpg` (1280 x 720 in the PoC window) of the Remix output, debug views included.
+- **Measured in the PoC** (gm_construct, single-player, camera `823,-657,-79,0,0,0`, noon, clear, the clock stopped):
+  with `-insecure` the albedo view (23) differed from view 0 by 56.7/255 per pixel (55.3 over 32-pixel block means)
+  in the Source `jpeg` captures and 56.7 in the window captures; after `RestoreConfig` the capture was within
+  1.0/255 of the first (0.3 over blocks). Without `-insecure`, three captures around the refused call stayed within
+  1.0/255 (0.3). `RemixConfig`'s refusal prints `[RemixConfig] SetConfigVariable: 'rtx.debugView.debugViewIdx' refused
+  (the RTX package's Lua does not set this option)` both for a direct call and for the module's forward.
+- **The developer gate in a PoC RTX start:** `+map gm_construct` with `+maxplayers 1` gives `single_player` true and
+  `sv_cheats` true (the session's cvars); `-insecure` comes only from `--extra=-insecure`.

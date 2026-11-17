@@ -538,14 +538,14 @@
    "imported": "2026-11-14T04:11:45+00:00"
   },
   "modules/gmcl_rtxdebug_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\debug-multiplayer\\x86_64\\Release\\gmcl_rtxdebug_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\.claude\\worktrees\\suspicious-jennings-845d66\\out\\dbgview\\built\\gmcl_rtxdebug_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/debug-multiplayer",
-    "remote": "https://github.com/SheepyLord/garrys-mod-rtx-debug-module.git",
-    "commit": "359b51bcd15eef18dfdb45482367ef43ffcf71c7",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/.claude/worktrees/suspicious-jennings-845d66",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "ff3edf550defc4b932e2e69a5ffb94cafdb6ac27",
     "dirty": false
    },
-   "imported": "2026-10-31T12:23:18+00:00"
+   "imported": "2026-11-17T04:07:23+00:00"
   },
   "source/debug/addon/lua/autorun/client/rtx_debug.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\orphan\\out\\fixes-edit\\debug\\rtx_debug.lua",
@@ -3978,12 +3978,12 @@
    "stored_sha256": "9f44e65a916c3e1c500449153dd7c03aaf7e74614975a22671156a58b9191357"
   },
   "modules/gmcl_rtxdebug_win64.dll": {
-   "size": 428032,
-   "sha256": "73edd9156bd155e4d9cb70cd75f07da798364b89ea146326f983927218f58e91",
-   "mtime_ns": 1793449210960905700,
+   "size": 430592,
+   "sha256": "29b1168932dcbe54210f19c36e329043f4aaef743e6ba3546f2e4fce8914abc3",
+   "mtime_ns": 1794888443696873600,
    "stored": "xz",
-   "stored_size": 171248,
-   "stored_sha256": "9e6ebf35e4c1532ad09d33f873bee337ff797be7ff0396dec6ed3c2b226a5fa3"
+   "stored_size": 172152,
+   "stored_sha256": "26acfcd8e9ad3a412be89de8e77911970ec03234fea35df042ed71f46ea004c8"
   },
   "modules/gmcl_RTXFixesBinary_win64.dll": {
    "size": 5655040,

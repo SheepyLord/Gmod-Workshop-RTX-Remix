@@ -142,16 +142,16 @@ SteamVR running and unchanged and take both shared locks.
    scratch in `out\tmp` (`tools\test.ps1` and `tools\build.ps1` point `TEMP`/`TMP` there), evidence in
    `out\<purpose>\`. Never the system temp folder or a sibling folder: in M1, Windows Defender blocked
    proxy builds and test hosts that were outside this folder.
-10. **No account names and no full paths of this machine in the repository** (the user, 2026-11-17): the
-   repository is public. Tracked files, commit messages, change notes, Workshop text and briefs for other
-   agents name no user or account, and give no full local path: no `C:\Users\<name>\...`, and no absolute
-   path to this checkout, its sibling folders, the Steam library, the game installs or the user's model
-   folders. Write a path relative to the repository, or a placeholder: `%USERPROFILE%` (or `~`), `<repo>`,
-   `<modding>` (the folder that holds this checkout and its siblings), `<SteamLibrary>`, `<PoC install>`,
-   `<field install>`, `<models>`. When you quote tool output, put the placeholder in first.
-   [`tools/check_repo.py`](tools/check_repo.py.md) fails on an account folder in any text file and on the
-   name of the account that runs it. Older records, [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) and some
-   tools' defaults still hold this machine's paths: add none, and replace them in the lines you touch.
+10. **No account names or absolute local paths in tracked files.** The repository is public. Tracked
+   files, commit messages, change notes, Workshop text and briefs for other agents name no user account
+   and give no absolute local path: no `C:\Users\<name>\...`, and no drive path to a checkout, its
+   sibling folders, a Steam library, a game install or a model folder. Write a path relative to the
+   repository, or a placeholder: `%USERPROFILE%` (or `~`), `<repo>`, `<modding>` (the folder that holds a
+   checkout and its siblings), `<SteamLibrary>`, `<PoC install>`, `<field install>`, `<models>`. When you
+   quote tool output, put the placeholder in first. [`tools/check_repo.py`](tools/check_repo.py.md) fails
+   on a Windows account folder in any text file and on the name of the account that runs it. Some files,
+   [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) and some tools' defaults still hold absolute local paths: add
+   none, and replace them in the lines you touch.
 
 ## Build and test
 

@@ -22,6 +22,6 @@ cd tools; python -m unittest tests.test_runtime_remix_workers
 
 **The fork's clone** (read only, `git ls-tree` and `git cat-file` of `src/util` at the base commit): `NL_RUNTIME_CLONE`,
 else the main checkout's runtime worktree `out\worktrees\r17\out\runtime-src`, else `dxvk-remix-gmod` beside the main
-checkout, else `E:\Modding_Backup\dxvk-remix-gmod`; the first that holds the base commit.
+checkout; the first that holds the base commit. Without one, the two build tests are skipped.
 
 Writes only scratch folders under `out\tmp`, removed afterwards. Exit 0 when every test passes. About 25 seconds.

@@ -45,12 +45,12 @@ def main_checkout() -> Path:
 
 def runtime_clone():
     """(a git folder of the runtime fork holding base.json's commit, the commit), or None: NL_RUNTIME_CLONE, the main
-    checkout's runtime worktree (out/worktrees/r17/out/runtime-src), dxvk-remix-gmod beside the main checkout, or
-    E:/Modding_Backup/dxvk-remix-gmod. Only read."""
+    checkout's runtime worktree (out/worktrees/r17/out/runtime-src) or dxvk-remix-gmod beside the main checkout. Only
+    read."""
     commit = json.loads((REPO / 'runtime' / 'base.json').read_text(encoding='utf-8'))['commit']
     main = main_checkout()
     candidates = [os.environ.get('NL_RUNTIME_CLONE', ''), str(main / 'out' / 'worktrees' / 'r17' / 'out' / 'runtime-src'),
-                  str(main.parent / 'dxvk-remix-gmod'), 'E:/Modding_Backup/dxvk-remix-gmod']
+                  str(main.parent / 'dxvk-remix-gmod')]
     for candidate in filter(None, candidates):
         path = Path(candidate)
         if (path / '.git').exists() and subprocess.run(

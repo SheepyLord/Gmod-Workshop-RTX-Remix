@@ -82,6 +82,17 @@ main thread was 44-63 % busy in several slices against 95-100 % warm) and are no
   (1,725 MB). With the per-read work cut to one lock (an earlier build copied the path twice a read), the record costs
   about 0.1-0.2 s a load (estimated from the reads; not measured apart).
 
+## The gate
+
+`tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set:
+
+- On `f279b07a` with the docs, in the worktree: exit 0. Its first run on that state failed only the known
+  `nl_client_catalog_tests` flake, which then passed three times out of three on its own.
+- Merged with `remix-workers` (`2ef7ee21`): exit 0. Conventions OK, CTest 35/35, Python 2,131 + 29 + 26 tests (one
+  skipped in each).
+- Then merged with `main` (`cf8d7137`), the state merged into `main`: exit 0. Conventions OK, CTest 35/35, Python
+  2,141 + 29 + 26 tests (one skipped in each).
+
 ## Not checked
 
 - **E's effect on a cold load**: the A/B was not run before the hand-over. `out/load-speedup-2/tools/field_run.py` has

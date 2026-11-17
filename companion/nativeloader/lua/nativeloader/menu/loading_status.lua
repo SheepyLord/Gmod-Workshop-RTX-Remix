@@ -637,10 +637,11 @@ local function finish(ending, now)
     local recorder = prefetchAccel()
     if recorder then
         if timed and load and load.map and load.map ~= "" and not playingDemo() then
-            local fine, saved, files, bytes = pcall(recorder.PrefetchSave, load.map, load.first == true)
+            local fine, saved, files, bytes, reads = pcall(recorder.PrefetchSave, load.map, load.first == true)
             if fine and saved then
                 MsgN(string.format("[nativeloader] load accelerator: what this load read is listed for the next load of %s " ..
-                    "(%d files, %.0f MB)", load.map, tonumber(files) or 0, (tonumber(bytes) or 0) / 1048576))
+                    "(%d files, %.0f MB%s)", load.map, tonumber(files) or 0, (tonumber(bytes) or 0) / 1048576,
+                    tonumber(reads) and string.format(", %d reads", reads) or ""))
             end
         else
             pcall(recorder.PrefetchRecord, false)

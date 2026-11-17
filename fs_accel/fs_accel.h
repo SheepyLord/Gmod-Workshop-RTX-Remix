@@ -245,6 +245,7 @@ struct Status {
   bool recording = false;
   std::uint64_t record_files = 0;
   std::uint64_t record_blocks = 0;
+  std::uint64_t record_reads = 0;  // reads recorded
   bool running = false;
   std::uint64_t files = 0;    // files read ahead by the last prefetch
   std::uint64_t bytes = 0;

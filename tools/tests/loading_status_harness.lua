@@ -676,7 +676,7 @@ elseif scenario == "prefetch" or scenario == "prefetch-off" then
         PrefetchRecord = function(on) accelCalls[#accelCalls + 1] = "record " .. tostring(on) return true end,
         PrefetchSave = function(map, last)
             accelCalls[#accelCalls + 1] = "save " .. map .. " " .. tostring(last)
-            return true, 120, 3 * 1048576
+            return true, 120, 3 * 1048576, 5000
         end,
         Prefetch = function(map)
             accelCalls[#accelCalls + 1] = "prefetch " .. tostring(map)
@@ -712,7 +712,7 @@ elseif scenario == "prefetch" or scenario == "prefetch-off" then
         -- The map read ahead at menu start is not asked for again; the game's first load is also the next start's list.
         eq(table.concat(accelCalls, " | "), "record true | save gm_construct true")
         assert(logs[1]:find("; read ahead: 2 MB of 7 files from the list of gm_construct", 1, true), logs[1])
-        assert(logs[2]:find("what this load read is listed for the next load of gm_construct (120 files, 3 MB)", 1, true), logs[2])
+        assert(logs[2]:find("what this load read is listed for the next load of gm_construct (120 files, 3 MB, 5000 reads)", 1, true), logs[2])
         -- A later load of another map: its list read ahead once (it is named twice); not the game's first load.
         accelCalls = {}
         loadMap("gm_flatgrass", true)

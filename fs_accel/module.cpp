@@ -7,7 +7,7 @@
 // nlfsaccel.SetVerify(on); nlfsaccel.FindInAddon(pattern, title) -> files, dirs | nil, reason;
 // nlfsaccel.Invalidate(); nlfsaccel.CountFind(served); nlfsaccel.Settled().
 // E (ADR 0242), in the copy that installed the hooks (the menu realm's): nlfsaccel.PrefetchRecord(on);
-// nlfsaccel.PrefetchSave(map, [last]) -> true, files, bytes | nil, reason; nlfsaccel.Prefetch([map], [budget MiB]) -> true, map |
+// nlfsaccel.PrefetchSave(map, [last]) -> true, files, bytes, reads | nil, reason; nlfsaccel.Prefetch([map], [budget MiB]) -> true, map |
 // nil, reason; nlfsaccel.PrefetchStatus() -> table.
 #include "fs_accel.h"
 
@@ -241,10 +241,12 @@ LUA_FUNCTION_STATIC(PrefetchSave) {
     return 2;
   }
   if (last) write_last(folder, map);
+  const auto recorded = nl::fs_accel::prefetch::status();
   LUA->PushBool(true);
   LUA->PushNumber(static_cast<double>(entries.size()));
   LUA->PushNumber(static_cast<double>(blocks << nl::fs_accel::prefetch::kBlockShift));
-  return 3;
+  LUA->PushNumber(static_cast<double>(recorded.record_reads));
+  return 4;
 }
 
 // nlfsaccel.Prefetch([map], [budget MiB]): reads ahead what that map's list names (no map: the last list saved), at
@@ -290,6 +292,7 @@ LUA_FUNCTION_STATIC(PrefetchStatus) {
   LUA->SetField(-2, "recording");
   set_number(LUA, "record_files", static_cast<double>(status.record_files));
   set_number(LUA, "record_bytes", static_cast<double>(status.record_blocks << nl::fs_accel::prefetch::kBlockShift));
+  set_number(LUA, "record_reads", static_cast<double>(status.record_reads));
   LUA->PushBool(status.running);
   LUA->SetField(-2, "running");
   set_number(LUA, "files", static_cast<double>(status.files));

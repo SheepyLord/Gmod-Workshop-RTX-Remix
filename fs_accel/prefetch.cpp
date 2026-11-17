@@ -70,15 +70,20 @@ struct FileRec {
   std::wstring path;
   std::vector<std::uint64_t> bits;
   std::uint64_t blocks = 0;
+  std::uint64_t first_read = UINT64_MAX;  // the order of its first read (files are listed in it)
 };
 
+// A read costs one lock and no allocation: each handle is mapped to its file's index once (at its open, or at its
+// first read), and the read only sets bits.
 struct Recorder {
   SRWLOCK lock = SRWLOCK_INIT;
   std::atomic<bool> on{false};
-  std::unordered_map<void*, std::wstring> handles;        // handle -> path ("" : not a file this records)
-  std::unordered_map<std::wstring, std::size_t> by_path;  // lower-case path -> index in files
+  std::unordered_map<void*, std::int32_t> handles;         // handle -> index in files (-1: not a file this records)
+  std::unordered_map<std::wstring, std::int32_t> by_path;  // lower-case path -> index in files
   std::vector<FileRec> files;
   std::uint64_t blocks = 0;
+  std::uint64_t reads_seen = 0;  // reads recorded (under the lock)
+  std::uint64_t sequence = 0;
 };
 
 Recorder& recorder() {
@@ -125,12 +130,47 @@ std::wstring full_path(const wchar_t* name) {
   return plain_path(std::wstring(buffer, size));
 }
 
-void note_handle(void* handle, std::wstring path) noexcept {
+// The handle's file, under the lock: its index (created on first sight), or -1 for a path this does not record.
+std::int32_t index_for(Recorder& r, const std::wstring& path) {
+  if (path.empty()) return -1;
+  const std::wstring key = lower(path);
+  if (const auto it = r.by_path.find(key); it != r.by_path.end()) return it->second;
+  if (r.files.size() >= kMaxFiles) return -1;
+  const auto index = static_cast<std::int32_t>(r.files.size());
+  r.files.push_back(FileRec{path, {}, 0, UINT64_MAX});
+  r.by_path.emplace(key, index);
+  return index;
+}
+
+// Returns the handle's index (-1: not recorded).
+std::int32_t note_handle(void* handle, const std::wstring& path) noexcept {
   Recorder& r = recorder();
   try {
     Exclusive scope(r.lock);
-    if (r.on.load(std::memory_order_relaxed) && r.handles.size() < kMaxFiles * 2) r.handles[handle] = std::move(path);
+    if (!r.on.load(std::memory_order_relaxed) || r.handles.size() >= kMaxFiles * 2) return -1;
+    const std::int32_t index = index_for(r, path);
+    r.handles[handle] = index;
+    return index;
   } catch (...) {
+    return -1;
+  }
+}
+
+// Under the lock: the blocks of one read.
+void mark(Recorder& r, std::int32_t index, std::uint64_t first, std::uint64_t last) {
+  if (!r.on.load(std::memory_order_relaxed) || index < 0 || static_cast<std::size_t>(index) >= r.files.size()) return;
+  FileRec& file = r.files[static_cast<std::size_t>(index)];
+  ++r.reads_seen;
+  if (file.first_read == UINT64_MAX) file.first_read = ++r.sequence;
+  if (file.bits.size() <= (last >> 6)) file.bits.resize(static_cast<std::size_t>((last >> 6) + 1), 0);
+  for (std::uint64_t block = first; block <= last; ++block) {
+    std::uint64_t& word = file.bits[static_cast<std::size_t>(block >> 6)];
+    const std::uint64_t bit = 1ull << (block & 63);
+    if (!(word & bit)) {
+      word |= bit;
+      ++file.blocks;
+      ++r.blocks;
+    }
   }
 }
 
@@ -153,6 +193,8 @@ void record_start() noexcept {
   r.by_path.clear();
   r.files.clear();
   r.blocks = 0;
+  r.reads_seen = 0;
+  r.sequence = 0;
   r.on.store(true, std::memory_order_release);
 }
 
@@ -197,50 +239,24 @@ void read(void* handle, std::uint64_t bytes, const void* overlapped) noexcept {
   const std::uint64_t last = (offset + bytes - 1) >> kBlockShift;
   if (last >= kMaxBlockIndex) return;
   try {
-    // The handle's file: named at its open, or asked of Windows once.
-    std::wstring path;
+    // The handle's file: named at its open, or asked of Windows once (outside the lock).
+    std::int32_t index = -1;
     bool known = false;
     {
-      Shared scope(r.lock);
+      Exclusive scope(r.lock);
       if (const auto it = r.handles.find(handle); it != r.handles.end()) {
-        path = it->second;
-        known = true;
-      }
-    }
-    if (!known) {
-      wchar_t buffer[1024];
-      const DWORD size = GetFinalPathNameByHandleW(handle, buffer, 1024, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-      if (size > 0 && size < 1024) path = plain_path(std::wstring(buffer, size));
-      note_handle(handle, path);
-    }
-    if (path.empty()) return;
-    const std::wstring key = lower(path);
-    Exclusive scope(r.lock);
-    if (r.on.load(std::memory_order_relaxed)) {
-      std::size_t index;
-      if (const auto it = r.by_path.find(key); it != r.by_path.end()) {
         index = it->second;
-      } else if (r.files.size() < kMaxFiles) {
-        index = r.files.size();
-        r.files.push_back(FileRec{path, {}, 0});
-        r.by_path.emplace(key, index);
-      } else {
-        index = SIZE_MAX;
-      }
-      if (index != SIZE_MAX) {
-        FileRec& file = r.files[index];
-        if (file.bits.size() <= (last >> 6)) file.bits.resize(static_cast<std::size_t>((last >> 6) + 1), 0);
-        for (std::uint64_t block = first; block <= last; ++block) {
-          std::uint64_t& word = file.bits[static_cast<std::size_t>(block >> 6)];
-          const std::uint64_t bit = 1ull << (block & 63);
-          if (!(word & bit)) {
-            word |= bit;
-            ++file.blocks;
-            ++r.blocks;
-          }
-        }
+        known = true;
+        if (index >= 0) mark(r, index, first, last);
       }
     }
+    if (known) return;
+    wchar_t buffer[1024];
+    const DWORD size = GetFinalPathNameByHandleW(handle, buffer, 1024, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    index = note_handle(handle, size > 0 && size < 1024 ? plain_path(std::wstring(buffer, size)) : std::wstring());
+    if (index < 0) return;
+    Exclusive scope(r.lock);
+    mark(r, index, first, last);
   } catch (...) {
     // Out of memory: this read is not recorded.
   }
@@ -256,6 +272,9 @@ std::vector<Entry> record_list(std::uint64_t budget) {
     } catch (...) {
     }
   }
+  // In the order of their first reads; files opened and never read are left out.
+  files.erase(std::remove_if(files.begin(), files.end(), [](const FileRec& f) { return f.first_read == UINT64_MAX; }), files.end());
+  std::sort(files.begin(), files.end(), [](const FileRec& a, const FileRec& b) { return a.first_read < b.first_read; });
   std::vector<Entry> out;
   std::uint64_t total = 0;
   for (const FileRec& file : files) {
@@ -488,6 +507,7 @@ Status status() {
     out.recording = r.on.load(std::memory_order_relaxed);
     out.record_files = r.files.size();
     out.record_blocks = r.blocks;
+    out.record_reads = r.reads_seen;
   }
   Runner& run = runner();
   out.running = run.running.load(std::memory_order_acquire);

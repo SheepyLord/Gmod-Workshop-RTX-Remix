@@ -91,3 +91,13 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   list is named where it is kept (`library.lua`, `library.import.registry_damaged` in the seven catalogs). The file
   access manager lists each remembered folder by its own name and dates (`mmd_hotloader/lua/mmdhl/file_access.lua`):
   the natives' list no longer hands out the label, script and folder a remembered folder is matched by.
+- **2026-11-16, the map-start work done once, the warm characters after the map runs** (the second load speed-up plan,
+  items H1-H3; [report](../../docs/handover/load-speedup-2-report.md),
+  [ADR 0238](../../docs/decisions/0238-the-hotloaders-map-start-work-once-and-after-the-map-runs.md)): a burst of
+  `mmdhl_catalog` messages builds the library once on the next tick (`library.RequestRefresh`), and a single-player
+  client does not build it for the catalog at all (`mmd_hotloader/lua/mmdhl/sharing.lua`); `library.Refresh` keeps
+  each character's decoded manifest while its size and time stay the same (`mmd_hotloader/lua/mmdhl/library.lua`);
+  the map start's `PruneRigs` and restoration share one table of decoded rigs (`sharing.lua`, `readRig`); in a game a
+  player hosts, the characters the memory profile keeps ready are made ready once the map runs, one character every
+  3 s from 5 s after the host's catalog request, 90 s at the latest (`mmd_hotloader/lua/mmdhl/actors.lua`,
+  `mmdhl.readiness.HostReady`/`WarmNext`; the catalog command starts it, `sharing.lua`).

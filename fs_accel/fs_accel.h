@@ -61,6 +61,8 @@ struct Counters {
   std::atomic<std::uint32_t> enabled{1};        // A answers (1) or only passes on (0)
   std::atomic<std::uint32_t> verify{0};         // A also asks Windows and counts disagreements (1)
   std::atomic<std::uint32_t> settled{0};        // a map has loaded with the hooks in (settle()): the marker may go
+  // Load-speedup round 2 (ADR 0239): of `roots`, the links and junctions cached (their target, or its absence).
+  std::atomic<std::uint32_t> links{0};
 };
 
 class LooseCache {
@@ -70,10 +72,24 @@ class LooseCache {
   LooseCache(const LooseCache&) = delete;
   LooseCache& operator=(const LooseCache&) = delete;
 
-  // garrysmod: the game's "<root>\garrysmod" folder. Caches every folder directly under garrysmod\addons that is a
-  // plain directory (not a reparse point) with an ASCII name, except those another process writes into while the game
-  // runs (the Model Hotloader's mmdhl_*); and garrysmod\workshop, which is normally missing.
+  // garrysmod: the game's "<root>\garrysmod" folder. Caches every folder directly under garrysmod\addons with an ASCII
+  // name: a plain directory, or (ADR 0239) a junction or directory link that leads to a directory on a local fixed
+  // drive (listed through the link; its target watched on its own) or whose target is missing (every path below it is
+  // a missing path; the nearest folder on the way to the target is watched for it to appear); and garrysmod\workshop,
+  // which is normally missing. Other reparse points, and links to network or removable drives, are not cached.
   bool init(const std::wstring& garrysmod, Counters* counters, std::string* reason);
+
+  // The links and junctions cached, for the watcher: each one's key, the folder to watch (the target itself with its
+  // subtree; or, for a missing target, the nearest folder that exists, its own entries only) and the link's own path
+  // (opening it follows the link: whether a missing target appeared).
+  struct LinkWatch {
+    std::string key;
+    std::wstring watch;
+    bool subtree = false;
+    bool missing = false;
+    std::wstring link;
+  };
+  std::vector<LinkWatch> link_watches() const;
 
   // The verdict for a normalized full path. Pass for anything outside the cached folders, or that exists, or that the
   // cache cannot be sure of.
@@ -106,12 +122,16 @@ class LooseCache {
 };
 
 // The watcher: one thread with ReadDirectoryChangesW on garrysmod\addons (the subtree) and on garrysmod (for a new
-// workshop folder). Armed before any listing is taken; a change under a cached folder drops it, an overflow drops all.
-// While a notification waits to be read the cache answers nothing (the cache's pending probe).
+// workshop folder), and one on each cached link's target, or on the folder its missing target would appear in
+// (ADR 0239). Armed before any listing is taken; a change under a cached folder drops it, an overflow drops all (a
+// link's watch: that link). While a notification waits to be read the cache answers nothing (the cache's pending
+// probe).
 class Watcher {
  public:
   bool arm(const std::wstring& garrysmod, std::string* reason);  // before the cache lists anything
-  bool run(LooseCache* cache, std::string* reason);               // the thread; sets the cache's probe
+  // The thread; arms the cache's link watches first (a link that cannot be watched, or whose missing target appeared
+  // meanwhile, is dropped), then sets the cache's probe.
+  bool run(LooseCache* cache, std::string* reason);
 
   struct Impl;
 

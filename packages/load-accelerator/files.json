@@ -3,42 +3,42 @@
  "part": "load-accelerator",
  "origins": {
   "bin/gmcl_nlfsaccel_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r26\\out\\build\\win64-release\\fs_accel\\gmcl_nlfsaccel_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\ls2\\out\\build\\win64-release\\fs_accel\\gmcl_nlfsaccel_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/ls2",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248",
+    "commit": "e2db2adcb38b654c6ee12f489fbf0d0c6bbb0bb4",
     "dirty": false
    },
-   "imported": "2026-11-09T13:25:18+00:00"
+   "imported": "2026-11-17T05:47:34+00:00"
   },
   "bin/gmsv_nlfsaccel_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r26\\out\\build\\win64-release\\fs_accel\\gmsv_nlfsaccel_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\ls2\\out\\build\\win64-release\\fs_accel\\gmsv_nlfsaccel_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r26",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/ls2",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "fb73c58c104336dc0cb2819a3a7e3d17c4ed5248",
+    "commit": "e2db2adcb38b654c6ee12f489fbf0d0c6bbb0bb4",
     "dirty": false
    },
-   "imported": "2026-11-09T13:25:15+00:00"
+   "imported": "2026-11-17T05:47:38+00:00"
   }
  },
  "files": {
   "bin/gmcl_nlfsaccel_win64.dll": {
-   "size": 272896,
-   "sha256": "e442802001f3edbade108203ca6fb1ee06ae1001ca6039fef99f83ece4fda2c3",
-   "mtime_ns": 1794230714290728500,
+   "size": 284160,
+   "sha256": "caf718897e744790501d0aff9e0ed0f03632014bd0f266c842db0f54b50e9011",
+   "mtime_ns": 1794894378248343500,
    "stored": "xz",
-   "stored_size": 113552,
-   "stored_sha256": "6bed201cf5fbc0487adb64a3a2e91e3efab98dbe94942b8949fb6f5ab294ffd8"
+   "stored_size": 117560,
+   "stored_sha256": "bd060345e2ae960d43defe65f138ab1a63095bd37f00619d081b391a456ca640"
   },
   "bin/gmsv_nlfsaccel_win64.dll": {
-   "size": 272896,
-   "sha256": "9889b4d53255ec956817c99eb469ae88e58fb306ab0ef20b6689c25d3879203f",
-   "mtime_ns": 1794230714290728500,
+   "size": 284160,
+   "sha256": "9d3e3e73132dbdecaf65761ef977dc766938d5c0ecce8ded999fcb90d6ad0056",
+   "mtime_ns": 1794894378247341200,
    "stored": "xz",
-   "stored_size": 113500,
-   "stored_sha256": "ab30dc659a5183ac130d5df5d28fde97461af038edb5ebddbfe8cc3aeee0548c"
+   "stored_size": 117556,
+   "stored_sha256": "26e33c79a41f1c8f467c523c707547ad56dc3c7eb9899e896353c35e1e2ad4ba"
   }
  }
 }

@@ -263,12 +263,21 @@ if SERVER then
   return tostring(entry.asset)..'|'..tostring(entry.role)..'|'..(isstring(profile) and profile:find('_male$') and 'male' or 'female')
  end
  local function newestFirst(a,b) if a.time~=b.time then return a.time>b.time end return a.key<b.key end
- function mmdhl.PruneRigs()
+ -- A saved rig's rig.json, decoded; with `decoded` (a table one map start shares) each rig is decoded once there:
+ -- PruneRigs and the restoration both read every saved rig (298 of about 230 KB each took 1 s for each pass;
+ -- load-speedup round 2, ADR 0238).
+ local function readRig(key,decoded)
+  if not decoded then return util.JSONToTable(file.Read('mmd_hotloader/rigs/'..key..'/rig.json','DATA') or '') end
+  local rig=decoded[key]
+  if rig==nil then rig=util.JSONToTable(file.Read('mmd_hotloader/rigs/'..key..'/rig.json','DATA') or '') or false decoded[key]=rig end
+  return rig or nil
+ end
+ function mmdhl.PruneRigs(decoded)
   local groups,used,changed={},{},false
   for key,entry in pairs(approved.rigs) do
    if not istable(entry) or not isstring(entry.asset) or not approved.assets[entry.asset] then approved.rigs[key]=nil changed=true
    elseif entry.role~='arms' then
-    local rig=util.JSONToTable(file.Read('mmd_hotloader/rigs/'..key..'/rig.json','DATA') or '')
+    local rig=readRig(key,decoded)
     if not istable(rig) then approved.rigs[key]=nil changed=true
     else local g=rigGroup(entry,rig) groups[g]=groups[g] or {} groups[g][#groups[g]+1]={key=key,time=rigTime(key)} end
    end
@@ -284,11 +293,12 @@ if SERVER then
   return changed
  end
  hook.Add('InitPostEntity','MMDHL.RestorePublishedActors',function()
-  if mmdhl.PruneRigs() then save() end
+  local decoded={}
+  if mmdhl.PruneRigs(decoded) then save() end
   local entries,groups={},{}
   for id,entry in pairs(approved.rigs) do if entry.role~='ragdoll' and entry.role~='arms' and approved.assets[entry.asset] then
-   local r=util.JSONToTable(file.Read('mmd_hotloader/rigs/'..id..'/rig.json','DATA') or '')
-   local a=entry.arms and util.JSONToTable(file.Read('mmd_hotloader/rigs/'..entry.arms..'/rig.json','DATA') or '') or nil
+   local r=readRig(id,decoded)
+   local a=entry.arms and readRig(entry.arms,decoded) or nil
    if mmdhl.IsLoadableRig(r) and (not entry.arms or mmdhl.IsLoadableRig(a)) and file.Exists('mmd_hotloader/rigs/'..id..'/carrier.gma','DATA') then
     local g=rigGroup(entry,r) groups[g]=groups[g] or {} groups[g][#groups[g]+1]={key=id,time=rigTime(id),rig=r,arms=a}
    end
@@ -364,10 +374,18 @@ else
   message(nil,current.kind=='static' and 'request_prop' or 'request',0) net.WriteString(current.id) send() progress(current.kind=='static' and L'share.progress.requesting_prop' or L'share.progress.requesting_model',0)
  end)
  hook.Add('InitPostEntity','MMDHL.SharedCatalog',function() message(nil,'catalog',0) send() end)
+ -- The server sends its catalog as one message per approved character, all at once: the library is built again once,
+ -- on the next tick, not for every message (load-speedup round 2, ADR 0238). In single-player the library leaves the
+ -- shared catalog out (library.lua), so it is not built again for it at all.
+ local function catalogChanged()
+  local library=mmdhl.library
+  if not library or game.SinglePlayer() then return end
+  if isfunction(library.RequestRefresh) then library.RequestRefresh() else library.Refresh() end
+ end
  net.Receive('mmdhl_catalog',function()
   local id,name=net.ReadString(),net.ReadString() if #id~=64 or id:find('[^a-f0-9]') then return end
   mmdhl.sharedAssets[id]={id=id,name=name,settings={},shared=true,info={vertices=0}}
-  if mmdhl.library then mmdhl.library.Refresh() end
+  catalogChanged()
  end)
  -- Approvals the server withdrew (a Workshop package gone, a model forgotten).
  net.Receive('mmdhl_catalog_forget',function()
@@ -375,14 +393,19 @@ else
   for i=1,net.ReadUInt(8) do ids[i]=net.ReadString() end
   if static then if mmdhl.props and mmdhl.props.library then mmdhl.props.library.Withdraw(ids) end return end
   for _,id in ipairs(ids) do mmdhl.sharedAssets[id]=nil if mmdhl.UnregisterAsset then mmdhl.UnregisterAsset(id) end end
-  if mmdhl.library then mmdhl.library.Refresh() end
+  catalogChanged()
  end)
 end
 net.Receive('mmdhl_share',function(_,p)
  local command,token=net.ReadString(),net.ReadUInt(32) local k=key(p)
  local function refuse(why) message(p,'error',0) net.WriteString(why) send(p) end
  if command=='catalog' and SERVER then
-  if RealTime()>=(p.MMDHLCatalogAt or 0) then p.MMDHLCatalogAt=RealTime()+5 mmdhl.SendSharedCatalog(p) end return
+  if RealTime()>=(p.MMDHLCatalogAt or 0) then p.MMDHLCatalogAt=RealTime()+5 mmdhl.SendSharedCatalog(p) end
+  -- The host's client asks from its InitPostEntity: the map runs, and the characters kept ready are made ready from
+  -- now on (actors.lua, ADR 0238), not before the player could play.
+  if mmdhl.readiness and isfunction(mmdhl.readiness.HostReady) and IsValid(p)
+   and (game.SinglePlayer() or (isfunction(p.IsListenServerHost) and p:IsListenServerHost())) then mmdhl.readiness.HostReady() end
+  return
  end
  -- Requests are refused while this peer has a transfer, before any file is hashed.
  if command=='request' and SERVER then

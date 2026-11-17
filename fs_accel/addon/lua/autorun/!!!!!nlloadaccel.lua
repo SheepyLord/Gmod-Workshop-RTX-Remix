@@ -208,8 +208,9 @@ hook.Add("InitPostEntity", "nlloadaccel", function()
         local status = accel.Status()
         local parts = {}
         if status.installed then
+            local links = tonumber(status.links) or 0
             parts[#parts + 1] = string.Comma(status.answered or 0) .. " file lookups answered from memory in " ..
-                tostring(status.roots or 0) .. " folders"
+                tostring(status.roots or 0) .. " folders" .. (links > 0 and (" (" .. links .. " links)") or "")
         else
             parts[#parts + 1] = "file lookups GMod's own"
         end

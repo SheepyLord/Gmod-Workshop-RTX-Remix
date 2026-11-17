@@ -733,22 +733,85 @@ function R.Choose(entries,budget)
  end
  return chosen,total,order
 end
--- Map start: every saved NPC and player-model entry is published; the chosen ones are made ready
--- (mounted, precached) now, the others when first used. entries: {rig=,arms=} with loadable rigs.
+-- When the chosen characters are made ready (load-speedup round 2, ADR 0238). A dedicated server has nobody waiting at
+-- a map's start and makes them ready at once. A game a player hosts (single-player, a listen server) would hold the
+-- player's load for them: ten characters' material archives (3.9 GiB) took about 5 s of it, read again on every map.
+-- There every entry is published at the map's start, and the chosen characters are made ready one at a time once the
+-- host's client runs (its InitPostEntity asks for the catalog, sharing.lua): the first WARM_FIRST seconds after that,
+-- then one every WARM_EVERY seconds, newest use first; WARM_FALLBACK seconds after the map's start at the latest. A
+-- character used before its turn is made ready at that use, as any other entry.
+local WARM_FIRST,WARM_EVERY,WARM_FALLBACK=5,3,90
+function R.Deferred() return not (isfunction(game.IsDedicated) and game.IsDedicated()) end
+local function profileName(budget)
+ return budget.profile and tostring(budget.profile) or (budget.source=='none' and 'absent' or budget.source)
+end
+-- One character of the queue made ready (each of its chosen entries); true while more wait.
+function R.WarmNext()
+ local queue=R.pending
+ if not istable(queue) then return false end
+ local item=table.remove(queue,1)
+ local state=R.state or {}
+ if item then
+  local started=SysTime()
+  for _,model in ipairs(item.models) do
+   local entry=mmdhl.actorRegistrations[model]
+   if entry and entry.lazy then
+    if mmdhl.PrepareRegisteredActor(model) then state.readyEntries=(state.readyEntries or 0)+1 else state.failed=(state.failed or 0)+1 end
+   end
+   state.deferredEntries=math.max(0,(state.deferredEntries or 0)-1)
+  end
+  state.warmSeconds=(state.warmSeconds or 0)+(SysTime()-started)
+  state.warmCharacters=(state.warmCharacters or 0)+1
+ end
+ if #queue>0 then return true end
+ R.pending=nil
+ timer.Remove('MMDHL.WarmCharacters')
+ MsgN(string.format('[Model Hotloader] Saved characters ready while the map runs: %d entries (%d characters) in %.1f s.',
+  state.readyEntries or 0,state.warmCharacters or 0,state.warmSeconds or 0))
+ return false
+end
+-- The host's client runs (or WARM_FALLBACK seconds passed): the queue starts, once.
+function R.HostReady()
+ if not istable(R.pending) or R.warmBegun then return end
+ R.warmBegun=true
+ timer.Simple(WARM_FIRST,function()
+  if R.WarmNext() then timer.Create('MMDHL.WarmCharacters',WARM_EVERY,0,R.WarmNext) end
+ end)
+end
+-- Map start: every saved NPC and player-model entry is published; the chosen ones are made ready (mounted, precached)
+-- now on a dedicated server, else once the map runs (above); the others when first used. entries: {rig=,arms=} with
+-- loadable rigs.
 function mmdhl.RestoreActors(entries)
  local budget=R.Budget()
- local chosen,bytes=R.Choose(entries,budget)
- local ready,lazy,failed=0,0,0
+ local chosen,bytes,ranked=R.Choose(entries,budget)
+ local defer=R.Deferred() and next(chosen)~=nil
+ local ready,lazy,failed,deferred=0,0,0,0
+ local queued={}
  for _,entry in ipairs(entries) do
-  if chosen[entry.rig.asset] then
+  local id=entry.rig.asset
+  if chosen[id] and not defer then
    if mmdhl.RegisterActor(entry.rig,entry.arms) then ready=ready+1 else failed=failed+1 end
-  elseif mmdhl.PublishActorEntry(entry.rig,entry.arms) then lazy=lazy+1
+  elseif mmdhl.PublishActorEntry(entry.rig,entry.arms) then
+   if chosen[id] then
+    deferred=deferred+1
+    queued[id]=queued[id] or {id=id,models={}}
+    queued[id].models[#queued[id].models+1]=entry.rig.model
+   else lazy=lazy+1 end
   else failed=failed+1 end
  end
- R.state={budget=budget,chosen=table.GetKeys(chosen),readyEntries=ready,lazyEntries=lazy,failed=failed,archiveBytes=bytes}
+ R.state={budget=budget,chosen=table.GetKeys(chosen),readyEntries=ready,lazyEntries=lazy,deferredEntries=deferred,failed=failed,archiveBytes=bytes}
+ R.pending,R.warmBegun=nil,nil
+ timer.Remove('MMDHL.WarmCharacters')
+ if deferred>0 then
+  local pending={}
+  for _,item in ipairs(ranked or {}) do if queued[item.id] then pending[#pending+1]=queued[item.id] end end
+  R.pending=pending
+  timer.Simple(WARM_FALLBACK,R.HostReady)
+ end
  if #entries>0 then
-  MsgN(string.format('[Model Hotloader] Saved characters: %d entries ready (%d characters, %.1f GiB of material archives; memory profile %s), %d load when first used%s.',
-   ready,table.Count(chosen),bytes/1073741824,budget.profile and tostring(budget.profile) or (budget.source=='none' and 'absent' or budget.source),lazy,failed>0 and (', '..failed..' unavailable') or ''))
+  local readyText=deferred>0 and string.format('%d entries ready once the map runs',deferred) or string.format('%d entries ready',ready)
+  MsgN(string.format('[Model Hotloader] Saved characters: %s (%d characters, %.1f GiB of material archives; memory profile %s), %d load when first used%s.',
+   readyText,table.Count(chosen),bytes/1073741824,profileName(budget),lazy,failed>0 and (', '..failed..' unavailable') or ''))
  end
  return R.state
 end
@@ -771,5 +834,6 @@ function R.Describe()
  for _,entry in pairs(mmdhl.actorRegistrations or {}) do if entry.lazy then lazy=lazy+1 else ready=ready+1 end end
  local state=R.state or {}
  return {realm='server',budget=R.Budget(),chosen=state.chosen,lazyEntries=lazy,readyEntries=ready,
-  restoredReady=state.readyEntries,restoredLazy=state.lazyEntries,failed=state.failed,archiveBytes=state.archiveBytes}
+  restoredReady=state.readyEntries,restoredLazy=state.lazyEntries,failed=state.failed,archiveBytes=state.archiveBytes,
+  deferredEntries=state.deferredEntries,waitingCharacters=istable(R.pending) and #R.pending or 0}
 end

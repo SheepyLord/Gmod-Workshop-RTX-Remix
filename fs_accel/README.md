@@ -25,10 +25,18 @@ once.
   `GetFileAttributesExA/W` and answers "not there" (`ERROR_FILE_NOT_FOUND`, or `ERROR_PATH_NOT_FOUND` for a missing
   folder on the way) for a read-only lookup inside a cached folder whose directory listing (taken on first use) has no
   such name, as Windows would. Everything else goes on unchanged to the slot's previous function: the loader's own
-  hook where it has one (in RTX starts it redirects a few reads), else Windows. Cached: each plain folder directly in
-  `garrysmod/addons` with an ASCII name (not a junction or link, not the Model Hotloader's `mmdhl_*`, which its worker
-  writes into while the game runs, not two folders whose names differ only in case) and `garrysmod/workshop`, which is
-  normally missing. Only plain ASCII `X:\...` paths are answered (no `\\?\`, UNC, `.`/`..`, streams, wildcards,
+  hook where it has one (in RTX starts it redirects a few reads), else Windows. Cached: each folder directly in
+  `garrysmod/addons` with an ASCII name (not two folders whose names differ only in case) and `garrysmod/workshop`,
+  which is normally missing. From [ADR 0239](../docs/decisions/0239-the-load-accelerator-caches-links-junctions-and-character-packs.md)
+  that includes the Model Hotloader's `mmdhl_*` character packs (the loader deploys them before the game starts) and
+  junctions and directory symbolic links (`FSCTL_GET_REPARSE_POINT`, a relative link resolved against its folder,
+  at most 48): one whose target is a directory on a local fixed drive is listed through the link and its resolved
+  target watched on its own (its subtree); one whose target is missing answers every path through it
+  `ERROR_PATH_NOT_FOUND`, as Windows does (the link itself goes to Windows), and the nearest existing folder on the way
+  to the target is watched. Any other reparse point (cloud files, deduplication, app aliases), a network or removable
+  target, a link to a file or a missing target behind a file is not cached. A change, an overflow or an error seen by a
+  link's own watch drops that link alone; a missing target that appeared before its watch was armed is checked after
+  arming. Only plain ASCII `X:\...` paths are answered (no `\\?\`, UNC, `.`/`..`, streams, wildcards,
   trailing dots or spaces, 8.3 names or devices). A watcher thread (`ReadDirectoryChangesW`, armed before any listing)
   stops caching a folder that changes; while a change notification waits to be read nothing is answered; an open the
   game itself makes that can create or delete a file in a folder stops it at once. Positive lookups always reach the
@@ -52,7 +60,7 @@ once.
 | `loose_cache.cpp` | A: the cached folders, their listings and verdicts (`LooseCache`), the watcher thread (`Watcher`) |
 | `hooks.cpp` | A: the import hooks on `filesystem_stdio.dll` (chained, once per process, the other copy's hooks recognised by the `nl_fs_accel_v1` export), verify mode, the counters, the start-up marker and `settle()`, `install()` |
 | `addon_index.cpp` | B: finding `Addon::FileSystem`, reading GMod's table under SEH, the index and the search (`AddonIndex`) |
-| `module.cpp` | `gmod13_open`: the `nlfsaccel` Lua table (`Install`, `Status`, `SetEnabled`, `SetVerify`, `FindInAddon`, `Invalidate`, `CountFind`, `Settled`) |
-| `tests/test_loose.cpp` | The path rules and wildcards; the cache's verdicts against Windows' own answers on generated trees; a folder with a name Windows could fold differently; the hook bodies (answered without the next function, the rest passed on, writes drop a folder, off); the watcher (a change seen, read, the folder dropped, the others answered again); the start-up marker (its own, a running process's, a gone one's, a reused id, text that is no marker) |
+| `module.cpp` | `gmod13_open`: the `nlfsaccel` Lua table (`Install`, `Status` (with `links`, the links and junctions cached), `SetEnabled`, `SetVerify`, `FindInAddon`, `Invalidate`, `CountFind`, `Settled`) |
+| `tests/test_loose.cpp` | The path rules and wildcards; the cache's verdicts against Windows' own answers on generated trees; junctions (live, to a missing folder whose parent exists, to one several missing folders deep) and, where the account may make one, a directory symbolic link, against Windows' answers; links that are not cached; a change behind a link that drops it; a folder with a name Windows could fold differently; the hook bodies (answered without the next function, the rest passed on, writes drop a folder, off); the watcher (a change seen, read, the folder dropped, the others answered again); the start-up marker (its own, a running process's, a gone one's, a reused id, text that is no marker) |
 | `tests/test_index.cpp` | The index against a table laid out as GMod's (built with the same C++ library): directories and files per add-on, a title shared by two add-ons (each name once), a mount that owns nothing, wildcards (one in the folder part left to GMod), case and slashes, a rebuild after a change but not twice within 2 s, a remount with every size the same, a table that does not hold together, a tree link pointing back at its node |
 | `addon/lua/autorun/!!!!!nlloadaccel.lua` | The add-on: loads the module in the server and client realms, adopts A (or installs it), replaces `file.Find` for add-on titles after a self-test, the checks, the off file for the menu realm, `Settled()` and the tally after a load ([its documentation](addon/lua/autorun/!!!!!nlloadaccel.lua.md)) |

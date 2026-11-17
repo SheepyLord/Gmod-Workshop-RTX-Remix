@@ -1,9 +1,11 @@
-// A: the loose-folder negative cache and its watcher (R26, ADR 0140).
+// A: the loose-folder negative cache and its watcher (R26, ADR 0140; links and junctions, ADR 0239).
 #include "fs_accel.h"
 
 #include <windows.h>
+#include <winioctl.h>
 
 #include <algorithm>
+#include <cstring>
 #include <map>
 
 namespace nl::fs_accel {
@@ -20,14 +22,153 @@ struct LooseCache::Root {
   };
 
   std::string key;    // "addons\<folder>" or "workshop", normalized
-  std::wstring dir;   // the folder on disk
-  bool missing = false;  // the folder does not exist: every path under it is a missing path
+  std::wstring dir;   // the folder on disk (a link's own path: listings go through it)
+  bool missing = false;  // the folder (a link's target) does not exist: every path under it is a missing path
+  bool link = false;     // a junction or directory link (ADR 0239)
+  std::wstring watch;    // a link's: the folder its watch is on (the target, or where a missing target would appear)
+  bool watch_subtree = false;
+  std::wstring target;   // a link's target
   std::atomic<bool> dropped{false};
   SRWLOCK lock = SRWLOCK_INIT;
   std::map<std::string, std::unique_ptr<const Listing>, std::less<>> listings;  // "" is the folder itself
 };
 
 namespace {
+
+// ---- Links and junctions (ADR 0239) --------------------------------------------------------------------------------
+
+constexpr std::size_t kMaxLinks = 48;  // a watch each; WaitForMultipleObjects takes 64 handles in all
+constexpr ULONG kSymlinkRelative = 1;  // SYMLINK_FLAG_RELATIVE (ntifs.h)
+
+// REPARSE_DATA_BUFFER's two layouts this cache reads (ntifs.h).
+struct ReparseData {
+  ULONG tag;
+  USHORT data_length;
+  USHORT reserved;
+  USHORT substitute_offset;
+  USHORT substitute_length;
+  USHORT print_offset;
+  USHORT print_length;
+  // A symbolic link has ULONG Flags here, then its PathBuffer; a mount point (junction) its PathBuffer at once.
+};
+
+// The local fixed drive "X:\" of an absolute path ("X:\..." or "\\?\X:\..."), or false.
+bool local_fixed(std::wstring_view path) noexcept {
+  if (path.substr(0, 4) == L"\\\\?\\") path.remove_prefix(4);
+  if (path.size() < 3 || path[1] != L':' || path[2] != L'\\') return false;
+  const wchar_t letter = path[0];
+  if (!((letter >= L'A' && letter <= L'Z') || (letter >= L'a' && letter <= L'z'))) return false;
+  const wchar_t root[4] = {letter, L':', L'\\', 0};
+  return GetDriveTypeW(root) == DRIVE_FIXED;
+}
+
+// What a junction or directory symbolic link at `link` points at, as a plain "X:\..." path (a relative link resolved
+// against its folder). False for any other kind of reparse point, a volume or network target, or one not read.
+bool read_link_target(const std::wstring& link, std::wstring& target) {
+  const HANDLE handle = CreateFileW(link.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                    nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return false;
+  std::vector<std::byte> buffer(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+  DWORD got = 0;
+  const bool ok = DeviceIoControl(handle, FSCTL_GET_REPARSE_POINT, nullptr, 0, buffer.data(),
+                                  static_cast<DWORD>(buffer.size()), &got, nullptr) != FALSE;
+  CloseHandle(handle);
+  if (!ok || got < sizeof(ReparseData)) return false;
+  const auto* data = reinterpret_cast<const ReparseData*>(buffer.data());
+  std::size_t names = 0;
+  bool relative = false;
+  if (data->tag == IO_REPARSE_TAG_MOUNT_POINT) {
+    names = sizeof(ReparseData);
+  } else if (data->tag == IO_REPARSE_TAG_SYMLINK) {
+    if (got < sizeof(ReparseData) + sizeof(ULONG)) return false;
+    ULONG flags = 0;
+    std::memcpy(&flags, buffer.data() + sizeof(ReparseData), sizeof(flags));
+    relative = (flags & kSymlinkRelative) != 0;
+    names = sizeof(ReparseData) + sizeof(ULONG);
+  } else {
+    return false;  // a cloud file, deduplication, an app execution alias...: not ours to read
+  }
+  const std::size_t start = names + data->substitute_offset;
+  if (data->substitute_length % 2 || start + data->substitute_length > got) return false;
+  std::wstring name(data->substitute_length / 2, L'\0');
+  std::memcpy(name.data(), buffer.data() + start, data->substitute_length);
+  if (relative) {
+    const std::wstring joined = link.substr(0, link.find_last_of(L'\\') + 1) + name;
+    wchar_t full[1024];
+    const DWORD size = GetFullPathNameW(joined.c_str(), 1024, full, nullptr);
+    if (size == 0 || size >= 1024) return false;
+    target.assign(full, size);
+  } else {
+    if (name.substr(0, 4) != L"\\??\\") return false;
+    target = name.substr(4);
+  }
+  // A plain drive path: no volume GUID, UNC share or device namespace.
+  if (target.size() < 3 || target[1] != L':' || target[2] != L'\\') return false;
+  while (target.size() > 3 && target.back() == L'\\') target.pop_back();
+  return true;
+}
+
+struct LinkInfo {
+  bool cached = false;
+  bool missing = false;
+  std::wstring watch;
+  bool subtree = false;
+  std::wstring target;
+};
+
+// A junction or directory link directly in garrysmod\addons: cached when it leads to a directory on a local fixed drive,
+// or when its target is missing and the nearest folder on the way to it is on one.
+LinkInfo classify_link(const std::wstring& link) {
+  LinkInfo info;
+  std::wstring target;
+  if (!read_link_target(link, target)) return info;
+  const HANDLE handle = CreateFileW(link.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                    nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  if (handle != INVALID_HANDLE_VALUE) {
+    BY_HANDLE_FILE_INFORMATION file{};
+    wchar_t resolved[1024];
+    const bool directory = GetFileInformationByHandle(handle, &file) && (file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+    const DWORD size = GetFinalPathNameByHandleW(handle, resolved, 1024, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+    CloseHandle(handle);
+    if (!directory || size == 0 || size >= 1024) return info;
+    info.watch.assign(resolved, size);
+    if (!local_fixed(info.watch)) return info;
+    info.cached = true;
+    info.subtree = true;
+    info.target = info.watch;
+    return info;
+  }
+  const DWORD error = GetLastError();
+  if (error != ERROR_FILE_NOT_FOUND && error != ERROR_PATH_NOT_FOUND) return info;  // denied, or anything else
+  // The target is missing: the nearest folder that exists on the way to it is where it would appear.
+  std::wstring parent = target;
+  for (;;) {
+    const std::size_t slash = parent.find_last_of(L'\\');
+    if (slash == std::wstring::npos || slash < 2) return info;
+    parent.resize(slash == 2 ? 3 : slash);  // "X:\" keeps its backslash
+    const DWORD attributes = GetFileAttributesW(parent.c_str());
+    if (attributes != INVALID_FILE_ATTRIBUTES) {
+      if (!(attributes & FILE_ATTRIBUTE_DIRECTORY) || (attributes & FILE_ATTRIBUTE_REPARSE_POINT)) return info;
+      break;
+    }
+    if (parent.size() <= 3) return info;
+  }
+  if (!local_fixed(parent)) return info;
+  info.cached = true;
+  info.missing = true;
+  info.watch = parent;
+  info.subtree = false;
+  info.target = target;
+  return info;
+}
+
+bool target_present(const std::wstring& link) noexcept {
+  const HANDLE handle = CreateFileW(link.c_str(), FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                    nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) return false;
+  CloseHandle(handle);
+  return true;
+}
 
 bool ascii_name(std::wstring_view name) noexcept {
   for (const wchar_t c : name) {
@@ -161,20 +302,33 @@ bool LooseCache::init(const std::wstring& garrysmod, Counters* counters, std::st
   WIN32_FIND_DATAW data{};
   const HANDLE search = FindFirstFileExW((addons + L"\\*").c_str(), FindExInfoBasic, &data, FindExSearchNameMatch,
                                          nullptr, FIND_FIRST_EX_LARGE_FETCH);
+  std::size_t links = 0;
   if (search != INVALID_HANDLE_VALUE) {
     do {
       const std::wstring_view name(data.cFileName);
       if (name == L"." || name == L"..") continue;
       if (!(data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) continue;
-      if (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) continue;  // a junction or link: a subtree watch misses it
       if (!ascii_name(name)) continue;
+      // The Model Hotloader's character packs (mmdhl_*) are content the loader deploys before the game starts; nothing
+      // writes there while it runs (R26 left them out on that assumption; ADR 0239).
       const std::string folder = lower_ascii(name);
-      if (folder.rfind("mmdhl_", 0) == 0) continue;  // written by the Model Hotloader's worker while the game runs
       PathBuffer check;
       if (!normalize(std::wstring_view(addons + L"\\" + std::wstring(name)), check)) continue;
       auto root = std::make_unique<Root>();
       root->key = "addons\\" + folder;
       root->dir = addons + L"\\" + std::wstring(name);
+      if (data.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+        // A junction or link: its target gets a watch of its own (a subtree watch of addons does not follow it).
+        if (links >= kMaxLinks) continue;
+        const LinkInfo link = classify_link(root->dir);
+        if (!link.cached) continue;
+        root->link = true;
+        root->missing = link.missing;
+        root->watch = link.watch;
+        root->watch_subtree = link.subtree;
+        root->target = link.target;
+        ++links;
+      }
       roots_.push_back(std::move(root));
     } while (FindNextFileW(search, &data));
     FindClose(search);
@@ -207,8 +361,22 @@ bool LooseCache::init(const std::wstring& garrysmod, Counters* counters, std::st
     i = j;
   }
   roots_ = std::move(kept);
-  if (counters_) counters_->roots.store(static_cast<std::uint32_t>(roots_.size()), std::memory_order_relaxed);
+  if (counters_) {
+    counters_->roots.store(static_cast<std::uint32_t>(roots_.size()), std::memory_order_relaxed);
+    std::uint32_t cached_links = 0;
+    for (const auto& root : roots_) cached_links += root->link ? 1 : 0;
+    counters_->links.store(cached_links, std::memory_order_relaxed);
+  }
   return true;
+}
+
+std::vector<LooseCache::LinkWatch> LooseCache::link_watches() const {
+  std::vector<LinkWatch> out;
+  for (const auto& root : roots_) {
+    if (!root->link || root->dropped.load(std::memory_order_acquire)) continue;
+    out.push_back({root->key, root->watch, root->watch_subtree, root->missing, root->dir});
+  }
+  return out;
 }
 
 LooseCache::Root* LooseCache::find_root(std::string_view key) const noexcept {
@@ -237,7 +405,12 @@ Verdict LooseCache::lookup(std::string_view path) noexcept {
   };
   const PendingProbe probe = probe_.load(std::memory_order_acquire);
   if (probe && probe(probe_context_)) return pass();
-  if (root->missing) return tail.empty() ? Verdict::MissingFile : Verdict::MissingPath;
+  if (root->missing) {
+    // A missing workshop folder is missing itself; a link to a missing target exists (Windows answers for it), and
+    // every path through it is a missing path.
+    if (tail.empty()) return root->link ? pass() : Verdict::MissingFile;
+    return Verdict::MissingPath;
+  }
   if (tail.empty()) return pass();  // the folder itself
   std::size_t start = 0;
   for (;;) {
@@ -265,6 +438,7 @@ void LooseCache::drop_key(std::string_view key) noexcept {
   if (root && !root->dropped.exchange(true, std::memory_order_acq_rel) && counters_) {
     counters_->dropped.fetch_add(1, std::memory_order_relaxed);
     counters_->roots.fetch_sub(1, std::memory_order_relaxed);
+    if (root->link) counters_->links.fetch_sub(1, std::memory_order_relaxed);
   }
 }
 
@@ -287,9 +461,12 @@ struct Watcher::Impl {
     alignas(DWORD) std::byte buffer[64 * 1024];
     bool subtree = false;
     std::atomic<bool> live{false};
+    std::string key;                  // a link's watch: the root it stands for ("" for the two of garrysmod)
+    std::atomic<bool> retired{false};  // a link's watch once its root is dropped: no longer waited on or asked
   };
   Watch addons;  // garrysmod\addons, the subtree
   Watch game;    // garrysmod, its own entries (a new workshop folder)
+  std::vector<std::unique_ptr<Watch>> links;  // one per cached link (ADR 0239); fixed before the probe is set
   LooseCache* cache = nullptr;
 
   static bool open(Watch& watch, const std::wstring& dir, bool subtree) {
@@ -315,10 +492,24 @@ struct Watcher::Impl {
   static bool pending(const void* context) noexcept {
     const auto* self = static_cast<const Impl*>(context);
     const auto waiting = [](const Watch& watch) {
+      if (watch.retired.load(std::memory_order_acquire)) return false;
       return !watch.live.load(std::memory_order_acquire) ||
           watch.overlapped.Internal != static_cast<ULONG_PTR>(STATUS_PENDING);
     };
-    return waiting(self->addons) || waiting(self->game);
+    if (waiting(self->addons) || waiting(self->game)) return true;
+    for (const auto& link : self->links) {
+      if (waiting(*link)) return true;
+    }
+    return false;
+  }
+
+  // A link's root is dropped (any change at its watch, an overflow or an error there): its watch stops.
+  void retire(Watch& watch) {
+    cache->drop_key(watch.key);  // before the watch stops counting as pending
+    watch.retired.store(true, std::memory_order_release);
+    ResetEvent(watch.overlapped.hEvent);
+    CloseHandle(watch.directory);
+    watch.directory = INVALID_HANDLE_VALUE;
   }
 
   void handle(Watch& watch, DWORD bytes) {
@@ -347,16 +538,33 @@ struct Watcher::Impl {
   }
 
   void loop() {
-    HANDLE events[2] = {addons.overlapped.hEvent, game.overlapped.hEvent};
     for (;;) {
-      const DWORD which = WaitForMultipleObjects(2, events, FALSE, INFINITE);
-      if (which != WAIT_OBJECT_0 && which != WAIT_OBJECT_0 + 1) {
+      HANDLE events[MAXIMUM_WAIT_OBJECTS];
+      Watch* watches[MAXIMUM_WAIT_OBJECTS];
+      DWORD count = 0;
+      events[count] = addons.overlapped.hEvent;
+      watches[count++] = &addons;
+      events[count] = game.overlapped.hEvent;
+      watches[count++] = &game;
+      for (const auto& link : links) {
+        if (link->retired.load(std::memory_order_acquire) || count >= MAXIMUM_WAIT_OBJECTS) continue;
+        events[count] = link->overlapped.hEvent;
+        watches[count++] = link.get();
+      }
+      const DWORD which = WaitForMultipleObjects(count, events, FALSE, INFINITE);
+      if (which >= WAIT_OBJECT_0 + count) {
         cache->drop_all();
         return;
       }
-      Watch& watch = which == WAIT_OBJECT_0 ? addons : game;
+      Watch& watch = *watches[which - WAIT_OBJECT_0];
       DWORD bytes = 0;
-      if (!GetOverlappedResult(watch.directory, &watch.overlapped, &bytes, FALSE)) {
+      const bool read = GetOverlappedResult(watch.directory, &watch.overlapped, &bytes, FALSE) != FALSE;
+      if (!watch.key.empty()) {
+        // A link's watch: whatever it saw (a change, an overflow) or an error there, that link alone is dropped.
+        retire(watch);
+        continue;
+      }
+      if (!read) {
         watch.live.store(false, std::memory_order_release);
         cache->drop_all();
         return;
@@ -387,6 +595,33 @@ bool Watcher::arm(const std::wstring& garrysmod, std::string* reason) {
 bool Watcher::run(LooseCache* cache, std::string* reason) {
   if (!impl_) return false;
   impl_->cache = cache;
+  // Each link's watch, armed before anything is listed through it (ADR 0239). One that cannot be watched is not
+  // cached; nor is a missing target that appeared between the classification and its watch.
+  for (const auto& link : cache->link_watches()) {
+    auto watch = std::make_unique<Impl::Watch>();
+    watch->key = link.key;
+    const auto discard = [&](Impl::Watch& w) {
+      if (w.directory != INVALID_HANDLE_VALUE) {
+        if (w.live.load()) {  // a read is pending on its buffer: cancel it and wait before the buffer goes
+          CancelIoEx(w.directory, &w.overlapped);
+          DWORD ignored = 0;
+          GetOverlappedResult(w.directory, &w.overlapped, &ignored, TRUE);
+        }
+        CloseHandle(w.directory);
+      }
+      if (w.overlapped.hEvent) CloseHandle(w.overlapped.hEvent);
+      cache->drop_key(link.key);
+    };
+    if (!Impl::open(*watch, link.watch, link.subtree)) {
+      discard(*watch);
+      continue;
+    }
+    if (link.missing && target_present(link.link)) {
+      discard(*watch);
+      continue;
+    }
+    impl_->links.push_back(std::move(watch));
+  }
   cache->set_pending_probe(&Impl::pending, impl_);
   const HANDLE thread = CreateThread(nullptr, 0, &Impl::thread, impl_, 0, nullptr);
   if (!thread) {

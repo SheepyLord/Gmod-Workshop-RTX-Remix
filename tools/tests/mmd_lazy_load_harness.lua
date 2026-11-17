@@ -156,6 +156,14 @@ local function precached(model) return precache[model]==true end
 local function mounted(model) return visible[model]==true end
 local function restore() hooks.InitPostEntity['MMDHL.RestorePublishedActors']() end
 local function entry(r) return mmdhl.actorRegistrations[r.model] end
+-- A game a player hosts makes the chosen characters ready once the map runs (ADR 0238): the host's client asks, the
+-- first one follows on a timer, the rest one per tick of the repeating timer (driven here by hand).
+local function warm()
+ mmdhl.readiness.HostReady()
+ tick()
+ for _=1,32 do if not istable(mmdhl.readiness.pending) then break end mmdhl.readiness.WarmNext() end
+ assert(mmdhl.readiness.pending==nil,'characters still waiting')
+end
 local function status(memory) disk['native-loader/status.json']={activation={outcome='active',memory=memory}} end
 if scenario=='server_none' then
  -- No status.json: every entry is published, none is mounted or precached.
@@ -169,6 +177,12 @@ elseif scenario=='server_budget' then
  -- Two characters and 2000 MiB: asset 3 (4000 MiB) is passed over, 2 and 1 are kept.
  status({profile='recommended',warm_characters=2,warm_mib=2000})
  restore()
+ -- Single player: nothing is mounted or precached at the map's start; the chosen wait for the map to run.
+ eq(#mounts,0,'mounts at map start') eq(#precaches,0,'precaches at map start')
+ for _,r in ipairs({npcs[1],npcs[2],player}) do assert(entry(r).lazy,'chosen entry ready at the map start') end
+ assert(printed[1] and printed[1]:find('3 entries ready once the map runs',1,true),printed[1])
+ eq(mmdhl.readiness.Describe().waitingCharacters,2,'characters waiting')
+ warm()
  for _,r in ipairs({npcs[1],npcs[2],player}) do assert(not entry(r).lazy,'chosen entry not ready') assert(precached(r.model)) end
  assert(precached(arms.model),'arms of a ready player model')
  for _,r in ipairs({npcs[3],npcs[4]}) do assert(entry(r).lazy) assert(not mounted(r.model)) end
@@ -215,12 +229,12 @@ elseif scenario=='server_fallback' then
  times['mmd_hotloader/names/rigs/'..npcs[4].key:sub(1,16)..'.json']=now-5
  times['mmd_hotloader/names/rigs/'..npcs[1].key:sub(1,16)..'.json']=now-50
  status({warm_characters=1,warm_mib=100000})
- restore()
+ restore() warm()
  assert(not entry(npcs[4]).lazy,'fallback recency ignored') assert(entry(npcs[1]).lazy)
  assert(entry(npcs[2]).lazy and entry(npcs[3]).lazy,'never-used characters kept ready')
 elseif scenario=='server_map_change' then
  status({warm_characters=1,warm_mib=100000})
- restore()
+ restore() warm()
  assert(not entry(npcs[3]).lazy)
  ents.Create('npc_combine_s'):SetModel(npcs[4].model) tick()
  -- A new map: a new Lua state with the engine's own functions, the precache table and mounts
@@ -233,7 +247,7 @@ elseif scenario=='server_map_change' then
  loadRealm()
  eq(disk['mmd_hotloader/recent.json'],saved)
  eq(saved.uses[1][1],assets[4],'last use not first on disk')
- restore()
+ restore() warm()
  for _,r in ipairs(npcs) do assert(npcEntry(r),'entry missing after the map change') end
  assert(not entry(npcs[4]).lazy and precached(npcs[4].model),'last used character not ready on the next map')
  assert(entry(npcs[3]).lazy,'budget of one exceeded')
@@ -249,6 +263,43 @@ elseif scenario=='server_forget' then
  disk['mmd_hotloader/rigs/'..npcs[2].key..'/carrier.gma']=nil
  mmdhl.actorRegistrations={} restore()
  eq(entry(npcs[2]),nil,'entry without a carrier published')
+elseif scenario=='server_dedicated' then
+ -- A dedicated server has nobody waiting at its map's start: the chosen are ready at once, as before.
+ game.IsDedicated=function() return true end
+ status({profile='recommended',warm_characters=2,warm_mib=2000})
+ restore()
+ for _,r in ipairs({npcs[1],npcs[2],player}) do assert(not entry(r).lazy,'chosen entry not ready') assert(precached(r.model)) end
+ assert(precached(arms.model),'arms of a ready player model')
+ for _,r in ipairs({npcs[3],npcs[4]}) do assert(entry(r).lazy) end
+ eq(mmdhl.readiness.pending,nil,'a dedicated server queued characters')
+ assert(printed[1] and printed[1]:find('3 entries ready (2 characters',1,true),printed[1])
+elseif scenario=='server_host_ready' then
+ status({profile='recommended',warm_characters=2,warm_mib=2000})
+ restore()
+ -- Newest use first: asset 2 (used 20 s ago), then asset 1; asset 3 is too large for the cap.
+ local queue=mmdhl.readiness.pending eq(#queue,2,'characters queued') eq(queue[1].id,assets[2]) eq(queue[2].id,assets[1])
+ eq(#queue[1].models,2,'asset 2: its NPC and its player model')
+ -- The host's client asks for the catalog (twice: one start); the first character follows on the one-shot timer
+ -- (run alone here: tick() would also run the repeating timer it creates).
+ mmdhl.readiness.HostReady() mmdhl.readiness.HostReady()
+ local once=timers timers={} for _,fn in ipairs(once) do fn() end
+ assert(not entry(npcs[2]).lazy and precached(npcs[2].model),'first character not ready')
+ assert(not entry(player).lazy and precached(player.model) and precached(arms.model),'its player model and arms')
+ assert(entry(npcs[1]).lazy and not precached(npcs[1].model),'second character before its turn')
+ assert(named['MMDHL.WarmCharacters'],'the repeating timer for the rest')
+ -- Used before its turn: made ready at that use; its turn then has nothing left to do.
+ local npc=ents.Create('npc_citizen') npc:SetModel(npcs[1].model)
+ assert(not entry(npcs[1]).lazy and precached(npcs[1].model),'use before its turn')
+ local before=#precaches
+ eq(mmdhl.readiness.WarmNext(),false,'the queue is done') eq(#precaches,before,'prepared twice')
+ eq(mmdhl.readiness.pending,nil) eq(named['MMDHL.WarmCharacters'],nil,'the timer outlived the queue')
+ local done=printed[#printed] assert(done:find('Saved characters ready while the map runs',1,true),done)
+ eq(mmdhl.readiness.Describe().waitingCharacters,0)
+ -- Without the host's ask, the fallback starts the queue (its timer runs at the next tick here).
+ mmdhl.actorRegistrations={} for k in pairs(precache) do precache[k]=nil end
+ restore() assert(istable(mmdhl.readiness.pending),'queue after a second restore')
+ tick() tick()
+ assert(not entry(npcs[2]).lazy,'the fallback did not start the queue')
 elseif scenario=='client_host' then
  -- Single player: the registration message publishes from metadata and mounts nothing.
  reads={npcs[1].key,''} received['mmdhl_actor_registration']()

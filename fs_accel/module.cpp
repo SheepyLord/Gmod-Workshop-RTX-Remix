@@ -70,6 +70,7 @@ LUA_FUNCTION_STATIC(Status) {
   LUA->PushBool(c.enabled.load() != 0);
   LUA->SetField(-2, "enabled");
   set_number(LUA, "roots", c.roots.load());
+  set_number(LUA, "links", c.links.load());
   set_number(LUA, "calls", static_cast<double>(c.calls.load()));
   set_number(LUA, "answered", static_cast<double>(c.answered.load()));
   set_number(LUA, "passed", static_cast<double>(c.passed.load()));

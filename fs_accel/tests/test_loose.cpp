@@ -50,6 +50,60 @@ DWORD windows_error(const std::string& path) {
   if (GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data)) return 0;
   return GetLastError();
 }
+
+// What Windows says when the game opens a path for reading: 0 when it opens, else the error.
+DWORD open_error(const std::string& path) {
+  const HANDLE file = CreateFileA(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
+  if (file != INVALID_HANDLE_VALUE) {
+    CloseHandle(file);
+    return 0;
+  }
+  return GetLastError();
+}
+
+// A junction made as a player makes one (cmd's mklink /J, no rights needed).
+bool make_junction(const std::filesystem::path& link, const std::filesystem::path& target) {
+  std::wstring command = L"cmd.exe /c mklink /J \"" + link.wstring() + L"\" \"" + target.wstring() + L"\" >nul";
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION child{};
+  if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &startup, &child)) {
+    return false;
+  }
+  WaitForSingleObject(child.hProcess, 10000);
+  DWORD code = 1;
+  GetExitCodeProcess(child.hProcess, &code);
+  CloseHandle(child.hThread);
+  CloseHandle(child.hProcess);
+  return code == 0 && (GetFileAttributesW(link.c_str()) & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+}
+
+// garrysmod\addons with links (ADR 0239): "linked" (a junction to targets\real), "broken_near" (to targets\gone),
+// "broken_far" (to targets\nothing\deeper\gone), "symlinked" (a directory symbolic link to targets\real, where this
+// account may make one) and a plain "mmdhl_gamma".
+struct LinkTree {
+  std::filesystem::path gm;
+  std::filesystem::path targets;
+  bool symlink = false;
+};
+LinkTree make_link_tree(const char* name) {
+  LinkTree tree;
+  const auto root = nl::test::scratch_dir(name);
+  tree.gm = root / "garrysmod";
+  tree.targets = root / "targets";
+  touch(tree.gm / "addons" / "alpha" / "lua" / "autorun" / "alpha.lua");
+  touch(tree.gm / "addons" / "mmdhl_gamma" / "data_static" / "mmdhl" / "files" / "a.dat");
+  touch(tree.targets / "real" / "materials" / "models" / "gun.vmt");
+  touch(tree.targets / "real" / "lua" / "autorun" / "real.lua");
+  std::filesystem::create_directories(tree.targets / "other");
+  REQUIRE(make_junction(tree.gm / "addons" / "linked", tree.targets / "real"));
+  REQUIRE(make_junction(tree.gm / "addons" / "broken_near", tree.targets / "gone"));
+  REQUIRE(make_junction(tree.gm / "addons" / "broken_far", tree.targets / "nothing" / "deeper" / "gone"));
+  tree.symlink = CreateSymbolicLinkW((tree.gm / "addons" / "symlinked").c_str(), (tree.targets / "real").c_str(),
+                                     SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != FALSE;
+  if (!tree.symlink) std::fprintf(stderr, "  (no directory symbolic link: this account may not make one)\n");
+  return tree;
+}
 }  // namespace
 
 TEST_CASE("fs_accel paths: what may be answered") {
@@ -98,10 +152,11 @@ TEST_CASE("fs_accel cache: verdicts agree with Windows on a generated tree") {
   nl::fs_accel::Counters counters;
   std::string reason;
   REQUIRE(cache.init(gm.wstring(), &counters, &reason));
-  // alpha, beta and the missing workshop folder; never mmdhl_gamma.
+  // alpha, beta, the Model Hotloader's mmdhl_gamma (a character pack, cached since ADR 0239) and the missing
+  // workshop folder.
   const auto keys = cache.keys();
-  CHECK(keys.size() == 3);
-  CHECK(std::find(keys.begin(), keys.end(), "addons\\mmdhl_gamma") == keys.end());
+  CHECK(keys.size() == 4);
+  CHECK(std::find(keys.begin(), keys.end(), "addons\\mmdhl_gamma") != keys.end());
   CHECK(std::find(keys.begin(), keys.end(), "workshop") != keys.end());
   const std::string base = narrow(gm.wstring());
   const char* relative[] = {
@@ -115,7 +170,8 @@ TEST_CASE("fs_accel cache: verdicts agree with Windows on a generated tree") {
       "addons\\alpha",                              // the folder itself
       "addons\\beta\\lua\\beta\\init.lua",          // exists (named Beta, Init.lua on disk)
       "addons\\beta\\lua\\beta\\other.lua",         // missing
-      "addons\\mmdhl_gamma\\models\\gone.mdl",      // not cached: passed on
+      "addons\\mmdhl_gamma\\models\\gone.mdl",      // a character pack: cached
+      "addons\\mmdhl_gamma\\models\\x.mdl",         // exists
       "addons\\unknown\\x.txt",                     // no such add-on folder: passed on
       "workshop\\materials\\x.vmt",                 // the workshop folder does not exist
       "workshop",                                   // itself
@@ -136,7 +192,8 @@ TEST_CASE("fs_accel cache: verdicts agree with Windows on a generated tree") {
   CHECK(verdict_of(cache, base + "\\addons\\alpha\\materials\\models\\gone.vmt") == Verdict::MissingFile);
   CHECK(verdict_of(cache, base + "\\addons\\alpha\\materials\\other\\gone.vmt") == Verdict::MissingPath);
   CHECK(verdict_of(cache, base + "\\addons\\alpha\\materials\\models\\gun.vmt") == Verdict::Pass);
-  CHECK(verdict_of(cache, base + "\\addons\\mmdhl_gamma\\models\\gone.mdl") == Verdict::Pass);
+  CHECK(verdict_of(cache, base + "\\addons\\mmdhl_gamma\\models\\gone.mdl") == Verdict::MissingFile);
+  CHECK(verdict_of(cache, base + "\\addons\\mmdhl_gamma\\models\\x.mdl") == Verdict::Pass);
   CHECK(verdict_of(cache, base + "\\workshop\\materials\\x.vmt") == Verdict::MissingPath);
   CHECK(verdict_of(cache, base + "\\workshop") == Verdict::MissingFile);
   CHECK(verdict_of(cache, base + "\\addons\\alpha\\readme.txt\\inside.txt") == Verdict::Pass);
@@ -159,6 +216,102 @@ TEST_CASE("fs_accel cache: a folder with a name Windows could fold differently p
   const std::string base = narrow(gm.wstring());
   CHECK(verdict_of(cache, base + "\\addons\\alpha\\materials\\sign.vmt") == Verdict::Pass);
   CHECK(verdict_of(cache, base + "\\addons\\alpha\\lua\\gone.lua") == Verdict::MissingFile);
+}
+
+TEST_CASE("fs_accel cache: links and junctions agree with Windows (ADR 0239)") {
+  const LinkTree tree = make_link_tree("fs_accel_links");
+  LooseCache cache;
+  nl::fs_accel::Counters counters;
+  std::string reason;
+  REQUIRE(cache.init(tree.gm.wstring(), &counters, &reason));
+  const auto keys = cache.keys();
+  const auto cached = [&](const char* key) { return std::find(keys.begin(), keys.end(), key) != keys.end(); };
+  CHECK(cached("addons\\linked"));
+  CHECK(cached("addons\\broken_near"));
+  CHECK(cached("addons\\broken_far"));
+  CHECK(cached("addons\\mmdhl_gamma"));
+  CHECK(!tree.symlink || cached("addons\\symlinked"));
+  CHECK(counters.links.load() == (tree.symlink ? 4u : 3u));
+  // Each link's watch: the target with its subtree, or where a missing target would appear, its own entries.
+  for (const auto& watch : cache.link_watches()) {
+    if (watch.key == "addons\\linked" || watch.key == "addons\\symlinked") {
+      CHECK(watch.subtree);
+      CHECK(!watch.missing);
+    } else if (watch.key == "addons\\broken_near") {
+      CHECK(watch.missing);
+      CHECK(!watch.subtree);
+      CHECK(std::filesystem::equivalent(watch.watch, tree.targets));
+    } else if (watch.key == "addons\\broken_far") {
+      CHECK(watch.missing);
+      CHECK(std::filesystem::equivalent(watch.watch, tree.targets));  // targets\nothing does not exist either
+    }
+  }
+  const std::string base = narrow(tree.gm.wstring());
+  std::vector<std::string> relative = {
+      "addons\\linked\\materials\\models\\gun.vmt",    // exists, through the junction
+      "addons\\linked\\materials\\models\\gone.vmt",   // a missing file
+      "addons\\linked\\materials\\other\\gone.vmt",    // a missing folder
+      "addons\\linked\\nothing\\deep\\gone.lua",       // a missing folder higher up
+      "addons\\linked",                                // the junction itself
+      "addons\\broken_near",                           // a junction whose target is missing: it exists itself
+      "addons\\broken_near\\x.vmt",                    // through it
+      "addons\\broken_near\\materials\\x.vmt",
+      "addons\\broken_far",
+      "addons\\broken_far\\lua\\autorun\\x.lua",
+      "addons\\mmdhl_gamma\\data_static\\mmdhl\\files\\a.dat",
+      "addons\\mmdhl_gamma\\data_static\\mmdhl\\files\\b.dat",
+  };
+  if (tree.symlink) {
+    relative.push_back("addons\\symlinked\\lua\\autorun\\real.lua");
+    relative.push_back("addons\\symlinked\\lua\\autorun\\gone.lua");
+    relative.push_back("addons\\symlinked\\gone\\gone.lua");
+  }
+  int answered = 0;
+  for (const auto& rel : relative) {
+    const std::string path = base + "\\" + rel;
+    const Verdict verdict = verdict_of(cache, path);
+    const DWORD attributes = windows_error(path);
+    const DWORD open = open_error(path);
+    if (verdict == Verdict::Pass) continue;
+    ++answered;
+    const DWORD expected = verdict == Verdict::MissingFile ? ERROR_FILE_NOT_FOUND : ERROR_PATH_NOT_FOUND;
+    if (attributes != expected || open != expected) {
+      std::fprintf(stderr, "  %s: the cache says %lu, Windows %lu (attributes) and %lu (open)\n", rel.c_str(), expected,
+                   attributes, open);
+    }
+    CHECK(attributes == expected);
+    CHECK(open == expected);
+  }
+  CHECK(answered >= (tree.symlink ? 9 : 7));
+  CHECK(verdict_of(cache, base + "\\addons\\linked\\materials\\models\\gone.vmt") == Verdict::MissingFile);
+  CHECK(verdict_of(cache, base + "\\addons\\linked\\materials\\models\\gun.vmt") == Verdict::Pass);
+  CHECK(verdict_of(cache, base + "\\addons\\broken_near") == Verdict::Pass);
+  CHECK(verdict_of(cache, base + "\\addons\\broken_near\\x.vmt") == Verdict::MissingPath);
+  CHECK(verdict_of(cache, base + "\\addons\\broken_far\\lua\\autorun\\x.lua") == Verdict::MissingPath);
+  // A dropped link answers nothing, and the count of links follows.
+  cache.drop_key("addons\\linked");
+  CHECK(verdict_of(cache, base + "\\addons\\linked\\materials\\models\\gone.vmt") == Verdict::Pass);
+  CHECK(counters.links.load() == (tree.symlink ? 3u : 2u));
+}
+
+TEST_CASE("fs_accel cache: links that are not cached") {
+  const auto root = nl::test::scratch_dir("fs_accel_links_not");
+  const auto gm = root / "garrysmod";
+  touch(gm / "addons" / "alpha" / "lua" / "autorun" / "alpha.lua");
+  touch(root / "afile.txt");
+  // A junction to a file is not a folder: not cached (mklink /J refuses a file, so a directory link is tried).
+  const bool file_link = CreateSymbolicLinkW((gm / "addons" / "tofile").c_str(), (root / "afile.txt").c_str(),
+                                             SYMBOLIC_LINK_FLAG_DIRECTORY | SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != FALSE;
+  // A junction to a missing target under a path whose first missing part's parent is a file: Windows answers
+  // something else there, so it is not cached.
+  REQUIRE(make_junction(gm / "addons" / "underfile", root / "afile.txt" / "inside"));
+  LooseCache cache;
+  std::string reason;
+  REQUIRE(cache.init(gm.wstring(), nullptr, &reason));
+  const auto keys = cache.keys();
+  CHECK(std::find(keys.begin(), keys.end(), "addons\\underfile") == keys.end());
+  CHECK(!file_link || std::find(keys.begin(), keys.end(), "addons\\tofile") == keys.end());
+  CHECK(std::find(keys.begin(), keys.end(), "addons\\alpha") != keys.end());
 }
 
 namespace {
@@ -254,6 +407,56 @@ TEST_CASE("fs_accel watcher: a change in a cached folder drops it") {
   bool beta_cached = false;
   for (const auto& key : cache->keys()) beta_cached |= key == "addons\\beta";
   CHECK(!beta_cached);
+}
+
+TEST_CASE("fs_accel watcher: a change behind a link drops that link (ADR 0239)") {
+  const LinkTree tree = make_link_tree("fs_accel_link_watcher");
+  auto* cache = new LooseCache();  // the watcher thread keeps both for the process
+  auto* watcher = new nl::fs_accel::Watcher();
+  std::string reason;
+  REQUIRE(watcher->arm(tree.gm.wstring(), &reason));
+  REQUIRE(cache->init(tree.gm.wstring(), nullptr, &reason));
+  REQUIRE(watcher->run(cache, &reason));
+  const std::string base = narrow(tree.gm.wstring());
+  const auto wait_for = [&](const std::string& path, Verdict wanted) {
+    for (int i = 0; i < 300; ++i) {
+      if (verdict_of(*cache, path) == wanted) return true;
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+  };
+  const auto cached = [&](const char* key) {
+    const auto keys = cache->keys();
+    return std::find(keys.begin(), keys.end(), key) != keys.end();
+  };
+  const std::string through = base + "\\addons\\linked\\lua\\autorun\\new.lua";
+  const std::string alpha = base + "\\addons\\alpha\\lua\\autorun\\gone.lua";
+  CHECK(verdict_of(*cache, through) == Verdict::MissingFile);
+  // A file written in the target (not through the link): the link's own watch sees it.
+  touch(tree.targets / "real" / "lua" / "autorun" / "new.lua");
+  CHECK(wait_for(through, Verdict::Pass));
+  CHECK(wait_for(alpha, Verdict::MissingFile));  // read: the others are answered again
+  bool dropped = false;
+  for (int i = 0; i < 300 && !dropped; ++i) {
+    dropped = !cached("addons\\linked");
+    if (!dropped) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  CHECK(dropped);
+  CHECK(verdict_of(*cache, through) == Verdict::Pass);
+  // A missing target appears: the watch on the folder it appears in drops that link.
+  const std::string near_path = base + "\\addons\\broken_near\\lua\\x.lua";
+  CHECK(verdict_of(*cache, near_path) == Verdict::MissingPath);
+  touch(tree.targets / "gone" / "lua" / "x.lua");
+  CHECK(wait_for(near_path, Verdict::Pass));
+  bool near_dropped = false;
+  for (int i = 0; i < 300 && !near_dropped; ++i) {
+    near_dropped = !cached("addons\\broken_near");
+    if (!near_dropped) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  CHECK(near_dropped);
+  // The far one's watch (on targets, its own entries) saw targets\gone appear too: it is dropped as well, safely.
+  // A change elsewhere in targets' subtree is not its business once dropped; alpha is still answered.
+  CHECK(wait_for(alpha, Verdict::MissingFile));
 }
 
 TEST_CASE("fs_accel marker: a start that ended before its hooks settled leaves them out once") {

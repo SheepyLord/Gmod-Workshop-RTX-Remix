@@ -86,14 +86,38 @@ function library.SourcePaths(kind)
  if istable(native) and isfunction(native.GetSourcePaths) then return util.JSONToTable(native.GetSourcePaths(kind) or '') or {} end
  return util.JSONToTable(file.Read(kind=='static' and 'mmd_hotloader/static/sources.local.json' or 'mmd_hotloader/sources.local.json','DATA') or '') or {}
 end
+-- Each character's manifest as decoded, kept with its file's size and time (load-speedup round 2, ADR 0238): an
+-- asset's folder is named by its content's hash, so its manifest is written once, and the size and time catch a folder
+-- written again. A library of 200 characters holds about 30 MB of manifests, half a second to decode; a rebuild decodes
+-- only what is new. The tables are shared between rebuilds: nothing writes into an entry's info.
+local manifests={}
+local function manifest(id)
+ local path='mmd_hotloader/assets/'..id..'/manifest.json'
+ local size,time=file.Size(path,'DATA'),file.Time(path,'DATA')
+ local kept=manifests[id]
+ if kept and kept.size==size and kept.time==time then return kept.info end
+ local info=util.JSONToTable(file.Read(path,'DATA') or '')
+ manifests[id]=info and {size=size,time=time,info=info} or nil
+ return info
+end
+-- A rebuild asked for again before it runs runs once, on the next tick: a server sends its catalog as one message per
+-- approved character, and each asked for a rebuild (94 at a map start with 93 approvals: 51 s with 206 characters).
+local refreshQueued=false
+function library.RequestRefresh()
+ if refreshQueued then return end
+ refreshQueued=true
+ timer.Simple(0,function() refreshQueued=false library.Refresh() end)
+end
 function library.Refresh()
  local entries={} local deleting={}
  for _,path in ipairs(util.JSONToTable(file.Read('mmd_hotloader/cleanup.json','DATA') or '') or {}) do local id=path:match('^assets/([a-f0-9]+)') if validId(id) then deleting[id]=true end end
  local sources=library.SourcePaths('character')
  local _,dirs=file.Find('mmd_hotloader/assets/*','DATA')
+ local listed={}
  for _,id in ipairs(dirs or {}) do
   if validId(id) and not deleting[id] then
-   local info=util.JSONToTable(file.Read('mmd_hotloader/assets/'..id..'/manifest.json','DATA') or '')
+   listed[id]=true
+   local info=manifest(id)
    if info then
     local settings=util.JSONToTable(file.Read('mmd_hotloader/library/'..id..'.json','DATA') or '') or {}
     -- Workshop models the player deleted stay hidden until restored.
@@ -102,6 +126,7 @@ function library.Refresh()
    end
   end
  end
+ for id in pairs(manifests) do if not listed[id] then manifests[id]=nil end end
  -- A single-player catalog refers to this same cache. It must never resurrect
  -- deleted files as empty "server approved" placeholders.
  if not game.SinglePlayer() then

@@ -28,7 +28,10 @@ if not installed then
     return
 end
 NativeLoaderLoadAccel = accel
-MsgN("[nativeloader] load accelerator (menu): " .. tostring(accel.Status().roots or 0) .. " loose add-on folders cached")
+local status = accel.Status()
+local links = tonumber(status.links) or 0
+MsgN("[nativeloader] load accelerator (menu): " .. tostring(status.roots or 0) .. " loose add-on folders cached" ..
+    (links > 0 and (", " .. links .. " of them links or junctions") or ""))
 
 -- Ten seconds after the first map load ends (most lookups are in a load, not at menu start), the module may take its
 -- marker off: the hooks did not take the game down. The menu's Think runs whenever it draws, in a game too.

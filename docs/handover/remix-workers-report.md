@@ -144,7 +144,9 @@ deleting or overwriting another owner's file, removing only its own pid and toke
 
 ## What is left
 
-- **The Release gate** on this branch: GATE_RESULT.
+- **The Release gate** passed on `fdf6b791` (`tools\test.ps1 -Config Release` with `NL_FIXES_CLONE`, 6.4 min): the
+  conventions, 35 of 35 CTests, 2,118 Python tests in `tools` (one skipped, not this one: its seven tests ran, with the
+  fork's clone), 29 in `tools\gmapack` and 26 in `tools\steam`.
 - **Not checked in the field install** (the user's game is not touched); it takes the runtime with the next package.
 - **In a CPU-bound map the workers still poll most of the time** (91 % each at 1280x720 and 200 frames a second):
   draws come more often than every millisecond there. A shorter window would free more of it at the price of a wake-up

@@ -9530,3 +9530,51 @@ high), warm, with `out/load-speedup-2/tools` of the main checkout (the plan and 
   56.8 -> 2.5 s, settling 5.8 -> 4.9 s); gm_construct after it 88.2 s -> 28.7 s. The load overlay still names
   `library.lua` (2.3-2.5 s: one build decoding the 206 manifests in each map's new client Lua state) among the slowest
   Lua files.
+
+## The geometry workers' idle loop (2026-11-17, Claude; [ADR 0243](decisions/0243-the-geometry-workers-sleep-when-idle.md), runtime patch 0105)
+
+Line numbers are the fork tree with patches 0001-0104 (`8cd421cd8`).
+
+- **Who uses the low-latency mode.** `d3d9_rtx.h:219-220`: `kMaxConcurrentDraws = 6 * 1024` and `using
+  GeometryProcessor = WorkerThreadPool<kMaxConcurrentDraws>`, so the defaults `WorkStealing = true, LowLatency = true`
+  (`util_threadpool.h:286`). Its size is `rtx.numGeometryProcessingThreads` (default 2, `d3d9_rtx.h:49`, clamped to
+  the hardware's threads); it is made at the first `getGeometryWorkers()` (`d3d9_rtx.cpp:38-42`), from the three
+  tasks `internalPrepareDraw` schedules for each draw it commits to ray tracing (`d3d9_rtx.cpp:754-758`): the
+  geometry hashes (`d3d9_rtx_geometry.cpp:460`), the bounding box (`:514`) and CPU skinning (`d3d9_rtx.cpp:953`).
+  DXVK's command thread takes the results in `DrawCallState::finalizePendingFutures` (`rtx_types.cpp:317-333`);
+  `Future::get` polls with `std::this_thread::yield()` until the result is set (`util_threadpool.h:86-90`), unchanged.
+  The other pools are high-latency: `dxvk_raytracing.cpp:103` `WorkerThreadPool<1024, true, false>` (pipeline
+  libraries' deferred operations) and `rtx_asset_exporter.h:73` `WorkerThreadPool<kMaxConcurrentExports, false,
+  false>`. In the PoC the pool appeared 3.3-6.6 s after the start, in the main menu (38 s when that start also
+  deployed the package).
+- **The old idle loop** (`util_threadpool.h:405-442`): own queue, then each other queue under the pool's spinlock,
+  then `std::this_thread::yield()` (`:436-439`), with no wait at all; a low-latency pool without stealing did not
+  even yield. The plan measured both field workers at 100 % of a core each from about 12 s to the end, 74 % of their
+  samples in `ZwDelayExecution`.
+- **The high-latency mode notifies before it counts** (`util_threadpool.h:379-390`): `Schedule` pushes, notifies one
+  waiter under the mutex, then increments `m_numTasks`, so a waiter woken in between can find the predicate false and
+  wait again until the next task. Left as it is (ADR 0243); 0105 counts first, then wakes.
+- **`m_numTasks` has no initializer** (`std::atomic_uint32_t m_numTasks;`, `:493`) and the runtime builds as C++17
+  (`/std:c++17` in `compile_commands.json`); MSVC's STL value-initializes `std::atomic` in every mode
+  (`atomic() : _Base() {}`, VC 14.44 `<atomic>:2147`), so it starts at 0, as both waits' predicates need.
+- **What a wake-up costs** (the gate's harness, the real pool, two workers, Ryzen 9 9950X3D, Windows 11 26300): a
+  task scheduled after 4 ms without one ran 14 µs (median) and at most 66 µs after `Schedule` with 0105, against 1 µs
+  and 56 µs when the workers polled; two idle workers used 0.0 ms of CPU in 500 ms with 0105 and 1,031 ms before.
+- **Upstream's own pool test** (`tests/rtx/unit/test_util_threadpool.cpp`, 8 workers, 2,000 tasks of 0-100 ms,
+  cancellations) passes with 0105 in 22 s. In the build folder `test_remix_api_version` fails with 0xC0000139
+  (`STATUS_ENTRYPOINT_NOT_FOUND`): Windows finds System32's `d3d9.dll` before the build's on the test's `PATH`; it
+  passes beside the built DLL.
+- **In the PoC** (`tools/qa/remix_workers_session.py`, packages differing only in `d3d9.dll`, thread CPU from
+  `GetThreadTimes`, 11 sessions alternating; the report has every number): the two workers used 99-100 % of a core
+  each in the main menu, at start and after a map, and in gm_construct before 0105; with it 0 % in the menu, 40 % each
+  at 3840x2160 (GPU-bound, 12.1 ms frames: they sleep through the game's wait for the GPU) and 91 % each at 1280x720
+  (CPU-bound, 4.9 ms frames: the draws' tasks come more often than every millisecond for most of the frame). The game
+  process in the main menu: 255-267 % of a core before, 59-67 % after. Frame medians at 4K 12.16-12.66 ms before,
+  12.06-12.25 ms after; at 1280x720 4.78-4.82 ms before, 4.77-4.86 ms after. The PoC runs DLSS frame generation: its
+  `dxvk-dlfg-pacer` thread used 54-57 % of a core in every 4K session but one.
+- **In VR** (`tools/vr_session.py`, the Index at 90 Hz, 6 runs each, 45 pairs a second at 22 ms of GPU): the workers
+  99-100 % each before, 23-26 % after; pairs a second 44.63 against 44.55 (means), reprojected 50.7 % against 50.9 %,
+  none dropped; the render thread's CPU per pair (`render_thread_cpu_average_ms` of the runtime's VR profile) 4.52 ms
+  against 4.73 ms, and `dxvk-cs` 18.4-19.5 % against 19.7-22.5 % of a core, while at 4K flat its share did not move
+  (27-30 %): in VR the command thread more often reaches a draw whose task waits for a waking worker, and polls in
+  `Result::get` meanwhile.

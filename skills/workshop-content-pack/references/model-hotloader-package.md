@@ -182,9 +182,9 @@ Consequences for a pack:
 
 | Item name | PMX English name (terms) | An English reader sees |
 |---|---|---|
-| `Robin (知更鸟)` | `Robin R18` | `Robin R18` (seen by the user, 2026-10-30) |
-| `Robin` | `Robin R18` | `Robin` (the fix) |
-| `Guinaifen (桂乃芬)` | `New MMD Model` | `New MMD Model` (computed from the field install's library and terms records on 2026-10-31; not looked at in game) |
+| `Robin (知更鸟)` | her English name, with a rating tag | that English name (seen by the user, 2026-10-30) |
+| `Robin` | the same | `Robin` (the fix) |
+| `Guinaifen (桂乃芬)` | the PMX editor's default English name | that default name (computed from the field install's library and terms records on 2026-10-31; not looked at in game) |
 | `長夜月` | `Evernight` | `Evernight` |
 | `三月七` | none | a machine translation, once it arrives |
 

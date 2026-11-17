@@ -20,9 +20,16 @@ Per-texture settings (`"textures": {"<sheet>": {...}}`) it documents: `max_size`
 `normal_map`, `albedo_source`, and (2026-11-03) `rough_map` and `metal_map`: converted grey maps used
 as the sheet's authored roughness and metallic (README, "The game's own maps").
 
+`model_key(asset_id, english_name)` is the model's key: the English name without the naming rule's tags
+(`scripts/model_names.py`'s `strip`, loaded from the skill's `scripts` folder by path), as a lower-case
+slug of at most 32 characters, then `_` and the asset id's first 8 characters. A slug of only `new` and
+`model` (the PMX editor's default English name) or nothing becomes `model`. `legacy_model_key` is the
+key before 2026-11-17, which kept the tags; `cli.py` moves a model from it to the new key.
+
 ## Side effects
 
-None: paths and defaults (`RPAI_HOME`, default `%USERPROFILE%\.rpai`).
+None: paths and defaults (`RPAI_HOME`, default `%USERPROFILE%\.rpai`). `model_key` reads
+`scripts/model_names.py` once.
 
 ## Exit codes
 

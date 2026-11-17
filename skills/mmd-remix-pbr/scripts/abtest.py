@@ -6,7 +6,7 @@ swapped into the live mod, and every view shot N times back to back, so each com
 carries its own noise floor ("AABB": A, A, B, B).
 
     python abtest.py bones   --asset 9cdc990f
-    python abtest.py capture --asset 9cdc990f --model-key new_mmd_model_9cdc990f ^
+    python abtest.py capture --asset 9cdc990f --model-key model_9cdc990f ^
         --variant A=layer_a.usda --variant B=layer_b.usda --views views.json --repeats 2 --out run1
     python abtest.py metrics run1 --baseline A --mask skin
 

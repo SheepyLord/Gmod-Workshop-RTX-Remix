@@ -11,10 +11,10 @@ the stager the current recipe names (Evernight and March 7th). This one is the e
 and check every copy by SHA-256.
 
 ```powershell
-$M = 'H:\SteamLibrary\steamapps\common\GarrysMod\rtx-remix\mods\ai_pbr'
-$B = 'H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix\out\packages\robin'
-python -I scripts\pbr_mod.py $M robin_r18_f9c3e4b4 "$B\pbr_robin" "Robin" --dry-run   # what it would copy
-python -I scripts\pbr_mod.py $M robin_r18_f9c3e4b4 "$B\pbr_robin" "Robin"
+$M = '<field install>\rtx-remix\mods\ai_pbr'
+$B = '<repo>\out\packages\robin'
+python -I scripts\pbr_mod.py $M robin_f9c3e4b4 "$B\pbr_robin" "Robin" --dry-run   # what it would copy
+python -I scripts\pbr_mod.py $M robin_f9c3e4b4 "$B\pbr_robin" "Robin"
 # two characters in one mod:
 python -I scripts\pbr_mod.py $M evernight_cf3eec2f "$B\pbr_evernight_march7th" "Evernight and March 7th" --layer model_e2c25f9e
 ```
@@ -24,7 +24,7 @@ python -I scripts\pbr_mod.py $M evernight_cf3eec2f "$B\pbr_evernight_march7th" "
 | Argument | Meaning |
 |---|---|
 | `src` | rpai's live mod, `<game root>\rtx-remix\mods\ai_pbr`. Read only |
-| `key` | the rpai model key, the layer `models\<key>.usda` (`rpai status` lists them). rpai derives it from the PMX's English name, so it may carry a tag (`robin_r18_f9c3e4b4`); it stays a file name inside the mod and is never shown as a name |
+| `key` | the rpai model key, the layer `models\<key>.usda` (`rpai status` lists them). rpai derives it from the PMX's English name without the naming rule's tags (`robin_f9c3e4b4`); it stays a file name inside the mod and is never shown as a name |
 | `out` | the mod folder to write; name it `pbr_<name>`, lowercase ASCII, the character's name only (a tag in it is refused; another form gets a warning). Must not exist |
 | `label` | the character's name for the `mod.usda` doc string: `"<label> RTX PBR, packaged for the Workshop."`. A tag in it is refused |
 | `--layer KEY` | another layer in the same mod (repeatable) |
@@ -36,7 +36,7 @@ python -I scripts\pbr_mod.py $M evernight_cf3eec2f "$B\pbr_evernight_march7th" "
 
 First the names: `label` and the `out` folder's name go through [model_names.py](model_names.py.md)
 (the user's rule of 2026-11-08: the character's own name only). A game, version, author, rating or
-pack tag in either (`"Chisa (WuWa)"`, `pbr_robin_r18`, `"阿芙2.0"`) ends the run with exit 1 before
+pack tag in either (`"Chisa (WuWa)"`, `pbr_alf_2_0`, `"阿芙2.0"`) ends the run with exit 1 before
 anything is read or written, a dry run included.
 
 For each layer it collects every `@...@` asset path:
@@ -69,7 +69,7 @@ Tests: [test_names.py](test_names.py.md) (the name refusal).
 
 ## Verified (2026-10-31)
 
-Staging `robin_r18_f9c3e4b4` from the classic install's `ai_pbr` reproduced
+Staging Robin's layer from the classic install's `ai_pbr` reproduced
 `out\packages\robin\pbr_robin` byte for byte: 32 files, `mod.usda` included (30 textures, 386 MB,
 17 materials). Since 2026-11-08 the doc string leaves the rpai keys out, so a rebuild differs from that
 staging in `mod.usda`'s `doc` line only.

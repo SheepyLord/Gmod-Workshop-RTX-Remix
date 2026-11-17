@@ -15,11 +15,15 @@ Rules (AGENTS.md explains why):
    (tools/ci/repo_builds.py; ADR 0126).
 9. No text file under packages/ names a Windows account's folder (C:\\Users\\<account>\\...): every part is
    published with the repository and the package (a maintainer's path shipped once, review finding 19).
+10. No other text file names one either, and no text file anywhere (packages/ included) names the Windows
+   account this check runs under: its user name, its profile folder or that folder's 8.3 short name. The
+   repository is public (AGENTS.md rule 10); placeholders such as %USERPROFILE% or <user> pass.
 """
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -42,9 +46,13 @@ LINK_RE = re.compile(r'\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)')
 USER_FOLDER_RE = re.compile(r'(?<![A-Za-z])[A-Za-z]:(?:\\{1,2}|/)Users(?:\\{1,2}|/)([A-Za-z0-9][^\\/\s"\'<>|*?:`]*)',
                             re.I)
 # Names that stand for any account in an example: an 8.3 short name, a word (the Model Hotloader's installation
-# tests use C:\Users\Someone).
+# tests use C:\Users\Someone, the render guard's harness C:\Users\private-person).
 PLACEHOLDER_ACCOUNTS = {'name~1', 'me', 'name', 'user', 'username', 'yourname', 'you', 'example', 'public',
-                        'default', 'someone'}
+                        'default', 'someone', 'private-person'}
+# Account names too common to look for in text (a build machine's, Windows' own).
+COMMON_ACCOUNTS = {'admin', 'administrator', 'runneradmin', 'runner', 'guest', 'owner', 'users', 'test'}
+# The tests of the account rules write their fixtures from this file.
+ACCOUNT_RULE_TESTS = {'tools/tests/test_check_repo.py'}
 FENCE_RE = re.compile(r'^(```|~~~).*?^\1', re.S | re.M)
 INLINE_CODE_RE = re.compile(r'`[^`\n]*`')
 
@@ -204,10 +212,81 @@ def check_package_user_paths(root):
             continue
         text = data.decode('utf-8', errors='replace')
         for match in USER_FOLDER_RE.finditer(text):
-            if match.group(1).lower() not in PLACEHOLDER_ACCOUNTS:
+            if _names_an_account(match):
                 line = text.count('\n', 0, match.start()) + 1
                 problems.append(f'{_rel(path, root)}:{line}: names a Windows account folder ({match.group(0)}); '
                                 'packages/ is published, write a placeholder or leave the path out')
+    return problems
+
+
+def _names_an_account(match):
+    """Whether a USER_FOLDER_RE match names an account: not a placeholder, not one character (C:\\Users\\J\\xFC...
+    in a C string), punctuation after it left out (C:\\Users\\Someone).)."""
+    account = match.group(1).rstrip(').,;:]}\'"').lower()
+    return len(account) > 1 and account not in PLACEHOLDER_ACCOUNTS
+
+
+def _text(path):
+    """A file's text, or None for a binary file (a NUL byte) or an xz-compressed input."""
+    if path.suffix.lower() == '.xz':
+        return None
+    data = path.read_bytes()
+    return None if b'\0' in data else data.decode('utf-8', errors='replace')
+
+
+def check_user_paths(root, files):
+    """No text file outside packages/ (which check_package_user_paths reads) names a Windows account's folder:
+    the repository is public (AGENTS.md rule 10)."""
+    problems = []
+    for path in files:
+        rel = _rel(path, root)
+        text = None if rel in ACCOUNT_RULE_TESTS else _text(path)
+        if text is None:
+            continue
+        for match in USER_FOLDER_RE.finditer(text):
+            if _names_an_account(match):
+                line = text.count('\n', 0, match.start()) + 1
+                problems.append(f'{rel}:{line}: names a Windows account folder ({match.group(0)}); the repository '
+                                'is public, write %USERPROFILE%, ~ or a placeholder')
+    return problems
+
+
+def _account_names():
+    """The Windows account this check runs under, as it appears in text: its user name, its profile folder and
+    that folder's 8.3 short name, lower case. Placeholders, common names and names under five characters are
+    left out: they would match ordinary words."""
+    home = Path.home()
+    names = {os.environ.get('USERNAME', ''), home.name}
+    try:
+        import ctypes
+        buffer = ctypes.create_unicode_buffer(32768)
+        if ctypes.windll.kernel32.GetShortPathNameW(str(home), buffer, len(buffer)):
+            names.add(Path(buffer.value).name)
+    except (AttributeError, OSError):
+        pass  # not Windows
+    return {n.lower() for n in names
+            if len(n) >= 5 and n.lower() not in PLACEHOLDER_ACCOUNTS and n.lower() not in COMMON_ACCOUNTS}
+
+
+def check_account_names(root, files):
+    """No text file, packages/ included, names the account this check runs under: the repository is public
+    (AGENTS.md rule 10). The problem names the file and line, not the account."""
+    names = _account_names()
+    if not names:
+        return []
+    pattern = re.compile('|'.join(r'(?<![a-z0-9])' + re.escape(name) + r'(?![a-z0-9])' for name in sorted(names)),
+                         re.I)
+    packages = root / 'packages'
+    problems = []
+    for path in list(files) + (list(_files(packages)) if packages.is_dir() else []):
+        rel = _rel(path, root)
+        text = None if rel in ACCOUNT_RULE_TESTS else _text(path)
+        if text is None:
+            continue
+        for match in pattern.finditer(text):
+            line = text.count('\n', 0, match.start()) + 1
+            problems.append(f'{rel}:{line}: names the Windows account this check runs under; the repository is '
+                            'public, write %USERPROFILE%, ~ or <user>')
     return problems
 
 
@@ -224,7 +303,8 @@ def check(root):
     files = list(_files(root))
     return (check_script_docs(root, files) + check_module_readmes(root, files) + check_markdown_links(root, files)
             + check_changelog(root) + check_components(root) + check_claude_md(root) + check_runtime_record(root)
-            + check_repository_builds(root) + check_package_user_paths(root))
+            + check_repository_builds(root) + check_package_user_paths(root) + check_user_paths(root, files)
+            + check_account_names(root, files))
 
 
 def main(argv=None):

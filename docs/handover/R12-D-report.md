@@ -85,7 +85,7 @@ Receipts: `package-qa3-build.log`, `package-qa3-exit.json`, `package-qa3-verify.
 
 ## Copied visual fixture
 
-Baizhi/白芷 (`鳴潮_白蓮`), from the read-only source recorded in `model-copy.json`, was copied with its
+Baizhi/白芷, from the read-only source recorded in `model-copy.json`, was copied with its
 textures to `out/r12-d/model/baizhi` (30,699,734 bytes). Its PMX SHA-256 is
 `3b31d7f554d8dbdbb229185ea39db53d213b941e9e6836853a946701287d4ad8`; the original is unchanged
 (`source-unchanged.json`). The shipped worker imports the copy into `model-cache` as

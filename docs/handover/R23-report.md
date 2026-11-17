@@ -91,8 +91,8 @@ The reviewed build was imported (`gmcl_` `66ede812...`, `gmsv_` `0913d30d...`) a
 
 ## Item 1: Wuthering Waves characters
 
-Measured with the fixes' production matcher and converter on Shorekeeper and Chisa (`H:\...\PBR\鸣潮-守岸人`,
-`鸣潮-千咲`): only Chisa's `Up` and `Down` paired, and only as normal maps.
+Measured with the fixes' production matcher and converter on Shorekeeper and Chisa (their source
+folders): only Chisa's `Up` and `Down` paired, and only as normal maps.
 
 - Every exported material instance names the `_N` texture `Normal_Roughness_Metallic`: alpha is roughness,
   blue metalness (with a dielectric baseline and leather at 0.4-0.55). R11 had taken it for a plain normal map,
@@ -155,8 +155,8 @@ A Claude subagent updated `skills/` (only there) from R11-R23's reports and deci
   the PBR skill, `test_names.py` 20 tests) refuses game or franchise tags (鸣潮-, 星穹铁道-, HSR, WuWa, ...), versions
   (`2.0`, `v1.2`, `合体7`), author, rating and format tags, brackets and the `<game>-<name>` folder form, before any
   file is written, in `mmdhl_pack.py`, `pbr_mod.py`, `check_pack.py` (an error; `--keep-name` for a non-ASCII name),
-  `hotloader_export.py`, `stage_pbr_mod.py` and `package_characters.py`. Existing work-folder keys such as
-  `robin_r18_f9c3e4b4` stay identifiers, never names.
+  `hotloader_export.py`, `stage_pbr_mod.py` and `package_characters.py`. rpai's work-folder keys are
+  identifiers, never names.
 - **Drift:** the user's installed copy (`%USERPROFILE%\.claude\skills\mmd-remix-pbr`) had gained presets and tools
   since 2026-11-03 (rough and metal maps, full-size textures, `reveal_hashes.py`, `ue_toon_maps.py`, 12 presets)
   and lacked C-16's adaptive eye emission. Both sides are merged into the repository copy (three-way, no

@@ -18,9 +18,9 @@ Nothing is written outside it.
 
 The user's rule (2026-11-08) through [model_names.py](model_names.py.md): the `--dest` folder's name
 (`pbr_<name>`, the deployed `rtx-remix\mods\pbr_<name>`) and the `--doc` text carry no game, version,
-author or rating tag. A tagged one (`pbr_robin_r18`, `--doc "Robin R18 ..."`) ends the run with exit 1
-before anything is written. Keep rpai keys out of `--doc`: rpai derives a key from the PMX's English
-name (`robin_r18_f9c3e4b4`), so it may carry tags; inside the mod a key stays a file name.
+author or rating tag. A tagged one (`pbr_alf_2_0`, `--doc "阿芙2.0 ..."`) ends the run with exit 1
+before anything is written. Keep rpai keys out of `--doc`: a key (`robin_f9c3e4b4`) is an identifier,
+not a name; inside the mod it stays a file name.
 
 Part of the `mmd-remix-pbr` skill ([SKILL.md](../SKILL.md)); the full method and every option are in
 [tool/README.md](../tool/README.md). Run with the rpai venv's Python

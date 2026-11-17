@@ -3,7 +3,7 @@
 Compares two screenshots of the same view by the user's block-difference measure, for visual
 acceptance checks such as the [M5 plan](../docs/handover/M5-plan.md)'s comparisons with
 `GarrysMod_RTX_c`. The measure follows the user's own
-`C:\Users\matt-peng\.rpai\work\_probe\look\compare.py` (reimplemented here, not copied), with the
+`%USERPROFILE%\.rpai\work\_probe\look\compare.py` (reimplemented here, not copied), with the
 user's reading of it: about 1 between repeated captures of one install, 1.5-3.6 "close", 16-26
 "broken" ([RESEARCH.md](../docs/RESEARCH.md) section 12).
 

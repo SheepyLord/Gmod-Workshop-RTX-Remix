@@ -112,12 +112,51 @@ class CheckRepoTests(unittest.TestCase):
             'packages/x/source/file_access.cpp': '// C:\\Users\\me\\AppData holds Roaming and Local\n',
             'packages/x/README.md': 'Under `C:\\Users\\<account>\\` or %USERPROFILE% (C:\\Users\\%USERNAME%).\n',
             'packages/x/bin/tool.dll': None,
-            'docs/notes.md': 'C:\\Users\\some-one\\x\n',
+            'docs/notes.md': 'C:\\Users\\Someone).\n',
         }), [])
         (self.root / 'packages/x/bin').mkdir(parents=True, exist_ok=True)
         (self.root / 'packages/x/bin/tool.dll').write_bytes(b'MZ\0\0C:\\Users\\some-one\\x.pdb')
         (self.root / 'packages/x/bin/tool.dll.xz').write_bytes(b'C:\\Users\\some-one\\x')
         self.assertEqual(check_repo.check(self.root), [])
+
+    def test_no_file_names_a_windows_account_folder(self):
+        # AGENTS.md rule 10: the repository is public, so the rest of it follows packages/ (rule 9).
+        found = self.problems({'docs/notes.md': 'Run `C:\\Users\\some-one\\.rpai\\run.py`.\n',
+                               'tools/lib/env.ps1.md': 'Imports the build environment from C:/Users/Other/x.\n'})
+        self.assertEqual(sorted(found), [
+            'docs/notes.md:1: names a Windows account folder (C:\\Users\\some-one); the repository is public, '
+            'write %USERPROFILE%, ~ or a placeholder',
+            'tools/lib/env.ps1.md:1: names a Windows account folder (C:/Users/Other); the repository is public, '
+            'write %USERPROFILE%, ~ or a placeholder',
+        ])
+        # Placeholders, punctuation after one, and a one-letter name cut by a C escape are not accounts.
+        (self.root / 'docs/notes.md').unlink()
+        self.assertEqual(self.problems({'docs/notes.md': 'Under %USERPROFILE% (C:\\Users\\<user>\\), C:\\Users\\Someone). '
+                                                         'and C:\\Users\\J\\xFCrgen in a C string.\n'}), [])
+
+    def test_the_account_running_the_check_is_named_nowhere(self):
+        # AGENTS.md rule 10: not in a path, not on its own, not in packages/; the problem does not repeat the name.
+        with mock.patch.object(check_repo, '_account_names', return_value={'pat-example', 'pat-ex~1'}):
+            found = self.problems({'docs/notes.md': 'The checkout belongs to `Pat-Example`.\n',
+                                   'packages/fixes/README.md': 'Short form: PAT-EX~1\\Desktop\n',
+                                   'tools/lib/env.ps1.md': 'compat-examples and pat-example2 are other words.\n'})
+        self.assertEqual(sorted(found), [
+            'docs/notes.md:1: names the Windows account this check runs under; the repository is public, '
+            'write %USERPROFILE%, ~ or <user>',
+            'packages/fixes/README.md:1: names the Windows account this check runs under; the repository is public, '
+            'write %USERPROFILE%, ~ or <user>',
+        ])
+
+    def test_short_and_common_account_names_are_not_looked_for(self):
+        home = Path('C:/Users/no-such-profile-folder')
+        with mock.patch.object(check_repo.Path, 'home', return_value=home):
+            with mock.patch.dict(check_repo.os.environ, {'USERNAME': 'runneradmin'}):
+                self.assertEqual(check_repo._account_names(), {'no-such-profile-folder'})
+            with mock.patch.dict(check_repo.os.environ, {'USERNAME': 'Pat-Example'}):
+                self.assertEqual(check_repo._account_names(), {'pat-example', 'no-such-profile-folder'})
+        with mock.patch.object(check_repo.Path, 'home', return_value=Path('C:/Users/me')), \
+                mock.patch.dict(check_repo.os.environ, {'USERNAME': 'dev'}):
+            self.assertEqual(check_repo._account_names(), set())
 
     def test_other_checkouts_inside_are_not_this_repos_files(self):
         # A worktree another session keeps in .claude/worktrees has its own .git file; its files are not

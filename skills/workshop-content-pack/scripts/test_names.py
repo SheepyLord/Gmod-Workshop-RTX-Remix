@@ -84,6 +84,16 @@ class RuleTests(unittest.TestCase):
         self.assertEqual(model_names.find("Robin 2"), ["version or edition tag '2'"])
         self.assertEqual(model_names.find("Tda式初音ミクV4X"), ["version or edition tag 'v4'", "author tag 'tda式'"])
 
+    def test_strip_takes_the_tags_out(self):
+        for text, clean in (("鸣潮-千咲", "千咲"), ("阿芙2.0", "阿芙"), ("Alf 合体7", "alf"), ("Robin R18", "robin"),
+                            ("[Arknights] Texas", "texas"), ("风堇1.0by_mobius", "风堇"), ("Tda式初音ミクV4X", "初音ミク"),
+                            ("Genshin Impact - Furina", "furina"), ("千咲2", "千咲"), ("New MMD Model", "new model"),
+                            ("Topaz R18Ver1.4", "topaz"), ("Chisa (WuWa)", "chisa"), ("March 7th", "march 7th")):
+            self.assertEqual(model_names.strip(text), clean, text)
+        for text in TAGGED_NAMES + CLEAN_NAMES:
+            # What strip leaves carries no tag: rpai makes its model key from it (pack words are no tag there).
+            self.assertEqual(model_names.find(model_names.strip(text), "title"), [], text)
+
     def test_titles_allow_the_pack_suffix_but_not_tags(self):
         for title in ("Chisa (Model Hotloader + RTX PBR)", "Evernight and March 7th (Model Hotloader + RTX PBR)",
                       "Modern House RTX (native loader package)", "Chisa RTX PBR, packaged for the Workshop.",
@@ -232,7 +242,7 @@ class SiblingScriptTests(unittest.TestCase):
                                   ("pbr_robin", "Robin R18 RTX PBR, packaged for the Workshop.", "--doc")):
             with self.subTest(expect=expect):
                 code, err = run(stage.main, ["--src", str(self.root / "no-mod"), "--dest", str(self.root / dest),
-                                             "--layer", "robin_r18_f9c3e4b4", "--doc", doc])
+                                             "--layer", "robin_f9c3e4b4", "--doc", doc])
                 self.assertEqual(code, 1)
                 self.assertIn(expect, err)
                 self.assertEqual(list(self.root.iterdir()), [])

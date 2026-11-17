@@ -1,6 +1,6 @@
 # Guinevere (桂乃芬.pmx): what each texture is for
 
-Review date: 2026-10-25. Only the textures present in `星穹铁道-桂乃芬\tex` are processed. The PMX
+Review date: 2026-10-25. Only the textures present in the model folder's `tex` are processed. The PMX
 also references `inmon.png`, `asanawa.png`, `乳贴.png` and `Blindfold Text.png`, which are not in
 the folder and are left alone. (`口球.png` arrived in the folder during the review and was
 processed. It is byte-identical to Hyacine's and Firefly's copies, so Firefly's layer wins that
@@ -34,7 +34,7 @@ The untextured materials (高跟鞋, 高跟鞋内, 高跟鞋闪光, 口枷金属
 white texture. Replacing that hash would change every untextured surface in the game, so they are
 never overridden.
 
-Style: `presets/aggressive.json`, through `presets/models/new_mmd_model_9cdc990f.json`.
+Style: `presets/aggressive.json`, through `presets/models/model_9cdc990f.json`.
 
 ## Result in game (same camera, `compare.jpg`, crops `ab_*.jpg`)
 

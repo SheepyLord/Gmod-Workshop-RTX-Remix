@@ -68,9 +68,11 @@ name the user uses, ask.
 
 `scripts/model_names.py` implements the rule; `hotloader_export.py`, `stage_pbr_mod.py` and
 `package_characters.py` refuse a tagged name before writing anything (exit 1). rpai's model key
-(`robin_r18_f9c3e4b4`) is derived from the PMX's English name and may carry tags: it is an internal
-identifier (work folder, preset file, layer file name). Never present a key as a name, never derive a
-name or slug from it.
+follows it too: the PMX's English name without its tags (`model_names.strip`), then the asset id
+(`robin_f9c3e4b4`; the PMX editor's default English name gives `model_1c2ed2fc`). The key is an
+internal identifier (work folder, preset file, layer file name): never present it as a name, never
+derive a name or slug from it. rpai moves a work folder made under an older, tagged key to the new
+key, still reads a preset named after the old key and replaces its published layer at the next publish.
 
 ## Before you start: is rpai the right tool?
 
@@ -172,7 +174,7 @@ torch with CUDA, the PBRify weights, the Remix Toolkit's NVTT exporter and wheth
 - **Gold type per character** (2026-10-26): painted gold has F0 0.17-0.55, so polished it mirrors a dim
   room as dark bronze; painted golds get a satin metal (0.30-0.36), bright silver and tiny jewellery
   stay polished. `"f0": 0.74` lifts a satin gold to real gold's reflectance (measured on Robin,
-  `robin_r18_f9c3e4b4`). Measure a new character's metal F0 on the mesh and choose the same way.
+  `robin_f9c3e4b4`). Measure a new character's metal F0 on the mesh and choose the same way.
 - **Face and eyes (anime-safe):** face and mouth 0.60 flat; lashes, brows, eyeliner 0.85; eye white
   0.25 with emission 0.025; iris 0.06 with emission 0.04; catchlight mesh emission 0.6. Eye emission
   maps also get `emissive_adaptive_intensity` (C-16, ratio `--emissive-adaptive-intensity`, default 25;

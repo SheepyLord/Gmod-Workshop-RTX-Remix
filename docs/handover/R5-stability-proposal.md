@@ -6,10 +6,10 @@ which switches cap it, what happens on device loss or allocation failure, and wh
 memory. Then it proposes changes, in priority order, and lists the decisions they need.
 
 - Branch `r5-stability`, worktree `out\worktrees\r5-stability`, from `main` at `df80147`.
-- Inputs: the tester's logs as Codex extracted them (`C:\Users\matt-peng\Desktop\logs_investigation_20261031`),
-  the dump the user attached (`C:\Users\matt-peng\Desktop\8d0eac58-9cd7-4df3-8e87-fbd8db8c1293.dmp`), the
-  runtime fork (`H:\BACKUP_20260815\Modding\dxvk-remix-gmod`), the RTX fixes' source
-  (`H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed`, at `fc478c0`) and this repository.
+- Inputs: the tester's logs as Codex extracted them (`%USERPROFILE%\Desktop\logs_investigation_20261031`),
+  the dump the user attached (`%USERPROFILE%\Desktop\8d0eac58-9cd7-4df3-8e87-fbd8db8c1293.dmp`), the
+  runtime fork (`<modding>\dxvk-remix-gmod`), the RTX fixes' source
+  (`<modding>\garrys-mod-rtx-remixed`, at `fc478c0`) and this repository.
 - The tester's files were read as data only, with `python -I` scripts kept apart from them; nothing
   was extracted into the evidence folders. The scripts and two split Sentry envelopes are in this
   worktree's git-ignored `out\tmp` (`scripts\`, `extract\`).
@@ -155,7 +155,7 @@ loader's ReShade. OBS's `graphics-hook64.dll` and the Sogou input method are loa
 Read with a read-only parser (`out\tmp\scripts\dump_r5.py`) [M]:
 
 - **Identity.** 1,234,344 bytes, SHA-256 `67b5eb7d3ad1f7ca6595c9a22970c44f037120d973933be9597161fbad0ffbdb`.
-  Byte-identical to `C:\Users\matt-peng\Desktop\crash\8d0eac58-9cd7-4df3-8e87-fbd8db8c1293.dmp`, which
+  Byte-identical to `%USERPROFILE%\Desktop\crash\8d0eac58-9cd7-4df3-8e87-fbd8db8c1293.dmp`, which
   Codex analysed on 2026-10-30 (`crash\analysis\investigation.txt`). It belongs to session B, not to
   the device loss.
 - **Writer and time.** GMod's own crash handler (tier0 through dbgcore 10.0.26100.9549). GMod writes

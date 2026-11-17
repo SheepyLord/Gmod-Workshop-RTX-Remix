@@ -26,7 +26,7 @@ Usage:
 Names: <label> and the out folder's name must carry no game, version, author, rating or pack tag
 (model_names.py, the user's rule of 2026-11-08); a tagged one is refused before anything is read or
 written. The doc string is "<label> RTX PBR, packaged for the Workshop." (no rpai keys: a key such as
-robin_r18_f9c3e4b4 is derived from the PMX's English name and may carry tags).
+robin_f9c3e4b4 is an identifier, not a name).
 
 Exit codes: 0 done, 1 refused or failed (reason on stderr), 2 bad command line.
 """
@@ -104,7 +104,7 @@ def plan(src: str, keys: list):
     layers = {}
     for key in keys:
         if not KEY.match(key):
-            raise StageError("model key %r: expected an rpai key such as robin_r18_f9c3e4b4" % key)
+            raise StageError("model key %r: expected an rpai key such as robin_f9c3e4b4" % key)
         layer = os.path.join(src, "models", key + ".usda")
         if not os.path.isfile(layer):
             raise StageError("no layer %s" % layer)

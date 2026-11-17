@@ -745,7 +745,7 @@ the [R13-P report](handover/R13-P-report.md).
   3.07 GB (recommended) and 2.49 -> 6.36 GB (high); only the minimum exceeded its budget (2 GiB) and
   came back under it: 2,770 CPU copies and 48 images released, 42 re-uploads on later use
   (`[RTX Managed Textures]` lines).
-- **First spawns from the NPC tab:** 阮·梅 R18 (about 1.2 GB of game textures) 4.0 s when ready
+- **First spawns from the NPC tab:** Ruan Mei (about 1.2 GB of game textures) 4.0 s when ready
   (recommended, high), 6.0 s cold (minimum); other characters 0.5-2.1 s; a loaded character again
   0.04-0.07 s.
 - **An intermittent crash in Remix's option system.** One recommended/medium session (runtime
@@ -1037,7 +1037,7 @@ driver Vulkan memory: heap 0 device-local with type 1 `DEVICE_LOCAL` and type 4
   ownership and real generated VMT/VTF inputs, compares the existing DATA bytes before writing, and
   verifies persistence before applying the selection (`nativeloader_eye_whites.lua:342`). False is
   distinct from absent and outranks a positive automatic name (`nativeloader_eye_whites.lua:58`).
-- A read-only source from `E:\G\Upload\1_fin\Baizhi\1_PMX\鸣潮_白芷1.12_by_鸣潮_b1b864afc9b3711e895c34a155eb3d84\鸣潮_白莲1.12.pmx`
+- A read-only source, Baizhi's PMX in the user's model library,
   was copied with its textures into `out/r12-d/model/baizhi` (30,699,734 bytes). PMX SHA-256 is
   `3b31d7f554d8dbdbb229185ea39db53d213b941e9e6836853a946701287d4ad8`. The shipped worker imports this
   copy as asset `489c095ce90ee2dcfdefa669febcd7ec875ebcec0c865b7164d184e73d921cd8`, 31 materials.
@@ -1280,7 +1280,7 @@ prove availability of a supported owned albedo at runtime.
   samples pink backing (215/192/200); `眼角膜` covers colored iris/cornea regions. Keep those excluded.
   Per-material bounds, UV overlays and color measurements: `out/r10/ambiguous-materials.json`,
   `uv-*.png`; original PMX/PNG files were read only through `rpai.pmx.read_pmx`.
-- Robin's shipped PoC `pbr_robin/models/robin_r18_f9c3e4b4.usda:141-142` has fallback **0.6** and
+- Robin's shipped PoC `pbr_robin/models/<Robin's layer>.usda:141-142` has fallback **0.6** and
   adaptive input **15**. Decoding the published 4096² DDS albedo/emission maps from sRGB and measuring
   **131,891** eroded sclera texels gives **15 × emission/albedo = 0.6276053226**, equal at p05/median/p95.
   The nominal class formula `.025/.6*15` is **0.625** (0.417% quantization difference). Automatic
@@ -1786,11 +1786,11 @@ sampled increase), not a map-fit guarantee. Unknown limits do not warn; subtract
   (`maxExposure = 16` at line 146). Using the C16 plan's exposure equation, mid exposure 1 gives
   `L_mid = 0.18`, ignoring noise. Thus `M * (F / 0.18) * L_mid = M * F`: the old eye-white
   `C * 0.025 * I` at that reference. This is a derivation, not an in-game brightness measurement.
-- Read-only PoC pack inventory: `pbr_robin/models/robin_r18_f9c3e4b4.usda:136-191` has three
+- Read-only PoC pack inventory: `pbr_robin/models/<Robin's layer>.usda:136-191` has three
   emissive overrides (`203355325A5208A0`, `70EC49FA6891154F`, `06DDF9D48A2DC2B1`), all fallback
   0.6. Evernight's `models/evernight_cf3eec2f.usda:64-69` has `596BBF16AC554B2E` at 0.6;
   March 7th's `models/model_e2c25f9e.usda:50-55` has `175BEFCBA6AE4083` at 0.04. Guinaifen's
-  `models/new_mmd_model_1c2ed2fc.usda:93-123` has `4D84DF2D4E18DDE1` and `C8A78C7CF9EE33F2`
+  `models/<her layer>.usda:93-123` has `4D84DF2D4E18DDE1` and `C8A78C7CF9EE33F2`
   at 0.6. The different normalisations require a per-fallback ratio when migrating together.
 - Demonstrated `set_adaptive_emission.py --multiplier 5.555555555555555` on copies under
   `out/c16-b/packs/`: seven inputs added across four model layers, values 3.33333333 (fallback
@@ -1850,8 +1850,8 @@ sampled increase), not a map-fit guarantee. Unknown limits do not warn; subtract
 - Sandbox-only Release blockers: `tools/tests/test_field_snapshot.py:136` cannot create its
   throwaway `HKCU/Software/NativeLoaderTest_*` key (21 failures). A non-mutating `winreg.OpenKey`
   request for `KEY_CREATE_SUB_KEY` on HKCU Software also returns WinError 5, access denied. Six
-  publisher tests fail at Git reads with "dubious ownership" because the checkout belongs to
-  `matt-peng` and the test process runs as `CodexSandboxOnline`. No ACL, registry permission or
+  publisher tests fail at Git reads with "dubious ownership" because the checkout belongs to the
+  user's account and the test process runs as a separate sandbox account. No ACL, registry permission or
   global Git configuration was changed.
 
 ## R6 T6: tier inputs and DDS measurements (2026-10-31)
@@ -2828,7 +2828,7 @@ Built with premake 5 and garrysmod_common, VS 2022; no release zip locally.
 
 **The user's test save and measure.** Reference save
 `GarrysMod_RTX_c\garrysmod\saves\gm_csgosafehouse 2026-10-25 04-08-30.gms`. Harness
-`C:\Users\matt-peng\.rpai\work\_probe\session_run.py` (fixed camera `REF_CAMERA`, captures with the
+`%USERPROFILE%\.rpai\work\_probe\session_run.py` (fixed camera `REF_CAMERA`, captures with the
 `jpeg` command, HUD and view model hidden). Measure `look\compare.py`: crop both images to a multiple
 of 32, take the mean RGB of every 32x32 block, report the mean absolute difference over all blocks and
 channels (0-255); about 1 between repeated captures, 1.5-3.6 "close", 16-26 "broken". The save needs
@@ -4667,9 +4667,9 @@ Measured on the user's install (RTX 5090, loader 0.10.0 and the published packag
 ## The Motion importer tab and the bundled motion importer (2026-10-31, Claude)
 
 - **The part was behind its add-on.** `packages/character-motion-importer` was imported on
-  2026-10-30 from `H:\BACKUP_20260815\Modding\ipg\Gmod-Mmd-Motion-Importer`, a clone at 318b054
-  (2026-10-07). The add-on's `main` (`origin/main`, and the clone in
-  `C:\Users\matt-peng\Documents\Codex\2026-10-17\please-help-me-connect-claude-on\Gmod-Mmd-Motion-Importer`) is at fcd56f4 (2026-10-27).
+  2026-10-30 from `<modding>\ipg\Gmod-Mmd-Motion-Importer`, a clone at 318b054
+  (2026-10-07). The add-on's `main` (`origin/main`, and a newer clone in the user's Codex workspace)
+  is at fcd56f4 (2026-10-27).
   7751327 there added the in-game importer: `cl_importer.lua` (1,005 lines: the window, Resolve,
   the job in a coroutine at 12 ms a frame), `cl_import_bake.lua` (1,946: a Lua port of the native
   baker), `cl_import_data.lua` (938: the bundled skeleton), `mmdvmd_import`, the tool's import button,
@@ -5626,7 +5626,7 @@ pictures are captured at 1920x1080, cropped and never scaled, and are at most 90
 guide page's width in a 1280x720 game.
 
 **The PoC's characters.** Of the PoC library's nine characters, Karin (`c329babf`) is an Endfield
-character with game maps (`t_actor_karin_hair_01`) whose `目白` the eye-white rules detect; 鳴潮_白蓮's
+character with game maps (`t_actor_karin_hair_01`) whose `目白` the eye-white rules detect; Baizhi's
 `eye` and `eye+` are not detected.
 
 ## R15: painted shadows and alpha on hair (2026-11-04, Claude)
@@ -6613,8 +6613,8 @@ Read in the patched runtime tree the RTX package's build came from (`3cb32fb8`, 
 read only): XXH64 of the top mip as BGRA (flag 0x2000), BGR0 (no flag) or raw DXT blocks reproduced 251 of the 264 live
 hashes whose VTF the field still has (113 alpha, 138 opaque), and 3 of the 3 ToPBR recorded
 (`rtx-remix\mods\~gmod_topbr\game_materials.registry`, the hash being each record's fifth field). The 13 misses are
-opaque sheets in records written by 2026-10-26 (Castorice, Cyrene, the first Firefly import, two `new_mmd_model`
-imports): the single-colour sheet `c2013648c2e9b597` (1024 x 1024) was recorded as `0x4C8AA9BB54D3A930`,
+opaque sheets in records written by 2026-10-26 (Castorice, Cyrene, the first Firefly import, two imports
+named by the PMX editor's default): the single-colour sheet `c2013648c2e9b597` (1024 x 1024) was recorded as `0x4C8AA9BB54D3A930`,
 `0x6CD8A24E251A7BE3` and `0x28AF73A540847E13` then, and as `0x84168AFC8CF54915`, its BGR0, in all 9 later records. No
 record matched XXH3 or the other byte layout. rpai's own predictions had matched 122 of 135 live hashes in records made
 with the option read as True, and 0 of 191 in those made from 2026-10-29 to 2026-11-08 with it read as False. The first

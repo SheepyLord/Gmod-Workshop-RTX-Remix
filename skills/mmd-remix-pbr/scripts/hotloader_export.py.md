@@ -22,10 +22,10 @@ defaults to `tools\gmapack\gmapack.py` of the repository this skill sits in, els
 The user's rule (2026-11-08): a model's recorded name is the character's own name only. Through
 [model_names.py](model_names.py.md) the script refuses, with exit 1 and one `error:` line per name:
 
-- a tagged `--title` (`Robin R18 RTX (...)`), `--file-name` or `--out` folder name (`mmdhl_robin_r18`);
+- a tagged `--title` (`Alf 2.0 RTX (...)`), `--file-name` or `--out` folder name (`mmdhl_alf_2_0`);
 - a tagged library name of any `--asset`, read from `garrysmod\data\mmd_hotloader\library\<id>.json`
   (else the import's `assets\<id>\manifest.json`, else the id's first 12 digits, as `library.lua`
-  names entries): `鸣潮-千咲`, `阿芙2.0`, `Robin R18`. The export carries the library's names as they
+  names entries): `鸣潮-千咲`, `阿芙2.0`, `Alf 合体7`. The export carries the library's names as they
   are, so either the user renames the model in Model Hotloader (ask first: it is their library) or the
   pack is built offline with workshop-content-pack's `mmdhl_pack.py`, which takes the names on its
   command line;

@@ -28,7 +28,7 @@ from dataclasses import dataclass
 # along the leg, the nylon streak; positive widens them around it (in-game
 # probe at +-0.7, 2026-10-25). f0 (optional, 0 when absent): lift the class's
 # median linear luminance on the mesh to this reflectance (compose.lift_reflectance);
-# opt-in. On Robin R18 (2026-10-26) f0 0.74 brought satin gold to -10%..+4% of the
+# opt-in. On Robin's import (2026-10-26) f0 0.74 brought satin gold to -10%..+4% of the
 # original brightness (satin alone -12%..-25%), with a paler halo.
 # Gold type per character (2026-10-26, references/standards.md): painted golds
 # (F0 0.17-0.55) mirror a dim room as dark bronze at the aggressive 0.12, so

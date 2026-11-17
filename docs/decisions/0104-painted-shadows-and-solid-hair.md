@@ -48,7 +48,7 @@ A companion client controller, `nativeloader_imported_parts.lua`, acting only in
 - Laevatain's eyes lose the dark band and its hair is solid; Endfield hair (JEPT, Yvonne) is solid too.
   Hair whose alpha cuts strands out of the texture, whose alpha is binary, or that is see-through on
   purpose keeps the alpha test and the soft copy.
-- A few other models' hair with partial alpha below half becomes solid as well (Tda式初音ミクV4X's twintail
+- A few other models' hair with partial alpha below half becomes solid as well (初音ミク's twintail
   ends, 芙提雅, 薇薇安): their fades become opaque. One checkbox turns the rule off for every character.
 - Texture hashes stay, so PBR replacements, imported game PBR and eye-white aliases are unaffected.
 - The hotloader gains a seven-line, `pcall`-guarded hook; without the companion it behaves as before.

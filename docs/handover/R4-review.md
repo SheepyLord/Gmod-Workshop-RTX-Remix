@@ -128,8 +128,8 @@ checkout's `out\qa-field\release` and `out\qa-poc\r4-final`:
   (worktree `out\worktrees\motion-addon-r4`), with a README paragraph; the add-on's 33 tests and this
   repository's motion-tab harness pass on it, and its Lua equals the part's. Push and merge it there (and
   rebuild its `mmd_vmd_npc.gma`) before the next import from that repository. That clone's own `main`
-  is still at 318b054 with an uncommitted `mmd_vmd_npc.gma`; a newer clone at fcd56f4 is in
-  `C:\Users\matt-peng\Documents\Codex\2026-10-17\please-help-me-connect-claude-on\Gmod-Mmd-Motion-Importer`.
+  is still at 318b054 with an uncommitted `mmd_vmd_npc.gma`; a newer clone at fcd56f4 is in the
+  user's Codex workspace (`%USERPROFILE%\Documents\Codex\...\Gmod-Mmd-Motion-Importer`).
 - **Unreviewed translations:** Traditional Chinese for the motion importer's 98 new phrases and the
   companion's "Open in window" in six languages were written by agents.
 - **Cosmetic:** in a narrow spawn menu at 4K the importer's longest heading ("Face/Flex VMDs (if they

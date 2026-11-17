@@ -13,14 +13,14 @@ Prefer the upstream fix when the game is running: spawn the model, `rpai hashes`
 the mod again (rpai keeps every hash it has seen). Use this script on a layer that is already staged.
 
 ```powershell
-$L = 'H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix\out\packages\guinaifen\pbr_guinaifen\models\new_mmd_model_1c2ed2fc.usda'
+$L = '<repo>\out\packages\guinaifen\pbr_guinaifen\models\model_1c2ed2fc.usda'
 python -I scripts\add_hashes.py $L A35D6E8412838268=37B3BC9B48184AA9 6CD8A24E251A7BE3=84168AFC8CF54915 --dry-run
 python -I scripts\add_hashes.py $L A35D6E8412838268=37B3BC9B48184AA9 6CD8A24E251A7BE3=84168AFC8CF54915
 
 # which live hashes rpai recorded does the package cover?
-python -I scripts\add_hashes.py H:\...\out\packages\robin\pbr_robin --check-json "$env:USERPROFILE\.rpai\work\robin_r18_f9c3e4b4\hashes.json"
+python -I scripts\add_hashes.py <repo>\out\packages\robin\pbr_robin --check-json "$env:USERPROFILE\.rpai\work\robin_f9c3e4b4\hashes.json"
 # and which of them only another character's layer covers, on this machine (every mod of the install):
-python -I scripts\add_hashes.py H:\SteamLibrary\steamapps\common\GarrysMod\rtx-remix\mods --check-json "$env:USERPROFILE\.rpai\work\robin_r18_f9c3e4b4\hashes.json"
+python -I scripts\add_hashes.py <field install>\rtx-remix\mods --check-json "$env:USERPROFILE\.rpai\work\robin_f9c3e4b4\hashes.json"
 ```
 
 ## Modes
@@ -57,10 +57,10 @@ The other modes only read. Standard library only; runs with `python -I`.
   Robin session's finding: four live hashes (bq, the ropes, 口球, Blindfold Text) are only in other
   characters' layers, and three more sheets (黑, 颜赤, sita) have only predicted hashes, also found in
   other layers. Against the field install's whole mods folder the same four are covered by the
-  deployed Guinaifen and Evernight packs (`pbr_guinaifen:new_mmd_model_1c2ed2fc`,
-  `pbr_evernight_march7th:evernight_cf3eec2f`), and Evernight's `bq.png` by Guinaifen's.
-- On the user's re-import of Guinaifen (`work\new_mmd_model_bf8aee59\hashes.json`, `--key
-  new_mmd_model_1c2ed2fc`): the published layer covers all 11 live hashes with maps, Body.png is left
+  deployed Guinaifen and Evernight packs (their layers in `pbr_guinaifen` and
+  `pbr_evernight_march7th`), and Evernight's `bq.png` by Guinaifen's.
+- On the user's re-import of Guinaifen (the re-import's `hashes.json` in rpai's work folder, `--key`
+  her packed layer's key): the published layer covers all 11 live hashes with maps, Body.png is left
   to Remix; the layer before the fix misses the two sheets.
 
 ## Provenance

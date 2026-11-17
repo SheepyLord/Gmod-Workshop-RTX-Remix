@@ -43,6 +43,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
   checks that idle workers use no CPU and that a task wakes them
   (`tools/tests/test_runtime_remix_workers.py`).
 
+### rpai's model keys without tags (2026-11-17; skills only, no loader or package change)
+
+- The `mmd-remix-pbr` skill's rpai makes a model's key from the PMX's English name without the naming rule's tags (a
+  game, version, author, rating or format word), as the skills' names already were: `robin_f9c3e4b4`, and
+  `model_1c2ed2fc` for the PMX editor's default English name. A model keyed the old way moves over the next time rpai
+  runs on it: its work folder is renamed, a preset still named the old way is read, and its published layer is
+  replaced at the next publish. The per-model presets and the skills' examples use the new keys and the characters'
+  own names; `model_names.strip` gives a name without its tags.
+
 ### Faster map loads with many imported characters (2026-11-16)
 
 - **Map loads are about a minute shorter in a game with many Model Hotloader characters.** In a test game with 787

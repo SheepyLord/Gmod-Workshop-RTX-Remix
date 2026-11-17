@@ -55,8 +55,8 @@ SteamVR running and unchanged and take both shared locks.
 
 ## Rules
 
-1. **Develop against the PoC install.** `H:\SteamLibrary\steamapps\common\GarrysMod_PoC` is a
-   byte-exact vanilla copy made for experiments. The field install `...\common\GarrysMod` is the
+1. **Develop against the PoC install.** `<SteamLibrary>\steamapps\common\GarrysMod_PoC` is a
+   byte-exact vanilla copy made for experiments (where the Steam library is: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)). The field install `...\common\GarrysMod` is the
    user's real game: change it only when the user asks in this conversation, after backing up what
    you will touch. The user replaced `GarrysMod_RTX_c` with this project's implementation on
    2026-10-30: it is no longer a classic RTX baseline. Never write there or in
@@ -142,6 +142,16 @@ SteamVR running and unchanged and take both shared locks.
    scratch in `out\tmp` (`tools\test.ps1` and `tools\build.ps1` point `TEMP`/`TMP` there), evidence in
    `out\<purpose>\`. Never the system temp folder or a sibling folder: in M1, Windows Defender blocked
    proxy builds and test hosts that were outside this folder.
+10. **No account names and no full paths of this machine in the repository** (the user, 2026-11-17): the
+   repository is public. Tracked files, commit messages, change notes, Workshop text and briefs for other
+   agents name no user or account, and give no full local path: no `C:\Users\<name>\...`, and no absolute
+   path to this checkout, its sibling folders, the Steam library, the game installs or the user's model
+   folders. Write a path relative to the repository, or a placeholder: `%USERPROFILE%` (or `~`), `<repo>`,
+   `<modding>` (the folder that holds this checkout and its siblings), `<SteamLibrary>`, `<PoC install>`,
+   `<field install>`, `<models>`. When you quote tool output, put the placeholder in first.
+   [`tools/check_repo.py`](tools/check_repo.py.md) fails on an account folder in any text file and on the
+   name of the account that runs it. Older records, [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) and some
+   tools' defaults still hold this machine's paths: add none, and replace them in the lines you touch.
 
 ## Build and test
 

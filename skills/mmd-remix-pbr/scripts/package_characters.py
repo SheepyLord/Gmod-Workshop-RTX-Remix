@@ -1,8 +1,8 @@
 """Package published rpai characters into a folder for reuse.
 
-    python package_characters.py --dest "H:\\path\\to\\package" ^
-        --character Guinevere=new_mmd_model_9cdc990f="E:\\...\\桂乃芬.pmx" ^
-        --character Hyacine=hyacine_r18_6ca2dcc3
+    python package_characters.py --dest "<folder>\\package" ^
+        --character Guinevere=model_9cdc990f="<models>\\...\\桂乃芬.pmx" ^
+        --character Hyacine=hyacine_6ca2dcc3
 
 Layout:
     remix_mod/<mod>/       drop-in Remix mod: mod.usda (only the packaged layers), models/*.usda and
@@ -16,7 +16,7 @@ The destination must be empty or new, unless --update is given. Every referenced
 against the live mod after copying.
 
 NAME is the character's own name (model_names.py, the user's rule of 2026-11-08): a NAME with a game,
-version, author, rating or pack tag ("鸣潮-千咲", "阿芙2.0", "Robin R18") is refused before anything
+version, author, rating or pack tag ("鸣潮-千咲", "阿芙2.0", "Alf 合体7") is refused before anything
 is read or written.
 """
 

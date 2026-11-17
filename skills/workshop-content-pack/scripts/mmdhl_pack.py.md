@@ -44,8 +44,8 @@ touches the cache, the script passes the title, the item name, every `--item` na
 preset name (`--default-preset-name` or `MMDHL_DEFAULT_PRESET_NAME`) and the `out` folder's name
 through [model_names.py](model_names.py.md). A game or franchise tag (`鸣潮-千咲`, `HSR Robin`,
 `[Arknights] Texas`), a version or edition tag (`阿芙2.0`, `Alf 合体7`, `Furina v2`), an author tag
-(`by_mobius`, `Tda式`), a rating or format tag (`Robin R18`, `New MMD Model`), a pack word in an item
-name (`Chisa RTX`) or such a tag in the folder name (`mmdhl_robin_r18`) ends the run with exit 1 and
+(`by_mobius`, `Tda式`), a rating or format tag (`R18`, `NSFW`, `MMD`), a pack word in an item
+name (`Chisa RTX`) or such a tag in the folder name (`mmdhl_alf_2_0`) ends the run with exit 1 and
 one `error:` line per name on stderr. Give the character's name as the user uses it (`Chisa`,
 `Guinaifen`, `Alf`).
 

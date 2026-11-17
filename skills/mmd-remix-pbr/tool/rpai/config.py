@@ -129,6 +129,38 @@ def nvtt_path() -> Path:
     )
 
 
+def _model_names():
+    """The skill's naming rule (scripts/model_names.py), loaded by path: rpai is not a package of scripts/."""
+    import importlib.util
+
+    path = TOOL.parent / "scripts" / "model_names.py"
+    spec = importlib.util.spec_from_file_location("rpai_model_names", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_NAMES = None
+# The PMX editor's default English name ("New MMD Model") says nothing about the character.
+_GENERIC_WORDS = {"new", "model"}
+
+
 def model_key(asset_id: str, english_name: str) -> str:
+    """The model's key: its English name without the naming rule's tags (model_names.strip), as a slug, then
+    the asset id's first 8 characters: a rating tag after the name is dropped (robin_f9c3e4b4), and the
+    PMX editor's default English name, New MMD Model, gives model_1c2ed2fc."""
+    global _NAMES
+    if _NAMES is None:
+        _NAMES = _model_names()
+    slug = re.sub(r"[^a-z0-9]+", "_", _NAMES.strip(english_name)).strip("_")[:32]
+    if set(slug.split("_")) <= _GENERIC_WORDS:
+        slug = ""
+    return f"{slug or 'model'}_{asset_id[:8]}"
+
+
+def legacy_model_key(asset_id: str, english_name: str) -> str:
+    """The key before 2026-11-17, which kept the English name's tags (a rating or format word, a
+    version). The CLI moves a work folder under it to model_key's, still reads a preset named after it and
+    replaces its published layer at the next publish."""
     slug = re.sub(r"[^a-z0-9]+", "_", english_name.lower()).strip("_")[:32]
     return f"{slug or 'model'}_{asset_id[:8]}"

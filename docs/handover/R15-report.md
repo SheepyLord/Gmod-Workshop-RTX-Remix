@@ -43,7 +43,7 @@ edges. The runtime replaces the alpha-test reference of these draws with 0.5
 opaque draw is solid. The rule: 10 % or fewer clear texels (no strands cut out of the texture), 20 % or
 fewer partial ones (not see-through on purpose), at least 0.2 % below half (the test cuts holes). In the
 field library that makes the Endfield hair of Laevatain, JEPT and Yvonne solid, and a few others with
-fades below half (Tda式初音ミクV4X's twintail ends, 芙提雅, 薇薇安); cut-out hair (刻晴), binary alpha and
+fades below half (初音ミク's twintail ends, 芙提雅, 薇薇安); cut-out hair (刻晴), binary alpha and
 see-through hair (灵可's bangs) keep the alpha test.
 
 ## Proven in the PoC
@@ -60,7 +60,7 @@ was put back byte for byte each time and every session quit with the field's set
 | Yvonne | 目影, 发影 | (no alpha channel) | |
 | Robin | 目影 (painted from 黑.jpg) | (no alpha channel) | |
 | Linlong | 目影, 髮影 | (no alpha channel) | |
-| New MMD Model (Alf) | `MI_AlfDefault_U_LashShadow01_A` | `Hair01_A01`, `Hair01_A02` | clear 0.1 %, cut 3.4 %, partial 5.6 %, 2048² |
+| Alf | `MI_AlfDefault_U_LashShadow01_A` | `Hair01_A01`, `Hair01_A02` | clear 0.1 %, cut 3.4 %, partial 5.6 %, 2048² |
 
 With both settings off nothing was hidden and no flag changed; turned on, the parts were left out within
 the hotloader's 8-frame sync and the hair changed within its 2-second check.
@@ -118,7 +118,7 @@ the Workshop item brings since v0.12.1.
 ## Open items
 
 - **Hair that turns solid besides Endfield's.** A few models whose hair has a fade below half also become
-  solid (Tda式初音ミクV4X's twintail ends, 芙提雅, 薇薇安 in the field library); they were not seen in a game.
+  solid (初音ミク's twintail ends, 芙提雅, 薇薇安 in the field library); they were not seen in a game.
   If one looks worse, the Solid hair checkbox turns the rule off for every character; a per-part choice,
   like the eye-white chooser's, would be the next step.
 - **Parts the rules leave.** Star Rail's `眼睛1` (alpha 0.3, painted from the face texture) and two 眼影

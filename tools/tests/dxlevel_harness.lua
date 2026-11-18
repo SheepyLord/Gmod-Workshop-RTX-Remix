@@ -55,7 +55,7 @@ end
 
 local api = rawget(_G, "NativeLoaderDXLevel")
 assert(type(api) == "table", "NativeLoaderDXLevel published")
-eq(api.version, 1) eq(api.switch, "nativeloader_multiplayer_dxlevel") eq(api.highest, 95)
+eq(api.version, 1) eq(api.switch, "nativeloader_multiplayer_dxlevel") eq(api.highest, nil)
 eq(api.real, engineGetDXLevel, "the engine's own function")
 eq(api.reported, render.GetDXLevel, "render.GetDXLevel is the reported level")
 eq(api.installation, scenario == "guard_route" and "guard" or "prelude")
@@ -69,6 +69,7 @@ local switch = convars.nativeloader_multiplayer_dxlevel
 
 if scenario == "multiplayer" or scenario == "guard_route" or scenario == "server_metatable" then
     eq(render.GetDXLevel(), 90, "multiplayer: the level the game was started at")
+    eq(render.GetDXLevel(), tonumber(convars.mat_dxlevel.value), "the same as the mat_dxlevel convar")
     eq(api.real(), 80, "the engine's own answer stays readable")
     -- Read at every call: the switch, single-player and the session's level.
     switch.value = "0" eq(render.GetDXLevel(), 80, "switched off")
@@ -93,13 +94,18 @@ elseif scenario == "never_lower" then
     eq(render.GetDXLevel(), 81, "the player's own -dxlevel 81 is what the game was started at")
     convars.mat_dxlevel.value = "70"
     eq(render.GetDXLevel(), 80, "never below the engine's level")
-elseif scenario == "highest" then
-    convars.mat_dxlevel.value = "98"
-    eq(render.GetDXLevel(), 95, "at most the highest level Garry's Mod runs at on a PC")
+elseif scenario == "agrees" then
+    -- Whatever the game was started at, render.GetDXLevel() answers what the mat_dxlevel convar says.
+    for _, value in ipairs({"90", "95", "98"}) do
+        convars.mat_dxlevel.value = value
+        eq(render.GetDXLevel(), tonumber(value), "agrees with mat_dxlevel " .. value)
+    end
     convars.mat_dxlevel.value = "95.7"
-    eq(render.GetDXLevel(), 95)
-    convars.mat_dxlevel.value = "90.9"
-    eq(render.GetDXLevel(), 90, "whole levels")
+    eq(render.GetDXLevel(), 95, "whole levels, as GetInt reads them")
+    for _, value in ipairs({"inf", "-inf", "1e999"}) do
+        convars.mat_dxlevel.value = value
+        eq(render.GetDXLevel(), 80, "not a finite number: " .. value)
+    end
 elseif scenario == "bad_values" then
     for _, value in ipairs({"", "abc", "nan", "0x", " "}) do
         convars.mat_dxlevel.value = value

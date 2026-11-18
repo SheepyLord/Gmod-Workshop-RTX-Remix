@@ -18,16 +18,20 @@ level) answers 80. The game is started at `-dxlevel 90` (the package's launch ar
 
 - In the client realm of an RTX start, `render.GetDXLevel` becomes a Lua function of this file. In a multiplayer game
   (`game.SinglePlayer()` false) with the switch on, it answers `mat_dxlevel`, the level the game was started at, when
-  that is higher than the engine's answer, at most 95 and in whole levels. Otherwise, and in single-player, it answers
+  that is higher than the engine's answer, in whole levels (as the convar's `GetInt` reads them), so it and the
+  `mat_dxlevel` convar (`GetConVar`, `GetConVarNumber`, `cvars.Number`) agree. Otherwise, and in single-player, it answers
   the engine's level. It never answers lower than the engine.
 - **The switch**: `nativeloader_multiplayer_dxlevel` (a client setting the game saves, `FCVAR_ARCHIVE`, default `1`); `0`
   gives the engine's own answer everywhere. Read at each call.
 - **Nothing is hidden**: the global `NativeLoaderDXLevel` = `{version = 1, installation = "prelude" | "guard", switch =
-  "nativeloader_multiplayer_dxlevel", highest = 95, real = <the engine's render.GetDXLevel>, reported = <this
+  "nativeloader_multiplayer_dxlevel", real = <the engine's render.GetDXLevel>, reported = <this
   function>}` is readable by any Lua, a server's included, and `debug.getinfo(render.GetDXLevel)` names this file. The
   package's own code reads the engine's level with `NativeLoaderDXLevel.real()`.
 - Not changed: `render.SupportsPixelShaders_2_0`, `render.SupportsVertexShaders_2_0`, `render.SupportsPixelShaders_1_4`
   (false under RTX: Source has no shaders there) and `render.SupportsHDR` (GMod's Lua, true from level 80).
+- The console: typing `mat_dxlevel` shows 90 under RTX, the same as this answer; `mat_info` shows the engine's real
+  state (`m_nDXSupportLevel: 80`, shader version 0.0) and stays so: servers cannot read the console, and making it
+  print 90 would mean changing the level Source draws at, or a printout that is not true (ADR 0246, point 7).
 - The engine's functions it uses (`render.GetDXLevel`, `game.SinglePlayer`, the `ConVar` methods) are taken when it
   runs, so later replacements by other Lua do not change what it reads.
 

@@ -30,8 +30,8 @@ class MultiplayerDXLevelTests(unittest.TestCase):
     def test_the_render_guards_route_after_includes_init(self):
         self.run_case("guard_route")
 
-    def test_never_lower_than_the_engine_and_at_most_95(self):
-        for scenario in ("never_lower", "highest"):
+    def test_never_lower_than_the_engine_and_the_same_as_the_mat_dxlevel_convar(self):
+        for scenario in ("never_lower", "agrees"):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
 

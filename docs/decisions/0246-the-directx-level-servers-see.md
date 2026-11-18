@@ -40,9 +40,11 @@ Measured in the PoC (RESEARCH.md, "The DirectX level servers see"):
 
 1. **What `render.GetDXLevel()` answers.** In a client realm of an RTX start, in a multiplayer game
    (`game.SinglePlayer()` false), it answers `mat_dxlevel`, the level the game was started at, when that is higher than
-   the engine's level: whole levels, at most 95, never lower than the engine. With the package's launch arguments that
-   is 90, what the same game answers without RTX at those arguments. Single-player answers the engine's level as
-   before. `mat_dxlevel` and the convar routes already read 90 and are not touched.
+   the engine's level: whole levels, never lower than the engine. The engine's level is never above `mat_dxlevel`, so in
+   a multiplayer game Lua that calls `render.GetDXLevel()` and Lua that reads the convar (`GetConVar("mat_dxlevel")`,
+   `GetConVarNumber`, `cvars.Number`) agree (the user's note of 2026-11-18). With the package's launch arguments that is
+   90, what the same game answers without RTX at those arguments. Single-player answers the engine's level as before.
+   `mat_dxlevel` and the convar routes already read 90 and are not touched.
 2. **A switch.** `nativeloader_multiplayer_dxlevel` (a client setting the game saves; default 1): 0 gives the engine's
    answer everywhere. Read at every call.
 3. **Nothing hidden.** `render.GetDXLevel` is a plain Lua function of `lua/nativeloader/prelude/dxlevel.lua`
@@ -55,15 +57,25 @@ Measured in the PoC (RESEARCH.md, "The DirectX level servers see"):
    found in the loaded `client.dll` (`lea rdx` naming the file, then `call [reg+0x308]` within 64 bytes), so the slot is
    the one that starts a realm in this build and takes exactly FindAndRunScript's arguments; the vtable in
    `lua_shared.dll`'s data, its IsClient, FindAndRunScript and RunStringEx slots in that module's code. Otherwise
-   nothing changes, the status line says why, and the fallback (5) applies. Before the engine runs a client realm's `includes/init.lua`, the
-   companion's verified `lua/nativeloader/prelude/*.lua` run there (the catalog's bytes, as for the menu scripts of ADR
-   0133; no other source, no new Lua API), with the raw global `__NATIVELOADER_CLIENT_PRELUDE` while they run. Every
-   other call passes straight to the engine.
+   nothing changes, the status line says why, and the fallback (5) applies. Before the engine runs a client realm's
+   `includes/init.lua`, the companion's verified `lua/nativeloader/prelude/*.lua` run there (the catalog's bytes, as for
+   the menu scripts of ADR 0133; no other source, no new Lua API), with the raw global `__NATIVELOADER_CLIENT_PRELUDE`
+   while they run. Every other call passes straight to the engine.
 5. **A fallback.** Where the module did not run the prelude, the render guard includes it in its own route: early in a
    local game, after the server's autoruns on a remote one.
 6. **Not changed:** the engine's real level and everything Source renders; `render.SupportsPixelShaders_2_0`,
    `SupportsPixelShaders_1_4` and `SupportsVertexShaders_2_0` (capabilities, false under RTX: an add-on that reads them
    picks its fixed-function path as before); ARC9's patch (ADR 0135), which answers its own check in single-player too.
+7. **The console** (the user's note of 2026-11-18: the level shows in Lua through `render.GetDXLevel()` and in the
+   console through `mat_dxlevel` and `mat_info`). Typing `mat_dxlevel` prints `"mat_dxlevel" = "90"` in an RTX start,
+   the same as what Lua now answers in a multiplayer game. `mat_info` prints the material system's hardware
+   configuration, the engine's real state: `m_nDXSupportLevel: 80`, vertex and pixel shader version 0.0, every
+   `m_Supports*Shaders*` no (without RTX: 95, 3.0, yes). It stays so. A server's Lua cannot read the console. Making
+   `mat_info` print 90 would take one of two things: changing the hardware configuration Source reads its level from,
+   which is the level Source draws at (shader draws Remix does not path trace, as raising the real level above), or
+   rewriting the command's printout (the engine guard could take the `mat_info` command over as it takes `poster`, ADR
+   0226), which would show the player numbers the engine does not use and change nothing for any server. Neither is
+   done.
 
 ## Why the earlier decline is superseded
 

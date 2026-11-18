@@ -16,7 +16,7 @@ luajit tools\tests\dxlevel_harness.lua companion\nativeloader\lua\nativeloader\p
 | `guard_route` | the same after `includes/init.lua` (the render guard's route): `installation` "guard" |
 | `server_metatable` | the same with a `__newindex` on `_G` that errors (server Lua on a remote server) |
 | `single_player` | 80 |
-| `never_lower`, `highest` | an engine level above `mat_dxlevel` stays; the player's own `-dxlevel 81` is reported; never below the engine; at most 95, whole levels |
+| `never_lower`, `agrees` | an engine level above `mat_dxlevel` stays; the player's own `-dxlevel 81` is reported; never below the engine; the same as the `mat_dxlevel` convar (90, 95, 98), whole levels; a value that is not a finite number (`inf`) gives the engine's level |
 | `bad_values`, `missing_dxlevel`, `switch_error` | an unreadable or missing `mat_dxlevel`, or a switch that raises an error when read, keeps the engine's level without an error; an engine answer that is not a number passes through |
 | `idempotent` | a second run changes nothing and makes no second switch |
 | `realm_server`, `realm_menu`, `missing_functions` | nothing changes and nothing is published |

@@ -20,10 +20,31 @@ switch it off.
 
 In a multiplayer game an RTX start answers `render.GetDXLevel()` with `mat_dxlevel`, the level the game was started at
 (90 with the package's `-dxlevel 90`), instead of the 80 RTX runs Source at, so a server that refuses levels below 90
-lets RTX players in. Single-player answers 80 as before; `nativeloader_multiplayer_dxlevel 0` (a client setting the
+lets RTX players in, whether it calls `render.GetDXLevel()` or reads the `mat_dxlevel` convar: the two agree. Single-player answers 80 as before; `nativeloader_multiplayer_dxlevel 0` (a client setting the
 game keeps) gives the engine's answer everywhere; the `render.Supports*` shader checks and everything Source renders are
 unchanged. The global `NativeLoaderDXLevel` (`real()`, `reported()`, `installation`, `switch`) tells any Lua, a server's
 included, that this is so.
+
+## The console: `mat_dxlevel` and `mat_info`
+
+The user's note of 2026-11-18: the level shows in Lua (`render.GetDXLevel()`) and in the console (`mat_dxlevel`,
+`mat_info`). Measured (`--console mat_info --console mat_dxlevel`, listen servers):
+
+| | RTX, this branch | Without RTX |
+|---|---|---|
+| Lua `render.GetDXLevel()` | 90 (80 with the switch off) | 95 |
+| Lua `GetConVar("mat_dxlevel")` (`GetInt`, `GetString`), `GetConVarNumber`, `GetConVarString`, `cvars.Number` | 90 | 95 |
+| Console `mat_dxlevel` | `"mat_dxlevel" = "90"` | `"95"` |
+| Console `mat_info` | `m_nDXSupportLevel: 80`, vertex and pixel shader version 0.0, every shader cap no, `HDR_TYPE_NONE` | 95, 3.0, yes, `HDR_TYPE_INTEGER` |
+
+- **Lua and the convar agree.** In a multiplayer game `render.GetDXLevel()` answers exactly what the `mat_dxlevel`
+  convar reads (the probe's `agree` true; no cap: a player's own `-dxlevel 95` gives 95 in both).
+- **The console's `mat_dxlevel`** already printed 90 under RTX; it is what Lua now answers.
+- **`mat_info` stays the engine's real state** (80, no shaders). A server's Lua cannot read the console. Making it print
+  90 would take either changing the material system's hardware configuration, which is the level Source draws at (shader
+  draws Remix does not path trace, as M4 found), or rewriting the command's printout (the engine guard could take
+  `mat_info` over as it takes `poster`), which would show the player numbers the engine does not use and change nothing
+  for a server. Neither is done (ADR 0246, point 7).
 
 ## Why the RTX client module (a package binary), not only Lua
 
@@ -71,8 +92,10 @@ Conventions OK, CTest 35/35, Python 2,159 (tools) + 29 (gmapack) + 26 (steam), o
 **PoC** (`tools/poc_session.py`, holding `out\r10\poc.lock`; gm_construct, 1280 x 720; before = main's published
 `0.0.0-dev.20261118054812+70191713`, after = this branch's `0.0.0-dev.20261118200230+f309d7b6`, and again with the final
 module, which also confirms client.dll's call before hooking, `0.0.0-dev.20261118202319+773d352b` (runs `after2-*`: the
-same results, frames 0.22 and 0.22 from before); a scratch server add-on asks each client 2 s after it spawns and takes
-the client's own report at `InitPostEntity`, refusing below 90):
+same results, frames 0.22 and 0.22 from before), and with the final Lua, which answers exactly what `mat_dxlevel` reads,
+`0.0.0-dev.20261118203956+8c8287fc` (runs `after3-listen` and `vanilla-matinfo`, with `mat_info` and `mat_dxlevel` typed
+into the console: the table above); a scratch server add-on asks each client 2 s after it spawns and takes the
+client's own report at `InitPostEntity`, refusing below 90):
 
 | Run | `render.GetDXLevel()` at autorun / `InitPostEntity` / request | Verdicts | Notes |
 |---|---|---|---|

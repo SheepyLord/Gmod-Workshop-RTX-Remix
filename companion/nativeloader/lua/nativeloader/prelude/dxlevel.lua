@@ -4,9 +4,10 @@
 -- shaders and render.GetDXLevel() answers 80, although the game was started at mat_dxlevel 90 (the package's
 -- -dxlevel 90). Servers that refuse clients below 90 (a check meant for DirectX 8 players) refused every RTX
 -- player. In a multiplayer game render.GetDXLevel() here answers the level the game was started at, mat_dxlevel,
--- when that is higher (at most 95). Single-player, and nativeloader_multiplayer_dxlevel 0, keep the engine's
--- answer. Nothing is hidden: the global NativeLoaderDXLevel says so and gives the engine's own answer (real) to any
--- Lua, a server's included. The render.Supports* functions keep their answers.
+-- when that is higher, so a check that calls it and one that reads the mat_dxlevel convar (GetConVar, GetConVarNumber,
+-- cvars.Number; the console's mat_dxlevel) agree. Single-player, and nativeloader_multiplayer_dxlevel 0, keep the
+-- engine's answer. Nothing is hidden: the global NativeLoaderDXLevel says so and gives the engine's own answer (real)
+-- to any Lua, a server's included. The render.Supports* functions, mat_info and what Source renders stay as they are.
 --
 -- The RTX client module runs this in each client realm before the engine runs that realm's includes/init.lua
 -- (installation "prelude"), so before any Lua a server sends; the render guard runs it where the module did not
@@ -33,13 +34,12 @@ local made, switch = pcall(createConVar, SWITCH, "1", 128,
 if not made or switch == nil then return end
 local found, started = pcall(findConVar, "mat_dxlevel")
 if not found then started = nil end
-local floor, min, tonumber, type, pcall = math.floor, math.min, tonumber, type, pcall
--- The highest level Garry's Mod runs at on a PC (DirectX 9 with shader model 3).
-local HIGHEST = 95
-local api = {version = 1, switch = SWITCH, highest = HIGHEST, real = real,
+local floor, tonumber, type, pcall = math.floor, tonumber, type, pcall
+local api = {version = 1, switch = SWITCH, real = real,
     installation = rawget(G, "__NATIVELOADER_CLIENT_PRELUDE") == true and "prelude" or "guard"}
--- What render.GetDXLevel() answers: the engine's level, or mat_dxlevel where that is higher in a multiplayer game
--- with the switch on. It never raises an error: whatever cannot be read gives the engine's level.
+-- What render.GetDXLevel() answers: the engine's level, or mat_dxlevel (whole levels, as the convar's GetInt reads it)
+-- where that is higher in a multiplayer game with the switch on. The engine's level is never above mat_dxlevel, so there
+-- the two agree. It never raises an error: whatever cannot be read gives the engine's level.
 local function reported()
     local level = real()
     if type(level) ~= "number" or started == nil or singlePlayer() then return level end
@@ -47,8 +47,9 @@ local function reported()
     if not read or not on then return level end
     local ok, text = pcall(getString, started)
     local configured = ok and tonumber(text)
-    if not configured or configured ~= configured then return level end
-    configured = min(floor(configured), HIGHEST)
+    -- Not a finite number (nan, inf): the engine's level.
+    if not configured or configured - configured ~= 0 then return level end
+    configured = floor(configured)
     if configured > level then return configured end
     return level
 end

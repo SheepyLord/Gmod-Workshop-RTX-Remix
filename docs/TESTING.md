@@ -3824,7 +3824,7 @@ separator now has 57 texts in each catalog.
   only, the marker raw-set while they run, installed after verification and the pin from the engine's menu state).
 - **Lua under LuaJIT:** [`test_multiplayer_dxlevel.py`](../tools/tests/test_multiplayer_dxlevel.py.md) runs the
   companion's `nativeloader/prelude/dxlevel.lua` in a stand-in client realm with only the engine's C functions
-  (multiplayer 90, single-player and the switch 80, never lower, at most 95, unreadable settings, once, server and menu
+  (multiplayer 90, single-player and the switch 80, never lower, the same as `mat_dxlevel`, unreadable settings, once, server and menu
   realms untouched, a server's metamethods on `_G`); [`test_render_guard.py`](../tools/tests/test_render_guard.py.md)
   the guard's fallback (`dxlevel_fallback`, `dxlevel_multiplayer`, `dxlevel_present`).
 - **PoC** (`tools/poc_session.py run --addons --lua <probe> --camera 823,-657,-79,0,0,0 --hide-hud`, holding

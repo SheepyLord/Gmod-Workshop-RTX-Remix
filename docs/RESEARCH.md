@@ -9690,3 +9690,13 @@ Line numbers are the fork tree with patches 0001-0104 (`8cd421cd8`).
   the fixes' `cl_rtx.lua` reports "[gmRTX - Hardware Skinning] Timed out restoring r_forcehwskin before model reload",
   with the render guard's line "r_forcehwskin: kept session value 0 (lua/autorun/cl_rtx.lua:139)"; single-player games
   have neither.
+- **The console's view** (PoC, `--console mat_info --console mat_dxlevel` after the map; listen servers): typing
+  `mat_dxlevel` prints `"mat_dxlevel" = "90" ( def. "0" )` under RTX and `"95"` without. `mat_info` (the shader API's
+  driver information and caps, then the material system's hardware configuration) under RTX: driver `nvd3dum.dll`,
+  "Vertex Shader Version : 0.0 Pixel Shader Version : 0.0", every `m_Supports*Shaders*` and
+  `m_SupportsShaderModel_3_0` no, `m_NumSamplers: 4`, `m_SupportsSRGB: no`, `m_HDRType: HDR_TYPE_NONE`,
+  `m_nDXSupportLevel: 80`; without RTX (System32 `d3d9.dll`, driver `nvldumdx.dll`): shader version 3.0, every shader
+  cap yes, `m_NumSamplers: 16`, `m_SupportsSRGB: yes`, `HDR_TYPE_INTEGER`, `m_nDXSupportLevel: 95`. With this change
+  `mat_info` is the same, and in an RTX listen server `render.GetDXLevel()`, `GetConVar("mat_dxlevel"):GetInt()`,
+  `GetConVarNumber`, `GetConVarString` and `cvars.Number` all read 90; with `nativeloader_multiplayer_dxlevel 0`
+  `render.GetDXLevel()` reads 80 again.

@@ -100,7 +100,11 @@ Screenshots: before, her skirt flares out around the no-draw or transparent ragd
 her body; after, it hangs as with nothing there. Every run quit normally, with 0 Lua errors and the settings put back.
 Its console has no `RTX guard` line for the new code.
 
-**Gate:** `tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set, in `out\worktrees\invis`: see below.
+**Gate:** `tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set, in `out\worktrees\invis`, on 65a69ed3: exit 0.
+Conventions OK, CTest 35/35, Python 2,150 (tools) + 29 (gmapack) + 26 (steam), one skip each, "All checks passed". A
+first run on the uncommitted work had failed two steps: the conventions ran before this report existed, so two links
+were broken, and the new row in the decisions index lacked its Status column (`test_vr_review_docs`). Both were fixed
+before the commit.
 
 ## Not covered, not verified
 

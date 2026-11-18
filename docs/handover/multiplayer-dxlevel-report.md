@@ -59,10 +59,14 @@ not. No loader (`winmm.dll`) change.
 
 ## Evidence
 
-**Offline.** `nl_client_catalog_tests` 53/53 (the four prelude cases: the slot numbers checked against the vendored
+**Offline.** `nl_client_catalog_tests` 55/55 (the six prelude cases: the slot numbers checked against the vendored
 header as MSVC compiles it, refusals, the runner before the engine's call with the arguments and answer passed through,
-one hook on a second install; the module's contract). LuaJIT: `test_multiplayer_dxlevel.py` 8/8 and the render guard's
-55 tests with the three new fallback scenarios.
+one hook on a second install, client.dll's call pattern and its look-alikes, the real `client.dll` of the PoC through
+`NL_CLIENT_DLL`; the module's contract). LuaJIT: `test_multiplayer_dxlevel.py` 8/8 and the render guard's 55 tests
+with the three new fallback scenarios.
+
+**Gate:** `tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set, in `out\worktrees\dx`, on 0ee56fe1: exit 0.
+Conventions OK, CTest 35/35, Python 2,159 (tools) + 29 (gmapack) + 26 (steam), one skip each, "All checks passed".
 
 **PoC** (`tools/poc_session.py`, holding `out\r10\poc.lock`; gm_construct, 1280 x 720; before = main's published
 `0.0.0-dev.20261118054812+70191713`, after = this branch's `0.0.0-dev.20261118200230+f309d7b6`, and again with the final
@@ -104,8 +108,9 @@ logs, status, modules, screenshots); the scratch add-on, probe and drivers in `o
   additive (CHANGELOG top, a ROADMAP paragraph after the invisible-colliders one, the ends of RESEARCH and TESTING, the
   decisions index after 0245, the handover index after the invisible-colliders line, AGENTS.md's status line and
   "latest is" chain); ADR 0246 is the next free number (0244 stays with the rejected loader branch).
-- **The module's Git LFS object** (`packages/fixes/modules/gmsv_nlrtxclient_win64.dll.xz`, OID `f716b461...`) is in the
-  shared local LFS store; a push uploads it.
+- **The module's Git LFS object** (`packages/fixes/modules/gmsv_nlrtxclient_win64.dll.xz`, OID `c3d6c241...`, 266 KB)
+  is in the shared local LFS store; a push uploads it. (An earlier refresh's object, `f716b461...`, is in the store
+  too, referenced by no commit.)
 - **This reverses a decline recorded in ADR 0133 §4** on the user's explicit request; the ADR says why the shape is
   acceptable (the session's own setting, visible, switchable).
 - **PoC as left**: `native-loader\config.json` names main's published package (`out\workshop\...70191713.gma`; the

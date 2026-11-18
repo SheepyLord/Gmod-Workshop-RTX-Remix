@@ -114,3 +114,8 @@ the test under MineMod's own source labels, never MineMod's code: a `HUDPaint` h
 that draws MineMod's texture pack line from `MC.TexturePackPending` and `MC.ResourcePacks`, a `Think` hook in the same
 file, and the probe's `screenspace_general_8tex` material with `$vertexshader`/`$pixshader` bound from
 `lua/mc/resources/cl_sampling.lua`, described in [test_render_guard.py](test_render_guard.py.md).
+
+ADR 0246: in `dxlevel_fallback` and `dxlevel_present` a global `include` records what the guard includes (in
+`dxlevel_present` a `NativeLoaderDXLevel` table, as the client module's prelude leaves it, exists before the guard
+runs); in `dxlevel_multiplayer` the private environment carries the recording `include`, as the verified bootstrap's
+scoped one does. The `engine_guard` scenario's `include` answers nothing for the prelude's path.

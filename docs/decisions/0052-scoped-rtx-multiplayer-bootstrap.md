@@ -1,6 +1,8 @@
 # 0052: Verified RTX-owner scripts in multiplayer
 
-- Status: Accepted; amended by [0056](0056-guard-and-startup-fallbacks.md)
+- Status: Accepted; amended by [0056](0056-guard-and-startup-fallbacks.md) and [0246](0246-the-directx-level-servers-see.md)
+  (in RTX starts the module runs the companion's verified prelude scripts in each client realm before `includes/init.lua`,
+  and `render.GetDXLevel` changes there)
 - Decided by: the user's multiplayer request, explicitly limited to the RTX payload and excluding other community add-ons
 
 ## Context

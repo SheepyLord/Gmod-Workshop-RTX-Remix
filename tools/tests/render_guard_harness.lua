@@ -18,7 +18,7 @@ CLIENT, SERVER, MENU_DLL = true, false, false
 if scenario=="realm_server" then CLIENT,SERVER=false,true end
 if scenario=="realm_menu" then CLIENT,MENU_DLL=false,true end
 local multiplayer = scenario=="verified_multiplayer" or scenario=="cached_multiplayer" or scenario:find("^r8_mp_")~=nil
-    or scenario=="minemod_notice_multiplayer"
+    or scenario=="minemod_notice_multiplayer" or scenario=="dxlevel_multiplayer"
 __NATIVELOADER_RTX_GUARD_EARLY = not multiplayer and scenario~="no_proof" and scenario~="inherited_proof"
     and scenario~="autorun"
 -- status.json as the loader writes it. Remote vanilla clients have none; an RTX-off start reports
@@ -321,10 +321,20 @@ do
     end
     if scenario=="engine_guard" then
         -- The companion's words helper, as the early view includes it in a local game.
-        include=function(path) eq(path,"nativeloader/engine_guard_words.lua") return function() return "Titel","Text %s" end end
+        include=function(path)
+            if path=="nativeloader/prelude/dxlevel.lua" then return end
+            eq(path,"nativeloader/engine_guard_words.lua") return function() return "Titel","Text %s" end
+        end
         file.Delete=function(name) engineGuardCalls[#engineGuardCalls+1]="delete "..name end
     end
 end
+-- ADR 0246: where the RTX client module did not run the DirectX level prelude, the guard includes it, through
+-- the engine's include in a local game and through the bootstrap's scoped include on a remote server.
+local included={}
+local function recordInclude(path) included[#included+1]=path end
+if scenario=="dxlevel_fallback" or scenario=="dxlevel_present" then include=recordInclude end
+if scenario=="dxlevel_present" then NativeLoaderDXLevel={version=1,installation="prelude"} end
+if scenario=="dxlevel_multiplayer" then rawset(privateEnvironment,"include",recordInclude) end
 if multiplayer or scenario=="inherited_proof" then
     if multiplayer then
         temporaryAPI=setmetatable({},{__index=function()error("temporary client API must not be consulted")end})
@@ -356,6 +366,17 @@ end
 eq(guard.version,2)
 
 if multiplayer then eq(#engineGuardCalls,0,"the late multiplayer route never loads the engine guard") end
+if scenario=="dxlevel_fallback" or scenario=="dxlevel_multiplayer" then
+    eq(guard.installation,scenario=="dxlevel_fallback" and "early" or "verified multiplayer bootstrap")
+    eq(#included,1) eq(included[1],"nativeloader/prelude/dxlevel.lua")
+    print("PASS "..scenario)
+    return
+end
+if scenario=="dxlevel_present" then
+    eq(guard.installation,"early") eq(#included,0,"the client module's prelude already installed it")
+    print("PASS "..scenario)
+    return
+end
 if scenario=="engine_guard" then
     eq(guard.installation,"early")
     eq(engineGuardCalls[1],"require") eq(engineGuardCalls[2],"message Titel|Text %s")

@@ -53,3 +53,14 @@ closed. Other owners, changed recipes or no patch sets never refuse.
 
 Build with `cmake --build --preset win64-release --target nl_client_catalog_tests`, then
 `ctest --test-dir out/build/win64-release -R ^nl_client_catalog_tests$ --output-on-failure`.
+
+`test_prelude.cpp` (ADR 0246) checks the client prelude hook against a stand-in Lua state, an object whose vtable lies in
+this test executable's data and whose 128 slots are distinct functions of its code: calls through the vendored
+`ILuaInterface` header land in the slots `prelude.h` names (IsClient 76, FindAndRunScript 97 at `0x308`, RunStringEx
+111); which calls start a realm and which catalog keys are prelude scripts; refusals (no state, module or runner, a
+module that is not an image, a vtable on the heap, a slot that points at data) change nothing; once installed, the
+runner gets the state before the engine's `includes/init.lua` and the engine's function then gets the same arguments and
+gives its answer back, other files and calls that do not run reach the engine alone, a runner that ran nothing is not
+counted, and a second install keeps one hook and only replaces the runner; `calls_through_slot` finds client.dll's call (`lea rdx` naming the file, then `call [reg+0x308]` within 64 bytes: rax, rcx, r9 with its REX byte) and refuses another slot, a call too far away, another string, another register and a SIB form; `confirm_engine_call` refuses a missing module and a buffer that is not an image, and, where `NL_CLIENT_DLL` names a real `client.dll`, finds the call in it (mapped as an image resource, never run). `test_module.cpp` adds that the prelude runs
+only in a client realm of a verified start, only the catalog's prelude scripts, with the marker raw-set while they run,
+and that the hook goes in from the engine's own menu state after verification and the pin, never from `Poll`.

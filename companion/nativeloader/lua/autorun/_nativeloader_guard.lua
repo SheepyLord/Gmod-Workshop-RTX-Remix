@@ -97,6 +97,12 @@ if not late and type(rawget(_G, "nlengineguard")) ~= "table" and type(require) =
         if timer and timer.Simple then timer.Simple(0, engineGuardDone) end
     end
 end
+-- ADR 0246: the DirectX level a server sees. The RTX client module runs nativeloader/prelude/dxlevel.lua in each
+-- client realm before includes/init.lua; where it did not (it could not hook the engine), this route runs it now:
+-- early in a local game, after the server's autoruns on a remote one.
+if type(rawget(_G, "NativeLoaderDXLevel")) ~= "table" and type(include) == "function" then
+    pcall(include, "nativeloader/prelude/dxlevel.lua")
+end
 
 local enabled = CreateClientConVar("nativeloader_guard", "1", true, false,
     "Keep incompatible add-on rendering from undoing the RTX session")
@@ -675,6 +681,7 @@ lua/nativeloader/menu/pbr_note.lua
 lua/nativeloader/menu/unsubscribed_notice.lua
 lua/nativeloader/notice.lua
 lua/nativeloader/painted_shadows.lua
+lua/nativeloader/prelude/dxlevel.lua
 lua/nativeloader/sky_model.lua
 lua/nativeloader/solid_hair.lua
 lua/nativeloader/weather_presets.lua

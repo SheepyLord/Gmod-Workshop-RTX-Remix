@@ -302,3 +302,10 @@ record and one console line. The add-on's state is read in `pcall`: anything une
 MineMod's other failures, its other hooks and messages, other add-ons and `nativeloader_guard 0` are unchanged.
 `skipCallback` reads and normalizes a callback's source once for the effect and notice checks. The scenarios
 `minemod_notice` and `minemod_notice_multiplayer` of the harness cover each.
+
+ADR 0246 ([the DirectX level servers see](../../../../docs/decisions/0246-the-directx-level-servers-see.md)): after the
+installation decision and the engine guard's step, in every route, the guard includes
+[`nativeloader/prelude/dxlevel.lua`](../nativeloader/prelude/dxlevel.lua.md) when `NativeLoaderDXLevel` is absent (in a
+protected call): the RTX client module normally runs that file in each client realm before `includes/init.lua`, and
+this covers a start where it could not hook the engine, early in a local game and after the server's autoruns on a
+remote one. The file joins the exact bundled-source inventory. No guard policy changes.

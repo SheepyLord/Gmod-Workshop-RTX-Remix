@@ -203,3 +203,40 @@ TEST_CASE("client module: Steam's switch is read for the verified RTX item only,
   const auto run = body(text, "unsigned run_menu_scripts(ILuaBase* lua)");
   CHECK(run.find("lua->PushCFunction(MenuSteamState); lua->SetField(-2, \"rtx_steam_state\");") != std::string::npos);
 }
+
+TEST_CASE("client module: the client prelude runs the companion's verified prelude scripts, client realms only (ADR 0246)") {
+  const auto text = module_source();
+  const auto run = body(text, "bool run_prelude(void* state) noexcept");
+  REQUIRE(!run.empty());
+  // Only in a client realm of a verified start, only the catalog's prelude scripts, the marker raw-set while they run.
+  CHECK(run.find("if (!catalog || !lua || !lua->IsClient()) return false;") != std::string::npos);
+  CHECK(run.find("is_prelude_script(name)") != std::string::npos);
+  CHECK(run.find("GetField(") == std::string::npos);
+  CHECK(run.find("SetField(") == std::string::npos);
+  const auto marked = run.find("raw_set(lua, GarrysMod::Lua::SPECIAL_GLOB, nl::client::prelude::kMarker)");
+  const auto ran = run.find("RunStringEx(");
+  const auto cleared = run.rfind("raw_set(lua, GarrysMod::Lua::SPECIAL_GLOB, nl::client::prelude::kMarker)");
+  REQUIRE(marked != std::string::npos);
+  REQUIRE(ran != std::string::npos);
+  CHECK(marked < ran);
+  CHECK(ran < cleared);
+  CHECK(run.find("catch (...)") != std::string::npos);
+  // The hook goes in once the start is verified and the module pinned, from the engine's own menu state.
+  const auto install = body(text, "std::string install_prelude()");
+  REQUIRE(!install.empty());
+  CHECK(install.find("GetLuaInterface(GarrysMod::Lua::State::MENU)") != std::string::npos);
+  CHECK(install.find("GetModuleHandleW(L\"lua_shared.dll\")") != std::string::npos);
+  // Only once client.dll is seen to start a realm through the hooked slot in this build.
+  const auto confirmed = install.find("confirm_engine_call(GetModuleHandleW(L\"client.dll\"))");
+  REQUIRE(confirmed != std::string::npos);
+  CHECK(confirmed < install.find("prelude::install("));
+  CHECK(install.find("if (why.empty())") != std::string::npos);
+  const auto open = body(text, "GMOD_MODULE_OPEN()");
+  const auto verified = open.find("catalog = std::move(snapshot);");
+  const auto pin = open.find("GET_MODULE_HANDLE_EX_FLAG_PIN");
+  const auto call = open.find("install_prelude()");
+  REQUIRE(call != std::string::npos);
+  CHECK(verified < call);
+  CHECK(pin < call);
+  CHECK(body(text, "LUA_FUNCTION_STATIC(Poll)").find("prelude") == std::string::npos);
+}

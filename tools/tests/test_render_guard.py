@@ -38,6 +38,12 @@ class RenderGuardTests(unittest.TestCase):
         # R23 (ADR 0130): on a remote server this is the only companion code the client realm runs.
         self.run_case("engine_guard")
 
+    def test_the_directx_level_prelude_is_included_where_the_client_module_did_not_run_it(self):
+        # ADR 0246: a local game's early view and a remote server's late route; never twice.
+        for scenario in ("dxlevel_fallback", "dxlevel_multiplayer", "dxlevel_present"):
+            with self.subTest(scenario=scenario):
+                self.run_case(scenario)
+
     def test_local_rtx_start_without_the_early_view_installs_from_the_autorun(self):
         self.run_case("autorun")
 

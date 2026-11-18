@@ -12,6 +12,7 @@ sv_allowcslua, widen the native source allowlist, or create a general source-exe
 | `addon_list.h`, `addon_list.cpp` | [ADR 0189](../../docs/decisions/0189-steams-per-account-switch-turns-rtx-off.md): adds a Workshop item to GMod's list of disabled add-ons, `garrysmod/cfg/addonnomount.txt` (what the installed loaders read), or removes it, keeping every other byte; GMod's layout for a missing file; refuses a file that is not GMod's list, a link, an id that is not digits |
 | `steam_switch.h`, `steam_switch.cpp` | ADR 0189: an item's state in the signed-in account's own Steam list, `<Steam>\userdata\<account>\ugc\4000_subscriptions.vdf` (enabled, `disabled_locally`, not listed), Steam's folder and the account from the registry with advapi32 loaded at run time |
 | `poll.h` | The polling policy: a client-realm check at most every 250 ms, and at most 480 initializer runs (two minutes) for a realm whose local player never becomes valid |
+| `prelude.h`, `prelude.cpp` | [ADR 0246](../../docs/decisions/0246-the-directx-level-servers-see.md): the client prelude hook. `install` puts it into `ILuaInterface::FindAndRunScript`'s slot (97) of the vtable the engine's Lua states share, once per process, only where sure (`confirm_engine_call`: `client.dll` names `includes/init.lua` and calls slot 97 with it, `lea rdx` then `call [reg+0x308]` within 64 bytes, so the slot is the one that starts a realm in this build; the vtable in `lua_shared.dll`'s data, the IsClient, FindAndRunScript and RunStringEx slots in its code); the hook hands a realm to the module's runner right before the engine runs its `includes/init.lua`, then calls the engine's function with the same arguments. `starts_realm`, `is_prelude_script`, `calls_through_slot`, `installed`, `runs` |
 | `bootstrap.lua` | Private client initializer: scoped include/require/file helpers, shared/client autoruns, client entity registration and owned initialization-hook replay |
 | `bootstrap.lua.md` | Initializer behavior and side effects |
 | `bootstrap_data.h.in` | CMake embedding template for the initializer |
@@ -28,6 +29,21 @@ line ends with `menu scripts <n>` (how many ran without an error). The module ta
 engine's own menu Lua state (`lua_shared`'s `GetLuaInterface(MENU)`): any realm's Lua can set `MENU_DLL`, and a
 listen server's realm that passed for the menu would have taken over the catalog and ended it when it closed (the R24
 review).
+
+ADR 0246: the client prelude. On a remote server a client realm runs the server's copy of `includes/init.lua`, then the
+server's autoruns, so the loader's early view (a local file's view) never reaches it, and the verified client bootstrap
+above runs only once that realm has a gamemode and a valid local player, after the server's checks at `InitPostEntity`.
+Once verified, after its menu scripts, the module hooks `ILuaInterface::FindAndRunScript` (client.dll starts each
+realm with `call [vtable+0x308]` and `"includes/init.lua"`) through the menu state's vtable, which every Lua state
+shares, only once it has found that very call in the loaded `client.dll` (a game update that moves the slot leaves the
+prelude off, and the render guard's fallback takes over). When the engine is about to run a client realm's `includes/init.lua` (`IsClient()`, in any game of this
+verified start, local or remote), the companion's verified `lua/nativeloader/prelude/*.lua` (catalog keys
+`nativeloader/nativeloader/prelude/<name>.lua`, direct children, name order) run there first through `RunStringEx`,
+chunk `@lua/nativeloader/prelude/<name>.lua`, with the raw global `__NATIVELOADER_CLIENT_PRELUDE` true while they run;
+then the engine's call goes on unchanged. Other realms and other files pass straight through. No new Lua API, and no
+source but those verified files. The status line ends with `client prelude hooked` (or `not hooked:` and why), and
+`NativeLoaderRTXClient.Status()` has `prelude` and `prelude_runs`. The one prelude script is the DirectX level a
+server sees ([`dxlevel.lua`](../../companion/nativeloader/lua/nativeloader/prelude/dxlevel.lua.md)).
 
 ADR 0188: the module also takes the RTX package's former files out of the game. When the package was first deployed
 over files already at its add-on and `garrysmod/lua/bin` paths (an earlier RTX deployment whose journal was lost, a

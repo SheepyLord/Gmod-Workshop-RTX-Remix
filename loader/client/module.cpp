@@ -5,6 +5,7 @@
 #include "leftovers.h"
 #include "steam_switch.h"
 #include "poll.h"
+#include "prelude.h"
 #include "nl/fs.h"
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/Lua/LuaInterface.h>
@@ -222,11 +223,46 @@ unsigned run_menu_scripts(ILuaBase* lua) {
   lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, kMenuApi);
   return ran;
 }
+// ADR 0246: called by the prelude hook (prelude.h) right before the engine runs a realm's includes/init.lua. In a
+// client realm of this verified start, the companion's prelude scripts run there first, in name order, before any Lua
+// a server sends; the marker is raw-set while they run. Every access is raw: no server Lua has run in this realm yet,
+// but none is needed. Never throws into the engine.
+bool run_prelude(void* state) noexcept {
+  try {
+    auto* lua = static_cast<ILuaInterface*>(state);
+    if (!catalog || !lua || !lua->IsClient()) return false;
+    lua->PushBool(true);
+    raw_set(lua, GarrysMod::Lua::SPECIAL_GLOB, nl::client::prelude::kMarker);
+    for (const auto& [name, script] : catalog->scripts) {
+      if (!nl::client::prelude::is_prelude_script(name)) continue;
+      const std::string chunk = "@lua/" + script.path;
+      lua->RunStringEx(chunk.c_str(), "", script.text.c_str(), true, true, true, true);
+    }
+    lua->PushNil();
+    raw_set(lua, GarrysMod::Lua::SPECIAL_GLOB, nl::client::prelude::kMarker);
+    return true;
+  } catch (...) {
+    return false;
+  }
+}
+// ADR 0246: the prelude hook goes into the vtable the engine's Lua states share, found from the menu state, only where
+// sure: client.dll must start a realm through that slot in this build (prelude::confirm_engine_call), and the vtable
+// and its slots must be lua_shared.dll's (prelude::install). Returns what the status line says of it.
+std::string install_prelude() {
+  auto why = nl::client::prelude::confirm_engine_call(GetModuleHandleW(L"client.dll"));
+  if (why.empty()) {
+    auto* state = shared ? shared->GetLuaInterface(GarrysMod::Lua::State::MENU) : nullptr;
+    why = nl::client::prelude::install(state, GetModuleHandleW(L"lua_shared.dll"), run_prelude);
+  }
+  return why.empty() ? "; client prelude hooked" : "; client prelude not hooked: " + why;
+}
 LUA_FUNCTION_STATIC(Status) {
   LUA->CreateTable();
   LUA->PushString(status.c_str()); LUA->SetField(-2, "status");
   LUA->PushBool(catalog.has_value()); LUA->SetField(-2, "verified");
   LUA->PushNumber(catalog ? static_cast<double>(catalog->scripts.size()) : 0); LUA->SetField(-2, "scripts");
+  LUA->PushBool(nl::client::prelude::installed()); LUA->SetField(-2, "prelude");
+  LUA->PushNumber(static_cast<double>(nl::client::prelude::runs())); LUA->SetField(-2, "prelude_runs");
   return 1;
 }
 // Runs on the client realm, called protected there by Poll: an error raised in that state outside
@@ -470,6 +506,7 @@ GMOD_MODULE_OPEN() {
     status += archive_former_rtx(root, *journal);
     hook(LUA, true);
     status += "; menu scripts " + std::to_string(run_menu_scripts(LUA));
+    status += install_prelude();
   } catch (const std::exception& error) {
     status = error.what(); catalog.reset(); shared = nullptr; menu = nullptr;
   }

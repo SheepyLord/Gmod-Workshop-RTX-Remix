@@ -9640,3 +9640,63 @@ Line numbers are the fork tree with patches 0001-0104 (`8cd421cd8`).
   an excluded body's entity (same game data) all go. A character's secondary world counts living players and NPCs as
   players and NPCs, static objects as world and the rest as objects (`secondary.cpp`, `sync`). Contacts per character:
   `GetDiagnostics(instance)` `objectContacts`, `worldContacts`, `sourceMirrors` (the scene objects in its world).
+
+## The DirectX level servers see (2026-11-18, Claude; [ADR 0246](decisions/0246-the-directx-level-servers-see.md))
+
+- **Measured in the PoC** (the client realm, a probe through `poc_session.py --lua`; gm_construct, 1280 x 720):
+
+  | Start | `d3d9.dll` | `render.GetDXLevel()` | `mat_dxlevel`, `GetConVarNumber`, `cvars.Number` | `SupportsPixelShaders_2_0`, `_1_4`, `SupportsVertexShaders_2_0` | `SupportsHDR` |
+  |---|---|---|---|---|---|
+  | RTX (the package's `-dxlevel 90 -nod3d9ex`), single-player and a `+maxplayers 2` listen server | the runtime's | 80 | 90 | false | true |
+  | RTX off (`remix.enabled: false`), `-dxlevel 90` | System32 | 90 | 90 | true | true |
+  | RTX off | System32 | 95 | 95 | true | true |
+
+  So `mat_dxlevel` is what the same game answers without RTX at the same launch arguments. `render.SupportsHDR` is
+  GMod's Lua (`lua/includes/extensions/client/render.lua` 46-52: false only below 80). GMod's own menu flags a level
+  that is neither 95 nor 90 as a configuration problem (`lua/menu/problems/problems.lua` 262-265, the menu realm).
+- **Why 80.** With the runtime's `d3d9.shaderModel = 0` Source loads `stdshader_dbg`, `stdshader_dx6` (the fixes') and
+  `stdshader_dx7`, not `dx8`/`dx9` (section "Source eyes under RTX"); M4's PoC-only `shaderModel=3` layer started at
+  `mat_dxlevel 90` and was "not path-traced" (section 11). The engine's support level, which `render.GetDXLevel()`
+  returns, is 80 under RTX.
+- **A server's check against the listen host.** A scratch server add-on (asks each client 2 s after
+  `PlayerInitialSpawn`, takes the client's own report at `InitPostEntity`, kicks below 90 after a delay) gave the RTX
+  host "reject level=80" for both; its kick printed "Preventing kick of local server host!" (GMod never kicks the
+  listen server's host). With this change: "admit level=90" for both, a reference to `render.GetDXLevel` taken by a
+  client autorun also 90, `nativeloader_multiplayer_dxlevel 0` gives 80 and "reject", 1 gives 90 and "admit".
+- **Where a client realm starts.** `client.dll` (build 26229091, x64) holds the string `includes/init.lua` once
+  (rva `0x64ba20`) and refers to it once (rva `0x7f469`): after setting the globals `SERVER` false and `CLIENT` true
+  through the object `Global()` (`[vtable+0x1d0]`) returns, and one call, it runs
+  `FindAndRunScript("includes/init.lua", true, true, "!UNKNOWN", true)` through `call [rax+0x308]`, slot 97 of
+  `ILuaInterface` in the vendored header (ILuaBase's 55 slots, then `FindAndRunScript` the 43rd of `ILuaInterface`'s;
+  `Global` is slot 58); then `derma/init.lua` the same way and `require('notification');` as the chunk `Startup`. On a
+  remote server that file's text is the server's; the call is the same. The `lea rdx` naming the file ends 18 bytes
+  before `call qword ptr [rax+308h]`; the client module's `confirm_engine_call` finds that pair in the PoC's
+  `client.dll` mapped as an image resource (`nl_client_catalog_tests` with `NL_CLIENT_DLL`).
+- **Before `includes/init.lua`** a client realm has the engine's C functions (`render.GetDXLevel`, `game.SinglePlayer`,
+  `CreateConVar`, `GetConVar_Internal`, `FindMetaTable`, the `ConVar` methods) but not `util.lua`'s helpers:
+  `GetConVar` is a caching wrapper of `GetConVar_Internal`, `CreateClientConVar` one of `CreateConVar`
+  (`lua/includes/util.lua` 552-596).
+- **The menu state's vtable is the client realm's**: hooked through `GetLuaInterface(MENU)`'s vtable at menu start, the
+  prelude ran in the client realm of single-player and listen-server games ("client prelude hooked"; a client autorun
+  then found `render.GetDXLevel` to be the prelude's Lua function).
+- **`gmod.exe -dedicated`** from a client install is not a dedicated server: the process loaded the map, ran a client
+  realm of its own (it answered the check itself, at level 95, with `-nonativeloader`) and kept Chromium helpers. An
+  RTX client of the same install that typed `connect 127.0.0.1:<port>` without `net_usesocketsforloopback 1` gave up
+  ("Connection failed after 6 retries"). C13 used the official dedicated server (`srcds_win64.exe`, steamcmd app 4020)
+  and a client with `+net_usesocketsforloopback 1`.
+- **Where a Lua-made client setting is kept**: `nativeloader_multiplayer_dxlevel` (made with `CreateConVar(..., 128)` in
+  the client realm) was saved in the install's own `garrysmod/cfg/client.vdf`, not in the Steam Cloud `config.cfg`.
+- **A listen server's existing Lua error**: in RTX listen-server games (`+maxplayers 2`, before and after this change)
+  the fixes' `cl_rtx.lua` reports "[gmRTX - Hardware Skinning] Timed out restoring r_forcehwskin before model reload",
+  with the render guard's line "r_forcehwskin: kept session value 0 (lua/autorun/cl_rtx.lua:139)"; single-player games
+  have neither.
+- **The console's view** (PoC, `--console mat_info --console mat_dxlevel` after the map; listen servers): typing
+  `mat_dxlevel` prints `"mat_dxlevel" = "90" ( def. "0" )` under RTX and `"95"` without. `mat_info` (the shader API's
+  driver information and caps, then the material system's hardware configuration) under RTX: driver `nvd3dum.dll`,
+  "Vertex Shader Version : 0.0 Pixel Shader Version : 0.0", every `m_Supports*Shaders*` and
+  `m_SupportsShaderModel_3_0` no, `m_NumSamplers: 4`, `m_SupportsSRGB: no`, `m_HDRType: HDR_TYPE_NONE`,
+  `m_nDXSupportLevel: 80`; without RTX (System32 `d3d9.dll`, driver `nvldumdx.dll`): shader version 3.0, every shader
+  cap yes, `m_NumSamplers: 16`, `m_SupportsSRGB: yes`, `HDR_TYPE_INTEGER`, `m_nDXSupportLevel: 95`. With this change
+  `mat_info` is the same, and in an RTX listen server `render.GetDXLevel()`, `GetConVar("mat_dxlevel"):GetInt()`,
+  `GetConVarNumber`, `GetConVarString` and `cvars.Number` all read 90; with `nativeloader_multiplayer_dxlevel 0`
+  `render.GetDXLevel()` reads 80 again.

@@ -1,6 +1,7 @@
 # 0135: View model materials through the material pipeline; an ARC9 patch
 
-- Status: Accepted 2026-11-08 (R24, the user's item 2)
+- Status: Accepted 2026-11-08 (R24, the user's item 2). §3's last sentence (the DirectX level servers see) superseded by
+  [0246](0246-the-directx-level-servers-see.md) (2026-11-18)
 - Context: the user: "Make fixes related to the first person view models, especially custom ones. In ARC9, custom view
   models has incorrect shading and material processing. Also, suppress the ARC9 compatibility warning about the game
   setting." Their screenshot: an ARC9 M249 with a white plate z-fighting on the receiver and a black square in a green

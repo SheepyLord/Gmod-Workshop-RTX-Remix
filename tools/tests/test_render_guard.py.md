@@ -112,3 +112,9 @@ as MineMod wrote them; MineMod state that raises an error when read shows the li
 with the pack no longer pending its hook is entered again; with `nativeloader_guard 0` the line shows; a new
 registration under the same name and file (an autorefresh) is kept off the same way; the note is never repeated.
 Against the guard before this change the scenario fails at its first hidden frame.
+
+ADR 0246 adds `test_the_directx_level_prelude_is_included_where_the_client_module_did_not_run_it` (the `dxlevel_fallback`,
+`dxlevel_multiplayer` and `dxlevel_present` scenarios): where `NativeLoaderDXLevel` is absent (the RTX client module did
+not run the companion's prelude before `includes/init.lua`), the guard includes `nativeloader/prelude/dxlevel.lua`
+once, through the engine's `include` in a local game's early view and through the private environment's scoped
+`include` in the late multiplayer route; where the prelude already installed it, nothing is included.

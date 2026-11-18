@@ -3810,3 +3810,29 @@ separator now has 57 texts in each catalog.
   animated by the add-on. Each step reads the character's `objectContacts`, `worldContacts` and `sourceMirrors` over
   2.5 s and the server's `mmdhl.sceneDiagnostics` (`hiddenEntities`, `excludedLivingObjects`, `objects`), and takes
   a screenshot. Run once with the published package (before) and once with the branch's (after).
+
+## The DirectX level servers see (ADR 0246)
+
+- **C++ (CTest `nl_client_catalog_tests`):** `test_prelude.cpp` drives the client prelude hook against a stand-in Lua
+  state whose vtable lies in the test executable's data: the slots `prelude.h` names are where calls through the
+  vendored `ILuaInterface` header land (IsClient 76, FindAndRunScript 97 at `0x308`, RunStringEx 111); refusals change
+  nothing; the runner gets the state before the engine's `includes/init.lua`, then the engine's function gets the same
+  arguments and its answer comes back; other files pass straight through; a second install keeps one hook;
+  `calls_through_slot` finds client.dll's call that starts a realm in synthetic code and refuses look-alikes, and
+  `confirm_engine_call` finds it in a real `client.dll` where `NL_CLIENT_DLL` names one (otherwise that case is skipped).
+  `test_module.cpp` adds the module's contract (client realms of a verified start only, the verified prelude scripts
+  only, the marker raw-set while they run, installed after verification and the pin from the engine's menu state).
+- **Lua under LuaJIT:** [`test_multiplayer_dxlevel.py`](../tools/tests/test_multiplayer_dxlevel.py.md) runs the
+  companion's `nativeloader/prelude/dxlevel.lua` in a stand-in client realm with only the engine's C functions
+  (multiplayer 90, single-player and the switch 80, never lower, the same as `mat_dxlevel`, unreadable settings, once, server and menu
+  realms untouched, a server's metamethods on `_G`); [`test_render_guard.py`](../tools/tests/test_render_guard.py.md)
+  the guard's fallback (`dxlevel_fallback`, `dxlevel_multiplayer`, `dxlevel_present`).
+- **PoC** (`tools/poc_session.py run --addons --lua <probe> --camera 823,-657,-79,0,0,0 --hide-hud`, holding
+  `out\r10\poc.lock`; a scratch add-on in the PoC's `garrysmod/addons` asks each client for `render.GetDXLevel()` 2 s
+  after it spawns and takes the client's report at `InitPostEntity`, refusing below 90): the published package and
+  this branch's, single-player and `--players 2` (a listen server), and RTX off with and without `--extra=-dxlevel
+  --extra=90`. The probe prints the level, `mat_dxlevel` by three routes, the `Supports*` answers, `NativeLoaderDXLevel`
+  and, in multiplayer, switches `nativeloader_multiplayer_dxlevel` off and on with a re-check (`nldx_check`).
+  `tools\compare_frames.py` compares the before and after screenshots of the same camera.
+- Not covered: a remote dedicated server (C13's official one is no longer in `out`; a client that joins one needs
+  `+net_usesocketsforloopback 1` for a server on the same machine).

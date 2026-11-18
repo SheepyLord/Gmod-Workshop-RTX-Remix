@@ -3,6 +3,8 @@
 - Status: Accepted 2026-11-08 (R24, the user's item 1). The notice of loaders 0.15.0-0.16.0
   (`loader/proxy/ui/mainmenu.js`, R20-A) is turned off by the package; the unreleased loader branch
   `r23-loader-mp-notice` (its new text in the loader) is superseded and not to be released.
+- **§4 superseded by [0246](0246-the-directx-level-servers-see.md)** (2026-11-18, the user): in multiplayer games the
+  RTX package now answers the DirectX level the game was started at.
 - Context: the user: "Migrate the multiplayer notice to the workshop addon, it should be implemented using lua
   instead of binary modules. At least, the text should be editable in the gmod addon." and, in R23, "make the
   (Don't show again) button more obvious". Loader changes need the user's approval; the package does not.

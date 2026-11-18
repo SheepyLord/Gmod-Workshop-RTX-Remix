@@ -238,6 +238,10 @@ executes the actual initializer and extracted actual cl_rtx.lua reload section i
 (6 tests/14 scenarios). The public Lua SDK headers and BSD-3-Clause licence are
 recorded in [`third_party/gmod`](../third_party/gmod/README.md). See
 [ADR 0052](decisions/0052-scoped-rtx-multiplayer-bootstrap.md) for scope and completed dedicated-server checks.
+[ADR 0246](decisions/0246-the-directx-level-servers-see.md) adds the client prelude (`loader/client/prelude.h`): the
+module hooks the Lua interface's `FindAndRunScript` once at menu start, only where sure, and runs the companion's
+verified `lua/nativeloader/prelude/*.lua` in each client realm right before the engine runs its `includes/init.lua`,
+local or remote, so before any server's Lua; the one script sets the DirectX level servers see.
 
 Loader 0.8.1's `loader/proxy/diagnostics.cpp` supplies local system/package identity data to the
 read-only main-menu presentation layer. `loader/proxy/ui/` holds the JavaScript, labels and CMake

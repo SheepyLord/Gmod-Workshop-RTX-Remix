@@ -6,6 +6,25 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Servers that refuse DirectX levels below 90 let RTX players in (2026-11-18)
+
+- **You can join servers that turn away players whose DirectX level is below 90.** Such servers ask each player's game
+  for `render.GetDXLevel()`, and under RTX the game answered 80, because RTX Remix needs Garry's Mod to draw without
+  shaders. In multiplayer games the RTX package now answers the DirectX level the game was started at, 90, the same
+  answer the game gives without RTX at those settings. This is set up before any of the server's own scripts run, so
+  checks made while you join see it too. A server that reads the `mat_dxlevel` setting instead gets the same 90, and
+  typing `mat_dxlevel` in the console shows 90 as before; `mat_info` still shows what the engine really runs at (80,
+  no shaders), which only you can see. Nothing about how the game renders changes, and single-player answers 80 as
+  before. To give servers the real answer again, type `nativeloader_multiplayer_dxlevel 0` in the console (1 turns it
+  back on; the game keeps your choice). It is not hidden: any script, a server's included, can read
+  `NativeLoaderDXLevel` and its `real()` level, and a server's own rules are still yours to follow. Servers that check
+  `render.SupportsPixelShaders_2_0()` and similar shader checks still see what RTX really supports
+  ([ADR 0246](docs/decisions/0246-the-directx-level-servers-see.md), which supersedes the decline in ADR 0133).
+- **How:** the RTX client module (`gmsv_nlrtxclient_win64.dll`, a package module) runs the companion's verified
+  `lua/nativeloader/prelude/*.lua` in each client realm right before the engine runs that realm's `includes/init.lua`
+  (one hook in the Lua interface's `FindAndRunScript`, only where sure); the render guard runs the same file where the
+  module could not. No loader change.
+
 ### Imported characters' hair and clothing no longer hit things nobody can see (2026-11-17)
 
 - **An imported character's hair, skirt and other physics parts no longer catch on invisible things.** Other add-ons'

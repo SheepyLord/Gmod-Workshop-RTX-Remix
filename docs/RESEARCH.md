@@ -9611,3 +9611,32 @@ Line numbers are the fork tree with patches 0001-0104 (`8cd421cd8`).
   against 4.73 ms, and `dxvk-cs` 18.4-19.5 % against 19.7-22.5 % of a core, while at 4K flat its share did not move
   (27-30 %): in VR the command thread more often reaches a draw whose task waits for a waking worker, and polls in
   `Result::get` meanwhile.
+
+## Invisible helpers and the hair and clothing physics (2026-11-17, Claude; [ADR 0245](decisions/0245-mmd-hair-and-clothing-leave-out-what-nobody-sees.md))
+
+- **Enhanced Death Animations** (Workshop 3279383994, its `.gma` read from the field's Workshop content without changing
+  it): every death, crawl, writhe and revive animation plays on a helper, `ents.Create("prop_dynamic")` with
+  `models/brutal_deaths/model_anim_modify.mdl` at the NPC, then `Spawn()` and `SetCollisionGroup(COLLISION_GROUP_WORLD)`
+  (`lua/autorun/server/animrag_death.lua` 934-940; `animrag_crawl.lua` 492-498, `animrag_writhe.lua` 709-715 and
+  992-998, `animrag_revive.lua` 642 and 718). Line 936 holds a commented
+  `SetBodygroup(Anim_Rag:FindBodygroupByName("barney"), 1)`, noted "If you don't understand how this addon works,
+  enable this line and you may see". The crawl helper is moved each tick (`animrag_crawl.lua` 714-715, 744-749), the
+  writhe helper to the corpse's pelvis (`animrag_writhe.lua` 584-585); it is scaled to the NPC's height
+  (`animrag_allfunctions.lua` 347-352) and removed when its animation ends (`Animrag_EndAnimation`, 147-153). Every
+  death plays an animation by default (`ARag_enab_d 1`, `ARag_odds_d 1`, `animrag_allconvar.lua` 5-6). The add-on
+  hides nothing with no-draw, render modes or colours.
+- **Its model**: MDL version 48, 57 bones, 269 sequences, no key values; one bodypart, `barney`, with two submodels:
+  0 unnamed with 0 meshes and 0 vertices, 1 `barney_reference.smd` with 5 meshes and 3,609 vertices. Its `.phy` holds
+  15 solids, one per ValveBiped bone from the pelvis.
+- **In the game** (the PoC, gm_construct, RTX): the helper has no physics object of its own (`GetPhysicsObject()`
+  invalid). The game gives it 15 `phys_bone_follower` entities (owner: the helper, no-draw), which the hair and
+  clothing scene captured as 15 moving objects (objects 21 -> 36). Without its model (the add-on not mounted) the
+  helper has no physics at all. GMod mounts no `.gma` copied into `garrysmod/addons`; an extracted add-on folder there
+  is mounted.
+- **Colour alpha under RTX**: a ragdoll at alpha 0 under render mode normal is drawn opaque; under render mode
+  transalpha it is not drawn.
+- **The scene capture** (`packages/model-hotloader/source/mmdhl/native/bridge.cpp` `captureSecondaryScene`) lists the
+  server environment's VPhysics objects and skips only triggers, fluids and objects with collisions off; the objects of
+  an excluded body's entity (same game data) all go. A character's secondary world counts living players and NPCs as
+  players and NPCs, static objects as world and the rest as objects (`secondary.cpp`, `sync`). Contacts per character:
+  `GetDiagnostics(instance)` `objectContacts`, `worldContacts`, `sourceMirrors` (the scene objects in its world).

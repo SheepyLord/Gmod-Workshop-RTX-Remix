@@ -47,6 +47,83 @@ function mmdhl.SetCollisionFlags(ent,flags)
  ent:SetNW2Int('MMDHLCollisionFlags',flags) ent.MMDOptions=ent.MMDOptions or {} ent.MMDOptions.collisionFlags=flags return true
 end
 if SERVER then
+ -- Entities nobody can see. Other add-ons drive effects with them: Enhanced Death Animations
+ -- (Workshop 3279383994) plays each death on a prop_dynamic whose model's only bodygroup is blank
+ -- and moves the corpse after it; others hide a ragdoll or make it transparent. Their physics is
+ -- still in VPhysics, so hair and clothing rested on something that is not there. The capture
+ -- leaves them out while they are hidden; drawn again, they collide again at the next tick. The
+ -- rule reads networked state only, so every client sees the same scene. A studio model's bodyparts:
+ -- for each, the set of its submodels without a mesh (false: every submodel has one).
+ local blankParts={}
+ local function readBlankParts(f)
+  local size=f:Size() if size<240 or f:Read(4)~='IDST' then return false end
+  local version=f:ReadLong() if version<44 or version>49 then return false end
+  f:Seek(232) local count,index=f:ReadLong(),f:ReadLong()
+  if count<0 or count>255 or index<0 or index+count*16>size then return false end
+  local parts,blank={},false
+  for i=0,count-1 do
+   f:Seek(index+i*16+4) local models=f:ReadLong() f:ReadLong() local first=index+i*16+f:ReadLong()
+   if models<1 or models>255 or first<0 or first+models*148>size then return false end
+   local empty={}
+   -- mstudiomodel_t (148 bytes): nummeshes at 72, numvertices at 80.
+   for m=0,models-1 do
+    f:Seek(first+m*148+72) local meshes=f:ReadLong() f:Seek(first+m*148+80)
+    if meshes<=0 or f:ReadLong()<=0 then empty[m]=true blank=true end
+   end
+   parts[i+1]=empty
+  end
+  -- No bodypart at all (an animation-only model) draws nothing either.
+  return (blank or count==0) and parts
+ end
+ -- Read once per model path; every tick after that is a table lookup.
+ local function modelBlankParts(path)
+  local parts=blankParts[path]
+  if parts==nil then
+   parts=false
+   if string.lower(string.sub(path,-4))=='.mdl' then
+    local f=file.Open(path,'rb','GAME')
+    if f then local ok,result=pcall(readBlankParts,f) f:Close() parts=ok and result or false end
+   end
+   blankParts[path]=parts
+  end
+  return parts
+ end
+ -- Whether a model entity draws no mesh with its current bodygroups.
+ local function drawsNoMesh(ent,path)
+  local parts=modelBlankParts(path) if not parts then return false end
+  for i,empty in ipairs(parts) do if not empty[ent:GetBodygroup(i-1)] then return false end end
+  return true
+ end
+ -- Whether the entity itself draws nothing.
+ local function undrawn(ent)
+  if ent:GetNoDraw() then return true end
+  -- A character is drawn by this add-on, which follows its own no-draw flag and colour alpha.
+  if mmdhl.IsMMD(ent) then return ent:GetNW2Bool('MMDHLNoDraw',false) or ent:GetColor().a==0 end
+  local mode=ent:GetRenderMode()
+  if mode==RENDERMODE_NONE then return true end
+  -- Colour alpha draws through every render mode but the normal one.
+  if mode~=RENDERMODE_NORMAL and ent:GetColor().a==0 then return true end
+  local path=ent:GetModel()
+  -- A scripted entity without a model may draw its own meshes (broken glass shards do).
+  if not path or path=='' then return not ent:IsScripted() end
+  -- A brush entity ('*1') has no studio model to read.
+  if string.byte(path,1)==42 then return false end
+  return ent:GetModelScale()<.01 or drawsNoMesh(ent,path)
+ end
+ local function hidden(ent)
+  -- Not drawn itself, it stands in for something drawn (the VR hands' physics spheres).
+  if ent.MMDHLSceneStandIn or ent:IsWorld() then return false end
+  -- A bone follower is the hidden physics of an animated model: it is as visible as that model.
+  if ent:GetClass()=='phys_bone_follower' then
+   local owner=ent:GetOwner() if not IsValid(owner) or owner.MMDHLSceneStandIn then return false end ent=owner
+  end
+  if not undrawn(ent) then return false end
+  -- A hidden ragdoll that wears drawn children (models bonemerged onto it) shows their look where its
+  -- bodies are.
+  for _,child in ipairs(ent:GetChildren()) do if IsValid(child) and not undrawn(child) then return false end end
+  return true
+ end
+ mmdhl.SceneHidden=function(ent) return IsValid(ent) and hidden(ent) end
  util.AddNetworkString('mmdhl_scene_active')
  local localDemand=true
  net.Receive('mmdhl_scene_active',function(_,ply) if game.SinglePlayer() then localDemand=net.ReadBool() end end)
@@ -103,13 +180,17 @@ if SERVER then
   -- for the characters that collide with them; a native module before 2.2
   -- cannot tag them, so they are left out. Dead ragdolls are objects.
   local tagged=native.SetSecondaryCollisionFlags~=nil
-  local excluded,players,npcs={},{},{} local living=0 local classified={}
+  local excluded,players,npcs={},{},{} local living,hiddenCount=0,0 local classified={}
   local function classify(ent)
    if classified[ent] then return end classified[ent]=true
    -- Bodies another add-on moves with a character's bones (the motion importer's dancing NPCs
    -- collide through bone followers): hair and clothing already collide with the body itself.
-   if ent.MMDHLSceneExcluded then
-    for _,body in pairs(physicsBodies(ent) or {}) do if IsValid(body) then excluded[#excluded+1]=body end end
+   -- And bodies of entities nobody can see (hidden above).
+   local hide=not ent.MMDHLSceneExcluded and hidden(ent)
+   if ent.MMDHLSceneExcluded or hide then
+    local bodies=physicsBodies(ent)
+    if bodies and hide then hiddenCount=hiddenCount+1 end
+    for _,body in pairs(bodies or {}) do if IsValid(body) then excluded[#excluded+1]=body end end
     return
    end
    -- In a listen-server process, VPhysics already publishes exact transforms.
@@ -133,7 +214,7 @@ if SERVER then
    file.CreateDir('mmd_hotloader/diagnostics') file.Write('mmd_hotloader/diagnostics/secondary-scene-'..os.time()..'.json',util.TableToJSON({error=err,map=game.GetMap(),scene=mmdhl.sceneDiagnostics,time=CurTime()},true))
    net.Start('mmdhl_notice') net.WriteString(L('secondary.error.contacts_disabled',{reason=err})) net.Broadcast()
    for _,ent in ipairs(mmdhl.Entities()) do mmdhl.SetCollisionFlags(ent,Collide.character) end
-  else mmdhl.sceneDiagnostics=mmdhl.Decode(value) mmdhl.sceneDiagnostics.livingEntities=living end
+  else mmdhl.sceneDiagnostics=mmdhl.Decode(value) mmdhl.sceneDiagnostics.livingEntities=living mmdhl.sceneDiagnostics.hiddenEntities=hiddenCount end
  end)
  hook.Add('PostCleanupMap','MMDHL.SecondarySceneCleanup',function() native.CaptureSecondaryScene() active=false end)
 end

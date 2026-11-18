@@ -111,6 +111,9 @@ function Physics.New(SV, ctx)
         ent:SetPos(safe) ent:SetAngles(pose.ang)
         ent:SetNoDraw(true) ent:DrawShadow(false)
         ent:SetPreventTransmit(player.GetAll(), true)
+        -- The sphere is the drawn hand's body: the Model Hotloader's hair and clothing physics leaves
+        -- out entities nobody can see, but still collides with this one.
+        ent.MMDHLSceneStandIn = true
         ent:Spawn()
         ent:PhysicsInitSphere(radius, "rubber") ent:SetSolid(SOLID_VPHYSICS)
         ent:SetCustomCollisionCheck(true) rules(ent)

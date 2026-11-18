@@ -55,3 +55,5 @@ twice that), which the client's drawing uses. `Closest`/`Nearest` take `frozen` 
 `CanFreeze`/`Freeze` stop one physics object (the physgun's convention) unless the entity is unfreezable or
 `CPPICanPhysgun` refuses, and add it to the player's frozen list; `Unfreeze` frees one under the pickup permissions,
 `CPPICanPhysgun` and `CanPlayerUnfreeze`.
+
+**The Model Hotloader's hair and clothing (2026-11-17, [ADR 0245](../../../../../docs/decisions/0245-mmd-hair-and-clothing-leave-out-what-nobody-sees.md)).** A hand sphere carries `MMDHLSceneStandIn`: the Hotloader's scene capture leaves out entities nobody can see, and the sphere, hidden and never transmitted, is the body of a hand that is drawn, so an MMD character's hair and clothing still collide with it as before.

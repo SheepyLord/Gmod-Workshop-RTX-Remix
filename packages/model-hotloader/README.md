@@ -101,3 +101,12 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   player hosts, the characters the memory profile keeps ready are made ready once the map runs, one character every
   3 s from 5 s after the host's catalog request, 90 s at the latest (`mmd_hotloader/lua/mmdhl/actors.lua`,
   `mmdhl.readiness.HostReady`/`WarmNext`; the catalog command starts it, `sharing.lua`).
+- **2026-11-17, hair and clothing leave out what nobody sees**
+  ([ADR 0245](../../docs/decisions/0245-mmd-hair-and-clothing-leave-out-what-nobody-sees.md)): the scene capture of the
+  hair and clothing physics (`mmd_hotloader/lua/mmdhl/secondary_collision.lua`) puts the bodies of entities nobody can
+  see in its excluded list, each tick while they stay hidden: no-draw, render mode none, colour alpha 0 under a render
+  mode that applies it, an engine entity without a model, a model scaled below 1 %, or a model whose selected
+  bodygroups hold no mesh (read once per model from its MDL header). Enhanced Death Animations' death-animation
+  helpers, `prop_dynamic` entities whose model's only bodygroup is blank, were the reported case. A bone follower is
+  as visible as its model, a character as this add-on draws it; an entity with `MMDHLSceneStandIn` (the VR hands'
+  spheres) still collides. `mmdhl.SceneHidden(ent)` and `mmdhl.sceneDiagnostics.hiddenEntities` tell what is left out.

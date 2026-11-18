@@ -3793,3 +3793,20 @@ separator now has 57 texts in each catalog.
   the workers' CPU over that window comes from reading the game's threads meanwhile (`GetThreadTimes`, as
   `remix_workers_session.py` does) and timing the probe's records in `console.log`.
 
+## Hair and clothing leave out what nobody sees (ADR 0245)
+
+- **Lua under LuaJIT:** [`test_hotloader_scene_visibility.py`](../tools/tests/test_hotloader_scene_visibility.py.md) loads
+  the shipped `secondary_collision.lua` whole and runs its scene capture over stub entities: what is left out (no-draw,
+  render mode none, transparent under an alpha render mode, scaled to nothing, no model, blank bodygroups read from
+  generated MDL headers, hidden players and NPCs), what stays (alpha 0 under the normal render mode, the world, a bone
+  follower of a visible model, characters this add-on draws, `MMDHLSceneStandIn`, a hidden ragdoll wearing drawn
+  bonemerged models) and what comes back the tick after it is drawn again.
+- **PoC** (`tools/poc_session.py run --addons --lua-shots`, holding `out\r10\poc.lock`, with a scratch driver attached
+  that sends server and client Lua through the console, as `tools/qa/mmd_hotloader_session.py` does; the add-on as an
+  extracted folder in the PoC's `garrysmod/addons`): Linlong spawned as a frozen ragdoll with every collision box ticked;
+  a stock `male_07` ragdoll frozen with its spine at a skirt body at hip height, drawn, no-draw, drawn again, alpha 0
+  under transalpha, render mode none and alpha 0 under normal; Enhanced Death Animations' helper made as the add-on makes
+  it, at its blank bodygroup and with its mesh shown; a citizen killed beside her; Linlong killed as an NPC, its corpse
+  animated by the add-on. Each step reads the character's `objectContacts`, `worldContacts` and `sourceMirrors` over
+  2.5 s and the server's `mmdhl.sceneDiagnostics` (`hiddenEntities`, `excludedLivingObjects`, `objects`), and takes
+  a screenshot. Run once with the published package (before) and once with the branch's (after).

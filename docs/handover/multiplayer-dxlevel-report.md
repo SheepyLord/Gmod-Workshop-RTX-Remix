@@ -3,7 +3,8 @@
 The user's request of 2026-11-18: "Some servers uses render.GetDXLevel() to detect users using our addon which reject
 user with dx level lower than 90. As per our plan, apply fixes to allow players using our addon to join server like
 this." Done by Claude in a side session on the branch `multiplayer-dxlevel` (worktree `out\worktrees\dx`), package
-only ([ADR 0246](../decisions/0246-the-directx-level-servers-see.md)). Nothing is merged, pushed or published.
+only ([ADR 0246](../decisions/0246-the-directx-level-servers-see.md)). Merged into `main` and published by the main
+thread (the last section).
 
 ## The plan
 
@@ -141,3 +142,13 @@ logs, status, modules, screenshots); the scratch add-on, probe and drivers in `o
   config found named `...a8e6cb04.gma`, no longer there, kept as `out\dx\poc\state\config.json.before`); this branch's
   package stays deployed until the next start redeploys; the scratch add-on, loose Lua and `data/nldx` removed;
   `cfg\client.vdf` keeps `nativeloader_multiplayer_dxlevel "1"`; `out\r10\poc.lock` released.
+
+## Published
+
+Under the standing permission (AGENTS.md rule 5: `main` pushed and item 3829070317 updated once `tools\test.ps1`
+passes), merged into `main` as `ecbebcfe` (its tree is the branch's `0df9152f`; the gate ran on `0c5773f7`, and only
+this report changed after it) and pushed (`152053da..ecbebcfe`, with the module's Git LFS object, 266 KB). The merge's
+hook built the package here and uploaded item 3829070317 as **`0.0.0-dev.20261118205912+c15280c0`**: content digest
+`6c965e51...`, Steam sending a 7.0 MB delta; its one change note is the changelog's new section. The push's hook found
+the inputs unchanged. The field game deploys it at its next start. A join of a real remote server is still not
+measured (above).

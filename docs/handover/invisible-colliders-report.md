@@ -7,12 +7,12 @@ an offline test. Package only: no loader (`winmm.dll`), runtime or native change
 
 ## The task
 
-From the main thread, 2026-11-17: some add-ons create invisible ragdolls or other invisible entities that interfere with
-the Model Hotloader's MMD physics: an imported character's hair, skirt and other rigid bodies hit something nobody can
-see. The example was Enhanced Death Animations (Workshop 3279383994). Find out what it spawns and why that is invisible,
-find where the MMD physics picks up other entities, and leave out entities that are not drawn. Visible props, ragdolls,
-NPCs, players and the world keep colliding, and an entity drawn again collides again. Test in the PoC. Scope: the MMD
-physics only.
+The user, 2026-11-17: some add-ons, Enhanced Death Animations (Workshop 3279383994) the example given, create invisible
+ragdolls or other entities that interfere with the MMD physics unexpectedly; "Make invisible models have no collision."
+An imported character's hair, skirt and other rigid bodies hit something nobody can see. The main thread's brief: find
+out what the add-on spawns and why that is invisible, find where the MMD physics picks up other entities, and leave out
+entities that are not drawn. Visible props, ragdolls, NPCs, players and the world keep colliding, and an entity drawn
+again collides again. Test in the PoC. Scope: the MMD physics only.
 
 ## What the add-on spawns and why nobody sees it
 

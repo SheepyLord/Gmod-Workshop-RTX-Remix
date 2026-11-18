@@ -1,7 +1,7 @@
 # 0245: MMD hair and clothing leave out what nobody sees
 
-- Status: Accepted 2026-11-17 (the main thread's task of 2026-11-17: invisible entities of other add-ons
-  interfere with the Model Hotloader's MMD physics)
+- Status: Accepted 2026-11-17 (the user's request of 2026-11-17, "Make invisible models have no collision":
+  invisible entities of other add-ons interfere with the Model Hotloader's MMD physics)
 - Package only: the Model Hotloader part (`packages/model-hotloader/mmd_hotloader/lua/mmdhl/secondary_collision.lua`)
   and one line of the VR add-on (`vr/addon/lua/nlvr/modules/sv_interact_physics.lua`); no loader, runtime or native
   change.

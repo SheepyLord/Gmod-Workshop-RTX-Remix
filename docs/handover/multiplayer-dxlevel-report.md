@@ -86,8 +86,9 @@ one hook on a second install, client.dll's call pattern and its look-alikes, the
 `NL_CLIENT_DLL`; the module's contract). LuaJIT: `test_multiplayer_dxlevel.py` 8/8 and the render guard's 55 tests
 with the three new fallback scenarios.
 
-**Gate:** `tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set, in `out\worktrees\dx`, on 0ee56fe1: exit 0.
-Conventions OK, CTest 35/35, Python 2,159 (tools) + 29 (gmapack) + 26 (steam), one skip each, "All checks passed".
+**Gate:** `tools\test.ps1 -Config Release` with `NL_FIXES_CLONE` set, in `out\worktrees\dx`, on 0ee56fe1 and again on
+0c5773f7 (the agreement with `mat_dxlevel` and the console): exit 0 both times. Conventions OK, CTest 35/35, Python 2,159
+(tools) + 29 (gmapack) + 26 (steam), one skip each, "All checks passed".
 
 **PoC** (`tools/poc_session.py`, holding `out\r10\poc.lock`; gm_construct, 1280 x 720; before = main's published
 `0.0.0-dev.20261118054812+70191713`, after = this branch's `0.0.0-dev.20261118200230+f309d7b6`, and again with the final

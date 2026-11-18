@@ -3836,3 +3836,11 @@ separator now has 57 texts in each catalog.
   `tools\compare_frames.py` compares the before and after screenshots of the same camera.
 - Not covered: a remote dedicated server (C13's official one is no longer in `out`; a client that joins one needs
   `+net_usesocketsforloopback 1` for a server on the same machine).
+- **Remote dedicated server** (2026-11-18, added afterwards): the official Garry's Mod Dedicated Server (app 4020,
+  `x86-64`, installed anonymously with steamcmd into the main checkout's `out\dx\srcds`), started vanilla on loopback
+  (`-ip 127.0.0.1 -port 27038 +sv_lan 1 +sv_allowcslua 0`, a hidden console of its own, `-condebug`) with the scratch
+  check in its `garrysmod/addons`; the PoC client (RTX, the published package) started by `poc_session.py` with no map
+  and `+net_usesocketsforloopback 1 +connect 127.0.0.1:27038`, holding `out\r10\poc.lock`; the switch set for a run in
+  the PoC's `cfg\client.vdf` and put back. `poc_session.py --lua` cannot run there (`sv_allowcslua 0`): the check's
+  client file, which the server sends, prints the realm's state. Runs: switch 1 (admitted at 90), switch 0 (kicked at
+  80), RTX off (admitted at 95). Not covered: another machine, `sv_lan 0` with Steam authentication, the server browser.

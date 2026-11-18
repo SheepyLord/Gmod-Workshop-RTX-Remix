@@ -9700,3 +9700,26 @@ Line numbers are the fork tree with patches 0001-0104 (`8cd421cd8`).
   `mat_info` is the same, and in an RTX listen server `render.GetDXLevel()`, `GetConVar("mat_dxlevel"):GetInt()`,
   `GetConVarNumber`, `GetConVarString` and `cvars.Number` all read 90; with `nativeloader_multiplayer_dxlevel 0`
   `render.GetDXLevel()` reads 80 again.
+
+## The DirectX level servers see: a remote dedicated server (2026-11-18, Claude; [ADR 0246](decisions/0246-the-directx-level-servers-see.md))
+
+- **The official dedicated server** (Steam app 4020, branch `x86-64`, anonymous): 7,159,805,870 bytes as steamcmd counts
+  them (the same total as C13's install), 7.16 GB on disk, plus a 30 MB steamcmd self-update; installed in about 26 s.
+  `srcds_win64.exe -console` started without a console (`CREATE_NO_WINDOW`) loads the map and then stops at its first
+  console read ("CTextConsoleWin32::GetLine: !GetNumberOfConsoleInputEvents"); started with a hidden console of its own
+  (`CREATE_NEW_CONSOLE`, `SW_HIDE`, as C13's `run_dedicated.py`) it runs. Bound to 127.0.0.1 it raised no Windows
+  Firewall prompt. It logs "Network: IP 127.0.0.1, mode MP, dedicated Yes, ports 27038 SV".
+- **An RTX client joining it** (the PoC, the published package, `+net_usesocketsforloopback 1 +connect
+  127.0.0.1:27038`): the console has "Connecting to 127.0.0.1:27038...", then the client module's "client prelude hooked",
+  then "Connected to 127.0.0.1:27038" and "Clientside Lua startup!": the menu's module is verified and hooked before a
+  client realm started by `+connect` begins. At the server's client autorun `render.GetDXLevel` is already the prelude's
+  function (`Lua:@lua/nativeloader/prelude/dxlevel.lua`, installation "prelude"), the render guard is absent and
+  `__NATIVELOADER_RTX_GUARD_EARLY` nil (no local view of `includes/init.lua` ran); from `InitPostEntity` the guard reports
+  "verified multiplayer bootstrap" and `NATIVELOADER_CLIENT_PAYLOAD.multiplayer` is true. `game.MaxPlayers()` is the
+  server's 8.
+- **The check's answers**: switch 1: 90 at autorun, `InitPostEntity` and the server's request, also through a reference
+  taken at load; admitted. Switch 0: 80 everywhere; refused, and the kick reaches the remote client ("Disconnect:
+  DirectX level 80 is below 90."; the server: "Dropped ... from server (DirectX level 80 is below 90)"). RTX off: 95,
+  admitted. The console's `mat_dxlevel` and `mat_info` as on a listen server (90 / 80 under RTX, 95 / 95 without).
+- **Client Lua from the console** (`lua_run_cl`, what `poc_session.py --lua` sends) does not run on a server with
+  `sv_allowcslua 0`; `lua_run_menu` printed nothing there.

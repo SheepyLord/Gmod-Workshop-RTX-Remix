@@ -122,7 +122,8 @@ logs, status, modules, screenshots); the scratch add-on, probe and drivers in `o
   itself, at 95), and the RTX client's `connect 127.0.0.1:<port>` gave up after 6 retries (C13's client had
   `+net_usesocketsforloopback 1`, this one did not); that attempt ended as a local game. The prelude's hook point is the one `client.dll` call that starts any client realm, so the
   remote path differs only in where `includes/init.lua`'s text comes from; still, a real remote join, and a real kick of
-  a remote player before the change, are not measured.
+  a remote player before the change, are not measured. **Measured afterwards** with the official dedicated server on
+  loopback: see "A remote dedicated server (2026-11-18)" at the end.
 - The field install (not touched), VR (single-player only), other GPUs.
 - Servers that check `render.SupportsPixelShaders_2_0()` or the other shader checks still refuse RTX players (by design:
   those are capabilities).
@@ -152,3 +153,52 @@ hook built the package here and uploaded item 3829070317 as **`0.0.0-dev.2026111
 `6c965e51...`, Steam sending a 7.0 MB delta; its one change note is the changelog's new section. The push's hook found
 the inputs unchanged. The field game deploys it at its next start. A join of a real remote server is still not
 measured (above).
+
+## A remote dedicated server (2026-11-18)
+
+The user approved downloading the official dedicated server for this test ("Yes, download it", through the main
+thread). Measured on the published package; nothing needed to change.
+
+**Setup.**
+
+- **Server:** the Garry's Mod Dedicated Server (Steam app 4020, branch `x86-64`), installed anonymously with the
+  steamcmd C13 left in `out\mp-server-tools` (signed by Valve Corp.) into the main checkout's `out\dx\srcds`: 7,159,805,870
+  bytes as steamcmd counts them, plus a 30 MB steamcmd self-update (Steam's chunks are compressed; the bytes over the
+  network were not measured). Left in place: `out\dx\srcds` 7,160,252,224 bytes, steamcmd's folder 166,476,670 bytes.
+  Run as `srcds_win64.exe -console -condebug -game garrysmod -ip 127.0.0.1 -port 27038 -nomaster +sv_lan 1 +maxplayers 8
+  +sv_allowcslua 0 +sv_cheats 0 +hide_server 1 +net_usesocketsforloopback 1 +map gm_construct`, in a hidden console of
+  its own (with none it stops at its first console read: "CTextConsoleWin32::GetLine: !GetNumberOfConsoleInputEvents").
+  Vanilla: only the scratch check in its `garrysmod/addons` (a request 2 s after a player spawns, the client's
+  `InitPostEntity` report, a real kick 45 s after a refusal), whose client half, sent by the server, also printed the
+  realm's state. No Windows Firewall prompt appeared (loopback); no Steam setting, launch option, registry value or
+  firewall rule was changed.
+- **Client:** the PoC, RTX, on the published package `0.0.0-dev.20261118205912+c15280c0`, started by `poc_session.py`
+  with no map and `+net_usesocketsforloopback 1 +connect 127.0.0.1:27038` on its command line (as Steam's "Join game"
+  starts a game). For the switch-0 run the saved switch in the PoC's `cfg\client.vdf` was set to 0 and put back after.
+
+**Results** (runs `remote-switch1`, `remote-switch1b`, `remote-switch0`, `remote-norix` in the worktree's
+`out\dx\poc\`; the client and server consoles, the verdicts and a screenshot each):
+
+| Run | Switch | `render.GetDXLevel()` at autorun / `InitPostEntity` / request | A reference taken at load | `NativeLoaderDXLevel` | Verdicts | Kick | Console `mat_dxlevel` / `mat_info` |
+|---|---|---|---|---|---|---|---|
+| RTX (twice) | 1 | 90 / 90 / 90 | 90 | installation "prelude", `real()` 80 | admit, admit | none (the client left at the run's end: "Disconnect by user.") | 90 / `m_nDXSupportLevel: 80`, shader version 0.0 |
+| RTX | 0 | 80 / 80 / 80 | 80 | installation "prelude", `real()` 80 | reject, reject | **yes**, 45 s later: the client "Disconnect: DirectX level 80 is below 90.", the server "Dropped ... from server (DirectX level 80 is below 90)" | 90 / 80, 0.0 |
+| RTX off (reference) | - | 95 / 95 / 95 | 95 | absent (no package) | admit, admit | none | 95 / 95, shader version 3.0 |
+
+- **A remote realm, not a local game.** At the server's client autorun `__NATIVELOADER_RTX_GUARD_EARLY` was nil and the
+  render guard absent: the loader's view of the local `includes/init.lua` never ran, the realm ran the server's copy.
+  From `InitPostEntity` the guard reported "verified multiplayer bootstrap" and `NATIVELOADER_CLIENT_PAYLOAD.multiplayer`
+  was true; `game.SinglePlayer()` false and `game.MaxPlayers()` 8, the server's; the client logged "Connected to
+  127.0.0.1:27038" before "Clientside Lua startup!".
+- **The client module.** "[NativeLoader RTX menu] verified; ...; client prelude hooked", logged after "Connecting to
+  127.0.0.1:27038..." and before the client realm started: with `+connect` on the command line too, the hook was in
+  place in time. `NativeLoaderDXLevel.installation` "prelude" shows the prelude ran in that realm; the module's
+  `prelude_runs` counter lives in the menu realm (`NativeLoaderRTXClient.Status()`), which `lua_run_menu` did not reach
+  here (it printed nothing), so it was not read.
+- `poc_session.py`'s client Lua (`lua_run_cl`) cannot run on a server with `sv_allowcslua 0`, as for any player: the probe
+  did not start, and the server's own client file printed the state instead.
+- Every run quit normally, with no Lua error; the client's only render guard line is the known `r_forcehwskin` one.
+
+**Still not covered:** a server on another machine (loopback only), a server with `sv_lan 0` and Steam authentication
+(VAC), joining from the server browser (only `+connect`; the menu's route connects later still), and real public servers'
+own checks.

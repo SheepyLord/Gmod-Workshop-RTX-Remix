@@ -6,6 +6,16 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Imported characters' hair and clothing no longer hit things nobody can see (2026-11-17)
+
+- **An imported character's hair, skirt and other physics parts no longer catch on invisible things.** Other add-ons'
+  hidden helpers are left out of the hair and clothing physics while they stay hidden, and collide again once they are
+  drawn. The reported case was Enhanced Death Animations: each death animation plays on an invisible animated body that
+  the corpse follows, and the dying character's hair and skirt bumped into it. Ragdolls and props that another add-on
+  makes invisible or fully transparent, and models whose bodygroups show no mesh, are left out too. Visible props,
+  ragdolls, NPCs, players, the map and the VR hands collide as before
+  ([ADR 0245](docs/decisions/0245-mmd-hair-and-clothing-leave-out-what-nobody-sees.md)).
+
 ### ARC9's icons out of the load, the load's slow add-ons named, a load's files read ahead (2026-11-17)
 
 - **Map loads no longer decode ARC9's attachment icons.** With ARC9 weapons installed, the attachment icons (about a

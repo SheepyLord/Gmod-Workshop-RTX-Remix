@@ -133,3 +133,12 @@ before the commit.
 - Evidence (worktree `out\invis\poc`): `before` (stock ragdoll; the add-on not mounted), `before2` (with the add-on
   mounted), `before3` (the add-on's kills), `after`. Each has the session records, the console log and the probe's
   `results.json`, `events.json` and screenshots. The scratch driver and probes are in `out\invis\poc\` too.
+
+## Published
+
+Under the standing permission (AGENTS.md rule 5: `main` pushed and item 3829070317 updated once `tools\test.ps1`
+passes), merged into `main` as `2aea5821` after one more docs commit on the branch (`12a6db78`: the request recorded
+as the user's) and pushed (`b197d905..2aea5821`). The merge's hook built the package here and uploaded item
+3829070317 as **`0.0.0-dev.20261118054812+70191713`**: content digest `85480075...`, Steam sending a 5.9 MB delta;
+its one change note is the changelog's new section. The push's hook found the inputs unchanged. The field game
+deploys it at its next start.

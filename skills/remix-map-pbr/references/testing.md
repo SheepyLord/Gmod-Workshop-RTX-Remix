@@ -264,3 +264,30 @@ session:
   beside the session and every camera was 30-40 % slower. Then only same-session ratios of stock and
   remaster count. Other programs never block or delay a test session (the user, 2026-11-09): launch
   anyway and say in the report that timings taken meanwhile are skewed.
+
+### A package alone
+
+A map's package must work with nothing but the map, the RTX package and Remix (the user, 2026-11-20: "the
+gma must be standalone"). cmdr_office_summer's was shown so in two steps:
+
+1. **Read the `.gma` itself** (`tools/gmapack`'s reader): every `@...@` path in its USD layers resolves to a
+   file inside the package under its own mod folder (Remix's `AperturePBR_*.mdl` shaders are the only names
+   from outside), every texture is named by a layer, and every model or material the add-on's Lua names is
+   in the package, in the map's Workshop item or in the game's own VPKs. GMod ships HL2 and CS:S content
+   (`sourceengine/content_hl2_dir.vpk`, `content_cstrike_dir.vpk`) beside `garrysmod/garrysmod_dir.vpk`; the
+   office's skybox trees (`props_foliage/tree_springers_card_01_skybox.mdl`) are in the last, so no mounted
+   game is needed.
+2. **Run the map on the PoC with only the package's files.** Move the development links of every remaster
+   (`rtx-remix\mods\<name>`, `garrysmod\addons\<name>`) out of the PoC, put the package's payload where the
+   loader deploys it, tour every camera and compare with the development build's tour. Shoot a few cameras
+   twice in the same session for the noise floor. Office: the add-on's start line as before (175 lights, 1011
+   triangles, 3 props), Remix's texture cache line for the packed mod (`misses=1002 unlisted=0`: every
+   texture read, none missing), 24 cameras 0.93 of 255 apart on average against a repeat's 0.75 to 1.72.
+
+The PoC's `config.json` may name a local RTX package that has since been deleted from `out\workshop`. The
+loader then keeps its generation at every start (`deployment.outcome=kept`, "allowlisted source ... is
+unavailable") and deploys nothing new, so an added package never arrives; and `nlctl apply` would plan the RTX
+package's removal (1,700 files). Never apply there. Write the payload from the `.gma` yourself (each file's
+sha256 against the package's inventory; `nlctl`'s scratch deployment shows the loader writes the same bytes),
+or point the config at an RTX build that exists. Put the development links back afterwards as links: the
+fork's `deploy.py` replaces a link with copies.

@@ -256,7 +256,10 @@ other two maps' equivalents are in `references/pipeline.md`.
     `pack_mod.py` (fork) kept its hero surfaces at 4096 and every normal map at its albedo's size and
     sized props by their model's bounding box (8.7 GB to one 3.92 GB package, `references/lessons.md`).
     A packed mod is named apart from the full build (`<mod>_pack`, `<remaster>_<map>`): under the full
-    build's name the package would take over a full build placed by hand.
+    build's name the package would take over a full build placed by hand. **A map's package stands alone**
+    (below): before packing, every asset its layers name must be inside it and every texture in it named by
+    a layer (cmdr_office_summer's `pack_mod.py` stops otherwise); then run the map on the PoC with nothing
+    but the package's files (`references/testing.md`, "A package alone").
 
 ## Standards and decisions (with the numbers)
 
@@ -273,6 +276,12 @@ Decided or confirmed by the user:
   it has waves on.
 - **One package per map, not in the RTX package** (ADR 0023): players of other maps should not download
   3.3 GB. Modern House is the hidden item 3829275998; its source stays local.
+- **Each map's package stands alone, its own versions of shared textures included** (2026-11-20,
+  cmdr_office_summer: "keep them, the gma must be standalone"). A package carries every texture its map's
+  materials name, also those that other remasters replace, and needs no other remaster's item; textures are
+  never left out because another package has them. Of the 131 hashes the office shares with the other
+  remasters, the user kept the office's versions, which sort first and so show on those maps too, rather
+  than confining them to the office with tag textures.
 - **No add-on forces `r_forcehwlight 1`** (R3-016, 2026-10-29; the user confirmed the fix in game).
 - No size limit on a remaster's resources (said in all four requests); performance still counts.
 - **Low-resolution textures may be replaced, not only upscaled** (lestnicha3, 2026-11-08: "You don't have to

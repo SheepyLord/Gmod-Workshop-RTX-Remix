@@ -345,6 +345,17 @@ summer: offices, a courtyard and streets, the OpenAI stage planned per texture a
   with: the 27 shared with gm_csgoagency have the same class, maps and inputs (21 share the very OpenAI
   colour), so Agency's map keeps its look. A shared world texture with a map-specific look (Level 0's damp
   carpet, say) needs a tag texture on its own map instead (`remix-hashes-and-layers.md`).
+- Asked whether to keep the office's versions or keep them to the office's map with tag textures, the user
+  kept them and set the rule for every package: "keep them, the gma must be standalone". Each package
+  carries its own map's textures in full; none is left out because another remaster's item has it.
+
+**One texture under two material names** (OF, 2026-11-20)
+- `models/props/cs_office/poster_backing` and `models/props_interiors/poster_backing` are the same image,
+  one Remix hash. `build_mod.py` wrote both names' maps though the layer keeps only the first material's
+  block, so three DDS files (1.7 MB) went into the package and nothing read them. The build now skips a
+  material whose hashes an earlier one took, and `pack_mod.py` stops unless every packed texture is named by
+  a layer and every name a layer gives is inside the package (Remix's `AperturePBR_*.mdl` shaders aside).
+  Agency's package had no such file.
 
 **Clear glass turned emerald** (MH, 2026-10-27)
 - Brush panes with nodraw faces leave a refracting volume open, which keeps absorbing over metres. Fix:

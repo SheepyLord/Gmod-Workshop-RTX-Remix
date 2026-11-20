@@ -41,11 +41,16 @@ Versions follow the loader's CMake project version once it ships; until then eve
   light costs about 1.3 ms at 4K; their number little), and tours and frame times that move the player to each
   camera, because the server sends props by the player's position (Agency's were timed without some). The
   remaster runs at 14.2 ms a frame where stock GMod RTX takes 11.7 ms (median of 24 cameras, 4K, RTX 5090).
-- **The remaster as one package** (`cmdr-office-summer-rtx`, 3,163,451,515 bytes, mod
+- **The remaster as one package that stands alone** (`cmdr-office-summer-rtx`, 3,161,702,136 bytes, mod
   `cmdr_office_summer_rtx_pack`, every texture whole): built, checked with `nlctl` in a scratch install and not
-  uploaded. Its mod folder sorts before most map mods, so in a game with other remasters its versions of shared
-  props (131 hashes in the user's game) show on their maps too; the 27 it shares with Agency are the same
-  materials.
+  uploaded. As the user asked ("keep them, the gma must be standalone"), it carries every texture its map's
+  materials name, including the 131 that other remasters in the user's game also replace, and needs only the
+  map, the RTX package and Remix: everything its layers name is inside it, and on the PoC with nothing but its
+  files the 24 tour cameras matched the development build within the noise of a repeated shot. Its mod folder
+  sorts before most map mods, so its versions of those shared props show on the other maps too, as the user
+  chose; the 27 it shares with Agency are the same materials. The build no longer packs an unread copy of a
+  texture that two material names share, and stops unless every packed texture is named by a layer
+  (`remix-map-pbr`'s testing notes, "A package alone").
 - Agency's doc on the fork no longer claims parallax costs nothing: since the RTX package's review of
   2026-11-16 Lua may not set `rtx.displacement.mode`, so that column measured the remaster unchanged.
 

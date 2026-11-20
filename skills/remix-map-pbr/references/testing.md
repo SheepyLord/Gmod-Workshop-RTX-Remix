@@ -262,7 +262,8 @@ session:
 - **The sky.** An addon owns the sky only when the native loader's companion follows the map: set
   `nativeloader_sky_follow_map 1` before the map loads for tests of the addon's own times of day, and put
   the user's value back before the quit (it is archived in `client.vdf`). Test the user's setting too
-  (`follow_map 0`, time passing): the companion's sun then drives the addon.
+  (`follow_map 0`, time passing): the companion's sun then drives the addon. A fixed sky (space, ADR 0248) stays
+  under both; check that a change of weather in the session hands it to the companion and the add-on's sun goes.
 - **Auto-exposure.** After a big change of light (a time of day, the mod on or off) wait about 8 s before a
   shot; `times_tour.py` does.
 - **A shared GPU.** Look at `nvidia-smi`'s process list before timing frames: on 2026-11-09 a game ran

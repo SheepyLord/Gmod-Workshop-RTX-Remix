@@ -1,7 +1,8 @@
 # 0105: The player's own time and weather apply from a map's start, also where the map's add-on sets a sky
 
 - Status: Accepted 2026-11-04 (supersedes rule 5 of [ADR 0031](0031-physical-sky-time-and-weather.md)
-  for a sky that does not follow the map)
+  for a sky that does not follow the map); superseded in part by
+  [0248](0248-a-maps-add-on-keeps-a-fixed-sky.md) (a sky its add-on declares fixed, such as space, stays)
 - Decided by: the user's bug report, item 44 of R16: "The weather and daytime setting is not applied
   when user enters the map, user has to open the menu and go to the setting panel to activate."
 

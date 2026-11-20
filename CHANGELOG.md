@@ -6,6 +6,18 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A space map keeps its own sky under your own sky setting (2026-11-20)
+
+- **Space stays space.** A map's RTX add-on whose sky belongs to the place, such as the black space and the planet
+  around a space station, now keeps that sky when "Follow the map's sun" is unticked in Sky and weather (your own
+  time of day). Until now your own time and weather replaced every map add-on's sky from the map's start, which put
+  a space station under a pale blue daytime sky. Changing a sky or weather setting during the session still
+  replaces the map's sky until the next map, and the panel's note on such a map says so (in the six languages).
+  Modern House RTX and every other map are unchanged. For add-on authors: answer the hook `NativeLoaderSkyFixed`
+  with `true` from the add-on's load, besides `NativeLoaderSkyOwner`, and set the sky only while
+  `NATIVELOADER_SKY.takenOver()` is false ([ADR 0248](docs/decisions/0248-a-maps-add-on-keeps-a-fixed-sky.md), the
+  user's answer of 2026-11-20 for the gm_stelliferous remaster; supersedes ADR 0105 in part).
+
 ### Skills: a space station remastered, a larger map for less OpenAI usage (2026-11-20)
 
 - **`remix-map-pbr` learns from gm_stelliferous** (the user's request of 2026-11-20: Workshop 3450250071,
@@ -16,8 +28,8 @@ Versions follow the loader's CMake project version once it ships; until then eve
   areas near black and ran at about 150 ms a frame (gmRTX's light updater alone took 38-42 ms); the remaster
   runs at 25 ms at the same cameras (19.6 ms median of 32, 4K, RTX 5090). It shows the map's own orbit skybox
   (black space over the planet's clouds, its faces upscaled) with the sun as an API light, instead of a blue
-  daytime sky; under the player's own sky setting ("Follow the map's sun" unticked) the native loader's sky
-  stays. 409 PBR replacements: 138 colours from OpenAI's image model (118 answers kept, 20 reused free from the
+  daytime sky, also under the player's own sky setting ("Follow the map's sun" unticked; the entry above).
+  409 PBR replacements: 138 colours from OpenAI's image model (118 answers kept, 20 reused free from the
   office and Agency remasters), clear glass where stock showed the windows as an opaque blue sheet, glow masks
   that light only a panel's lamps. The OpenAI stage cost $6.11, about $0.05 per kept texture (the office $0.06,
   Agency about $0.17). On this map the engine's own screenshot (F5) ended stock sessions launched in the

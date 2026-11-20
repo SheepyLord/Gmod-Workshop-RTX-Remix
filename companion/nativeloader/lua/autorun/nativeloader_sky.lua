@@ -511,7 +511,13 @@ end
 -- settings back three times in the first minute). Such a sky is left alone unless the player changes
 -- a sky setting in that session. Add-ons say so by answering the hook NativeLoaderSkyOwner with
 -- their name.
-local takenOver = false
+-- An add-on whose sky belongs to the place, so that no time of day or weather fits it (space around
+-- the station of gm_stelliferous), also answers the hook NativeLoaderSkyFixed with true, from the
+-- moment its Lua loads on that map (ADR 0248). The player's own sky (Follow the map's sun unticked)
+-- then leaves that sky alone at the map's start too; a sky setting changed in the session still takes
+-- it over. NATIVELOADER_SKY.takenOver() tells such an add-on when its sky is no longer its own.
+local takenOver = false    -- a sky or weather setting changed in this session
+local ownFromStart = false -- the player's own sky (Follow the map's sun unticked) at this map's start
 local function owner()
     local name = hook.Run("NativeLoaderSkyOwner")
     if isstring(name) and name ~= "" then return name end
@@ -519,8 +525,17 @@ local function owner()
     return nil
 end
 
+local function fixed()
+    return hook.Run("NativeLoaderSkyFixed") == true
+end
+
+-- Whether the player's sky replaces a map's add-on's sky now.
+local function overruled()
+    return takenOver or (ownFromStart and not fixed())
+end
+
 local function inCharge()
-    return ready() and (takenOver or not owner())
+    return ready() and (overruled() or not owner())
 end
 
 ---------------------------------------------------------------- giving it to Remix
@@ -663,13 +678,13 @@ timer.Create("nativeloader_sky", interval(), 0, function()
 end)
 
 hook.Add("NativeLoaderSkySet", "nativeloader_sky", function()
-    if takenOver and owner() and ready() then applyAll() end
+    if overruled() and owner() and ready() then applyAll() end
 end)
 
 -- On a map whose add-on set the sky, once the player took it over: put it back every 10 s.
 timer.Create("nativeloader_sky_owned", 10, 0, function()
     followMapAddon()
-    if takenOver and owner() and ready() then applyAll() end
+    if overruled() and owner() and ready() then applyAll() end
 end)
 
 ---------------------------------------------------------------- settings changing
@@ -739,9 +754,11 @@ for name in pairs(DEFAULTS) do cvars.AddChangeCallback(name, changed, "nativeloa
 
 local function start()
     -- The player's own time (Follow the map's sun unticked) and weather apply on every map from its
-    -- start, also where the map's add-on sets a sky (ADR 0105, the user's item 44 of R16). Following
-    -- the map keeps such an add-on's sky until a setting here changes (ADR 0031).
-    takenOver = not cv.nativeloader_sky_follow_map:GetBool()
+    -- start, also where the map's add-on sets a sky (ADR 0105, the user's item 44 of R16), but not
+    -- over a fixed sky such as space (ADR 0248). Following the map keeps such an add-on's sky until a
+    -- setting here changes (ADR 0031).
+    takenOver = false
+    ownFromStart = not cv.nativeloader_sky_follow_map:GetBool()
     followMapAddon()
     mapInfo = readMap()
     startClock()
@@ -795,7 +812,8 @@ concommand.Add("nativeloader_sky_status", function()
     local sky = now()
     local who = owner()
     print(string.format("[nativeloader] sky: %s; Remix API %s%s", cv.nativeloader_sky:GetBool() and "physical" or "the map's skybox",
-        ready() and "ready" or "not available", who and ("; set by " .. who .. (takenOver and ", taken over" or "")) or ""))
+        ready() and "ready" or "not available", who and ("; set by " .. who .. (fixed() and ", fixed" or "")
+            .. (overruled() and ", taken over" or "")) or ""))
     print(string.format("[nativeloader] time %s (%s)%s, %s; sun %.1f deg high at bearing %.1f; moon %.1f deg, %s",
         model.clock(clock or 0), cv.nativeloader_sky_follow_map:GetBool() and "the map's" or "chosen",
         cv.nativeloader_sky_time_passes:GetBool() and ", running" or "", cv.nativeloader_sky_season:GetString(),
@@ -827,6 +845,9 @@ NATIVELOADER_SKY = {
     -- GetConfigVariable reads rtx.conf from disk, not these live values.
     sky = function() return now() end,
     owner = owner,
+    -- Whether the player's sky replaces a map's add-on's sky now (ADR 0248): an add-on that answers
+    -- NativeLoaderSkyFixed sets its sky only while this is false.
+    takenOver = function() return overruled() end,
     ready = ready,
     model = model,
     presets = presets,
@@ -860,7 +881,9 @@ local function buildPanel(panel)
         panel:Help(L("The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."))
     end
     local who = owner()
-    if who then
+    if who and fixed() then
+        panel:Help(string.format(L("On this map %s keeps a sky of its own, such as space, that no time of day or weather fits. It keeps that sky until a setting here is changed; your settings then replace it until the next map."), who))
+    elseif who then
         panel:Help(string.format(L("On this map %s also sets the sky. It keeps its sky while Follow the map's sun is ticked and nothing here is changed; otherwise your settings here replace it."), who))
     end
     local sky = panel:ComboBox(L("Sky"), "nativeloader_sky")

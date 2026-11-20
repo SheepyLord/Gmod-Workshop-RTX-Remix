@@ -146,6 +146,12 @@ hook = {
     for _, fn in pairs(hooks[event] or {}) do local r = fn(...) if r ~= nil then return r end end
   end,
 }
+-- ADR 0248: a map's add-on with a fixed sky (space around a station) answers both hooks from its load,
+-- before the map starts.
+if FIXED_SKY_ADDON then
+  hook.Add("NativeLoaderSkyOwner", "station", function() return "Station RTX" end)
+  hook.Add("NativeLoaderSkyFixed", "station", function() return true end)
+end
 local now = 1000
 function CurTime() return now end
 function RealTime() return now end
@@ -258,6 +264,26 @@ if SCRIPT == "ownership" then
   cmd("nativeloader_weather", "overcast")
   tick(31)
   report("taken", "rtx.skyMode", "rtx.atmosphere.cloudDensity")
+  return
+end
+if SCRIPT == "fixed" then
+  -- ADR 0248: the fixed sky stays, whatever Follow the map's sun says, until a setting changes here.
+  print("taken_start " .. tostring(NATIVELOADER_SKY.takenOver()))
+  tick(31)
+  report("owned", "rtx.skyMode", "rtx.atmosphere.cloudDensity")
+  cmd("nativeloader_sky_status")
+  vgui = { Create = function() return setmetatable({ GetChildren = function() return {} end },
+    { __index = function() return function() end end }) end }
+  NATIVELOADER_SKY.buildPanel(setmetatable({}, { __index = function(_, kind)
+    return function(_, text)
+      print("panel " .. kind .. "|" .. tostring(text))
+      return setmetatable({}, { __index = function() return function() end end })
+    end
+  end }))
+  cmd("nativeloader_weather", "overcast")
+  tick(1)
+  report("taken", "rtx.skyMode", "rtx.atmosphere.cloudDensity")
+  print("taken_after " .. tostring(NATIVELOADER_SKY.takenOver()))
   return
 end
 if SCRIPT == "entry" then
@@ -786,6 +812,23 @@ class SkyTests(unittest.TestCase):
         out = self.run_lua(preset + SESSION, MAP='modern_house', BSP=bsp(CONSTRUCT), SCRIPT='ownership')
         self.assertEqual(out['start'].split()[0], '0')
         self.assertEqual(out['owned'].split()[0], '0')
+
+    def test_a_fixed_sky_stays_under_the_players_own_sky_until_a_setting_changes(self):
+        # ADR 0248 (the user's answer of 2026-11-20, "Yes, keep orbit sky"): an add-on whose sky belongs to the
+        # place (gm_stelliferous's orbit skybox) keeps it also with Follow the map's sun unticked; a sky or
+        # weather setting changed in the session still takes it over, and the add-on can tell.
+        for follow in ('0', '1'):
+            preset = (f'PRESET = {{ nativeloader_sky_follow_map = "{follow}", nativeloader_sky_hour = "9.80", '
+                      'nativeloader_weather = "clear" }\nFIXED_SKY_ADDON = true\n')
+            out = self.run_lua(preset + SESSION, MAP='gm_stelliferous', BSP=bsp(CONSTRUCT), SCRIPT='fixed')
+            self.assertEqual(out['start'].split()[0], '0', follow)
+            self.assertEqual(out['taken_start'], 'false', follow)
+            self.assertEqual(out['owned'].split()[0], '0', follow)
+            self.assertIn('set by Station RTX, fixed;', out['[nativeloader]'] + ';', follow)
+            self.assertIn('Station RTX keeps a sky of its own', out['panel'], follow)
+            taken = self.settings(out['taken'])
+            self.assertEqual((taken['rtx.skyMode'], taken['rtx.atmosphere.cloudDensity']), ('1', '7'), follow)
+            self.assertEqual(out['taken_after'], 'true', follow)
 
     def test_a_slider_writing_back_its_rounded_value_keeps_the_maps_sun(self):
         out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='slider')

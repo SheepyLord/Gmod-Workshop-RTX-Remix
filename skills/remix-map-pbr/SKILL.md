@@ -213,7 +213,7 @@ other two maps' equivalents are in `references/pipeline.md`.
 12. **Sky, mirrors, water, caustics, fixes.** Physical sky (`rtx.skyMode 1`, its own sun; set
     `rtx.atmosphere.sunRotation` to 90 minus the azimuth) scoped to the map, with `gen_sky.py` as a painted
     fallback skybox; answer the native loader's `NativeLoaderSkyOwner` hook so its companion leaves your sky
-    alone (ADR 0031). Mirrors: gmRTX deletes `func_reflective_glass`, so `gen_mirrors.py` writes the quads
+    alone (ADR 0031), and for a sky that belongs to the place (space) also `NativeLoaderSkyFixed` (ADR 0248). Mirrors: gmRTX deletes `func_reflective_glass`, so `gen_mirrors.py` writes the quads
     and a tag texture and the addon draws them in `PreDrawTranslucentRenderables`. Water: RTX Water's
     `RTXWater_MapProfile` hook (calm), or the translucent-flag fix. Hide glow sprites and fake beam cones on
     the server at `InitPostEntity` and `PostCleanupMap`. Caustics and curved-tile unfolding are the
@@ -224,7 +224,8 @@ other two maps' equivalents are in `references/pipeline.md`.
     town, a railway) gets them back at true scale (`gen_skybox.py`: 16 x the offset from the sky camera,
     props at `modelscale` x 16, the skybox's copy of the playable area left out, drawn only outdoors). When
     the companion drives the sky (`nativeloader_sky_follow_map 0`, the user's
-    field setting) leave it its sky and follow its sun instead of answering `NativeLoaderSkyOwner`. Fix a
+    field setting) leave it its sky and follow its sun instead of answering `NativeLoaderSkyOwner`, unless
+    the map's sky is fixed (space: ADR 0248). Fix a
     texture's category from the addon (`RemixMaterial`): IGNORE hides fake shafts, removing DECAL_STATIC
     stops an overflowing tint.
 13. **Visibility.** Never cull what the path tracer needs. Small maps: keep gmRTX's whole-map drawing and add
@@ -326,9 +327,11 @@ calling them standards for a new map):
   is baked after the addon removes that texture's DECAL_STATIC category. Modern House's baked tints predate
   this finding.
 - **A station in orbit keeps the map's skybox** (gm_stelliferous): `rtx.skyMode 0` and an API distant light at
-  the mapper's `light_environment` while the add-on owns the sky ("Follow the map's sun" ticked when the map
-  starts); the physical atmosphere would put it under a daytime sky. Under the player's own sky
-  (`nativeloader_sky_follow_map 0`) the companion's sky stays (the native loader's ADR 0105).
+  the mapper's `light_environment`; the physical atmosphere would put it under a daytime sky. The add-on answers
+  `NativeLoaderSkyFixed` with `true` and `NativeLoaderSkyOwner` from its load, so the companion leaves that sky
+  alone also under the player's own sky (`nativeloader_sky_follow_map 0`; the native loader's ADR 0248, the
+  user's choice), until a sky or weather setting changes in the session; it sets its sky and its sun only while
+  `NATIVELOADER_SKY.takenOver()` is false, and falls back to `follow_map` with an older companion.
 - **Glow masks on any class** (gm_stelliferous): with `$selfillum` the base alpha marks what glows; `compose.py`'s
   `emit_selfillum` lets a hull panel's LEDs or a pipe's lamps emit from the bright texels under the mask
   (intensity 6-8) while the panel stays painted steel; light strips use the light class (16).
@@ -410,7 +413,7 @@ calling them standards for a new map):
 | Backlit grass or leaves lavender or white | A grey thin-opaque scattering albedo: give it the foliage's green |
 | Every view slower by the same share | Another program on the GPU (`nvidia-smi`), a game or streaming: measure stock and remaster back to back and report ratios; it never blocks the test |
 | The game ends seconds after a screenshot (vphysics.dll access violation, or "CUtlStack::EnsureCapacity ran out of memory!") | The map underflows the material system's stacks ("PopMatrix: Underflow!" in the console) and the `jpeg` command's push then fails: capture the window (gm_stelliferous's `game.screenshot`); with that map's add-on running there was no underflow (lessons, ST) |
-| A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, which owns the sky only when "Follow the map's sun" was ticked as the map started (lessons, ST) |
+| A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, and answer `NativeLoaderSkyFixed` from its load so the companion keeps out also under the player's own sky (ADR 0248; lessons, ST) |
 | Station windows an opaque blue sheet | Refract-shader glass has no colour texture: a clear glass material on the windows' live hash (`extra_hashes`) |
 
 ## Done criteria for a map

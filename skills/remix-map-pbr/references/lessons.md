@@ -620,10 +620,14 @@ request "avoid wasting usage", 2026-11-20)
 - The game draws the HDR skybox at `mat_hdr_level 2` (BGRA8888 with the alpha a scale); Remix shows its raw
   RGB, far bluer than the map looks (blue 204 against 132 on average). The mod gives the six faces the LDR
   faces upscaled four times, under both hashes.
-- The add-on owns the sky only if "Follow the map's sun" (`nativeloader_sky_follow_map 1`) was set when the
-  map started: set during the session the companion keeps the sky until the next map start (ADR 0105), so a
-  test sets it and runs `changelevel`. Unticked (the user's own setting) the companion's sky and sun stay, and
-  the add-on drops its API sun.
+- At first the add-on owned the sky only if "Follow the map's sun" (`nativeloader_sky_follow_map 1`) was set
+  when the map started (ADR 0105): unticked, the user's own setting, the companion's pale daytime sky stood over
+  grey ground haze around the station. The user chose to keep the orbit sky ("Yes, keep orbit sky"), so the
+  companion gained a fixed sky (ADR 0248): the add-on answers `NativeLoaderSkyFixed` with `true` and
+  `NativeLoaderSkyOwner` from its load (the companion decides at `InitPostEntity`, before the add-on's start 3 s
+  later), and keeps its sky and API sun while `NATIVELOADER_SKY.takenOver()` is false. A sky or weather setting
+  changed in the session hands the sky to the companion until the next map start, and the add-on drops its API
+  sun within half a second.
 - `rtx.atmosphere.altitude` is refused by `RemixConfig` since the review of 2026-11-16.
 
 ## Mirrors, sprites and map clean-up

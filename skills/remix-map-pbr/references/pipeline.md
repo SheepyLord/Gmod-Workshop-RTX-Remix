@@ -405,7 +405,10 @@ Preetham clear sky with a Mie glow, cumulus and cirrus for the same sun into six
 bk +y, ft -y, up, dn; `--debug` writes labelled faces) as the fallback where the runtime has no atmosphere.
 The native loader's companion has its own physical sky; a map add-on that sets the sky answers the hook
 `NativeLoaderSkyOwner` with its name (this repository's ADR 0031; Modern House is recognised by its
-`MHRTX_Config`).
+`MHRTX_Config`). A sky that belongs to the place, which no time of day or weather fits (gm_stelliferous's space),
+also answers `NativeLoaderSkyFixed` with `true` from the add-on's load: the companion then keeps out also under
+the player's own sky until a setting changes in the session, which `NATIVELOADER_SKY.takenOver()` reports
+(ADR 0248).
 
 lestnicha3, an island in the open air, takes the sun from the map's own `light_environment` (40 degrees,
 azimuth 250, 5200 K) with clouds at coverage 0.30, voxel cloud shadows on at strength 0.55, and times noon

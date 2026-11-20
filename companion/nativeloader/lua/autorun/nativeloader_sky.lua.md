@@ -308,6 +308,14 @@ it back 3, 23, 43 and 63 s after the map starts.
 - **Following the map keeps such an add-on's sky** ("Follow the map's sun" ticked, the default) until
   the player changes a sky or weather setting in that session. Two settings do not count: the update
   interval and No horizon (R26), which also reaches the add-on's sky ("The horizon" above).
+- **A fixed sky stays either way** ([ADR 0248](../../../../docs/decisions/0248-a-maps-add-on-keeps-a-fixed-sky.md),
+  the user's answer for the gm_stelliferous remaster, 2026-11-20): an add-on whose sky belongs to the place, so
+  that no time of day or weather fits it (space around a station), also answers the hook `NativeLoaderSkyFixed`
+  with `true`, from the moment its Lua loads on that map. The companion then sends no sky, sun or weather at the
+  map's start, also with "Follow the map's sun" unticked, until a sky or weather setting changes in the session;
+  the change takes the sky over until the next map start. `NATIVELOADER_SKY.takenOver()` tells the add-on whether
+  the player's sky replaces its own now, so it can stop setting its sky and remove its sun; the panel's note on
+  such a map says that it keeps its sky, and `nativeloader_sky_status` adds ", fixed".
 - Once the companion is in charge, its sky is put back every 10 s, and at once whenever the add-on sets
   its own again (below). The add-on's `ApplySettings` is wrapped from the sky's first tick after the
   add-on loaded (Modern House RTX loads after InitPostEntity), not only by the 10 s timer.
@@ -344,7 +352,7 @@ it back 3, 23, 43 and 63 s after the map starts.
   says `starting` or `rendering`, a tick sends nothing and its time is dropped: the runtime's own clock stands still
   for a poster's tiles, and the sun, the moon and the weather wait with it, then go on from where they stood.
 - **The panel.** `NATIVELOADER_SKY` holds the panel builders (`buildPanel`, `buildNightPanel`) and the clock for the
-  panel (and tests).
+  panel (and tests), and `takenOver()` for a map's add-on with a fixed sky (ADR 0248).
 
 Tested by [`tools/tests/test_companion_sky.py`](../../../../tools/tests/test_companion_sky.py.md).
 

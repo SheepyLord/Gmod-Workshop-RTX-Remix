@@ -65,6 +65,11 @@ The harness is written to a scratch folder under `out\tmp`.
   RTX, loaded afterwards, is followed from the sky's next tick, and its own afternoon (21 degrees) is
   replaced in the same call by the player's sun (57.7 degrees). Without the R16 change the add-on's sun
   stays.
+- **A fixed sky** (ADR 0248; `FIXED_SKY_ADDON` answers `NativeLoaderSkyOwner` and `NativeLoaderSkyFixed` from
+  its load, as gm_stelliferous RTX does): with "Follow the map's sun" unticked and ticked alike, nothing is sent at
+  the map's start or in the next 31 s, `NATIVELOADER_SKY.takenOver()` is false, the status line says
+  "set by Station RTX, fixed" and the panel's note says that the add-on keeps its sky; a change of weather then
+  takes the sky over (`rtx.skyMode 1`, overcast's cloud density 7) and `takenOver()` turns true.
 - **The map's own skybox** (`nativeloader_sky 0`) gives back `rtx.skyMode 0` and the configured
   `rtx.ignoreGameDirectionalLights`.
 - **A night map** (sky `sky_borealis01`) starts at 23:00, with the full moon where the map's light

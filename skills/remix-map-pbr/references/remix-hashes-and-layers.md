@@ -276,7 +276,8 @@ value; so to put an option back, keep `rtx.conf`'s value or your own defaults ta
 the map starts, again a few times in the first minute (the addons re-apply three times, 20 s apart) because
 other code may reset them, and restore them at `ShutDown`. These are live changes only; the remaster writes
 no config file. If the map owns the sky, answer the native loader companion's `NativeLoaderSkyOwner` hook
-with the add-on's name (this repository's ADR 0031).
+with the add-on's name (this repository's ADR 0031), and `NativeLoaderSkyFixed` with `true` for a sky that
+belongs to the place, such as space (ADR 0248).
 
 ## Lights: Remix API lights, not USD
 

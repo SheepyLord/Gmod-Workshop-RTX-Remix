@@ -65,7 +65,10 @@ on gm_br_pitfalls, gm_poolrooms 27.
 ## Tours
 
 `python tour.py <map> <label> [camera ...]` (gm_poolrooms: `tour.py <label>`): hides the HUD (`cl_drawhud 0`),
-switches to the physics gun (the toolgun's info panel ignores `cl_drawhud`), holds each camera with
+switches to the physics gun (the toolgun's info panel ignores `cl_drawhud`), moves the noclipping player to
+the camera (`game.place_player`, cmdr_office_summer's tools: the server sends physics props and other
+entities by the player's vis area, so a camera held far from the player shows rooms without their props,
+and a stock run, which draws the whole map, compares a different scene), holds each camera with
 `RTXAgent.View` (HUD and view model hidden), points the remaster's light manager at the held camera
 (`viewPos`), waits `settle` seconds (4 s by default, 2.5-7 s in the sessions; a camera cut needs about 4 s
 for the denoiser), takes the engine's
@@ -158,7 +161,13 @@ medians and the worst, and writes `work/perf_<map>_<label>.json`.
 variant, each switching one thing and putting it back: `base`, `skybox` (`rtx.skyMode 0`), `noclouds`,
 `nolights`, `cull_lights`, `nopom` (`rtx.displacement.mode 0`), `pvs` (the engine's PVS on),
 `novolumetrics`; writes `work/ab_<camera>.json`. Measured there: haze about 3 ms on the grounds, parallax
-about 1 ms, the physical sky and clouds nothing measurable, culling nothing measurable.
+about 1 ms, the physical sky and clouds nothing measurable, culling nothing measurable. Since the RTX
+package's review of 2026-11-16 Lua may not set `rtx.displacement.mode` (nor `rtx.enableReplacementMaterials`):
+a variant that sets it through `RemixConfig` changes nothing and times the remaster again, as gm_csgoagency's
+"no parallax" column did. cmdr_office_summer's `abtest.py` checks what `SetConfigVariable` returns, reports a
+refused variant and leaves it out (and leaves `nopom` out of its defaults); parallax is measured, if at all,
+with the debug module's gate (ADR 0237). Its other variants are console switches of the add-on
+(`ofrtx_lights 0`, `ofrtx_skybox 0`, `ofrtx_vis`), which nothing refuses.
 
 When the frame is CPU-bound (low GPU use, game threads pegged), profile: `stackprof.py <seconds>
 <out.json> auto` and `--report`. Backrooms with the whole map drawn: 46 ms a frame, the D3D9-issuing thread
@@ -173,6 +182,8 @@ Results to quote, all at 4K with DLSS on an RTX 5090 and a Ryzen 9 9950X3D:
 | gm_br_pitfalls, 32 regions | 121 ms | 13.2 ms | 16.6 ms median, 19.4 ms p99 |
 | gm_br_complex, 12 regions | not given | 12.8 ms (11.8-13.7) | 13.7 ms |
 | gm_poolrooms, 27 views | not given | about 15-16 ms | not given |
+| gm_csgoagency, 18 cameras (player at the spawn) | 16.2 ms | 18.4 ms | 21.3 ms (a side hall) |
+| cmdr_office_summer, 24 cameras (player placed) | 11.7 ms | 14.2 ms | 17.8 ms median, 19.2 ms p99 (the courtyard) |
 
 ## Visibility checks
 

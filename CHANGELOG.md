@@ -26,6 +26,29 @@ Versions follow the loader's CMake project version once it ships; until then eve
   it went; the launch option `-nl_queue_check_test` and `tools/qa/queue_check_session.py` test the drop path in the
   game ([ADR 0247](docs/decisions/0247-queued-render-calls-checked-before-the-game-leaves-threaded-rendering.md)).
 
+### Skills: CS:GO's cs_office in summer remastered, the OpenAI usage spent where it shows (2026-11-20)
+
+- **`remix-map-pbr` learns from cmdr_office_summer** (the user's request of 2026-11-20: Workshop 3395418601,
+  "[GM] Office - Summer", at Agency's standard, without wasting OpenAI usage). The remaster lives on a local
+  branch of the user's fork (`claude/office-summer-rtx`, its doc `docs/CMDR_OFFICE_SUMMER_RTX.md`) and in the
+  user's game; its textures derive from CS:GO's and stay local. The OpenAI stage is planned before anything is
+  sent: each texture is reused from another remaster's kept answers (21 free from Agency), skipped where the
+  model cannot improve it or nobody sees it (122), or sent at full or half size (146), all in one Batch API job
+  at half price. 134 answers kept (92 %, against Agency's 79 %) for $7.88 in all, about 65 % less per kept
+  texture than Agency's $24. The skill also records the winter map's snow left on a summer map (a concrete scan
+  for a snow texture, `desnow` filling an atlas's snow from the bare metal around it), white leaf cards on
+  two-sided trees that stock GMod RTX shows too, a light-distance limit that saved almost nothing (any API
+  light costs about 1.3 ms at 4K; their number little), and tours and frame times that move the player to each
+  camera, because the server sends props by the player's position (Agency's were timed without some). The
+  remaster runs at 14.2 ms a frame where stock GMod RTX takes 11.7 ms (median of 24 cameras, 4K, RTX 5090).
+- **The remaster as one package** (`cmdr-office-summer-rtx`, 3,163,451,515 bytes, mod
+  `cmdr_office_summer_rtx_pack`, every texture whole): built, checked with `nlctl` in a scratch install and not
+  uploaded. Its mod folder sorts before most map mods, so in a game with other remasters its versions of shared
+  props (131 hashes in the user's game) show on their maps too; the 27 it shares with Agency are the same
+  materials.
+- Agency's doc on the fork no longer claims parallax costs nothing: since the RTX package's review of
+  2026-11-16 Lua may not set `rtx.displacement.mode`, so that column measured the remaster unchanged.
+
 ### Skills: CS:GO's Agency office tower remastered (2026-11-19)
 
 - **`remix-map-pbr` learns from gm_csgoagency** (the user's request of 2026-11-18: an RTX Remix version of

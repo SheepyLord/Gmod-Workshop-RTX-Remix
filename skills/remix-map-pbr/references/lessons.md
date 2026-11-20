@@ -1,11 +1,13 @@
-# Lessons from the six remasters
+# Lessons from the seven remasters
 
 Each entry: what you would see, why, what fixed it, and where and when it was found (local dates). PR =
 gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_house (2026-10-27/29),
 L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09), BM = gm_brmovie_complete, the
 A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677 light entities
 (2026-11-09), AG = gm_csgoagency, CS:GO's Agency: offices on a high floor of a tower in a city, every
-albedo re-rendered by OpenAI's image model (2026-11-18/19).
+albedo re-rendered by OpenAI's image model (2026-11-18/19), OF = cmdr_office_summer, CS:GO's cs_office in
+summer: offices, a courtyard and streets, the OpenAI stage planned per texture and run as a batch
+(2026-11-20).
 
 ## Getting the map
 
@@ -108,6 +110,10 @@ albedo re-rendered by OpenAI's image model (2026-11-18/19).
 **Distance-switched lights saved nothing and darkened far rooms** (MH, 2026-10-27)
 - 341 lights on against the 30-300 a distance manager kept: no measurable difference at 4K (an earlier
   3-5 ms estimate did not reproduce); at night the far rooms looked dark from the lawn.
+- OF (2026-11-20), a distance limit on top of the PAS (`ofrtx_light_range`): at 1200 units the break room
+  went from 117 lights to 24 and gained 0.5 ms, the other slow views 0.0-0.4 ms. The cost is in having API
+  lights at all: all of them off saved 2.7-3.2 ms with about 100 on, and a scene with a single API light
+  already pays about 1.3 ms at 4K; each further light costs little. The limit stays in the add-on at 0 (off).
 
 **Overlay FPS is four times the engine rate** (MH, 2026-10-27)
 - The user's overlay includes DLSS 4x frame generation; divide by 4, or measure engine frames
@@ -305,6 +311,41 @@ albedo re-rendered by OpenAI's image model (2026-11-18/19).
   fibrous seed hairs, a seed head, a dome normal and near-white transmission (`puffs`). Snap alpha-tested
   foliage to 0 and 255 so opacity micromaps classify it.
 
+**White leaf cards on the mall trees, in stock too** (OF, 2026-11-20)
+- Symptom: on `mall_tree_medium01` (L4D2's mall tree, in the courtyard), a few leaf cards near the top
+  blown out to pure white (255) when seen from below at a slant, beside green ones of the same material;
+  from above and looking up into the sun they are green.
+- Not the material: rougher leaves (0.88-0.98), no transmission, the API lights near the tree off and a red
+  albedo (they turned pink: the texture is ours, the light about ten times a sunlit wall's) all left them
+  white. Not the mesh data: one leaf material (`mall_trees_branches02`, alpha-tested, `$nocull`), unit vertex
+  normals that face their triangles. Not baked lighting: the runtime ignores vertex colour unless a texture
+  is in `rtx.allowBakedLightingTextures`. Stock GMod RTX shows the same cards white.
+- So it is how the runtime draws these two-sided cards; the remaster records it as a known issue. Test a
+  suspect artifact in stock before spending on it, and keep the diagnostics short: the red albedo and one
+  switch per cause settle it in minutes.
+
+**Snow left by the winter map** (OF, 2026-11-20)
+- The summer version of cs_office kept three winter textures: `ground/snow01` on a wall's coping and a
+  street edge, and de_vostok's snowed-in electrical boxes on a roof seen from the courtyard. List every
+  texture named for snow, ice or frost and look where it is drawn (the faces' positions from the BSP, the
+  props from `static_props.json`), from the places players stand.
+- A world texture that is only snow takes a CC0 scan of what belongs there (`overrides.json`: the class
+  and `"scan": {"name": "Concrete025", "repeats": 2}`). On an atlas, `desnow` in `compose.py` finds the
+  snow (bright, nearly grey texels, grown a little over their soft edge) and fills it from the bare surface
+  around it, in the colour, the normal and the roughness (a push-pull pyramid fill: seamless over holes of
+  any size). A smooth fill is enough for a rooftop prop seen from the street; no OpenAI request.
+
+**A mod that sorts early owns shared props on every map** (OF, 2026-11-20)
+- 131 of cmdr_office_summer's 295 hashes are also replaced by the user's other remasters (cs_office's
+  props, the landscape paintings, the mall trees, carpets and concrete). `cmdr_...` sorts before `gm_...`,
+  `funkis_...` and `valley_...`, so its versions show on those maps too (56 hashes on the Backrooms movie
+  map, 37 Funkis, 31 Country Estate, 27 Agency, 26 Valley View Mall), and `bigcity_rtx` wins 10 on the
+  office map.
+- Before installing next to other remasters, compare not only the hashes but what each replaces them
+  with: the 27 shared with gm_csgoagency have the same class, maps and inputs (21 share the very OpenAI
+  colour), so Agency's map keeps its look. A shared world texture with a map-specific look (Level 0's damp
+  carpet, say) needs a tag texture on its own map instead (`remix-hashes-and-layers.md`).
+
 **Clear glass turned emerald** (MH, 2026-10-27)
 - Brush panes with nodraw faces leave a refracting volume open, which keeps absorbing over metres. Fix:
   `thin_walled`.
@@ -386,6 +427,39 @@ albedo re-rendered by OpenAI's image model (2026-11-18/19).
 - Calibrate the normal strength per class against the artist's own bump maps (the xy spread of the
   composed normal next to the bump's): CS:GO's plaster and cast concrete are nearly flat, and the first
   recipes read as stucco.
+
+**Spending the usage where it shows** (OF = cmdr_office_summer, CS:GO's cs_office in summer; the user's
+request "avoid wasting usage", 2026-11-20)
+- The cost is nearly all output tokens, and they grow with the output's size, not linearly: quality high,
+  2.6 Sunburst, about 3570 tokens for a 2048 px result and 4930 for a 2560 px tiling canvas, 1540-1760 for
+  816-1024 px. Price per million: 8 in, 30 out; in a batch 4 and 15.
+- `oai_tex.py --plan` decides per texture before anything is sent: reuse what another remaster already
+  kept (same Remix hash: 21 of cs_office's textures came free from gm_csgoagency's), skip what the model
+  cannot improve or what nobody sees (lights, decals, sky, signs, artwork and lettering, the 3D skybox's far
+  facades, flat or animated textures, surfaces under 0.02 % of the map, small props), skip patterned world
+  textures that are not heroes, send the rest: heroes at full size, the rest at half size, which DAT then
+  doubles. Agency sent 182 and paid for a second tiling pass; cs_office's plan sent 146 in one pass (the
+  wrapped margin from the start), about $5.60 estimated in a batch.
+- The Batch API takes `/v1/images/edits` (the request body as in a synchronous call, the source as a PNG
+  data URL in a JSONL line) at half the price. The guide names only the 2.5 models; a one-request test batch
+  showed 2.6 Sunburst works too (validated, completed). Keep a batch's input file under the 200 MB limit
+  (`BATCH_FILE_BYTES`, 150 MB; 142 requests were 108 MB). A batch takes its time: the single-request test
+  finished in 14 minutes, the 142-request batch in 55 (138 done after about 37, the last four held it
+  to the end); build, tour and measure with the local upscales meanwhile and swap the colour in after.
+- The result on cs_office: 146 answers, 134 kept (92 %; Agency kept 79 %), 21 more reused free, $7.88 in all
+  with the pilots (176,640 tokens in, 428,883 out), against about $24 for Agency's 144: about 65 % less per
+  kept texture. The 12 refused: two of the nine brick walls (layout changed), a steel beam texture and nine
+  prop atlases (parts moved); they keep the local upscale. A plan that skips non-tiling textures OpenAI will re-render also halves the
+  local DAT stage (their colour comes from OpenAI and the maps are made from it).
+- A small synchronous pilot settles model and quality before the batch (about $1.50 on cs_office): 2.5
+  Sunburst exaggerates contrast (asphalt aggregate turned into bright pebbles; contrast 1.8 against 1.0);
+  2.5 at medium costs a quarter of high's tokens and looks the same as 2.5 high; 2.6 at medium saves only
+  17 % and is visibly softer. 2.5 refuses the `complexity` parameter (no charge). Chosen: 2.6 Sunburst, high,
+  in a batch. Move the pilot answers you keep into the run's folder so the batch skips them.
+- Patterned walls can pass: both of cs_office's cinder block and brick heroes kept their layout in the pilot,
+  where Agency's tile grids failed. Pilot the heroes of a pattern class rather than skip the class.
+- A kill pattern for one script can match another: `ai_tex.py` is a substring of `oai_tex.py`, and stopping
+  the AI stage stopped the batch poller too (restarted; the batch at OpenAI was unaffected).
 
 ## Lights and sky
 
@@ -504,6 +578,17 @@ albedo re-rendered by OpenAI's image model (2026-11-18/19).
   `CreateMeshBatched` and persistent instances, or ordinary GMod meshes with tag textures.
 
 ## Driving the game
+
+**Tours and frame times without the props the server never sent** (OF, 2026-11-20)
+- Symptom: a room's computers, chairs and bins in one tour and gone in the next; the remaster's frame times
+  a little better than they should be.
+- Cause: `tour.py` and `perf.py` held the camera (`RTXAgent.View`) while the player stayed in the spawn room.
+  The server sends entities (physics props) by the player's vis area, here its PAS, so rooms far from the
+  player had no props; stock mode transmits the whole map (its novis), so a stock-against-remaster pair
+  compared different scenes.
+- Fix: `game.place_player(pos)` moves the noclipping player to each camera (server Lua) before the view is
+  held; tours and frame-time runs made before it (gm_csgoagency's, whose props are mostly static) are worth
+  checking against a placed run.
 
 **Stock shots that kept the remaster's materials** (AG, 2026-11-19)
 - Symptom: none in the pictures; the console said `SetConfigVariable: 'rtx.enableReplacementMaterials'

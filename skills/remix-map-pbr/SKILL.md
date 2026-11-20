@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete and gm_csgoagency remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency and cmdr_office_summer remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -30,7 +30,13 @@ for CS:GO's Agency, a compact office floor in a city: every albedo re-rendered b
 kept only when it scores true to its source (`oai_tex.py`, the user's key from the environment), the glass
 checked against its VMTs and models, diffuse layers for frosted bands and wired glass, neutral fixture light
 from the mapper's own light colours, the de_vertigo city around the tower at its true scale, and a stock
-mode that really switches the materials off.
+mode that really switches the materials off. cmdr_office_summer (`source/cmdr_office_summer_rtx/tools`,
+branch `claude/office-summer-rtx`) is gm_csgoagency's for CS:GO's cs_office in summer, with the OpenAI stage
+planned to spend the usage where it shows: `oai_tex.py --plan` reuses another remaster's kept answers by
+hash, skips what the model cannot improve or nobody sees, sends heroes at full size and the rest at half
+size, and runs the requests as one Batch API job at half price ($7.88 for 134 kept against Agency's $24 for
+144); `desnow` for the winter map's leftover snow; tours and frame times with the player placed at each
+camera.
 
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
@@ -318,6 +324,8 @@ calling them standards for a new map):
 | `python contact_sheet.py [--all]` | base-texture sheets for review |
 | `python tex_jobs.py` | predicted hashes, sources, AI job list (merges `live_hashes.json`) |
 | `python live_hashes.py` | live hashes from the running game |
+| `python oai_tex.py --plan [--reuse <another remaster's work>]` / `--estimate` | cmdr_office_summer: reuse, skip or send each texture (full or half size) and what it will cost, before any request (`OPENAI_API_KEY` from the environment only) |
+| `python oai_tex.py --batch-submit` / `--batch-poll [--wait]` / `--prepare` | the planned requests as one Batch API job at half price, the answers scored, the kept ones into `jobs_oai.json` |
 | `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only ...]` | upscale, normal, roughness, height |
 | `python compose.py [--only ...] [--force]` | PBR maps per recipe |
 | `python plant_atlas.py [--cc0 DIR] [--preview]` | lestnicha3: CC0 photoscanned plants and a drawn dandelion clock into the grass atlas (after `compose.py`) |
@@ -342,6 +350,9 @@ calling them standards for a new map):
 | A surface shows no change | Its hash is not the one the game uploads: another mounted copy of the texture, a different hash mode, an animated frame. Run `live_hashes.py`, then `tex_jobs.py` and `build_mod.py`. Or another mod folder that sorts earlier replaces the same hash (`remix-hashes-and-layers.md`) |
 | The whole mod does nothing | A new mod folder: Rescan Mods (Alt+X) or a restart. Or `rtx.enableReplacementMaterials` left False by a stock toggle, or `mod.usda` left without its sublayers by `stock.py on` (`mod.usda.remaster` beside it: `stock.py off`) |
 | A mirror-smooth surface shows specks or broken-up clouds in its reflection | Roughness under about 0.03 takes the runtime's perfect-mirror path; give opaque glass an even 0.035 and no normal map (lessons, AG) |
+| Props in a room in one tour and gone in the next; a stock pair that does not match | The server sends entities by the player's vis area, not the held camera's: place the player at each camera (`game.place_player`; `references/testing.md`, Tours) |
+| A few leaf cards of a two-sided tree blown out white from below | Check stock first: on the mall trees it is the runtime's, in stock too, and no material change fixes it (lessons, OF) |
+| A summer map shows snow | The winter original's textures left over: a scan for a snow-only world texture, `desnow` for an atlas (lessons, OF) |
 | A colour constant does nothing | The input inherited the game's texture: author `diffuse_texture` empty (`@@`). Or a bound emissive texture overrides the emissive colour |
 | Every texel of a material is transparent | `alpha_test_type = 0` means "never"; leave it out |
 | Glass turns emerald or deep green | A refracting volume left open by nodraw faces: `thin_walled` |

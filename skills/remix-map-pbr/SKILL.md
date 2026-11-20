@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3 and gm_brmovie_complete remasters were made - extract the Workshop map, classify its materials, generate AI PBR maps (PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete and gm_csgoagency remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -25,7 +25,12 @@ main light, CC0 photoscans for grain, ground and plants, night lights driven by 
 (`source/gm_brmovie_complete_rtx/tools`, branch `claude/brmovie-rtx`) is lestnicha3's with Backrooms'
 fixture lights, for a big interior map with an outdoor lot: lights that follow the map's switches, PAS
 visibility, live hashes for gmRTX's per-material solid-colour textures, and the 3D skybox drawn at its true
-scale.
+scale. gm_csgoagency (`source/gm_csgoagency_rtx/tools`, branch `claude/csgoagency-rtx`) is gm_brmovie_complete's
+for CS:GO's Agency, a compact office floor in a city: every albedo re-rendered by OpenAI's image edit model and
+kept only when it scores true to its source (`oai_tex.py`, the user's key from the environment), the glass
+checked against its VMTs and models, diffuse layers for frosted bands and wired glass, neutral fixture light
+from the mapper's own light colours, the de_vertigo city around the tower at its true scale, and a stock
+mode that really switches the materials off.
 
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
@@ -170,7 +175,10 @@ other two maps' equivalents are in `references/pipeline.md`.
    alpha snapped to 0 and 255.
 9. **Hand-made materials and tag textures.** In `overrides.json` "materials": clear glass (translucent,
    thin-walled), frosted glass, mirrors, LED emitters, water sheets, sky faces, each listing the textures
-   (or hashes) it replaces. Where a replacement must apply only on this map, or to a texture that is shared
+   (or hashes) it replaces. A texture is glass when its VMT says so (`$translucent` or `$alphatest`, an
+   alpha that varies), not its name: CS:GO's `railingglass`, `unique/window` and `doorglassmain` are opaque
+   metal frames whose panes are other brushes. What the original's alpha drew on the glass (frosted bands,
+   a wire mesh) becomes the translucent material's diffuse layer (`use_diffuse_layer`). Where a replacement must apply only on this map, or to a texture that is shared
    with another surface, the addon binds a small "tag" VTF of your own (`vtfwrite.py`) and the mod targets
    the tag's hash (poolrooms water and openings, Modern House mirrors).
 10. **Build the mod.** `python build_mod.py [--no-prune]` encodes the DDS (BC7 colour, BC5 normals, BC4
@@ -332,7 +340,8 @@ calling them standards for a new map):
 | Symptom | Cause and fix |
 | --- | --- |
 | A surface shows no change | Its hash is not the one the game uploads: another mounted copy of the texture, a different hash mode, an animated frame. Run `live_hashes.py`, then `tex_jobs.py` and `build_mod.py`. Or another mod folder that sorts earlier replaces the same hash (`remix-hashes-and-layers.md`) |
-| The whole mod does nothing | A new mod folder: Rescan Mods (Alt+X) or a restart. Or `rtx.enableReplacementMaterials` left False by a stock toggle |
+| The whole mod does nothing | A new mod folder: Rescan Mods (Alt+X) or a restart. Or `rtx.enableReplacementMaterials` left False by a stock toggle, or `mod.usda` left without its sublayers by `stock.py on` (`mod.usda.remaster` beside it: `stock.py off`) |
+| A mirror-smooth surface shows specks or broken-up clouds in its reflection | Roughness under about 0.03 takes the runtime's perfect-mirror path; give opaque glass an even 0.035 and no normal map (lessons, AG) |
 | A colour constant does nothing | The input inherited the game's texture: author `diffuse_texture` empty (`@@`). Or a bound emissive texture overrides the emissive colour |
 | Every texel of a material is transparent | `alpha_test_type = 0` means "never"; leave it out |
 | Glass turns emerald or deep green | A refracting volume left open by nodraw faces: `thin_walled` |

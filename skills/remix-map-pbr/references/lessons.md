@@ -1,10 +1,18 @@
-# Lessons from the five remasters
+# Lessons from the six remasters
 
 Each entry: what you would see, why, what fixed it, and where and when it was found (local dates). PR =
 gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_house (2026-10-27/29),
 L3 = lestnicha3, an open-air island under the physical sky (2026-11-08/09), BM = gm_brmovie_complete, the
 A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677 light entities
-(2026-11-09).
+(2026-11-09), AG = gm_csgoagency, CS:GO's Agency: offices on a high floor of a tower in a city, every
+albedo re-rendered by OpenAI's image model (2026-11-18/19).
+
+## Getting the map
+
+**The gma tools refuse an old Workshop item: "LZMA output exceeds its declared size"** (AG, 2026-11-18)
+- An item uploaded years ago (1280291772, 2017) is a legacy `.bin`: one LZMA stream in the "alone" format
+  (13-byte header) whose decoder runs past the declared size. Decode it with Python's `lzma`
+  (`FORMAT_ALONE`), cut the output at the declared size, check the gma's CRC, then read it as a gma.
 
 ## Skinned models and engine settings
 
@@ -141,6 +149,41 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
   answering. Wait for the full mount (90 % or the second mount line) and a quiet log.
 
 ## Materials and USD
+
+**Opaque materials named like glass made glass** (AG, found by the user, 2026-11-19)
+- Symptom: the glass railings' handrails, posts and clamps were clear glass (the user named the hash,
+  `62509E09427E88CC`); so were the tower's exterior mullions, an office window's frame and an HL2 door's
+  frame, and closed blinds became plain frosted glass.
+- Cause: the class rules matched `glass` and `window` in the names (`railingglass`, `unique/window`,
+  `doorglassmain`, `glass/blinds_illuminated`). The VMTs say otherwise: opaque `VertexLitGeneric` phong
+  metal or a self-illuminated `LightmappedGeneric`, no `$translucent` or `$alphatest`, DXT1 without alpha.
+  The models carry no pane at all (`mdlgeo.py`: railing_glass's largest triangle is 49 units^2, a strip of
+  the handrail tube; the panes are separate `glass01` brushes).
+- Fix: before a texture gets a translucent material, check its VMT (`$translucent`, `$alphatest`, the
+  texture's alpha) and, for a model, where its UVs and big flat triangles fall. Pin the false ones before
+  the glass rule (metal, painted metal, fabric with its self-illumination as emission).
+
+**Mirror-smooth opaque glass: ripples, then specks** (AG, 2026-11-19)
+- Symptom: the tower's opaque exterior windows (the offices drawn in, `facade_glass`) reflected the city
+  rippled, and at roughness 0.02-0.03 the far city in them had amber and white specks: the clouds broken up.
+- Cause: PBRify's normal of the painted desks behind the glass tilted it up to 4 degrees (99th percentile,
+  16 at most); a mirror doubles any tilt. Below about 0.03 the runtime treats a surface as a perfect mirror
+  (primary surface replacement), and that path shaded the far, true-scale city in it with specks. Ruled
+  out, with measurements: holes (the specks did not match the scene behind the hidden pane), gmRTX's
+  DECAL_STATIC flag on world textures (cleared every frame: no change), the alpha (255 everywhere).
+- Fix: no normal map where a recipe adds no relief (`compose.py` writes none when all slopes are zero) and
+  an even roughness of 0.035; 0.045 and up blur the reflection like frosted glass.
+
+**Frosted bands and wired glass on clear glass** (AG, 2026-11-19)
+- A plain thin-walled translucent material loses what the original's alpha drew on its glass: the office
+  partitions' two frosted safety bands (alpha 0.70 over 0.32), the wire mesh of wired safety glass.
+- Fix: the translucent material's diffuse layer. `use_diffuse_layer = 1` turns `transmittance_texture`
+  into a diffuse coat (RGB its colour, alpha its coverage), and `enable_transmission_mask = 1` lets it
+  shadow the light through the pane. Redraw the original's alpha as a crisp mask (`glass_layers.py`).
+
+**Texture names with backslashes** (AG, 2026-11-18)
+- CS:GO's model materials reach the inventory as `models\agency\...`; the class rules written with slashes
+  missed them. Normalise to forward slashes before matching.
 
 **Five textures predicted wrong** (MH, 2026-10-27)
 - 106 of 110 predictions matched; HL2's `lights/white*` and two de_elysion metals are uploaded from other
@@ -321,7 +364,37 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
 **`compose.py` failed with "image has wrong mode"** (BR, 2026-10-27)
 - Pillow's Gaussian blur does not take 16-bit images: use scipy's `gaussian_filter` on floats.
 
+## AI albedo with OpenAI's image model
+
+**Re-rendering each albedo before PBRify** (AG, the user's request, 2026-11-18)
+- What worked: the image edit endpoint (`POST /v1/images/edits`, JSON body with the texture as a data URL,
+  `gpt-image-2.6-sunburst`, `quality high`) asked for the same image with real surface detail and nothing
+  moved, one prompt detail per class (`oai_tex.py`). Every result is scored against its source before it
+  is kept: blurred-luminance cross-correlation, edge correlation, the 90th percentile of local shift by
+  phase correlation (tiles without a clear peak left out), brightness and contrast; a random surface
+  (concrete, plaster, carpet, fabric) is judged on brightness and contrast only, since its detail is drawn
+  anew. 182 textures sent, 144 kept; 38 refused (parts moved 20, layout changed 17, brightness 1) keep the
+  DAT upscale. Tiling textures are generated with a margin of their own wrapped edges, and the step across
+  each wrapped edge is spread over a band; check them as 2x2 sheets. About 24 US dollars in all at the
+  published per-token prices (input 8, output 30 per million tokens).
+- The endpoint's limits: both sides multiples of 16, the longest at most 3840 (4096x4096 is refused even
+  where a model is said to make 4K), at most 8,294,400 pixels, an aspect within 3:1 (a 2048x672 strip was
+  refused after rounding: round the short side up, pad a thin strip with its own edge to 3:1 and crop it
+  back). The square maximum is 2880; larger targets are scaled up after.
+- The key: read from the environment only, never written into a tracked file, a log or a memory; delete
+  its copy when the work ends.
+- Calibrate the normal strength per class against the artist's own bump maps (the xy spread of the
+  composed normal next to the bump's): CS:GO's plaster and cast concrete are nearly flat, and the first
+  recipes read as stucco.
+
 ## Lights and sky
+
+**Fixture colours from the mapper's light entities** (AG, 2026-11-19)
+- Symptom: offices and toilets peach; the walls white in the map are salmon under the remaster.
+- Cause: the inherited downlights at 3000 K. Agency's 321 light entities are all a cool white
+  (`_light` 227 238 238).
+- Fix: read the light entities' colours before choosing kelvins: troffers, panels and strips 4500 K,
+  downlights 4000 K, warm only for sconces (3000 K) and lamps (2900 K).
 
 **Light calibration 10x too dim; entity brightness up to 75000** (BR, 2026-10-27)
 - Calibrate from flux, compress above a knee (1000), cap radiance (2000, growing the radius instead).
@@ -432,6 +505,15 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
 
 ## Driving the game
 
+**Stock shots that kept the remaster's materials** (AG, 2026-11-19)
+- Symptom: none in the pictures; the console said `SetConfigVariable: 'rtx.enableReplacementMaterials'
+  refused (Lua may not set this option)`.
+- Cause: since 2026-11-16 the RTX package's `RemixConfig` allowlist refuses that option from Lua, so
+  `stock.py` switched the lights and settings to stock and left every material replacement on. The first
+  stock tour and stock frame times measured a half-stock map.
+- Fix: stock mode rewrites the mod's `mod.usda` without its sublayers (the runtime reloads it when its
+  timestamp changes) and puts it back after. After any `RemixConfig` call, read the console for "refused".
+
 **A script could have killed another session's game** (PR, 2026-10-26)
 - `game.py` and `restart.py` matched any `gmod.exe`; a peer ran a vanilla GMod beside it. They now check the
   executable path of the configured install. Never stop a game you did not start.
@@ -508,6 +590,11 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
   error, a NUL byte). Write scripts and patches with the file-writing tool, not inline shell text.
 
 ## Packaging and licensing
+
+**A mod that fits ships whole** (AG, 2026-11-19)
+- `pack_mod.py` applied its size caps (1024 for the long tail of world surfaces, props by density) even when
+  the whole mod fit. It now keeps every texture whole when the full mod is under the budget (gm_csgoagency:
+  about 2.1 GB of 3.96).
 
 **`nlctl` refuses a hard-linked package folder** (MH package, 2026-10-29)
 - `package_content.py --link` stages hard links to avoid copying 3.3 GB; the linked build is checked as the

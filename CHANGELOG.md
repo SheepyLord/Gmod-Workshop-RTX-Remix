@@ -6,6 +6,27 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: CS:GO's Agency office tower remastered (2026-11-19)
+
+- **`remix-map-pbr` learns from gm_csgoagency** (the user's request of 2026-11-18: an RTX Remix version of
+  Workshop 1280291772, "Agency (CSGO)", every region, with each texture re-rendered by OpenAI's image model).
+  The remaster lives on a local branch of the user's fork (`claude/csgoagency-rtx`, its doc
+  `docs/GM_CSGOAGENCY_RTX.md`) and in the user's game; its textures derive from CS:GO's and stay local. The
+  skill records what it taught (`references/lessons.md`): each albedo re-rendered by the image edit endpoint
+  before PBRify and kept only when it scores true to its source (182 sent, 144 kept, about 24 US dollars; the
+  endpoint takes 3840 px at most, 4096 is refused); opaque materials named like glass found by their VMTs and
+  models (the user's report: the glass railings' steel, `62509E09427E88CC`, was clear glass; so were the
+  mullions, a window frame and a door frame, and closed blinds were plain frosted glass); the translucent
+  material's diffuse layer for frosted safety bands and wired glass; mirror-smooth opaque glass speckling the
+  far city in its reflection below roughness 0.03; fixture colours from the mapper's own light entities; an
+  old Workshop `.bin` decoded; stock comparisons that really switch the materials off (the `RemixConfig`
+  allowlist refuses `rtx.enableReplacementMaterials`, so `mod.usda` is rewritten without its sublayers). The
+  remaster runs at 18.4 ms a frame where stock GMod RTX takes 16.2 ms (median of 18 cameras, 4K, RTX 5090):
+  212 real lights and the city around the tower cost about 2 ms on a map that stock already draws fast.
+- **The remaster as one package** (`gm-csgoagency-rtx`, 2,081,733,981 bytes, mod `gm_csgoagency_rtx_pack`):
+  the whole mod fits, so no texture is cut (the fork's `pack_mod.py` now ships a mod whole when it fits its
+  budget). Built, checked with `nlctl` in a scratch install and not uploaded.
+
 ### Servers that refuse DirectX levels below 90 let RTX players in (2026-11-18)
 
 - **You can join servers that turn away players whose DirectX level is below 90.** Such servers ask each player's game

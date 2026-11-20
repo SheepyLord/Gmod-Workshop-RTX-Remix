@@ -1,7 +1,7 @@
 # remix-map-pbr: records
 
 Read [SKILL.md](SKILL.md) for the procedure. This page records where the real tools live, the state of
-the five remasters, the limits of this skill's knowledge and its sources.
+the six remasters, the limits of this skill's knowledge and its sources.
 
 | File | What |
 | --- | --- |
@@ -23,6 +23,7 @@ them and holds none of their code, because it lives in this MIT repository.
 | modern_house (Workshop 3495468649) | `claude/modern-house-rtx`, `e96ad7f`, local only, never to be pushed | `.claude\worktrees\modern-house-rtx` | `source/modern_house_rtx/tools`, `docs/MODERN_HOUSE_RTX.md` |
 | lestnicha3 (Workshop 3756151906) | `claude/lestnicha3-rtx`, `f47063e`, local only, in the fork clone `E:\Modding_Backup\garrys-mod-rtx-remixed` | none: `.claude\worktrees\lestnicha3-rtx` was removed by 2026-11-15 (add a worktree from the branch; its generated DDS are in the field install and the pack's build folder) | `source/lestnicha3_rtx/tools`, `docs/LESTNICHA3_RTX.md`; its CC0 downloads in this repository's `out\l3rtx\cc0` (main checkout) |
 | gm_brmovie_complete (Workshop 3761466972) | `claude/brmovie-rtx`, `f192d67`, local only | `.claude\worktrees\brmovie-rtx` | `source/gm_brmovie_complete_rtx/tools`, `docs/GM_BRMOVIE_COMPLETE_RTX.md` with its gallery and before/after pairs; its CC0 downloads in this repository's `out\bmrtx\cc0` (main checkout) |
+| gm_csgoagency (Workshop 1280291772) | `claude/csgoagency-rtx`, `d96ebe6`, local only, in the same fork clone as lestnicha3's | this repository's `out\worktrees\agency-rtx` (main checkout) | `source/gm_csgoagency_rtx/tools`, `docs/GM_CSGOAGENCY_RTX.md` with its gallery and before/after pairs; the OpenAI re-renders and their scores in its `work\oai\full`; it reuses gm_brmovie_complete's CC0 downloads |
 
 Each map has its add-on in `garrysmod/garrysmod/addons/<addon>` and its mod in
 `garrysmod/rtx-remix/mods/<mod>`; the extracted map (`map_extract/`) and intermediates (`work/`) sit beside
@@ -40,11 +41,12 @@ native loader; the workshop-content-pack skill checks and uploads it.
 | modern_house | 2026-10-27; culling fix 2026-10-27; R3-016 fix 2026-10-29 | Hidden Workshop test item 3829275998 (`modern-house-rtx`, `0.0.0-dev.202610300425+d7efd636`, 500 files, 3.32 GB), built with `package_content.py`. Its textures derive from another author's map: the branch stays local and the item hidden (the user, 2026-10-29). Players get it only by subscribing (loader 0.14.0, ADR 0111) |
 | lestnicha3 | 2026-11-09 (the user's request of 2026-11-08, with the follow-ups: better plants, replace low-resolution textures, the planter gap, the dandelions) | Local branch `claude/lestnicha3-rtx` (`f47063e`). Installed as real files in the field install (`garrysmod/addons/lestnicha3_rtx`, `rtx-remix/mods/lestnicha3_rtx`; 649 MB). Hidden Workshop item **3840675944** (`lestnicha3-rtx`, 648,811,424 bytes, uploaded 2026-11-16 UTC at the user's request; build folder `out\packages\lestnicha3-rtx` of the worktree `rtx-remix-pbr-enhancement-1d376a`). It stays hidden: the textures derive from the map author's work; visibility, Required items and the page description are the user's |
 | gm_brmovie_complete | 2026-11-09 (the user's request of 2026-11-09: every region, Backrooms mood, culling for performance) | Local branch `claude/brmovie-rtx` (`f192d67`). Installed as real files in the field and PoC installs (`garrysmod/addons/gm_brmovie_complete_rtx`, `rtx-remix/mods/gm_brmovie_complete_rtx`, 2349 textures hard-linked from the worktree; 8.7 GB). 13.4 ms against stock's 79.2 ms (median of 32 cameras, 4K). No Workshop item: the map's authors ask to be contacted before anyone ports, redistributes or modifies it. The map is installed but not subscribed in Steam's record (2026-11-09). A native-loader package under 4 GB is built and not uploaded: this repository's `out\packages\gm-brmovie-complete-rtx\gm-brmovie-complete-rtx.gma` (main checkout; 3,923,816,786 bytes, mod `gm_brmovie_complete_rtx_pack`; checked in the PoC game) |
+| gm_csgoagency | 2026-11-19 (the user's request of 2026-11-18: every region, each texture re-rendered by OpenAI's image model, the package under 4 GB; the user's railing report of 2026-11-19) | Local branch `claude/csgoagency-rtx` (`d96ebe6`). Installed as real files in the field install (`garrysmod/addons/gm_csgoagency_rtx`, `rtx-remix/mods/gm_csgoagency_rtx`, 670 textures hard-linked from the worktree; 2.08 GB); the PoC has development links to the worktree. 18.4 ms against stock's 16.2 ms (median of 18 cameras, 4K): the map is compact and stock already draws it fast. No Workshop item (CS:GO's textures). A native-loader package is built and not uploaded: this repository's `out\packages\gm-csgoagency-rtx\gm-csgoagency-rtx.gma` (main checkout; 2,081,733,981 bytes, mod `gm_csgoagency_rtx_pack`, every texture whole; deployed, verified and removed by `nlctl` in a scratch install). In the field 22 of its textures are replaced first by mods that sort before it, 9 by `gm_brmovie_complete_rtx_pack` (Agency's concrete wall and floor tile among them, which the Backrooms movie map borrowed) |
 
 ## Limits
 
 - **Numbers from one machine:** RTX 5090, Ryzen 9 9950X3D, 4K with DLSS, a game with about 250 add-ons,
-  sessions of 2026-10-26 to 2026-10-29 and 2026-11-08/09.
+  sessions of 2026-10-26 to 2026-10-29, 2026-11-08/09 and 2026-11-18/19.
 - **Not measured:** the material recipes, kelvins and grades were tuned by eye from tours (the user approved
   the results), not with the A/B noise-floor method used for characters.
 - **The fork scripts target the classic install:** their `*_GAME` defaults point at `GarrysMod_RTX_c` (no
@@ -70,5 +72,6 @@ native loader; the workshop-content-pack skill checks and uploads it.
   session transcripts `3d2eda0e` (Backrooms), `74c5d7d0` (Modern House), `3f948dbb` (gm_poolrooms),
   `ff87a857` (Modern House follow-up: GPU use, save loading), `94200df9` (Blood Overhaul, general Remix
   lessons only), `46de923c` (lestnicha3, 2026-11-08/09, with the fork's `docs/LESTNICHA3_RTX.md`) and
-  `ad616835` (gm_brmovie_complete, 2026-11-09, with the fork's `docs/GM_BRMOVIE_COMPLETE_RTX.md`).
-  Drafted 2026-10-31; brought up to date 2026-11-09.
+  `ad616835` (gm_brmovie_complete, 2026-11-09, with the fork's `docs/GM_BRMOVIE_COMPLETE_RTX.md`, and
+  gm_csgoagency, 2026-11-18/19, with the fork's `docs/GM_CSGOAGENCY_RTX.md`).
+  Drafted 2026-10-31; brought up to date 2026-11-19.

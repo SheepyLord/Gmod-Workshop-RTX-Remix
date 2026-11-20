@@ -36,12 +36,12 @@ Versions follow the loader's CMake project version once it ships; until then eve
   foreground; with the remaster it worked. The skill records the screenshot crash and the window capture its
   tools use, cameras from a map's soundscapes, glow masks on any class, a station kept under its own skybox,
   and skybox brushes that the PAS respects and Remix's sky does not.
-- **The remaster as one package that stands alone** (`gm-stelliferous-rtx`, 3,101,186,170 bytes, mod
+- **The remaster as one package that stands alone** (`gm-stelliferous-rtx`, 3,101,186,838 bytes, mod
   `gm_stelliferous_rtx_pack`): the full mod (5.49 GB) is over one Workshop item, so the package leaves out top
   mip levels where they show least (the map's 11 hero surfaces keep 4096); built, its manifest checked with
-  `nlctl`, and not uploaded. Every texture its layers name is inside it; on the PoC with nothing but its files
-  Remix read all 1385 textures and the 32 tour cameras matched the full build within the noise of a repeated
-  shot (animated screens aside).
+  `nlctl`, and not uploaded (rebuilt with the fixed sky's add-on, ADR 0248). Every texture its layers name is
+  inside it; on the PoC with nothing but its files Remix read all 1385 textures and the 32 tour cameras matched
+  the full build within the noise of a repeated shot (animated screens aside).
 
 ### Leaving a game or changing map no longer crashes on a render call whose object is gone (2026-11-19)
 

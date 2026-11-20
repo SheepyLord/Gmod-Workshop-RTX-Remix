@@ -54,6 +54,28 @@ The start (2026-11-18 23:03Z) had deployed the package published that evening (2
   each changing level and disconnecting.
 - The fixes part's `gmcl_` and `gmsv_nlengineguard_win64.dll`, built from the branch.
 
+## Tests
+
+- **Unit tests** (CTest `nl_engine_guard_tests`): the engine guard's 59 tests pass, the ten in `test_queue_check.cpp`
+  among them. The layout test reads the installed game's `materialsystem.dll`; on a machine without the game (CI) it
+  returns without checking.
+- **PoC** (`tools/qa/queue_check_session.py`, 2026-11-19, under `out\r10\poc.lock`; evidence in
+  `out\queue-check\run1`): the branch's package installed with `poc_session.py install --allow-local`; each session
+  RTX on with the package's add-ons, `gm_construct`, `map gm_flatgrass`, then `disconnect` and quit.
+  - **Test session** (`-nl_queue_check_test`; the package's first start, 1712 changes deployed): exit 0 after 71.9 s,
+    no crash, no Lua error. The check was in place once, from the main menu on (the menu realm's `gmsv_` copy; one
+    console line). The level change's check walked context 1's list (1587 calls) and the disconnect's walked context
+    0's (1016 calls); each dropped the test call, the last in its list, and nothing else. Two checks in between, while
+    the second map loaded, found the main thread outside the queued contexts and walked nothing. The log names the call
+    queued just before the test call, the material system's own `CMemberFunctor0<CMatRenderContextBase, ...>`, so a
+    real drop will come with its neighbours' classes.
+  - **Plain session** (the same steps without the option, the package already deployed): exit 0 after 54.0 s, no
+    crash, nothing dropped and no log written; the console line that the check is in place.
+  - Afterwards the PoC was restored and verified vanilla (2878 depot files), its `user.conf` unchanged.
+- **What this shows:** the patterns match in the running game, the walk reads the real lists and unlinks a call
+  without disturbing the rest, and an ordinary level change and disconnect pass through untouched. It does not show
+  that the field crash is gone: the PoC never reproduced it (the series of 2026-11-15).
+
 ## Not covered
 
 - A freed object whose memory still holds a live-looking vtable is called as before.

@@ -9773,3 +9773,9 @@ crashes of 2026-11-15 still in the field's `native-loader\logs\sessions`, read w
   `ForceSingleThreaded`'s loop at +0x1cd23 (`b2 01 48 69 c8 a8 03 00 01 48 81 c1 d0 27 00 00 48 03 cf e8 .. ff c3 83
   fb 02 72`), `EndQueue`'s `84 d2 74 07 33 d2 e8` at +0x31ccd, `CallQueued`'s loop and reset at +0x31040 (list at
   +0x2b0).
+- **How often it runs** (the PoC, 2026-11-19, the queue check's test session: RTX on, `gm_construct`, `map
+  gm_flatgrass`, `disconnect`): `AllowThreading(false)` ran at least four times. At the level change the main thread
+  was recording into context 1 (1587 calls queued), at `disconnect` into context 0 (1016 calls); the two calls in
+  between, while the second map loaded, came with the main thread outside both queued contexts. The last call queued
+  before each check was the material system's own `CMemberFunctor0<CMatRenderContextBase, void
+  (IMatRenderContext::*)()>`.

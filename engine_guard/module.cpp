@@ -23,11 +23,15 @@
 // over for the process, and RTX renders the poster in tiles of the window's size (poster.h); nlengineguard.poster says
 // how that went, nlengineguard.PosterStatus() -> {state=, ...} or nil reads the runtime's poster (read only), and a
 // Think hook (nlengineguard_poster) prints the poster's console lines from the main thread.
+// ADR 0247: every realm's load also checks the material system's queued render calls before the game leaves threaded
+// rendering (queue_check.h, Remix starts only); nlengineguard.queue_check says how that went and
+// nlengineguard.QueueCheck() -> checks, dropped counts the checks and the stale calls they dropped (read only).
 #include "colour_cap.h"
 #include "crash_report.h"
 #include "guard.h"
 #include "load_overlay.h"
 #include "poster.h"
+#include "queue_check.h"
 #include "watchdog.h"
 #include <GarrysMod/Lua/Interface.h>
 #include <GarrysMod/Lua/LuaInterface.h>
@@ -84,6 +88,15 @@ LUA_FUNCTION_STATIC(ColourCap) {
   const auto status = LUA->IsType(1, GarrysMod::Lua::Type::Bool) ? cap::set_enabled(LUA->GetBool(1)) : cap::status();
   LUA->PushBool(status.enabled);
   LUA->PushNumber(static_cast<double>(status.capped));
+  return 2;
+}
+
+// nlengineguard.QueueCheck() -> checks, dropped: the checks of the queued render calls made before the game left
+// threaded rendering, and the stale calls they dropped (ADR 0247). Read only, every realm.
+LUA_FUNCTION_STATIC(QueueCheck) {
+  const auto status = nl::engine_guard::queue_check::status();
+  LUA->PushNumber(static_cast<double>(status.checks));
+  LUA->PushNumber(static_cast<double>(status.dropped));
   return 2;
 }
 
@@ -294,6 +307,7 @@ GMOD_MODULE_OPEN() {
   const auto status = nl::engine_guard::install();
   const auto snapshots = nl::engine_guard::crash_report::disable_snapshots();
   const auto colours = nl::engine_guard::colour_cap::install();
+  const auto queue = nl::engine_guard::queue_check::install();
   const bool menu = menu_realm(LUA);
   if (!menu) nl::engine_guard::watchdog::start(NL_ENGINE_GUARD_REALM);
 #if !NL_ENGINE_GUARD_MENU
@@ -315,6 +329,10 @@ GMOD_MODULE_OPEN() {
   LUA->SetField(-2, "colour_cap");
   LUA->PushCFunction(ColourCap);
   LUA->SetField(-2, "ColourCap");
+  LUA->PushString(queue.reason.c_str());
+  LUA->SetField(-2, "queue_check");
+  LUA->PushCFunction(QueueCheck);
+  LUA->SetField(-2, "QueueCheck");
   if (menu) {
 #if NL_ENGINE_GUARD_MENU
     LUA->PushCFunction(LoadStart);

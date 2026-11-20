@@ -3844,3 +3844,21 @@ separator now has 57 texts in each catalog.
   the PoC's `cfg\client.vdf` and put back. `poc_session.py --lua` cannot run there (`sv_allowcslua 0`): the check's
   client file, which the server sends, prints the realm's state. Runs: switch 1 (admitted at 90), switch 0 (kicked at
   80), RTX off (admitted at 95). Not covered: another machine, `sv_lan 0` with Steam authentication, the server browser.
+
+## Queued render calls checked before the game leaves threaded rendering (ADR 0247)
+
+- **C++ (CTest `nl_engine_guard_tests`):** `test_queue_check.cpp` finds the material system's layout once in an
+  installed game's `materialsystem.dll` (the path in `NL_MATERIALSYSTEM_DLL`, else `GarrysMod_PoC` and then `GarrysMod`
+  in the Steam libraries the registry names; it returns without checking on a machine without the game), and checks
+  the judge on real memory (a live object, a freed-like block, null, a writable table, a constant table whose slot 3
+  is not code, reserved memory), unlinking first, last, all and across several lists with the drop limit, broken lists
+  left alone (outside the arena, a cycle, a tail that is not the last element, a tail without a head), appending, RTTI names, no install
+  outside a Remix start, and the module's contract.
+- **PoC** ([`tools/qa/queue_check_session.py`](../tools/qa/queue_check_session.py.md), holding `out\r10\poc.lock`):
+  the package installed with `poc_session.py install --allow-local`, then a test session (`-nl_queue_check_test`:
+  each check first queues one call whose object is gone and must drop it) and a plain one, each RTX on with the
+  package's add-ons, `gm_construct`, `map gm_flatgrass`, `disconnect` and quit; it counts the console lines, keeps the
+  PoC's `render-queue-check.log`, restores the PoC and checks `user.conf`. A pass: no crash, the test call dropped at
+  the level change and at `disconnect`, nothing dropped in the plain session.
+- Not covered: the field crash itself, which the PoC never reproduced (the series of 2026-11-15), and stale calls that
+  the render thread or the material system's own flushes run.

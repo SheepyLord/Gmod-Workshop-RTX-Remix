@@ -9723,3 +9723,59 @@ Line numbers are the fork tree with patches 0001-0104 (`8cd421cd8`).
   admitted. The console's `mat_dxlevel` and `mat_info` as on a listen server (90 / 80 under RTX, 95 / 95 without).
 - **Client Lua from the console** (`lua_run_cl`, what `poc_session.py --lua` sends) does not run on a server with
   `sv_allowcslua 0`; `lua_run_menu` printed nothing there.
+
+## The crash when the game leaves threaded rendering (2026-11-19, Claude; [ADR 0247](decisions/0247-queued-render-calls-checked-before-the-game-leaves-threaded-rendering.md))
+
+The field crash of 2026-11-19 (the player typed `disconnect` after 1 h 56 min; exit 0xC0000409) and the three field
+crashes of 2026-11-15 still in the field's `native-loader\logs\sessions`, read with the modules' own unwind data
+(`out\crash-20261119\unwind.py`) against `engine.dll` ts 0x6af5f41c and `materialsystem.dll` ts 0x6af5f3c7.
+
+- **The path.** engine `_Host_RunFrame` (+0x1c5790) > `Cbuf_Execute` (+0x178910) > `Cmd_ExecuteCommand` (+0x179260,
+  `call [r8+0x70]`: `ConCommand::Dispatch`, which tail-jumps to the callback) > the `disconnect` callback (+0x1c93e0,
+  registered at +0x15cc2 beside "disconnect" and "Disconnect game from server."; it inlines Host_Disconnect:
+  `cl.Disconnect` at +0x20ebf0, then +0x1c1240, then `HostState_GameShutdown` +0x1d48a0) > +0x1c1240
+  (`Host_AllowQueuedMaterialSystem`: `materials->vfunc(0x3d0)`, slot 122, with the bool and the service thread at
+  +0x8ae710) > materialsystem +0x18a90 `AllowThreading` ("Queued Material System: DISABLED!") > +0x1cc10
+  `ForceSingleThreaded` > +0x31cc0 `EndQueue(true)` on each context > +0x30f80 `CallQueued`, whose `call [rax+18h]` at
+  +0x31047 faulted. GMod has no `lua_run_menu` in this build.
+- **The material system.** `g_MaterialSystem` at +0xEFB80 (`CreateInterface("VMaterialSystem080")`; vtable +0xb79c8:
+  slot 102 GetRenderContext +0x1de50, 106 Lock +0x1ea00, 107 Unlock +0x25840, 122 AllowThreading). Queued contexts
+  (`CMatQueuedRenderContext`, vtable +0xb71a0) at +0x27d0 + i * 0x10003a8, i = 0, 1 (+0xF2350, +0x10F26F8); the
+  current one's index at +0x2002f20, the thread mode at +0x2002f24, the render job at +0x2003070, device ownership at
+  +0x200306a. A context's call list at +0x2b0: `{head, tail, next free byte}`, its 16 MB arena from +0x2c8, elements
+  `{next, object}`; functors come from another arena, `[list + 0x1000018]`. `CallQueued` calls each object's slot 3,
+  never `Release`, and resets head, tail and the next free byte only after the whole loop.
+- **Who runs a list.** The render thread's job (`ThreadExecuteQueuedContext` +0x24f00, made in `EndFrame`'s chunk
+  +0x1b9f2: it waits for the last job, toggles the contexts, `BeginQueue` +0x30bc0, sets the main thread's context and
+  hands the previous one over); `ForceSingleThreaded` (both contexts, after waiting for the job); the queued context's
+  synchronous methods +0x32770, +0x34640, +0x34730 (Lock, `CallQueued` on its own list, a shader API call, Unlock); and
+  "Render queue too large, flushing!" (+0x1d170, through the context's slot 0x618/8). `Lock` waits for the job when
+  the caller's context is queued (it does not clear it), takes the material system's mutex when threaded, makes the
+  hardware context the caller's and calls `ThreadRelease` (+0x24f60); `Unlock` gives the context back. Neither runs a
+  list. `GetRenderContext` gives a thread without one the hardware context: only the main thread records.
+- **Whose memory.** tier0's allocator is dlmalloc: segments by `VirtualAlloc(MEM_COMMIT | MEM_RESERVE)` rounded to
+  64 KB (tier0 +0x1ac63), large blocks mapped top-down (+0x19f88); LuaJIT takes 128 KB chunks (`lua_shared`); the
+  process has one Windows heap (PEB `NumberOfHeaps` 1), segments of 1 MB and 0xFD0000, where Remix's threads point.
+  The freed object and its first word, per field dump: 64 KB / 64 KB (2026-11-19), 64 KB / 64 KB, 128 KB / 64 KB and
+  82 MB (tier0's first segment) / 64 KB (2026-11-15): tier0's. `gmcl_mmdhl` allocates through the UCRT's `malloc` and
+  `gmcl_rtxwater` through `HeapAlloc(GetProcessHeap())`; `gmcl_RTXFixesBinary` and `gmcl_rtxdebug` import tier0's
+  `g_pMemAlloc` but never call `GetCallQueue` (`gmcl_RTXFixesBinary`'s `cmp rax, 1000000h` at +0x3e6038 is a width
+  times height limit).
+- **The 2026-11-19 registers.** rdi = context 1, rbx = context 1 + 0x2C00 (arena +0x2938), rcx 0x21918837b40, rax
+  0x21910101d40, `[rax+18h]` = 0. The runtime's dump keeps older data ~150 KB below the crash frames: studiorender
+  appending to context 0 (arena +0x2303a8, +0x230910), so the last rendered frame was context 0's and context 1 was
+  being recorded. Unloaded by then: `gmcl_nlglass`, `gmcl_advmat_rtx_bridge`, `gmcl_rtxdebug`, `gmcl_mmdhl`,
+  `gmcl_RTXFixesBinary`, `gmcl_nlfsaccel`; `gmcl_rtxwater` pinned. The 2026-11-15 dumps: rbx = context + 0x2e8 (arena
+  +0x20), the calls went to 0xffffff46_00000000 and 0xffffff43_00000000.
+- **Every pattern once.** In this build the queue check's patterns (ADR 0247) each match once: the two "Queued
+  Material System" strings only in slot 122's function (their `lea` at +0x69 and +0x8e, before its padding at +0xf4),
+  "*CMaterialSystem::Lock: %0.2fms" referred to at Lock +0x22d (padding at +0x266) and "...Unlock..." at Unlock +0x166;
+  `ForceSingleThreaded`'s loop at +0x1cd23 (`b2 01 48 69 c8 a8 03 00 01 48 81 c1 d0 27 00 00 48 03 cf e8 .. ff c3 83
+  fb 02 72`), `EndQueue`'s `84 d2 74 07 33 d2 e8` at +0x31ccd, `CallQueued`'s loop and reset at +0x31040 (list at
+  +0x2b0).
+- **How often it runs** (the PoC, 2026-11-19, the queue check's test session: RTX on, `gm_construct`, `map
+  gm_flatgrass`, `disconnect`): `AllowThreading(false)` ran at least four times. At the level change the main thread
+  was recording into context 1 (1587 calls queued), at `disconnect` into context 0 (1016 calls); the two calls in
+  between, while the second map loaded, came with the main thread outside both queued contexts. The last call queued
+  before each check was the material system's own `CMemberFunctor0<CMatRenderContextBase, void
+  (IMatRenderContext::*)()>`.

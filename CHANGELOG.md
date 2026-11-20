@@ -15,7 +15,9 @@ Versions follow the loader's CMake project version once it ships; until then eve
   calls could point at an object the game had already freed, and the game crashed (seven times in the field). The
   engine guard now looks at the waiting calls first and leaves out any whose object is gone; the rest run as before.
   Each one it leaves out is noted in `garrysmod/data/native-loader/render-queue-check.log`, with the calls around it,
-  so the code that queued it can be found.
+  so the code that queued it can be found. The crash never happened on demand on a test install; there the guard was
+  checked with a broken call queued on purpose, which it left out at a map change and at `disconnect` while the game
+  went on as before.
 - For developers: the engine guard wraps `IMaterialSystem::AllowThreading`. On `false` it takes the material system's
   lock (the render thread finishes its frame), walks both queued contexts' call lists and unlinks every call whose
   object's first word is not a vtable in a loaded module's read-only data with its call slot in code; found by machine

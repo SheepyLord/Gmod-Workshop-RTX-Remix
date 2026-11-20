@@ -6,6 +6,24 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Leaving a game or changing map no longer crashes on a render call whose object is gone (2026-11-19)
+
+- **Typing `disconnect`, returning to the main menu or loading another map no longer ends the game with "Garry's Mod
+  closed unexpectedly" (exit code 0xC0000409) when a render call left waiting refers to something already freed.**
+  When you leave a game, Garry's Mod first closes the game's client side and then stops drawing on its second thread,
+  running every render call still waiting. In games started right after new RTX content was installed, one of those
+  calls could point at an object the game had already freed, and the game crashed (seven times in the field). The
+  engine guard now looks at the waiting calls first and leaves out any whose object is gone; the rest run as before.
+  Each one it leaves out is noted in `garrysmod/data/native-loader/render-queue-check.log`, with the calls around it,
+  so the code that queued it can be found.
+- For developers: the engine guard wraps `IMaterialSystem::AllowThreading`. On `false` it takes the material system's
+  lock (the render thread finishes its frame), walks both queued contexts' call lists and unlinks every call whose
+  object's first word is not a vtable in a loaded module's read-only data with its call slot in code; found by machine
+  code only where sure, Remix starts only. The freed objects came from GMod's own allocator (tier0's 64 KB blocks), not
+  from the Model Hotloader's or RTX Water's calls. `nlengineguard.queue_check` and `nlengineguard.QueueCheck()` say how
+  it went; the launch option `-nl_queue_check_test` and `tools/qa/queue_check_session.py` test the drop path in the
+  game ([ADR 0247](docs/decisions/0247-queued-render-calls-checked-before-the-game-leaves-threaded-rendering.md)).
+
 ### Servers that refuse DirectX levels below 90 let RTX players in (2026-11-18)
 
 - **You can join servers that turn away players whose DirectX level is below 90.** Such servers ask each player's game

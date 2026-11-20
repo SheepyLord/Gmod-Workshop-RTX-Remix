@@ -83,3 +83,17 @@ The start (2026-11-18 23:03Z) had deployed the package published that evening (2
   flushes); every crash seen came through `AllowThreading(false)`.
 - The root cause. If the log ever shows a drop in a player's game, the classes around the dropped call name the code
   that queued it; a whole-memory dump of an occurrence would name the owner (the watcher is in `out/crash-34b9dc`).
+
+## Published
+
+Under the standing permission (AGENTS.md rule 5: `main` pushed and item 3829070317 updated once `tools\test.ps1`
+passes). The gate ran twice on the branch; each run had one failure that passed when run again on its own, and every
+other step passed: in the first a transient `WinError 5` renaming a test package in `test_package_fixes.py`, in the
+second `nl_client_catalog_tests`' check that no other game is running (it fails when a game starts or ends during the
+gate). After the second only the changelog's wording changed (`repo conventions OK`). Merged into `main` as
+`780bfa0b` on top of another session's skills commit `b326c146` (the one conflict, both new changelog sections at the
+top of `[Unreleased]`, resolved by keeping both, this one first) and pushed (`b326c146..780bfa0b`, with the two
+modules' Git LFS objects, 284 KB). The merge's hook built the package here and uploaded item 3829070317 as
+**`0.0.0-dev.20261120020453+1a7f91a6`**: content digest `5185a5e2...`, Steam sending a 4.7 MB delta; its one change
+note carries both new changelog sections. Its fingerprint, `1a7f91a6`, is the one the PoC series tested. The push's
+hook found the inputs unchanged. The field game deploys it at its next start.

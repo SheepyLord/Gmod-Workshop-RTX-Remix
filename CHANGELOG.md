@@ -6,6 +6,31 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: a space station remastered, a larger map for less OpenAI usage (2026-11-20)
+
+- **`remix-map-pbr` learns from gm_stelliferous** (the user's request of 2026-11-20: Workshop 3450250071,
+  "Stelliferous", a larger map at the same standard, the OpenAI usage spent with care). The remaster lives on a
+  local branch of the user's fork (`claude/stelliferous-rtx`, its doc `docs/GM_STELLIFEROUS_RTX.md`) and in the
+  user's game; its textures derive from the map's and stay local. The space station is lit by 2253 Remix API
+  lights on its lamps and its 2189 light entities, where stock GMod RTX left the labs, bridges and maintenance
+  areas near black and ran at about 150 ms a frame (gmRTX's light updater alone took 38-42 ms); the remaster
+  runs at 25 ms at the same cameras (19.6 ms median of 32, 4K, RTX 5090). It shows the map's own orbit skybox
+  (black space over the planet's clouds, its faces upscaled) with the sun as an API light, instead of a blue
+  daytime sky; under the player's own sky setting ("Follow the map's sun" unticked) the native loader's sky
+  stays. 409 PBR replacements: 138 colours from OpenAI's image model (118 answers kept, 20 reused free from the
+  office and Agency remasters), clear glass where stock showed the windows as an opaque blue sheet, glow masks
+  that light only a panel's lamps. The OpenAI stage cost $6.11, about $0.05 per kept texture (the office $0.06,
+  Agency about $0.17). On this map the engine's own screenshot (F5) ended stock sessions launched in the
+  foreground; with the remaster it worked. The skill records the screenshot crash and the window capture its
+  tools use, cameras from a map's soundscapes, glow masks on any class, a station kept under its own skybox,
+  and skybox brushes that the PAS respects and Remix's sky does not.
+- **The remaster as one package that stands alone** (`gm-stelliferous-rtx`, 3,101,186,170 bytes, mod
+  `gm_stelliferous_rtx_pack`): the full mod (5.49 GB) is over one Workshop item, so the package leaves out top
+  mip levels where they show least (the map's 11 hero surfaces keep 4096); built, its manifest checked with
+  `nlctl`, and not uploaded. Every texture its layers name is inside it; on the PoC with nothing but its files
+  Remix read all 1385 textures and the 32 tour cameras matched the full build within the noise of a repeated
+  shot (animated screens aside).
+
 ### Leaving a game or changing map no longer crashes on a render call whose object is gone (2026-11-19)
 
 - **Typing `disconnect`, returning to the main menu or loading another map no longer ends the game with "Garry's Mod

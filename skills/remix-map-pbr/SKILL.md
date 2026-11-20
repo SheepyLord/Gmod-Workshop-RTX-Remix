@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency and cmdr_office_summer remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency, cmdr_office_summer and gm_stelliferous remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -36,7 +36,12 @@ planned to spend the usage where it shows: `oai_tex.py --plan` reuses another re
 hash, skips what the model cannot improve or nobody sees, sends heroes at full size and the rest at half
 size, and runs the requests as one Batch API job at half price ($7.88 for 134 kept against Agency's $24 for
 144); `desnow` for the winter map's leftover snow; tours and frame times with the player placed at each
-camera.
+camera. gm_stelliferous (`source/gm_stelliferous_rtx/tools`, branch `claude/stelliferous-rtx`) is
+cmdr_office_summer's for a space station in orbit: the map's own skybox drawn (`rtx.skyMode 0`, its faces
+upscaled) with an API sun, 2253 Remix API lights on its lamps and 2189 light entities switched by the PAS, the
+`$selfillum` glow masks emitting on any class, the cameras from the map's soundscapes (`anchor_cams.py`), and
+tours that capture the window, since the engine's own screenshot ended stock sessions on that map ($6.11 of
+OpenAI usage for 118 kept and 20 reused, about $0.05 a kept texture).
 
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
@@ -141,7 +146,8 @@ other two maps' equivalents are in `references/pipeline.md`.
    faces to `work/<map>/faces.pkl`. Without a path it reads Steam's copy under the game's library.
 4. **Survey the map and take the stock shots.** With the map loaded in a test session (no remaster yet, or
    `python stock.py on`), find one camera per region: `python survey.py <label>` (spread over the AI nodes)
-   or Backrooms' `find_cameras.py <map>` (teleport destinations, scored by light). Write
+   or Backrooms' `find_cameras.py <map>` (teleport destinations, scored by light) or gm_stelliferous's `anchor_cams.py
+   --pick N GAP` (the map's soundscape origins and teleport destinations: one camera per region spot). Write
    `tools/cameras_<map>.json` and shoot `python tour.py <map> before`. Look at every region for artifacts:
    black water, giant tiles, glow sprites, fake light cones, missing textures, missing mirrors.
 5. **Inventory and classify.** `python inventory.py` writes `work/inventory.json`: every material by world
@@ -319,6 +325,13 @@ calling them standards for a new map):
 - **Tints** are left to Remix on DECAL_STATIC textures (verified on lestnicha3, 2026-11-08); a tint above 1
   is baked after the addon removes that texture's DECAL_STATIC category. Modern House's baked tints predate
   this finding.
+- **A station in orbit keeps the map's skybox** (gm_stelliferous): `rtx.skyMode 0` and an API distant light at
+  the mapper's `light_environment` while the add-on owns the sky ("Follow the map's sun" ticked when the map
+  starts); the physical atmosphere would put it under a daytime sky. Under the player's own sky
+  (`nativeloader_sky_follow_map 0`) the companion's sky stays (the native loader's ADR 0105).
+- **Glow masks on any class** (gm_stelliferous): with `$selfillum` the base alpha marks what glows; `compose.py`'s
+  `emit_selfillum` lets a hull panel's LEDs or a pipe's lamps emit from the bright texels under the mask
+  (intensity 6-8) while the panel stays painted steel; light strips use the light class (16).
 - **Outdoor light** (lestnicha3): the sun at the mapper's angle, radiance 4.5 at 5200 K; clouds 0.30 with
   voxel shadows at 0.55; haze sun 0.2 with volumetric scale 10; froxels to 45 m; night lights as shaped
   spheres (gallery 4300 K/85, uplights 2900-3000 K/1200-1400) faded in below 3 degrees of sun elevation.
@@ -342,6 +355,8 @@ calling them standards for a new map):
 | `python build_mod.py [--no-prune]` | DDS, `materials.usda`, atomic `mod.usda` |
 | `python gen_lights.py` / `gen_mirrors.py` / `gen_sky.py [--size N]` / `gen_vis.py` | lights, mirror quads and tag, fallback sky, PVS-cover points |
 | `python survey.py <label> [count]` / `find_cameras.py <map>` | candidate cameras |
+| `python anchor_cams.py [--pick N GAP] [--shots label]` | gm_stelliferous: cameras from the map's soundscapes and teleport destinations |
+| `python wallclock.py <label> [camera ...]` | gm_stelliferous: frame times by wall clock, for stock frames over GMod's 100 ms clamp |
 | `python tour.py <map> <label> [camera ...]` | screenshots and contact sheet |
 | `python stock.py on\|off` | the running map as stock GMod RTX, and back |
 | `python compare.py <after> [before]` | docs gallery and before/after pairs |
@@ -394,6 +409,9 @@ calling them standards for a new map):
 | A dark navy line along kerbs, copings or planter rims | A model's lip floats over the floor with its inner edge open; the path tracer shadows the slot: close it with fillets from the addon (`gen_skirts.py`) |
 | Backlit grass or leaves lavender or white | A grey thin-opaque scattering albedo: give it the foliage's green |
 | Every view slower by the same share | Another program on the GPU (`nvidia-smi`), a game or streaming: measure stock and remaster back to back and report ratios; it never blocks the test |
+| The game ends seconds after a screenshot (vphysics.dll access violation, or "CUtlStack::EnsureCapacity ran out of memory!") | The map underflows the material system's stacks ("PopMatrix: Underflow!" in the console) and the `jpeg` command's push then fails: capture the window (gm_stelliferous's `game.screenshot`); with that map's add-on running there was no underflow (lessons, ST) |
+| A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, which owns the sky only when "Follow the map's sun" was ticked as the map started (lessons, ST) |
+| Station windows an opaque blue sheet | Refract-shader glass has no colour texture: a clear glass material on the windows' live hash (`extra_hashes`) |
 
 ## Done criteria for a map
 

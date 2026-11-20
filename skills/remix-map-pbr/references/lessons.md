@@ -7,7 +7,8 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
 (2026-11-09), AG = gm_csgoagency, CS:GO's Agency: offices on a high floor of a tower in a city, every
 albedo re-rendered by OpenAI's image model (2026-11-18/19), OF = cmdr_office_summer, CS:GO's cs_office in
 summer: offices, a courtyard and streets, the OpenAI stage planned per texture and run as a batch
-(2026-11-20).
+(2026-11-20), ST = gm_stelliferous, a space station in orbit with 2189 light entities and its own orbit
+skybox (2026-11-20).
 
 ## Getting the map
 
@@ -15,6 +16,14 @@ summer: offices, a courtyard and streets, the OpenAI stage planned per texture a
 - An item uploaded years ago (1280291772, 2017) is a legacy `.bin`: one LZMA stream in the "alone" format
   (13-byte header) whose decoder runs past the declared size. Decode it with Python's `lzma`
   (`FORMAT_ALONE`), cut the output at the declared size, check the gma's CRC, then read it as a gma.
+
+**Region anchors from the map's soundscapes** (ST, 2026-11-20)
+- The `env_soundscape` origins name a map's regions (on gm_stelliferous: hall, labs, servers, offices,
+  bridges, pool, core, outside, hydroponics, maintenance, warehouse; 98 of them) and the teleport
+  destinations its arrival points. Dropped to the floor in game, turned to the longest open sightline and
+  centred between near walls they gave 29 usable cameras across 12 regions (`anchor_cams.py`). Backing a
+  camera up to the wall behind it put half the views against a wall or a wall lamp: back up at most 120
+  units and centre it in a corridor.
 
 ## Skinned models and engine settings
 
@@ -123,6 +132,21 @@ summer: offices, a courtyard and streets, the OpenAI stage planned per texture a
 - A concurrent NVTT encode put stock modern_house at 90+ ms (37.2 ms idle) and the first load at 389 s
   (150 s clean). A mod hot reload is followed by seconds of texture streaming (18 fps against 12.7 ms on BR).
   GMod clamps `FrameTime()` at 100 ms (BR's stock runs): count frames by wall clock.
+
+**gmRTX's light updater on a map full of light entities** (ST, 2026-11-20)
+- The RTX guard line named it: `RTXReady_RenderLightUpdaters` 38-42 ms of every frame (worst 360 ms) with
+  2189 light entities, and most of the station still dark. Stock ran at about 150 ms a frame by wall clock
+  (GMod clamps `FrameTime()` at 100 ms, so `rtx_agent` read 100.0 everywhere); the remaster, with the updater
+  suspended, its own 2253 API lights and the PAS drawn, at 25 ms (19.6 ms median of 32 cameras by engine
+  frames).
+- The number of API lights cost little here too: at the core, 645 lights against 129 or 47 timed 32.0, 31.1
+  and 31.6 ms (`strtx_light_range`), so no distance limit by default.
+
+**Skybox brushes hide what the PAS leaves out** (ST)
+- From an outer catwalk camera a whole wall of the station vanished with `strtx_vis pas`; no face ahead was in
+  the camera cluster's PVS. 41 % of the map's brush area is `toolsskybox`: vvis treats those brushes as solid,
+  the game draws sky there, but Remix's sky does not occlude, so the whole map drawn shows what the mapper
+  hid. The PAS matches the original game and costs a third (the whole map: about 47 ms).
 
 ## Loading
 
@@ -416,6 +440,19 @@ summer: offices, a courtyard and streets, the OpenAI stage planned per texture a
 **`compose.py` failed with "image has wrong mode"** (BR, 2026-10-27)
 - Pillow's Gaussian blur does not take 16-bit images: use scipy's `gaussian_filter` on floats.
 
+**Glow masks and screens** (ST)
+- With `$selfillum` the base texture's alpha is the glow mask, not opacity: show such textures' colour with the
+  mask beside it on contact sheets, or half the sci-fi set reads as magenta. A wall of light strips
+  (`stellif_framelights_02`, a tenth of the station) is the light class (the mask's bright texels emit at 16);
+  a hull panel with a lamp strip down its seam takes `emissive` 16 from `overrides.json`; consoles' and panels'
+  LEDs emit at 6-8 through `emit_selfillum`; screens with pictures glow as a whole (`backdrop` 2.0) behind a
+  glossy face.
+- Refract-shader windows (`glass/glasswindow_refract01`, `$normalmap` only) come out of stock GMod RTX as an
+  opaque blue sheet; they have one live hash for every window (0x0A101376A899C892), which the clear glass
+  material takes as an extra hash.
+- `WindowImposter` fake skies (cubemap ceilings over the gardens) are not drawn by Remix; the map's skybox
+  shows in their place, which on a station in orbit reads as the view out.
+
 ## AI albedo with OpenAI's image model
 
 **Re-rendering each albedo before PBRify** (AG, the user's request, 2026-11-18)
@@ -471,6 +508,19 @@ request "avoid wasting usage", 2026-11-20)
   where Agency's tile grids failed. Pilot the heroes of a pattern class rather than skip the class.
 - A kill pattern for one script can match another: `ai_tex.py` is a substring of `oai_tex.py`, and stopping
   the AI stage stopped the batch poller too (restarted; the batch at OpenAI was unaffected).
+
+**A larger map for less** (ST, 2026-11-20)
+- The plan over 384 textures with jobs: reuse 20 (18 from cmdr_office_summer, 2 from gm_csgoagency; `--reuse`
+  now takes several work folders, the first that kept a texture wins), skip 222, send 136 (57 full, 79 half).
+  A five-hero synchronous pilot ($0.82) checked that sci-fi hull panels keep their layout, then 131 requests in
+  one submission (two input files, 150 and 11 MB: the first finished in about 25 minutes, the second waited
+  about 30 before it started). 136 answers, 114 accepted by the scorer and 4 by eye, 18 refused; $6.11 in all
+  (157,988 tokens in, 337,780 out), about $0.05 per kept texture.
+- The scorer refuses a near-flat dark panel whose rivets stayed in place (luminance correlation 0.75-0.81:
+  too little structure); look at such refusals before re-sending. Foliage atlases did badly here (5 of 7
+  refused), while the office's mall trees were reused.
+- `oai_tex.py --prepare` blends a tiling answer's edges with the local DAT upscale read from `work/ai_dat`:
+  copy those there before the `jobs_oai.json` run rewrites `work/ai`.
 
 ## Lights and sky
 
@@ -563,6 +613,19 @@ request "avoid wasting usage", 2026-11-20)
   that share those coordinates are not drawn. Props baked into one static mesh per material
   (`util.GetModelMeshes`) keep it to a few dozen draws.
 
+**A station in orbit under the map's own skybox** (ST, 2026-11-20)
+- The companion's physical atmosphere put the station under a blue daytime sky. `rtx.skyMode 0` draws the map's
+  skybox (black space, the planet's limb and clouds below); the add-on adds the sun as an API distant light
+  from the mapper's `light_environment` (8 degrees over the limb: long, hard light through the halls).
+- The game draws the HDR skybox at `mat_hdr_level 2` (BGRA8888 with the alpha a scale); Remix shows its raw
+  RGB, far bluer than the map looks (blue 204 against 132 on average). The mod gives the six faces the LDR
+  faces upscaled four times, under both hashes.
+- The add-on owns the sky only if "Follow the map's sun" (`nativeloader_sky_follow_map 1`) was set when the
+  map started: set during the session the companion keeps the sky until the next map start (ADR 0105), so a
+  test sets it and runs `changelevel`. Unticked (the user's own setting) the companion's sky and sun stay, and
+  the add-on drops its API sun.
+- `rtx.atmosphere.altitude` is refused by `RemixConfig` since the review of 2026-11-16.
+
 ## Mirrors, sprites and map clean-up
 
 **Mirrors missing** (MH, 2026-10-27)
@@ -587,6 +650,12 @@ request "avoid wasting usage", 2026-11-20)
 **Remix API mesh and material calls crashed** (RTX Water, 2026-10-26)
 - `CreateMesh`, `DestroyMesh`, `CreateMaterial`, `DestroyMaterial` from Lua race GMod's render thread; use
   `CreateMeshBatched` and persistent instances, or ordinary GMod meshes with tag textures.
+
+**Sprites a map's logic drives** (ST)
+- Of 378 glow sprites, only the secret sequence's (`secret_*`, shown by a `logic_relay`) are switched; the
+  laser coils' 160 red glows, the solar array's and the doors' are static. The add-on removes all but
+  `secret_*`, the ten `point_spotlight` beams and the three `env_projectedtexture` lamps (Remix cannot draw
+  them; spot lights in their place from their FOV and colour).
 
 ## Driving the game
 
@@ -684,6 +753,20 @@ request "avoid wasting usage", 2026-11-20)
 **Script text corrupted by the shell** (all)
 - Heredocs turned `\b` in a regex into a backspace and `\n` in a Lua string into a newline (an autorun syntax
   error, a NUL byte). Write scripts and patches with the file-writing tool, not inline shell text.
+
+**The engine's screenshot ends the session** (ST, 2026-11-20)
+- Symptom: in five stock sessions launched in the foreground, the first `jpeg` ended the game within seconds:
+  "CMatRenderContext::PopRenderTargetAndViewport: about to underflow!", the screenshot written, then an access
+  violation in `vphysics.dll` (+0xab7a0, under server.dll's physics frame) or the Engine Error "CUtlStack::
+  EnsureCapacity ran out of memory!". The console had "PushMatrix underflow?" and "CMatRenderContextBase::
+  PopMatrix: Underflow!" about 15 times a second from the map's first frames (the office and Agency sessions:
+  none in hundreds of shots).
+- Not gmRTX's light updater (removed: the crash stayed), not physics (`phys_timescale 0`: stayed), not the
+  water's reflection (already off). A stock session whose runner was started hidden (PowerShell
+  `Start-Process -WindowStyle Hidden`) had no underflow at all, and with the remaster's add-on a foreground
+  session had none and took two engine screenshots: which of its start-up changes avoids it was not narrowed.
+- The tools capture the window (`PrintWindow` with `PW_RENDERFULLCONTENT`; make the process DPI-aware first, or
+  the capture is the window's top-left quarter at 200 % scaling). `STRTX_CAPTURE=jpeg` brings the command back.
 
 ## Packaging and licensing
 

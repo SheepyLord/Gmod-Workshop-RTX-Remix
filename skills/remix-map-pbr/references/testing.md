@@ -54,6 +54,9 @@ longest open line. Ways to get them:
   starts), candidates under the remaster's lights near each anchor, scored by the light reaching them over
   distance squared and by view depth; writes the best per region and keeps the anchor. Teleport
   destinations alone sat in dark corners or in other vis clusters.
+- `anchor_cams.py [--pick N GAP]` (gm_stelliferous): the map's soundscape origins and teleport destinations,
+  dropped to the floor, each looking down its longest sightline and kept off the walls; `--pick` keeps up to N
+  per region at least GAP units apart.
 - By hand from `getpos` in the console.
 
 `util.PointContents` (1 everywhere) and `render.GetLightColor` (0) were useless for placing cameras on
@@ -72,7 +75,8 @@ and a stock run, which draws the whole map, compares a different scene), holds e
 `RTXAgent.View` (HUD and view model hidden), points the remaster's light manager at the held camera
 (`viewPos`), waits `settle` seconds (4 s by default, 2.5-7 s in the sessions; a camera cut needs about 4 s
 for the denoiser), takes the engine's
-`jpeg` screenshot (the presented, path-traced frame at the game's resolution) and moves it to
+`jpeg` screenshot (the presented, path-traced frame at the game's resolution; gm_stelliferous's tools capture the
+window instead, since the engine's command ended stock sessions on that map) and moves it to
 `work/shots/<map>/<label>/<camera>.jpg`, then writes `_sheet.jpg` (three thumbnails a row, labelled) and
 puts the HUD and view back. `times_tour.py` (Modern House) shoots a few cameras at golden hour, dusk and
 night and returns the sun to the afternoon. Keep labels simple: a label with slashes broke the path. An
@@ -184,6 +188,7 @@ Results to quote, all at 4K with DLSS on an RTX 5090 and a Ryzen 9 9950X3D:
 | gm_poolrooms, 27 views | not given | about 15-16 ms | not given |
 | gm_csgoagency, 18 cameras (player at the spawn) | 16.2 ms | 18.4 ms | 21.3 ms (a side hall) |
 | cmdr_office_summer, 24 cameras (player placed) | 11.7 ms | 14.2 ms | 17.8 ms median, 19.2 ms p99 (the courtyard) |
+| gm_stelliferous, 32 cameras (player placed; other programs open) | about 150 ms (wall clock, 8 cameras) | 19.6 ms (25.1 ms by wall clock at the same 8) | 38.1 ms median (the core) |
 
 ## Visibility checks
 
@@ -291,3 +296,9 @@ package's removal (1,700 files). Never apply there. Write the payload from the `
 sha256 against the package's inventory; `nlctl`'s scratch deployment shows the loader writes the same bytes),
 or point the config at an RTX build that exists. Put the development links back afterwards as links: the
 fork's `deploy.py` replaces a link with copies.
+
+gm_stelliferous's package (3,101,186,170 bytes, its mod cut from 5.49 to 3.10 GB by leaving out top mip levels)
+was shown the same way: its layers name 1385 textures, all inside it; with only its files on the PoC Remix read
+them all (`misses=1385 unlisted=0`) and its 32 cameras differed from the development build by 2.39 of 255 on
+average against a repeat's 0.9-2.1, the rest on animated screens (29.8 between two shots of one garden camera).
+The cut top mips stayed within that noise.

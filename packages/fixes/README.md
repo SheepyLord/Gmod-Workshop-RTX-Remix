@@ -6,6 +6,17 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## The weapon copy draws nothing before the frame (2026-11-21)
+
+The follow-up of 2026-11-21 ("Local player shadow: lost path tracing"),
+[ADR 0251](../../docs/decisions/0251-the-weapon-copy-draws-nothing-before-the-frame.md). Imported with
+`inputs.py --file`; every other indexed input is unchanged.
+
+- `lua/entities/rtx_pseudoweapon.lua`: `ENT:Think` sets up the player's and the held weapon's bones
+  (`SetupBones`) where it called the weapon's `DrawWorldModel()`. That draw ran before the frame was rendered;
+  with a scripted weapon in hand (the tool gun) it reached Remix with no camera of the frame, and third-person
+  views lost their path tracing.
+
 ## Another add-on may keep the flashlight dark (2026-11-21)
 
 The user's request of 2026-11-21 for the character motion importer ("hide the player in the world" while a camera

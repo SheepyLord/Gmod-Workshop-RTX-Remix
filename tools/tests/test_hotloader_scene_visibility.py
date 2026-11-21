@@ -46,6 +46,11 @@ class SceneVisibilityTests(unittest.TestCase):
     def test_entities_without_a_model(self):
         self.run_lua('no_model')
 
+    def test_entities_without_a_model_scale(self):
+        # A sprite, or another entity that is not an animated model, answers GetModelScale with nothing: the capture
+        # once stopped there with "attempt to compare nil with number" (secondary_collision.lua:111).
+        self.run_lua('no_scale')
+
     def test_a_hidden_ragdoll_wearing_drawn_models_collides(self):
         # The sandbox bonemerge look: the base ragdoll made invisible, models merged onto its bones show.
         self.run_lua('children')

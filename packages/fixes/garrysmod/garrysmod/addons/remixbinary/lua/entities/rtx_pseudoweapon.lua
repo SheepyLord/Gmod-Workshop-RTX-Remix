@@ -193,7 +193,14 @@ function ENT:Think()
 	end
 
 	if LocalPlayer():GetActiveWeapon():IsValid() and pseudoweapon != nil and LocalPlayer():Alive() then
-		pcall(function() LocalPlayer():GetActiveWeapon():DrawWorldModel() end)
+		-- Bones, not a draw (ADR 0251): this Think runs before the frame is rendered, and a Lua weapon's
+		-- DrawWorldModel() here reached Remix as a draw with no camera of its own. In third person the
+		-- whole frame then lost its path tracing; in first person a second weapon floated in view and the
+		-- body copy showed from inside the head. Setting up the bones keeps the copy on the hand.
+		pcall(function()
+			LocalPlayer():SetupBones()
+			LocalPlayer():GetActiveWeapon():SetupBones()
+		end)
 		if prevclassname != LocalPlayer():GetActiveWeapon():GetClass() then--or LocalPlayer():GetActiveWeapon():GetModel() != self:GetModel() then
 			prevclassname = LocalPlayer():GetActiveWeapon():GetClass()
 			self:RemoveEffects( EF_BONEMERGE )

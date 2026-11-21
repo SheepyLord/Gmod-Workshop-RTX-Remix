@@ -72,7 +72,9 @@ function E:Alive() return true end function E:Health() return self.health or 0 e
 function E:GetNoDraw() return self.nodraw==true end function E:GetOwner() return self.owner end
 function E:GetRenderMode() return self.mode or RENDERMODE_NORMAL end function E:GetColor() return self.color end
 function E:GetModel() return self.model~=false and self.model or nil end function E:IsScripted() return self.scripted==true end
-function E:GetModelScale() return self.scale or 1 end function E:GetBodygroup(i) return self.groups[i] or 0 end
+-- An entity that is not an animated model (noscale) answers GetModelScale with nothing, as the game's does.
+function E:GetModelScale() if self.noscale then return nil end return self.scale or 1 end
+function E:GetBodygroup(i) return self.groups[i] or 0 end
 function E:GetNW2Bool(k,d) local v=self.nw2[k] if v==nil then return d end return v end
 function E:GetNW2Int(k,d) local v=self.nw2[k] if v==nil then return d end return v end
 function E:GetPhysicsObjectCount() return #self.bodies end function E:GetPhysicsObjectNum(i) return self.bodies[i+1] end
@@ -225,6 +227,20 @@ elseif scenario=='no_model' then
  check(excluded(set,shard)==false,'a scripted entity without a model (it may draw its own mesh) was left out')
  check(excluded(set,brush)==false,'a drawn brush entity was left out')
  check(excluded(set,hiddenBrush)==true,'a no-draw brush entity was kept')
+elseif scenario=='no_scale' then
+ -- Entities that are not animated models answer GetModelScale with nothing: a sprite (its model is its
+ -- material), a beam. They are drawn at their size, and the capture goes on past them.
+ local sprite=entity({class='env_sprite',model='sprites/glow01.vmt',noscale=true})
+ local studio=entity({class='point_example',model='models/props_c17/oildrum001.mdl',noscale=true})
+ local blankStudio=entity({class='point_example',model='models/brutal_deaths/model_anim_modify.mdl',noscale=true})
+ local hiddenSprite=entity({class='env_sprite',model='sprites/glow01.vmt',noscale=true,nodraw=true})
+ local prop=entity()
+ local set=capture()
+ check(excluded(set,sprite)==false,'a sprite without a model scale was left out')
+ check(excluded(set,studio)==false,'a drawn model without a model scale was left out')
+ check(excluded(set,blankStudio)==true,'a model drawing no mesh was kept because it has no model scale')
+ check(excluded(set,hiddenSprite)==true,'a no-draw sprite was kept')
+ check(excluded(set,prop)==false,'a visible prop beside them was left out')
 else
  error('unknown scenario '..tostring(scenario))
 end

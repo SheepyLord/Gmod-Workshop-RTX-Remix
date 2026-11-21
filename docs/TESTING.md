@@ -3922,3 +3922,22 @@ separator now has 57 texts in each catalog.
 - Not covered: a multiplayer game (other players seeing you is by construction: nothing is sent), other add-ons'
   first-person bodies and outfits (none in the package), VR (its own view owns `CalcView`, so the camera's view and
   the hide do not run).
+
+## Local player shadow's weapon copy and the scene capture (ADR 0251)
+
+- **LuaJIT**: [`test_pseudoweapon.py`](../tools/tests/test_pseudoweapon.py.md) (new) runs the shipped
+  `rtx_pseudoweapon.lua`'s `Think` with the tool gun as a scripted weapon in first and third person and as an engine
+  weapon: no `DrawWorldModel`, no model drawn, the player's and the weapon's bones set up on every call; it fails on the
+  file before the fix. [`test_hotloader_scene_visibility.py`](../tools/tests/test_hotloader_scene_visibility.py.md)
+  `no_scale` (new): a sprite and a studio model without a model scale stay in at their size, a blank model and a no-draw
+  sprite are left out, the capture goes on; it fails on the file before the fix with the field's
+  `attempt to compare nil with number`.
+- **PoC** ([`shadow_copies_session.py`](../tools/qa/shadow_copies_session.py.md), new, holding `out\r10\poc.lock`; RTX on,
+  the package's add-ons, gm_construct): the copies switched on and off mid-session in first and third person
+  (`--order`), a screenshot and the frame times per step, the tool gun or the default weapon in hand (`--weapon`), the
+  time of day held (`--hour`), an imported character as an NPC and as your own model (`--character`,
+  `--player-model`), and the server's entities without a model scale. Runs before and after the fix in the handover
+  report.
+- Not covered: a multiplayer game, scripted weapons other than the tool gun, Customisable Weaponry 2.0 (its `WMEnt` no
+  longer updated by the copy in first person), the weapon copy's private textures (`rtx_pseudoweapon_unique_hashes 1`),
+  the field install.

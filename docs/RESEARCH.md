@@ -9878,3 +9878,45 @@ evidence `out/map-sky/` in the `map-sky` worktree).
 - **An imported player model is not released by the hide.** Runs 1 and 2 with the PoC library's character as your
   player model (`mmdhl.Spawn`, role `player`): its client instance was 3 in first person, in samples 2.5-4.5 s and
   about 12 s into the camera hiding you, unticked and after the dancer's removal.
+
+## Local player shadow's weapon copy, path tracing and the scene capture (2026-11-21)
+
+Measured with `tools/qa/shadow_copies_session.py` in the PoC (gm_construct, 1600x900, RTX on, the package's add-ons;
+the time of day held at 13:00 from `repro-2` on); evidence in the worktree's `out/lshadow/`: `repro-1` to `repro-3` with
+the package before the fix (`0.0.0-dev.20261121092444+412a014d`), `fixed-1`, `fixed-body` and `fixed-body-tool` with it
+(`0.0.0-dev.20261121210222+a4815247`). Median frame times over three seconds.
+
+- **The weapon copy drew before the frame.** `rtx_pseudoweapon.lua`'s `ENT:Think` (line 196 before the fix) called the
+  held weapon's `DrawWorldModel()` in `pcall` on every call, and `Think` runs before the frame is rendered. An engine
+  weapon has no `DrawWorldModel` (the gravity gun, the physics gun: the `pcall` hid the error and nothing was drawn); a
+  scripted weapon draws its world model (`gmod_tool`).
+- **Third person lost its path tracing** (`repro-3`, the tool gun): first person with the copies off 12.9 ms; third
+  person (a `CalcView` 120 units behind with `drawviewer`, as the motion importer's camera makes one) with the copies off
+  13.0 ms, path traced; with the weapon copy 4.17 ms and the game's raster picture (the map's sky, its baked light, flat
+  grass); with both copies 4.14 ms, raster; first person again with both 11.8 ms, path traced. With the fix (`fixed-1`):
+  14.2, 15.2 (the weapon copy), 12.9 (both) and 12.6 ms (first person), path traced in every shot. ADR 0250's camera runs
+  3 and 4 (both copies, the tool gun, the dance's camera) were raster in every shot for this reason. The runtime's log
+  said nothing different (the same messages as a run without the copies).
+- **The copies in first person.** The body copy alone stays out of your own view with the tool gun (`fixed-body-tool`
+  `02_body_on`) and with the gravity gun (`fixed-body` `02_body_on`). With the tool gun's weapon copy on as well, the
+  body copy shows in your own view (its glasses, teeth and arms) and the weapon copy with it, before and after the fix
+  (`repro-2` `03_both_on`, `fixed-1` `05_first_both`, `fixed-body-tool` `03_both_on`); with the gravity gun's weapon copy
+  it does not (`fixed-body` `03_both_on`). The body's eight player-model categories (`0x180000`) were set before each such
+  shot. The runtime hides player-model instances from primary rays (`rtx.playerModel.enableInPrimarySpace` False) after
+  taking the last instance with the player-body category as the body and turning every other player-model instance more
+  than `horizontalDetectionDistance` (34) or `verticalDetectionDistance` (64) units from it into an ordinary opaque one
+  (`rtx_instance_manager.cpp`, `filterPlayerModelInstances` and `isInsidePlayerModel`, in the runtime fork). What the
+  tool gun's weapon copy changes there was not found; the weapon copy is off in the classic settings.
+- **Entities without a model scale.** `Entity:GetModelScale()` answers nothing for an entity that is not an animated
+  model. On gm_construct at the map's start (the server half's scan): five `beam` entities (`sprites/glow_test02.vmt`,
+  the beams of the map's five `point_spotlight`s), `worldspawn` and the brush entities (`func_brush`, `func_button`,
+  `func_illusionary`, `func_vehicleclip`; models `*N`). The Model Hotloader's `undrawn()` (`secondary_collision.lua`,
+  ADR 0245) skips the world and brush models before comparing the scale with 0.01; a beam reached the comparison when an
+  imported character, here your own model, stood near the spawn (`repro-1`: the first nothing at 84.3 s, right after
+  `mmdhl.Spawn` with role `player`). Each tick the capture then stopped before `native.CaptureSecondaryScene` and logged
+  the error. With the fix the beam still answers nothing (`fixed-1`, 118.1 s) and the console has no error.
+- **Why the error came only with the copies.** With the body copy on, the Model Hotloader draws your imported character
+  every frame in first person (it adopts the copy as a player copy); a character drawn in the last three frames is not
+  hidden in first person (`first_person.lua`, `HiddenFirstPerson`), so the client asks the server for the scene
+  (`secondary_collision.lua`, `MMDHL.LocalSceneDemand`) and the capture runs. Without the copy it rests in first person:
+  ADR 0250's camera runs 1 and 2 logged no error, runs 3 and 4 logged 43 and 34.

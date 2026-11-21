@@ -108,7 +108,10 @@ if SERVER then
   if not path or path=='' then return not ent:IsScripted() end
   -- A brush entity ('*1') has no studio model to read.
   if string.byte(path,1)==42 then return false end
-  return ent:GetModelScale()<.01 or drawsNoMesh(ent,path)
+  -- Only an animated model has a scale: another entity with a model (a sprite, whose model is its material)
+  -- answers nothing and is drawn at its size.
+  local scale=ent:GetModelScale()
+  return (scale~=nil and scale<.01) or drawsNoMesh(ent,path)
  end
  local function hidden(ent)
   -- Not drawn itself, it stands in for something drawn (the VR hands' physics spheres).

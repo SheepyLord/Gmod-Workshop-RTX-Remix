@@ -33,6 +33,12 @@ class FlashlightTests(unittest.TestCase):
         # holds in a solid, is the fixed brightness when off; the menu's four settings and Reset.
         self.run_harness('auto', REMIXLUA / 'cl/remixapi/cl_remix_flashlight.lua')
 
+    @unittest.skipUnless(Path(LUA).is_file(), 'LuaJIT is not installed')
+    def test_client_light_kept_dark_by_another_addon(self):
+        # ADR 0250: RTXFlashlightHidden keeps the local player's light on but dark (the motion importer's
+        # camera motion leaving you out of the shot); others' lights stay lit; it comes back as it was.
+        self.run_harness('hidden', REMIXLUA / 'cl/remixapi/cl_remix_flashlight.lua')
+
 
 if __name__ == '__main__':
     unittest.main()

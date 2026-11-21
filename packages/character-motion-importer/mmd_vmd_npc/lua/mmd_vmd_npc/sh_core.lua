@@ -5253,6 +5253,52 @@ do
     end
 end
 
+-- The user's request of 2026-11-21 (ADR 0250): leave yourself out of the shot while a camera motion plays.
+do
+    local phrases = {
+        en = {
+            ["mmd_vmd_npc.camera.hide_player"] = "Hide yourself during camera motion",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "While an imported camera animation drives the view, you are left out of the shot: your body, what you hold and wear, your shadow and reflections, and your flashlight's light. You are back as soon as it ends or you untick this. On by default. On your screen only: in multiplayer, other players still see you.",
+        },
+        zh = {
+            ["mmd_vmd_npc.camera.hide_player"] = "镜头动画时隐藏自己",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "当导入的镜头动画控制视角时，你不会出现在画面中：你的身体、手持和穿戴的物品、你的影子和倒影，以及你的手电筒灯光。镜头动画结束或取消勾选后立即恢复显示。默认开启。只影响你自己的画面：在多人游戏中，其他玩家仍然能看到你。",
+        },
+        ["zh-tw"] = {
+            ["mmd_vmd_npc.camera.hide_player"] = "鏡頭動畫時隱藏自己",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "當匯入的鏡頭動畫控制視角時，你不會出現在畫面中：你的身體、手持和穿戴的物品、你的影子和倒影，以及你的手電筒燈光。鏡頭動畫結束或取消勾選後立即恢復顯示。預設開啟。只影響你自己的畫面：在多人遊戲中，其他玩家仍然看得到你。",
+        },
+        ja = {
+            ["mmd_vmd_npc.camera.hide_player"] = "カメラモーション中に自分を非表示",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "インポートしたカメラアニメが視点を制御している間、自分は画面に映りません：体、手に持つ物や身に着けている物、影と映り込み、フラッシュライトの光。カメラアニメが終わるか、チェックを外すとすぐに元に戻ります。既定でオン。自分の画面だけの変更です：マルチプレイでは、ほかのプレイヤーからは引き続き見えます。",
+        },
+        ko = {
+            ["mmd_vmd_npc.camera.hide_player"] = "카메라 모션 중 자신 숨기기",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "가져온 카메라 애니메이션이 시점을 제어하는 동안 자신은 화면에 나오지 않습니다: 몸, 들고 있거나 착용한 것, 그림자와 반사, 손전등 불빛. 카메라 애니메이션이 끝나거나 체크를 해제하면 바로 다시 보입니다. 기본적으로 켜져 있습니다. 내 화면에만 적용됩니다: 멀티플레이에서는 다른 플레이어에게 여전히 보입니다.",
+        },
+        fr = {
+            ["mmd_vmd_npc.camera.hide_player"] = "Vous masquer pendant le mouvement de caméra",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "Quand une animation de caméra importée contrôle la vue, vous n'apparaissez pas à l'image : votre corps, ce que vous tenez et portez, votre ombre et vos reflets, et la lumière de votre lampe torche. Vous réapparaissez dès qu'elle se termine ou que vous décochez cette option. Activé par défaut. Sur votre écran seulement : en multijoueur, les autres joueurs vous voient toujours.",
+        },
+        ru = {
+            ["mmd_vmd_npc.camera.hide_player"] = "Скрывать себя во время анимации камеры",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "Пока импортированная анимация камеры управляет видом, вы не попадаете в кадр: ваше тело, то, что вы держите и носите, ваша тень и отражения, а также свет вашего фонарика. Вы снова видны, как только она закончится или вы снимете эту галочку. Включено по умолчанию. Только на вашем экране: в мультиплеере другие игроки по-прежнему вас видят.",
+        },
+        ar = {
+            ["mmd_vmd_npc.camera.hide_player"] = "إخفاء نفسك أثناء حركة الكاميرا",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "أثناء تحكم تحريك كاميرا مستورد في المنظور، لا تظهر في اللقطة: جسمك وما تحمله وترتديه وظلك وانعكاساتك وضوء مصباحك اليدوي. تعود للظهور فور انتهائه أو عند إلغاء تحديد هذا الخيار. مفعّل افتراضياً. على شاشتك فقط: في اللعب الجماعي يظل اللاعبون الآخرون يرونك.",
+        },
+        es = {
+            ["mmd_vmd_npc.camera.hide_player"] = "Ocultarte durante el movimiento de cámara",
+            ["mmd_vmd_npc.camera.hide_player_help"] = "Mientras una animación de cámara importada controla la vista, no apareces en la toma: tu cuerpo, lo que sostienes y llevas puesto, tu sombra y tus reflejos, y la luz de tu linterna. Vuelves a aparecer en cuanto termina o desmarcas esta opción. Activado por defecto. Solo en tu pantalla: en multijugador, los demás jugadores te siguen viendo.",
+        },
+    }
+    for language, entries in pairs(phrases) do
+        MMDVMDNPC.I18N[language] = MMDVMDNPC.I18N[language] or {}
+        for key, text in pairs(entries) do MMDVMDNPC.I18N[language][key] = text end
+    end
+end
+
 MMDVMDNPC.LanguageAliases = {
     english = "en",
     en = "en",

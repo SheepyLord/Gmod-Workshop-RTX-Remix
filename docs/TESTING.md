@@ -3896,3 +3896,29 @@ separator now has 57 texts in each catalog.
   (the panel fits at 1920x1080), drawn by `tools/guide_annotate.py --shots out --only sky_weather`.
 - Not covered: the six languages in the game (the catalogs and the harness are), a multiplayer game's skipped sky
   file in the game, a map whose entity lump is compressed (`util.Decompress` on Source's LZMA lump).
+
+## Hide yourself during camera motion (ADR 0250)
+
+- **LuaJIT** ([`test_motion_camera.py`](../tools/tests/test_motion_camera.py.md)): the motion importer's
+  `cl_camera.lua` with GMod mocked, each frame in GMod's order (`Think`, `CalcView`, the flashlight's question,
+  `RenderScene`, the scene, `PostRender`), the camera path through the add-on's own net handlers: the option on by
+  default; your body, active weapon, worn model and the RTX fixes' body and weapon copies hidden only while a camera
+  frame draws, the holstered weapon left as the server keeps it, nobody else hidden, your flashlight dark and another
+  player's lit, `drawviewer` kept; nothing hidden between frames; back the next frame after the server's stop, the
+  camera toggle, unticking, a camera that fails (its dancer removed) and a shutdown mid-frame; a frame without
+  `PostRender` undone by the next `Think`; the debug preview keeping you when it orbits you; a part someone else hid
+  left hidden, a death ragdoll hidden, the dancer never; the checkbox in the Camera tab and both texts in nine
+  languages. [`test_flashlight.py`](../tools/tests/test_flashlight.py.md) `hidden`: `RTXFlashlightHidden` keeps the
+  light on but dark and unmeasured, others lit, back as it was, dark when switched on while hidden. Both fail on the
+  code before. `test_addon_i18n.py`: the two texts in every required language.
+- **PoC** (`tools/qa/mmd_player_session.py --camera --no-steps`, holding `out\r10\poc.lock`; RTX on, the package's
+  add-ons, gm_construct; the branch's package): the probe's per-frame samples and five screenshots of the same still
+  camera shot: hidden (`camera_hidden`), unticked (`camera_unticked`), the camera's last view drawn in third person
+  after the stop (`after_stop_same_view`), and with an imported character as your player model, hidden and unticked
+  (`mmd_camera_hidden`, `mmd_camera_unticked`); the RTX flashlight's radiance from `RemixLight.UpdateSphere`; the toggle,
+  the dance's natural end and its dancer removed; the order of `Think`, `CalcView`, `PreRender`, `RenderScene` and
+  `PostRender`. `--copies` adds the RTX fixes' body and weapon copies ("Local player shadow"); `--hide-off` is the
+  control (the option off for the whole run). Results in the handover report (runs 2-4).
+- Not covered: a multiplayer game (other players seeing you is by construction: nothing is sent), other add-ons'
+  first-person bodies and outfits (none in the package), VR (its own view owns `CalcView`, so the camera's view and
+  the hide do not run).

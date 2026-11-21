@@ -524,6 +524,67 @@ local function debug_state(ply)
     return { frame = last and last.frame or nil, motion = last and last.motionID or nil, bones = bones_of(Q.npcs[1]) }
 end
 
+-- ---- Hide yourself during camera motion (ADR 0250, the user's request of 2026-11-21) ----
+-- The test dance with a camera path: a still camera beside the first NPC, in its frame (x forward, y left,
+-- z up), looking along +y so the shot holds the dancer, you (180 ahead of it, 70 to its left) and the
+-- second NPC (140 to its left). Vertical field of view 50.
+Q.cameraMotionID = "nlmp_probe_camera"
+local function camera_motion()
+    local motion = probe_motion()
+    motion.display_name = "NLMP probe camera"
+    local key = { 90, -170, 70, 5, 90, 0, 50 }
+    motion.camera = { format = 1, fps = 30, frame_start = 0, frame_end = 120, key_count = 2,
+        keys = { { 0, unpack(key) }, { 120, unpack(key) } } }
+    return motion
+end
+local function camera_build(ply)
+    local npc = Q.npcs[1]
+    file.CreateDir(MMDVMDNPC.MotionRoot)
+    file.Write(MMDVMDNPC.MotionPath(Q.cameraMotionID), util.TableToJSON(camera_motion()))
+    MMDVMDNPC.ClearMotionCache()
+    local path = MMDVMDNPC.BuiltPath(Q.cameraMotionID, npc:GetModel(), {})
+    if file.Exists(path, "DATA") then file.Delete(path) end
+    MMDVMDNPC.BuiltCache[path] = nil
+    Q.cameraBuiltPath = path
+    local out = { path = path }
+    out.select_ok, out.select_err = MMDVMDNPC.SelectTargetForPlayer(ply, npc)
+    out.build_ok, out.build_err = MMDVMDNPC.BeginBuildForPlayer(ply, Q.cameraMotionID, {}, PLAY)
+    local began = CurTime()
+    while not file.Exists(path, "DATA") and CurTime() - began < 120 do sleep(0.25) end
+    out.built = file.Exists(path, "DATA")
+    out.seconds = CurTime() - began
+    return out
+end
+local function camera_play(ply, loop)
+    local npc = Q.npcs[1]
+    MMDVMDNPC.DebugTargets[ply] = npc
+    local settings = table.Copy(PLAY)
+    settings.loopPlayback = loop
+    local out = {}
+    out.start_ok, out.start_err = MMDVMDNPC.StartPlaybackForPlayer(ply, Q.cameraMotionID, {}, settings)
+    local state = MMDVMDNPC.Playbacks[npc]
+    out.camera_sent = state and state.cameraSent == true or false
+    out.anchor = npc:EntIndex()
+    return out
+end
+-- An imported character as your own player model (the Model Hotloader's player role).
+local function player_model(ply)
+    local asset = first_asset()
+    local out = { asset = asset ~= nil }
+    if not (asset and mmdhl and mmdhl.Spawn) then out.error = "no imported character" return out end
+    local done, result, err = false, nil, nil
+    local pos = ply:GetPos()
+    mmdhl.Spawn(ply, asset, { role = "player", position = { pos.x, pos.y, pos.z }, angles = { 0, ply:EyeAngles().y, 0 },
+        backend = "source" }, function(ent, e) done, result, err = true, ent, e end)
+    local began = CurTime()
+    while not done and CurTime() - began < 90 do sleep(0.25) end
+    out.done, out.error = done, err and tostring(err) or nil
+    out.player = IsValid(result) and result:IsPlayer() or false
+    out.model = ply:GetModel()
+    out.mmd = mmdhl.IsMMD and mmdhl.IsMMD(ply) or false
+    return out
+end
+
 net.Receive("nlmp_cmd", function(_, ply)
     local cmd = net.ReadString()
     if cmd == "build" then job(ply, "build", function() return build_test(ply) end) return end
@@ -533,6 +594,32 @@ net.Receive("nlmp_cmd", function(_, ply)
     if cmd == "push" then job(ply, "push", function() return push_test(ply, false) end) return end
     if cmd == "push_old" then job(ply, "push_old", function() return push_test(ply, true) end) return end
     if cmd == "endhold" then job(ply, "endhold", function() return endhold_test(ply) end) return end
+    if cmd == "camera_build" then job(ply, "camera_build", function() return camera_build(ply) end) return end
+    if cmd == "camera_play" then reply(ply, "camera_play", camera_play(ply, true)) return end
+    if cmd == "camera_play_once" then reply(ply, "camera_play_once", camera_play(ply, false)) return end
+    if cmd == "camera_stop" then
+        local npc = Q.npcs[1]
+        if IsValid(npc) and MMDVMDNPC.Playbacks[npc] then MMDVMDNPC.StopPlayback(npc, true) end
+        reply(ply, "camera_stop", { stopped = IsValid(npc) and not MMDVMDNPC.Playbacks[npc] or false })
+        return
+    end
+    if cmd == "camera_remove" then
+        local npc = Q.npcs[1]
+        local index = IsValid(npc) and npc:EntIndex() or nil
+        if IsValid(npc) then npc:Remove() end
+        reply(ply, "camera_remove", { removed = index })
+        return
+    end
+    if cmd == "player_model" then job(ply, "player_model", function() return player_model(ply) end) return end
+    if cmd == "camera_cleanup" then
+        for _, npc in pairs(Q.npcs or {}) do
+            if IsValid(npc) and MMDVMDNPC.Playbacks[npc] then MMDVMDNPC.StopPlayback(npc, true) end
+        end
+        if Q.cameraBuiltPath then file.Delete(Q.cameraBuiltPath) end
+        file.Delete(MMDVMDNPC.MotionPath(Q.cameraMotionID))
+        reply(ply, "camera_cleanup", {})
+        return
+    end
     if cmd == "select1" then
         reply(ply, "select1", { ok = MMDVMDNPC.SelectTargetForPlayer(ply, Q.npcs[1]) })
         return

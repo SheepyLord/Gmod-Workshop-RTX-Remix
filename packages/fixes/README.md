@@ -6,6 +6,17 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## Another add-on may keep the flashlight dark (2026-11-21)
+
+The user's request of 2026-11-21 for the character motion importer ("hide the player in the world" while a camera
+motion plays, [ADR 0250](../../docs/decisions/0250-hide-yourself-during-camera-motion.md)). Imported with
+`inputs.py --file`; every other indexed input is unchanged.
+
+- `remixlua/cl/remixapi/cl_remix_flashlight.lua`: a hook, `RTXFlashlightHidden(ply)`. While a listener answers true
+  for a player, that player's light stays on but dark: radiance and haze 0 when it is created and at each update, and
+  no automatic-brightness traces (its gain is kept). The frame no listener answers, the light is lit as before. The
+  motion importer answers for the local player while its camera motion leaves them out of the shot.
+
 ## What any server's Lua may ask of the fixes' module (2026-11-16)
 
 The repository review of 2026-11-16, findings 2, 7 and 24 (the user approved fixing every finding). Imported with

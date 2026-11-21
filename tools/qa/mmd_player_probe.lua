@@ -414,6 +414,292 @@ local function features()
     return out
 end
 
+-- ---- Hide yourself during camera motion (ADR 0250, the user's request of 2026-11-21) ----
+-- Screenshots go through poc_session.py --lua-shots: "NL_SHOT <label>", answered with nl_shot_taken <n>.
+local shotsTaken, shotsAsked = 0, 0
+concommand.Add("nl_shot_taken", function(_, _, args) shotsTaken = tonumber(args and args[1]) or (shotsTaken + 1) end)
+-- A fresh PoC's first RTX map opens the RTX Remix guide (eight seconds after the spawn) and may show the loader's
+-- update reminder: windows over the shot, removed as vr_session.lua does.
+local function clear_windows()
+    for _, panel in ipairs(vgui.GetWorldPanel():GetChildren()) do
+        local title = IsValid(panel) and isfunction(panel.GetTitle) and string.lower(tostring(panel:GetTitle())) or ""
+        if string.find(title, "remix guide", 1, true) or string.find(title, "loader update", 1, true) then panel:Remove() end
+    end
+end
+local function shot(label)
+    clear_windows()
+    wait(0.3)
+    shotsAsked = shotsAsked + 1
+    print("NL_SHOT " .. label)
+    local deadline = clock() + 90
+    while shotsTaken < shotsAsked and clock() < deadline do coroutine.yield() end
+    wait(0.3)
+    return shotsTaken >= shotsAsked
+end
+
+-- Which of Think, CalcView, PreRender, RenderScene and PostRender come in a frame, in order, with
+-- FrameNumber(): recorded in first person, so no camera answers CalcView before the marker.
+local function hook_order()
+    local log = {}
+    local function mark(name)
+        return function() if #log < 60 then log[#log + 1] = name .. "@" .. FrameNumber() end end
+    end
+    for _, event in ipairs({ "Think", "CalcView", "PreRender", "RenderScene", "PostRender" }) do
+        hook.Add(event, "NLMPC.Order", mark(event))
+    end
+    wait(0.5)
+    for _, event in ipairs({ "Think", "CalcView", "PreRender", "RenderScene", "PostRender" }) do
+        hook.Remove(event, "NLMPC.Order")
+    end
+    return log
+end
+
+-- Per frame while a sample runs, the no-draw flags of your body, your active weapon, the RTX fixes' body and
+-- weapon copies and a Model Hotloader character's visual proxy: right after the add-on's RenderScene hook
+-- hid them (`after_hide_*`), right before and after its PostRender hook put them back (`before_restore_*`,
+-- `after_restore_*`) and between frames (`outside_*`, in Think); the camera's state; which of the scene's
+-- hooks ran, how often you were no-draw in them and the arguments of one call each (`events`,
+-- `events_hidden`, `event_args`); and the radiance your RTX flashlight's light was given
+-- (RemixLight.UpdateSphere, recognised by the fixes' hash for your index).
+local camSample
+local flashHash
+local function first(class) return ents.FindByClass(class)[1] end
+local function flags(into, prefix)
+    local ply = LocalPlayer()
+    local wep = ply:GetActiveWeapon()
+    local body, weaponCopy = first("rtx_pseudoplayer"), first("rtx_pseudoweapon")
+    local function count(key, condition) if condition then into[prefix .. key] = (into[prefix .. key] or 0) + 1 end end
+    count("player", ply:GetNoDraw())
+    count("weapon", IsValid(wep) and wep:GetNoDraw())
+    count("body_copy", IsValid(body) and body:GetNoDraw())
+    count("weapon_copy", IsValid(weaponCopy) and weaponCopy:GetNoDraw())
+    local visual = ply.MMDHLVisual
+    count("mmd_visual", IsValid(visual) and visual:GetNoDraw())
+end
+local function wrap_hide_hooks()
+    local hooks = hook.GetTable()
+    local scene = hooks.RenderScene and hooks.RenderScene.MMDVMDNPCHidePlayer
+    local post = hooks.PostRender and hooks.PostRender.MMDVMDNPCHidePlayer
+    if isfunction(scene) and not C.sceneWrapped then
+        C.sceneWrapped = true
+        hook.Add("RenderScene", "MMDVMDNPCHidePlayer", function(...)
+            scene(...)
+            local s = camSample
+            if s then
+                s.frames = s.frames + 1
+                flags(s, "after_hide_")
+                if MMDVMDNPC.CameraAnimActive then s.camera_active = s.camera_active + 1 end
+                if MMDVMDNPC.CameraHidesLocalPlayer() then s.hides = s.hides + 1 end
+                if LocalPlayer():ShouldDrawLocalPlayer() then s.draws_local_player = s.draws_local_player + 1 end
+            end
+        end)
+    end
+    if isfunction(post) and not C.postWrapped then
+        C.postWrapped = true
+        hook.Add("PostRender", "MMDVMDNPCHidePlayer", function(...)
+            local s = camSample
+            if s then flags(s, "before_restore_") end
+            post(...)
+            if s then flags(s, "after_restore_") end
+        end)
+    end
+    return C.sceneWrapped == true and C.postWrapped == true
+end
+for _, event in ipairs({ "PostDrawOpaqueRenderables", "PreDrawTranslucentRenderables", "PostDrawTranslucentRenderables",
+        "RenderScreenspaceEffects", "PreDrawHUD", "PostDrawHUD" }) do
+    hook.Add(event, "NLMPC.CameraSample", function(a, b, c)
+        local s = camSample
+        if not s then return end
+        s.events[event] = (s.events[event] or 0) + 1
+        if LocalPlayer():GetNoDraw() then s.events_hidden[event] = (s.events_hidden[event] or 0) + 1 end
+        -- The arguments a call brought (depth, skybox, 3D skybox for the renderables' hooks), once per sample.
+        s.event_args[event] = s.event_args[event] or { tostring(a), tostring(b), tostring(c) }
+    end)
+end
+hook.Add("Think", "NLMPC.CameraSampleOutside", function()
+    local s = camSample
+    if not s then return end
+    s.thinks = s.thinks + 1
+    flags(s, "outside_")
+end)
+local unwrapFlash
+local function wrap_flashlight()
+    if unwrapFlash or not (istable(RemixLight) and RemixLight.UpdateSphere) then return end
+    local original = RemixLight.UpdateSphere
+    RemixLight.UpdateSphere = function(base, sphere, id, ...)
+        local s = camSample
+        if s and istable(base) and base.hash == flashHash and istable(base.radiance) then
+            s.flash[#s.flash + 1] = tonumber(base.radiance.x) or -1
+        end
+        return original(base, sphere, id, ...)
+    end
+    unwrapFlash = function() RemixLight.UpdateSphere = original end
+end
+local function sample(seconds)
+    camSample = { frames = 0, thinks = 0, camera_active = 0, hides = 0, draws_local_player = 0, flash = {}, events = {},
+        events_hidden = {}, event_args = {} }
+    wait(seconds)
+    local s = camSample
+    camSample = nil
+    local lo, hi = math.huge, -math.huge
+    for _, value in ipairs(s.flash) do lo, hi = math.min(lo, value), math.max(hi, value) end
+    s.flash_updates, s.flash_min, s.flash_max = #s.flash, #s.flash > 0 and lo or nil, #s.flash > 0 and hi or nil
+    s.flash = nil
+    s.hide_option = GetConVar("mmd_vmd_npc_cam_hide_player") and GetConVar("mmd_vmd_npc_cam_hide_player"):GetString()
+    s.instance = LocalPlayer().MMDHLClientInstance
+    s.body_copies, s.weapon_copies = #ents.FindByClass("rtx_pseudoplayer"), #ents.FindByClass("rtx_pseudoweapon")
+    return s
+end
+local function wait_for(condition, timeout)
+    local deadline = clock() + timeout
+    while not condition() and clock() < deadline do coroutine.yield() end
+    return condition()
+end
+
+local function camera_checks(npcs)
+    local out = {}
+    -- On for the checks, or off for the whole run (--hide-off: a control in which the hide never runs).
+    local HIDE_ON = SETTINGS.hide == false and "0" or "1"
+    out.hide_setting = HIDE_ON
+    -- The guide opens eight seconds after the spawn: wait it out, then close it.
+    wait_for(function()
+        for _, panel in ipairs(vgui.GetWorldPanel():GetChildren()) do
+            if IsValid(panel) and isfunction(panel.GetTitle) and string.find(string.lower(tostring(panel:GetTitle())), "remix guide", 1, true) then return true end
+        end
+        return false
+    end, 15)
+    clear_windows()
+    out.hook_order = hook_order()
+    out.hide_hooks_wrapped = wrap_hide_hooks()
+    flashHash = tonumber(util.CRC("rtx_flashlight_" .. LocalPlayer():EntIndex()))
+    wrap_flashlight()
+    out.flashlight_api = unwrapFlash ~= nil
+    local brightness = GetConVar("rtx_flashlight_brightness")
+    local savedBrightness = brightness and brightness:GetString() or nil
+    out.saved_brightness = savedBrightness
+    -- The same light in every shot: the time of day held at 15:00 (put back at the end).
+    -- And the RTX fixes' copies of your body and weapon (the companion's "Local player shadow"; the classic
+    -- settings switch them off), so the run covers them too.
+    local kept = {}
+    for _, name in ipairs({ "nativeloader_sky_time_passes", "nativeloader_sky_follow_map", "nativeloader_sky_hour",
+            "rtx_pseudoplayer", "rtx_pseudoweapon" }) do
+        local cv = GetConVar(name)
+        kept[name] = cv and cv:GetString() or nil
+    end
+    out.copies_setting = { rtx_pseudoplayer = kept.rtx_pseudoplayer, rtx_pseudoweapon = kept.rtx_pseudoweapon }
+    RunConsoleCommand("nativeloader_sky_time_passes", "0")
+    RunConsoleCommand("nativeloader_sky_time", "15")
+    if SETTINGS.copies then
+        RunConsoleCommand("rtx_pseudoplayer", "1")
+        RunConsoleCommand("rtx_pseudoweapon", "1")
+    end
+    out.hide_option_default = GetConVar("mmd_vmd_npc_cam_hide_player") and GetConVar("mmd_vmd_npc_cam_hide_player"):GetString()
+    RunConsoleCommand("mmd_vmd_npc_cam_hide_player", HIDE_ON)
+    RunConsoleCommand("mmd_vmd_npc_camera_auto", "1")
+    out.build = run_server("camera_build", 150)
+    if not out.build.built then
+        for name, value in pairs(kept) do RunConsoleCommand(name, value) end
+        return out
+    end
+    -- Your light on the dancer, bright enough to see in daylight; the tool gun in your hand.
+    aim_at(npcs[1])
+    RunConsoleCommand("rtx_flashlight_brightness", "20000")
+    RunConsoleCommand("rtx_flashlight_on")
+    wait(1.5)
+    out.first_person = sample(1)
+
+    -- The dance's camera motion, looping: you are left out; unticked you are in it; ticked again out.
+    out.play = run_server("camera_play", 30)
+    out.entered = wait_for(function() return MMDVMDNPC.CameraAnimActive == true end, 10)
+    wait(2.5)
+    out.hidden = sample(2)
+    out.shot_hidden = shot("camera_hidden")
+    local view = { origin = MMDVMDNPC.CameraAnimViewOrigin, angles = MMDVMDNPC.CameraAnimViewAngles }
+    RunConsoleCommand("mmd_vmd_npc_cam_hide_player", "0")
+    wait(1)
+    out.unticked = sample(2)
+    out.shot_unticked = shot("camera_unticked")
+    RunConsoleCommand("mmd_vmd_npc_cam_hide_player", HIDE_ON)
+    wait(1)
+    out.ticked_again = sample(1.5)
+
+    -- Stopped: first person, nothing hidden; the same view drawn by this probe (third person) shows you.
+    out.stop = run_server("camera_stop", 30)
+    out.left = wait_for(function() return MMDVMDNPC.CameraAnimActive ~= true end, 10)
+    wait(1)
+    out.after_stop = sample(1.5)
+    if view.origin and view.angles then
+        -- The camera's field of view: vertical 50 as Source's 4:3 horizontal one (cl_camera.lua's conversion).
+        local fov = math.deg(2 * math.atan(math.tan(math.rad(25)) * 4 / 3))
+        hook.Add("CalcView", "NLMPC.SameView", function()
+            return { origin = view.origin, angles = view.angles, fov = fov, drawviewer = true }
+        end)
+        wait(1)
+        out.after_stop_same_view = sample(1)
+        out.shot_after_stop = shot("after_stop_same_view")
+        hook.Remove("CalcView", "NLMPC.SameView")
+    end
+
+    -- Cancelled with the camera toggle while the dance goes on.
+    run_server("camera_play", 30)
+    wait_for(function() return MMDVMDNPC.CameraAnimActive == true end, 10)
+    wait(2.5)
+    out.before_toggle = sample(1)
+    RunConsoleCommand("mmdvmd_camera_toggle")
+    wait(1)
+    out.after_toggle = sample(1.5)
+    run_server("camera_stop", 30)
+    wait(1)
+
+    -- Played once to its end (two seconds' countdown, four seconds' dance, the three seconds' end hold).
+    out.play_once = run_server("camera_play_once", 30)
+    wait_for(function() return MMDVMDNPC.CameraAnimActive == true end, 10)
+    wait(2.5)
+    out.once_playing = sample(1)
+    local began = clock()
+    out.ended = wait_for(function() return MMDVMDNPC.CameraAnimActive ~= true end, 20)
+    out.ended_after_seconds = clock() - began
+    wait(1)
+    out.after_end = sample(1.5)
+
+    -- An imported character as your player model: hidden too, and still the same character after more
+    -- than the Model Hotloader's five seconds of hiding (it releases a character hidden that long).
+    out.player_model = run_server("player_model", 120)
+    wait(6)
+    aim_at(npcs[1])
+    RunConsoleCommand("rtx_flashlight_on")
+    wait(1)
+    out.mmd_first_person = sample(1)
+    run_server("camera_play", 30)
+    wait_for(function() return MMDVMDNPC.CameraAnimActive == true end, 10)
+    wait(2.5)
+    out.mmd_hidden = sample(2)
+    out.shot_mmd_hidden = shot("mmd_camera_hidden")
+    wait(6)
+    out.mmd_hidden_later = sample(1)
+    RunConsoleCommand("mmd_vmd_npc_cam_hide_player", "0")
+    wait(1.5)
+    out.mmd_unticked = sample(1.5)
+    out.shot_mmd_unticked = shot("mmd_camera_unticked")
+    RunConsoleCommand("mmd_vmd_npc_cam_hide_player", HIDE_ON)
+    wait(1)
+
+    -- The dancer removed under the camera: the camera motion fails, you are back.
+    out.before_remove = sample(1)
+    out.remove = run_server("camera_remove", 30)
+    out.failed = wait_for(function() return MMDVMDNPC.CameraAnimActive ~= true end, 10)
+    wait(1)
+    out.after_remove = sample(1.5)
+
+    RunConsoleCommand("rtx_flashlight_off")
+    if savedBrightness then RunConsoleCommand("rtx_flashlight_brightness", savedBrightness) end
+    for name, value in pairs(kept) do RunConsoleCommand(name, value) end
+    RunConsoleCommand("mmd_vmd_npc_cam_hide_player", "1")
+    if unwrapFlash then unwrapFlash() unwrapFlash = nil end
+    run_server("camera_cleanup", 10)
+    return out
+end
+
 local function pick_motions()
     local ids = {}
     for _, meta in ipairs(MMDVMDNPC.MotionDetailsOrdered or {}) do ids[#ids + 1] = tostring(meta.id) end
@@ -499,6 +785,14 @@ local function sequence()
         local featuresOut = ok and result or { error = tostring(result) }
         file.Write("nlmp_probe/features.json", util.TableToJSON(featuresOut, true))
         print("NLMP_FEATURES " .. (ok and "done" or tostring(result)))
+    end
+
+    if SETTINGS.camera then
+        local ok, result = pcall(camera_checks, npcs)
+        local cameraOut = ok and result or { error = tostring(result) }
+        file.CreateDir("nlmp_probe")
+        file.Write("nlmp_probe/camera.json", util.TableToJSON(cameraOut, true))
+        print("NLMP_CAMERA " .. (ok and "done" or tostring(result)))
     end
 
     file.Write("nlmp_probe/summary.json", util.TableToJSON({ motions = motionCount, motionA = motionA, motionB = motionB,

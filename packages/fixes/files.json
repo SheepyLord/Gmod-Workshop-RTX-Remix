@@ -258,14 +258,14 @@
    "imported": "2026-11-14T08:39:15+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_flashlight.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\q-light\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\cl_remix_flashlight.lua",
+   "source": "<repo>\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\cl_remix_flashlight.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/q-light",
+    "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "742e4158a15add3dbbcf2a5c65af04fdf0c9219e",
+    "commit": "14b0accd06a723377adc06bcc6d8608578f16509",
     "dirty": false
    },
-   "imported": "2026-11-14T08:39:45+00:00"
+   "imported": "2026-11-21T09:20:07+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/wrappers/cl_remix_api_map_lights.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\remixapi\\wrappers\\cl_remix_api_map_lights.lua",
@@ -1830,9 +1830,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_flashlight.lua": {
-   "size": 29553,
-   "sha256": "0c347e2fb57dab0506408f8ffb08e54c441a4c5f2cf9f41e955cfdb47ee4ecda",
-   "mtime_ns": 1794645577582822100,
+   "size": 30299,
+   "sha256": "51fff575a79f549b6dc658bfa67a0115e85429436c501d75196dfcf87ea25c83",
+   "mtime_ns": 1795252570409623900,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/remixapi/cl_remix_light_cmd.lua": {

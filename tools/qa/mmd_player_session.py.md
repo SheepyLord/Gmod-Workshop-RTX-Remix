@@ -27,7 +27,10 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\before --rollbac
 | `--tab` | Also open the RTX package's Motion importer creation tab (its embedded Motion Manager) |
 | `--features` | After the steps, check the new options in the game (below) |
 | `--qol` | After the steps, check the user's requests of 2026-11-16 in the game: a dancing body's push strength, the hold on the last pose, ToPBR's range (below) |
-| `--no-steps` | Skip the timed click-through (with `--features` or `--qol`: the checks alone, a shorter run) |
+| `--camera` | After the steps, check "Hide yourself during camera motion" (the user's request of 2026-11-21) in the game, with screenshots (below); the run then waits for its screenshots with `poc_session.py --lua-shots` instead of `--lua-manual` |
+| `--copies` | With `--camera`: turn on the RTX fixes' body and weapon copies (`rtx_pseudoplayer`, `rtx_pseudoweapon`: the companion's "Local player shadow", off in the classic settings) for the checks, and back after |
+| `--hide-off` | With `--camera`: keep `mmd_vmd_npc_cam_hide_player` off for the whole run, a control in which the hide never runs (the phases and screenshots keep their names) |
+| `--no-steps` | Skip the timed click-through (with `--features`, `--qol` or `--camera`: the checks alone, a shorter run) |
 | `--motions A B` | The two motion ids to pick (default: a third and two thirds down the sorted list) |
 | `--window` | Seconds measured after each action (4) |
 | `--settle` | Seconds after the NPCs spawn before the first step (8) |
@@ -85,6 +88,27 @@ speed; whether a watermelon in the left arm's swing broke; `push_old` with the b
 the playback before the end, during the hold and after it, and when the playback ended) and `topbr_range` (for
 `rtx_topbr_scope` 0, 1, 2 and 0 again: the native converter's view and what it takes; the console's
 `NLTP_PHASE` lines bracket each range's `Processed material` lines in `poc\<label>\console.log`).
+
+With `--camera` ([ADR 0250](../../docs/decisions/0250-hide-yourself-during-camera-motion.md)), `results\camera.json`:
+`hook_order` (the order of `Think`, `CalcView`, `PreRender`, `RenderScene` and `PostRender` with `FrameNumber()`),
+`build`, then one sample per phase (`first_person`, `hidden`, `unticked`, `ticked_again`, `after_stop`,
+`after_stop_same_view`, `before_toggle`, `after_toggle`, `once_playing`, `after_end`, `mmd_first_person`,
+`mmd_hidden`, `mmd_hidden_later`, `mmd_unticked`, `before_remove`, `after_remove`): the frames sampled, how many hid
+your body, active weapon, the RTX fixes' body and weapon copies and a Model Hotloader character's visual proxy right
+after the add-on's `RenderScene` hook (`after_hide_*`), around its `PostRender` hook (`before_restore_*`,
+`after_restore_*`) and between frames (`outside_*`), `camera_active`, `hides`, `draws_local_player`, the scene hooks
+that ran (`events`, `events_hidden`, `event_args`), your flashlight's radiance (`flash_min`, `flash_max`,
+`flash_updates`), the option's value, the copies' count and your Hotloader instance;
+also `entered`, `left`, `ended`, `ended_after_seconds`, `failed`, `player_model` and whether each screenshot was
+taken. The screenshots are `poc\<label>\shot-NN-<name>.png`: `camera_hidden`, `camera_unticked`,
+`after_stop_same_view`, `mmd_camera_hidden`, `mmd_camera_unticked`. `--data` may hold an empty `mmd_vmd_npc` folder:
+the checks bring their own test dance.
+
+```powershell
+New-Item -ItemType Directory -Force out\mcam\data\mmd_vmd_npc
+python tools\qa\mmd_player_session.py --evidence out\mcam\poc-run --package out\mcam\pkg\<name>.gma --label camera `
+    --data out\mcam\data --camera --no-steps
+```
 
 **Exit:** 0 when the run finished (its steps may still have failed: see the printed lines and
 `action_error`); 1 on an error, with the PoC restored when no game still runs (otherwise `--rollback`

@@ -52,10 +52,42 @@ setting), its processed count and whether `InScope` takes the map's first materi
 view model's (`"none"` when there is no such material). Results go to `features.json` (`push_old`, `push_100`,
 `push_25`, `push_0`, `endhold`, `topbr_range`).
 
+With `camera` ("Hide yourself during camera motion", the user's request of 2026-11-21,
+[ADR 0250](../../docs/decisions/0250-hide-yourself-during-camera-motion.md); alone or after the others): first the
+order of `Think`, `CalcView`, `PreRender`, `RenderScene` and `PostRender` in a few first-person frames, each with
+`FrameNumber()` (`hook_order`). Then the server half builds a test dance with a still camera beside the first NPC that
+holds it, you and the second NPC in the shot; the probe closes the first-run RTX Remix guide (it opens eight seconds
+after the spawn), holds the time of day at 15:00 (`nativeloader_sky_time_passes 0`, `nativeloader_sky_time 15`), with
+`copies` turns on the RTX fixes' body and weapon copies (`rtx_pseudoplayer 1`, `rtx_pseudoweapon 1`: the companion's
+"Local player shadow", off in the classic settings), turns on your RTX flashlight (`rtx_flashlight_on`, brightness 20000
+so its light shows in daylight), all put back at the end, aims it at the dancer and samples, frame by frame (with
+`hide = false` the option stays off for the whole run: a control in which the hide never runs): the no-draw flags of
+your body, your active weapon, the copies and a Model Hotloader character's visual proxy right after the add-on's
+`RenderScene` hook (`after_hide_*`), right before and after its `PostRender` hook (`before_restore_*`,
+`after_restore_*`; both hooks wrapped) and between frames (`outside_*`, in `Think`); how often the camera motion was
+active, the add-on said it hides you (`MMDVMDNPC.CameraHidesLocalPlayer`) and the game drew you as in third person
+(`ShouldDrawLocalPlayer`); which of the scene's hooks ran, how often you were no-draw in them and one call's arguments
+each (`events`, `events_hidden`, `event_args`); the radiance your flashlight's light was given
+(`RemixLight.UpdateSphere` wrapped for the fixes' hash of your index; `flash_min`, `flash_max`); the copies' count and
+your Model Hotloader instance. Phases: `first_person`; the looping dance's camera
+motion with the option on (`hidden`, screenshot `camera_hidden`), unticked (`unticked`, `camera_unticked`) and
+ticked again (`ticked_again`); after the server stops it (`after_stop`), and the camera's last view drawn by the
+probe in third person with the camera's field of view (`after_stop_same_view`, screenshot `after_stop_same_view`); the
+camera toggle
+(`mmdvmd_camera_toggle`) during a dance (`before_toggle`, `after_toggle`); the dance played once to its end
+(`once_playing`, `ended_after_seconds`, `after_end`); an imported character as your player model (the server half's
+`player_model`), in first person, hidden (`mmd_hidden`, screenshot `mmd_camera_hidden`), still hidden six seconds
+later, past the Hotloader's five-second release (`mmd_hidden_later`: the same instance), and unticked
+(`mmd_unticked`, `mmd_camera_unticked`); the dancer removed under the camera (`before_remove`, `after_remove`). Each
+screenshot is an `NL_SHOT <label>` line answered by the driver's `nl_shot_taken <n>`. Everything goes to
+`data\nlmp_probe\camera.json`, then `NLMP_CAMERA` is printed; the option is set back on, the flashlight off and the
+other settings above as they were.
+
 Settings (a line the driver puts in front): `NLMP_SETTINGS = {window = 4, settle = 8, manager = false,
-tab = false, features = false, steps = true, qol = false, motions = {}}`.
+tab = false, features = false, steps = true, qol = false, camera = false, copies = false, hide = true, motions = {}}`.
 
 Console output: `NLMP_CLIENT_READY`, `NLMP_SETUP <json>`, `NLMP_MOTIONS`, one `NLMP_STEP <step> max <n> ms`
-line per step, `NLMP_ERROR <message>` on a failure, then `NLMP_DONE` and `NL_SHOT_DONE`, which ends the
-run. Side effects: the spawn menu and tool gun are used, motions are assigned and the selection cleared,
-the `data\nlmp_probe` files; the wrappers stay in place until the game quits.
+line per step, `NLMP_ERROR <message>` on a failure, `NL_SHOT <label>` per camera screenshot, then `NLMP_DONE` and
+`NL_SHOT_DONE`, which ends the run. Side effects: the spawn menu and tool gun are used, motions are assigned and the
+selection cleared, the `data\nlmp_probe` files; with `camera`, your flashlight, its brightness for the run and an
+imported player model; the wrappers stay in place until the game quits.

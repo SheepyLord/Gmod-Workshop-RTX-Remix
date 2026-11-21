@@ -22,11 +22,18 @@ flashlight's automatic brightness ([ADR 0208](../../docs/decisions/0208-the-rtx-
   sliders, and Reset restores their defaults. Expected gains are worked out from the shared maths
   (`cl_remix_light_gain.lua`, which [light_gain_harness.lua](light_gain_harness.lua.md) checks) and the geometry the
   file describes: the light `rtx_flashlight_offset_forward` behind the eyes, a wall across the view.
+- `hidden <cl_remix_flashlight.lua>` ([ADR 0250](../../docs/decisions/0250-hide-yourself-during-camera-motion.md)):
+  while a `RTXFlashlightHidden` listener answers true for the local player (the motion importer's camera motion leaving
+  them out of the shot), their light's radiance and haze are 0, the light stays on (not destroyed) and is not measured
+  (no traces); another player's light stays lit; the frame the listener stops answering, the light is back at exactly
+  its earlier radiance and haze; a light switched on while hidden comes on dark and lights when the listener stops.
+
+The fake `hook` keeps one listener per event; `hook.Run` calls it and returns its answer, as GMod's first answer.
 
 The fake world is a wall across +x (or open space), traces that start in a solid, and a car's hull just ahead of any
 trace that does not filter it; the fake Remix API records each light's radiance and volumetric scale. `include()` loads
 the fixes' own Lua beside the given file's `lua/` folder.
 
-Usage: `luajit tools/tests/flashlight_harness.lua server|client|auto <file>`. Reads only the given file and, for
-`client` and `auto`, the shared gain beside it; no game, network or file writes. Exit 0 and a `PASS` line on success,
+Usage: `luajit tools/tests/flashlight_harness.lua server|client|auto|hidden <file>`. Reads only the given file and,
+for `client`, `auto` and `hidden`, the shared gain beside it; no game, network or file writes. Exit 0 and a `PASS` line on success,
 nonzero on a failed assertion. Run by [test_flashlight.py](test_flashlight.py.md).

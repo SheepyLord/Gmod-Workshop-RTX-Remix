@@ -1,11 +1,12 @@
--- R19 regression for the RTX fixes' flashlight Lua under a fake GMod API (no game), and since ADR 0208
--- its automatic brightness:
+-- R19 regression for the RTX fixes' flashlight Lua under a fake GMod API (no game), since ADR 0208
+-- its automatic brightness, and since ADR 0250 a light another add-on keeps dark:
 --   luajit flashlight_harness.lua server <sv_remix_flashlight.lua>
 --   luajit flashlight_harness.lua client <cl_remix_flashlight.lua>
 --   luajit flashlight_harness.lua auto <cl_remix_flashlight.lua>
+--   luajit flashlight_harness.lua hidden <cl_remix_flashlight.lua>
 local mode, path = arg[1], arg[2]
-assert((mode == "server" or mode == "client" or mode == "auto") and path,
-    "usage: flashlight_harness.lua server|client|auto <file>")
+assert((mode == "server" or mode == "client" or mode == "auto" or mode == "hidden") and path,
+    "usage: flashlight_harness.lua server|client|auto|hidden <file>")
 BRANCH = "x86-64"
 SERVER, CLIENT = mode == "server", mode ~= "server"
 
@@ -36,7 +37,9 @@ function tobool(v) return v == true or v == 1 or v == "1" end
 math.Clamp = function(v, lo, hi) return math.min(math.max(v, lo), hi) end
 MASK_OPAQUE_AND_NPCS = 33570945
 local hooks, receivers, commands = {}, {}, {}
-hook = {Add = function(event, name, fn) hooks[event] = fn end}
+-- One listener per event; Run calls it and returns what it returns, as GMod's first answer.
+hook = {Add = function(event, name, fn) hooks[event] = fn end,
+    Run = function(event, ...) if hooks[event] then return hooks[event](...) end end}
 concommand = {Add = function(name, fn) commands[name] = fn end}
 cvars = {AddChangeCallback = function() end}
 file = {Exists = function() return false end}
@@ -247,6 +250,50 @@ if mode == "client" then
     advance(0.2)
     assert(lights() == 1, "reload keeps one light")
     io.write("PASS flashlight client: a repeated on replaces the light, off and reload keep the count\n")
+    return
+end
+
+if mode == "hidden" then
+    -- ADR 0250: RTXFlashlightHidden(ply) returning true keeps that player's light on but dark (the motion
+    -- importer's camera motion leaving you out of the shot); it lights again as it was.
+    local hide = {}
+    hook.Add("RTXFlashlightHidden", "harness", function(ply) if hide[ply] then return true end end)
+    convars.rtx_flashlight_volumetric.value = "2"
+    world.wall = 251
+    receive("rtx_flashlight_state", nil, localPlayer, true, 255, 255, 255)
+    local id = next(live)
+    for _ = 1, 30 do advance(frame) hooks.PreRender() end
+    local lit, litHaze = live[id], haze[id]
+    assert(lit > 0 and litHaze > 0, "the light is lit before")
+    hide[localPlayer] = true
+    local traces = world.traces
+    advance(frame) hooks.PreRender()
+    assert(live[id] == 0 and haze[id] == 0, "dark while hidden: radiance " .. tostring(live[id]) .. ", haze " .. tostring(haze[id]))
+    assert(lights() == 1 and destroyed == 0, "the light stays on, dark")
+    for _ = 1, 30 do advance(frame) hooks.PreRender() end
+    assert(live[id] == 0 and world.traces == traces, "and is not measured while hidden")
+    -- Another player's light is theirs: the answer was for the local player only.
+    local other = Player()
+    receive("rtx_flashlight_state", nil, other, true, 255, 255, 255)
+    local otherId
+    for lightId in pairs(live) do if lightId ~= id then otherId = lightId end end
+    advance(frame) hooks.PreRender()
+    assert(otherId and live[otherId] > 0, "another player's light is lit")
+    hide[localPlayer] = nil
+    advance(frame) hooks.PreRender()
+    assert(math.abs(live[id] - lit) < 1e-6 * lit and math.abs(haze[id] - litHaze) < 1e-6,
+        "back as it was the frame the hook stops answering: " .. tostring(live[id]) .. " against " .. tostring(lit))
+    -- Switched on while hidden, it comes on dark.
+    hide[localPlayer] = true
+    receive("rtx_flashlight_state", nil, localPlayer, false, 0, 0, 0)
+    receive("rtx_flashlight_state", nil, localPlayer, true, 255, 255, 255)
+    local again
+    for lightId in pairs(live) do if lightId ~= otherId then again = lightId end end
+    assert(again and live[again] == 0 and haze[again] == 0, "a light switched on while hidden comes on dark")
+    hide[localPlayer] = nil
+    advance(frame) hooks.PreRender()
+    assert(live[again] > 0, "and lights when the hook stops answering")
+    io.write("PASS flashlight hidden: dark while the hook answers, still on, not measured, others lit, back as it was\n")
     return
 end
 

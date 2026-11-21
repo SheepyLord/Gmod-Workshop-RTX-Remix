@@ -50,6 +50,14 @@ local function DebugPrint(...)
     end
 end
 
+-- Another add-on may keep a player's light dark for a while without switching it off (ADR 0250): the
+-- hook RTXFlashlightHidden(ply) returning true keeps that player's light on but dark (no light, no
+-- haze, no measuring) until it returns nothing again, and the light comes back as it was. The
+-- character motion importer does so while its camera motion leaves you out of the shot.
+local function FlashlightHidden(ply)
+    return hook.Run("RTXFlashlightHidden", ply) == true
+end
+
 -- Reusable tables to avoid GC stutter
 local _vec_pos = { x = 0, y = 0, z = 0 }
 local _vec_dir = { x = 0, y = 0, z = 0 }
@@ -105,7 +113,8 @@ local function CreateFlashlight(ply, colorOverride)
     -- Get color and brightness
     -- Use color override if provided (from network), otherwise use ConVars for local player
     local brightness = cv_brightness:GetFloat()
-    local scale = brightness / 1000.0 * (autoGain or 1)
+    local hidden = FlashlightHidden(ply)
+    local scale = hidden and 0 or brightness / 1000.0 * (autoGain or 1)
     local r, g, b
     if colorOverride then
         r = colorOverride.r * scale
@@ -136,7 +145,7 @@ local function CreateFlashlight(ply, colorOverride)
             focusExponent = 1.0,
         },
         -- A boost lights far surfaces, not the haze beside the player (ADR 0208)
-        volumetricRadianceScale = cv_volumetric:GetFloat() / math.max(1, autoGain or 1),
+        volumetricRadianceScale = hidden and 0 or cv_volumetric:GetFloat() / math.max(1, autoGain or 1),
     }
     
     -- Create directly
@@ -337,8 +346,10 @@ local function UpdateFlashlight(ply, posOverride, angOverride)
     
     -- Get color and brightness
     -- Use stored color for this player, with current brightness settings, times automatic
-    -- brightness's gain (ADR 0208; 1 when it is off)
-    local gain = AutoGain(ply, flashData, eyePos, offsetPos, forward, right, up)
+    -- brightness's gain (ADR 0208; 1 when it is off). Dark while hidden (ADR 0250): automatic
+    -- brightness keeps its gain for when the light comes back.
+    local hidden = FlashlightHidden(ply)
+    local gain = hidden and 0 or AutoGain(ply, flashData, eyePos, offsetPos, forward, right, up)
     local scale = cachedSettings.brightness / 1000.0 * gain
     local playerColor = flashData.color or Color(255, 240, 200)
     local r = playerColor.r * scale
@@ -369,7 +380,7 @@ local function UpdateFlashlight(ply, posOverride, angOverride)
     _sphere.radius = cachedSettings.radius
     -- A boost lights far surfaces, not the haze beside the player: the haze stays at its set level
     -- (ADR 0208). Dimming dims it too.
-    _sphere.volumetricRadianceScale = cachedSettings.volumetric / math.max(1, gain)
+    _sphere.volumetricRadianceScale = hidden and 0 or cachedSettings.volumetric / math.max(1, gain)
     -- _sphere.position is already _vec_pos
     -- _sphere.shaping is already _shaping
     

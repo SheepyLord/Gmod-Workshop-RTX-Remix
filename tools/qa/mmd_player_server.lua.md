@@ -44,8 +44,17 @@ folder as `nlmp_probe/server.txt`, and one console line runs it on the server
   on the second NPC, selects it twice, plays the dance and records 笑い and まばたき after the selection, at the
   start, mid-dance and after the stop; `select1`, `debug_state` (the player's last debug frame and the first NPC's
   bones) and `cleanup` (deletes the test dance and its build).
+- The camera phase ([ADR 0250](../../docs/decisions/0250-hide-yourself-during-camera-motion.md), 2026-11-21):
+  `camera_build` writes `nlmp_probe_camera`, the test dance with a camera path (a still camera in the first NPC's
+  frame at 90 forward, 170 to its right, 70 up, turned 90 degrees to its left, pitch 5, vertical field of view 50:
+  the shot holds the dancer, you and the second NPC) and builds it for the first NPC as `build` does;
+  `camera_play` and `camera_play_once` start it on the first NPC looping or once (the server sends the camera path
+  with the dance and the client enters it); `camera_stop` stops it; `camera_remove` removes the first NPC (the camera
+  motion fails); `player_model` makes the PoC library's first imported character your own player model
+  (`mmdhl.Spawn`, role `player`), waiting up to 90 s; `camera_cleanup` stops the dances and deletes the camera dance
+  and its build.
 
 Console output: `NLMP_SERVER_READY`, `NLMP_ERROR spawn <reason>`, `NLMP_ERROR <job> <error>`. Side effects: the
 cheats and AI settings above for this session, two NPCs, the tool gun, the network strings `nlmp_cmd` and
-`nlmp_reply`, the test dance and its build (removed by `cleanup`), the `data\nlmp_probe` files; nothing outlives
-the game.
+`nlmp_reply`, the test dances and their builds (removed by `cleanup` and `camera_cleanup`), with the camera phase an
+imported player model and the first NPC removed, the `data\nlmp_probe` files; nothing outlives the game.

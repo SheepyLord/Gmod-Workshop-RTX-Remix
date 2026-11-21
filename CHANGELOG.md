@@ -6,6 +6,23 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The Advanced MMD Animation Player leaves you out of its camera shots (2026-11-21)
+
+- **While a dance's imported camera motion plays, you no longer stand in the shot.** A new option in the tool's
+  Camera tab, **Hide yourself during camera motion**, on by default, hides your body, the gun in your hand and
+  anything you wear, together with your shadow, your reflections and your flashlight's light, for as long as the
+  camera motion drives the view (the debug window's camera preview too). You are back the moment it ends, is stopped
+  or cancelled, or you untick the option. An imported character used as your player model is hidden the same way.
+- **On your screen only.** Nothing is sent to the server: in multiplayer, other players still see you. When the debug
+  window's preview orbits you yourself (nothing selected), you stay in it, since you are the subject.
+- The option's texts are in the panel's nine languages.
+- **Behind it** ([ADR 0250](docs/decisions/0250-hide-yourself-during-camera-motion.md)): the camera hides you, what
+  is parented to you, a death ragdoll and the RTX fixes' body and weapon copies only while each frame draws (from
+  `RenderScene` to `PostRender`), so nothing can stay hidden between frames and the Model Hotloader never releases
+  your character. The RTX fixes' flashlight has a new hook, `RTXFlashlightHidden(ply)`: a listener answering true
+  keeps that player's light on but dark. Tests: `test_motion_camera.py` (new) and `test_flashlight.py`; a PoC run with
+  screenshots (`mmd_player_session.py --camera`).
+
 ### Every map's own sky, its 3D skybox too, one choice away; a map's RTX version brings its own sky (2026-11-20)
 
 - **The RTX sky stays the default, and each map's own sky is one choice away.** RTX Remix > Sky and weather has a

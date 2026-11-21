@@ -50,7 +50,9 @@ def settings_lua(args) -> str:
     return (f'NLMP_SETTINGS = {{window = {args.window:g}, settle = {args.settle:g}, '
             f'manager = {"true" if args.manager else "false"}, tab = {"true" if args.tab else "false"}, '
             f'features = {"true" if args.features else "false"}, steps = {"false" if args.no_steps else "true"}, '
-            f'qol = {"true" if args.qol else "false"}, motions = {{{motions}}}}}\n')
+            f'qol = {"true" if args.qol else "false"}, camera = {"true" if args.camera else "false"}, '
+            f'copies = {"true" if args.copies else "false"}, hide = {"false" if args.hide_off else "true"}, '
+            f'motions = {{{motions}}}}}\n')
 
 
 def run_command(args, evidence: Path, probe: Path) -> list[str]:
@@ -60,7 +62,10 @@ def run_command(args, evidence: Path, probe: Path) -> list[str]:
                '--addons', '--players', '1', '--map', args.map, '--width', str(args.width), '--height', str(args.height),
                '--console', 'engine_no_focus_sleep 0',
                '--console', 'lua_run RunString(file.Read("nlmp_probe/server.txt","DATA"),"nlmp_server")']
-    command += ['--lua', str(probe), '--lua-manual', '--screenshots', '0', '--timeout', str(args.timeout),
+    # The camera checks take screenshots: each "NL_SHOT <label>" the probe prints is answered with
+    # nl_shot_taken, until NL_SHOT_DONE (--lua-shots); the other checks need none (--lua-manual).
+    completion = ['--lua-shots', str(args.timeout), '--settle', '2'] if args.camera else ['--lua-manual']
+    command += ['--lua', str(probe), *completion, '--screenshots', '0', '--timeout', str(args.timeout),
                 '--hang-grace', str(args.hang_grace)]
     if args.workshop:
         command.append('--workshop')
@@ -119,7 +124,13 @@ def main(argv=None) -> int:
                         help='after the steps, check keep-expressions, ragdoll collision and the debug timeline in the game')
     parser.add_argument('--qol', action='store_true',
                         help='after the steps, check the push strength of a dancing body and the hold on the last pose (2026-11-16)')
-    parser.add_argument('--no-steps', action='store_true', help='skip the timed click-through (with --features or --qol: the checks alone)')
+    parser.add_argument('--camera', action='store_true',
+                        help='after the steps, check "Hide yourself during camera motion" in the game, with screenshots (2026-11-21)')
+    parser.add_argument('--copies', action='store_true',
+                        help='with --camera: turn on the RTX fixes\' body and weapon copies ("Local player shadow") for the checks')
+    parser.add_argument('--hide-off', action='store_true',
+                        help='with --camera: keep the option off for the whole run (a control: the hide never runs)')
+    parser.add_argument('--no-steps', action='store_true', help='skip the timed click-through (with --features, --qol or --camera: the checks alone)')
     parser.add_argument('--motions', nargs='*', default=[], help='the two motion ids to select (default: a third and two thirds down the list)')
     parser.add_argument('--window', type=float, default=4, help='seconds measured after each action')
     parser.add_argument('--settle', type=float, default=8, help='seconds after the NPCs spawn before the first step')
@@ -185,8 +196,9 @@ def main(argv=None) -> int:
             history = json.loads((evidence / 'poc/session.json').read_text(encoding='utf-8'))
             last = history[-1]
             vs.write_json(folder / 'session.json', {key: last.get(key) for key in (
-                'failed', 'normal_quit', 'exit', 'lua', 'lua_manual_done', 'seconds_to_map', 'workshop_ready',
-                'device_lost', 'declined_crash_prompts', 'crash_reports')} | {'seconds': round(time.time() - started)})
+                'failed', 'normal_quit', 'exit', 'lua', 'lua_manual_done', 'lua_shots_done', 'lua_shots', 'seconds_to_map',
+                'workshop_ready', 'device_lost', 'declined_crash_prompts', 'crash_reports')}
+                          | {'seconds': round(time.time() - started)})
             if (DATA / 'nlmp_probe').is_dir():
                 shutil.copytree(DATA / 'nlmp_probe', folder / 'results')
                 results = summarize(folder / 'results')
@@ -213,6 +225,9 @@ def main(argv=None) -> int:
     features = evidence / args.label / 'results' / 'features.json'
     if features.is_file():
         print('features:', features)
+    camera = evidence / args.label / 'results' / 'camera.json'
+    if camera.is_file():
+        print('camera:', camera, '(screenshots in', evidence / 'poc' / args.label, ')')
     return 0
 
 

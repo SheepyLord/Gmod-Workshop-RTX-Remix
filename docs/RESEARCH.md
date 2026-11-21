@@ -9829,3 +9829,52 @@ evidence `out/map-sky/` in the `map-sky` worktree).
   `sky`: none) and no Workshop comment on 3829070317 names the map; the record is ADR 0248 and the `remix-map-pbr`
   lessons (the station under the companion's pale daytime sky with "Follow the map's sun" unticked). Two Workshop
   comments (2026-11-12, 2026-11-20) asked where to stop the day cycle, which the chat line now answers.
+
+## What draws the local player under a camera motion (2026-11-21, Claude; [ADR 0250](decisions/0250-hide-yourself-during-camera-motion.md))
+
+- **The camera motion's view draws you.** The Advanced MMD Animation Player's `CalcView` returns the camera path's view
+  with `drawviewer = true` (`packages/character-motion-importer/mmd_vmd_npc/lua/mmd_vmd_npc/cl_camera.lua:487`, line
+  numbers after the change), so the engine draws the local player and the active weapon's world model as in third
+  person, wherever they stand.
+- **The RTX fixes' first-person copies hide themselves in third person.** `rtx_pseudoplayer` sets its no-draw every
+  `Think` from `not Alive or observer or GetViewEntity() ~= player or ShouldDrawLocalPlayer()`
+  (`packages/fixes/.../lua/entities/rtx_pseudoplayer.lua:220-221`), `rtx_pseudoweapon` its model's the same way
+  (`rtx_pseudoweapon.lua:243`). With `drawviewer = false` instead, both would come back (and VR hides them by pausing
+  their `Think`, `vr/addon/lua/nlvr/core/cl_core.lua:165-180`).
+- **The Model Hotloader draws a player's imported character through a separate entity.** A clientside
+  `mmdhl_native_visual` per character (`native_render.lua:363-364`) draws it with `draw()`, which returns at once when
+  `mmdhl.PresentationSuppressed(owner)` (`native_render.lua:275-276`): true while the owner is no-draw
+  (`carrier.lua:69-75`). So `PrePlayerDraw` alone would not hide an imported player model. Its `PreRender` hook
+  (`client.lua:128-130`, `UpdateClientInstances`) reads the flag for `PresentationReleased` (`carrier.lua:82-91`): a
+  local hide seen there for `LocalHideRelease = 5` seconds releases the character's world, rebuilt when it shows again.
+- **The order of a frame's hooks** (PoC, RTX start, gm_construct, first person; `mmd_player_session.py --camera`,
+  `hook_order`): `Think`, `CalcView`, `PreRender`, `RenderScene`, `PostRender`, every frame; the last four share one
+  `FrameNumber()`, and `Think` reports the one before (`Think@4161`, then `CalcView@4162` ... `PostRender@4162`). So a
+  flag set in `RenderScene` and cleared in `PostRender` is never seen by `Think`, `CalcView` or `PreRender` hooks.
+- **The scene's hooks all come between `RenderScene` and `PostRender`** (run 2, a listener on each counting every
+  call): `PostDrawOpaqueRenderables`, `Pre`/`PostDrawTranslucentRenderables`, `RenderScreenspaceEffects`, `PreDrawHUD`
+  and `PostDrawHUD` ran once a frame, as many calls as camera frames (212 in the first hidden phase), and you were
+  no-draw in every one of them. `PostDrawOpaqueRenderables` came with the arguments `false, true, false`
+  (`bDrawingDepth`, `bDrawingSkybox`, `isDraw3DSkybox`; run 3, first call of each sample, in first person and under the
+  camera alike), the translucent hooks with `false, false, false`: a listener that returns early for skybox calls, as
+  run 1's probe did, sees no frame at all in these sessions.
+- **The fixes' copies under the camera** (run 3, `rtx_pseudoplayer 1` and `rtx_pseudoweapon 1`, off in the classic
+  settings): the body copy was no-draw in every camera frame and between them, by its own rule (third person); the
+  weapon copy's entity was not (its `Think` hides only the clientside model it draws through,
+  `rtx_pseudoweapon.lua:235-245`), so in a camera frame with the option unticked it draws a second weapon model in your
+  hand, and with the option on the hide leaves it out (283 of 283 frames). In first person after each end, stop,
+  toggle and removal both copies were drawn again.
+- **Seen only with the copies switched on mid-session** (runs 3 and 4 in the PoC, the second a control with the option
+  off): every later frame rendered without path tracing (flat light, the RTX flashlight invisible while its radiance was
+  6,300-6,670), and the Model Hotloader's server scene capture logged `secondary_collision.lua:111: attempt to compare
+  nil with number` from the phase after the camera's stop on (43 and 34 times): `undrawn()` compares
+  `ent:GetModelScale()` with 0.01, and some entity returned nil. Runs 1 and 2, with the copies off, had neither.
+- **Your RTX flashlight under the camera** (run 1, `RemixLight.UpdateSphere` wrapped for the fixes' hash of your
+  index, brightness 20000 for the run): radiance 5,058-6,665 in first person, unticked, after the stop, after the
+  camera toggle, after the dance's end and after its dancer was removed; exactly 0 in every phase the camera hid you
+  (looping, ticked again, played once, before the toggle, with an imported player model, before the removal). A
+  Remix sphere light with radiance 0 is accepted (the bindings read the numbers without checks,
+  `packages/fixes/licenses/oversized-skinning/autopbr/source/remixapi/light_lua_bindings.cpp:60-80`).
+- **An imported player model is not released by the hide.** Runs 1 and 2 with the PoC library's character as your
+  player model (`mmdhl.Spawn`, role `player`): its client instance was 3 in first person, in samples 2.5-4.5 s and
+  about 12 s into the camera hiding you, unticked and after the dancer's removal.

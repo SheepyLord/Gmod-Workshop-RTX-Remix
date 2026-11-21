@@ -32,6 +32,7 @@ CreateClientConVar("mmd_vmd_npc_cam_max_distance", "2500", true, false, "Camera 
 CreateClientConVar("mmd_vmd_npc_cam_follow", "0", true, false, "Camera animation: rotate the view to keep the character in frame (experimental, play-time only)")
 CreateClientConVar("mmd_vmd_npc_cam_follow_margin", "0.33", true, false, "Camera follow: fraction of the half-frame the character may drift from center before the camera turns (0 = always centered)")
 CreateClientConVar("mmd_vmd_npc_cam_follow_speed", "8", true, false, "Camera follow: correction turn speed (per second)")
+CreateClientConVar("mmd_vmd_npc_cam_hide_player", "1", true, false, "Camera animation: hide yourself in the world while it drives the view (on your screen only; other players still see you)")
 
 -- Wall collision defaults on. New clients already get "1"; this one-time
 -- migration also turns it on for existing clients that saved it off during
@@ -789,9 +790,118 @@ hook.Add("MMDVMDNPCPlayStatusUpdated", "MMDVMDNPCCameraStatusWatch", function(st
     end
 end)
 
+-- Hide yourself during camera motion (ADR 0250) --------------------------------
+--
+-- While an imported camera animation (or the debug window's camera preview) drives the view, the
+-- local player is left out of the shot, on by default (mmd_vmd_npc_cam_hide_player): their body and
+-- what is attached to it (the held weapon and every other entity parented to them, worn models
+-- included; a death ragdoll), the RTX fixes' copies of the body and weapon that give them a shadow and
+-- reflections (rtx_pseudoplayer, rtx_pseudoweapon), and their RTX flashlight's light (the fixes'
+-- RTXFlashlightHidden hook keeps it on but dark). A preview that orbits the player themselves keeps
+-- them. Only this client's picture changes: nothing is sent, so other players still see them.
+--
+-- Hidden only while a frame draws. CalcView, which GMod runs before PreRender, notes that the frame's
+-- view is the camera's; RenderScene hides (after PreRender, where the Model Hotloader reads a
+-- character's no-draw flag to keep or release its world: a hide seen there for five seconds would
+-- release the player's imported character); PostRender puts every flag back as it was. Nothing stays
+-- hidden between frames, so the player is back the frame the camera motion ends, is stopped,
+-- cancelled or fails, the option is unticked, or the map changes. The camera view keeps drawviewer:
+-- to the rest of the game the player is still drawn in third person, so first-person bodies (the RTX
+-- fixes' copies, other add-ons' legs) stay away.
+local HIDE_COPY_CLASSES = { "rtx_pseudoplayer", "rtx_pseudoweapon" }
+local hidePlayerPending = false -- this frame's view is the camera's and leaves the player out
+local hidePlayerAnchor = nil -- the entity that camera follows (never hidden)
+local hiddenByCamera = {} -- [entity] = true: hidden for this frame's draw (false: it was hidden already)
+local copyCache, copyCacheAt = {}, -math.huge
+
+local function hide_player_enabled()
+    local cvar = GetConVar("mmd_vmd_npc_cam_hide_player")
+    return cvar == nil or cvar:GetBool()
+end
+
+-- CalcView, for the view it returns: anchor is the entity the camera follows.
+local function note_camera_view(anchor)
+    local ply = LocalPlayer()
+    hidePlayerPending = hide_player_enabled() and IsValid(ply) and anchor ~= ply
+    hidePlayerAnchor = hidePlayerPending and anchor or nil
+end
+
+-- True from CalcView to PostRender while the frame's view is the camera's and leaves the local
+-- player out (the fixes' flashlight asks in PreRender, through RTXFlashlightHidden).
+function MMDVMDNPC.CameraHidesLocalPlayer()
+    return hidePlayerPending == true
+end
+
+local function hide_entity(ent, depth)
+    if not IsValid(ent) or ent == hidePlayerAnchor or hiddenByCamera[ent] ~= nil then return end
+    if ent:GetNoDraw() then
+        hiddenByCamera[ent] = false -- someone else hid it: left as it is, and not shown after the frame
+    else
+        ent:SetNoDraw(true)
+        hiddenByCamera[ent] = true
+    end
+    if depth >= 4 then return end
+    for _, child in ipairs(ent:GetChildren() or {}) do hide_entity(child, depth + 1) end
+end
+
+-- The RTX fixes keep one of each copy: looked up once a second, not every frame.
+local function body_copies()
+    local now = RealTime()
+    if now - copyCacheAt >= 1 then
+        copyCacheAt, copyCache = now, {}
+        for _, class in ipairs(HIDE_COPY_CLASSES) do
+            for _, ent in ipairs(ents.FindByClass(class)) do copyCache[#copyCache + 1] = ent end
+        end
+    end
+    return copyCache
+end
+
+local function hide_local_player()
+    local ply = LocalPlayer()
+    if not IsValid(ply) then return end
+    -- The body and what is parented to it: carried weapons (only the active one draws), the RTX
+    -- weapon copy, worn and attached models.
+    hide_entity(ply, 0)
+    local weapon = ply:GetActiveWeapon()
+    if IsValid(weapon) then hide_entity(weapon, 1) end
+    local ragdoll = ply:GetRagdollEntity()
+    if IsValid(ragdoll) then hide_entity(ragdoll, 1) end
+    for _, copy in ipairs(body_copies()) do hide_entity(copy, 1) end
+end
+
+local function show_hidden()
+    local list = hiddenByCamera
+    hiddenByCamera = {}
+    for ent, changed in pairs(list) do
+        if changed and IsValid(ent) then ent:SetNoDraw(false) end
+    end
+end
+
+hook.Add("RenderScene", "MMDVMDNPCHidePlayer", function()
+    if hidePlayerPending then hide_local_player() end
+    -- Returns nothing: a value would replace the whole scene.
+end)
+
+hook.Add("PostRender", "MMDVMDNPCHidePlayer", function()
+    hidePlayerPending, hidePlayerAnchor = false, nil
+    if next(hiddenByCamera) ~= nil then show_hidden() end
+end)
+
+-- A frame whose PostRender did not come (another PreRender hook skipped the drawing) leaves nothing
+-- hidden either: Think runs before the next frame's CalcView.
+hook.Add("Think", "MMDVMDNPCHidePlayer", function()
+    if next(hiddenByCamera) ~= nil then show_hidden() end
+end)
+hook.Add("ShutDown", "MMDVMDNPCHidePlayer", show_hidden)
+
+hook.Add("RTXFlashlightHidden", "MMDVMDNPCHidePlayer", function(ply)
+    if hidePlayerPending and ply == LocalPlayer() then return true end
+end)
+
 -- Rendering --------------------------------------------------------------------
 
 hook.Add("CalcView", "MMDVMDNPCCameraAnim", function(ply, pos, angles, fov)
+    hidePlayerPending, hidePlayerAnchor = false, nil
     -- Camera debug preview from the raw-animation debug window takes priority.
     if MMDVMDNPC.CameraDebugPreviewRenderable() then
         local debugPreview = MMDVMDNPC.CameraDebugPreview
@@ -803,6 +913,7 @@ hook.Add("CalcView", "MMDVMDNPCCameraAnim", function(ply, pos, angles, fov)
         if view then
             MMDVMDNPC.CameraAnimViewOrigin = view.origin
             MMDVMDNPC.CameraAnimViewAngles = view.angles
+            note_camera_view(anchor)
             return view
         end
     end
@@ -825,6 +936,7 @@ hook.Add("CalcView", "MMDVMDNPCCameraAnim", function(ply, pos, angles, fov)
 
     MMDVMDNPC.CameraAnimViewOrigin = view.origin
     MMDVMDNPC.CameraAnimViewAngles = view.angles
+    note_camera_view(anchor)
     return view
 end)
 

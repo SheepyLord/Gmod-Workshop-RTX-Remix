@@ -23,11 +23,23 @@ def lua_string(data: bytes) -> str:
     return '"' + ''.join(chr(b) if 32 <= b < 127 and chr(b) not in '"\\' else f'\\{b:03d}' for b in data) + '"'
 
 
-def bsp(entities: str) -> bytes:
-    """A BSP as far as the companion reads it: the header with lump 0 (the entity lump) and its text."""
+def bsp(entities: str, texinfo_flags=None) -> bytes:
+    """A BSP as far as the companion reads it: the header with lump 0 (the entity lump) and its text, and with
+    `texinfo_flags` lump 6, one 72-byte texinfo for each flags value (ADR 0249: 0x4 is a sky face)."""
     text = entities.encode('latin-1')
-    header = b'VBSP' + struct.pack('<i', 20) + struct.pack('<iiii', 8 + 64 * 16, len(text), 0, 0) + bytes(16 * 63)
-    return header + text
+    start = 8 + 64 * 16
+    texinfo = b''
+    if texinfo_flags is not None:
+        texinfo = b''.join(bytes(64) + struct.pack('<ii', flags, 0) for flags in texinfo_flags)
+    header = b'VBSP' + struct.pack('<i', 20)
+    for index in range(64):
+        if index == 0:
+            header += struct.pack('<iiii', start, len(text), 0, 0)
+        elif index == 6 and texinfo:
+            header += struct.pack('<iiii', start + len(text), len(texinfo), 0, 0)
+        else:
+            header += bytes(16)
+    return header + text + texinfo
 
 
 CONSTRUCT = ('{\n"skyname" "painted"\n"classname" "worldspawn"\n}\n'
@@ -116,15 +128,39 @@ function CreateClientConVar(name, default)
   convars[name] = c
   return c
 end
+-- ADR 0249: the engine's convars the map's own 3D skybox and a sky file's sky name change (as an RTX session sets
+-- them), and the RTX fixes' Lua convars beside them. The engine's refuse SetString from Lua, as GMod's do; every
+-- change is logged, r_3dsky's with the fixes' warning switch as its change callback sees it.
+local engine = { r_3dsky = "0", r_novis = "1", sv_skyname = SKYNAME or "" }
+local luaEngine = { rtx_patch_forcenovis = "1", rtx_patch_vis_pas = "0", rtx_show_3dsky_warning = "1" }
+-- ENGINE_START: values an earlier map left (a level change keeps convars).
+for name, value in pairs(ENGINE_START or {}) do
+  if engine[name] ~= nil then engine[name] = value else luaEngine[name] = value end
+end
+local engineLog = {}
+local function engineChanged(name, v)
+  engineLog[#engineLog + 1] = name .. "=" .. v .. (name == "r_3dsky" and ("(warn " .. luaEngine.rtx_show_3dsky_warning .. ")") or "")
+end
 function GetConVar(name)
-  if name == "sv_skyname" then return { GetString = function() return SKYNAME or "" end } end
+  if engine[name] ~= nil then
+    return { GetString = function() return engine[name] end,
+      SetString = function() error("attempted to modify ConVar not created by Lua") end }
+  end
+  if luaEngine[name] ~= nil then
+    return { GetString = function() return luaEngine[name] end,
+      SetString = function(_, v) luaEngine[name] = tostring(v) engineChanged(name, tostring(v)) end }
+  end
   return convars[name]
 end
 cvars = { AddChangeCallback = function(name, fn) callbacks[name] = callbacks[name] or {} table.insert(callbacks[name], fn) end }
 function RunConsoleCommand(name, ...)
   local args = { ... }
   local c = convars[name]
-  if c then
+  if engine[name] ~= nil or luaEngine[name] ~= nil then
+    local store = engine[name] ~= nil and engine or luaEngine
+    store[name] = tostring(args[1])
+    engineChanged(name, store[name])
+  elseif c then
     local old = c.value
     c.value = tostring(args[1])
     if old ~= c.value then for _, fn in ipairs(callbacks[name] or {}) do fn(name, old, c.value) end end
@@ -149,7 +185,10 @@ hook = {
 -- ADR 0248: a map's add-on with a fixed sky (space around a station) answers both hooks from its load,
 -- before the map starts.
 if FIXED_SKY_ADDON then
-  hook.Add("NativeLoaderSkyOwner", "station", function() return "Station RTX" end)
+  -- As gm_stelliferous RTX does it: it names itself only while its sky shows, asking takenOver() from this very answer.
+  hook.Add("NativeLoaderSkyOwner", "station", function()
+    if not (NATIVELOADER_SKY and NATIVELOADER_SKY.takenOver and NATIVELOADER_SKY.takenOver()) then return "Station RTX" end
+  end)
   hook.Add("NativeLoaderSkyFixed", "station", function() return true end)
 end
 local now = 1000
@@ -169,14 +208,46 @@ local function bspFile(data)
   }
 end
 local data = {}
+-- ADR 0249: a map's sky faces are there (materials/skybox/<name><side>.vmt) unless FACES is false or a table of the
+-- paths that are; sky files (SKY_FILES: path -> text) are add-ons' data_static; JSON maps a file's text to the
+-- table util.JSONToTable gives (none for text it cannot read); SAVED_CHOICES is sky_maps.txt from an earlier game.
+local function skyFile(path) return SKY_FILES and SKY_FILES[path] end
 file = {
   Open = function(path) if BSP and path == "maps/" .. MAP .. ".bsp" then return bspFile(BSP) end end,
-  Exists = function(path) return data[path] ~= nil end,
-  Read = function() return nil end,
+  Exists = function(path, where)
+    if data[path] ~= nil or skyFile(path) then return true end
+    if where == "GAME" and FACES ~= false and path:find("^materials/skybox/") then
+      return type(FACES) ~= "table" or FACES[path] == true
+    end
+    return false
+  end,
+  Read = function(path, where)
+    if where == "GAME" then return skyFile(path) end
+    if path == "nativeloader_companion/sky_maps.txt" then return data[path] or SAVED_CHOICES end
+    return nil
+  end,
+  Find = function(pattern, where)
+    local folder = pattern:match("^(.*/)%*%.json$")
+    local names = {}
+    for path in pairs(SKY_FILES or {}) do
+      if folder and path:sub(1, #folder) == folder and not path:sub(#folder + 1):find("/", 1, true) then
+        names[#names + 1] = path:sub(#folder + 1)
+      end
+    end
+    return names, {}
+  end,
+  Size = function(path) local text = skyFile(path) return text and #text or 0 end,
   CreateDir = function() end,
   Write = function(path, value) data[path] = value end,
 }
-game = { GetMap = function() return MAP end }
+game = { GetMap = function() return MAP end, SinglePlayer = function() return SINGLE ~= false end }
+-- The chat line (ADR 0249), printed as "chat <its text>".
+function Color(r, g, b) return { r = r, g = g, b = b } end
+chat = { AddText = function(...)
+  local parts = {}
+  for _, v in ipairs({ ... }) do if type(v) == "string" then parts[#parts + 1] = v end end
+  print("chat " .. table.concat(parts))
+end }
 local vector = {}
 vector.__index = vector
 vector.__add = function(a, b) return setmetatable({ x = a.x + b.x, y = a.y + b.y, z = a.z + b.z }, vector) end
@@ -187,6 +258,7 @@ MASK_SOLID = 1
 util = {
   GetSunInfo = function() return nil end,
   TraceLine = function() return { Hit = true, HitSky = not COVERED } end,
+  JSONToTable = function(text) return JSON and JSON[text] or nil end,
 }
 math.Clamp = function(v, lo, hi) return math.min(math.max(v, lo), hi) end
 spawnmenu = { AddToolMenuOption = function() end }
@@ -284,6 +356,45 @@ if SCRIPT == "fixed" then
   tick(1)
   report("taken", "rtx.skyMode", "rtx.atmosphere.cloudDensity")
   print("taken_after " .. tostring(NATIVELOADER_SKY.takenOver()))
+  return
+end
+if SCRIPT == "mapsky" then
+  -- ADR 0249: which sky the map shows, the engine's settings for its 3D skybox and the choice saved for it, at the
+  -- start and after each of STEPS ({ command, value }; "tick" waits that long, "shutdown" leaves the map).
+  local function engineState(tag)
+    print(string.format("%s r_3dsky=%s r_novis=%s forcenovis=%s vis_pas=%s warn=%s skyname=%s saved=%s here=%s", tag,
+      engine.r_3dsky, engine.r_novis, luaEngine.rtx_patch_forcenovis, luaEngine.rtx_patch_vis_pas,
+      luaEngine.rtx_show_3dsky_warning, engine.sv_skyname, convars.nativeloader_sky_engine_saved.value,
+      convars.nativeloader_sky_here.value))
+  end
+  local function api(tag)
+    local s = NATIVELOADER_SKY.mapSky()
+    print(string.format("%s %s %s %s %s %s %s", tag, s.shown, s.sky, s.reason, tostring(s.threeD), tostring(s.package),
+      tostring(NATIVELOADER_SKY.takenOver())))
+    print("line" .. tag:sub(4) .. " " .. NATIVELOADER_SKY.line())
+  end
+  engineState("engine0")
+  report("sky0", "rtx.skyMode", "rtx.ignoreGameDirectionalLights", "rtx.atmosphere.cloudDensity")
+  api("api0")
+  for i, step in ipairs(STEPS or {}) do
+    if step[1] == "tick" then tick(step[2])
+    elseif step[1] == "shutdown" then for _, fn in pairs(hooks.ShutDown or {}) do fn() end
+    else cmd(step[1], step[2]) end
+    tick(0.02)
+    engineState("engine" .. i)
+    report("sky" .. i, "rtx.skyMode", "rtx.ignoreGameDirectionalLights", "rtx.atmosphere.cloudDensity")
+    api("api" .. i)
+  end
+  print("choices " .. (data["nativeloader_companion/sky_maps.txt"] or ""):gsub("\n", ";"))
+  print("enginelog " .. table.concat(engineLog, ","))
+  local lines, realPrint = {}, print
+  print = function(text) lines[#lines + 1] = text end
+  cmd("nativeloader_sky_status")
+  print = realPrint
+  for _, line in ipairs(lines) do
+    local tag = line:match("^%[nativeloader%] (%a+ %a+):")
+    if tag == "this map" then print("status_message " .. line) elseif tag == "map sky" then print("status_map " .. line) end
+  end
   return
 end
 if SCRIPT == "entry" then
@@ -472,7 +583,13 @@ if SCRIPT == "panel" then
         local parts = { tag, kind }
         for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
         print("panel " .. table.concat(parts, "|"))
-        return setmetatable({}, { __index = function() return function() end end })
+        -- A combo box's choices (ADR 0249's This map and Other maps) are recorded too.
+        return setmetatable({}, { __index = function(_, method)
+          if method == "AddChoice" then
+            return function(_, label, data) print("panel " .. tag .. "|choice|" .. tostring(label) .. "|" .. tostring(data)) end
+          end
+          return function() end
+        end })
       end
     end })
   end
@@ -829,6 +946,289 @@ class SkyTests(unittest.TestCase):
             taken = self.settings(out['taken'])
             self.assertEqual((taken['rtx.skyMode'], taken['rtx.atmosphere.cloudDensity']), ('1', '7'), follow)
             self.assertEqual(out['taken_after'], 'true', follow)
+
+    # ---------------------------------------------------------------- ADR 0249: which sky a map shows
+
+    @staticmethod
+    def sky_map(skyname='painted', camera=None, faces=True):
+        """A map's BSP: its sky name, a sky_camera at `camera`'s scale (None: no 3D skybox), sky faces or none."""
+        entities = (f'{{\n"skyname" "{skyname}"\n"classname" "worldspawn"\n}}\n'
+                    '{\n"pitch" "-56"\n"angles" "0 306 0"\n"classname" "light_environment"\n}\n')
+        if camera is not None:
+            entities += f'{{\n"origin" "0 0 10000"\n"scale" "{camera}"\n"classname" "sky_camera"\n}}\n'
+        return bsp(entities, [0, 0x4, 0x200] if faces else [0, 0x200])
+
+    def map_sky(self, steps='', camera=16, faces=True, preset='', map_name='gm_construct', skyname='painted', **globals_):
+        code = preset + (f'STEPS = {{ {steps} }}\n' if steps else '')
+        return self.run_lua(code + SESSION, MAP=map_name, BSP=self.sky_map(skyname, camera, faces), SCRIPT='mapsky', **globals_)
+
+    @staticmethod
+    def engine(line):
+        return dict(part.split('=', 1) for part in line.split()[0:] if '=' in part)
+
+    def test_every_map_shows_the_rtx_sky_by_default_and_the_chat_line_says_how_to_switch(self):
+        # The user's request of 2026-11-20: the RTX sky replaces a map's own by default; one chat line at the map's
+        # start says which sky shows and how to switch, and says when the map has no sky of its own.
+        cases = [
+            (dict(camera=16), 'It also has a sky of its own, with a 3D skybox: type nativeloader_sky_here map'),
+            (dict(camera=None), 'It also has a sky of its own: type nativeloader_sky_here map'),
+            (dict(camera=16, preset='FACES = false\n'), 'It has no sky of its own to switch to.'),
+        ]
+        for kwargs, advice in cases:
+            with self.subTest(**{k: str(v) for k, v in kwargs.items()}):
+                out = self.map_sky(**kwargs)
+                self.assertEqual(self.settings(out['sky0'])['rtx.skyMode'], '1')
+                engine = self.engine(out['engine0'])
+                self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['saved'], engine['here']),
+                                 ('0', '1', '', 'auto'))
+                self.assertEqual(out['enginelog'], '')
+                self.assertTrue(out['chat'].startswith('[RTX] This map shows the RTX sky. '), out['chat'])
+                self.assertIn(advice, out['chat'])
+                self.assertEqual(out['api0'].split()[:3], ['rtx', 'rtx', 'default'])
+        # A map without sky faces (indoors) says so and nothing else.
+        out = self.map_sky(faces=False)
+        self.assertEqual(out['chat'], '[RTX] This map has no open sky.')
+        # The line can be turned off; the console still has it.
+        out = self.map_sky(preset='PRESET = { nativeloader_sky_message = "0" }\n')
+        self.assertNotIn('chat', out)
+        self.assertIn('This map shows the RTX sky.', out['status_message'])
+
+    def test_this_maps_own_sky_shows_its_3d_skybox_through_the_pas_and_is_remembered(self):
+        out = self.map_sky('{ "nativeloader_sky_here", "map" }, { "nativeloader_sky_here", "rtx" }, '
+                           '{ "nativeloader_sky_here", "auto" }',
+                           preset='CONF = { ["rtx.ignoreGameDirectionalLights"] = "False" }\n')
+        own = self.settings(out['sky1'])
+        self.assertEqual((own['rtx.skyMode'], own['rtx.ignoreGameDirectionalLights']), ('0', 'False'))
+        engine = self.engine(out['engine1'])
+        self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['forcenovis'], engine['vis_pas'], engine['warn']),
+                         ('1', '0', '0', '1', '1'))
+        self.assertEqual(engine['saved'], 'r_3dsky=0;r_novis=1;rtx_patch_forcenovis=1;rtx_patch_vis_pas=0')
+        # The RTX fixes' question before r_3dsky 1 is held back for this change only.
+        log = out['enginelog'].split(',')
+        self.assertIn('r_3dsky=1(warn 0)', log)
+        self.assertEqual(log[log.index('r_3dsky=1(warn 0)') - 1], 'rtx_show_3dsky_warning=0')
+        self.assertEqual(log[log.index('r_3dsky=1(warn 0)') + 1], 'rtx_show_3dsky_warning=1')
+        self.assertEqual(out['api1'].split()[:4], ['own', 'map', 'choice', 'true'])
+        # Back to the RTX sky: the engine's settings as they were, the choice saved; auto forgets it.
+        self.assertEqual(self.settings(out['sky2'])['rtx.skyMode'], '1')
+        engine = self.engine(out['engine2'])
+        self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['forcenovis'], engine['vis_pas'], engine['saved']),
+                         ('0', '1', '1', '0', ''))
+        self.assertEqual(out['choices'], '')
+        # The choice is there at the next start, from the map's first frame (R16).
+        out = self.map_sky(preset='SAVED_CHOICES = "gm_flatgrass rtx\\ngm_construct map\\n"\n')
+        self.assertEqual(self.settings(out['start'])['rtx.skyMode'], '0')
+        engine = self.engine(out['engine0'])
+        self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['here']), ('1', '0', 'map'))
+        self.assertEqual(out['chat'], '[RTX] This map shows its own sky and its 3D skybox, as you chose for it. For the RTX sky: '
+                                      'type nativeloader_sky_here rtx in the console, or use RTX Remix > Sky and weather in the '
+                                      'spawn menu.')
+        # Another map's choice stays in the file when this one changes.
+        out = self.map_sky('{ "nativeloader_sky_here", "rtx" }', preset='SAVED_CHOICES = "gm_flatgrass rtx\\ngm_construct map\\n"\n')
+        self.assertEqual(out['choices'], 'gm_construct rtx;gm_flatgrass rtx;')
+
+    def test_a_map_with_a_2d_sky_only_or_a_skybox_at_another_scale_shows_its_own_sky_without_the_3d_pass(self):
+        for camera, limit in ((None, None), (64, 'Its 3D skybox (scale 64) cannot be shown under RTX yet.')):
+            with self.subTest(camera=camera):
+                out = self.map_sky('{ "nativeloader_sky_here", "map" }', camera=camera)
+                self.assertEqual(self.settings(out['sky1'])['rtx.skyMode'], '0')
+                engine = self.engine(out['engine1'])
+                self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['saved']), ('0', '1', ''))
+                self.assertEqual(out['enginelog'], '')
+                self.assertEqual(out['api1'].split()[:4], ['own', 'map', 'choice', 'false'])
+                if limit:
+                    self.assertIn(limit, out['status_message'])
+                else:
+                    self.assertNotIn('3D skybox', out['status_message'])
+
+    def test_choosing_the_maps_own_sky_on_a_map_without_one_keeps_the_rtx_sky_and_says_so(self):
+        out = self.map_sky('{ "nativeloader_sky_here", "map" }', preset='FACES = false\n')
+        self.assertEqual(self.settings(out['sky1'])['rtx.skyMode'], '1')
+        self.assertEqual(out['api1'].split()[:3], ['rtx', 'rtx', 'missing'])
+        self.assertIn('It has no sky of its own to switch to.', out['status_message'])
+        # An unknown choice is refused and nothing is saved.
+        out = self.map_sky('{ "nativeloader_sky_here", "../x" }')
+        self.assertEqual(self.engine(out['engine1'])['here'], 'auto')
+        self.assertEqual(out['choices'], '')
+
+    def test_a_sky_or_weather_change_shows_the_rtx_sky_until_the_next_map(self):
+        # The user's answer of 2026-11-20 ("Yes, keep ADR 0248") for every sky that is not the RTX sky.
+        out = self.map_sky('{ "nativeloader_weather", "overcast" }, { "tick", 31 }',
+                           preset='SAVED_CHOICES = "gm_construct map\\n"\n')
+        self.assertEqual(self.settings(out['sky0'])['rtx.skyMode'], '0')
+        taken = self.settings(out['sky2'])
+        self.assertEqual((taken['rtx.skyMode'], taken['rtx.atmosphere.cloudDensity']), ('1', '7'))
+        engine = self.engine(out['engine1'])
+        self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['saved'], engine['here']), ('0', '1', '', 'map'))
+        self.assertEqual(out['api1'].split()[0], 'taken')
+        self.assertEqual(out['choices'], '')  # unchanged: nothing was written in this session
+        # Choosing the map's sky again shows it again.
+        out = self.map_sky('{ "nativeloader_weather", "overcast" }, { "nativeloader_sky_here", "rtx" }, '
+                           '{ "nativeloader_sky_here", "map" }', preset='SAVED_CHOICES = "gm_construct map\\n"\n')
+        self.assertEqual(self.settings(out['sky3'])['rtx.skyMode'], '0')
+        self.assertEqual(self.engine(out['engine3'])['r_3dsky'], '1')
+
+    def test_a_maps_rtx_version_brings_a_sky_file_that_comes_above_the_rtx_sky(self):
+        # The user's choice of 2026-11-20: a map's RTX version's own sky by default. Sky files are content: JSON in
+        # data_static/nativeloader/sky/<map>/<id>.json, checked, the higher priority first.
+        folder = 'data_static/nativeloader/sky/gm_construct/'
+        files = {
+            'hd.json': ('{"hd"}', '{ version = 1, sky = "skybox", skyname = "sky_day01_01", title = "Construct HD", priority = 5 }'),
+            'own.json': ('{"own"}', '{ version = 1, sky = "map", title = "Construct RTX", skybox3d = false }'),
+            'offered.json': ('{"offered"}', '{ version = 1, sky = "map", title = "Offered", default = false, priority = 9 }'),
+            'v2.json': ('{"v2"}', '{ version = 2, sky = "map" }'),
+            'climb.json': ('{"climb"}', '{ version = 1, sky = "skybox", skyname = "../../x" }'),
+            'rtx.json': ('{"rtx"}', '{ version = 1, sky = "map" }'),
+            'broken.json': ('not json', None),
+        }
+        sky_files = 'SKY_FILES = { ' + ', '.join(f'["{folder}{name}"] = {json.dumps(text)}' for name, (text, _) in files.items()) + ' }\n'
+        json_map = 'JSON = { ' + ', '.join(f'[{json.dumps(text)}] = {table}' for text, table in files.values() if table) + ' }\n'
+        out = self.map_sky('{ "nativeloader_sky_here", "rtx" }, { "nativeloader_sky_here", "own" }, '
+                           '{ "nativeloader_sky_here", "offered" }', preset=sky_files + json_map, SKYNAME='painted')
+        # Single-player: the highest priority file that is not only offered, its sky by name.
+        self.assertEqual(self.settings(out['sky0'])['rtx.skyMode'], '0')
+        self.assertEqual(self.engine(out['engine0'])['skyname'], 'sky_day01_01')
+        self.assertEqual(out['api0'].split()[:4], ['own', 'file', 'package', 'true'])
+        self.assertEqual(out['chat'], '[RTX] This map shows the sky of Construct HD. For the RTX sky: type nativeloader_sky_here '
+                                      'rtx in the console, or use RTX Remix > Sky and weather in the spawn menu.')
+        # The player's RTX sky; the map's own sky name back.
+        self.assertEqual(self.settings(out['sky1'])['rtx.skyMode'], '1')
+        self.assertEqual(self.engine(out['engine1'])['skyname'], 'painted')
+        self.assertIn('Its RTX version has a sky of its own, from Construct HD: type nativeloader_sky_here auto',
+                      out['line1'])
+        # Another file by its id: the map's own sky without the 3D pass; an offered file.
+        engine = self.engine(out['engine2'])
+        self.assertEqual((engine['skyname'], engine['r_3dsky']), ('painted', '0'))
+        self.assertEqual(out['api2'].split()[:4], ['own', 'file', 'choice', 'false'])
+        self.assertEqual(out['api3'].split()[:3], ['own', 'file', 'choice'])
+        # In priority order; the version 2 file, the climbing sky name, the reserved id and the broken JSON left out.
+        self.assertIn('sky files offered(map) hd(skybox sky_day01_01) own(map);', out['status_map'])
+        # In a game with more players a sky by name is left out (sv_skyname is every player's): the next file.
+        out = self.map_sky(preset=sky_files + json_map, SKYNAME='painted', SINGLE=False)
+        self.assertEqual(self.engine(out['engine0'])['skyname'], 'painted')
+        self.assertTrue(out['chat'].startswith('[RTX] This map shows the sky of Construct RTX.'), out['chat'])
+
+    def test_a_fixed_addon_sky_stays_and_the_players_choice_for_the_map_replaces_it(self):
+        # ADR 0248 kept (the user's answer): the add-on's fixed sky at the start, also under the player's own time;
+        # the chat line names it. Choosing the RTX sky for the map takes it over (takenOver true); going back to it
+        # in the session keeps the RTX sky until the next map's start, when the add-on sets its own again.
+        out = self.map_sky('{ "nativeloader_sky_here", "rtx" }, { "nativeloader_sky_here", "auto" }',
+                           preset='PRESET = { nativeloader_sky_follow_map = "0" }\nFIXED_SKY_ADDON = true\n',
+                           map_name='gm_stelliferous', skyname='sky_orbit_01_hdr', camera=64)
+        self.assertEqual(out['start'].split()[0], '0')
+        self.assertEqual(out['api0'].split()[0], 'addon')
+        self.assertEqual(out['api0'].split()[-1], 'false')
+        self.assertEqual(out['chat'], '[RTX] This map shows the sky of Station RTX. For the RTX sky: type nativeloader_sky_here '
+                                      'rtx in the console, or use RTX Remix > Sky and weather in the spawn menu.')
+        self.assertEqual(self.settings(out['sky1'])['rtx.skyMode'], '1')
+        self.assertEqual(out['api1'].split()[-1], 'true')
+        # The add-on names itself no more once its sky is replaced; the companion still knows it for this map.
+        self.assertEqual(out['line1'], 'This map shows the RTX sky, as you chose for it. Its RTX version has a sky of its own, '
+                                       'from Station RTX: type nativeloader_sky_here auto in the console, or use RTX Remix > '
+                                       'Sky and weather in the spawn menu.')
+        self.assertEqual(out['api2'].split()[0], 'taken')
+        self.assertEqual(out['api2'].split()[-1], 'true')
+        self.assertEqual(out['line2'], 'This map shows the RTX sky until the next map starts, when the sky of Station RTX returns.')
+        # At the next start the add-on's sky is back (auto was saved as no choice at all).
+        self.assertEqual(out['choices'], '')
+        # A start with the RTX sky chosen for the map: the add-on never names itself, its fixed sky is still offered.
+        out = self.map_sky(preset='FIXED_SKY_ADDON = true\nSAVED_CHOICES = "gm_stelliferous rtx\\n"\n',
+                           map_name='gm_stelliferous', skyname='sky_orbit_01_hdr', camera=64)
+        self.assertEqual(self.settings(out['start'])['rtx.skyMode'], '1')
+        self.assertEqual(out['chat'], '[RTX] This map shows the RTX sky, as you chose for it. Its RTX version has a sky of its '
+                                      'own: type nativeloader_sky_here auto in the console, or use RTX Remix > Sky and weather '
+                                      'in the spawn menu.')
+
+    def test_the_sky_and_weather_page_has_this_maps_choice_and_the_one_for_other_maps(self):
+        # ADR 0249: what this map shows, This map (automatic, the RTX sky, the map's own sky, each sky file), Other
+        # maps (nativeloader_sky), the chat line's checkbox; a map without a sky of its own says so and offers none.
+        folder = 'data_static/nativeloader/sky/gm_construct/'
+        preset = (f'SKY_FILES = {{ ["{folder}hd.json"] = "hd" }}\n'
+                  'JSON = { hd = { version = 1, sky = "map", title = "Construct HD" } }\n')
+        for faces in (True, False):
+            with self.subTest(faces=faces):
+                lines = [line.split(' ', 1)[1].split('|') for line in self.run_lines(
+                    preset + ('' if faces else 'FACES = false\n') + SESSION, MAP='gm_construct',
+                    BSP=self.sky_map('painted', 16), SCRIPT='panel') if line.startswith('panel ')]
+                sky = [parts[1:] for parts in lines if parts[0] == 'sky']
+                self.assertIn(['Help', 'This map shows the sky of Construct HD.'], sky)
+                here = sky.index(['ComboBox', 'This map', 'nativeloader_sky_here'])
+                choices = [parts[1:] for parts in sky[here + 1:] if parts[0] == 'choice']
+                expected = [['Automatic', 'auto'], ['RTX sky', 'rtx']] + ([["The map's own sky", 'map']] if faces else []) \
+                    + [['Sky of Construct HD', 'hd'], ['RTX sky', '1'], ['Their own sky', '0']]
+                self.assertEqual(choices[:len(expected)], expected)  # the two combo boxes; Season and the others follow
+                self.assertIn(['ComboBox', 'Other maps', 'nativeloader_sky'], sky)
+                self.assertIn(['CheckBox', 'Say which sky shows', 'nativeloader_sky_message'], sky)
+                self.assertEqual(['ControlHelp', 'This map has no sky of its own to switch to.'] in sky, not faces)
+
+    def test_the_map_sky_module_reads_maps_and_checks_sky_files(self):
+        # nativeloader/map_sky.lua under plain LuaJIT: names, titles, texinfo flags, an LZMA lump's stream, the files'
+        # checks, the order, and which sky the map shows for each choice.
+        script = r'''
+local M = dofile(LUA .. "/nativeloader/map_sky.lua")
+local function with(t) return function() return t end end
+print("ids " .. tostring(M.validId("hd_sky-2")) .. " " .. tostring(M.validId("auto")) .. " " .. tostring(M.validId("Hd"))
+  .. " " .. tostring(M.validId("../x")) .. " " .. tostring(M.validId(string.rep("a", 49))))
+print("skynames " .. tostring(M.validSkyname("zaton/c_expos_zaton_evening_")) .. " " .. tostring(M.validSkyname("../x"))
+  .. " " .. tostring(M.validSkyname("a//b")) .. " " .. tostring(M.validSkyname("/a")) .. " " .. tostring(M.validSkyname("a.b")))
+print("maps " .. tostring(M.validMap("gm_construct")) .. " " .. tostring(M.validMap("a..b")) .. " " .. tostring(M.validMap("a/b")))
+print("title [" .. M.title("  Station\tRTX \n") .. "] " .. #M.title(string.rep("\195\169", 40)) .. " " .. tostring(M.title("\1\2")))
+local function rec(flags) return string.rep("\0", 64) .. string.char(flags % 256, math.floor(flags / 256) % 256, 0, 0) .. "\0\0\0\0" end
+print("texinfos " .. M.skyTexinfos(rec(0) .. rec(4) .. rec(0x200) .. rec(2), bit.band) .. " " .. M.skyTexinfos("", bit.band))
+print("camera " .. M.skyCamera({ { classname = "sky_camera", scale = "32" } }).scale .. " "
+  .. M.skyCamera({ { classname = "sky_camera", scale = "x" } }).scale .. " " .. tostring(M.skyCamera({ { classname = "worldspawn" } })))
+local stream = M.lzmaStream("LZMA\16\0\0\0\4\0\0\0PROPSdata")
+print("lzma " .. #stream .. " " .. stream:sub(1, 5) .. " " .. stream:byte(6) .. " " .. stream:sub(14) .. " " .. tostring(M.lzmaStream("xx")))
+local bad = {
+  { "x", { version = 2, sky = "map" } }, { "x", { version = 1, sky = "space" } },
+  { "x", { version = 1, sky = "skybox" } }, { "x", { version = 1, sky = "map", default = "yes" } },
+  { "x", { version = 1, sky = "map", priority = 101 } }, { "x", { version = 1, sky = "map", priority = 1.5 } },
+  { "map", { version = 1, sky = "map" } },
+}
+for i, case in ipairs(bad) do print("bad" .. i .. " " .. tostring(select(2, M.declaration(case[1], "{}", with(case[2]))))) end
+print("bad8 " .. tostring(select(2, M.declaration("x", string.rep(" ", 16385), with({ version = 1, sky = "map" })))))
+print("bad9 " .. tostring(select(2, M.declaration("x", "{", function() error("no") end))))
+local a = M.declaration("a", "{}", with({ version = 1, sky = "map" }))
+local b = M.declaration("b", "{}", with({ version = 1, sky = "skybox", skyname = "sky_day01_01", priority = 3, skybox3d = false }))
+local c = M.declaration("c", "{}", with({ version = 1, sky = "map", default = false, priority = 9 }))
+local files = M.sorted({ a, b, c })
+print("order " .. files[1].id .. files[2].id .. files[3].id .. " " .. a.title .. " " .. tostring(b.skybox3d))
+local f = M.facts({ texinfos = 2, faces = true, camera = { scale = 16 } })
+local function r(s) s.facts = s.facts or f s.files = s.files or files local x = M.resolve(s)
+  return x.sky .. "/" .. x.reason .. "/" .. tostring(x.threeD) .. "/" .. tostring(x.skyname) .. "/" .. tostring(x.file and x.file.id) end
+print("resolve " .. r({ choice = "auto", single = true }) .. " " .. r({ choice = "auto", single = false }) .. " "
+  .. r({ choice = "c", single = true }) .. " " .. r({ choice = "zzz", single = true }) .. " "
+  .. r({ choice = "auto", files = {}, global = "0" }) .. " " .. r({ choice = "auto", files = {}, global = "1" }))
+'''
+        out = self.run_lua(script)
+        self.assertEqual(out['ids'], 'true false false false false')
+        self.assertEqual(out['skynames'], 'true false false false false')
+        self.assertEqual(out['maps'], 'true false false')
+        self.assertEqual(out['title'], '[Station RTX] 64 nil')
+        self.assertEqual(out['texinfos'], '2 0')
+        self.assertEqual(out['camera'], '32 16 nil')
+        self.assertEqual(out['lzma'], '17 PROPS 16 data nil')
+        for i in range(1, 10):
+            self.assertNotEqual(out[f'bad{i}'], 'nil', i)
+        self.assertEqual(out['order'], 'cba a false')
+        self.assertEqual(out['resolve'], 'file/package/false/sky_day01_01/b file/package/true/nil/a file/choice/true/nil/c '
+                                         'file/package/false/sky_day01_01/b map/global/true/nil/nil rtx/default/nil/nil/nil')
+
+    def test_engine_settings_an_earlier_map_changed_go_back_at_the_next_maps_start(self):
+        # A level change keeps convars and starts the client's Lua afresh: the record in nativeloader_sky_engine_saved
+        # puts back what the map's own 3D skybox changed, on a map that shows the RTX sky.
+        preset = ('ENGINE_START = { r_3dsky = "1", r_novis = "0", rtx_patch_forcenovis = "0", rtx_patch_vis_pas = "1" }\n'
+                  'PRESET = { nativeloader_sky_engine_saved = "r_3dsky=0;r_novis=1;rtx_patch_forcenovis=1;rtx_patch_vis_pas=0" }\n')
+        out = self.map_sky(preset=preset, camera=None)
+        engine = self.engine(out['engine0'])
+        self.assertEqual((engine['r_3dsky'], engine['r_novis'], engine['forcenovis'], engine['vis_pas'], engine['saved']),
+                         ('0', '1', '1', '0', ''))
+        # Leaving a map with its 3D skybox shown puts them back and keeps the record for the next start to check.
+        out = self.map_sky('{ "nativeloader_sky_here", "map" }, { "shutdown" }')
+        engine = self.engine(out['engine2'])
+        self.assertEqual((engine['forcenovis'], engine['vis_pas']), ('1', '0'))
+        self.assertEqual((engine['r_3dsky'], engine['r_novis']), ('0', '1'))
+        self.assertNotEqual(engine['saved'], '')
 
     def test_a_slider_writing_back_its_rounded_value_keeps_the_maps_sun(self):
         out = self.run_lua(SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='slider')

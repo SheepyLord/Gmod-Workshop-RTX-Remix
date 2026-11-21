@@ -7,6 +7,10 @@
 -- RemixConfig.SetConfigVariable. The settings are saved client settings (nativeloader_sky*,
 -- nativeloader_weather*), shown in the RTX Remix tab under "Sky and weather". Documented in
 -- nativeloader_sky.lua.md beside this file.
+-- Which sky a map shows (ADR 0249): the RTX sky by default; the map's own sky (its sky textures and its 3D skybox)
+-- where the player chooses it for that map; above the RTX sky, the sky a map's RTX version brings (a sky file in
+-- data_static/nativeloader/sky/<map>/, or its add-on's hooks). One chat line at the map's start says which and how
+-- to switch. nativeloader/map_sky.lua decides; this file does it.
 -- ADR 0206: nothing in a start where this machine's loader did not activate RTX (NativeLoaderRTXStart, set by
 -- !!!!nativeloader_engine_guard.lua, which runs first).
 if NativeLoaderRTXStart and not NativeLoaderRTXStart() then return end
@@ -14,11 +18,13 @@ if SERVER then
     AddCSLuaFile()
     AddCSLuaFile("nativeloader/sky_model.lua")
     AddCSLuaFile("nativeloader/weather_presets.lua")
+    AddCSLuaFile("nativeloader/map_sky.lua")
     return
 end
 
 local model = include("nativeloader/sky_model.lua")
 local presets = include("nativeloader/weather_presets.lua")
+local mapSky = include("nativeloader/map_sky.lua")
 local i18n = include("nativeloader/i18n.lua")
 local L, N = i18n.L, i18n.N
 
@@ -29,6 +35,7 @@ local DEFAULTS = {
     nativeloader_sky_moon_day = "1",
     nativeloader_sky_eclipse = "", nativeloader_sky_eclipse_amount = "100", nativeloader_sky_stars = "map",
     nativeloader_weather = "partlyCloudy", nativeloader_weather_seconds = "30", nativeloader_sky_interval = "0.02",
+    nativeloader_sky_message = "1",
 }
 
 -- The night sky editor (ADR 0227): each element of the night sky on its own, on the RTX Remix tab's Night sky
@@ -62,7 +69,9 @@ for _, entry in ipairs(NIGHT) do NIGHT_SETTINGS[entry[1]] = entry end
 NIGHT_SETTINGS[NIGHT_GLOW[1]] = NIGHT_GLOW
 for name, entry in pairs(NIGHT_SETTINGS) do DEFAULTS[name] = tostring(entry[2]) end
 local HELP = {
-    nativeloader_sky = "Sky in RTX sessions: 1 the physical sky (sun, clouds, stars, moon), 0 the map's own skybox",
+    nativeloader_sky = "Sky on maps without a choice of their own (nativeloader_sky_here): 1 the RTX sky (sun, clouds, stars, "
+        .. "moon), 0 the map's own sky and its 3D skybox. A map's RTX version's own sky comes first",
+    nativeloader_sky_message = "1: one chat line at a map's start says which sky shows and how to switch",
     nativeloader_sky_no_horizon = "1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and "
         .. "the moon (maps that float in the sky or in space)",
     nativeloader_sky_follow_map = "1: the time of day and the sun's direction come from the map's own sun",
@@ -107,6 +116,16 @@ local HELP = {
 }
 local cv = {}
 for name, value in pairs(DEFAULTS) do cv[name] = CreateClientConVar(name, value, true, false, HELP[name]) end
+-- ADR 0249: this map's sky, remembered for the map in data/nativeloader_companion/sky_maps.txt and set from it at each
+-- map's start; not saved itself (it is the current map's). The value the companion acts on is `choiceNow` (below):
+-- a console command runs on the next frame, and the map's start must not wait for it.
+cv.nativeloader_sky_here = CreateClientConVar("nativeloader_sky_here", mapSky.AUTO, false, false,
+    "This map's sky, remembered for the map: auto (its RTX version's sky where it has one, else nativeloader_sky's), "
+    .. "rtx (the RTX sky), map (the map's own sky and its 3D skybox), addon (its RTX add-on's) or a sky file's id")
+-- The engine settings the map's own 3D skybox changed (name=value;...), put back when it goes: a convar, so the next
+-- map, which starts the client's Lua afresh, still knows them. Not saved.
+local engineSaved = CreateClientConVar("nativeloader_sky_engine_saved", "", false, false,
+    "Internal: the engine settings the map's own 3D skybox changed, put back when it goes")
 -- nativeloader_defaults.lua registers this before the sky autorun. Migrate before any sky change
 -- callbacks exist, so the map's initial sun and R16's map-add-on ownership are preserved.
 hook.Run("NativeLoaderSkyDefaults")
@@ -223,26 +242,55 @@ end
 
 ---------------------------------------------------------------- the map's sun
 
--- The map's own sun from its BSP entity lump (lump 0), and its sky texture's name.
+-- A lump Source compressed ("LZMA" first), unpacked through util.Decompress (map_sky.lzmaStream), or nil.
+local function unpackLump(lump)
+    if string.sub(lump, 1, 4) ~= "LZMA" then return lump end
+    local stream = mapSky.lzmaStream(lump)
+    if not stream or not (util and util.Decompress) then return nil end
+    local ok, out = pcall(util.Decompress, stream)
+    return ok and isstring(out) and out ~= "" and out or nil
+end
+
+-- A lump of the open BSP by its index (the header's lump table: offset and length at 8 + 16 * index), or nil.
+local function readLump(f, index, limit)
+    f:Seek(8 + index * 16)
+    local offset, length = f:ReadLong(), f:ReadLong()
+    if not (offset and length and offset > 0 and length > 0 and length < limit) then return nil end
+    f:Seek(offset)
+    local data = f:Read(length)
+    return data and unpackLump(data) or nil
+end
+
+-- Whether a sky name's faces are there: materials/skybox/<name><side>.vmt, or the _hdr set Source also loads.
+local function skyFaces(name)
+    if not isstring(name) or name == "" or name:find("..", 1, true) or name:sub(1, 1) == "/" then return false end
+    for _, side in ipairs({ "up", "rt", "ft", "lf", "bk" }) do
+        if file.Exists("materials/skybox/" .. name .. side .. ".vmt", "GAME")
+            or file.Exists("materials/skybox/" .. name .. "_hdr" .. side .. ".vmt", "GAME") then return true end
+    end
+    return false
+end
+
+-- The map's own sun from its BSP entity lump (lump 0), and its sky texture's name. ADR 0249: also its 3D skybox
+-- (a sky_camera and its scale) and whether it has sky faces at all (the sky flags of its texinfos, lump 6); a
+-- compressed lump is unpacked.
 local mapInfo
 local function readMap()
     local info = {}
     local f = file.Open("maps/" .. game.GetMap() .. ".bsp", "rb", "GAME")
     if f then
-        f:Seek(8)
-        local offset, length = f:ReadLong(), f:ReadLong()
-        if offset and length and offset > 0 and length > 0 and length < 32 * 1024 * 1024 then
-            f:Seek(offset)
-            local text = f:Read(length) or ""
-            -- A compressed lump starts with "LZMA"; leave it to the fallbacks below.
-            if string.sub(text, 1, 4) ~= "LZMA" then
-                local entities = model.parseEntities(text, { light_environment = true, env_sun = true, worldspawn = true })
-                info.sun = model.sunOfEntities(entities)
-                for _, e in ipairs(entities) do
-                    if e.classname == "worldspawn" then info.skyname = e.skyname end
-                end
+        local text = readLump(f, 0, 32 * 1024 * 1024)
+        if text then
+            local entities = model.parseEntities(text, { light_environment = true, env_sun = true, worldspawn = true,
+                sky_camera = true })
+            info.sun = model.sunOfEntities(entities)
+            info.camera = mapSky.skyCamera(entities)
+            for _, e in ipairs(entities) do
+                if e.classname == "worldspawn" then info.skyname = e.skyname end
             end
         end
+        local texinfo = readLump(f, 6, 16 * 1024 * 1024)
+        if texinfo and bit and bit.band then info.texinfos = mapSky.skyTexinfos(texinfo, bit.band) end
         f:Close()
     end
     if not info.sun and util.GetSunInfo then
@@ -261,6 +309,8 @@ local function readMap()
         info.skyname = skyname and skyname:GetString() or ""
     end
     info.mood = model.skyTimeOfName(info.skyname)
+    info.faces = skyFaces(info.skyname)
+    info.facts = mapSky.facts(info)
     return info
 end
 
@@ -529,20 +579,163 @@ local function fixed()
     return hook.Run("NativeLoaderSkyFixed") == true
 end
 
--- Whether the player's sky replaces a map's add-on's sky now.
-local function overruled()
-    return takenOver or (ownFromStart and not fixed())
+---------------------------------------------------------------- which sky the map shows (ADR 0249)
+
+-- The RTX sky by default, on every map. The player may choose, for one map, the map's own sky: its sky textures
+-- and, where it has one, its 3D skybox (the user's request of 2026-11-20). Above the RTX sky comes the sky a map's
+-- RTX version brings (the user's choice of 2026-11-20): an add-on that sets it from Lua (the hooks above), or a sky
+-- file in data_static/nativeloader/sky/<map>/<id>.json, content any add-on may ship: "map" (the map's own sky,
+-- which its Remix mod may have replaced) or "skybox" (another sky by its name, set through sv_skyname in a
+-- single-player game). A sky or weather setting changed in the session shows the RTX sky until the next map's
+-- start, as for a fixed add-on sky (ADR 0248; the user kept it for every sky that is not the RTX sky).
+local CHOICES = "nativeloader_companion/sky_maps.txt"
+local facts = mapSky.facts() -- this map's (readMap)
+local files = {}             -- this map's sky files, as map_sky.sorted orders them
+local knownAddon             -- the add-on that set this map's sky, kept once it stops saying so
+local choiceNow = mapSky.AUTO
+local function singlePlayer() return game.SinglePlayer and game.SinglePlayer() or false end
+
+-- The per-map choices: one "<map> <choice>" a line; "auto" is not written.
+local function loadChoices()
+    local out, count = {}, 0
+    local text = file.Read(CHOICES, "DATA")
+    for line in string.gmatch(isstring(text) and text or "", "[^\r\n]+") do
+        local map, choice = line:match("^(%S+)%s+(%S+)%s*$")
+        if map and mapSky.validMap(map) and mapSky.validChoice(choice) and choice ~= mapSky.AUTO and count < 4096 then
+            out[string.lower(map)], count = choice, count + 1
+        end
+    end
+    return out
+end
+
+local function saveChoice(map, choice)
+    map = string.lower(map)
+    if not mapSky.validMap(map) then return end
+    local all = loadChoices()
+    all[map] = choice ~= mapSky.AUTO and choice or nil
+    local names = {}
+    for name in pairs(all) do names[#names + 1] = name end
+    table.sort(names)
+    local lines = {}
+    for _, name in ipairs(names) do lines[#lines + 1] = name .. " " .. all[name] end
+    file.CreateDir("nativeloader_companion")
+    file.Write(CHOICES, table.concat(lines, "\n") .. (#lines > 0 and "\n" or ""))
+end
+
+-- The map's sky files, checked (map_sky.declaration); a file left out is named once in the console.
+local function readFiles(map)
+    local out = {}
+    map = string.lower(map or "")
+    if not mapSky.validMap(map) or not file.Find then return out end
+    local folder = "data_static/nativeloader/sky/" .. map .. "/"
+    local names = file.Find(folder .. "*.json", "GAME") or {}
+    table.sort(names)
+    for i, name in ipairs(names) do
+        if i > mapSky.MAX_FILES then
+            MsgN("[nativeloader] sky: more than " .. mapSky.MAX_FILES .. " sky files for " .. map .. "; the rest are left out")
+            break
+        end
+        local id = string.lower((string.gsub(name, "%.[Jj][Ss][Oo][Nn]$", "")))
+        local size = file.Size and file.Size(folder .. name, "GAME") or 0
+        local d, why
+        if size > mapSky.MAX_BYTES then
+            why = "it is larger than 16 KiB"
+        else
+            d, why = mapSky.declaration(id, file.Read(folder .. name, "GAME"), util.JSONToTable)
+        end
+        if d and d.kind == "skybox" and not skyFaces(d.skyname) then
+            d, why = nil, "its skyname has no faces in materials/skybox"
+        end
+        if d then out[#out + 1] = d else MsgN("[nativeloader] sky: " .. folder .. name .. " left out: " .. why) end
+    end
+    return mapSky.sorted(out)
+end
+
+local chosenOther, overruled -- below
+
+-- The add-on that sets this map's sky from Lua, as map_sky.resolve takes it, or nil. An add-on that names itself only
+-- while its sky shows (gm_stelliferous RTX asks takenOver() in its answer) is still the map's RTX version's sky for the
+-- rest of this map's session once the player's sky replaced it.
+local function addonSky()
+    local name = owner()
+    if name then
+        knownAddon = { name = name, fixed = fixed() }
+        return knownAddon
+    end
+    if knownAddon and overruled() then return knownAddon end
+    return nil
+end
+
+-- Which sky this map shows before a setting changed in the session (map_sky.resolve), cached while what decides
+-- it stays the same (the tick asks fifty times a second).
+local resolved, resolvedKey
+local function resolution()
+    local addon = addonSky()
+    local key = choiceNow .. "|" .. cv.nativeloader_sky:GetString() .. "|" .. (addon and (addon.name .. "|" .. tostring(addon.fixed)) or "")
+    if key ~= resolvedKey then
+        resolved = mapSky.resolve({ choice = choiceNow, global = cv.nativeloader_sky:GetString(), facts = facts,
+            files = files, addon = addon, single = singlePlayer() })
+        resolvedKey = key
+    end
+    return resolved
+end
+
+-- Whether the player chose a sky for this map that is not its RTX add-on's.
+function chosenOther()
+    if choiceNow == mapSky.RTX or choiceNow == mapSky.MAP then return true end
+    for _, d in ipairs(files) do
+        if d.id == choiceNow and (d.kind ~= "skybox" or singlePlayer()) then return true end
+    end
+    return false
+end
+
+-- Whether the player's sky replaces a map's add-on's sky now: another sky chosen for the map; the player's own time
+-- from the map's start (ADR 0105), not over a fixed sky (ADR 0248); a sky or weather setting changed in the session
+-- (ADR 0031). It runs no owner hook: an add-on asks it from its own answer to that hook (gm_stelliferous RTX does).
+function overruled()
+    return chosenOther() or takenOver or (ownFromStart and not fixed())
 end
 
 local function inCharge()
-    return ready() and (overruled() or not owner())
+    return ready() and (resolution().sky ~= "addon" or overruled())
+end
+
+-- What the companion shows while in charge: "rtx" (the RTX sky) or "own" (the map's own sky or a sky file's). A sky
+-- or weather setting changed in the session shows the RTX sky until the next map's start.
+local function shownSky()
+    local r = resolution()
+    if takenOver or r.sky == "rtx" or r.sky == "addon" then return "rtx", r end
+    return "own", r
+end
+
+local function physicalWanted()
+    return (shownSky()) == "rtx"
+end
+
+-- What shows now, for the chat line, the panel and nativeloader_sky_status (map_sky.state's `e`).
+local function describe()
+    local r = resolution()
+    local e = {}
+    for k, v in pairs(r) do e[k] = v end
+    e.package = r.package or (knownAddon and knownAddon.name) or nil
+    -- A fixed sky's add-on that has not named itself in this session (the player's choice for the map replaced it
+    -- from the start): its sky is still there to go back to.
+    e.packageUnnamed = not e.package and fixed() or nil
+    if r.sky == "addon" and not overruled() then
+        e.shown, e.follows = "addon", not fixed()
+    elseif takenOver and r.sky ~= "rtx" then
+        e.shown = "taken"
+    else
+        e.shown = shownSky()
+    end
+    return e
 end
 
 ---------------------------------------------------------------- giving it to Remix
 
-local physical -- what the sky is now: true physical, false the map's skybox, nil not set yet
+local physical -- what the sky is now: true physical, false the map's own sky, nil not set yet
 local function pushSky()
-    local want = cv.nativeloader_sky:GetBool()
+    local want = physicalWanted()
     if want then
         set("rtx.skyMode", "1")
         -- The map's own sun reaches Remix as a fixed-function light; the atmosphere makes the sun.
@@ -551,7 +744,9 @@ local function pushSky()
         -- The night sky: the runtime's night sky image (stars, galaxy, nebulae) or its procedural field.
         set("rtx.atmosphere.starMapEnable", nightSkyImage() and "True" or "False")
         set("rtx.atmosphere.daytimeMoonBrightness", model.optionText(moonByDay()))
-    elseif physical ~= false then
+    else
+        -- The map's own sky: Remix draws its sky textures (and the 3D skybox, syncEngine below), and the map's own
+        -- sun lights it. Sent again after another add-on changed it (applyAll forgets what was sent).
         set("rtx.skyMode", "0")
         local configured = RemixConfig.GetConfigVariable and RemixConfig.GetConfigVariable("rtx.ignoreGameDirectionalLights")
         set("rtx.ignoreGameDirectionalLights", (isstring(configured) and configured ~= "") and configured or "False")
@@ -591,7 +786,7 @@ end
 -- changed nothing still sends that map nothing.
 local function pushNightSky(changing)
     if not ready() then return end
-    local all = inCharge() and cv.nativeloader_sky:GetBool()
+    local all = inCharge() and physicalWanted()
     for _, entry in ipairs(NIGHT) do
         local v = nightValue(entry[1])
         if all or changing == entry[1] or math.abs(v - entry[2]) > 1e-4 then
@@ -605,11 +800,16 @@ local function apply()
     pushNightSky(nil)
     if not inCharge() then return end
     pushSky()
-    if physical then pushCelestial() end
-    if weather.name then
-        local values = weatherNow(CurTime())
-        weather.values = values
-        pushWeather(values)
+    if physical then
+        pushCelestial()
+        if weather.name then
+            local values = weatherNow(CurTime())
+            weather.values = values
+            pushWeather(values)
+        end
+    elseif next(weatherSet) then
+        -- ADR 0249: the weather is the RTX sky's. Under the map's own sky what it set goes back to Remix's own values.
+        releaseWeather()
     end
 end
 
@@ -617,6 +817,131 @@ end
 local function applyAll()
     sent = {}
     apply()
+end
+
+---------------------------------------------------------------- the map's own 3D skybox and sky name (ADR 0249)
+
+-- The map's 3D skybox under RTX (r_3dsky 1, which the session turns off): the runtime moves what the sky camera
+-- draws out to the main camera, magnified by rtx.skyReprojectScale (17 in the package's layer: for maps at scale
+-- 16, a touch further out, so a copy of the playable area in the skybox stays behind the map). The session draws
+-- the whole map in every view (r_novis 1), so the sky pass drew it too, magnified 16 times around the camera; with
+-- visibility by the PAS (the RTX fixes' patch, as the gm_stelliferous and Backrooms remasters use it) the sky pass
+-- draws the skybox room alone and the main view what the original game draws around the camera, without the
+-- skybox room's miniature. Only while the map's own sky shows with its 3D skybox; what it changed is kept in
+-- nativeloader_sky_engine_saved and put back when it goes, on this map or at the next one's start.
+local ENGINE = { { "r_3dsky", "1" }, { "r_novis", "0" }, { "rtx_patch_forcenovis", "0" }, { "rtx_patch_vis_pas", "1" } }
+
+local function engineValue(name)
+    local c = GetConVar(name)
+    return c and c:GetString() or nil
+end
+
+local function setEngine(name, value)
+    local c = GetConVar(name)
+    if not c or c:GetString() == value then return end
+    -- The RTX fixes ask before r_3dsky 1 (cl_rtx_settings.lua); the player chose the map's sky here, so the
+    -- question is held back for this one change. Their change callback runs with the command, in this order.
+    local ask = name == "r_3dsky" and value ~= "0" and engineValue("rtx_show_3dsky_warning") or nil
+    if ask and ask ~= "0" then
+        RunConsoleCommand("rtx_show_3dsky_warning", "0")
+        RunConsoleCommand(name, value)
+        RunConsoleCommand("rtx_show_3dsky_warning", ask)
+        return
+    end
+    -- A convar made in Lua (the fixes' patch switches) changes at once; the engine's own on the next command run.
+    if not pcall(c.SetString, c, value) then RunConsoleCommand(name, value) end
+end
+
+local function syncPatches()
+    -- The fixes apply their patch switches every half second; at once is better for a frame or two.
+    if isfunction(RTX_SyncPatches) then timer.Simple(0.1, function() pcall(RTX_SyncPatches) end) end
+end
+
+local function want3D()
+    if not inCharge() then return false end
+    local shown, r = shownSky()
+    return shown == "own" and r.threeD == true
+end
+
+local function syncEngine()
+    local saved = engineSaved:GetString()
+    if want3D() then
+        if saved == "" then
+            local parts = {}
+            for _, e in ipairs(ENGINE) do
+                local v = engineValue(e[1])
+                if v and v:match("^[%w%.%-]*$") then parts[#parts + 1] = e[1] .. "=" .. v end
+            end
+            engineSaved:SetString(table.concat(parts, ";"))
+        end
+        for _, e in ipairs(ENGINE) do setEngine(e[1], e[2]) end
+        syncPatches()
+    elseif saved ~= "" then
+        for name, value in string.gmatch(saved, "([%w_]+)=([%w%.%-]*)") do
+            for _, e in ipairs(ENGINE) do
+                if e[1] == name then setEngine(name, value) end
+            end
+        end
+        engineSaved:SetString("")
+        syncPatches()
+    end
+end
+
+-- Another sky by its name (a sky file's "skybox"), through sv_skyname, which every player of a game shares: in a
+-- single-player game only. The map's own name comes back when it goes; the next map sets its own.
+local skynameSaved
+local function syncSkyname()
+    local want
+    if inCharge() and singlePlayer() then
+        local shown, r = shownSky()
+        if shown == "own" and r.skyname then want = r.skyname end
+    end
+    local current = engineValue("sv_skyname")
+    if not current then return end
+    if want then
+        if current ~= want then
+            skynameSaved = skynameSaved or current
+            RunConsoleCommand("sv_skyname", want)
+        end
+    elseif skynameSaved then
+        if current ~= skynameSaved then RunConsoleCommand("sv_skyname", skynameSaved) end
+        skynameSaved = nil
+    end
+end
+
+-- The sky as it should be now: Remix's options, the engine's 3D skybox, the sky name.
+local function refresh()
+    applyAll()
+    syncEngine()
+    syncSkyname()
+end
+
+---------------------------------------------------------------- what it says (ADR 0249)
+
+local function sentence(part, translate)
+    if not part then return nil end
+    local ok, text = pcall(string.format, translate and L(part[1]) or part[1], unpack(part, 2))
+    return ok and text or part[1]
+end
+
+local function message(translate)
+    local e = describe()
+    local out = { sentence(mapSky.state(e, facts), translate) }
+    out[#out + 1] = sentence(mapSky.advice(e, facts), translate)
+    out[#out + 1] = sentence(mapSky.limit(e, facts), translate)
+    return table.concat(out, " ")
+end
+
+-- One chat line at the map's start: which sky shows and how to switch (the user's request of 2026-11-20). The
+-- console gets it in English, for bug reports.
+local said = false
+local function say()
+    if said or not ready() then return end
+    said = true
+    MsgN("[nativeloader] sky: " .. message(false))
+    if cv.nativeloader_sky_message:GetBool() and chat and chat.AddText then
+        chat.AddText(Color(118, 185, 0), "[RTX] ", Color(235, 235, 235), message(true))
+    end
 end
 
 -- A map's add-on that sets its sky again after the player took it over showed that sky until the
@@ -665,7 +990,7 @@ timer.Create("nativeloader_sky", interval(), 0, function()
         clock = (clock + dt / (minutes * 60) * 24) % 24
     end
     if physical then pushCelestial() end
-    if weather.name then
+    if physical and weather.name then
         local values = weatherNow(CurTime())
         weather.values = values
         if (values.precipitationIntensity or 0) > 0 then
@@ -698,6 +1023,13 @@ local function changed(name, _, value)
     if name == "nativeloader_sky_no_horizon" then
         -- How the sky is seen, not whose it is (pushHorizon): it does not take a map's sky over either.
         pushHorizon(true)
+        return
+    end
+    if name == "nativeloader_sky_message" then return end
+    if name == "nativeloader_sky" then
+        -- ADR 0249: the sky of maps without a choice of their own, not a setting of the RTX sky's; a map's RTX version's
+        -- sky stays above it, and it takes no sky over.
+        if clock then refresh() end
         return
     end
     if NIGHT_SETTINGS[name] then
@@ -749,8 +1081,38 @@ local function changed(name, _, value)
         setWeather(false)
     end
     apply()
+    -- A map's own sky gives way to the RTX sky until the next map's start (ADR 0249, as ADR 0248 for an add-on's).
+    syncEngine()
+    syncSkyname()
 end
 for name in pairs(DEFAULTS) do cvars.AddChangeCallback(name, changed, "nativeloader_sky") end
+
+-- This map's choice (ADR 0249): saved for the map, and shown at once. A change clears a take-over by a setting, so
+-- the chosen sky shows again; but an add-on that sets its sky from Lua does so at the map's start, so going back to
+-- its sky in the session keeps the RTX sky until the next map starts.
+cvars.AddChangeCallback("nativeloader_sky_here", function(_, old, value)
+    if writing.nativeloader_sky_here == value then
+        writing.nativeloader_sky_here = nil
+        return
+    end
+    if not clock then return end
+    value = string.lower((string.gsub(value, "^%s*(.-)%s*$", "%1")))
+    if value == "" then value = mapSky.AUTO end
+    if not mapSky.validChoice(value) then
+        local ids = {}
+        for _, d in ipairs(files) do ids[#ids + 1] = d.id end
+        MsgN("[nativeloader] nativeloader_sky_here: auto, rtx, map, addon" .. (#ids > 0 and (" or " .. table.concat(ids, ", ")) or ""))
+        write("nativeloader_sky_here", choiceNow)
+        return
+    end
+    local before = describe().shown
+    choiceNow = value
+    saveChoice(game.GetMap(), value)
+    takenOver = false
+    if resolution().sky == "addon" and before ~= "addon" and not overruled() then takenOver = true end
+    refresh()
+    MsgN("[nativeloader] sky: " .. message(false))
+end, "nativeloader_sky")
 
 local function start()
     -- The player's own time (Follow the map's sun unticked) and weather apply on every map from its
@@ -761,15 +1123,38 @@ local function start()
     ownFromStart = not cv.nativeloader_sky_follow_map:GetBool()
     followMapAddon()
     mapInfo = readMap()
+    -- ADR 0249: the map's own sky, its sky files and the player's choice for it, before anything is sent.
+    facts = mapInfo.facts
+    files = readFiles(game.GetMap())
+    choiceNow = loadChoices()[string.lower(game.GetMap())] or mapSky.AUTO
+    write("nativeloader_sky_here", choiceNow)
+    resolvedKey = nil
     startClock()
     setWeather(true)
-    applyAll()
+    refresh()
 end
 
 hook.Add("InitPostEntity", "nativeloader_sky", function()
     start()
+    -- The RTX fixes' per-map settings set r_3dsky 0 a second after the map starts: the map's own 3D skybox again.
+    timer.Simple(1.5, function() syncEngine() syncSkyname() end)
     -- Once more after the RTX fixes' per-map Remix settings (3-4 s after the map starts).
-    timer.Simple(5, applyAll)
+    timer.Simple(5, refresh)
+    -- The chat line, once the map's add-ons have said whose the sky is (ADR 0249).
+    timer.Simple(6, say)
+end)
+
+-- Leaving the map (a level change starts the client's Lua afresh, and a quit): the engine settings the map's own
+-- 3D skybox changed go back, and the map's own sky name. The record stays until the next map's start has checked
+-- them (syncEngine): a command sent while the map unloads may not run.
+hook.Add("ShutDown", "nativeloader_sky", function()
+    for name, value in string.gmatch(engineSaved:GetString(), "([%w_]+)=([%w%.%-]*)") do
+        for _, e in ipairs(ENGINE) do
+            if e[1] == name then setEngine(name, value) end
+        end
+    end
+    if skynameSaved and engineValue("sv_skyname") ~= skynameSaved then RunConsoleCommand("sv_skyname", skynameSaved) end
+    skynameSaved = nil
 end)
 
 ---------------------------------------------------------------- commands
@@ -811,9 +1196,17 @@ end)
 concommand.Add("nativeloader_sky_status", function()
     local sky = now()
     local who = owner()
-    print(string.format("[nativeloader] sky: %s; Remix API %s%s", cv.nativeloader_sky:GetBool() and "physical" or "the map's skybox",
+    print(string.format("[nativeloader] sky: %s; Remix API %s%s", physicalWanted() and "physical" or "the map's own",
         ready() and "ready" or "not available", who and ("; set by " .. who .. (fixed() and ", fixed" or "")
             .. (overruled() and ", taken over" or "")) or ""))
+    -- ADR 0249: which sky this map shows, and why.
+    local e, ids = describe(), {}
+    for _, d in ipairs(files) do ids[#ids + 1] = d.id .. "(" .. d.kind .. (d.skyname and (" " .. d.skyname) or "") .. ")" end
+    print(string.format("[nativeloader] this map: %s", message(false)))
+    print(string.format("[nativeloader] map sky: choice %s; shows %s (%s, %s)%s; own sky %s; 3D skybox %s; sky files %s; engine %s",
+        choiceNow, e.shown, e.sky, e.reason, takenOver and ", taken over" or "", facts.own and "yes" or (facts.open and "no" or "no open sky"),
+        facts.own3D and (string.format("scale %s", tostring(facts.scale)) .. (want3D() and ", shown" or "")) or "none",
+        #ids > 0 and table.concat(ids, " ") or "none", engineSaved:GetString() ~= "" and engineSaved:GetString() or "as the session set it"))
     print(string.format("[nativeloader] time %s (%s)%s, %s; sun %.1f deg high at bearing %.1f; moon %.1f deg, %s",
         model.clock(clock or 0), cv.nativeloader_sky_follow_map:GetBool() and "the map's" or "chosen",
         cv.nativeloader_sky_time_passes:GetBool() and ", running" or "", cv.nativeloader_sky_season:GetString(),
@@ -846,8 +1239,20 @@ NATIVELOADER_SKY = {
     sky = function() return now() end,
     owner = owner,
     -- Whether the player's sky replaces a map's add-on's sky now (ADR 0248): an add-on that answers
-    -- NativeLoaderSkyFixed sets its sky only while this is false.
+    -- NativeLoaderSkyFixed sets its sky only while this is false. ADR 0249: also true once the player chose another
+    -- sky for the map (nativeloader_sky_here).
     takenOver = function() return overruled() end,
+    -- Which sky this map shows (ADR 0249): shown ("rtx", "own", "addon" or "taken"), sky, reason, threeD, the title of
+    -- the map's RTX version's sky (package), the player's choice, the map's own sky and its sky files.
+    mapSky = function()
+        local e = describe()
+        local ids = {}
+        for _, d in ipairs(files) do ids[#ids + 1] = d.id end
+        return { shown = e.shown, sky = e.sky, reason = e.reason, threeD = want3D(), package = e.package,
+            choice = choiceNow, own = facts.own, own3D = facts.own3D, scale = facts.scale, files = ids }
+    end,
+    -- The chat line's words for the sky now, in English (the console's) or translated.
+    line = function(translate) return message(translate == true) end,
     ready = ready,
     model = model,
     presets = presets,
@@ -886,10 +1291,33 @@ local function buildPanel(panel)
     elseif who then
         panel:Help(string.format(L("On this map %s also sets the sky. It keeps its sky while Follow the map's sun is ticked and nothing here is changed; otherwise your settings here replace it."), who))
     end
-    local sky = panel:ComboBox(L("Sky"), "nativeloader_sky")
-    sky:AddChoice(L("Physical sky"), "1")
-    sky:AddChoice(L("The map's skybox"), "0")
-    panel:ControlHelp(L("The physical sky has a sun, clouds, stars and a moon, and lights the map from them."))
+    -- ADR 0249: which sky this map shows, the choice for this map and the one for other maps.
+    local function stateText()
+        local e = describe()
+        local text = sentence(mapSky.state(e, facts), true)
+        local limit = sentence(mapSky.limit(e, facts), true)
+        return limit and (text .. " " .. limit) or text
+    end
+    local stateLabel = panel:Help(stateText())
+    local stateThink = stateLabel.Think
+    stateLabel.Think = function(self)
+        local text = stateText()
+        if self:GetText() ~= text then self:SetText(text) end
+        if stateThink then stateThink(self) end
+    end
+    local here = panel:ComboBox(L("This map"), "nativeloader_sky_here")
+    for _, c in ipairs(mapSky.choices({ facts = facts, files = files, addon = knownAddon, single = singlePlayer() })) do
+        here:AddChoice(string.format(L(c[2]), c[3] or ""), c[1])
+    end
+    panel:ControlHelp(L("Remembered for this map. Automatic shows the sky of the map's RTX version where it has one, else the choice under Other maps."))
+    if not facts.own then panel:ControlHelp(L("This map has no sky of its own to switch to.")) end
+    local sky = panel:ComboBox(L("Other maps"), "nativeloader_sky")
+    sky:AddChoice(L("RTX sky"), "1")
+    sky:AddChoice(L("Their own sky"), "0")
+    panel:ControlHelp(L("The RTX sky has a sun, clouds, stars and a moon, and lights the map from them. A map's own sky shows its sky textures and, where it has one, its 3D skybox."))
+    panel:CheckBox(L("Say which sky shows"), "nativeloader_sky_message")
+    panel:ControlHelp(L("A chat line at each map's start says which sky shows and how to switch."))
+    panel:Help(L("Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."))
     panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
     panel:ControlHelp(L("For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."))
     panel:CheckBox(L("Follow the map's sun"), "nativeloader_sky_follow_map")

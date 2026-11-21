@@ -3862,3 +3862,37 @@ separator now has 57 texts in each catalog.
   the level change and at `disconnect`, nothing dropped in the plain session.
 - Not covered: the field crash itself, which the PoC never reproduced (the series of 2026-11-15), and stale calls that
   the render thread or the material system's own flushes run.
+
+## Which sky a map shows (ADR 0249)
+
+- **LuaJIT** ([`test_companion_sky.py`](../tools/tests/test_companion_sky.py.md)): `nativeloader/map_sky.lua` alone
+  (ids, sky names, map names, titles cut at whole UTF-8 characters, texinfo sky flags, an LZMA lump's stream, every
+  refusal of a sky file, the priority order, `resolve` for each choice, single-player and not) and the companion with
+  GMod mocked, the BSP built with a `sky_camera` and texinfos, sky faces, sky files, engine convars and the chat:
+  the RTX sky by default and the chat line for a map with a 3D skybox, a 2D sky only, missing sky textures and no sky
+  faces, and with the line turned off; the map's own sky chosen (`rtx.skyMode 0`, the map's sun back, `r_3dsky 1`
+  between `rtx_show_3dsky_warning 0` and its old value, the PAS switches, the record of the old values, the choice in
+  `sky_maps.txt`), the RTX sky and `auto` again (everything put back, the choice forgotten), the saved choice from the
+  next map's first frame; a 2D-only map and a 3D skybox at scale 64 (no engine change; the limit said); the map's own
+  sky on a map without one; a weather change on the map's own sky (the RTX sky until the next map, the engine put
+  back, the choice kept) and the choice made again; sky files (a skybox by name in a single-player game, another file
+  by its id, an offered file, the bad ones left out, a multiplayer game skipping the skybox); a fixed add-on sky
+  (ADR 0248 kept, `rtx` replacing it, `auto` waiting for the next map); the engine values an earlier map changed put
+  back at the next start, and at `ShutDown`; the panel's This map and Other maps lists and checkbox.
+- **Translations**: `python tools\companion_i18n.py check` (every new text in the six catalogs); the UI harness looks
+  up "Sky and weather" (the old "Sky" label is gone).
+- **PoC** (holding `out\r10\poc.lock`; the PoC's package of 2026-11-18 with the branch's `nativeloader_sky.lua` and
+  `map_sky.lua` over the deployed ones through a temporary `garrysmod/addons/zz_nlsky_dev`, whose path names
+  `nativeloader` as the guard's exemption expects; a temporary `zz_nlsky_skyfile_test` with a sky file for
+  gm_flatgrass; both removed afterwards): probes P1-P3 (the runtime's handling of the 3D skybox, the PAS, `sv_skyname`)
+  and sessions P4 with `--lua out\map-sky\probes\p4_<session>.lua --lua-shots`: gm_construct (the default and its
+  chat line, the map's own sky with its 3D skybox city, the saved choice at the next start, `auto`; `overcast` on the
+  map's own sky showing the RTX sky until the next map, then `rtx` and `map` showing it again), gm_flatgrass (the
+  sky file's skybox above the RTX sky, `rtx`, the map's own sky with its grass and hills), gm_moon_surface (Workshop
+  2984537655 mounted with `--mount-workshop`: a 2D sky only), gm_stelliferous with its remaster's add-on (Workshop
+  3450250071: the add-on's fixed sky and the chat line naming it, `rtx`, `auto` and its line that the add-on's sky
+  returns at the next map's start). The chat line is shot from the chat box's history (`chat.Open(1)`). The guide's
+  Sky and weather picture: `tools/qa/guide_shots.lua` with `NL_GUIDE_SET = "tab"` and `NL_GUIDE_TOOL_WIDTH = 800`
+  (the panel fits at 1920x1080), drawn by `tools/guide_annotate.py --shots out --only sky_weather`.
+- Not covered: the six languages in the game (the catalogs and the harness are), a multiplayer game's skipped sky
+  file in the game, a map whose entity lump is compressed (`util.Decompress` on Source's LZMA lump).

@@ -419,6 +419,11 @@ python -I "$K\check_pack.py" $B --addon "$B\build\addon\gm_cathedral_of_mercury_
   adding a second sun, the vanilla bake's tint off the replaced materials, hash categories, the base
   map's raster stand-ins off. Nothing per frame but the shell's one draw. `<prefix>_status` prints it
   all and the mod's coverage (`mercury_rtx_status`, `theater_rtx_status`).
+- **A map pack's own sky without Lua** (the native loader's ADR 0249, `docs/MAP_SKY.md`): a pack whose
+  sky is a picture (the map's own skybox, its faces replaced in the mod, or another skybox it ships)
+  adds `data_static/nativeloader/sky/<map>/<id>.json` (`{"version": 1, "sky": "map", "title": ...}` or
+  `"sky": "skybox", "skyname": ...`). The companion shows it above the RTX sky by default, its chat line
+  at the map's start names the pack, and the player can choose the RTX sky for that map.
 - **Close the map's gaps with a `shell`.** An Astra map is a mesh in a BSP that is only a skybox box
   128 units around it, and the mesh is closed only where the Blender cameras looked. In a gap (noclip
   under the stage) Remix shows the skybox as a lit sky: a flat lavender sheet in the theater, its

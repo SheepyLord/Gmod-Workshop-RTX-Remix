@@ -1,6 +1,7 @@
 # 0031: The companion drives the runtime's physical sky: time of day from the map's sun, and the weather presets
 
-- Status: Accepted 2026-10-29
+- Status: Accepted 2026-10-29; superseded in part by [0249](0249-which-sky-a-map-shows.md) (rule 1's "the map's
+  skybox": one choice per map, with its 3D skybox, and the default for other maps)
 - Decided by: the user ("Upgrade the skybox to better simulate the sky: When we were working on the
   modern house pbr, one testing run was done in a night sky. Here, in RTX settings, add environmental
   control to change the direction of the sun and time of the day, also cloud (weather) the effect

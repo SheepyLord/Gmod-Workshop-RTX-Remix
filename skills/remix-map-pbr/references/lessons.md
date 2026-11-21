@@ -629,6 +629,12 @@ request "avoid wasting usage", 2026-11-20)
   changed in the session hands the sky to the companion until the next map start, and the add-on drops its API
   sun within half a second.
 - `rtx.atmosphere.altitude` is refused by `RemixConfig` since the review of 2026-11-16.
+- Since the native loader's ADR 0249 (2026-11-20) the player sees which sky shows: a chat line at the map's start
+  ("This map shows the sky of gm_stelliferous RTX. For the RTX sky: ...") and RTX Remix > Sky and weather's This map
+  list, remembered per map; `takenOver()` is also true once the player chose another sky for the map. A remaster
+  whose sky is a picture with no API sun can ship a sky file instead of Lua (`data_static/nativeloader/sky/<map>/`).
+  The map's 3D skybox shows under the companion's "map's own sky" only at scale 16 (gm_stelliferous's is 64, and
+  empty).
 
 ## Mirrors, sprites and map clean-up
 

@@ -116,6 +116,35 @@ The harness is written to a scratch folder under `out\tmp`.
   start sends nothing; a change sends its option alone and 11 s later still no `rtx.skyMode`; a saved change
   (`PRESET`) goes out at the start, alone.
 
+- **Which sky a map shows** (ADR 0249; `SCRIPT='mapsky'`, the BSP built by `sky_map` with a `sky_camera` and texinfos,
+  `FACES`, `SKY_FILES` with `JSON`, `SAVED_CHOICES`, `ENGINE_START`, `SINGLE`; the engine's convars and the RTX fixes'
+  patch switches mocked, each change logged with the fixes' warning switch as `r_3dsky`'s callback sees it):
+  - `test_every_map_shows_the_rtx_sky_by_default_and_the_chat_line_says_how_to_switch`: the RTX sky and no engine
+    change at the start; the chat line for a 3D skybox, a 2D sky only, missing sky textures, no sky faces; off with
+    `nativeloader_sky_message 0`, the console's line still there;
+  - `test_this_maps_own_sky_shows_its_3d_skybox_through_the_pas_and_is_remembered`: `nativeloader_sky_here map`
+    (`rtx.skyMode 0`, the map's sun back, `r_3dsky 1` between `rtx_show_3dsky_warning 0` and `1`, the PAS switches, the
+    old values recorded, the choice saved), `rtx` (all put back), `auto` (the choice forgotten); the saved choice from
+    the next start's first frame and its chat line; another map's choice kept in the file;
+  - `test_a_map_with_a_2d_sky_only_or_a_skybox_at_another_scale_shows_its_own_sky_without_the_3d_pass`: no engine
+    change, the limit said at scale 64;
+  - `test_choosing_the_maps_own_sky_on_a_map_without_one_keeps_the_rtx_sky_and_says_so`, and an unknown choice refused;
+  - `test_a_sky_or_weather_change_shows_the_rtx_sky_until_the_next_map`: the user's answer (ADR 0248 kept): taken, the
+    engine put back, the choice kept; choosing the map's sky again shows it;
+  - `test_a_maps_rtx_version_brings_a_sky_file_that_comes_above_the_rtx_sky`: a `skybox` file by priority in a
+    single-player game (`sv_skyname`), the chat line naming it, `rtx` putting the map's sky name back, another file by
+    its id, an offered file, the bad files left out (version, sky name, reserved id, JSON), a multiplayer game skipping
+    the `skybox` file;
+  - `test_a_fixed_addon_sky_stays_and_the_players_choice_for_the_map_replaces_it`: the station add-on (named only while
+    its sky shows, as gm_stelliferous RTX) keeps its sky under the player's own time, `rtx` replaces it, `auto` keeps the
+    RTX sky until the next map with a line saying its sky returns; a start with `rtx` saved offers its unnamed sky;
+  - `test_engine_settings_an_earlier_map_changed_go_back_at_the_next_maps_start`, and `ShutDown` putting them back
+    while keeping the record;
+  - `test_the_sky_and_weather_page_has_this_maps_choice_and_the_one_for_other_maps`: the state line, This map's list
+    (with and without the map's own sky), Other maps, Say which sky shows;
+  - `test_the_map_sky_module_reads_maps_and_checks_sky_files`: `map_sky.lua` alone (names, titles, texinfo flags, the
+    LZMA stream, every refusal, the order, `resolve`).
+
 Run with the other tool tests: `python -m unittest discover -s tests` from `tools\` (as
 `tools\test.ps1` does). Skipped when LuaJIT is not installed (on `PATH` or in
 `%LOCALAPPDATA%\Programs\LuaJIT\bin`). Exit 0 when the tests pass or are skipped.

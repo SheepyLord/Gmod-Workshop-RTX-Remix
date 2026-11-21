@@ -9779,3 +9779,53 @@ crashes of 2026-11-15 still in the field's `native-loader\logs\sessions`, read w
   between, while the second map loaded, came with the main thread outside both queued contexts. The last call queued
   before each check was the material system's own `CMemberFunctor0<CMatRenderContextBase, void
   (IMatRenderContext::*)()>`.
+
+## A map's own sky under RTX (2026-11-20, Claude; [ADR 0249](decisions/0249-which-sky-a-map-shows.md))
+
+PoC probes P1-P3 and sessions P4 (RTX 5090, 1600x900, the package of 2026-11-18 with the branch's companion over it;
+evidence `out/map-sky/` in the `map-sky` worktree).
+
+- **What the session does to a map's sky.** The fixes' `autoexec.cfg` (the loader's session variables) sets
+  `r_3dsky 0` and `r_novis 1`, and their per-map config `data/remix_map_configs/default.txt` (`src:r_3dsky = 0`) sets
+  `r_3dsky 0` again 1 s after `InitPostEntity` (`cl_remix_map_configs.lua` `OnMapStart`, `timer.Simple(1, ...)`). The
+  companion's guard (`_nativeloader_guard.lua` `allowPin`) keeps every session variable against Lua writes ("kept
+  session value 0"), except from a path naming `remixbinary`, `remixlua` or `nativeloader` (critical pins excepted;
+  `r_3dsky` and `r_novis` are not critical) and `r_novis` from a remaster's `lua/autorun/<name>_rtx.lua`. The fixes'
+  `cl_rtx_settings.lua` opens a window when `r_3dsky` becomes `1` unless `rtx_show_3dsky_warning 0`; its change
+  callback runs with the console command, so `rtx_show_3dsky_warning 0; r_3dsky 1; rtx_show_3dsky_warning 1`, sent
+  in that order, holds it back (P2: the callback saw `warn=0`).
+- **The runtime and the sky camera** (`rtx_sky.h`, `RtxContext::tryHandleSky`): with `rtx.skyMode 1` every draw whose
+  camera is Sky is dropped (`SkipSubmit`), the 3D skybox pass included. With `rtx.skyMode 0` and
+  `rtx.skyReprojectToMainCameraSpace True` (the package's layer) a sky draw of at most 6 indices or vertices (a skybox
+  face) is rasterised into the sky probe, and every other sky draw waits for the main camera and is submitted as main
+  geometry with `objectToWorld = mainViewToWorld * (mainProjToView * skyViewToProj) * scale * skyWorldToView *
+  objectToWorld`, `scale` = `rtx.skyReprojectScale` (17 in the package's layer, 16 the runtime's default). Since the
+  sky camera's view is the main view divided by the `sky_camera` scale, 16 puts a scale-16 skybox at true size; 17
+  puts everything 1/16 further from the camera, so a copy of the playable area in the skybox ends up just behind the
+  real map's surfaces. `rtx.skyReprojectScale` and `rtx.skyReprojectToMainCameraSpace` are not on RemixConfig's
+  allowlist (`remix_option_policy.h`): `SetConfigVariable` returns false.
+- **`r_3dsky 1` under the whole-map drawing** (P2): gm_flatgrass's 3D skybox shows its grass to the horizon and its
+  hills, gm_construct's a city of blocks, trees, chimneys and hills behind its walls, path traced and lit by the
+  map's sky, the camera unaffected. But the sky pass marks every leaf as the main view does (`r_novis 1`), so it drew
+  the playable map too, seen from the sky camera and magnified 16 times: on gm_flatgrass, whose `sky_camera` is at
+  z -15040 below the map (z -12288), a dark shape straight overhead; on gm_construct, sky camera at z 10991 above the
+  map, the copy lies far below the ground.
+- **Visibility by the PAS** (P3: `r_novis 0`, `rtx_patch_forcenovis 0`, `rtx_patch_vis_pas 1`, `RTX_SyncPatches`, the
+  same switches the gm_stelliferous and Backrooms remasters scope to their maps): the sky pass draws the skybox room
+  alone (the shape gone, the hills and the city kept), and the main view loses the skybox room's miniature, which the
+  whole-map drawing shows overhead on gm_construct under the RTX sky and the map's own sky alike (a dark speck at the
+  zenith, P1).
+- **`sv_skyname` from the client** in a single-player game (P1): the 2D sky changed to `sky_day01_01` at once under
+  `rtx.skyMode 0`; the guard does not pin it. `ConVar:SetString` on an engine convar errors ("attempted to modify
+  ConVar not created by Lua").
+- **The PoC's maps and the user's Workshop maps** (BSP lumps 0 and 6 read in place in each `.gma`): gm_construct and
+  gm_flatgrass both have a `sky_camera` at scale 16 and the `painted` sky (the fixes ship its baked faces). Of 75 maps
+  in the Workshop folder 24 have a `sky_camera`, 21 of them at scale 16, gm_construct_renovation at 32, gm_alley_triste
+  and gm_stelliferous at 64; 2D only, for example gm_liminal_hotel (`sky_day02_02`), gm_moon_surface (`lunarsky_01`,
+  its faces in the BSP's pak), gm_dark_forest; no sky faces at all (no texinfo with `SURF_SKY` or `SURF_SKY2D`),
+  for example gm_poolrooms (`blacksky`), gm_backrooms, gm_favonius_cathedral; one map's entity lump compressed
+  (lestnicha3, `LZMA`).
+- **The confusion on gm_stelliferous RTX.** No GitHub issue (`gh issue list --state all --search stelliferous` and
+  `sky`: none) and no Workshop comment on 3829070317 names the map; the record is ADR 0248 and the `remix-map-pbr`
+  lessons (the station under the companion's pale daytime sky with "Follow the map's sun" unticked). Two Workshop
+  comments (2026-11-12, 2026-11-20) asked where to stop the day cycle, which the chat line now answers.

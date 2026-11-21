@@ -6,6 +6,34 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Every map's own sky, its 3D skybox too, one choice away; a map's RTX version brings its own sky (2026-11-20)
+
+- **The RTX sky stays the default, and each map's own sky is one choice away.** RTX Remix > Sky and weather has a
+  new choice at the top, **This map**: Automatic, RTX sky, The map's own sky, or the sky a map's RTX version brings.
+  It is remembered for that map only. "The map's own sky" now brings the map's **3D skybox** back too, path traced
+  at full size: gm_construct's city and hills behind its walls, gm_flatgrass's grass to the horizon. Maps with only a
+  sky picture show that picture. The old Sky choice is now **Other maps**: the sky of every map you have not chosen
+  for.
+- **A chat line at each map's start says which sky shows and how to switch**, in your language. For example: "This
+  map shows the RTX sky. It also has a sky of its own, with a 3D skybox: type nativeloader_sky_here map in the
+  console, or use RTX Remix > Sky and weather in the spawn menu." It also says when a map has no sky of its own. "Say
+  which sky shows" turns it off.
+- **A map's RTX version can bring its own sky, which comes before the RTX sky** (the user's choice). gm_stelliferous RTX's
+  space and its chat line say so ("This map shows the sky of gm_stelliferous RTX"), and "RTX sky" under This map
+  replaces it whenever you like. Changing the time or the weather on such a map still shows the RTX sky until the
+  next map, as before.
+- **For modders, no code needed:** a sky file, `data_static/nativeloader/sky/<map>/<id>.json` in any add-on or
+  content pack. It gives the map its own skybox (which your Remix mod may replace) or another skybox by name, with a
+  title, a priority, and whether it shows by default or is only offered
+  ([docs/MAP_SKY.md](docs/MAP_SKY.md), [ADR 0249](docs/decisions/0249-which-sky-a-map-shows.md)). Add-ons that set
+  the sky from Lua keep their hooks; `NATIVELOADER_SKY.mapSky()` says what shows.
+- **Behind it:** the map's 3D skybox shows through the engine's sky pass (`r_3dsky 1`, which RTX sessions turn off),
+  with the map drawn by the PAS while it shows. With the session's whole-map drawing, the pass also drew the map
+  itself, magnified 16 times around the player. What the companion changes is recorded and put back when the map's
+  own sky goes, or at the next map. Only 3D skyboxes at scale 16 can show (gm_stelliferous's is at 64, and the panel
+  says so). The weather now belongs to the RTX sky: it adds no fog or rain to a map's own sky. Package only; tested
+  under LuaJIT and in the PoC on gm_construct, gm_flatgrass, gm_moon_surface and gm_stelliferous.
+
 ### A space map keeps its own sky under your own sky setting (2026-11-20)
 
 - **Space stays space.** A map's RTX add-on whose sky belongs to the place, such as the black space and the planet

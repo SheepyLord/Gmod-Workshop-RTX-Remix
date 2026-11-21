@@ -1,5 +1,13 @@
 # nativeloader_sky.lua
 
+ADR 0249: **which sky a map shows** (the user's request of 2026-11-20). The RTX sky by default on every map; the
+map's own sky (its sky textures and, at scale 16, its 3D skybox) chosen and remembered per map (`nativeloader_sky_here`,
+"This map"); `nativeloader_sky` the default for other maps ("Other maps"); above the RTX sky the sky a map's RTX version
+brings: its add-on's (the hooks below) or a sky file in `data_static/nativeloader/sky/<map>/<id>.json`
+([docs/MAP_SKY.md](../../../../docs/MAP_SKY.md)); one chat line at the map's start says which sky shows and how to
+switch. [`map_sky.lua`](../nativeloader/map_sky.lua.md) decides; this file reads the map, the files and the choices and
+does it (see "Which sky a map shows").
+
 ADR 0227: **the Night sky editor**, a page of its own beside "Sky and weather" in the RTX Remix tab, sets how each
 element of the night sky looks: the night sky image's four layers (stars, the constellations' bright stars, the Milky
 Way, the nebulae), each a brightness and a colour; the simulated stars; the moon's brightness, size, glow and
@@ -59,7 +67,9 @@ Saved client settings, shown in the RTX Remix tab under "Sky and weather":
 
 | Setting | Default | What |
 |---|---|---|
-| `nativeloader_sky` | `1` | 1: the physical sky; 0: the map's own skybox |
+| `nativeloader_sky` | `1` | The sky of maps without a choice of their own ("Other maps"): 1 the RTX sky (the physical sky); 0 their own sky, with its 3D skybox (ADR 0249). A map's RTX version's sky comes first. Changing it takes no map's sky over |
+| `nativeloader_sky_here` | `auto` | This map's sky ("This map"), not saved itself but remembered per map in `data/nativeloader_companion/sky_maps.txt` (one `<map> <choice>` a line; `auto` is not written) and set from it at each map's start: `auto`, `rtx`, `map`, `addon` or a sky file's id (ADR 0249) |
+| `nativeloader_sky_message` | `1` | One chat line at a map's start says which sky shows and how to switch ("Say which sky shows"); the console gets it in English either way |
 | `nativeloader_sky_no_horizon` | `0` | 1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and the moon (R26). Changing it does not take a map's sky over |
 | `nativeloader_sky_follow_map` | `1` | The time and the sun's direction come from the map's own sun |
 | `nativeloader_sky_hour` | `14.5` | Time of day, 0-24. Following the map, it shows the map's time |
@@ -137,8 +147,44 @@ With the physical sky on (`nativeloader_sky 1`):
   `False` for the procedural one.
 - `rtx.atmosphere.daytimeMoonBrightness`: the Moon by day (`nativeloader_sky_moon_day`, held to 0-4).
 
-With the map's skybox (`nativeloader_sky 0`): `rtx.skyMode 0`, and
-`rtx.ignoreGameDirectionalLights` back to its `rtx.conf` value (`False` if none).
+With the map's own sky (ADR 0249: chosen for the map, a sky file's, or `nativeloader_sky 0` on a map without a choice):
+`rtx.skyMode 0`, sent again with everything else (an add-on may have changed it), and
+`rtx.ignoreGameDirectionalLights` back to its `rtx.conf` value (`False` if none), so the map's own sun lights it. The
+weather is the RTX sky's: what it had set goes back to Remix's own values (see "Weather left to Remix"), and no clock,
+sun or weather is sent.
+
+### The map's own 3D skybox (ADR 0249)
+
+Where the map's own sky shows and the map has a 3D skybox (a `sky_camera`) at scale 16, and the sky file, if any, does
+not say `"skybox3d": false`:
+
+| Convar | Set to | Why |
+|---|---|---|
+| `r_3dsky` | `1` | The engine's sky camera pass, which the session turns off. The runtime moves what it draws out to the main camera at `rtx.skyReprojectScale` (17 in the package's layer, for scale 16, a touch further out so a copy of the playable area stays behind the map) and path traces it |
+| `r_novis`, `rtx_patch_forcenovis`, `rtx_patch_vis_pas` | `0`, `0`, `1` | Visibility by the PAS (the RTX fixes' patch). With the session's whole-map drawing the sky pass drew the whole map too, magnified 16 times around the camera; by the PAS it draws the skybox room alone, and the main view what the original game draws around the camera, without the skybox room's miniature |
+
+- `r_3dsky 1` goes out between `rtx_show_3dsky_warning 0` and its old value, all three as console commands in that
+  order, so the RTX fixes' question before `r_3dsky 1` (`cl_rtx_settings.lua`, a change callback that runs with the
+  command) is held back for this change. The engine's convars go out as console commands; the fixes' patch switches,
+  convars made in Lua, change at once (`SetString`), and `RTX_SyncPatches` applies them 0.1 s later.
+- Before the first change their values are recorded in `nativeloader_sky_engine_saved` (`name=value;...`, not saved).
+  When the 3D skybox goes (another sky, a setting changed, the next map's start) they are put back and the record
+  cleared. At `ShutDown` (a level change, a quit) they are put back too but the record stays, since a command sent
+  while the map unloads may not run: the next map's start checks them again.
+- The companion's file path names `nativeloader`, so the RTX guard lets it change these session pins; other Lua still
+  cannot.
+- They are set at the map's start, again 1.5 s later (the RTX fixes' per-map settings set `r_3dsky 0` a second after
+  the start) and with everything at 5 s; not on a timer after that, so a remaster that keeps `r_3dsky 0` for its map
+  (gm_stelliferous RTX) is not fought.
+- At another scale (gm_stelliferous 64, gm_construct_renovation 32) the map's 2D sky shows alone: `rtx.skyReprojectScale`
+  cannot be set from Lua (RemixConfig's allowlist), and at 17 its 3D skybox would land at the wrong distance. The panel
+  and `nativeloader_sky_status` say so.
+
+### A sky by its name (ADR 0249)
+
+A sky file of `"sky": "skybox"` shows another skybox: `sv_skyname` set to its `skyname` (the game changes the 2D sky at
+once), the map's own name put back when it goes (and at `ShutDown`; the next map sets its own anyway). `sv_skyname` is
+every player's, so only in a single-player game; elsewhere such a file is skipped.
 
 ### The horizon
 
@@ -295,6 +341,52 @@ the ground stays about as light, lit by the image itself
 then sends none of its four `rtx.volumetrics` values. It forgets what it last sent of them, so they
 go out again once the preset is cleared.
 
+## Which sky a map shows (ADR 0249)
+
+At the map's start (`InitPostEntity`), before anything is sent, the companion reads:
+
+- **the map**: its sky name (worldspawn `skyname`, else `sv_skyname`) and whether its faces are there
+  (`materials/skybox/<name><side>.vmt` or `<name>_hdr<side>.vmt`); its `sky_camera` and scale (the entity lump); whether
+  it has sky faces at all (the texinfos' `SURF_SKY`/`SURF_SKY2D` flags, lump 6). A lump the map compressed (`LZMA`) is
+  unpacked through `util.Decompress` (`map_sky.lzmaStream`); one that cannot be read counts as unknown.
+- **the sky files** of add-ons for this map, `data_static/nativeloader/sky/<map>/*.json` in the `GAME` path, at most
+  8, each at most 16 KiB, checked by `map_sky.declaration`; a file left out is named in the console with the reason.
+- **the player's choice** for the map, from `data/nativeloader_companion/sky_maps.txt`, into `nativeloader_sky_here`
+  (marked as the companion's own write) and `choiceNow`, which is what the code reads: a console command runs on the
+  next frame, and the map's start does not wait.
+
+`map_sky.resolve` then gives the sky: the player's choice (`rtx`, `map` when the map has a sky of its own, else the RTX
+sky; `addon`; a sky file's id), else (`auto`) the map's RTX version's (its add-on's, else the first sky file that is not
+only offered; a `skybox` file only in a single-player game), else `nativeloader_sky`. The result is cached while the
+choice, `nativeloader_sky` and the add-on's answer stay the same.
+
+| Shows | When | The companion |
+|---|---|---|
+| The RTX sky | the default; `rtx`; `map` on a map without a sky of its own | in charge, as before |
+| The map's own sky, a sky file's | `map`, a file's id, `auto` with a file, `nativeloader_sky 0` | in charge: `rtx.skyMode 0`, the 3D skybox, the sky name |
+| An add-on's | `auto` or `addon` with an add-on that answers `NativeLoaderSkyOwner` | stands aside, by the rules below |
+| The RTX sky until the next map | a sky or weather setting changed on a map that showed another sky | in charge (ADR 0248's take-over, kept by the user for every sky) |
+
+- **A new choice** (`nativeloader_sky_here`, the panel's This map) is saved for the map (`auto` removes it), clears a
+  take-over and shows at once, except a return to an add-on's sky that was not showing: the add-on sets its sky at the
+  map's start, so the RTX sky stays until then. An unknown value is refused, the console names the choices, and the
+  convar goes back.
+- **`nativeloader_sky` changes** re-resolve (a map's own sky may come or go) and take nothing over.
+- **The chat line**, 6 s after `InitPostEntity` (after the add-ons have said whose the sky is), once per map load, only
+  with the Remix API there: `[RTX] ` and `map_sky.state`, `advice` and `limit` translated (`L`), joined by spaces;
+  the console gets the English line (`[nativeloader] sky: ...`) also with `nativeloader_sky_message 0`.
+- **`NATIVELOADER_SKY.takenOver()`** is also true once the player chose another sky for the map. It runs no owner hook
+  (gm_stelliferous RTX asks it from its own answer to `NativeLoaderSkyOwner`); `fixed()` it may run.
+- **`NATIVELOADER_SKY.mapSky()`**: `shown` (`rtx`, `own`, `addon`, `taken`), `sky`, `reason`, `threeD`, `package` (the
+  title of the map's RTX version's sky), `choice`, `own`, `own3D`, `scale`, `files` (ids).
+  **`NATIVELOADER_SKY.line(translate)`**: the chat line's words now.
+- **The panel** (Sky and weather, from the top): a line saying what the map shows (kept current while the panel is
+  open, with the 3D skybox's limit where there is one); This map (`nativeloader_sky_here`: Automatic, RTX sky, The
+  map's own sky where it has one, Sky of the add-on and of each sky file), its help line, and "This map has no sky of
+  its own to switch to." where it has none; Other maps (`nativeloader_sky`: RTX sky, Their own sky); Say which sky
+  shows (`nativeloader_sky_message`); then a note that time of day, weather and the night sky are the RTX sky's, and
+  the settings as before. The Sky choice ("Physical sky", "The map's skybox") is gone: Other maps holds its convar.
+
 ## A map whose add-on sets the sky
 
 Some maps' RTX add-ons set the sky themselves. Modern House RTX does it on `modern_house`, and puts
@@ -337,14 +429,18 @@ it back 3, 23, 43 and 63 s after the map starts.
   season's day.
 - `nativeloader_sky_status`: prints the sky, the time, the sun and moon (or the eclipse and its
   progress), the night sky and the horizon, the Night sky editor's values (two lines), the map's own sun and sky name,
-  and the weather.
+  and the weather. ADR 0249 adds two lines: `this map:` the chat line's words, and `map sky:` the choice, what shows
+  and why, whether the map has a sky of its own and a 3D skybox (its scale, shown or not), the sky files read
+  (`id(kind skyname)`) and the engine's recorded values.
+- `nativeloader_sky_here <auto|rtx|map|addon|id>`: this map's sky (ADR 0249), remembered for the map.
 - `nativeloader_sky_reset`: all of these settings back to their defaults, the Night sky editor's too.
 - `nativeloader_sky_night_reset`: only the Night sky editor's settings back to their defaults (its Reset button).
 
 ## Timing
 
 - **When.** At `InitPostEntity`, then everything again 5 s later, after the RTX fixes' per-map Remix
-  settings.
+  settings. ADR 0249: the map's own 3D skybox and sky name again 1.5 s after the start (the fixes' per-map settings
+  set `r_3dsky 0` at 1 s), the chat line at 6 s, the engine's values put back at `ShutDown`.
 - **Ticks.** A timer every `nativeloader_sky_interval` seconds (0.02 by default; `timer.Adjust` when the
   setting changes) runs the clock, the weather blend, the variation and the cover check.
 - **A poster** ([ADR 0226](../../../../docs/decisions/0226-the-poster-command-rendered-in-tiles-by-the-runtime.md),

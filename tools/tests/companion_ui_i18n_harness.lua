@@ -19,7 +19,7 @@ surface = {SetFont = function() end, GetTextSize = function(text) return #text *
 local i18n = dofile(modulePath)
 for _, code in ipairs({"zh-CN", "zh-TW", "ja", "ko", "fr", "ru"}) do
     values.nativeloader_language = code
-    assert(i18n.L("Sky") ~= "Sky", code .. " companion lookup")
+    assert(i18n.L("Sky and weather") ~= "Sky and weather", code .. " companion lookup")
     assert(i18n.A("Settings") ~= "Settings", code .. " add-on lookup")
     assert(i18n.A("player-model.mdl") == "player-model.mdl", "user data fallback")
 end

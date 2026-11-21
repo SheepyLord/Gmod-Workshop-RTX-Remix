@@ -213,7 +213,11 @@ other two maps' equivalents are in `references/pipeline.md`.
 12. **Sky, mirrors, water, caustics, fixes.** Physical sky (`rtx.skyMode 1`, its own sun; set
     `rtx.atmosphere.sunRotation` to 90 minus the azimuth) scoped to the map, with `gen_sky.py` as a painted
     fallback skybox; answer the native loader's `NativeLoaderSkyOwner` hook so its companion leaves your sky
-    alone (ADR 0031), and for a sky that belongs to the place (space) also `NativeLoaderSkyFixed` (ADR 0248). Mirrors: gmRTX deletes `func_reflective_glass`, so `gen_mirrors.py` writes the quads
+    alone (ADR 0031), and for a sky that belongs to the place (space) also `NativeLoaderSkyFixed` (ADR 0248). A sky that
+    is a picture (the map's own skybox, its faces replaced in the mod, or another skybox) needs no Lua: ship a sky file,
+    `data_static/nativeloader/sky/<map>/<id>.json` (`"sky": "map"` or `"skybox"`; the native loader's ADR 0249,
+    `docs/MAP_SKY.md`), and the companion shows it above the RTX sky, its 3D skybox too at scale 16, and names it in
+    its chat line at the map's start. Mirrors: gmRTX deletes `func_reflective_glass`, so `gen_mirrors.py` writes the quads
     and a tag texture and the addon draws them in `PreDrawTranslucentRenderables`. Water: RTX Water's
     `RTXWater_MapProfile` hook (calm), or the translucent-flag fix. Hide glow sprites and fake beam cones on
     the server at `InitPostEntity` and `PostCleanupMap`. Caustics and curved-tile unfolding are the
@@ -413,7 +417,7 @@ calling them standards for a new map):
 | Backlit grass or leaves lavender or white | A grey thin-opaque scattering albedo: give it the foliage's green |
 | Every view slower by the same share | Another program on the GPU (`nvidia-smi`), a game or streaming: measure stock and remaster back to back and report ratios; it never blocks the test |
 | The game ends seconds after a screenshot (vphysics.dll access violation, or "CUtlStack::EnsureCapacity ran out of memory!") | The map underflows the material system's stacks ("PopMatrix: Underflow!" in the console) and the `jpeg` command's push then fails: capture the window (gm_stelliferous's `game.screenshot`); with that map's add-on running there was no underflow (lessons, ST) |
-| A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, and answer `NativeLoaderSkyFixed` from its load so the companion keeps out also under the player's own sky (ADR 0248; lessons, ST) |
+| A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, and answer `NativeLoaderSkyFixed` from its load so the companion keeps out also under the player's own sky (ADR 0248; lessons, ST); without an API sun, a sky file (`"sky": "map"`, ADR 0249) does it with no Lua. The player's chat line at the map's start names the sky and how to switch; `nativeloader_sky_status` says why |
 | Station windows an opaque blue sheet | Refract-shader glass has no colour texture: a clear glass material on the windows' live hash (`extra_hashes`) |
 
 ## Done criteria for a map

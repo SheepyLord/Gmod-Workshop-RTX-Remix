@@ -133,3 +133,15 @@ version can declare its sky the same way (a sky file, no code), so the same conf
 - Left to the merge: AGENTS.md's status line and its list of reports.
 - The PoC: the temporary add-ons `zz_nlsky_dev` and `zz_nlsky_skyfile_test` removed, `data/nativeloader_companion/sky_maps.txt`
   removed; the loader's package and config untouched.
+
+## Published
+
+- Reviewed by the main thread (the code, the PoC evidence in `out/map-sky/` of the worktree, the docs), then a
+  fresh `tools\test.ps1 -Config Release` on the branch: "All checks passed." (conventions; C++ 35 of 35; Python 29,
+  26 and 2170 tests).
+- Added at the merge: AGENTS.md's status line and its list of reports; ROADMAP's line now says `main`; in the
+  changelog entry "(your choice)" became "(the user's choice)", since the entry is the Workshop change note players
+  read.
+- Committed on `map-sky` as `51914bdc` and merged into `main` by fast-forward from `28b7aa7f`. The merge's hook
+  uploaded item 3829070317 as `0.0.0-dev.20261121012404+c409f3e0` (content digest `0841011e...`), with one change note:
+  this entry. A player's game deploys it at its next start (Steam may first only download it).

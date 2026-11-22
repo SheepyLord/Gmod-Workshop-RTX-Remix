@@ -76,6 +76,10 @@ evidence folder of 2026-11-22 01:50 UTC. The game had run 1 h 37 min, in the pac
     back or skipped: the PoC did not reproduce the field's writer, as the series of 2026-11-15 did not reproduce the
     earlier crash.
   - Afterwards the PoC was restored and verified clean (`restoration.json`), its `user.conf` unchanged.
+- **The gate** (`tools\test.ps1 -Config Release` in `out\worktrees\rck`, `NL_FIXES_CLONE` set): CTest 35 of 35 passed;
+  of the 2,184 Python tests one failed, `test_vr_review_docs`' rule that a branch only adds rows to the shared
+  decision index (this branch had also noted "extended by 0254" in ADR 0247's row). The row went back as it was (the
+  note stays in ADR 0247's own status line) and `tools\test.ps1 -SkipNative` then passed.
 - **The build that went out.** After the series two small changes were made: a nested `AllowThreading(false)` during
   a watched run now gets the engine's function alone (never seen; it would have reset the run's records), and the
   test's console line counts only its own run's victim. The unit tests passed again with them. The PoC could not run

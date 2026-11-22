@@ -151,3 +151,4 @@ version can declare its sky the same way (a sky file, no code), so the same conf
 On 2026-11-21 the user, seeing the line in their game, asked for it hidden by default. `nativeloader_sky_message` now
 defaults to 0 and a saved 1 goes off once ([ADR 0253](../decisions/0253-the-skys-chat-line-is-off-by-default.md)); the
 chat line's words, the console's line and the panel are as this report describes.
+Published with ADR 0250-0252 as `0.0.0-dev.20261122004027+d17b0fb8`.

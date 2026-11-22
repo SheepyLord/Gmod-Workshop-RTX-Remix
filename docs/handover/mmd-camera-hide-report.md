@@ -134,3 +134,12 @@ had neither.
    the end of RESEARCH and TESTING, the decisions index after 0249, the handover index after map-sky's line); the
    AGENTS.md status line and "latest is" chain are left to you. Both parts' `files.json` were re-indexed by
    `inputs.py import` (text only, no LFS object), their new origins naming `<repo>`.
+
+## Published
+
+- Reviewed by the main thread (the code, the tests, the PoC evidence in `out/mcam/` of the worktree, the docs),
+  then a fresh `tools\test.ps1 -Config Release` on the committed branch (`4afbfd96`): "All checks passed."
+  (conventions; C++ 35 of 35; Python 29, 26 and 2178 tests).
+- Added at the merge: AGENTS.md's status line and its list of reports; ROADMAP's line now says `main`.
+- Merged into `main` by fast-forward from `14b0accd` on the user's "Merge and publish all": the camera option (`4afbfd96`) with its follow-ups `dbb1c5f5` (ADR 0251), `2fe3f30e` (ADR 0252) and `938b7adc` (ADR 0253).
+- The merge's hook uploaded item 3829070317 as `0.0.0-dev.20261122004027+d17b0fb8` (content digest `136716c4...`), with one change note carrying the three new changelog entries (the sky's chat line, the weapon copy and the scene capture, the camera option). A player's game deploys it at its next start (Steam may first only download it).

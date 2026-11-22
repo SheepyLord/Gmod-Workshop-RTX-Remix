@@ -107,3 +107,12 @@ Screenshots that show it, all 1600x900:
    camera.
 5. The PoC tool reports the server's entities without a model scale: on gm_construct also `worldspawn` and the brush
    entities, which the capture never asked (it skips the world and brush models first).
+
+## Published
+
+- `tools\test.ps1 -Config Release` on `938b7adc` (all three changes): "All checks passed." (conventions; C++ 35 of
+  35; Python 29, 26 and 2184 tests). The run before it, on `2fe3f30e`, failed one C++ check, `nl_client_catalog_tests`
+  at `test_leftovers.cpp(284)`: the user's field game started during the run and the leftover check counted it as
+  another game; no C++ had changed since the passing run on `dbb1c5f5`, and the next run passed.
+- Merged into `main` by fast-forward from `14b0accd` on the user's "Merge and publish all": the camera option (`4afbfd96`) with its follow-ups `dbb1c5f5` (ADR 0251), `2fe3f30e` (ADR 0252) and `938b7adc` (ADR 0253).
+- The merge's hook uploaded item 3829070317 as `0.0.0-dev.20261122004027+d17b0fb8` (content digest `136716c4...`), with one change note carrying the three new changelog entries (the sky's chat line, the weapon copy and the scene capture, the camera option). A player's game deploys it at its next start (Steam may first only download it).

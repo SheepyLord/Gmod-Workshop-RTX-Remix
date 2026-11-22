@@ -160,7 +160,12 @@ local function loadState()
  return s
 end
 W.state=W.state or loadState()
-local function saveState() file.CreateDir('mmd_hotloader/workshop') file.Write(StatePath,util.TableToJSON(W.state)) end
+local SaveTimer='MMDHL.WorkshopSave'
+local function saveState() timer.Remove(SaveTimer) file.CreateDir('mmd_hotloader/workshop') file.Write(StatePath,util.TableToJSON(W.state)) end
+-- A record that may wait a moment (a model installed, files hashed again): one write for a burst of them. A record
+-- lost to a crash costs only a check: an install without it is resumed, files without their times are hashed again.
+local function saveStateSoon() if not timer.Exists(SaveTimer) then timer.Create(SaveTimer,1,1,saveState) end end
+hook.Add('ShutDown','MMDHL.WorkshopSave',function() if timer.Exists(SaveTimer) then saveState() end end)
 local function itemFor(package,kind,id) for _,item in ipairs(package and package.items or {}) do if item.kind==kind and item.asset==id then return item end end end
 -- Installed means every file the package lists. A model file arrives before its
 -- textures, so an install that stopped part way (a failed texture, a closed
@@ -204,17 +209,35 @@ function W.Deleted(kind)
 end
 W.revision=W.revision or 0
 local function changed() W.revision=W.revision+1 hook.Run('MMDHL.WorkshopChanged') end
--- Installation: one model at a time, one file at a time, bounded work per frame.
-local queue,queued,current={}, {},nil
+-- Installation, several models at once (ADR 0255). The main thread streams one file at a time from its package into
+-- the native transfer, a bounded slice of each frame; the natives inflate, verify and write the files off the main
+-- thread, a few at once; a model whose files are all in place has its asset check (off the main thread too), which
+-- builds its Source materials and collision fit, the slow part. Models are taken ahead of their checks, so the next
+-- ones' files arrive while earlier ones are checked, and checks run side by side on computers with the threads for
+-- it. A file two models list (a shared texture) moves once: the other model waits for it and then finds it in place.
+local queue,queued,active={}, {},{}
+local streaming    -- the file read from its package now: {job,f,stream,handle,offset}
+local commits={}   -- files the natives are writing: {job,f,handle}
+local moving={}    -- path -> true while a file is streamed or written
+local written={}   -- path -> {size,time}: written and verified this session, so a later model needs no hash of it
+local checking=0   -- asset checks running
+local MaxCommits=3
+local MaxChecks=(function()
+ local ok,caps=pcall(function() return native.GetWorkerCapabilities and mmdhl.Decode(native.GetWorkerCapabilities()) end)
+ caps=ok and caps or nil
+ local threads=istable(caps) and tonumber(caps.logicalThreads) or 4
+ return math.Clamp(math.floor(threads/6),1,4)
+end)()
+local MaxActive=MaxChecks+2
 W.installed=0
 local function progress(done)
  if SERVER then return end
- local total=W.installed+#queue+(current and 1 or 0)
+ local total=W.installed+#queue+#active
  if done or total==0 then notification.Kill('MMDHL.Workshop') return end
- local name=current and current.item.name~='' and current.item.name or ''
+ local first=active[1] local name=first and first.item.name~='' and first.item.name or ''
  notification.AddProgress('MMDHL.Workshop',L('workshop.installing',{done=W.installed,total=total,name=name}),total>0 and W.installed/total or nil)
 end
-function W.Busy() return current~=nil or #queue>0 end
+function W.Busy() return #active>0 or #queue>0 end
 -- changed: the index of a file known to differ; the ones before it were just verified.
 local function enqueue(package,item,changed)
  local key=W.Key(item.kind,item.asset)
@@ -229,7 +252,7 @@ local function stamps(item)
  local out={} for _,path in ipairs(item.files) do out[path]=file.Time('mmd_hotloader/'..path,'DATA') end return out
 end
 local function remember(key,item)
- local rec=W.state.assets[key] or {} rec.times=stamps(item) W.state.assets[key]=rec saveState()
+ local rec=W.state.assets[key] or {} rec.times=stamps(item) W.state.assets[key]=rec saveStateSoon()
 end
 -- Once per session, installed files whose modification time changed since then
 -- are hashed again, a few milliseconds of work per frame while nothing installs.
@@ -246,7 +269,7 @@ local function verify(package,item)
  checks[#checks+1]={key=key,package=package,item=item,files=files,at=1}
 end
 hook.Add('Think','MMDHL.WorkshopVerify',function()
- if not checks[1] or current or #queue>0 then return end
+ if not checks[1] or W.Busy() then return end
  local deadline=SysTime()+VerifyBudget
  while checks[1] and SysTime()<deadline do
   local check=checks[1] local index=check.files[check.at] local path=index and check.item.files[index]
@@ -290,14 +313,40 @@ local function restoreOwn(kind,asset)
  end
 end
 W.RestoreOwn=restoreOwn
-local refreshPending
+-- The libraries. A full rebuild reads every model's settings and rebuilds an open library window: in a library of
+-- two hundred models, a hitch of a tenth of a second for each model a package installed. Installed models are added
+-- on their own instead (library.Add), at most every RefreshEvery seconds while models install (the first at once),
+-- the rest when the last one is in. A full rebuild (packages changed, a model loaded) runs .25 s after it is asked
+-- for, once for a burst, and lists whatever was installed meanwhile.
+local RefreshTimer,RefreshEvery='MMDHL.WorkshopRefresh',4
+local refreshedAt,pendingFull=-math.huge,false
+local added,addedProps={},false
+local function refreshNow()
+ timer.Remove(RefreshTimer) pendingFull=false refreshedAt=SysTime() added={} addedProps=false
+ if mmdhl.library then mmdhl.library.Refresh() end
+ if mmdhl.props and mmdhl.props.library then mmdhl.props.library.Refresh() end
+end
+local function flushLibraries()
+ if pendingFull then return end
+ timer.Remove(RefreshTimer) refreshedAt=SysTime()
+ local ids,props=added,addedProps added,addedProps={},false
+ if #ids>0 and mmdhl.library then if mmdhl.library.Add then mmdhl.library.Add(ids) else mmdhl.library.Refresh() end end
+ if props and mmdhl.props and mmdhl.props.library then mmdhl.props.library.Refresh() end
+end
 local function refreshLibraries()
- if SERVER or refreshPending then return end refreshPending=true
- timer.Simple(.25,function()
-  refreshPending=nil
-  if mmdhl.library then mmdhl.library.Refresh() end
-  if mmdhl.props and mmdhl.props.library then mmdhl.props.library.Refresh() end
- end)
+ if SERVER or pendingFull then return end
+ pendingFull=true timer.Create(RefreshTimer,.25,1,refreshNow)
+end
+local function listInstalled(item)
+ if SERVER then return end
+ if item.kind=='static' then addedProps=true
+ else
+  added[#added+1]=item.asset
+  -- Its manifest decoded now, in this model's frame, not with the others' at the next update.
+  if mmdhl.library and mmdhl.library.Prime then mmdhl.library.Prime(item.asset) end
+ end
+ if timer.Exists(RefreshTimer) then return end
+ timer.Create(RefreshTimer,W.Busy() and math.max(.25,refreshedAt+RefreshEvery-SysTime()) or .25,1,flushLibraries)
 end
 local installedHandlers={}
 function W.OnInstalled(handler) installedHandlers[#installedHandlers+1]=handler end
@@ -320,8 +369,8 @@ local function installed(job)
   if mmdhl.terms and item.terms then mmdhl.terms.SaveFromPackage(item.kind,item.asset,item.terms,package.title) end
   local rec=W.state.assets[job.key] or {}
   rec.installed=true rec.installing=nil rec.adopted=user or rec.adopted or nil rec.hidden=nil rec.name=item.name rec.package=package.id rec.times=stamps(item)
-  W.state.assets[job.key]=rec saveState()
-  refreshLibraries()
+  W.state.assets[job.key]=rec saveStateSoon()
+  listInstalled(item)
   -- A model deleted earlier this session can still be queued for disk cleanup,
   -- which hides it. Loading it (and building its Source materials) dequeues it.
   local pending=item.kind=='character' and util.JSONToTable(file.Read('mmd_hotloader/cleanup.json','DATA') or '')
@@ -347,80 +396,147 @@ local function fail(job,err)
  ErrorNoHalt('[Model Hotloader workshop] '..(job.item.name~='' and job.item.name or job.item.asset)..': '..err..'\n')
  if CLIENT then notification.AddLegacy(L('workshop.install_failed',{name=job.item.name~='' and job.item.name or job.item.asset:sub(1,12),error=err}),NOTIFY_ERROR,8) end
 end
-local function close(job) if job.stream then job.stream:Close() job.stream=nil end if job.handle then native.CancelSharedFile(job.handle) job.handle=nil end end
--- Advances the current file; returns true when the job finished (either way).
-local function step(job,deadline)
- while SysTime()<deadline do
-  local f=job.files[job.index]
-  if not f then
-   -- Every file matches its hash. Together they must also make up the model the package
-   -- names (natives after 2.3.0 load it as using it would) before it counts as installed.
-   if not native.StartAssetCheck then return true,nil end
-   if job.phase~='validate' then
-    local handle,err=native.StartAssetCheck(job.item.kind,job.item.asset) if not handle then return true,err end
-    job.check,job.phase=handle,'validate'
-   end
-   local valid,err,code=native.PollAssetCheck(job.check)
-   if valid==false then return false end
-   job.check=nil
-   if valid==true then W.checked[job.key]=true return true,nil end
-   job.invalid=code=='invalid' return true,L('workshop.error.invalid_model',{reason=mmdhl.Localize(tostring(err or '?'))})
-  end
-  if job.phase=='check' then
-   local matches,err=native.SharedFileMatches(f.path,f.size,f.sha256)
-   if err then return true,err end
-   if matches then job.index=job.index+1 else job.phase='open' end
-  elseif job.phase=='open' then
-   local source=FileDir..f.sha256..'.dat'
-   local stream=job.origin.pathId and job.origin.pathId~='GAME' and file.Open(source,'rb',job.origin.pathId) or nil
-   stream=stream or file.Open(source,'rb','GAME')
-   if not stream then return true,L'workshop.error.file_missing' end
-   if stream:Size()~=f.packed then stream:Close() return true,L'workshop.error.file_size' end
-   local handle,err=native.BeginSharedFile(f.path,f.size,f.sha256,f.packed)
-   if not handle then stream:Close() return true,err end
-   job.stream,job.handle,job.offset,job.phase=stream,handle,0,'stream'
-  elseif job.phase=='stream' then
-   local bytes=job.stream:Read(math.min(Chunk,f.packed-job.offset))
-   if not bytes or #bytes==0 then return true,L'workshop.error.file_size' end
-   local ok,err=native.AppendSharedChunk(job.handle,job.offset,bytes)
-   if not ok then return true,err end
-   job.offset=job.offset+#bytes
-   if job.offset>=f.packed then
-    job.stream:Close() job.stream=nil
-    local started,reason=native.CommitSharedFile(job.handle)
-    if not started then return true,reason end
-    job.phase='commit'
-   end
-  elseif job.phase=='commit' then
-   local done,err=native.PollSharedCommit(job.handle)
-   if err then return true,err end
-   if not done then return false end
-   job.handle=nil job.index=job.index+1 job.phase='check'
-  end
+-- A model's transfers end with it: the file streaming for it and those the natives write for it.
+local function release(job)
+ if streaming and streaming.job==job then
+  if streaming.stream then streaming.stream:Close() end
+  native.CancelSharedFile(streaming.handle) moving[streaming.f.path]=nil streaming=nil
  end
- return false
+ for i=#commits,1,-1 do
+  local c=commits[i]
+  if c.job==job then c.gone=true native.CancelSharedFile(c.handle) moving[c.f.path]=nil table.remove(commits,i) end
+ end
 end
-hook.Add('Think','MMDHL.WorkshopInstall',function()
- if not current then
-  current=table.remove(queue,1)
-  if not current then return end
-  current.index,current.phase=current.changed or 1,current.changed and 'open' or 'check' progress()
-  -- An install records itself before it writes anything: a model it leaves part way is then
-  -- resumed by the next scan, not taken for the player's own import (W.Reconcile, R5).
-  if CLIENT and not W.state.assets[current.key] then W.state.assets[current.key]={installing=true} saveState() end
- end
- local finished,err=step(current,SysTime()+ChunkBudget)
- if not finished then return end
- local job=current current=nil queued[job.key]=nil close(job)
+local ended
+local function finish(job,err)
+ for i,other in ipairs(active) do if other==job then table.remove(active,i) break end end
+ queued[job.key]=nil release(job) ended=true
  -- Files that make up no valid model are not left for the library to list: their manifest (a
  -- prop: its bundle) goes. Shared textures stay.
  if job.invalid then file.Delete(job.item.kind=='static' and 'mmd_hotloader/static/assets/'..job.item.asset..'.gmdl' or 'mmd_hotloader/assets/'..job.item.asset..'/manifest.json') end
  if err then fail(job,err) else W.failures[job.key]=nil W.installed=W.installed+1 installed(job) end
- if #queue==0 then
-  if CLIENT and W.installed>0 then notification.AddLegacy(L('workshop.installed',{count=W.installed}),NOTIFY_GENERIC,6) end
-  W.installed=0 progress(true)
-  if CLIENT and mmdhl.workshop.AfterInstalls then mmdhl.workshop.AfterInstalls() end
- else progress() end
+end
+-- Whether a file a model lists is in place: written and verified this session (unchanged since), or on disk at its
+-- size with its hash. The asset check reads every file again before the model counts as installed.
+local function inPlace(f)
+ local name='mmd_hotloader/'..f.path
+ local w=written[f.path]
+ if w and w.size==f.size and w.time==file.Time(name,'DATA') then return true end
+ if (file.Size(name,'DATA') or -1)~=f.size then return false end
+ return native.SharedFileMatches(f.path,f.size,f.sha256)
+end
+-- One piece of main-thread work: a chunk of the file streaming now, or the next file a model needs. False when
+-- there is nothing more to do this frame.
+local function advance()
+ local s=streaming
+ if s then
+  local f=s.f
+  local bytes=s.stream:Read(math.min(Chunk,f.packed-s.offset))
+  if not bytes or #bytes==0 then finish(s.job,L'workshop.error.file_size') return true end
+  local ok,err=native.AppendSharedChunk(s.handle,s.offset,bytes)
+  if not ok then finish(s.job,err) return true end
+  s.offset=s.offset+#bytes
+  if s.offset>=f.packed then
+   s.stream:Close() s.stream=nil
+   local started,reason=native.CommitSharedFile(s.handle)
+   if not started then finish(s.job,reason) return true end
+   commits[#commits+1]={job=s.job,f=f,handle=s.handle} streaming=nil
+  end
+  return true
+ end
+ if #commits>=MaxCommits then return false end
+ -- The earliest model with a file to look at that is not moving for another model.
+ local job,f
+ for _,candidate in ipairs(active) do
+  local nextFile=candidate.files[candidate.index]
+  if nextFile and not moving[nextFile.path] then job,f=candidate,nextFile break end
+ end
+ if not job then return false end
+ -- The file verify found changed is replaced at once; any other may be in place already.
+ local replace=job.replace job.replace=nil
+ if not replace then
+  local matches,err=inPlace(f)
+  if err then finish(job,err) return true end
+  if matches then job.index=job.index+1 return true end
+ end
+ local source=FileDir..f.sha256..'.dat'
+ local stream=job.origin.pathId and job.origin.pathId~='GAME' and file.Open(source,'rb',job.origin.pathId) or nil
+ stream=stream or file.Open(source,'rb','GAME')
+ if not stream then finish(job,L'workshop.error.file_missing') return true end
+ if stream:Size()~=f.packed then stream:Close() finish(job,L'workshop.error.file_size') return true end
+ local handle,err=native.BeginSharedFile(f.path,f.size,f.sha256,f.packed)
+ if not handle then stream:Close() finish(job,err) return true end
+ streaming={job=job,f=f,stream=stream,handle=handle,offset=0} moving[f.path]=true
+ job.index=job.index+1 job.moving=job.moving+1
+ return true
+end
+-- The asset checks: polled, and started for models whose files are all in place. A check that failed while others
+-- ran beside it runs once more alone (they held memory its load budget counts) before the model is refused.
+local function checks()
+ local list={unpack(active)}
+ local alone=false
+ for _,job in ipairs(list) do if job.alone then alone=true end end
+ for _,job in ipairs(list) do
+  if job.check then
+   local valid,err,code=native.PollAssetCheck(job.check)
+   if valid~=false then
+    job.check=nil checking=checking-1
+    if valid==true then W.checked[job.key]=true finish(job)
+    elseif job.crowded and not job.alone then job.alone=true alone=true
+    else job.invalid=code=='invalid' finish(job,L('workshop.error.invalid_model',{reason=mmdhl.Localize(tostring(err or '?'))})) end
+   end
+  elseif job.index>#job.files and job.moving==0 then
+   -- Every file matches its hash. Together they must also make up the model the package
+   -- names (natives after 2.3.0 load it as using it would) before it counts as installed.
+   if not native.StartAssetCheck then finish(job)
+   elseif (job.alone and checking==0) or (not alone and checking<MaxChecks) then
+    local handle,err=native.StartAssetCheck(job.item.kind,job.item.asset)
+    if not handle then finish(job,err)
+    else
+     for _,other in ipairs(active) do if other.check then other.crowded=true end end
+     job.check,job.crowded,checking=handle,checking>0,checking+1
+    end
+   end
+  end
+ end
+end
+hook.Add('Think','MMDHL.WorkshopInstall',function()
+ -- Models are taken ahead of their checks. Each records itself before anything of it is written: a model left part
+ -- way is then resumed by the next scan, not taken for the player's own import (W.Reconcile, R5).
+ local taken,recorded=false,false
+ while #active<MaxActive and queue[1] do
+  local job=table.remove(queue,1)
+  job.index,job.replace,job.moving=job.changed or 1,job.changed~=nil,0
+  active[#active+1]=job taken=true
+  if CLIENT and not W.state.assets[job.key] then W.state.assets[job.key]={installing=true} recorded=true end
+ end
+ if recorded then saveState() end
+ if taken then progress() end
+ if not active[1] then return end
+ ended=false
+ -- Files the natives finished writing.
+ for _,c in ipairs({unpack(commits)}) do
+  if not c.gone then
+   local done,err=native.PollSharedCommit(c.handle)
+   if err then finish(c.job,err)
+   elseif done then
+    c.gone=true table.RemoveByValue(commits,c) moving[c.f.path]=nil c.job.moving=c.job.moving-1
+    written[c.f.path]={size=c.f.size,time=file.Time('mmd_hotloader/'..c.f.path,'DATA')}
+   end
+  end
+ end
+ checks()
+ local deadline=SysTime()+ChunkBudget
+ while SysTime()<deadline and advance() do end
+ -- A model whose last file just arrived starts its check this frame.
+ checks()
+ if not ended then return end
+ if active[1] or queue[1] then progress() return end
+ if CLIENT and W.installed>0 then notification.AddLegacy(L('workshop.installed',{count=W.installed}),NOTIFY_GENERIC,6) end
+ W.installed=0 progress(true)
+ if timer.Exists(SaveTimer) then saveState() end
+ flushLibraries()
+ if CLIENT and mmdhl.workshop.AfterInstalls then mmdhl.workshop.AfterInstalls() end
 end)
 -- Discovery runs as a coroutine over a few frames: hundreds of addons may be mounted.
 local scanning,rescan

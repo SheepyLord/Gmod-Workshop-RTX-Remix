@@ -158,14 +158,14 @@
    "imported": "2026-11-16T13:21:59+00:00"
   },
   "mmd_hotloader/lua/mmdhl/workshop.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r5\\out\\tmp\\stage-r5-mmdhl2\\workshop.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\workshop.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r5",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "df8014758067c7ed95474a9d8ef50e131e26b87b",
-    "dirty": false
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
+    "dirty": true
    },
-   "imported": "2026-10-31T20:58:06+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "mmd_hotloader/lua/autorun/mmdhl.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\mmd_hotloader\\lua\\autorun\\mmdhl.lua",
@@ -208,14 +208,14 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "mmd_hotloader/lua/mmdhl/library.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\ls2\\out\\tmp\\hl-lua\\library.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\library.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/ls2",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "b8cd592caa011efc1b0b81717de45fe6479adb7f",
-    "dirty": false
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
+    "dirty": true
    },
-   "imported": "2026-11-17T05:48:33+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "mmd_hotloader/lua/mmdhl/materials.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r15\\out\\r15\\stage\\materials.lua",
@@ -348,14 +348,14 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "source/mmdhl/native/module.cpp": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\stage\\mmdhl\\native\\module.cpp",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\source\\mmdhl\\native\\module.cpp",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
-    "dirty": false
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
+    "dirty": true
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "source/mmdhl/native/props/import.cpp": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r19-hotloader\\out\\r19-h\\stage\\mmdhl\\native\\props\\import.cpp",
@@ -468,14 +468,14 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "source/Source.md": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\packages\\model-hotloader\\source\\Source.md",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\source\\Source.md",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": true
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "source/r19-changes.patch": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r19-hotloader\\out\\r19-h\\source-docs\\r19-changes.patch",
@@ -488,64 +488,64 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "bin/gmcl_mmdhl_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\built\\model-hotloader\\bin\\gmcl_mmdhl_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\out\\packi\\built\\model-hotloader\\bin\\gmcl_mmdhl_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "bin/gmsv_mmdhl_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\built\\model-hotloader\\bin\\gmsv_mmdhl_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\out\\packi\\built\\model-hotloader\\bin\\gmsv_mmdhl_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "bin/mmdhl_runtime_win64.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\built\\model-hotloader\\bin\\mmdhl_runtime_win64.dll",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\out\\packi\\built\\model-hotloader\\bin\\mmdhl_runtime_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "bin/mmdhl_worker.exe": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\built\\model-hotloader\\bin\\mmdhl_worker.exe",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\out\\packi\\built\\model-hotloader\\bin\\mmdhl_worker.exe",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "bin/mmdhl-native-release.json": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\built\\model-hotloader\\bin\\mmdhl-native-release.json",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\out\\packi\\built\\model-hotloader\\bin\\mmdhl-native-release.json",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "mmd_hotloader/lua/mmdhl/native_policy.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\built\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\native_policy.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\out\\packi\\built\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\native_policy.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
     "dirty": false
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T03:56:25+00:00"
   },
   "overrides/installation.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\model-hotloader\\overrides\\installation.lua",
@@ -996,24 +996,34 @@
     "dirty": false
    },
    "imported": "2026-11-16T13:27:23+00:00"
+  },
+  "source/install-priority.patch": {
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\source\\install-priority.patch",
+   "git": {
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
+    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
+    "dirty": true
+   },
+   "imported": "2026-11-22T03:56:25+00:00"
   }
  },
  "files": {
   "bin/gmcl_mmdhl_win64.dll": {
-   "size": 2935808,
-   "sha256": "fb58cd0751ac5651c9897892f6bcf1d78e91eb6466fe6f1141946796649b3c17",
-   "mtime_ns": 1794835236418707500,
+   "size": 2936320,
+   "sha256": "8204abefb77c30bc35a99c164aa5b864cc518e48eb8b887b40c7f162f2c1ed0a",
+   "mtime_ns": 1795319680149715700,
    "stored": "xz",
-   "stored_size": 940880,
-   "stored_sha256": "d94839fce639e36ef61a6432c9d54eb10973fa18e66734dc9655c14bc0030148"
+   "stored_size": 940728,
+   "stored_sha256": "d245566af2d61baa1daa47382ed66241816475fb1f90b283c7858a24fe072869"
   },
   "bin/gmsv_mmdhl_win64.dll": {
-   "size": 1909760,
-   "sha256": "35ef6b74ed0b4ff2aa25a839427620c22ea3f134af95a7f80272c0f11265de08",
-   "mtime_ns": 1794835248974055600,
+   "size": 1910272,
+   "sha256": "849ec2d9e84f96f3c0f7da807d4710c1df897eefaf06c60f98ba8fb20b79d79d",
+   "mtime_ns": 1795319696105726100,
    "stored": "xz",
-   "stored_size": 618552,
-   "stored_sha256": "a054fbf9ca8e50cda407d1b958ac01fba13959141fed444099fe8074fda866ba"
+   "stored_size": 619212,
+   "stored_sha256": "b0bf33c07ef839dd18cad000c61af913f336ebffadb11490363fe318e192ed63"
   },
   "bin/lib_coacd.dll": {
    "size": 6169600,
@@ -1025,25 +1035,25 @@
   },
   "bin/mmdhl-native-release.json": {
    "size": 1085,
-   "sha256": "af3ab2fca609cc9dfb1a49159b853c46a294cbd83b089d8a4aa08e44659e2d0d",
-   "mtime_ns": 1794835290292494900,
+   "sha256": "ffb2dc3aa8d7873c9cecfd96c48f0bf124d49fc8031e2418406a1e7cc931f3c1",
+   "mtime_ns": 1795319744441123800,
    "stored": "plain"
   },
   "bin/mmdhl_runtime_win64.dll": {
    "size": 11000320,
-   "sha256": "92db855e80e52e4828b76b5ef63cb17849971bc36b7e36ab7aaa630d4190ddb0",
-   "mtime_ns": 1794835237415910400,
+   "sha256": "aaf8961837c28371f69551099eb66c334ea697ee0372210b1ac0649325e1e0cb",
+   "mtime_ns": 1795319659703047600,
    "stored": "xz",
-   "stored_size": 3443796,
-   "stored_sha256": "ac3e949785ceddb6260ff4ffbb0e19a03f6b72227730fe1ce667e85bee0bbac6"
+   "stored_size": 3443492,
+   "stored_sha256": "180bad681ea6b56f8ba369eacbc1d31bf4d9bcecd5e0e417c5074ad18a85ef41"
   },
   "bin/mmdhl_worker.exe": {
-   "size": 4258304,
-   "sha256": "352f1a7e650399852447b7a4284de2d7c0d9f3ba537422fb797d80f660debeb8",
-   "mtime_ns": 1794835290000207600,
+   "size": 4257792,
+   "sha256": "d8767c3fbb3ef67b6b32d294a057fe14350ccc4c9947c044f85a38ea947a15b6",
+   "mtime_ns": 1795319744103023500,
    "stored": "xz",
-   "stored_size": 1305548,
-   "stored_sha256": "2421e0521ce50515a7369c1e521f422aa7b6d6267976578a64d3943b71bfa176"
+   "stored_size": 1305756,
+   "stored_sha256": "4cb96ddb45f1c283e37c4788c2bb836e4ea239c8e494cee5ed4c653d7e09851e"
   },
   "mmd_hotloader/addon.json": {
    "size": 94,
@@ -1406,9 +1416,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/library.lua": {
-   "size": 68326,
-   "sha256": "d1c6c323db0ccc7e44b002156930c6e313dc8cab5217c1ff36e6252cf2c1ebbe",
-   "mtime_ns": 1794894513321001400,
+   "size": 69744,
+   "sha256": "ff40e9dbcd377f08b85540c77c8361251b928918b68b5a345a1d348875cf79d7",
+   "mtime_ns": 1795319419417001900,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/materials.lua": {
@@ -1431,8 +1441,8 @@
   },
   "mmd_hotloader/lua/mmdhl/native_policy.lua": {
    "size": 26584,
-   "sha256": "5ea77d0433b43e203a898b4c35c6fdd57d675b57d6b4c1e33f18716532be4fd3",
-   "mtime_ns": 1794835290291491300,
+   "sha256": "a129b57b914be9edaa422dfe0d1824b350f4db5433ce6a3f540551e81a76dd40",
+   "mtime_ns": 1795319744441123800,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/native_render.lua": {
@@ -1646,9 +1656,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/workshop.lua": {
-   "size": 38614,
-   "sha256": "3e4a7968f08ad191eb7f5942a43253fb87d591f6a3bc96445b343b21b52e91f6",
-   "mtime_ns": 1793480084554590400,
+   "size": 45012,
+   "sha256": "898f5d2a61c9fb69f7df16037778dce910debbe0e0baa7e1493e9dcfd2591dd8",
+   "mtime_ns": 1795319419417001900,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/workshop_export.lua": {
@@ -2023,6 +2033,12 @@
    "size": 24353,
    "sha256": "3b17e14106801afc8f0ab55ff3fdc17c6afd12a17dbef9004206f4d69acf203d",
    "mtime_ns": 1794350284597682500,
+   "stored": "plain"
+  },
+  "source/install-priority.patch": {
+   "size": 3291,
+   "sha256": "0332766e56c12cd2ef955aa05d417b144269466b0823fb15890523fec16866ef",
+   "mtime_ns": 1795319438839772900,
    "stored": "plain"
   },
   "source/mmdhl/CMakeLists.txt": {
@@ -2570,9 +2586,9 @@
    "stored": "plain"
   },
   "source/mmdhl/native/module.cpp": {
-   "size": 102865,
-   "sha256": "1560dfb582b9ca72fa3c3d9a839e0f2a9f04f4c9f40463e8ac6fb0e42f2d7d72",
-   "mtime_ns": 1794834010928014700,
+   "size": 103765,
+   "sha256": "e721236effc9201ae373a818be434c83954bdbbff84def92832064dcc42b2116",
+   "mtime_ns": 1795319430453826700,
    "stored": "plain"
   },
   "source/mmdhl/native/naming.cpp": {
@@ -4150,9 +4166,9 @@
    "stored": "plain"
   },
   "source/Source.md": {
-   "size": 17665,
-   "sha256": "6227c657db22decd6697ad1da2d6b6b1f8997c7162b0e6ff8b1e279f8f8129d2",
-   "mtime_ns": 1794834611063210400,
+   "size": 18983,
+   "sha256": "3f65700e29ba96e7efc1b36a4b305116a3f57ca1ab89d120f9ed90f8abf82e4f",
+   "mtime_ns": 1795319482315145100,
    "stored": "plain"
   },
   "source/staged-changes.patch": {

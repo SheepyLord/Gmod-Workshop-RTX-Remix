@@ -108,22 +108,51 @@ function library.RequestRefresh()
  refreshQueued=true
  timer.Simple(0,function() refreshQueued=false library.Refresh() end)
 end
-function library.Refresh()
- local entries={} local deleting={}
+-- Models queued for disk cleanup (a deletion still running) are not listed.
+local function deletingIds()
+ local deleting={}
  for _,path in ipairs(util.JSONToTable(file.Read('mmd_hotloader/cleanup.json','DATA') or '') or {}) do local id=path:match('^assets/([a-f0-9]+)') if validId(id) then deleting[id]=true end end
+ return deleting
+end
+-- The entry a rebuild lists for a cached character, or nil (no manifest, deleted, a hidden Workshop model).
+local function entryFor(id,sources)
+ local info=manifest(id)
+ if not info then return nil end
+ local settings=util.JSONToTable(file.Read('mmd_hotloader/library/'..id..'.json','DATA') or '') or {}
+ -- Workshop models the player deleted stay hidden until restored.
+ local W=mmdhl.workshop
+ if settings.deleted or (W and W.IsHidden('character',id)) then return nil end
+ return {id=id,info=info,settings=settings,name=settings.name or info.name or id:sub(1,12),source=(sources[id] or {}).source or '',workshop=W and W.Origin('character',id)}
+end
+-- A character's manifest decoded ahead of the next library update (workshop.lua, as each model installs): the decode,
+-- up to 20 ms for a large character, falls in that model's own frame instead of in one frame with others (ADR 0255).
+function library.Prime(id) if validId(id) then manifest(id) end end
+-- Characters just installed from a Workshop package (workshop.lua): their entries alone, as a rebuild lists them,
+-- without reading every other model's files again (a tenth of a second in a library of two hundred, ADR 0255).
+function library.Add(ids)
+ if not library.entries then return library.Refresh() end
+ local deleting,sources,added=deletingIds(),nil,false
+ for _,id in ipairs(ids) do
+  if validId(id) and not deleting[id] then
+   sources=sources or library.SourcePaths('character')
+   local entry=entryFor(id,sources)
+   if entry then library.entries[id]=entry added=true end
+  end
+ end
+ if not added then return library.entries end
+ library.revision=(library.revision or 0)+1
+ hook.Run('MMDHL.LibraryChanged')
+ return library.entries
+end
+function library.Refresh()
+ local entries={} local deleting=deletingIds()
  local sources=library.SourcePaths('character')
  local _,dirs=file.Find('mmd_hotloader/assets/*','DATA')
  local listed={}
  for _,id in ipairs(dirs or {}) do
   if validId(id) and not deleting[id] then
    listed[id]=true
-   local info=manifest(id)
-   if info then
-    local settings=util.JSONToTable(file.Read('mmd_hotloader/library/'..id..'.json','DATA') or '') or {}
-    -- Workshop models the player deleted stay hidden until restored.
-    local W=mmdhl.workshop
-    if not settings.deleted and not (W and W.IsHidden('character',id)) then entries[id]={id=id,info=info,settings=settings,name=settings.name or info.name or id:sub(1,12),source=(sources[id] or {}).source or '',workshop=W and W.Origin('character',id)} end
-   end
+   entries[id]=entryFor(id,sources)
   end
  end
  for id in pairs(manifests) do if not listed[id] then manifests[id]=nil end end

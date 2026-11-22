@@ -64,6 +64,20 @@ struct Context{std::map<uint64_t,PackageJob> packages;std::map<uint64_t,AddonSca
  // close (a map change) waits only for the step each is in (R19, review MH-06).
  std::shared_ptr<std::atomic_bool> closing=std::make_shared<std::atomic_bool>(false);};
 std::unique_ptr<Context> context;
+// A Workshop package's install work (a file's commit, a model's asset check, which builds its Source materials and
+// fit) runs below normal CPU priority, so the game's own threads come first while several models install side by side
+// (ADR 0255). Only the CPU priority: Windows' background mode, which also lowers I/O and memory priority to very low,
+// held a large model's check, a gigabyte written, to a tenth of its speed beside others. The pool thread gets its
+// priority back when the work ends.
+struct BackgroundWork{
+#ifdef _WIN32
+ int was=GetThreadPriority(GetCurrentThread());
+ bool on=was!=THREAD_PRIORITY_ERROR_RETURN&&was>THREAD_PRIORITY_BELOW_NORMAL&&SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_BELOW_NORMAL)!=0;
+ ~BackgroundWork(){if(on)SetThreadPriority(GetCurrentThread(),was);}
+#else
+ BackgroundWork(){}
+#endif
+};
 std::future<Json> installationProbe;
 void pruneSharedWork(){
  for(auto it=context->exports.begin();it!=context->exports.end();)if(it->second.discarded&&(!it->second.preparing.valid()||it->second.preparing.wait_for(std::chrono::seconds(0))==std::future_status::ready))it=context->exports.erase(it);else ++it;
@@ -301,6 +315,7 @@ FUNCTION(StartAssetCheck) {
  if(context->assetChecks.size()>=8)throw std::runtime_error("Earlier asset checks are still running or waiting to be polled");
  auto cache=context->cache;auto handle=context->sequence++;
  context->assetChecks.emplace(handle,std::async(std::launch::async,[cache,kind,id,closing=context->closing]{
+  BackgroundWork background;
   if(kind=="character"){loadAsset(cache,id,closing.get());return;}
   if(closing->load())throw std::runtime_error("The check stopped: the map is changing");
   auto limits=props::fullTextureLimits();auto bundle=props::decode(props::readFile(cache/L"static"/L"assets"/wide(id+".gmdl"),limits.packageBytes),limits);if(bundle.id!=id)throw std::runtime_error("Prop SHA-256 mismatch");}));
@@ -400,7 +415,7 @@ FUNCTION(AppendSharedChunk) {
 FUNCTION(CommitSharedFile) {
  auto id=number(LUA,1);auto t=context->transfers.at(id);if(t->written!=t->size||context->commits.contains(id))throw std::runtime_error("Incomplete or already committing transfer");t->stream.close();auto cache=context->cache;
  context->commits.emplace(id,std::async(std::launch::async,[t,cache]{
-  auto packet=readFile(t->staging);auto bytes=t->packed?unpackSharedFile(packet,t->rawSize,t->digest):std::move(packet);
+  BackgroundWork background;auto packet=readFile(t->staging);auto bytes=t->packed?unpackSharedFile(packet,t->rawSize,t->digest):std::move(packet);
   if(!t->packed&&hash(bytes)!=t->digest)throw std::runtime_error("Shared file failed SHA256 verification");
   validateSharedFile(t->relative,bytes);validatePropBundle(t->relative,bytes);if(t->canceled)return false;
   writeAtomic(sharedPath(cache,t->relative),bytes);return true;

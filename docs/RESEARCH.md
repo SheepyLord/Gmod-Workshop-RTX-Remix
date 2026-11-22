@@ -9975,3 +9975,64 @@ and the runtime's crashpad dump in the loader's session folder; GMod's `material
   1,300 props spawned, 113 ragdolls, 24 NPCs fighting, 630 explosions, bullet and blood decals) disconnected cleanly
   with nothing put back or skipped: the PoC does not reproduce the writer. The dispatch in the installed game:
   +0x31040, the engine's ten bytes.
+
+## Workshop model packages: what an install costs (2026-11-21, Claude; [ADR 0255](decisions/0255-workshop-models-install-several-at-once.md))
+
+Measured with [`pack_install_session.py`](../tools/qa/pack_install_session.py.md) in the PoC (RTX on, gm_construct,
+1600x900; the published RTX package `0.0.0-dev.20261122004027+d17b0fb8` and the user's twelve-character content pack as
+local packages; this computer has 32 logical threads). Line numbers are those of `main` at `11e21cf0`.
+
+- **Who installs what.** The loader deploys a content pack's root files (its Remix mod) at the start after Steam
+  downloads it; the Model Hotloader installs the pack's models in the game (`mmd_hotloader/lua/mmdhl/workshop.lua`). A
+  scan (`GameContentChanged` 2 s later, or `InitPostEntity` 1 s later) finds `data_static/mmdhl/packages/<id>.json`,
+  and `W.Reconcile` queues each model whose files are missing.
+- **How a model was installed** (`workshop.lua:352-424`, `step` and the `MMDHL.WorkshopInstall` Think hook): one model,
+  one file at a time. Per file: `SharedFileMatches` (a missing or resized file answers at once; a file of the right
+  size is read and hashed on the main thread), `file.Open` of `data_static/mmdhl/files/<sha256>.dat` in the mounted
+  addon, `BeginSharedFile` (a staging file `sharing/<pid>-<n>.part`), 48 KB chunks into `AppendSharedChunk` within 4 ms
+  of each frame, then `CommitSharedFile`, polled each frame. The commit (`module.cpp:400-408`) reads the staging file
+  back, inflates its XPRESS Huffman blocks with Windows' Compression API (`sharing.cpp:89-106`), checks the SHA-256
+  (BCrypt), and writes the file with `writeAtomic` (a temporary named by process and thread, then `MoveFileExW` with
+  `MOVEFILE_WRITE_THROUGH`, `assets.cpp:97-118`). After the last file, `StartAssetCheck` (`module.cpp:299-308`), polled
+  each frame.
+- **The asset check is the model's first load** (`loadAsset`, `assets.cpp:533-640`): manifest identity, the model's
+  and every texture's SHA-256 again, the PMX parsed, every cut-out texture decoded with stb_image (PNG only,
+  `cache_png.cpp:26-33`) for its alpha coverage, then `prepareSourceMaterials` (`assets.cpp:255-316`): each texture
+  decoded again, an uncompressed RGBA VTF with a full mip chain (a 2x2 box filter, per channel) written beside it as
+  `textures/<sha256>.vtf`, and all of them and the VMTs copied into `assets/<id>/materials-v5.gma`; then
+  `prepareModelFit` (`rig.cpp:271`). All on one `std::async` thread; the shared worker pool (`jobs.cpp`) is not used.
+- **Where the time went** (fourteen models: the pack's twelve, the RTX package's Linlong and a prop; fresh library):
+  76 s from the first install to the last. The asset checks took 64.3 s, one at a time, 1.06-12.87 s per character
+  (the longest: the two with 42-46 MB of textures and the one with 49 MB). 196 files (416 MB) moved in 11 s: streaming
+  4.3 s, commits 6.7 s (the longest 381 ms). `SharedFileMatches` ran 219 times, 23 of them for a texture another model
+  had brought; the longest call 3.6 ms. The install's Think hook's own time was 0.33 s over a 68 s install (fresh
+  library, `base1`), `AppendSharedChunk` 0.19 s for 7,298 chunks of 48 KB.
+- **The hitch per model** (`workshop.lua:294-301` `refreshLibraries`, `library.lua:111-142` `Refresh`, `ui.lua:843` and
+  `PANEL:Refresh` `ui.lua:568-649`): each installed model rebuilt the library 0.25 s later. A rebuild reads every
+  character's `library/<id>.json`, calls `file.Size` and `file.Time` on every manifest (ADR 0238's cache check), asks
+  the natives for every source path and the props' catalog; an open library window then rebuilds its list. With the
+  user's library (222 asset folders, 220 settings files, 34 MB of manifests, 20 props) and the spawn menu open on the
+  Model Hotloader's tab, each model gave a frame of 100-140 ms about 0.33 s after it: `vgui.Create` 11-23 ms (29,678
+  calls in 15 list rebuilds, about 2,000 panels for 220 rows), `file.Size` 9-13 ms, `file.Open` 8-11 ms, the list's own
+  `Refresh` 8-12 ms (26.6 ms with what it calls, at most 45.9 ms). In a fresh library the same frames were 40-90 ms.
+  Each model also wrote the whole state file (`workshop/state.json`, 80 KB in the user's game) twice.
+- **What did not cost much:** frames while a check ran were no longer than others (fresh library: median 12.2 ms, p95
+  36.5 ms during checks); the RTX fixes' map-start work (the physgun colour timer 360 ms, the material pipeline's queue
+  195 ms) and their light updaters' hook, 0.34 ms a call, about four calls a frame, came with or without an install.
+- **After the change** (ADR 0255; the same driver, the user's library size, the spawn menu open on the Model
+  Hotloader's tab; the pack as rebuilt at 19:59 that day, ten characters, with the RTX package's two models; the
+  published package `0.0.0-dev.20261122030548+82015679` against this branch's, run back to back): 44.1 s before, 11.9 s
+  after, from the first install to the last. Before, the checks ran one at a time (38.3 s of checks); after, four at
+  once (39.2 s of checks in all: each as fast as alone, below normal priority). The library window's list was rebuilt
+  13 times before and 5 times after; while models installed (after the map's first 6 s), frames over 80 ms went from 2
+  to 0 (the longest 110.4 ms, `vgui.Create` 44.9 ms and the list's `Refresh` 21.5 ms of it, to 66.5 ms, the RTX
+  Remix guide's timer), median 11.4 to 10.4 ms, p95 22.2 to 21.0 ms. An update of the library now costs the list's
+  rebuild alone (52-59 ms with 220 rows: 17-23 ms of `vgui.Create`).
+- **Windows' background mode was tried first** (`THREAD_MODE_BACKGROUND_BEGIN` around the commit and the check): with
+  the earlier twelve-character pack the frames were smooth (p95 18.4 ms, none over 100 ms), but the large characters'
+  checks took 93-114 s beside the others (alone: 8-13 s) and the pack 119 s: the mode also lowers the thread's I/O and
+  memory priority to very low, and such a check writes about a gigabyte (each texture as an uncompressed VTF with its
+  mips, then again into `materials-v5.gma`). The drive (H:) is an NVMe SSD; the small checks were faster than alone.
+  `THREAD_PRIORITY_BELOW_NORMAL` lowers only the CPU priority.
+- **A pre-existing file of the right size is still hashed on the main thread** (`SharedFileMatches`): in these runs
+  the RTX package's prop bundle (5.4 MB) already in the copied library, 13.7 ms once.

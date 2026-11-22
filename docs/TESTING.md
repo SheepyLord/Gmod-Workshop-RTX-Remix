@@ -3975,3 +3975,22 @@ separator now has 57 texts in each catalog.
   with the marker a ticked line shows. The other map-sky scenarios start with the line ticked.
 - Not covered in a game: the chat line's absence is the old `nativeloader_sky_message 0` path, which ADR 0249's PoC runs
   covered; the one-time switch-off ran only under LuaJIT.
+
+## Workshop models installed several at once (ADR 0255)
+
+- **LuaJIT**: [`test_hotloader_workshop_install.py`](../tools/tests/test_hotloader_workshop_install.py.md) (new) runs the
+  shipped `workshop.lua` with the native transfer and asset check instrumented: eight models with shared textures install
+  with every file moved once, four checks side by side, no file before its model's install record, a few state writes
+  and library updates through `library.Add` without a rebuild per model (`parallel`, which fails on the file before
+  the change: one check at a time); a failed commit of a shared texture, the model waiting for it, a check that passes
+  alone and an invalid model (`failures`); a changed file replaced alone (`replace`); `library.Add` listing what a
+  rebuild lists from the new models' files alone (`library_add`). Its source checks: the natives' commits and asset
+  checks start with `BackgroundWork`, a spawn's load does not.
+- **PoC** ([`pack_install_session.py`](../tools/qa/pack_install_session.py.md), new, holding `out\r10\poc.lock`; RTX
+  on, the RTX package and a content pack as local packages, gm_construct): the pack's models installed into a fresh
+  library or one the size of the user's (`--seed-library`: 220 characters' manifests and settings and 20 props), with
+  the spawn menu open on the Model Hotloader's tab (`--spawnmenu`); every frame's time, each model's install, the
+  install's native steps (`trace`) and what took the time in long frames. A branch's `library.lua` and `workshop.lua`
+  can run over a package's (`--hotloader-lua`). Runs before and after the change in the handover report.
+- Not covered: the field install, a multiplayer game (a listen server's host approving models, a dedicated server's own
+  installs), a computer with few threads (one check at a time, as before), a pack whose models fail to install.

@@ -6,6 +6,24 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Content packs install several models at once, without a hitch for each (2026-11-21)
+
+- **A freshly subscribed pack of characters installs much faster, and the game no longer stutters as each model
+  arrives.** The Model Hotloader installed a pack's models one file and one model at a time, and after each model it
+  rebuilt your whole library (and the library window, if open): with a library of two hundred characters, a stutter of
+  a tenth of a second per model. Now several models install side by side, new models appear in the library a few at a
+  time, and nothing else in the library is read again. In a test with ten characters and a library of 220, the
+  install took 12 s instead of 44 s, and no frame took longer than 80 ms while it ran (before: up to 110 ms).
+- Behind it ([ADR 0255](docs/decisions/0255-workshop-models-install-several-at-once.md)): `workshop.lua` keeps a few
+  models in hand, streams one file at a time on the main thread (the same 4 ms a frame), lets up to three commits and up
+  to four asset checks run at once (one check per six logical threads), moves a file two models share once, and tries a
+  check that failed beside others again alone; `library.Add` lists installed models without a rebuild, at most every
+  four seconds, their manifests decoded as each installs (`library.Prime`); the Workshop state file is written once
+  for a burst. The natives run a file's commit and a model's
+  asset check below normal CPU priority (`source/install-priority.patch`, rebuilt). New tools:
+  `tools/qa/pack_install_session.py` with its probe (a content pack's install timed frame by frame in the PoC, against
+  a library the size of yours). Tests: `test_hotloader_workshop_install.py`.
+
 ### Skills: Model Hotloader packages in Workshop mode only (2026-11-21)
 
 - **Every Model Hotloader package is built in Workshop mode, no exceptions** (the user's rule of 2026-11-21).

@@ -179,6 +179,22 @@ in the origin repository:
   grant list's keys), `tests/props/blend_tests.hpp` (the review's 25-byte Zstandard frame). CTest gives every test
   `MMDHL_SOURCES_DIR` in the build folder.
 
+## Changes made here (2026-11-21: Workshop installs below normal priority)
+
+`install-priority.patch` holds this repository's change for the user's report of 2026-11-21 (a freshly subscribed pack
+of characters made the game lag at each model and installed slowly; [handover](../../../docs/handover/pack-install-report.md),
+[ADR 0255](../../../docs/decisions/0255-workshop-models-install-several-at-once.md)); applied after
+`review-fixes.patch`, it gives `mmdhl/` as it is now. Not in the origin repository:
+
+- `native/module.cpp`: `BackgroundWork`, a guard that sets the thread doing a Workshop package's install work to
+  `THREAD_PRIORITY_BELOW_NORMAL` and gives it its priority back when the work ends (the pool thread goes back to the
+  pool as it came). Only the CPU priority: Windows' background mode (`THREAD_MODE_BACKGROUND_BEGIN`), tried first,
+  also lowers I/O and memory priority to very low, and held a large character's check (a gigabyte of Source
+  materials written) to a tenth of its speed beside others. `CommitSharedFile`'s commit (inflate,
+  SHA-256, write) and `StartAssetCheck`'s check (for a character `loadAsset`: its texture hashes, alpha coverage,
+  Source materials and fit) run under it: the add-on now runs several side by side. A spawn's load (`RequestAsset`)
+  keeps the game's priority.
+
 ## Lua installation override (R21-B)
 
 `../overrides/installation.lua` replaces the add-on's `mmdhl/installation.lua` through

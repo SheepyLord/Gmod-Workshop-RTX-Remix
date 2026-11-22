@@ -110,3 +110,13 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   helpers, `prop_dynamic` entities whose model's only bodygroup is blank, were the reported case. A bone follower is
   as visible as its model, a character as this add-on draws it; an entity with `MMDHLSceneStandIn` (the VR hands'
   spheres) still collides. `mmdhl.SceneHidden(ent)` and `mmdhl.sceneDiagnostics.hiddenEntities` tell what is left out.
+- **2026-11-21, Workshop models installed several at once** (the user's report of a pack that lagged at each model and
+  installed slowly; [report](../../docs/handover/pack-install-report.md),
+  [ADR 0255](../../docs/decisions/0255-workshop-models-install-several-at-once.md)): `mmd_hotloader/lua/mmdhl/workshop.lua`
+  keeps a few models in hand, streams one file at a time within the same 4 ms of each frame, lets up to three commits and
+  up to four asset checks (one per six logical threads) run at once, moves a file two models share once, and tries a
+  check that failed beside others again alone; installed models reach the library through `library.Add`
+  (`mmd_hotloader/lua/mmdhl/library.lua`: the entry a rebuild makes, from the new models' files alone), at most every four
+  seconds, instead of a full rebuild per model, each manifest decoded as its model installs (`library.Prime`); the state
+  file is written once for a burst. The natives run a file's
+  commit and a model's asset check below normal CPU priority (`source/install-priority.patch`).

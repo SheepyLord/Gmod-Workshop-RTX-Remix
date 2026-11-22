@@ -26,6 +26,8 @@
 // ADR 0247: every realm's load also checks the material system's queued render calls before the game leaves threaded
 // rendering (queue_check.h, Remix starts only); nlengineguard.queue_check says how that went and
 // nlengineguard.QueueCheck() -> checks, dropped counts the checks and the stale calls they dropped (read only).
+// ADR 0254: and checks them again while the game runs them (run_check.h); nlengineguard.run_check says how that went,
+// and QueueCheck() also returns the runs watched and the elements put back, calls skipped and lists ended early.
 #include "colour_cap.h"
 #include "crash_report.h"
 #include "guard.h"
@@ -91,13 +93,19 @@ LUA_FUNCTION_STATIC(ColourCap) {
   return 2;
 }
 
-// nlengineguard.QueueCheck() -> checks, dropped: the checks of the queued render calls made before the game left
-// threaded rendering, and the stale calls they dropped (ADR 0247). Read only, every realm.
+// nlengineguard.QueueCheck() -> checks, dropped, runs, put_back, skipped, ended: the checks of the queued render calls
+// made before the game left threaded rendering and the stale calls they dropped (ADR 0247); the runs the run check
+// watched, the elements it put back, the calls it skipped and the lists it ended early (ADR 0254). Read only, every
+// realm.
 LUA_FUNCTION_STATIC(QueueCheck) {
   const auto status = nl::engine_guard::queue_check::status();
   LUA->PushNumber(static_cast<double>(status.checks));
   LUA->PushNumber(static_cast<double>(status.dropped));
-  return 2;
+  LUA->PushNumber(static_cast<double>(status.runs));
+  LUA->PushNumber(static_cast<double>(status.put_back));
+  LUA->PushNumber(static_cast<double>(status.skipped));
+  LUA->PushNumber(static_cast<double>(status.ended));
+  return 6;
 }
 
 // nlengineguard.SetMessage(title, body): the player's message in their language; body has %s for the file.
@@ -331,6 +339,8 @@ GMOD_MODULE_OPEN() {
   LUA->SetField(-2, "ColourCap");
   LUA->PushString(queue.reason.c_str());
   LUA->SetField(-2, "queue_check");
+  LUA->PushString(queue.run_reason.c_str());
+  LUA->SetField(-2, "run_check");
   LUA->PushCFunction(QueueCheck);
   LUA->SetField(-2, "QueueCheck");
   if (menu) {

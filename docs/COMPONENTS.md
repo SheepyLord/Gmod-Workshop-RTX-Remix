@@ -26,7 +26,10 @@ and under `tools/qa` the [PoC session driver](../tools/qa/queued_draws_session.p
 The queue check (2026-11-19, [ADR 0247](decisions/0247-queued-render-calls-checked-before-the-game-leaves-threaded-rendering.md))
 adds `engine_guard/queue_check.*` (see [engine_guard](../engine_guard/README.md)) and under `tools/qa` its
 [PoC session driver](../tools/qa/queue_check_session.py.md): a test session launched with `-nl_queue_check_test` and a
-plain one, each changing level and disconnecting.
+plain one, each changing level and disconnecting. The run check (2026-11-21,
+[ADR 0254](decisions/0254-queued-render-calls-checked-again-while-the-game-runs-them.md)) adds `engine_guard/run_check.*`
+and `tests/test_run_check.cpp`, and under `tools/qa` the driver's busy kind with its
+[server script](../tools/qa/queue_busy_server.lua.md).
 
 R20-A adds `loader/proxy/loader_release.h` / `.cpp` (bounded published-release record and native
 runtime ownership checks), `loader/proxy/ui/menu_choices.lua` (bounded local menu preferences),

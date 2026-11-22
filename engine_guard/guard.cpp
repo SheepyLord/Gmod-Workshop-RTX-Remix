@@ -111,7 +111,13 @@ void copy_text(char* to, unsigned size, const std::string& from) {
   to[n] = '\0';
 }
 
-// Committed, readable memory within reach of a rel32 from `target`.
+Status fail(std::string reason) {
+  g_status.installed = false;
+  g_status.reason = std::move(reason);
+  return g_status;
+}
+}  // namespace
+
 void* allocate_near(std::uintptr_t target) {
   SYSTEM_INFO info{};
   GetSystemInfo(&info);
@@ -131,13 +137,6 @@ void* allocate_near(std::uintptr_t target) {
   }
   return nullptr;
 }
-
-Status fail(std::string reason) {
-  g_status.installed = false;
-  g_status.reason = std::move(reason);
-  return g_status;
-}
-}  // namespace
 
 // The stub jumps here with the call site's arguments and the material in r9.
 extern "C" const char* nl_engine_guard_hook(void* key_values, const char* key, const char* default_value,

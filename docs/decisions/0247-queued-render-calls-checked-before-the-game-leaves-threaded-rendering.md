@@ -1,7 +1,9 @@
 # 0247: Queued render calls checked before the game leaves threaded rendering
 
 - Status: Accepted 2026-11-19 (the user's choice after the investigation of their crash at `disconnect`: "I typed
-  disconnect to attempt to go back to the main menu and led to the crash. The guard sounds good.")
+  disconnect to attempt to go back to the main menu and led to the crash. The guard sounds good."); extended by
+  [0254](0254-queued-render-calls-checked-again-while-the-game-runs-them.md) (the calls checked again while the game
+  runs them)
 - Package only: the engine guard (`gmcl_`/`gmsv_nlengineguard_win64.dll`, the fixes part,
   [engine_guard/queue_check.h](../../engine_guard/queue_check.h)). No `winmm.dll` change: the user rejected loader
   changes (2026-11-17).

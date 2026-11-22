@@ -62,6 +62,10 @@ const char* filter(GetString get, void* key_values, const char* key, const char*
 std::vector<std::uint8_t> stub(std::uintptr_t hook);
 bool is_stub(const std::uint8_t* code);
 
+// A committed, writable 4 KB page within reach of a rel32 from `target` (the call site's stub, the run check's slot),
+// or nullptr.
+void* allocate_near(std::uintptr_t target);
+
 struct Status {
   bool installed = false;
   std::string reason;            // installed, installed by the other copy, or why not

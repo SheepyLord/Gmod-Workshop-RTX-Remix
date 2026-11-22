@@ -1,7 +1,8 @@
 // Queued render calls checked before the material system leaves threaded rendering (ADR 0247).
 #include "queue_check.h"
 
-#include "guard.h"  // find(): byte patterns with wildcards
+#include "guard.h"  // find(): byte patterns with wildcards; allocate_near()
+#include "run_check.h"
 
 #include <windows.h>
 
@@ -230,6 +231,8 @@ Layout find_layout(const std::uint8_t* image, std::uintptr_t loaded_base, const 
     if (tail != head + 8 || next != head + 16 || arena != head + kListHeader)
       return failed(out, "CallQueued's list is not {head, tail, next free byte} before its arena");
     out.list = head;
+    // The pattern starts with the loop's dispatch: mov rcx,[rbx+8]; mov rax,[rcx]; call [rax+18h] (ADR 0254).
+    out.dispatch_rva = out.call_queued_rva + run;
     if (out.count < 1 || out.count > kMaxLists) return failed(out, "an unexpected number of queued contexts");
     if (std::uint64_t{out.list} + kListHeader + kArena > out.stride)
       return failed(out, "a queued context is smaller than its call list");
@@ -490,12 +493,49 @@ std::atomic<bool> g_owns{false};  // this copy changed the slot
 std::atomic<std::uint64_t> g_checks{0};
 std::atomic<std::uint64_t> g_dropped{0};
 
+// The run check (ADR 0254). Set at install and never after, except g_run, which only the main thread touches inside
+// AllowThreading(false).
+bool g_run_ready = false;                  // the dispatch was found as the engine's and its slot is in reach
+std::uint8_t* g_dispatch = nullptr;        // CallQueued's per-call dispatch in the loaded materialsystem.dll
+std::vector<std::uint8_t> g_dispatch_patch;  // its bytes while a run is watched
+run_check::Run g_run;
+std::atomic<std::uint64_t> g_runs{0}, g_put_back{0}, g_skipped{0}, g_ended{0};
+
+// The test pair (-nl_queue_check_test with the run check ready): laid out as the engine's functors. The first writes
+// over the second's element while the engine runs the list, with what the field's crashes found there (a pointer to
+// a heap block whose first word is another heap block, whose call slot is 0); the run check must put it back.
+struct TestCall {
+  virtual int AddRef() { return 1; }
+  virtual int Release() { return 1; }
+  virtual ~TestCall() = default;
+  virtual void Run() = 0;
+};
+std::uintptr_t g_test_victim_element = 0;
+std::uintptr_t g_test_junk = 0;  // the heap block the first call writes into the second's element
+std::atomic<int> g_test_writer_runs{0}, g_test_victim_runs{0};
+struct TestWriter final : TestCall {
+  void Run() override {
+    ++g_test_writer_runs;
+    if (!g_test_victim_element || !g_test_junk) return;
+    auto* element = reinterpret_cast<std::uintptr_t*>(g_test_victim_element);
+    element[0] = g_test_junk;
+    element[1] = g_test_junk;
+  }
+};
+struct TestVictim final : TestCall {
+  void Run() override { ++g_test_victim_runs; }
+};
+TestWriter g_test_writer;
+TestVictim g_test_victim;
+
 std::mutex g_install;
 Status g_status;  // under g_install
 // The other copy's counts, when it installed first (the client and the server module are two images in one process;
 // the slot points into only one of them).
 using Owner = int (*)(std::uint64_t* checks, std::uint64_t* dropped, int* test);
 Owner g_owner = nullptr;  // under g_install
+using RunOwner = int (*)(std::uint64_t* runs, std::uint64_t* put_back, std::uint64_t* skipped, std::uint64_t* ended);
+RunOwner g_run_owner = nullptr;  // under g_install
 
 using Msg = void (*)(const char*, ...);
 void say(const char* text) {
@@ -523,17 +563,57 @@ Why judge_in_game(void* context, std::uintptr_t object) {
   return why;
 }
 
+// The run check's judge of an element it never saw: the plain one, no cache.
+Why judge_memory_any(void*, std::uintptr_t object) { return judge_memory(object); }
+
 // The walk under SEH: another thread may free memory a call's object pointed at between the check and the read.
-// Returns false when it stopped on such a fault (the lists keep every unlink done before it, each complete).
-bool clean_guarded(const List* lists, std::size_t count, std::size_t test_list, Report* report) noexcept {
+// Returns false when it stopped on such a fault (the lists keep every unlink done before it, each complete). In a test
+// session the stale test call goes to the end of the list being recorded first, and with the run check the test pair
+// after it.
+bool clean_guarded(const List* lists, std::size_t count, std::size_t test_list, bool test_pair,
+                   Report* report) noexcept {
   Seen seen{};
   __try {
-    if (test_list < count) append(lists[test_list], reinterpret_cast<std::uintptr_t>(&g_test_object));
+    if (test_list < count) {
+      append(lists[test_list], reinterpret_cast<std::uintptr_t>(&g_test_object));
+      if (test_pair && append(lists[test_list], reinterpret_cast<std::uintptr_t>(&g_test_writer)) &&
+          append(lists[test_list], reinterpret_cast<std::uintptr_t>(&g_test_victim)))
+        g_test_victim_element = lists[test_list].header[1];
+    }
     *report = clean(lists, count, &judge_in_game, &seen);
     return true;
   } __except (EXCEPTION_EXECUTE_HANDLER) {
     return false;
   }
+}
+
+// The run check's entry: CallQueued's rewritten dispatch calls it with the element (rcx = rbx). The x64 convention has
+// the element in rcx as the engine's own call had the object there; every other register is the engine's again on
+// return, as after any call.
+__declspec(noinline) void run_step(std::uintptr_t* element) noexcept { g_run.step(element); }
+
+// Rewrites `size` bytes of code (another thread never runs them meanwhile: the caller makes sure).
+bool write_code(std::uint8_t* at, const std::uint8_t* bytes, std::size_t size) noexcept {
+  DWORD old = 0;
+  if (!VirtualProtect(at, size, PAGE_EXECUTE_READWRITE, &old)) return false;
+  std::memcpy(at, bytes, size);
+  DWORD ignored = 0;
+  VirtualProtect(at, size, old, &ignored);
+  FlushInstructionCache(GetCurrentProcess(), at, size);
+  return true;
+}
+
+// The dispatch rewritten for one AllowThreading(false), only while it still holds the engine's bytes.
+bool patch_dispatch() noexcept {
+  if (!g_run_ready || g_dispatch_patch.size() != run_check::kDispatchSize) return false;
+  if (std::memcmp(g_dispatch, run_check::kDispatch.data(), run_check::kDispatchSize) != 0) return false;
+  return write_code(g_dispatch, g_dispatch_patch.data(), run_check::kDispatchSize);
+}
+
+// And put back, unless something else changed it meanwhile.
+void unpatch_dispatch() noexcept {
+  if (std::memcmp(g_dispatch, g_dispatch_patch.data(), run_check::kDispatchSize) == 0)
+    write_code(g_dispatch, run_check::kDispatch.data(), run_check::kDispatchSize);
 }
 
 std::string narrow(const wchar_t* text) {
@@ -692,9 +772,97 @@ void record(const Report& report, bool walked, std::uint64_t check) {
   }
 }
 
+// A call's place in the run's records: "list 1, call 660 of 1234 (element +0x2938)".
+std::string place(const run_check::Record& r) {
+  if (r.list == UINT32_MAX) return "an element outside every list's arena (" + hex(r.element) + ")";
+  std::string text = "list " + std::to_string(r.list) + ", ";
+  text += r.position == UINT32_MAX ? std::string("an element the check never saw")
+                                   : "call " + std::to_string(r.position + 1) + " of " + std::to_string(r.length);
+  return text + " (element +" + hex(r.offset) + ")";
+}
+
+std::string words_text(const std::uintptr_t* words, std::uint32_t count) {
+  std::string text;
+  for (std::uint32_t i = 0; i < count; ++i) text += (i ? " " : "") + hex(words[i]);
+  return text.empty() ? std::string("none read") : text;
+}
+
+// Says what the run check found while the engine ran the lists: the console once, the log with the details and the
+// calls that ran just before each event. The test pair's own event is told apart; `victim_ran`: its second call ran in
+// this run.
+void record_run(std::uint64_t check, bool victim_ran) {
+  try {
+    const run_check::Totals& totals = g_run.totals();
+    std::uint64_t test_events = 0;
+    bool test_put_back = false;
+    for (std::uint32_t i = 0; i < g_run.recorded(); ++i) {
+      const run_check::Record& r = g_run.records()[i];
+      if (g_test_victim_element && r.element == g_test_victim_element) {
+        ++test_events;
+        if (r.event == run_check::Event::put_back) test_put_back = true;
+      }
+    }
+    const std::uint64_t events = totals.put_back + totals.skipped + totals.ended;
+    if (g_test && test_put_back && victim_ran)
+      say("[NativeLoader] Queue check test: the run check put back the test call written over during the run (engine "
+          "guard, ADR 0254).\n");
+    if (!events) return;
+    std::string text = utc_now() + " check " + std::to_string(check) + " while the game ran the queued calls: " +
+                       std::to_string(totals.run) + " calls run, " + std::to_string(totals.put_back) + " put back, " +
+                       std::to_string(totals.skipped) + " skipped, " + std::to_string(totals.ended) +
+                       " lists ended early";
+    if (totals.strangers) text += ", " + std::to_string(totals.strangers) + " calls it had not seen";
+    text += "\n";
+    for (std::uint32_t i = 0; i < g_run.recorded(); ++i) {
+      const run_check::Record& r = g_run.records()[i];
+      text += "  " + place(r) + ": " + run_check::describe(r.event) +
+              (g_test_victim_element && r.element == g_test_victim_element ? " (the test call)" : "") + "\n";
+      if (r.position != UINT32_MAX) {
+        text += "    when checked: next " + hex(r.was[0]) + ", object " + hex(r.was[1]);
+        if (r.words) text += " (" + describe_table(r.words_was[0]) + ")";
+        text += "\n";
+      }
+      if (r.list != UINT32_MAX) {
+        text += "    as the run found it: next " + hex(r.now[0]) + ", object " + hex(r.now[1]);
+        if (r.now[1] && r.now[1] != r.was[1]) text += " (in " + describe_memory(r.now[1]) + ")";
+        text += "\n";
+      }
+      if (r.event == run_check::Event::object_changed) {
+        text += "    the object's first words when checked: " + words_text(r.words_was, r.words) +
+                "; now: " + words_text(r.words_now, r.words) + "\n";
+        if (r.before_read)
+          text += "    the 16 bytes before the element when checked: " + words_text(r.before_was, 2) +
+                  "; now: " + words_text(r.before_now, 2) + "\n";
+      }
+      if (r.recent_count) {
+        text += "    run just before it, newest first:";
+        for (std::uint32_t c = 0; c < r.recent_count; ++c) {
+          const run_check::Recent& recent = r.recent[c];
+          text += (c ? "; " : " ") + std::string("list ") + std::to_string(recent.list) + " " +
+                  (recent.position == UINT32_MAX ? std::string("unseen call")
+                                                 : "call " + std::to_string(recent.position + 1)) +
+                  " " + describe_table(recent.table);
+        }
+        text += "\n";
+      }
+    }
+    const std::uint64_t recorded_events = g_run.recorded();
+    if (events > recorded_events) text += "  and " + std::to_string(events - recorded_events) + " more\n";
+    write_log(text);
+    if (events > test_events)
+      say(("[NativeLoader] Put back " + std::to_string(totals.put_back) + " and skipped " +
+           std::to_string(totals.skipped) +
+           " queued render call(s) written over while the game ran them, before it left threaded rendering (engine "
+           "guard, ADR 0254). Details: garrysmod/data/native-loader/render-queue-check.log\n")
+              .c_str());
+  } catch (...) {
+  }
+}
+
 // Before the engine leaves threaded rendering: the lock (the render thread finishes the frame it was given and the
-// hardware context becomes this thread's), the walk, the unlock.
-void check(void* self) {
+// hardware context becomes this thread's), the walk, with the run check ready what every element looks like now, the
+// unlock. True when the run is to be watched.
+bool check(void* self, std::uint64_t& number) {
   const auto base = reinterpret_cast<std::uintptr_t>(self);
   void* const lock = g_lock(self);
   List lists[kMaxLists]{};
@@ -707,19 +875,47 @@ void check(void* self) {
     lists[i].arena_end = lists[i].arena_begin + kArena;
   }
   Report report{};
-  bool walked = true;
+  bool walked = true, watch = false;
   // Only when this thread was recording into a queued context: then Lock waited for the render thread's frame, and
   // nothing runs a list while the walk reads it.
-  if (current != SIZE_MAX) walked = clean_guarded(lists, g_layout.count, g_test ? current : SIZE_MAX, &report);
+  if (current != SIZE_MAX) {
+    walked = clean_guarded(lists, g_layout.count, g_test ? current : SIZE_MAX, g_test && g_run_ready, &report);
+    if (walked && g_run_ready) {
+      g_run.begin(lists, g_layout.count, &judge_memory_any, nullptr, GetCurrentThreadId());
+      watch = g_run.see();
+    }
+  }
   g_unlock(self, lock);
-  const std::uint64_t number = g_checks.fetch_add(1) + 1;
+  number = g_checks.fetch_add(1) + 1;
   g_dropped.fetch_add(report.dropped);
   if (report.dropped || report.broken || !walked) record(report, walked, number);
+  return watch;
 }
 
+// AllowThreading(false): the check, then the engine's own function, its runs of the lists watched when the check
+// kept them (the render thread is idle until the engine's function returns: Lock waited for its frame, and only this
+// thread hands it another). A call of it from inside a watched run (never seen) gets the engine's function alone, so
+// the run being watched keeps what its check saw.
+bool g_watching = false;  // main thread only
 bool hook_allow(void* self, bool allow, int service_thread) {
-  if (!allow && self == g_object) check(self);
-  return g_allow(self, allow, service_thread);
+  if (allow || self != g_object || g_watching) return g_allow(self, allow, service_thread);
+  std::uint64_t number = 0;
+  if (!check(self, number) || !patch_dispatch()) {
+    g_run.end();
+    return g_allow(self, allow, service_thread);
+  }
+  const int victim_runs = g_test_victim_runs.load();
+  g_watching = true;
+  const bool result = g_allow(self, allow, service_thread);
+  g_watching = false;
+  unpatch_dispatch();
+  g_run.end();
+  g_runs.fetch_add(1);
+  g_put_back.fetch_add(g_run.totals().put_back);
+  g_skipped.fetch_add(g_run.totals().skipped);
+  g_ended.fetch_add(g_run.totals().ended);
+  record_run(number, g_test_victim_runs.load() > victim_runs);
+  return result;
 }
 
 Status fail(std::string reason) {
@@ -728,8 +924,10 @@ Status fail(std::string reason) {
   return g_status;
 }
 
-// The other copy of this module (gmcl_ or gmsv_), when it is loaded and owns the slot.
-Owner other_copy() {
+// The other copy of this module (gmcl_ or gmsv_), when it is loaded and owns the slot; its run check's counts too, when
+// it has them (a copy built before ADR 0254 has not).
+Owner other_copy(RunOwner& run_owner) {
+  run_owner = nullptr;
   HMODULE self = nullptr;
   GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                      reinterpret_cast<LPCWSTR>(&hook_allow), &self);
@@ -737,9 +935,47 @@ Owner other_copy() {
     const HMODULE module = GetModuleHandleW(name);
     if (!module || module == self) continue;
     const auto owner = reinterpret_cast<Owner>(GetProcAddress(module, "nl_engine_guard_queue_check_v1"));
-    if (owner && owner(nullptr, nullptr, nullptr) >= 0) return owner;
+    if (owner && owner(nullptr, nullptr, nullptr) >= 0) {
+      run_owner = reinterpret_cast<RunOwner>(GetProcAddress(module, "nl_engine_guard_run_check_v1"));
+      return owner;
+    }
   }
   return nullptr;
+}
+
+// The run check (ADR 0254): CallQueued's dispatch must hold the engine's bytes, and a slot holding run_step's address
+// must lie within a rel32 of it. Otherwise only the walk before the run stays (ADR 0247).
+void prepare_run_check(const std::uint8_t* image, const Layout& layout) {
+  g_status.run_check = false;
+  if (!layout.dispatch_rva) {
+    g_status.run_reason = "CallQueued's dispatch was not found";
+    return;
+  }
+  auto* const dispatch = const_cast<std::uint8_t*>(image) + layout.dispatch_rva;
+  if (std::memcmp(dispatch, run_check::kDispatch.data(), run_check::kDispatchSize) != 0) {
+    g_status.run_reason = "CallQueued's dispatch is not the engine's (another module changed it)";
+    return;
+  }
+  void* const page = allocate_near(reinterpret_cast<std::uintptr_t>(dispatch));
+  if (!page) {
+    g_status.run_reason = "no memory within reach of materialsystem.dll for the run check";
+    return;
+  }
+  void (*const entry)(std::uintptr_t*) noexcept = &run_step;
+  std::memcpy(page, &entry, sizeof(entry));
+  DWORD old = 0;
+  VirtualProtect(page, 4096, PAGE_READONLY, &old);
+  auto bytes = run_check::dispatch_patch(reinterpret_cast<std::uintptr_t>(dispatch), reinterpret_cast<std::uintptr_t>(page));
+  if (bytes.size() != run_check::kDispatchSize) {
+    VirtualFree(page, 0, MEM_RELEASE);
+    g_status.run_reason = "the run check's slot is out of a call's reach";
+    return;
+  }
+  g_dispatch = dispatch;
+  g_dispatch_patch = std::move(bytes);
+  g_run_ready = true;
+  g_status.run_check = true;
+  g_status.run_reason = "installed";
 }
 
 __declspec(noinline) void layout_into(const std::uint8_t* image, std::uintptr_t base, const std::uintptr_t* vtable,
@@ -784,13 +1020,18 @@ Status install_locked() {
   // Only where the Remix runtime is the game's d3d9.dll.
   const HMODULE d3d9 = GetModuleHandleW(L"d3d9.dll");
   if (!d3d9 || !GetProcAddress(d3d9, "remixapi_InitializeLibrary")) return fail("not a Remix start");
-  if (const Owner owner = other_copy()) {
+  RunOwner run_owner = nullptr;
+  if (const Owner owner = other_copy(run_owner)) {
     g_owner = owner;
+    g_run_owner = run_owner;
     int test = 0;
     owner(nullptr, nullptr, &test);
     g_status.installed = true;
     g_status.test = test != 0;
     g_status.reason = "installed by the other copy of this module";
+    g_status.run_check = run_owner && run_owner(nullptr, nullptr, nullptr, nullptr) > 0;
+    g_status.run_reason = g_status.run_check ? "installed by the other copy of this module"
+                                             : "not in the other copy of this module";
     return g_status;
   }
   const HMODULE module = GetModuleHandleW(L"materialsystem.dll");
@@ -830,10 +1071,19 @@ Status install_locked() {
   g_unlock = reinterpret_cast<UnlockFn>(vtable[layout.unlock_slot]);
   g_layout = layout;
   g_object = object;
+  prepare_run_check(image, layout);
   if (launched_with(L"-nl_queue_check_test")) {
     void* const block = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 64);
     g_test_object[0] = reinterpret_cast<std::uintptr_t>(block);
     g_test = block != nullptr;
+    // What the test pair's first call writes into the second's element: a heap block whose first word is another,
+    // zeroed one, so a call through it would go to address 0, as in the field's crash of 2026-11-19.
+    auto* const junk = static_cast<std::uintptr_t*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 64));
+    void* const inner = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 64);
+    if (junk && inner) {
+      junk[0] = reinterpret_cast<std::uintptr_t>(inner);
+      g_test_junk = reinterpret_cast<std::uintptr_t>(junk);
+    }
   }
   DWORD old = 0;
   if (!VirtualProtect(&vtable[layout.allow_slot], sizeof(void*), PAGE_READWRITE, &old))
@@ -847,7 +1097,14 @@ Status install_locked() {
   g_status.reason = "installed";
   say("[NativeLoader] Queued render calls are checked before the game leaves threaded rendering (engine guard, ADR "
       "0247).\n");
+  if (g_run_ready)
+    say("[NativeLoader] Queued render calls are also checked while the game runs them (engine guard, ADR 0254).\n");
+  else
+    say(("[NativeLoader] The run check is off: " + g_status.run_reason + " (engine guard, ADR 0254).\n").c_str());
   if (g_test) say("[NativeLoader] Queue check test: each check first queues one call whose object is gone.\n");
+  if (g_test && g_run_ready && g_test_junk)
+    say("[NativeLoader] Queue check test: each check also queues a pair of calls, the first writing over the second's "
+        "element.\n");
   return g_status;
 }
 
@@ -859,10 +1116,15 @@ Status fill(Status out) {
     out.checks = checks;
     out.dropped = dropped;
     out.test = test != 0;
+    if (g_run_owner) g_run_owner(&out.runs, &out.put_back, &out.skipped, &out.ended);
   } else {
     out.checks = g_checks.load();
     out.dropped = g_dropped.load();
     out.test = g_test;
+    out.runs = g_runs.load();
+    out.put_back = g_put_back.load();
+    out.skipped = g_skipped.load();
+    out.ended = g_ended.load();
   }
   return out;
 }
@@ -876,6 +1138,18 @@ extern "C" __declspec(dllexport) int nl_engine_guard_queue_check_v1(std::uint64_
   if (dropped) *dropped = g_dropped.load();
   if (test) *test = g_test ? 1 : 0;
   return 1;
+}
+
+// And its run check's counts (ADR 0254): -1 when this copy did not install, 0 when its run check is off, 1 when on.
+extern "C" __declspec(dllexport) int nl_engine_guard_run_check_v1(std::uint64_t* runs, std::uint64_t* put_back,
+                                                                   std::uint64_t* skipped,
+                                                                   std::uint64_t* ended) noexcept {
+  if (!g_owns.load()) return -1;
+  if (runs) *runs = g_runs.load();
+  if (put_back) *put_back = g_put_back.load();
+  if (skipped) *skipped = g_skipped.load();
+  if (ended) *ended = g_ended.load();
+  return g_run_ready ? 1 : 0;
 }
 
 Status install() noexcept {

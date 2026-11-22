@@ -167,6 +167,10 @@ TEST_CASE("queue check: the material system's layout is found once in an install
       CHECK(layout.lock_slot != layout.unlock_slot);
       CHECK(layout.stride >= layout.list + qc::kListHeader + 0x1000000);
       CHECK(layout.force_rva != 0 && layout.end_queue_rva != 0 && layout.call_queued_rva != 0);
+      // The run check's site (ADR 0254): CallQueued's dispatch, the engine's ten bytes.
+      std::printf("  CallQueued's dispatch at 0x%llx\n", static_cast<unsigned long long>(layout.dispatch_rva));
+      CHECK(layout.dispatch_rva > layout.call_queued_rva);
+      CHECK(std::memcmp(base + layout.dispatch_rva, "\x48\x8B\x4B\x08\x48\x8B\x01\xFF\x50\x18", 10) == 0);
     }
     // Shifted by one slot, AllowThreading is not where the layout wants it.
     const qc::Layout shifted = qc::find_layout(base, preferred, vtable + 1, slots - 1);
@@ -358,7 +362,9 @@ TEST_CASE("queue check: nothing installs outside a Remix start") {
   const auto status = qc::install();
   CHECK(!status.installed);
   CHECK(status.reason == "not a Remix start");
+  CHECK(!status.run_check);
   CHECK(qc::status().checks == 0);
+  CHECK(qc::status().runs == 0);
 }
 
 TEST_CASE("queue check: the module installs it in every realm and publishes how it went") {
@@ -375,7 +381,9 @@ TEST_CASE("queue check: the module installs it in every realm and publishes how 
   REQUIRE(menu != std::string::npos);
   CHECK(call < menu);
   const auto reason = text.find("SetField(-2, \"queue_check\")", open);
+  const auto run_reason = text.find("SetField(-2, \"run_check\")", open);
   const auto function = text.find("SetField(-2, \"QueueCheck\")", open);
   CHECK(reason != std::string::npos && reason < menu);
+  CHECK(run_reason != std::string::npos && run_reason < menu);
   CHECK(function != std::string::npos && function < menu);
 }

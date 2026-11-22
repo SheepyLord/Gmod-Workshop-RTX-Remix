@@ -3863,6 +3863,28 @@ separator now has 57 texts in each catalog.
 - Not covered: the field crash itself, which the PoC never reproduced (the series of 2026-11-15), and stale calls that
   the render thread or the material system's own flushes run.
 
+## Queued render calls checked again while the game runs them (ADR 0254)
+
+- **C++ (CTest `nl_engine_guard_tests`):** `test_run_check.cpp` runs engine-like call lists (each call's 32-byte object
+  in the arena and its element after it, as GMod lays them out) through `Run::step` as `CallQueued`'s loop would:
+  nothing changes when nothing is written over; the field's case (a call writes a heap block's address over a later
+  element) is put back and the call runs, its record naming the calls run before it; a call whose object or the bytes
+  before its element changed is skipped; a call's change of its own link is put back; a nested run and a link leading
+  back never run a call twice; calls appended during the run are followed, strangers judged, links out of the arena
+  ended; a list the check could not keep runs as strangers; events past the record limit are counted; another
+  thread's step and an idle run only call. The rewritten dispatch is executed as machine code: the engine's loop in a
+  page of its own runs a list as the engine does, then with its dispatch rewritten to a slot from `allocate_near` runs
+  the field's case through `step`, and the original bytes come back. `test_queue_check.cpp`'s layout test also finds
+  `CallQueued`'s dispatch in the installed game's `materialsystem.dll` with the engine's ten bytes (+0x31040).
+- **PoC** (`tools/qa/queue_check_session.py`): the test session (`-nl_queue_check_test`) also queues a pair whose first
+  call writes over the second's element during the run; a pass: the console's "the run check put back the test call"
+  at the level change and at `disconnect`, the log's run records marked "(the test call)", no crash. The busy kind
+  crowds the second map ([`queue_busy_server.lua`](../tools/qa/queue_busy_server.lua.md)) for `--busy-seconds` before
+  `disconnect`; any run record it logs is a real one.
+- Not covered: the field's writer itself (the busy session tries to reproduce it; the field's own sessions log it with
+  the calls run before), the render thread's runs in normal frames, and an object written over with bytes that still
+  look the same in its first 32.
+
 ## Which sky a map shows (ADR 0249)
 
 - **LuaJIT** ([`test_companion_sky.py`](../tools/tests/test_companion_sky.py.md)): `nativeloader/map_sky.lua` alone

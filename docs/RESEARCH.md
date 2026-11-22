@@ -9931,3 +9931,47 @@ the package before the fix (`0.0.0-dev.20261121092444+412a014d`), `fixed-1`, `fi
   you in first person with both copies (`03_both_on`), with the gravity gun (`05_gravity_gun`, one material registered)
   and with the tool gun again (`06_tool_gun_again`, its four materials reused), path traced in third person
   (`04_third_both`); median frames 6.0-8.2 ms.
+
+## The crash at disconnect that the check did not catch (2026-11-21, Claude; [ADR 0254](decisions/0254-queued-render-calls-checked-again-while-the-game-runs-them.md))
+
+The field game of 2026-11-22 (started 00:13:56 UTC, closed 01:50:56 UTC at `disconnect`, exit 0xC0000409; GMod's dump
+and the runtime's crashpad dump in the loader's session folder; GMod's `materialsystem.dll` timestamp 0x6af5f3c7, as on
+2026-11-19). Scratch tools and notes: `out/crash-20261122` in the main checkout.
+
+- **The same element.** GMod's dump: access violation at `materialsystem.dll`+0x1702b (`jmp qword ptr [rax+20h]`, a
+  vcall thunk for slot 4 entered at +0x17028), read at 0xffffffffffffffff (a jump to a non-canonical address). Unwound
+  with the images' `.pdata`: `CallQueued` (+0x30f80, dispatch at +0x31040) < `EndQueue` (+0x31cc0) < `ForceSingleThreaded`
+  (+0x1cc10) < `AllowThreading` (+0x18a90) < the `disconnect` callback (`engine.dll`+0x1c93e0) < `Cmd_ExecuteCommand` <
+  `Cbuf_Execute` < `_Host_RunFrame`. `rdi` = context 1 (+0x10f26f8), `rbx` = its element at arena +0x2938, the 660th
+  call of the list (the arena starts at context+0x2c8, the first element at +0x2d0) - the 2026-11-19 crash's element
+  too. `rcx` (the object) 0x266d6921090 and its first word 0x266d69431a0 lie in one 256 KB private block (the runtime's
+  memory map); `[first word + 0x18]` held the thunk, `[+0x20]` a non-canonical value.
+- **The check had run.** The runtime's dump keeps the main thread's whole committed stack (0x8f000 bytes). Below the
+  engine's frames, at `rsp`-0x518, lies `clean_guarded`'s `Seen` array: 14 vtables, then its count 14 at
+  +0x200; part of the array's tail was later overwritten by `Unlock`'s callee frame (its return address
+  `materialsystem.dll`+0x258fc after `ThreadInterlockedExchange`, with `rbx` = context 1, the convar at +0x20f4670 and
+  `this` saved). So `Lock()` had returned context 1, the walk had run over both lists, judged every call live and dropped
+  none; no log was written. The 14 classes (RTTI from the images): materialsystem.dll's `CMemberFunctor0/1/2/3<...>`
+  with `CRefCountServiceNull`/`CFuncMemPolicyNone` (on `IMaterialInternal`, `CMaterialVar` (int and `ITexture*`),
+  `ITextureInternal`, and `CMatRenderContextBase` with `bool`, none, `IMesh*`, `IMaterialInternal*`, `void*` (slot 225),
+  `IMaterial*, void*`, `ITexture*`, `bool, bool, bool`, `int, int`) and studiorender.dll's
+  `CMemberFunctor1<CStudioRender*, void (CStudioRender::*)(StudioDecalHandle_t__*)>` (`DestroyDecalList`).
+- **GMod's queued calls live in the context, never on the heap.** The queued context's constructor (+0x16090, at
+  +0x164b3) sets `[list + 0x1000018]` (context+0x10002c8) to the list's own next-free-byte word (context+0x2c0); every
+  inline append site in materialsystem.dll (66 references), studiorender.dll (7), engine.dll (11) and client.dll (7),
+  found by their "CMatRenderCallQueue out of memory! This shouldn't happen." references, takes the functor from there
+  (one bounds check for the functor, one for the element) and puts the element right after it. engine.dll's one
+  helper that appends an object it is given (+0xddfb0, a leaf) has four callers (+0xdc280, +0xdc2d0, +0xded70 twice),
+  each of which took that object from the arena first (+0xdc150, +0xdd9c0, +0xdc1f0). So an element whose object is a
+  heap address was written over: after the walk, while `ForceSingleThreaded` ran the 659 calls before it.
+- **What ran just before.** Just below `CallQueued`'s frame (`rsp` 0xacb097bf88) the stale frames of the last deep call:
+  tier0's `CStdMemAlloc::Alloc` (+0xad20, return +0xad9d after its tracking call), the allocator (+0x1be80, return
+  +0x1c1ca), its lock (+0x18c30) and `ThreadGetCurrentId`: one of the calls allocated memory. Which one, and what wrote
+  the element, the dumps do not hold (neither keeps the arena).
+- **Runs of the run check** (`out/run-check/run1`, the branch's package on the PoC, `queue_check_session.py`): the
+  test session's level change ran 1,614 calls and put back the test pair's victim (its element written over with a heap
+  block's address by the call before it, as in the field) and ran it; its disconnect the same with 1,017 calls; exit 0.
+  A plain session logged nothing. A busy session (gm_flatgrass crowded for 240 s: 1,388 entities at the last count,
+  1,300 props spawned, 113 ragdolls, 24 NPCs fighting, 630 explosions, bullet and blood decals) disconnected cleanly
+  with nothing put back or skipped: the PoC does not reproduce the writer. The dispatch in the installed game:
+  +0x31040, the engine's ten bytes.

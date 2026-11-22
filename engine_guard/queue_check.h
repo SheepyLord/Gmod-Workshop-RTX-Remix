@@ -20,6 +20,11 @@
 // Found by machine code, never by address, and only where sure (find_layout), in Remix starts only, like the colour
 // cap. With the launch option -nl_queue_check_test each check first appends one call whose object is such a stale
 // one to the list being recorded, so a test session goes through the drop path in the real game.
+//
+// The run check (run_check.h, ADR 0254) then watches the engine run the lists: after the walk it keeps every element,
+// and while AllowThreading(false) runs, CallQueued's per-call dispatch goes through it, so an element written over
+// during the run is put back and a call whose object changed is skipped. In a test session each check also appends
+// a pair of calls, the first writing over the second's element as the field's crashes found it.
 #pragma once
 
 #include <cstddef>
@@ -46,6 +51,7 @@ struct Layout {
   std::uintptr_t force_rva = 0;        // ForceSingleThreaded: called by AllowThreading right after "DISABLED!"
   std::uintptr_t end_queue_rva = 0;    // the queued context's EndQueue: ForceSingleThreaded's loop calls it per context
   std::uintptr_t call_queued_rva = 0;  // the call list's CallQueued: EndQueue(true) calls it
+  std::uintptr_t dispatch_rva = 0;     // CallQueued's per-call dispatch, the run check's site (ADR 0254)
   std::uint32_t contexts = 0;          // the first queued context, from the material system object
   std::uint32_t stride = 0;            // from one queued context to the next
   std::uint32_t count = 0;             // queued contexts ForceSingleThreaded ends
@@ -129,6 +135,13 @@ struct Status {
   std::uint64_t checks = 0;   // AllowThreading(false) calls checked
   std::uint64_t dropped = 0;  // calls dropped
   bool test = false;          // -nl_queue_check_test
+  // The run check (ADR 0254): the calls watched again while the game runs them.
+  bool run_check = false;
+  std::string run_reason;        // "installed", "installed by the other copy of this module", or why not
+  std::uint64_t runs = 0;        // runs watched
+  std::uint64_t put_back = 0;    // elements put back as the check saw them
+  std::uint64_t skipped = 0;     // calls not run
+  std::uint64_t ended = 0;       // lists ended early
 };
 
 // Wraps AllowThreading's slot of the loaded materialsystem.dll. Idempotent, also across the client and the server copy

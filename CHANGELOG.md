@@ -6,6 +6,28 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Disconnecting after a long session no longer crashes (2026-11-21)
+
+- **Leaving a map or a server after a long session with lots spawned could still close the game with "Garry's Mod
+  closed unexpectedly", exit 0xC0000409 (fail-fast termination).** The check added on 2026-11-19 runs before the game
+  leaves its threaded rendering and found nothing wrong. Then, while the game ran its last queued render calls, one of
+  them was written over, and the game called freed memory. The engine guard now also watches that run. A call
+  written over is put back as the check saw it and runs. A call whose own data changed is skipped, and no call runs
+  twice. The game goes on to the main menu or the next map.
+- **If it ever finds one, it says what ran just before.** The console line names
+  `garrysmod/data/native-loader/render-queue-check.log`, which lists each call it put back or skipped and the eight
+  calls that ran before it, for the next fix.
+- Behind it ([ADR 0254](docs/decisions/0254-queued-render-calls-checked-again-while-the-game-runs-them.md), extending
+  ADR 0247): the field crash of 2026-11-22 failed at the same element as the one of 2026-11-19, the 660th of the list
+  being recorded. The runtime's dump still held the first check's working memory: it had passed all calls, all GMod's
+  own. GMod keeps those calls in the render context's own memory, never on the heap, so that element had been written
+  over during the run. After its walk the check now keeps every element. For the length of
+  `AllowThreading(false)` only, `CallQueued`'s per-call dispatch is rewritten in memory to call the check's step, and
+  the engine's bytes go back when the call returns. `nlengineguard.run_check` and `QueueCheck()`'s new counts say how it
+  went. Tests: `test_run_check.cpp` (engine-like lists, and the rewritten dispatch executed as machine code), the
+  dispatch found in the installed game's `materialsystem.dll`, and PoC sessions with `queue_check_session.py` (a test
+  pair queued with `-nl_queue_check_test`, and a new busy kind).
+
 ### The sky's chat line at a map's start is off by default (2026-11-21)
 
 - **No more "[RTX] This map shows the RTX sky..." line in chat at each map's start**, unless you want it: tick

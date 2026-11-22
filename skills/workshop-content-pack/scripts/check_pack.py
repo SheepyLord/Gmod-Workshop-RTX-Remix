@@ -233,8 +233,13 @@ def check_hotloader(r: Report, addon: str, deep: bool, keep=()):
             continue
         if p.get("format") != "mmdhl-package" or p.get("version") != 1 or p.get("id") != pid:
             r.error("package %s: format, version or id does not match (mmdhl-package, 1, the file name)" % pid)
-        if p.get("install") not in ("workshop", "user"):
-            r.error("package %s: install must be workshop or user" % pid)
+        # Workshop mode only (the user's rule, 2026-11-21): a demo pack ("user") leaves a player's own
+        # import of the same model alone, so it installs nothing where the models were imported already.
+        if p.get("install") != "workshop":
+            r.error("package %s: install is %r; packs are built in Workshop mode only (the user, 2026-11-21): a demo "
+                    "pack installs nothing where the player already imported the models" % (pid, p.get("install")))
+        if "folder" in p:
+            r.error("package %s carries a library folder (a demo pack's field); Workshop packages have none" % pid)
         for key, limit in (("title", 128), ("author", 128), ("description", 8000)):
             value = p.get(key) or ""
             if len(str(value).encode("utf-8")) > limit:

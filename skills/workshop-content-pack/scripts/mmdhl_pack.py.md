@@ -37,6 +37,13 @@ python -I scripts\mmdhl_pack.py <cache> cf3eec2f "$B\mmdhl_evernight_march7th" "
 | `--replace` | replace an earlier package folder at `out` (refused for any other folder) |
 | `--allow-game-install` | allow `out` inside a game install. Only when the user asked for that |
 
+## Workshop mode only
+
+The package is always a Workshop package (`install: "workshop"`, no `folder`): the user's rule of
+2026-11-21, no exceptions. A demo pack (`"user"`) leaves a player's own import of the same model alone, so it
+installs nothing on a machine that imported the models already ([pitfalls.md](../references/pitfalls.md), 37).
+There is no option for another mode, and `check_pack.py` refuses a package edited to one.
+
 ## Names (refused before anything is read or written)
 
 The user's rule (2026-11-08): a model's recorded name is the character's own name only. Before it

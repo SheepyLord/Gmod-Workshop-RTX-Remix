@@ -53,8 +53,8 @@ not matter.
 | `author` | clipped to 128 bytes | at most 128 |
 | `description` | clipped to 8000 bytes, multi-line | at most 8000; tab, CR, LF allowed |
 | `created` | integer 0..2^40, else 0 | Unix time |
-| `install` | `"workshop"` or `"user"` | `"workshop"`: a Workshop model (labelled, removed when the package goes). `"user"`: a demo pack, adopted as the player's own |
-| `folder` | clipped to 80 bytes; used for `user` installs only | omitted for `workshop` |
+| `install` | `"workshop"` or `"user"` | `"workshop"`: a Workshop model (labelled, removed when the package goes). `"user"`: a demo pack, adopted as the player's own. **Our packs: always `"workshop"`** (the user, 2026-11-21; pitfall 37) |
+| `folder` | clipped to 80 bytes; used for `user` installs only | omitted for `workshop`; our packs never carry it |
 | `generator` | not checked | `{"release": "2.3.1", "build": "ecd7c426c0b5-..."}` |
 | `items` | 1..1000 entries (below) | |
 | `files` | `{<cache path>: {size, sha256, packed}}` (below) | |
@@ -212,3 +212,10 @@ GMA header carries the title, `{"description", "type": "model", "tags"}` and the
   item name and preset name given on its command line.
 
 Either way the folder name is the pack's (`mmdhl_<name>`), not the exporter's file name.
+
+**Workshop mode only** (the user's rule, 2026-11-21, no exceptions): both routes write `install:
+"workshop"` with no `folder`, the dialog's **Install as the player's own models (demo pack)** stays unticked,
+and `check_pack.py` reports any other mode as an error. A demo pack leaves a player's own import of the same
+model alone (`W.Reconcile`'s own comment: Demo ("user") packages leave the player's copy alone), so on a machine that
+imported the models already, like the author's, it installs nothing: item 3843907092's first upload
+([pitfalls.md](pitfalls.md), 37).

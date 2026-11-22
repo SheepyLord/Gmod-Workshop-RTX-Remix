@@ -67,6 +67,8 @@ MAGIC = b"MMDPACK2"
 HEADER_BYTES = 80            # magic (8), raw size (u64), the SHA-256 as 64 hex digits
 BLOCK = 1 << 20              # SharedBlockSize, native/sharing.hpp
 RAW_FLAG = 0x80000000        # block stored uncompressed
+INSTALL = "workshop"         # Workshop mode only (the user, 2026-11-21): a demo pack ("user") leaves a
+                             # player's own import alone, so it installs nothing where the models exist.
 EXPANSION_LIMIT = 256        # PackageExpansionLimit: installers refuse a file that inflates more than
 EXPANSION_FLOOR = 1 << 20    # 256 times its packet once it is over 1 MiB (PackageExpansionFloor)
 MANIFEST_LIMIT = 4 << 20     # PackageManifestLimit, workshop.lua MaxPackageBytes
@@ -514,7 +516,7 @@ def build(args) -> dict:
             packed[sha] = len(packet)
             print("  %s %10d -> %10d" % (sha[:12], len(raw), len(packet)))
         package = {"format": "mmdhl-package", "version": 1, "id": pid, "title": title, "author": author,
-                   "description": description, "created": int(time.time()), "install": "workshop",
+                   "description": description, "created": int(time.time()), "install": INSTALL,
                    "generator": generator, "items": items,
                    "files": {p: {"size": files[p][0], "sha256": files[p][1], "packed": packed[files[p][1]]} for p in sorted(files)}}
         text = json.dumps(package, ensure_ascii=False, separators=(",", ":"))

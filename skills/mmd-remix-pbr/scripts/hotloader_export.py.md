@@ -32,6 +32,15 @@ The user's rule (2026-11-08): a model's recorded name is the character's own nam
 - after the export, a tagged name among the names the game exported (a rename in between): the
   archive then stays in the game's `exports` folder and `--out` is not written.
 
+## Workshop mode only
+
+The user's rule (2026-11-21), no exceptions: the export is always a Workshop package (`install =
+"workshop"`), as the dialog makes it with **Install as the player's own models (demo pack)** unticked. A demo
+pack leaves a player's own import of the same model alone, so on a machine that imported the models already it
+installs nothing (workshop-content-pack's pitfall 37: item 3843907092's first upload). After unpacking, the
+script reads the package manifest and refuses one that is not a Workshop package or that carries a library
+`folder` (exit 1, `--out` removed).
+
 ## Terms of use
 
 The export dialog asks the player to acknowledge the models' terms of use first
@@ -52,6 +61,6 @@ skips the export dialog's terms-of-use acknowledgement, so it is for private (hi
 
 ## Exit codes
 
-0 on success; 1 when a step fails or a name is refused (the reason is printed on stderr); 2 for a bad
+0 on success; 1 when a step fails, a name is refused or the export is not a Workshop package (the reason is printed on stderr); 2 for a bad
 command line (argparse). Tests: workshop-content-pack's `test_names.py` (the name refusals, without a
 game).

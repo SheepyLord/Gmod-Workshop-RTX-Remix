@@ -36,6 +36,9 @@ that both skills' copies of `model_names.py` match.
 - **Names are the character's own** (the user, 2026-11-08): no game or franchise, version, author or
   rating tag in a display name, folder, package id, title or record (`Chisa`, not `鸣潮-千咲`; `Alf`, not
   `阿芙2.0`). `model_names.py` (in both character skills) enforces it in their scripts.
+- **Model Hotloader packages are Workshop packages** (the user, 2026-11-21), no exceptions:
+  `install: "workshop"`, never a demo pack. A demo pack leaves a player's own import of the same model alone,
+  so it installs nothing where the models were imported already. `check_pack.py` refuses any other mode.
 - **Leave the user's setup alone:** never edit Remix `user.conf`, ask before `rtx.conf` or `dxvk.conf`,
   never write into `rtx-remix\mods\!advanced_material_editor`, never close or restart a game the user is
   working in without their permission, and restore every scene change you make.

@@ -258,6 +258,12 @@ rpai publish "<pmx>" --max-size 2048 --mod ai_pbr_2048
 
 ## Packaging
 
+- **Model Hotloader packages are Workshop packages, no exceptions** (the user, 2026-11-21): the package
+  manifest's `install` is `"workshop"`, never a demo pack (`"user"`). A demo pack leaves a player's own import
+  of the same model alone, so on a machine that imported the models it installs nothing (workshop-content-pack's
+  pitfall 37: item 3843907092's first upload). `hotloader_export.py` exports only Workshop packages and refuses
+  an archive that is not one; workshop-content-pack's `mmdhl_pack.py` writes only them and its `check_pack.py`
+  reports any other mode as an error.
 - **For reuse** (a folder the user names; they chose `H:\BACKUP_20260815\Modding\ipg\!GMRTX_PBR_Test`
   before): `scripts/package_characters.py` writes a drop-in mod with only the referenced DDS and a
   `mod.usda` listing those layers, each character's maps, AI cache, masks, settings, hashes and

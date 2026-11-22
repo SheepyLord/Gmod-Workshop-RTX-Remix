@@ -6,6 +6,17 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: Model Hotloader packages in Workshop mode only (2026-11-21)
+
+- **Every Model Hotloader package is built in Workshop mode, no exceptions** (the user's rule of 2026-11-21).
+  The Genshin Impact backup pack's first upload (item 3843907092) was a demo pack (`install: "user"`, to put its
+  ten characters in a plain library folder). A demo pack leaves a player's own import of the same model alone,
+  so on the user's machine, where all ten were imported, it installed nothing. Rebuilt in Workshop mode, it takes
+  those imports over like every other pack.
+- **The skills record the rule and enforce it.** `workshop-content-pack` records it with the case (pitfall 37).
+  `check_pack.py` reports a package in any other mode, or with a library `folder`, as an error. `mmdhl_pack.py`
+  writes, and mmd-remix-pbr's `hotloader_export.py` accepts, only Workshop packages.
+
 ### Skills: an underground parking garage remastered, OpenAI requests in realtime (2026-11-21)
 
 - **`remix-map-pbr` learns from gm_mallparking** (the user's request of 2026-11-21: Workshop 2619660952, the

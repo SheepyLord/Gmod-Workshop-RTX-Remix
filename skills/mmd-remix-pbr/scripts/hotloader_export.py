@@ -18,6 +18,11 @@ library names travel as they are, so a tagged one ("鸣潮-千咲", "阿芙2.0")
 is contacted: rename the model in Model Hotloader (ask the user first) or pack offline with
 workshop-content-pack's mmdhl_pack.py, which takes the names on its command line.
 
+Mode (the user's rule of 2026-11-21, no exceptions): the package is always a Workshop package
+(install = "workshop"). A demo pack ("user") leaves a player's own import of the same model alone, so it
+installs nothing on a machine that imported the models already. The unpacked package is checked, and one
+that is not a Workshop package is refused (--out removed, exit 1).
+
 The export dialog asks the player to acknowledge the models' terms of use first
 (mmdhl_terms_warning_export). This script does not show that dialog and does not change the
 setting: use it for private items, and make an item public only after exporting through the dialog.
@@ -26,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -66,6 +72,7 @@ for _, id in ipairs(meta.assets) do
   end
   items[#items + 1] = item
 end
+-- Workshop mode only (the user's rule, 2026-11-21): never a demo pack ("user").
 local spec = { title = meta.title, author = meta.author, description = meta.description, tags = meta.tags,
   install = "workshop", fileName = meta.file_name, items = items }
 local handle, err = native.StartPackageExport(util.TableToJSON(spec))
@@ -167,6 +174,14 @@ def main(argv: list[str] | None = None) -> None:
     refuse_tagged([("exported name", str(name), "name") for name in names])
     subprocess.run([sys.executable, "-I", str(a.gmapack), "extract", "--file", s["path"], "--out", str(a.out)],
                    check=True)
+    # Workshop mode only (the user's rule, 2026-11-21): check what the native exporter wrote.
+    for manifest in sorted((a.out / "data_static" / "mmdhl" / "packages").glob("*.json")):
+        package = json.loads(manifest.read_text(encoding="utf-8"))
+        if package.get("install") != "workshop" or "folder" in package:
+            shutil.rmtree(a.out)
+            raise SystemExit(f"error: {manifest.name}: install {package.get('install')!r}"
+                             f"{' with a library folder' if 'folder' in package else ''}; packs are Workshop "
+                             "packages only (the user, 2026-11-21); --out removed")
     files = sorted(p for p in a.out.rglob("*") if p.is_file())
     print(f"add-on folder {a.out}: {len(files)} files, {sum(f.stat().st_size for f in files) / 1e6:.0f} MB")
 

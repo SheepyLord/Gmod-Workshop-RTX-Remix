@@ -422,6 +422,23 @@ layers as they are; nothing to convert.
   files are removed) and `apply`, then put the original config back byte for byte and say that the PoC now
   runs the published RTX package: with its own source still missing, later starts keep that deployment.
 
+### 37. A subscribed character pack installs nothing where the models were imported already (2026-11-21)
+
+- **Seen:** the user subscribed to the Genshin Impact pack (item 3843907092, ten characters) and restarted.
+  The loader deployed it (`nlctl plan`: ACTIVE, subscribed, content only; both folders present), and Model
+  Hotloader found and accepted the package (10 models, no failures). Yet the library kept the user's own
+  entries (their Chinese names, their folders, presets named `1` and `112`), and nothing installed.
+- **Cause:** the build was a demo pack (`install: "user"` with a library `folder`), chosen to put the models
+  in a plain library folder. `W.Reconcile` leaves a model alone when a demo pack provides it and the player
+  already has it in the cache. The in-game state showed each model `provided` by the package, with no
+  install record and no failure.
+- **Fix:** Workshop mode (`install: "workshop"`, no `folder`), the mode of every other pack. It takes the
+  player's own import over (R5): the package's library entry is written over the player's, which is kept
+  under `workshop\own\<asset>\` and put back when the package goes. The pack is listed under Workshop > its
+  title. The update changed only the package manifest (413 of the archive's 415 members identical).
+- **Rule since then** (the user, 2026-11-21): every Model Hotloader package is built in Workshop mode, no
+  exceptions. `check_pack.py` reports any other mode, or a `folder`, as an error.
+
 ## Diagnosing
 
 | Question | Where to look |

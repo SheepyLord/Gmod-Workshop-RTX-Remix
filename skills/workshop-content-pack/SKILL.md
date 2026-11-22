@@ -45,6 +45,14 @@ last builds are in the main checkout's `out\packages\guinaifen`, `out\packages\r
 - **Never remove or delete a Workshop item**, duplicates included (AGENTS.md rule 5). So never
   `create` twice for one pack: look for its item first; every later build goes to `update -id`.
 - **Names: the character's own name only** (the user, 2026-11-08). See "Names".
+- **Model Hotloader packages are built in Workshop mode, no exceptions** (the user, 2026-11-21). The package
+  manifest's `install` is `"workshop"`, never `"user"` (a demo pack), and it carries no `folder`. A demo pack
+  leaves a player's own import of the same model alone, so where the models are imported already, as on the
+  user's machine, it installs nothing (pitfall 37). A Workshop package takes such an import over (R5) and lists
+  the pack under Workshop > its title, so a category the user names for a pack is its title ("Silver Palace",
+  "Genshin Impact"). `mmdhl_pack.py` writes only Workshop packages, `hotloader_export.py` exports only them
+  (never tick the export dialog's demo-pack option), and `check_pack.py` reports any other mode, or a
+  `folder`, as an error.
 - **Public limits.** R18 models (nude base bodies, explicit morphs) stay hidden. The icon is free of
   adult content even for a hidden item. Models with restrictive terms (Evernight's record: 禁止二配，
   禁止非法使用, "Secondary matching and unauthorized use are prohibited"), game rips and another
@@ -209,7 +217,8 @@ $B     = "$repo\out\packages\<n>"                              # the build folde
    no errors; carry its warnings into the report. A tagged, non-ASCII or placeholder display name, a
    tagged title, folder or package id, a description naming a game and a model without a terms-of-use
    record are errors: rename (in Model Hotloader, or `--item <id8>=<Name>`), record the terms, build
-   again. An update of an item whose published name the user keeps (Guinaifen) passes `--keep-name
+   again. A package that is not in Workshop mode is an error too: rebuild it with either route, never
+   edit its mode by hand. An update of an item whose published name the user keeps (Guinaifen) passes `--keep-name
    <id8>`, which reports the name as a warning.
    - **Check it in the game before the upload,** on the PoC, never the user's install:
      `python -I $repo\tools\poc_session.py --evidence $B\poc install --allow-workshop 3829070317 --allow-local "$B\<n>-rtx.gma" --replace-config`,

@@ -118,3 +118,19 @@ ADR 0246 adds `test_the_directx_level_prelude_is_included_where_the_client_modul
 not run the companion's prelude before `includes/init.lua`), the guard includes `nativeloader/prelude/dxlevel.lua`
 once, through the engine's `include` in a local game's early view and through the private environment's scoped
 `include` in the late multiplayer route; where the prelude already installed it, nothing is included.
+
+ADR 0256 adds `test_the_guard_takes_its_place_in_dlibs_hook_library` (the `dlib_hooks` and `dlib_hooks_multiplayer`
+scenarios, with the harness's stand-in that takes the hook table over as DLib does). Early route: the guard finds
+DLib's library at the gamemode's load (`NativeLoaderRenderGuard.hook_library` is `"DLib"`, one console line); then
+MineMod's line stays off the screen and its hook is not entered while its `Think` hook runs; the effects registered
+before and after DLib stay inert; a failing render callback is contained, what it pushed is popped, and it is stopped
+after three failures; DLib's priority order holds, a hook DLib disabled stays disabled, an object's hook gets its
+object; `NeedsDepthPass` answers false; `hook.GetTable()` still holds the add-ons' own functions; a hook added later
+and an autorefreshed MineMod hook are protected the same way; a slow callback is named with its hook; a second
+loading event wraps nothing twice; with `nativeloader_guard 0` everything runs as DLib runs it. Late route: found at
+the install, DLib's `Call2` (the remote server's dispatcher) unchanged; MineMod's line and an owned callback
+registered before the install are kept off and protected, an owned callback after it is protected, a server's
+callback keeps its identity and its error propagates, `NeedsDepthPass` answers false. Against the guard before this
+change the early scenario fails at its first check (no library found); with that check left out, MineMod's line was
+drawn in four frames of four, the later effect ran every frame, `NeedsDepthPass` was true and a render callback's error
+came out of `hook.Call`.

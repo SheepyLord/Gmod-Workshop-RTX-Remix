@@ -2080,16 +2080,22 @@ local events = {Initialize = true, InitPostEntity = true, OnReloaded = true,
     SetupWorldFog = true, SetupSkyboxFog = true, NeedsDepthPass = true,
     InitPostShaderlib = true, InitPostReconstruction = true, PreDrawReconstruction = true, PostDrawReconstruction = true}
 local getHooks, quarantine = hook.GetTable, {}
+-- The wrappers the guard makes itself, so that a hook library that takes the callbacks over (DLib, below) never gets
+-- one of them wrapped again.
+local guardWrappers = setmetatable({}, {__mode = "k"})
 local function gamemodeResult(ok, ...) if ok then return ... end end
+-- A frame begins at PreRender: counted for the slow callbacks (R28), and the leftover scopes forgotten where the game
+-- has no FrameNumber.
+local function frameBegins()
+    framesSeen = framesSeen + 1
+    if not frameNumber and frame == nil and busy == 0 then resync() end
+end
 if not late then
     local originalCall = hook.Call
     hook.Call = function(name, gm, ...)
         if not events[name] or not active() then return originalCall(name, gm, ...) end
         if name == "NeedsDepthPass" then return false end
-        if name == "PreRender" then
-            framesSeen = framesSeen + 1
-            if not frameNumber and frame == nil and busy == 0 then resync() end
-        end
+        if name == "PreRender" then frameBegins() end
         local entries = getHooks()[name]
         local stopped = quarantine[name]
         if not stopped then stopped = setmetatable({}, {__mode = "k"}) quarantine[name] = stopped end
@@ -2140,6 +2146,7 @@ do
                 end
                 return fn(...)
             end
+            guardWrappers[entries[event]] = true
         end
         return entries[event]
     end
@@ -2156,12 +2163,14 @@ local function callback(fn, event)
         if ok then return ... end
         if quarantined(fn, event) then stopped = true end
     end
-    return function(...)
+    local wrapped = function(...)
         if not active() then return fn(...) end
         if policy.skipCallback(fn, event) then return end
         if stopped then return end
         return finish(protectedCall(fn, event, ...))
     end
+    guardWrappers[wrapped] = true
+    return wrapped
 end
 -- In the verified multiplayer route the remote server's own Lua stays as it is (ADR 0052): only
 -- callbacks defined in the owned, hash-verified environments are protected, recognized by the
@@ -2206,6 +2215,107 @@ if late then
         return originalAdd(event, id, fn, ...)
     end
     state.late_render_wrappers = true
+end
+-- DLib (Workshop 1153306104, gitlab.com/DBotThePony/DLib) brings its own hook library and takes the game's over when
+-- its autorun runs, after this guard: GetTable, Add, Remove, Run and Call leave the hook table, which then reads DLib's
+-- in their place. The dispatcher and the registration filter above are no longer called, and every hook added after
+-- DLib runs from DLib's own lists. In every game with DLib that took away the effects' skip (ADR 0086), the notices'
+-- (ADR 0210: MineMod's "Default texture pack is not ready" line came back, a Workshop report of 2026-11-21), the depth
+-- pass's refusal and the protected calls. DLib calls hook.Call2 at each call and rebuilds an event's list through
+-- hook.Reconstruct at each change, both looked up anew each time: the guard takes its place there once DLib is in
+-- charge (where DLib came first, at once; else at the gamemode's load, before anything draws). A callback of an event
+-- the dispatcher protects runs through protectedCall (the late route: an owned one of a late event), any other through
+-- the filter. DLib's order, priorities, disabled hooks and post modifiers stay its own, and hook.GetTable() still gives
+-- the add-ons' own functions; the gamemode's own methods run as DLib runs them.
+do
+    local loadingEvents = {Initialize = true, InitPostEntity = true, OnReloaded = true}
+    local adapted, library = setmetatable({}, {__mode = "k"}), nil
+    local function protector(event, id, fn)
+        local stopped = false
+        local function finish(ok, ...)
+            if ok then return ... end
+            if quarantined(fn, event) then stopped = true end
+        end
+        local wrapped = function(...)
+            if not active() then return fn(...) end
+            if stopped then return end
+            pendingId = id
+            return finish(protectedCall(fn, event, ...))
+        end
+        guardWrappers[wrapped] = true
+        return wrapped
+    end
+    -- NeedsDepthPass through the filter, which answers false while the guard is on, as the dispatcher does.
+    local function wrap(event, id, fn)
+        if event ~= "NeedsDepthPass" and events[event] and (not late or (not loadingEvents[event] and owned(fn))) then
+            return protector(event, id, fn)
+        end
+        return policy.filter(event, fn)
+    end
+    -- DLib keeps an event's hooks by priority and name, each a record whose callback its list calls.
+    local function prepare(dlibHook, event)
+        local ok, registry = pcall(dlibHook.GetDLibTable)
+        local byPriority = ok and type(registry) == "table" and rawget(registry, event)
+        if type(byPriority) ~= "table" then return end
+        for _, named in pairs(byPriority) do
+            if type(named) == "table" then
+                for id, data in pairs(named) do
+                    local fn = type(data) == "table" and rawget(data, "callback")
+                    if type(fn) == "function" and not guardWrappers[fn] and adapted[data] ~= fn then
+                        local wrapper = wrap(event, id, fn)
+                        adapted[data] = wrapper
+                        if wrapper ~= fn then rawset(data, "callback", wrapper) end
+                    end
+                end
+            end
+        end
+    end
+    local function adopt()
+        local dlib = rawget(_G, "DLib")
+        if type(dlib) ~= "table" or rawget(hook, "Call") ~= nil then return end
+        local found, dlibHook, taken = pcall(function() return dlib.hook, dlib.ghook end)
+        if not found or type(dlibHook) ~= "table" or taken ~= hook then return end
+        local reconstruct, call2 = rawget(dlibHook, "Reconstruct"), rawget(dlibHook, "Call2")
+        if type(reconstruct) ~= "function" or type(call2) ~= "function"
+            or type(rawget(dlibHook, "GetDLibTable")) ~= "function" then return end
+        local source, changed = functionSource(reconstruct), false
+        if not guardWrappers[reconstruct] then
+            local original = reconstruct
+            reconstruct = function(event, ...)
+                if event ~= nil then prepare(dlibHook, event) end
+                return original(event, ...)
+            end
+            guardWrappers[reconstruct] = true
+            rawset(dlibHook, "Reconstruct", reconstruct)
+            changed = true
+        end
+        -- The late route leaves the remote server's dispatcher as it is, DLib's too.
+        if not late and not guardWrappers[call2] then
+            local original = call2
+            call2 = function(event, gm, ...)
+                if (event == "PreRender" or event == "NeedsDepthPass") and active() then
+                    if event == "NeedsDepthPass" then return false end
+                    frameBegins()
+                end
+                return original(event, gm, ...)
+            end
+            guardWrappers[call2] = true
+            rawset(dlibHook, "Call2", call2)
+        end
+        -- Every event's list once, rebuilt through the guard: what DLib holds already is wrapped now.
+        if changed then pcall(reconstruct) end
+        if library ~= dlibHook then
+            library = dlibHook
+            state.hook_library = "DLib"
+            report("adapted", "hook library", "DLib runs the game's hooks from its own lists: the guard's protections "
+                .. "run inside them", source)
+        end
+    end
+    adopt()
+    for _, event in ipairs({"PreGamemodeLoaded", "OnGamemodeLoaded", "PostGamemodeLoaded", "Initialize",
+        "InitPostEntity", "OnReloaded"}) do
+        hook.Add(event, "nativeloader_guard_hooks", adopt)
+    end
 end
 if timer and timer.Create then
     local original = timer.Create

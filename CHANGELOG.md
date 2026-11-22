@@ -6,6 +6,25 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### "Default texture pack is not ready" with DLib installed; the render guard works with DLib (2026-11-21)
+
+- **"Default texture pack is not ready: resource_sampling_unsupported..." no longer shows in the middle of the screen
+  when DLib is installed** (a Workshop report: the line went away only with DLib disabled). The line is MineMod's, and
+  the RTX package already kept it off the screen (GitHub issue 5), but not in games with DLib (Workshop 1153306104, a
+  library many add-ons need): DLib replaces the game's hook system when it loads, and the package's render guard,
+  which hides that line, lost its hold on every hook added after it.
+- **With DLib installed, the rest of the guard's protection of add-ons' drawing works again too:** screen-space
+  effects that cannot work under RTX stay off, the depth pass stays off, an add-on's drawing code that fails is
+  contained (and stopped after three failures in a row) instead of erroring every frame, and slow drawing code is
+  named in `nativeloader_lag_report`. DLib keeps working as before: the guard now works inside DLib's hook system, with
+  its order, priorities and disabled hooks as DLib keeps them.
+- Behind it ([ADR 0256](docs/decisions/0256-the-guard-inside-dlibs-hook-library.md)): DLib's autorun removes
+  `hook.Call` and `hook.Add`, where the guard stood, from the hook table. Once DLib is in charge the guard wraps DLib's
+  own `hook.Reconstruct` (each callback of an event it protects runs through its protected call, the rest through its
+  filter) and `hook.Call2` (the depth pass, the frame count), with one console line saying so. Package only. Tests:
+  `test_render_guard.py` (the scenarios `dlib_hooks` and `dlib_hooks_multiplayer`, with a stand-in that takes the hook
+  table over as DLib does).
+
 ### Content packs install several models at once, without a hitch for each (2026-11-21)
 
 - **A freshly subscribed pack of characters installs much faster, and the game no longer stutters as each model

@@ -91,6 +91,14 @@ class RenderGuardTests(unittest.TestCase):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
 
+    def test_the_guard_takes_its_place_in_dlibs_hook_library(self):
+        # The Workshop report of 2026-11-21: with DLib (Workshop 1153306104), which takes the hook library over after
+        # the early guard, MineMod's line was back, and the guard's effect skips, depth pass refusal and protected
+        # calls were gone. The early route, and the late multiplayer route where DLib came first.
+        for scenario in ("dlib_hooks", "dlib_hooks_multiplayer"):
+            with self.subTest(scenario=scenario):
+                self.run_case(scenario)
+
     def test_nested_views_are_bounded_but_sequential_views_remain(self):
         self.run_case("views")
 

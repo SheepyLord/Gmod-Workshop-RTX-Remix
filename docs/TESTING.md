@@ -3994,3 +3994,23 @@ separator now has 57 texts in each catalog.
   can run over a package's (`--hotloader-lua`). Runs before and after the change in the handover report.
 - Not covered: the field install, a multiplayer game (a listen server's host approving models, a dedicated server's own
   installs), a computer with few threads (one check at a time, as before), a pack whose models fail to install.
+
+## The render guard inside DLib's hook library (ADR 0256)
+
+- **LuaJIT** ([`test_render_guard.py`](../tools/tests/test_render_guard.py.md)
+  `test_the_guard_takes_its_place_in_dlibs_hook_library`): the harness's stand-in takes the hook table over as DLib does
+  (`dlibTakeover` in [`render_guard_harness.lua`](../tools/tests/render_guard_harness.lua.md)). `dlib_hooks`: the early
+  guard, then DLib, then add-ons through DLib, the gamemode's loading events, frames: MineMod's line kept off, the
+  effects inert, a failing render callback contained and stopped, DLib's priorities and disabled hooks kept,
+  `NeedsDepthPass` false, `hook.GetTable()` unchanged, slow callbacks named, the off switch. `dlib_hooks_multiplayer`:
+  DLib before the late route's install. Both fail on the guard before the fix.
+- **PoC** (2026-11-21, a driver under the worktree's `out/dlib-poc`, holding `out\r10\poc.lock`, the PoC's state moved
+  aside and put back): the published package and the branch's, each with and without the real DLib (Workshop
+  1153306104 as a loose add-on), and a test add-on (a MineMod stand-in at `lua/mc/cl_resource_packs.lua`, an effect
+  stand-in at `lua/postprocess/pp_ssr.lua`, a `NeedsDepthPass` hook, a failing `PostRender` callback), gm_construct, a
+  report Lua after 45 s. Published + DLib: MineMod's line, the effect and the depth pass in all 909 frames, the
+  failures uncontained, no guard record; the branch + DLib: none of them, `hook_library` `DLib`, the callback stopped
+  after three failures; without DLib both packages alike. Results in the
+  [report](handover/dlib-hooks-report.md).
+- Not covered: the real MineMod (its stand-in only), a multiplayer game with DLib, ULib (a likely case of the same
+  kind), a DLib reloaded by autorefresh in a game.

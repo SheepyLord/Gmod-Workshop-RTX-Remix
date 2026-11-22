@@ -309,3 +309,27 @@ installation decision and the engine guard's step, in every route, the guard inc
 protected call): the RTX client module normally runs that file in each client realm before `includes/init.lua`, and
 this covers a start where it could not hook the engine, early in a local game and after the server's autoruns on a
 remote one. The file joins the exact bundled-source inventory. No guard policy changes.
+
+ADR 0256 ([the guard inside DLib's hook library](../../../../docs/decisions/0256-the-guard-inside-dlibs-hook-library.md)),
+a Workshop report of 2026-11-21: MineMod's "Default texture pack is not ready" line was back for players with **DLib**
+(Workshop 1153306104, gitlab.com/DBotThePony/DLib). DLib brings its own hook library and, when its autorun runs (after
+this guard's early install), takes the game's over: `GetTable`, `Add`, `Remove`, `Run` and `Call` leave the hook table,
+which then reads DLib's in their place, so the dispatcher and the registration filter are never called again and every
+hook added after DLib runs from DLib's own lists. Every protection of the hook layer was gone in those games: the
+effects' and notices' skips, the depth pass's refusal, the protected calls and the slow callbacks' records. DLib calls
+`hook.Call2` at each call and rebuilds an event's list through `hook.Reconstruct` at each change, both looked up anew
+each time; the guard takes its place there (`adopt` in the file) once `DLib.ghook` is the hook table and `hook.Call` is
+no longer in it: at its install where DLib came first (the late multiplayer route, the autorun route), else at the first
+of `PreGamemodeLoaded`, `OnGamemodeLoaded`, `PostGamemodeLoaded`, `Initialize`, `InitPostEntity` or `OnReloaded`, before
+anything draws. Its `Reconstruct` wrapper wraps the records' callbacks before DLib builds a list: a callback of an event
+the dispatcher protects runs through `protectedCall` with its hook's name (in the late route only an owned callback of a
+late event), `NeedsDepthPass` and every other event's through the filter. Each event's list is rebuilt once at that
+moment. Its `Call2` wrapper (not in the late route, which leaves the remote server's dispatcher as it is) answers
+`NeedsDepthPass` with false and counts the frame at `PreRender`, as the dispatcher does. DLib's order, priorities,
+disabled hooks, post modifiers and object hooks stay its own; `hook.GetTable()` still gives the add-ons' own functions,
+since only DLib's records hold the wrappers. The gamemode's own methods run as DLib runs them, without the dispatcher's
+containment. Wrappers the guard made (`guardWrappers`: the filter's, `callback`'s, its own) are never wrapped twice; a
+DLib reloaded by autorefresh is found again at `OnReloaded`. One `adapted` record and one console line:
+`[nativeloader] RTX guard: hook library: DLib runs the game's hooks from its own lists: the guard's protections run
+inside them (lua/dlib/modules/hook.lua)`; `NativeLoaderRenderGuard.hook_library` is `"DLib"`. The scenarios `dlib_hooks`
+and `dlib_hooks_multiplayer` of the harness, with a stand-in that takes the hook library over as DLib does, cover each.

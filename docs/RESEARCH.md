@@ -10036,3 +10036,41 @@ local packages; this computer has 32 logical threads). Line numbers are those of
   `THREAD_PRIORITY_BELOW_NORMAL` lowers only the CPU priority.
 - **A pre-existing file of the right size is still hashed on the main thread** (`SharedFileMatches`): in these runs
   the RTX package's prop bundle (5.4 MB) already in the copied library, 13.7 ms once.
+
+## DLib's hook library and the render guard (2026-11-21, Claude; [ADR 0256](decisions/0256-the-guard-inside-dlibs-hook-library.md))
+
+A Workshop report on the distribution item: MineMod's "Default texture pack is not ready" line (ADR 0210) showed in the
+middle of the screen, and went away with DLib disabled. Line numbers are those of DLib's Workshop files as downloaded
+on 2026-11-21 (item 1153306104, updated 2026-10-24, `dlib.gma` 19,157,137 bytes; GitLab `develop` 4e3d9871 has the same
+`hook.lua`, CRLF aside).
+
+- **DLib has no such text.** Neither its 252 Workshop files nor its source hold "texture pack", "not ready" or
+  `resource_sampling`; MineMod's current `cl_resource_packs.lua` and `cl_sampling.lua` (moved to `addons/mc_engine/` in
+  MineMod's repository, last changed 2026-11-09 and 2026-10-04; the virtual paths are the same) still match the
+  guard's ADR 0210 entry, and MineMod does not use DLib.
+- **When DLib loads.** `lua/autorun/!sh_dlib.lua:28,31` includes `dlib/sh_init.lua`, whose `:108` loads
+  `modules/hook.lua` in the "GLua extensions" stage. The render guard is in place before any autorun (the loader's
+  view of `includes/init.lua`, ADR 0054).
+- **What it does at load** (`lua/dlib/modules/hook.lua`): the hooks registered so far move into DLib's tables
+  (`:142-177`: from `ghook.GetTable()`, at priority 0, `:1053-1061`); then, if `ents.GetCount() < 10` (`:1069`, a fresh
+  game; a later load leaves the global table alone), `rawset(ghook, ...)` removes `GetTable`, `Add`, `Remove`, `Run`
+  and `Call` from the global hook table (`:1072-1076`) and gives it a metatable whose `__index` is DLib's hook table and
+  whose `__newindex` writes into that table after a `DLibHookChange` hook may refuse it (`:1078-1096`).
+- **Its dispatch.** `hook.Call` is a local `Call` that returns `hook.Call2(...)` (`:955-957`, assigned `:1049`; "Engine
+  permanently remembers function address" is its comment), looked up in DLib's table at each call; `hook.Call2`
+  (`:989`) runs `__tableOptimized[event]`, a closure over an array of callables built by `hook.Reconstruct` (`:769`):
+  priorities in order (`SortedPairs`), disabled records left out, a coroutine or object id called with itself, post
+  modifiers applied to the first non-nil result, the gamemode's method last (`gamemodePassthrough`, `:742`, calls
+  `tab[event](tab, ...)`). Every `Add`, `Remove`, `SetPriority`, `Disable*`/`Enable*` ends in `hook.Reconstruct(event)`,
+  also looked up anew. Records: `__table[event][priority][id] = {callback, fn, id, priority, disabled, ...}`
+  (`hook.Add`, `:483-545`, read by `hook.GetDLibTable()`, `:126`); `hook.GetTable()` (`:88`) returns a separate plain
+  `event -> id -> function` table that keeps disabled hooks (the `Disable*` functions only mark the record: `:233`,
+  `:259`, `:293`, `:324`).
+- **So the guard's hook layer was gone in every game with DLib**: its `hook.Call` (the dispatcher) and `hook.Add` (the
+  filter) were the two fields DLib removes. The harness's stand-in of that takeover, against the published guard:
+  MineMod's line drawn four frames out of four, an effect at `lua/postprocess/pp_ssr.lua` run every frame (one
+  registered through the filter before DLib stayed skipped), `NeedsDepthPass` true, a render callback's error out of
+  `hook.Call`; in the late multiplayer route, an owned callback registered before the guard unprotected (the late
+  route's walk of `hook.GetTable()` changes DLib's plain table, which DLib does not dispatch from).
+- **The guard's own dispatcher in DLib's place would not do:** it iterates `hook.GetTable()`, which ignores DLib's
+  priorities, still holds the hooks DLib disabled, and its `IsValid(id)` test would delete DLib's coroutine hooks.

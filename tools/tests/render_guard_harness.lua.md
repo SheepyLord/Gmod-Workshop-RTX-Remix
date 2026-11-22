@@ -119,3 +119,16 @@ ADR 0246: in `dxlevel_fallback` and `dxlevel_present` a global `include` records
 `dxlevel_present` a `NativeLoaderDXLevel` table, as the client module's prelude leaves it, exists before the guard
 runs); in `dxlevel_multiplayer` the private environment carries the recording `include`, as the verified bootstrap's
 scoped one does. The `engine_guard` scenario's `include` answers nothing for the prelude's path.
+
+ADR 0256 (DLib's hook library): `dlibTakeover(global)` is a stand-in written for the test, from DLib's documented
+behaviour, never DLib's code: hooks kept as records by event, priority and name (`GetDLibTable`), every change
+rebuilding the event's list in priority order without the disabled records (`Reconstruct`, looked up at each use), a
+plain `GetTable` table, `Call` passing the call to `Call2` looked up at each call; at the takeover the hooks already
+registered move over, `GetTable`, `Add`, `Remove`, `Run` and `Call` leave the global table, `DLib.ghook` is set and the
+global table reads DLib's (`__index`; `__newindex` writes into it). `dlib_hooks` (the early route) registers an effect
+through the guard's filter before the takeover, then MineMod's stand-in, another effect, a `NeedsDepthPass` hook, a
+failing render callback that pushes a target, HUDs at DLib priorities, a hook DLib disabled and an object's hook
+through DLib; fires the gamemode's loading events through DLib's `hook.Call`; and runs frames, a slow callback, a second
+loading event and the off switch. `dlib_hooks_multiplayer` (the late route) has DLib take over before the guard
+installs, with MineMod's stand-in and an owned callback registered before it, then an owned and a server callback
+after it.

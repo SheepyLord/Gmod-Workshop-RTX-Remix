@@ -18,7 +18,7 @@ CLIENT, SERVER, MENU_DLL = true, false, false
 if scenario=="realm_server" then CLIENT,SERVER=false,true end
 if scenario=="realm_menu" then CLIENT,MENU_DLL=false,true end
 local multiplayer = scenario=="verified_multiplayer" or scenario=="cached_multiplayer" or scenario:find("^r8_mp_")~=nil
-    or scenario=="minemod_notice_multiplayer" or scenario=="dxlevel_multiplayer"
+    or scenario=="minemod_notice_multiplayer" or scenario=="dxlevel_multiplayer" or scenario=="dlib_hooks_multiplayer"
 __NATIVELOADER_RTX_GUARD_EARLY = not multiplayer and scenario~="no_proof" and scenario~="inherited_proof"
     and scenario~="autorun"
 -- status.json as the loader writes it. Remote vanilla clients have none; an RTX-off start reports
@@ -304,6 +304,88 @@ if scenario=="cached_multiplayer" then
     hook.Add("PostRender",cachedObject,cachedObjectFn)
     for _,event in ipairs({"Initialize","InitPostEntity","OnReloaded"}) do hook.Add(event,"loading",cachedInit) end
 end
+-- DLib (Workshop 1153306104, gitlab.com/DBotThePony/DLib, MIT) brings its own hook library and takes the global one
+-- over when its autorun runs, after the early guard. A stand-in written for the test, doing what DLib's
+-- lua/dlib/modules/hook.lua does: hooks kept by event, priority and name, each a record whose callback it calls; every
+-- change rebuilds the event's list in priority order without the disabled ones (Reconstruct, looked up at each use); the
+-- hooks registered before move over; GetTable, Add, Remove, Run and Call leave the global table, which reads DLib's in
+-- their place; its Call passes the call on to Call2, looked up at each call; hook.GetTable() gives the plain table.
+local function dlibTakeover(global)
+    local H,registry,plain,lists,disabled={},{},{},{},{}
+    DLib={hook=H}
+    local function passthrough(event,gm,...)
+        if gm~=nil and gm[event]~=nil then return gm[event](gm,...) end
+    end
+    function H.GetTable() return plain end
+    function H.GetDLibTable() return registry end
+    H.GetULibTable=H.GetDLibTable
+    function H.Reconstruct(event)
+        if event==nil then for name in pairs(registry) do H.Reconstruct(name) end return end
+        if disabled[event] then lists[event]=function() end return end
+        local byPriority=registry[event]
+        if not byPriority then lists[event]=passthrough return end
+        local priorities={}
+        for priority in pairs(byPriority) do priorities[#priorities+1]=priority end
+        table.sort(priorities)
+        local callables={}
+        for _,priority in ipairs(priorities) do
+            local names={}
+            for id in pairs(byPriority[priority]) do names[#names+1]=id end
+            table.sort(names,function(a,b) return tostring(a)<tostring(b) end)
+            for _,id in ipairs(names) do
+                local data=byPriority[priority][id]
+                if not data.disabled then
+                    local fn=data.callback
+                    if type(id)=="string" then callables[#callables+1]=fn
+                    elseif IsValid(id) then callables[#callables+1]=function(...) return fn(id,...) end end
+                end
+            end
+        end
+        lists[event]=function(name,gm,...)
+            for i=1,#callables do
+                local a,b,c,d,e,f=callables[i](...)
+                if a~=nil then return a,b,c,d,e,f end
+            end
+            return passthrough(name,gm,...)
+        end
+    end
+    function H.Add(event,id,fn,priority)
+        registry[event]=registry[event] or {}
+        for _,names in pairs(registry[event]) do
+            if names[id] then priority=priority or names[id].priority names[id]=nil end
+        end
+        priority=priority or 0
+        registry[event][priority]=registry[event][priority] or {}
+        registry[event][priority][id]={event=event,priority=priority,callback=fn,fn=fn,id=id}
+        plain[event]=plain[event] or {}
+        plain[event][id]=fn
+        H.Reconstruct(event)
+    end
+    function H.Remove(event,id)
+        if not registry[event] then return end
+        if plain[event] then plain[event][id]=nil end
+        for _,names in pairs(registry[event]) do
+            if names[id] then names[id]=nil H.Reconstruct(event) return end
+        end
+    end
+    function H.DisableHook(event,id)
+        for _,names in pairs(registry[event] or {}) do
+            if names[id] then names[id].disabled=true H.Reconstruct(event) return true end
+        end
+        return false
+    end
+    function H.Call2(event,gm,...) return (lists[event] or passthrough)(event,gm,...) end
+    function H.Run2(event,...) return H.Call2(event,nil,...) end
+    H.Call=function(...) return H.Call2(...) end
+    H.Run=function(...) return H.Run2(...) end
+    for event,names in pairs(global.GetTable()) do
+        for id,fn in pairs(names) do H.Add(event,id,fn,0) end
+    end
+    for _,key in ipairs({"GetTable","Add","Remove","Run","Call"}) do rawset(global,key,nil) end
+    DLib.ghook=global
+    setmetatable(global,{__index=H,__newindex=function(_,key,value) if H[key]~=value then rawset(H,key,value) end end})
+    return H
+end
 -- R23 (ADR 0130): the engine guard module, recorded. The early view loads it; the late private
 -- multiplayer route must not.
 local engineGuardCalls={}
@@ -335,6 +417,26 @@ local function recordInclude(path) included[#included+1]=path end
 if scenario=="dxlevel_fallback" or scenario=="dxlevel_present" then include=recordInclude end
 if scenario=="dxlevel_present" then NativeLoaderDXLevel={version=1,installation="prelude"} end
 if scenario=="dxlevel_multiplayer" then rawset(privateEnvironment,"include",recordInclude) end
+-- A remote server's DLib takes the hook library over before the late route installs the guard, and the server's add-ons
+-- register through it: MineMod (its stand-in), and an owned callback of the bootstrap's.
+local dlibMultiplayer
+if scenario=="dlib_hooks_multiplayer" then
+    dlibMultiplayer={library=dlibTakeover(hook),ownedCalls=0}
+    dlibMultiplayer.call2=dlibMultiplayer.library.Call2
+    MINEMOD_HUD_CALLS=0
+    MC={TexturePackPending=true,ResourcePacks={jobs={{state="failed",error="resource_sampling_unsupported:[[0,0,0]]"}},
+        lastId=1}}
+    assert(loadstring([[
+        local R = MC.ResourcePacks
+        hook.Add("HUDPaint", "mc_resource_pack_loading", function()
+            MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 1
+            draw.SimpleText("Default texture pack is not ready: " .. tostring(R.jobs[R.lastId].error))
+        end)
+    ]],"@lua/mc/cl_resource_packs.lua"))()
+    hook.Add("PostRender","owned-early",ownedFunction(function()
+        dlibMultiplayer.ownedCalls=dlibMultiplayer.ownedCalls+1 error("owned render failure")
+    end))
+end
 if multiplayer or scenario=="inherited_proof" then
     if multiplayer then
         temporaryAPI=setmetatable({},{__index=function()error("temporary client API must not be consulted")end})
@@ -1377,6 +1479,128 @@ elseif scenario=="minemod_notice" or scenario=="minemod_notice_multiplayer" then
     assert(hook.GetTable().HUDPaint.mc_resource_pack_loading~=registered,"the new function is registered")
     frame() beforeCall("HUDPaint") eq(#drawn,5)
     eq(guard.adapted[#guard.adapted],record,"no second record") eq(noted(),1) eq(#guard.errors,0)
+elseif scenario=="dlib_hooks" then
+    -- The Workshop report of 2026-11-21: MineMod's "Default texture pack is not ready" line (ADR 0210) is on the screen
+    -- again with DLib installed. The early guard is in place before any autorun; DLib's autorun then takes the hook
+    -- library over (the stand-in above), and every hook added after it runs from DLib's own lists.
+    eq(guard.installation,"early")
+    local drawn={}
+    draw={SimpleText=function(text)drawn[#drawn+1]=text end}
+    -- An effect whose autorun runs before DLib's registers through the guard's filter, and moves over to DLib.
+    local early=0
+    assert(loadstring('hook.Add("RenderScreenspaceEffects","ssdo",function() EARLY_EFFECT() end)',
+        "@lua/postprocess/ssdo.lua"))()
+    EARLY_EFFECT=function() early=early+1 end
+    local library=dlibTakeover(hook)
+    eq(rawget(hook,"Call"),nil,"DLib took the dispatcher") eq(rawget(hook,"Add"),nil,"and the registration")
+    -- Add-ons after DLib: MineMod (its stand-in, as in minemod_notice), another effect, a depth pass, a failing render
+    -- callback, HUDs with DLib's priorities, one that DLib disabled, a hook of an object.
+    MINEMOD_HUD_CALLS=0
+    local R={jobs={{state="failed",
+        error="resource_sampling_unsupported:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]"}},lastId=1}
+    MC={TexturePackPending=true,ResourcePacks=R}
+    assert(loadstring([[
+        local R = MC.ResourcePacks
+        hook.Add("HUDPaint", "mc_resource_pack_loading", function()
+            MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 1
+            if not MC.TexturePackPending then return end
+            local text, job = "Baking the default texture pack", R.lastId and R.jobs[R.lastId]
+            if job and job.state == "failed" then text = "Default texture pack is not ready: " .. tostring(job.error) end
+            draw.SimpleText(text, "DermaDefaultBold", ScrW() / 2, ScrH() / 2)
+        end)
+        hook.Add("Think", "mc_resource_pack_think", function() MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 100 end)
+    ]],"@lua/mc/cl_resource_packs.lua"))()
+    local minemod=hook.GetTable().HUDPaint.mc_resource_pack_loading
+    local late=0
+    assert(loadstring('hook.Add("RenderScreenspaceEffects","ssr",function() LATE_EFFECT() end)',
+        "@lua/postprocess/pp_ssr.lua"))()
+    LATE_EFFECT=function() late=late+1 end
+    local depth=function() return true end
+    hook.Add("NeedsDepthPass","wants_depth",depth)
+    local badCalls=0
+    hook.Add("PostRender","bad",function()
+        badCalls=badCalls+1 render.PushRenderTarget(texture("left_open",32,32)) error("render callback failure")
+    end)
+    local order={}
+    hook.Add("HUDPaint","second",function() order[#order+1]="second" end,5)
+    hook.Add("HUDPaint","first",function() order[#order+1]="first" end,-5)
+    local muted=0
+    hook.Add("HUDPaint","muted",function() muted=muted+1 end)
+    library.DisableHook("HUDPaint","muted")
+    local object,objectCalls={valid=true},0
+    hook.Add("HUDPaint",object,function(self) eq(self,object) objectCalls=objectCalls+1 end)
+    -- The gamemode loads: the engine's loading events go through DLib's hook.Call, before anything draws.
+    for _,event in ipairs({"PreGamemodeLoaded","OnGamemodeLoaded","PostGamemodeLoaded","Initialize"}) do hook.Call(event) end
+    eq(guard.hook_library,"DLib","the guard found DLib's hook library")
+    local function said()
+        local count=0
+        for _,line in ipairs(messages) do if line:find("DLib",1,true) then count=count+1 end end
+        return count
+    end
+    eq(said(),1,"one console line says so")
+    local function frame()
+        hook.Call("PreRender") hook.Call("RenderScreenspaceEffects") hook.Call("HUDPaint") hook.Call("PostRender")
+    end
+    for _=1,4 do frame() end
+    eq(#drawn,0,"MineMod's line stays off the screen") eq(MINEMOD_HUD_CALLS,0,"its hook is not entered")
+    hook.Call("Think") eq(MINEMOD_HUD_CALLS,100,"its other hook runs")
+    eq(early,0) eq(late,0,"the effects stay inert, registered before DLib or after it")
+    eq(badCalls,3,"a failing render callback is contained, and quarantined after three failures")
+    eq(#rtStack,0,"what it left open is closed")
+    eq(#order,8) eq(order[1],"first") eq(order[2],"second","DLib's order and priorities stay")
+    eq(muted,0,"a hook DLib disabled stays disabled")
+    eq(objectCalls,4,"a hook of an object gets its object")
+    eq(hook.Call("NeedsDepthPass"),false,"no depth pass")
+    eq(hook.GetTable().HUDPaint.mc_resource_pack_loading,minemod,"hook.GetTable() gives the add-ons' own functions")
+    eq(hook.GetTable().NeedsDepthPass.wants_depth,depth)
+    -- A hook added once the guard is in DLib's place, and an autorefreshed MineMod, are protected the same way.
+    local later=0
+    hook.Add("PostRender","later",function() later=later+1 error("later failure") end)
+    assert(loadstring([[hook.Add("HUDPaint", "mc_resource_pack_loading", function() draw.SimpleText("again") end)]],
+        "@lua/mc/cl_resource_packs.lua"))()
+    for _=1,4 do frame() end
+    eq(later,3) eq(#drawn,0)
+    -- Slow render callbacks are named with their hook through DLib as well (R28).
+    hook.Add("PreDrawViewModels","heavy",function() now=now+0.006 end)
+    for _=1,400 do hook.Call("PreRender") now=now+0.010 hook.Call("PreDrawViewModels") end
+    local slow
+    for _,record in ipairs(guard.slow) do if record.id=="heavy" then slow=record end end
+    assert(slow and slow.api=="PreDrawViewModels","a slow callback is named with its hook")
+    -- A second gamemode event finds the guard in place: nothing is wrapped twice.
+    hook.Call("InitPostEntity")
+    eq(said(),1) eq(#drawn,0)
+    -- With the guard switched off, everything runs as DLib runs it.
+    cv.nativeloader_guard.value="0"
+    hook.Remove("PostRender","bad") hook.Remove("PostRender","later")
+    frame()
+    eq(#drawn,1) eq(drawn[1],"again","MineMod's line shows with the guard off")
+    eq(early,1) eq(late,1)
+    eq(hook.Call("NeedsDepthPass"),true)
+elseif scenario=="dlib_hooks_multiplayer" then
+    -- DLib was in charge before the late route: the guard finds it at its install and takes its place in DLib's
+    -- Reconstruct only. The remote server's dispatcher, DLib's Call2, stays as it is (ADR 0052).
+    eq(guard.installation,"verified multiplayer bootstrap")
+    eq(guard.hook_library,"DLib","found at the late install")
+    local library=dlibMultiplayer.library
+    eq(library.Call2,dlibMultiplayer.call2,"the remote server's dispatcher stays as it is")
+    local drawn={}
+    draw={SimpleText=function(text)drawn[#drawn+1]=text end}
+    for _=1,4 do hook.Call("HUDPaint") hook.Call("PostRender") end
+    eq(#drawn,0,"MineMod's line, registered before the late route, stays off the screen") eq(MINEMOD_HUD_CALLS,0)
+    eq(dlibMultiplayer.ownedCalls,3,"an owned render callback registered before it is protected and quarantined")
+    -- Registered after the install: an owned callback through the private hook proxy, a server's own callback.
+    local later=0
+    privateHook.Add("PostRender","owned-late",ownedFunction(function() later=later+1 error("owned late failure") end))
+    for _=1,4 do hook.Call("PostRender") end
+    eq(later,3)
+    local server=function() error("server callback error") end
+    hook.Add("PostRender","server",server)
+    eq(hook.GetTable().PostRender.server,server,"a server's registration keeps its identity")
+    assert(not pcall(hook.Call,"PostRender"),"a server's error still propagates as in vanilla GMod")
+    hook.Remove("PostRender","server")
+    hook.Add("NeedsDepthPass","depth",function() return true end)
+    eq(hook.Call("NeedsDepthPass"),false,"the filter answers the depth pass")
+    eq(library.Call2,dlibMultiplayer.call2)
 elseif scenario=="off" then
     GetRenderTargetEx("_rt_shadowdepthtexture_0",-99,-99,999,0,0,0,9999)
     CreateMaterial("depth","DepthWrite",{}) render.GetResolvedFullFrameDepth() render.SetRenderTargetEx(2)

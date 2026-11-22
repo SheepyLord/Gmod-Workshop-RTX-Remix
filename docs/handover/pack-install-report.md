@@ -113,3 +113,17 @@ The base4 run's driver ended a game running in the field install at 20:57 (the u
   paths under `<repo>\out\tmp`. It passes unchanged in the main checkout; the test could look in relative paths.
 - Nothing is committed to `main`, pushed or published: the main thread decides when this lands (a commit on `main`
   publishes the Workshop item).
+
+## Published
+
+Merged by the main thread with the other pieces of 2026-11-21 on the branch `integrate-1122`: the content packs'
+install (ADR 0255), the render guard inside DLib's and ULib's hook libraries (ADR 0256, ADR 0257) and the library
+window's rows (ADR 0258). DLib's decision, drafted as 0254, became 0256 there. The gate passed on that branch
+(`tools\test.ps1 -Config Release`). Under the standing permission (AGENTS.md rule 5) `main` was fast-forwarded from
+`602f401d` to `6dca0e9b` and pushed; the merge's hook built the package here and uploaded item 3829070317 as
+**`0.0.0-dev.20261122060047+34cd2c57`** (content digest `cdf287a621f3760c`).
+
+The merge also made `test_hotloader_workshop_install.py`'s `failures` scenario accept either of the two models that
+share the failed texture taking the failure: the install queue follows `W.provided`'s `pairs` order, which LuaJIT
+2.1 seeds per run, so in some runs (4 of 30) model 2 took the failed commit, as designed, and the test had failed.
+Test only; the Model Hotloader is unchanged.

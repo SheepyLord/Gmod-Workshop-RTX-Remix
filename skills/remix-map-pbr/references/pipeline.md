@@ -228,8 +228,11 @@ Per texture, from `work/ai/<name>/` and the originals in `work/src/`, writes `wo
 | `saturation`, `exposure` | albedo chroma and brightness (Backrooms Level 0 wallpapers 0.7 / 0.88) |
 | `emissive` | emission for light textures from their bright diffuser (luminance above 55 % of the 99th percentile); with `$selfillum` the alpha mask times that threshold, so the trim ring does not glow |
 | `emit_rects` | the [u0, v0, u1, v1] parts of an atlas that are the lamp |
-| `backdrop` | the whole colour emits (painted distant views) |
+| `backdrop` | the whole colour emits (painted distant views and screens; a fixed level, so under the player's clock a distant view glows at night: gm_fork and gm_boreas set 0 for theirs) |
 | `puddle` | standing water where the specular mask (its alpha with `invert` when the water is dark there) passes from `lo` to `hi`: roughness to `rough`, albedo times `darken`, relief and parallax flattened by `flat` (gm_mallparking's puddle floor) |
+| `match_source` | pulls the composed albedo's mean colour back toward the original's by this fraction (gm_fork's grass 0.7: an OpenAI answer that came back lime) |
+| `emit_selfillum` | emission of a `$selfillum` texture of any class: the bright texels under its glow mask (gm_stelliferous) |
+| `selfillum_rects`, `selfillum_gain` | the [u0, v0, u1, v1] parts where the `$selfillum` mask counts (`[]`: nowhere) and the emission of a mask that emits as it is (gm_boreas's freight elevator sheets: only the cab's lamp of a mask over whole panels) |
 
 lestnicha3's `compose.py` adds:
 

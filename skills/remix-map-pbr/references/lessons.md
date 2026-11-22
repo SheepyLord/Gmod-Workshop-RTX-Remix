@@ -1,4 +1,4 @@
-# Lessons from the seven remasters
+# Lessons from the remasters
 
 Each entry: what you would see, why, what fixed it, and where and when it was found (local dates). PR =
 gm_poolrooms (2026-10-26), BR = the Backrooms maps (2026-10-27/28), MH = modern_house (2026-10-27/29),
@@ -8,7 +8,9 @@ A24 Backrooms Movie map: a store with its parking lot, office halls, a pit, 1677
 albedo re-rendered by OpenAI's image model (2026-11-18/19), OF = cmdr_office_summer, CS:GO's cs_office in
 summer: offices, a courtyard and streets, the OpenAI stage planned per texture and run as a batch
 (2026-11-20), ST = gm_stelliferous, a space station in orbit with 2189 light entities and its own orbit
-skybox (2026-11-20).
+skybox (2026-11-20), MP = gm_mallparking, an underground mall's parking garage with standing water
+(2026-11-21), FK = gm_fork, a town in a river valley on a map of the largest size (2026-11-22), BO =
+gm_boreas, a snowy landscape of that size over an underground research base (2026-11-22).
 
 ## Getting the map
 
@@ -24,6 +26,15 @@ skybox (2026-11-20).
   centred between near walls they gave 29 usable cameras across 12 regions (`anchor_cams.py`). Backing a
   camera up to the wall behind it put half the views against a wall or a wall lamp: back up at most 120
   units and centre it in a corridor.
+
+**Cameras on an outdoor map of the largest size** (FK, BO, 2026-11-22)
+- `survey.py` samples brush floors, so displacement terrain gives it almost nothing, and its height cut assumed
+  the skybox room above the map (both maps keep theirs below). `place_cams.py` (FK's tools) takes the
+  `env_soundscape` origins (the mapper's regions: interiors, tunnels, shore, heights) and a 1024-unit ground grid
+  traced down from the sky to the ground or the water; a grid view takes the region of the nearest outdoor
+  soundscape. Leave out anchors under water (FK's shore soundscapes sit on the sea bed) and views inside a
+  tree's canopy; look at the stock tour's sheet before keeping a camera.
+- A legacy item's download (`<id>_legacy.bin`, FK's 65 MB) decoded as AG's above: a 199 MB gma.
 
 ## Skinned models and engine settings
 
@@ -453,6 +464,43 @@ skybox (2026-11-20).
 - `WindowImposter` fake skies (cubemap ceilings over the gardens) are not drawn by Remix; the map's skybox
   shows in their place, which on a station in orbit reads as the view out.
 
+**Name traps and terrain blends on two outdoor maps** (FK, BO, 2026-11-22)
+- The generic class rules matched "tree" in "street" (street signs as foliage), "rail" in "trail" and
+  "railroad" (wooden fences and the railway bed as metal), "pipe" in "concrete_pipe", "rock" in "rocket",
+  "water" in "watertower", "window" in "windowframe" (a wooden frame as glass); props_foliage's coast rocks and
+  rock clusters came out foliage, a road texture is named concretefloor037b, and BO's bunker doors hold their
+  window in their one texture (classed glass by the `_glass` material: no PBR for 209 props). Read the class
+  report before the AI stage.
+- A terrain blend (WorldVertexTransition) gave both its textures the class of its name and first texture
+  (gravel under a grass blend took the grass recipe): `tex_jobs.py` classes each of the two by its own name. The
+  RTX package bakes the blends with Remix's terrain baker (its category manager marks them Terrain), so the two
+  replacements show as the game blends them.
+
+**Painted steel read as tinted metal** (BO, 2026-11-22)
+- Orange crates and green doors, classed "metal" by their names, came out 85 % metallic: olive and khaki under
+  white light. `tex_jobs.py` makes a "metal" texture whose source has a mean saturation over 0.25
+  `painted_metal` (31 textures on FK, 44 on BO).
+- Not every colour change is the material: BO's pipe-room pillar went from deep red in stock to pale grey. Its
+  texture is plain grey; stock's red was a red light entity's, and the remaster's wall lamps (`$selfillum`
+  lenses) now light it white. Check a view's lights (`lights_near.py`-style listing) before reclassing.
+
+**A `$selfillum` mask over whole panels** (BO, 2026-11-22)
+- Valve's freight elevator sheets (`models/props_lab/freightelevator_sheet`, `_sheet2`) mask whole panels: Source
+  draws the cab unlit at its own colour. As metal with the metal recipe's glow mask (`emit_selfillum` 8, the
+  brightest texels under the mask) the cab's worn spots shone as white blotches; with the mask switched off the
+  cab went black. `compose.py`'s `selfillum_rects` keeps the mask only in the listed UV parts (here the ceiling
+  grille's glow, the bulb and the indicator lamps; `[]` turns it off) and `selfillum_gain` sets their emission
+  (8): the moving cab carries its own light, which a placed light could not. List every emitting texture with
+  the share its mask covers first: a lamp's lens covers a few per cent, a panel mask 20-40 %.
+
+**Painted distant views glowed at night** (FK, BO, 2026-11-22)
+- The backdrop recipe's emission (1.6) is fixed while the companion's clock turns: BO's distant mountain range
+  and its fog band (UnlitGeneric cards) were a glaring white band along the horizon at dusk and night, and FK's
+  distant hills and church (VertexLitGeneric, lit in Source too) would glow the same. Without emission
+  (`"backdrop": 0` in `overrides.json`) they take the sun and sky like the land around them, and by day they
+  look the same. Shoot an outdoor map at dusk and night before calling it done (`times_tour.py`).
+- The light recipe's lenses at emission 16 pulled the auto exposure down around them; 8 keeps them white.
+
 ## AI albedo with OpenAI's image model
 
 **Re-rendering each albedo before PBRify** (AG, the user's request, 2026-11-18)
@@ -538,6 +586,37 @@ request "avoid wasting usage", 2026-11-20)
   kept texture.
 - The first local pass can leave out the props OpenAI re-renders (their maps come from the answer), not the
   tiling textures: `--prepare` blends a kept layout's wrapped edges with the local upscale in `work/ai_dat`.
+
+**The user's allowance to refine the base material** (FK, BO, the user's request of 2026-11-22)
+- The prompt asks for the material refined (soft areas sharpened, artefacts and baked lighting taken out) with
+  the layout kept; the brightness may move 0.08; an answer whose every edge stays (edge correlation 0.85) may
+  change its tones (luminance correlation down to 0.80), never on foliage, whose alpha must still fit.
+- FK's grass came back lighter and yellower, lime on the open slopes: `compose.py`'s `match_source` pulls a
+  recipe's mean colour back toward the original's (0.7 for grass), the new detail kept.
+- FK sent 150 (55 full, 95 half), kept 134, reused 33 free, $12.23; BO sent 120 (40 full, 80 half), kept 103,
+  reused 100 (86 of them FK's), $8.32. Realtime throughout.
+- Local results reused too: `seed_ai.py` (FK's tools) hard-links another remaster's `work/ai/<name>` for a
+  texture with the same Remix hash and the same job (size, tiling, upscaler, maps, detail bake) and writes this
+  map's `done.json`, so `ai_tex.py` skips it (FK 36 of 386 jobs, BO 131 of 422).
+
+**Bands moved by the tileable step** (FK, BO, 2026-11-22; found on FK's cliffs)
+- Symptom: cave and cliff walls in wormy rock with grass patches halfway down; a wall's rusty top edge or
+  painted stripe repeated in the middle of the wall at the tile's left and right edges; a road's verge in the
+  middle of the lane. The answers themselves had kept those bands: a cliff profile with grass on top, a rock
+  band and gravel, the verges, the stripe.
+- Cause: `--prepare` makes a redrawn random surface tileable with a copy shifted half a tile both ways, blended
+  in along the edges, which there shows the copy's middle: halfway down the left and right edges, the top row. It
+  also falls back to that blend for a kept layout whose local upscale is not in `work/ai_dat`.
+- Fix: `oai_tex.py`'s `banded_axes` marks an axis whose row or column mean profile (512 px, lightly smoothed)
+  swings by more than 1.5 standard deviations of luminance or a colour difference (the bands measured 2.3-3.9;
+  gravel, grass, sand and dirt 0.4-0.9). The copy is shifted only along the other axes; a banded axis gets its
+  wrap step spread (`seamless`). Run `keep_dat.py` before `--prepare`. A variance share missed thin strips (the
+  verges, a rusty top edge): measure the profile's range.
+- Re-preparing changed 66 of FK's 166 answers and 41 of BO's 202. `ai_tex.py` skips a job whose `done.json`
+  still matches, so delete those of the changed ones, run them (`--only`), then compose and build.
+- `band_audit.py <work dir>` (FK's tools) lists the tiling answers whose composed albedo lost its source's
+  bands. On the earlier remasters' builds of 2026-11-22: gm_mallparking 9 of 44, gm_csgoagency 17 of 42,
+  cmdr_office_summer 9 of 41, gm_stelliferous 4 of 21 (two of them near-flat panels kept by eye).
 
 ## Lights and sky
 
@@ -683,6 +762,42 @@ request "avoid wasting usage", 2026-11-20)
   folders that sort first (bigcity, the office, funkis, the Backrooms remasters): their versions show on this map,
   as the user chose for the office (no tag textures). Compare against every folder in the game the mod goes to,
   not only the PoC's (20 there).
+
+**The 3D skybox at its true scale on an open map** (FK, BO, 2026-11-22)
+- `gen_skybox.py` (a per-map CONFIG: the skybox room's box, the playable footprint left out) and `cl_skybox.lua`
+  draw the 3D skybox where it appears from the map, under the RTX sky. A WorldVertexTransition material on a Lua
+  mesh draws nothing under Remix, so the skybox's trees and houses floated over missing terrain. The blends are
+  split between their two textures per triangle, each triangle split twice first ("split": FK's 1000-unit
+  zig-zags became 250), or drawn whole in the texture most triangles favour ("dominant": BO's dark rock facets
+  cut out of the snow read as angular patches on white peaks). The package's own renderers would draw the
+  skybox (`rtx_3dsky` with `rtx_dpr`, `rtx_mwr`, `rtx_spr`) but are off by default and change how the whole map
+  is drawn. The module steps aside while the companion shows the map's own sky with its 3D skybox
+  (`NATIVELOADER_SKY.mapSky().threeD`).
+- Haze: the companion's weather presets set the volumetrics (fog, snow, clear air), so an open-air remaster sets
+  no haze and no volumetric colour (zones without `haze`).
+
+**The mapper's own falloff** (BO, 2026-11-22)
+- Symptom: a hall flooded cyan by a small blue indicator lamp, while the halls' own lights left them at 0.14-0.21
+  of stock's brightness.
+- Cause: every light entity sets `_fifty_percent_distance` (d50: BO's 372 accent glows 28-32 units, its halls'
+  lights 512; FK's too), and the generator took `_light`'s brightness alone.
+- Fix: `gen_lights.py` scales a light's brightness by (d50 / 128)², from 1/64 to 16 (the inverse-square light as
+  bright at d50), where the entities are read, so a fixture taking its level from the entity beside it gets it
+  too; a fixture's level may range 0.25-16.
+
+**Lamps closed around their light** (BO, 2026-11-22)
+- Industrial lamps in their shades, dome lamps and bare bulbs inside opaque glowing glass: a sphere light at the
+  model's centre lit nothing but the lens. A sphere fixture with `"below": True` puts a small light just under the
+  lens (under the lowest point of the lens's middle). With the falloff above the halls went from 0.14 to 0.94 and
+  1.25 of stock.
+
+**Fixture colours beside sodium lights; street lamps by night** (FK, 2026-11-22)
+- A fixture beside a strongly coloured light entity (FK's sodium-orange tunnel and bunker lights) took the
+  entity's colour at 85 %: fluorescent tubes cast orange light under a white lens. `coloured_weight` per light
+  kind (`lights_style.json`; 0.55 here). `desaturate` reaches only plain entity lights, and spares the strongly
+  coloured ones by design.
+- Street lamps placed as their `_off` model (FK's 38 lamppost03a_off): a `heads` fixture (a lamp under the head
+  in model space) with `night_any_skin` and a kind with `night`, so they come on when the sun goes down.
 
 ## Mirrors, sprites and map clean-up
 
@@ -841,6 +956,19 @@ request "avoid wasting usage", 2026-11-20)
 - A PoC session shows five `gmod.exe`: the game and its four Chromium helpers (`--type=renderer` three
   times, `--type=utility` once), each with the game as its parent. Check the parent before you count games
   or end one.
+
+**A rebuilt mod not loaded by the running game** (FK, BO, 2026-11-22)
+- `build_mod.py` rewrites `mod.usda` atomically for a hot reload, yet the running sessions kept the old
+  materials (several rebuilds on both maps); a restart loaded the new ones. Restart before judging a material
+  change, and before the tour that documents it.
+
+**Device losses with nothing else on the GPU** (FK, BO, 2026-11-22)
+- Two `VK_ERROR_DEVICE_LOST` in about 3.5 hours of 4K sessions (Windows logged nvlddmkm event 153 each time; the
+  one before was two days earlier), in an idle game, first on gm_boreas, then on gm_fork, with no AI stage, encode
+  or other game running. Opacity-micromap "Out of memory budget" lines (requests up to 328 MB) came shortly
+  before both, but also in sessions that ran on without a loss; the cause is not established. The session ends
+  with the Remix GPU-crash exit (0x60D0DEAD): read the session's `remix-dxvk.log` tail and the System log, then
+  relaunch.
 
 ## Packaging and licensing
 

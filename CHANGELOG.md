@@ -6,6 +6,34 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: a river-valley town and a snowbound research base remastered (2026-11-22)
+
+- **`remix-map-pbr` learns from gm_fork and gm_boreas** (the user's request of 2026-11-22: Workshop 326332456 and
+  1572373847, each with its own package, the base material allowed to be refined, OpenAI's image model for the
+  colours). Both remasters live on local branches of the user's fork (`claude/gmfork-rtx` and `claude/boreas-rtx`,
+  their docs `docs/GM_FORK_RTX.md` and `docs/GM_BOREAS_RTX.md`) and in the user's game; their textures derive from
+  the maps' and stay local. gm_fork's town, forests, cliffs, river and roads and gm_boreas's snowfields and
+  underground base have PBR materials by class (468 and 571 textures), their colours re-rendered by OpenAI where
+  they stayed true to their layout (134 and 103 answers kept, 33 and 100 reused free; $12.23 and $8.32, in
+  realtime), 144 and 887 Remix API lights in their lamps and at the mappers' light entities, gm_fork's street
+  lamps lit at night, and the valley and the mountains of their 3D skyboxes drawn at their true scale under the
+  player's sky. At 4K gm_boreas takes 29.9 ms a frame against stock's 50.4 ms (stock traces the whole map in every
+  view); gm_fork cost 0.2 ms over stock's 26.0 ms on a quiet machine.
+- **Fixes the skill records:** the mappers' light falloff, which flooded a hall cyan from a small indicator lamp
+  and left the halls dim, is converted; lamps closed around their light get it under the lens; painted steel is no
+  longer read as tinted metal; an elevator cab's glow mask over whole panels lights only the cab's lamp; distant
+  painted views no longer glow white along the horizon at night; and the step that makes a re-rendered texture
+  tileable no longer moves its bands (a cliff's grass edge, a road's verges, a wall's rusty top or painted
+  stripe) into the middle of the wall. A check (`band_audit.py`) found such moved bands in the earlier remasters'
+  builds too: gm_mallparking 9, gm_csgoagency 17, cmdr_office_summer 9, gm_stelliferous 4.
+- **Two packages that stand alone**, not uploaded: `gm-fork-rtx` (3,120,100,938 bytes) and `gm-boreas-rtx`
+  (3,088,066,343 bytes), every texture kept, their manifests checked with `nlctl`. Each ran on the PoC with
+  nothing else and found every texture, its views within 1.7 and 1.1 of 255 of the development build's. Both are
+  installed in the user's game, where gm_boreas's folder sorts first: the textures the two share show gm_boreas's
+  versions on gm_fork too, their classes aligned. Ten Workshop screenshots of each map lie beside its package.
+- **Seen in testing, not explained:** two GPU device losses (`VK_ERROR_DEVICE_LOST`) in about 3.5 hours of 4K
+  sessions, in an idle game, with no AI stage or other game on the GPU; the skill records what was seen.
+
 ### The library window keeps up with a content pack's install without stuttering (2026-11-21)
 
 - **With the spawn menu open on External Models while a content pack installs, the list no longer stutters each time

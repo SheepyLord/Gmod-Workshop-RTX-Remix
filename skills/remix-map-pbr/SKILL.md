@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency, cmdr_office_summer, gm_stelliferous and gm_mallparking remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency, cmdr_office_summer, gm_stelliferous, gm_mallparking, gm_fork and gm_boreas remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -46,7 +46,16 @@ tools`, branch `claude/mallparking-rtx`) is gm_stelliferous's for an underground
 water from the puddle floor's own specular mask (`compose.py`'s `puddle`), cameras from `survey.py` (no
 soundscapes), lights eight times the office's levels for fixtures 5-16 m apart, clear glass and PVC strip curtains
 from the originals' alpha (`glass_layers.py`), the mall's mirrors drawn back, and the OpenAI requests sent in
-realtime at the user's wish ($4.44 for 72 kept and 26 reused).
+realtime at the user's wish ($4.44 for 72 kept and 26 reused). gm_fork (`source/gm_fork_rtx/tools`, branch
+`claude/gmfork-rtx`) is gm_mallparking's for a town in a river valley on a map of the largest size, and gm_boreas
+(`source/gm_boreas_rtx/tools`, branch `claude/boreas-rtx`) is gm_fork's for a snowy landscape over an underground
+research base: cameras from the soundscapes and a ground grid traced from the sky (`place_cams.py`), the 3D
+skybox's terrain blends split per triangle or drawn in their dominant texture, the mapper's light falloff converted
+and lights placed under closed lamps, painted steel told from metal by its colour, glow masks kept to the lamps of
+an atlas (`selfillum_rects`), no fixed glow on distant views under the player's clock, every time of day toured
+(`times_tour.py`), the base material refined as the user allowed, local AI results reused by hash (`seed_ai.py`),
+and a tileable step that keeps a texture's bands (`banded_axes`, checked by `band_audit.py`) ($12.23 and $8.32 in
+realtime for 134 and 103 kept).
 
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
@@ -369,6 +378,9 @@ calling them standards for a new map):
 | `python oai_tex.py --plan [--reuse <another remaster's work>]` / `--estimate` | cmdr_office_summer: reuse, skip or send each texture (full or half size) and what it will cost, before any request (`OPENAI_API_KEY` from the environment only) |
 | `python oai_tex.py --batch-submit` / `--batch-poll [--wait]` / `--prepare` | the planned requests as one Batch API job at half price, the answers scored, the kept ones into `jobs_oai.json` |
 | `python oai_tex.py <name> ... --gen full\|half [--force]` | gm_mallparking: the same requests in realtime, several at a time, scored as they come; this user's choice since 2026-11-21 (no Batch API, "even at more cost") |
+| `python seed_ai.py <work> <jobs file> <donor work> ...` | gm_fork: another remaster's finished local results for the same hash and job, hard-linked, so `ai_tex.py` skips them |
+| `python keep_dat.py` | gm_fork: the first local pass's colour kept in `work/ai_dat`, before `oai_tex.py --prepare` (which blends a kept layout's edges with it) |
+| `python band_audit.py <work dir> [--all]` | gm_fork: the tiling answers whose composed albedo lost its source's bands |
 | `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only ...]` | upscale, normal, roughness, height |
 | `python compose.py [--only ...] [--force]` | PBR maps per recipe |
 | `python plant_atlas.py [--cc0 DIR] [--preview]` | lestnicha3: CC0 photoscanned plants and a drawn dandelion clock into the grass atlas (after `compose.py`) |
@@ -377,6 +389,8 @@ calling them standards for a new map):
 | `python gen_lights.py` / `gen_mirrors.py` / `gen_sky.py [--size N]` / `gen_vis.py` | lights, mirror quads and tag, fallback sky, PVS-cover points |
 | `python survey.py <label> [count]` / `find_cameras.py <map>` | candidate cameras |
 | `python anchor_cams.py [--pick N GAP] [--shots label]` | gm_stelliferous: cameras from the map's soundscapes and teleport destinations |
+| `python place_cams.py --pick 3 1500 14 3500` | gm_fork: cameras on an outdoor map of the largest size, from the soundscapes and a ground grid traced from the sky (the map loaded) |
+| `python times_tour.py [afternoon\|golden\|dusk\|night ...]` | gm_fork: chosen cameras at each time of day under the companion's clock, stopped at each hour |
 | `python wallclock.py <label> [camera ...]` | gm_stelliferous: frame times by wall clock, for stock frames over GMod's 100 ms clamp |
 | `python tour.py <map> <label> [camera ...]` | screenshots and contact sheet |
 | `python workshop_shots.py shoot <map> [view ...]` / `export <map> <view> ... [--out DIR]` | gm_mallparking: views framed for the Workshop page, captured at 4K; the chosen ten numbered, 1920x1080, under 1 MB, an overlay's FPS counter painted out |

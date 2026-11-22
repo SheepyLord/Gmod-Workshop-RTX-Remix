@@ -97,7 +97,7 @@ times for one character in four days, another twice in seven minutes after a res
 
 ## Published
 
-`tools	est.ps1 -Config Release` passed on the branch (35 native tests; 2,201, 29 and 26 Python tests; "All checks
+`tools\test.ps1 -Config Release` passed on the branch (35 native tests; 2,201, 29 and 26 Python tests; "All checks
 passed"), after one fix the first run asked for: the render guard's list of bundled paths now names the new server
 file. `origin/main` had not moved from `c58a5da2`, so `main` was fast-forwarded to `217abd73` and pushed. The merge's
 hook uploaded item 3829070317 as **0.0.0-dev.20261122231627+872153d3** (2,325,070,203 bytes, SHA-256

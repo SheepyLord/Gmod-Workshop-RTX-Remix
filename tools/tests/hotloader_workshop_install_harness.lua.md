@@ -17,9 +17,11 @@ Scenarios:
   is written before its model's install record; the state file is written a few times, not per model; installed models
   reach the library through `library.Add`, each once, in fewer updates than models, with one full rebuild (the scan's);
   the closing notice follows.
-- `failures`: model 1's commit of a texture model 2 also lists fails: model 1 fails, model 2 moves the texture itself
-  and installs. Model 3's check fails while others run and passes alone; model 4's check says it is no model: refused
-  after its check alone, its manifest deleted. Two errors are reported; no check or transfer is left open.
+- `failures`: the first commit of a texture models 1 and 2 both list fails: whichever of the two moves it first fails,
+  and the other moves the texture itself and installs, so exactly one of them installs. Which goes first follows the
+  queue's order (`W.provided`'s `pairs` order, which LuaJIT 2.1 seeds per run), so the scenario accepts either. Model 3's
+  check fails while others run and passes alone; model 4's check says it is no model: refused after its check alone,
+  its manifest deleted. Two errors are reported; no check or transfer is left open.
 - `replace`: an installed model one of whose files changed since it was last known good is verified, then that file
   alone is replaced (moved without being checked again) and the model installs again.
 - `library_add`: `library.Add` lists new characters as a full rebuild lists them (a chosen name, the manifest's name),

@@ -198,7 +198,9 @@ if scenario=='parallel' then
  eq(refreshes,1,'full rebuilds (one for the scan)')
  eq(notices[#notices],'workshop.installed','the closing notice')
 elseif scenario=='failures' then
- -- Model 1's commit of shared texture 1 fails: model 1 fails, model 2 (which waits for that texture) moves it itself.
+ -- The first commit of shared texture 1 fails: whichever of models 1 and 2 moves it first fails, and the other (which
+ -- waits for that texture) moves it itself. Which one goes first follows the queue's order, W.provided's pairs order,
+ -- and LuaJIT 2.1 seeds its string hashes per run, so either may.
  -- Model 3's check fails beside others and passes alone; model 4 is no model at all: refused after its check alone.
  local a=addModel(1,{1,11}) local b=addModel(2,{1,12}) local c=addModel(3,{13}) local d=addModel(4,{14})
  for n=5,6 do addModel(n,{20+n}) end
@@ -208,7 +210,7 @@ elseif scenario=='failures' then
  mmdhl.workshop.Reconcile(true)
  run(20000)
  local names={} for _,name in ipairs(installedNames) do names[name]=true end
- assert(not names['Model 1'],'the failed model counted') assert(names['Model 2'],'the waiting model never installed')
+ eq((names['Model 1'] and 1 or 0)+(names['Model 2'] and 1 or 0),1,'models installed of the two sharing the failed texture (the failed one counted, or the waiting one never installed)')
  assert(names['Model 3'],'the model that needed its check alone') assert(not names['Model 4'],'the invalid model counted')
  assert(names['Model 5'] and names['Model 6'],'the other models')
  eq(stats.begins['textures/'..hex(1,64)..'.png'],2,'the failed shared texture moved again')

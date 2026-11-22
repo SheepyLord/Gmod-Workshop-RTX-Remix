@@ -98,24 +98,24 @@
    "imported": "2026-10-30T18:37:46+00:00"
   },
   "mmd_hotloader/lua/mmdhl/ui.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\ui.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\.claude\\worktrees\\gallant-lumiere-af7670\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\ui.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/.claude/worktrees/gallant-lumiere-af7670",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "da37c21bb7d5b99697b27230090e488a2d2e3161",
     "dirty": true
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-22T05:38:21+00:00"
   },
   "mmd_hotloader/lua/mmdhl/ui.lua.md": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\addon-workflow-inputs\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\ui.lua.md",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\.claude\\worktrees\\gallant-lumiere-af7670\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\ui.lua.md",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/.claude/worktrees/gallant-lumiere-af7670",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "00cfdfb154cba4878837e460eb07f8ab0bec21be",
-    "dirty": false
+    "commit": "da37c21bb7d5b99697b27230090e488a2d2e3161",
+    "dirty": true
    },
-   "imported": "2026-10-31T05:11:23+00:00"
+   "imported": "2026-11-22T05:38:21+00:00"
   },
   "mmd_hotloader/resource/localization/en/mmdhl.properties": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\packages\\model-hotloader\\mmd_hotloader\\resource\\localization\\en\\mmdhl.properties",
@@ -208,14 +208,14 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "mmd_hotloader/lua/mmdhl/library.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\library.lua",
+   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\.claude\\worktrees\\gallant-lumiere-af7670\\packages\\model-hotloader\\mmd_hotloader\\lua\\mmdhl\\library.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
+    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/.claude/worktrees/gallant-lumiere-af7670",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
+    "commit": "da37c21bb7d5b99697b27230090e488a2d2e3161",
     "dirty": true
    },
-   "imported": "2026-11-22T03:56:25+00:00"
+   "imported": "2026-11-22T05:38:21+00:00"
   },
   "mmd_hotloader/lua/mmdhl/materials.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r15\\out\\r15\\stage\\materials.lua",
@@ -1416,9 +1416,9 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/library.lua": {
-   "size": 69744,
-   "sha256": "ff40e9dbcd377f08b85540c77c8361251b928918b68b5a345a1d348875cf79d7",
-   "mtime_ns": 1795319419417001900,
+   "size": 70396,
+   "sha256": "f8cd07613101cddeb9511795d970bdc2494aa074b143e16c9c467c1e2cda9da5",
+   "mtime_ns": 1795325860869280000,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/materials.lua": {
@@ -1644,15 +1644,15 @@
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/ui.lua": {
-   "size": 83362,
-   "sha256": "5412541491b69aa0ef1fc89e000e8e2c7ee9120e193ba6ff465ac8301b9435bc",
-   "mtime_ns": 1794833937907433700,
+   "size": 90286,
+   "sha256": "4c929044b7d5cf1f5d0dca253e6e49b2a754ca5bf17d1d8c67b28fc6e5690ef4",
+   "mtime_ns": 1795325860870280200,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/ui.lua.md": {
-   "size": 324,
-   "sha256": "02f817c18719b41d917281baffcd352f86c146b8982ad4240995429f065fe195",
-   "mtime_ns": 1793423116287632100,
+   "size": 1433,
+   "sha256": "183b7b126a9cb66156c92e48a863f475c628fb58238d3249a7374cefd0a658d9",
+   "mtime_ns": 1795325860870280200,
    "stored": "plain"
   },
   "mmd_hotloader/lua/mmdhl/workshop.lua": {

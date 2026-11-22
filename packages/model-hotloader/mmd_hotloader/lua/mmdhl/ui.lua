@@ -144,6 +144,39 @@ local function badge(row,text,color,font,s)
   draw.RoundedBox(4,x,y,bw,bh,color) draw.SimpleText(text,font,x+bw/2,y+bh/2,color_white,TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
  end
 end
+-- The list's order: favourites first, then by name, then by id (a strict order: a row added later finds the one place
+-- a rebuild would give it).
+local function rowBefore(a,b)
+ local af=a.entry and a.entry.settings.favorite or false local bf=b.entry and b.entry.settings.favorite or false
+ if af~=bf then return af end return a.name:lower()==b.name:lower() and a.id<b.id or a.name:lower()<b.name:lower()
+end
+-- The search box: a row is listed when its name, original name, source or id holds the text.
+local function rowMatches(item,query)
+ return query=='' or (item.name..' '..(item.original or '')..' '..(item.entry and item.entry.source or '')..' '..item.id):lower():find(query,1,true)~=nil
+end
+-- A row's columns: the name, and the vertices (a dash for a server's or a deleted model).
+local function rowColumns(item)
+ local e=item.entry
+ return item.name,e and ((e.shared or e.deleted) and '—' or string.Comma(e.info.vertices or 0)) or '?'
+end
+-- AddLine puts a row last in the list's display order: move it, or a row whose entry was listed again, to where
+-- rowBefore sorts it (ADR 0258).
+local function placeRow(list,row)
+ local sorted=list.Sorted
+ if not istable(sorted) then return false end
+ local at=sorted[#sorted]==row and #sorted or nil
+ if not at then for i,line in ipairs(sorted) do if line==row then at=i break end end end
+ if not at then return false end
+ table.remove(sorted,at)
+ local low,high=1,#sorted+1
+ while low<high do
+  local middle=math.floor((low+high)/2)
+  if rowBefore(sorted[middle].item,row.item) then low=middle+1 else high=middle end
+ end
+ table.insert(sorted,low,row)
+ list:SetDirty(true) list:InvalidateLayout()
+ return true
+end
 -- The character and static-prop subtabs share this panel; Lib() is the list shown.
 function PANEL:Lib() return self.mode=='static' and mmdhl.props and mmdhl.props.library or library end
 function PANEL:Init()
@@ -242,6 +275,10 @@ function PANEL:Init()
  self.MMDHLLibrary=self.Models
  for _,c in pairs(self.Models.Columns) do c.Header:SetFont(f.Small) end
  self.Models.OnRowSelected=function(_,_,row) if not self.refreshing then self:Choose(row) end end
+ -- A click on a column header sorts the list by that column; rows added later (AddRows) would not follow that order,
+ -- so the next change builds the list again, in its own order, as before.
+ local sortBy=self.Models.SortByColumn
+ self.Models.SortByColumn=function(list,...) self.built=nil return sortBy(list,...) end
  self.Models.DoDoubleClick=function(_,_,row) self:Choose(row) if self.mode=='library' then self:Place() elseif self.mode=='static' then self:PlaceProp() elseif self.mode=='scene' then mmdhl.OpenEntityEditor(row.entity) end end
  self.Models.OnRowRightClick=function(_,_,row)
   self:Choose(row) local menu=DermaMenu()
@@ -494,9 +531,17 @@ function PANEL:RefreshFolders()
  local lib=self:Lib()
  local paths=lib.Folders()
  local groups,deleted=self:WorkshopGroups(),mmdhl.workshop and mmdhl.workshop.Deleted(kindOf(self.mode)) or {}
- local extra={} for _,g in ipairs(groups) do extra[#extra+1]=g.id..'='..g.title..'#'..g.count end
- local signature=self.mode..'\n'..table.concat(paths,'\n')..'\n'..table.concat(extra,'\n')..'\n#'..#deleted..'\n'..mmdhl.I18n.Language()
+ local shape,counts={}, {} for _,g in ipairs(groups) do shape[#shape+1]=g.id..'='..g.title..'='..tostring(g.workshop) counts[#counts+1]=g.count end
+ local layout=self.mode..'\n'..table.concat(paths,'\n')..'\n'..table.concat(shape,'\n')..'\n#'..#deleted..'\n'..mmdhl.I18n.Language()
+ local signature=layout..'\n'..table.concat(counts,',')
  if self.folderSignature==signature then self.Folders:SetSelectedItem(self.folderNodes[self.folder or false]) return end self.folderSignature=signature
+ -- Only how many models a package provides changed (a pack's install): those nodes' labels again, not the tree, whose
+ -- twenty-odd nodes are each a handful of panels (ADR 0258).
+ if self.folderLayout==layout and self.packageNodes then
+  for _,g in ipairs(groups) do local n=self.packageNodes[g.id] if IsValid(n) then n:SetText(L('ui.folder.workshop_package',{title=g.title,count=g.count})) end end
+  self.Folders:SetSelectedItem(self.folderNodes[self.folder or false]) return
+ end
+ self.folderLayout=layout self.packageNodes={}
  self.FolderPanel:SetTall(self.S(math.min(190,74+(#paths+(#groups>0 and #groups+1 or 0)+(#deleted>0 and 1 or 0))*22)))
  self.folderNodes={}
  self.Folders:Clear() local nodes={}
@@ -527,7 +572,7 @@ function PANEL:RefreshFolders()
  end
  if #groups>0 then
   local root=node(self.Folders,L'ui.folder.workshop',WORKSHOP,'icon16/world.png')
-  for _,g in ipairs(groups) do node(root,L('ui.folder.workshop_package',{title=g.title,count=g.count}),WORKSHOP..':'..g.id,g.workshop and 'icon16/package.png' or 'icon16/package_green.png') end
+  for _,g in ipairs(groups) do self.packageNodes[g.id]=node(root,L('ui.folder.workshop_package',{title=g.title,count=g.count}),WORKSHOP..':'..g.id,g.workshop and 'icon16/package.png' or 'icon16/package_green.png') end
   root:SetExpanded(true)
  end
  if #deleted>0 then node(self.Folders,L('ui.folder.deleted_workshop',{count=#deleted}),DELETED,'icon16/bin_closed.png') end
@@ -565,6 +610,102 @@ end
 function PANEL:MoveSelected()
  local menu=DermaMenu() self:PopulateMoveMenu(menu) menu:Open()
 end
+-- Whether the chosen folder lists an entry: all models, the Workshop's, one package's, the unfiled or a folder with
+-- its subfolders.
+function PANEL:FolderShows(entry)
+ local folder=entry.settings.folder or ''
+ if self.folder==nil then return true
+ elseif self.folder==WORKSHOP then return entry.workshop~=nil
+ elseif special(self.folder) then return entry.workshop~=nil and WORKSHOP..':'..entry.workshop.package==self.folder
+ elseif self.folder=='' then return folder=='' and not entry.workshop
+ else return self.folder==folder or folder:sub(1,#self.folder+1)==self.folder..'/' end
+end
+function PANEL:RowItem(id,entry)
+ local name,original=shownName(self.mode,entry)
+ return {id=id,entry=entry,name=(entry.settings.favorite and '★  ' or '')..name,original=original}
+end
+-- One row of the list: its columns, then what DressRow gives it.
+function PANEL:AddRow(item,listed)
+ local row=self.Models:AddLine(rowColumns(item)) self:DressRow(row,item,listed)
+ return row
+end
+-- What a row stands for and shows besides its columns: its entry, the tooltip, the badge of where the model comes from
+-- and the fonts.
+function PANEL:DressRow(row,item,listed)
+ local e=item.entry
+ row.asset=item.id row.entity=item.entity row.entry=e row.item=item
+ local origin=e and e.workshop and L('ui.tooltip.workshop_origin',{title=e.workshop.title}) or ''
+ row:SetTooltip(item.name..'\n'..(item.original and L('names.original',{name=item.original})..'\n' or '')..(origin~='' and origin..'\n' or '')..(e and e.source~='' and e.source..'\n' or '')..L('ui.tooltip.cache',{id=item.id:sub(1,12)}))
+ if listed and e then
+  if e.deleted then badge(row,L'ui.badge.deleted',Color(128,136,148),self.Fonts.Small,self.S)
+  elseif self.mode=='library' and istable(e.settings.fit) and e.settings.fit.ok==false then badge(row,L'bonemap.badge.needs_bones',Color(191,120,22),self.Fonts.Small,self.S)
+  elseif e.workshop then badge(row,L'ui.badge.workshop',Color(40,105,180),self.Fonts.Small,self.S)
+  elseif e.shared then badge(row,L'ui.badge.server',Color(142,104,40),self.Fonts.Small,self.S)
+  else badge(row,L'ui.badge.own',Color(74,128,92),self.Fonts.Small,self.S) end
+ end
+ for _,column in pairs(row.Columns) do column:SetFont(self.Fonts.Body) end
+end
+-- The line under the list: rows shown (the search) of the folder's total.
+function PANEL:ShowCount(total)
+ local shown=#self.Models:GetLines()
+ self.Count:SetText((self.mode=='static' and L('ui.count.props',{shown=shown,total=total}) or L('ui.count.models',{shown=shown,total=total}))..' · '..L'ui.count.multiselect')
+end
+-- What the details say while no row is chosen: why the list is empty, or to choose a row.
+function PANEL:NothingChosenText(total)
+ local static=self.mode=='static' local deletedView=(self.mode=='library' or static) and self.folder==DELETED
+ return total==0 and (self.mode=='scene' and L'ui.empty.scene' or deletedView and L'ui.empty.deleted_workshop' or self.folder==WORKSHOP and L'ui.empty.workshop' or static and L'ui.empty.props' or L'ui.empty.models') or L'ui.select_row'
+end
+-- The ids library.Add listed since the list was built, when they are all that changed: each revision since was one
+-- of library.Add's (library.added) and the list is as Refresh left it (the same tab, folder and search, its own order,
+-- its rows). nil: build the list again.
+function PANEL:AddedSince()
+ local lib,built=self:Lib(),self.built
+ if not built or not built.additions or built.lib~=lib or built.mode~=self.mode or built.folder~=self.folder then return end
+ if self.namesRevision~=(mmdhl.names and mmdhl.names.revision) then return end
+ if built.query~=string.Trim(self.Search:GetText()):lower() then return end
+ local lines,sorted=self.Models:GetLines(),self.Models.Sorted
+ if #lines~=built.lines or not istable(sorted) or #sorted~=built.lines then return end
+ if not istable(lib.added) or not isnumber(lib.revision) or not isnumber(self.revision) or lib.revision<=self.revision then return end
+ local ids={}
+ for revision=self.revision+1,lib.revision do
+  local added=lib.added[revision] if not added then return end
+  for _,id in ipairs(added) do ids[#ids+1]=id end
+ end
+ return ids
+end
+-- The rows of the entries library.Add listed: a new row for a new entry, a row's text, tooltip, badge and place again
+-- for an entry listed again, each as a rebuild would show it; the folder tree and the counts brought up to date, the
+-- selection left as it is. With 220 characters a rebuild of the list cost a frame of 52-59 ms (three panels a row
+-- made again) for each update of a package's install (ADR 0258).
+function PANEL:AddRows(ids)
+ local lib,built=self:Lib(),self.built
+ self:RefreshFolders() ownScale(self.FolderPanel)
+ local rows,chosen={},nil
+ for _,line in ipairs(self.Models:GetLines()) do rows[line.asset]=line end
+ for _,id in ipairs(ids) do
+  local entry=lib.entries[id]
+  local item=entry and self:FolderShows(entry) and self:RowItem(id,entry) or nil
+  -- The folder's total: an entry listed again may join the folder or leave it.
+  if item and not built.counted[id] then built.total=built.total+1 built.counted[id]=true
+  elseif not item and built.counted[id] then built.total=built.total-1 built.counted[id]=nil end
+  local row,shown=rows[id],item~=nil and rowMatches(item,built.query)
+  if row then
+   -- A row that would have to go (its entry left the folder or the search) builds the list again.
+   if not shown then return self:Refresh() end
+   local name,vertices=rowColumns(item) row:SetColumnText(1,name) row:SetColumnText(2,vertices) self:DressRow(row,item,true)
+   if not placeRow(self.Models,row) then return self:Refresh() end
+   if id==self.selected then chosen=row end
+  elseif shown then
+   row=self:AddRow(item,true) rows[id]=row
+   if not placeRow(self.Models,row) then return self:Refresh() end
+   ownScale(row)
+  end
+ end
+ built.lines=#self.Models:GetLines() self.revision=lib.revision
+ self:ShowCount(built.total)
+ -- The chosen entry listed again: its details as a rebuild shows them.
+ if chosen then self:Choose(chosen) elseif not self.selected then self.Details:SetText(self:NothingChosenText(built.total)) end
+end
 function PANEL:Refresh()
  local physics=self.mode=='physics' local static=self.mode=='static' local listed=self.mode=='library' or static
  self.namesRevision=mmdhl.names and mmdhl.names.revision
@@ -577,7 +718,7 @@ function PANEL:Refresh()
  for name,b in pairs(self.Tabs) do b.Selected=name==self.mode end
  self.Import:SetText(static and L'ui.import_props' or L'ui.import_characters')
  self.Import:SetTooltip(static and L'ui.tooltip.import_props' or L'ui.tooltip.import_characters')
- if physics then self.revision=library.revision return end
+ if physics then self.revision=library.revision self.built=nil return end
  local lib=self:Lib()
  local deletedView=listed and self.folder==DELETED
  self.FolderPanel:SetVisible(listed) self.Move:SetVisible(listed and not deletedView) self.Export:SetVisible(listed and not deletedView)
@@ -599,40 +740,23 @@ function PANEL:Refresh()
    end
   end
   for id,entry in pairs(deletedView and {} or lib.entries) do
-   local folder=entry.settings.folder or ''
-   local shown
-   if self.folder==nil then shown=true
-   elseif self.folder==WORKSHOP then shown=entry.workshop~=nil
-   elseif special(self.folder) then shown=entry.workshop~=nil and WORKSHOP..':'..entry.workshop.package==self.folder
-   elseif self.folder=='' then shown=folder=='' and not entry.workshop
-   else shown=self.folder==folder or folder:sub(1,#self.folder+1)==self.folder..'/' end
-   if shown then local name,original=shownName(self.mode,entry) rows[#rows+1]={id=id,entry=entry,name=(entry.settings.favorite and '★  ' or '')..name,original=original} end
+   if self:FolderShows(entry) then rows[#rows+1]=self:RowItem(id,entry) end
   end
  end
- table.sort(rows,function(a,b)
-  local af=a.entry and a.entry.settings.favorite or false local bf=b.entry and b.entry.settings.favorite or false
-  if af~=bf then return af end return a.name:lower()==b.name:lower() and a.id<b.id or a.name:lower()<b.name:lower()
- end)
+ table.sort(rows,rowBefore)
  self.refreshing=true self.Models:Clear() local kept
  for _,item in ipairs(rows) do
-  if query=='' or (item.name..' '..(item.original or '')..' '..(item.entry and item.entry.source or '')..' '..item.id):lower():find(query,1,true) then
-   local e=item.entry
-   local row=self.Models:AddLine(item.name,e and ((e.shared or e.deleted) and '—' or string.Comma(e.info.vertices or 0)) or '?') row.asset=item.id row.entity=item.entity row.entry=e
-   local origin=e and e.workshop and L('ui.tooltip.workshop_origin',{title=e.workshop.title}) or ''
-   row:SetTooltip(item.name..'\n'..(item.original and L('names.original',{name=item.original})..'\n' or '')..(origin~='' and origin..'\n' or '')..(e and e.source~='' and e.source..'\n' or '')..L('ui.tooltip.cache',{id=item.id:sub(1,12)}))
-   if listed and e then
-    if e.deleted then badge(row,L'ui.badge.deleted',Color(128,136,148),self.Fonts.Small,self.S)
-    elseif self.mode=='library' and istable(e.settings.fit) and e.settings.fit.ok==false then badge(row,L'bonemap.badge.needs_bones',Color(191,120,22),self.Fonts.Small,self.S)
-    elseif e.workshop then badge(row,L'ui.badge.workshop',Color(40,105,180),self.Fonts.Small,self.S)
-    elseif e.shared then badge(row,L'ui.badge.server',Color(142,104,40),self.Fonts.Small,self.S)
-    else badge(row,L'ui.badge.own',Color(74,128,92),self.Fonts.Small,self.S) end
-   end
-   for _,column in pairs(row.Columns) do column:SetFont(self.Fonts.Body) end
+  if rowMatches(item,query) then
+   local row=self:AddRow(item,listed)
    if item.id==selected and (self.mode~='scene' or item.entity==entity) then kept=row self.Models:SelectItem(row) end
   end
  end
  self.refreshing=false self.revision=lib.revision
- self.Count:SetText((static and L('ui.count.props',{shown=#self.Models:GetLines(),total=#rows}) or L('ui.count.models',{shown=#self.Models:GetLines(),total=#rows}))..' · '..L'ui.count.multiselect')
+ -- What the list was built from (AddRows brings the rows of entries library.Add lists later up to date): the
+ -- entries the folder's total counts, the rows made.
+ local counted={} for _,item in ipairs(rows) do counted[item.id]=true end
+ self.built={lib=lib,mode=self.mode,folder=self.folder,query=query,total=#rows,counted=counted,lines=#self.Models:GetLines(),additions=listed and not deletedView}
+ self:ShowCount(#rows)
  self.Rename:SetVisible(listed and not deletedView) self.Favorite:SetVisible(listed and not deletedView)
  self.Delete:SetText(self.mode=='scene' and L'ui.manage.remove_selected' or deletedView and L'ui.workshop.restore_selected' or L'ui.manage.delete_selected')
  self.Delete.Style=deletedView and 'primary' or 'danger'
@@ -641,7 +765,7 @@ function PANEL:Refresh()
  self.ShowCollision:SetVisible(static)
  if kept then self:Choose(kept) else
   self.selected=nil self.entity=nil self.deletedRow=nil releasePreview(self) self:EnableActions(false) self:ShowFitStatus(nil) self.Name:SetText(static and L'ui.select_prop' or L'ui.select_model') self.Warnings:SetVisible(false) self.Origin:SetVisible(false)
-  self.Details:SetText(#rows==0 and (self.mode=='scene' and L'ui.empty.scene' or deletedView and L'ui.empty.deleted_workshop' or self.folder==WORKSHOP and L'ui.empty.workshop' or static and L'ui.empty.props' or L'ui.empty.models') or L'ui.select_row')
+  self.Details:SetText(self:NothingChosenText(#rows))
  end
  self.Delete:SetEnabled(#self.Models:GetSelected()>0) self.Rename:SetEnabled(self.selected~=nil) self.Favorite:SetEnabled(self.selected~=nil) self.Move:SetEnabled(self.selected~=nil)
  self.Export:SetEnabled(#self.Models:GetSelected()>0)
@@ -840,7 +964,9 @@ function PANEL:Think()
  if not self.wasVisible then self.wasVisible=true self:Refresh() end
  local notice=mmdhl.names and mmdhl.names.NeedsNotice() or false
  if self.NamesNotice:IsVisible()~=notice then self.NamesNotice:SetVisible(notice) self:InvalidateLayout() end
- if self.mode~='physics' and (self.revision~=self:Lib().revision or self.namesRevision~=(mmdhl.names and mmdhl.names.revision)) then self:Refresh() end
+ if self.mode~='physics' and (self.revision~=self:Lib().revision or self.namesRevision~=(mmdhl.names and mmdhl.names.revision)) then
+  local added=self:AddedSince() if added then self:AddRows(added) else self:Refresh() end
+ end
  if self.mode=='scene' and (self.nextScene or 0)<RealTime() then
   self.nextScene=RealTime()+1 local ids={}
   for _,ent in ipairs(mmdhl.Entities()) do if not ent.MMDHLCopyOf then ids[#ids+1]=(ent.MMDHLClientRagdollId and ('local'..ent.MMDHLClientRagdollId) or ent:EntIndex())..':'..mmdhl.GetAsset(ent) end end

@@ -4041,3 +4041,25 @@ separator now has 57 texts in each catalog.
   the same (1,678 and 1,642 frames). Results in the [report](handover/ulib-hooks-report.md).
 - Not covered: the real MineMod (its stand-in only), ULX itself (ULib alone), a multiplayer game with ULib from a
   server, ULib and DLib in one game (by the source, DLib's library is kept and ULib's does not take over).
+
+## The library window's rows added alone (ADR 0258)
+
+- **LuaJIT**: [`test_hotloader_library_rows.py`](../tools/tests/test_hotloader_library_rows.py.md) (new) runs the
+  shipped `library.lua` and `ui.lua` with Derma instrumented (a stand-in `DListView` with GMod's `Lines` and `Sorted`):
+  after characters reach the library through `library.Add`, new ones or ones a package takes over, the open window
+  brings their rows up to date without clearing its list and shows exactly what a window built afresh in the same view
+  shows (every row in order with its columns, tooltip, badge, fonts and GUI Scaler's mark; the selection, count,
+  details and folder tree), in every folder, Workshop view and search, an empty view, with several rows selected, and
+  over 150 random libraries and batches (234 updates as rows, 33 that had to rebuild); a row that has to go, a rename,
+  a favourite, a move, a full rebuild, translated names, more updates than the record keeps, a column sort, a changed
+  folder, the deleted view and the props and scene tabs still build the list again; a package's count alone relabels
+  its node in the folder tree, a new package builds the tree again. The incremental scenarios fail on the window
+  before the change (it built the list again). While it was written, 22 deliberately broken copies of the two files
+  each failed a scenario.
+- **PoC** ([`pack_install_session.py`](../tools/qa/pack_install_session.py.md), `--seed-library` with the user's 220
+  characters, `--spawnmenu`): the RTX package of ADR 0255 with each branch's `library.lua`, `workshop.lua` and `ui.lua`
+  (`--hotloader-lua`, now with `ui.lua`), before and after, back to back; the probe lists each update of the window with
+  its frame (`library_updates`), each library revision and when the window was shown or hidden, and keeps the spawn
+  menu open while it runs. Runs in the handover report.
+- Not covered: the field install, GUI Scaler in a game (its mark checked under LuaJIT only), a multiplayer game's
+  server-approved models (they reach the library by full rebuilds, unchanged).

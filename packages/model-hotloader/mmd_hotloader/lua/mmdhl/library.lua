@@ -127,20 +127,29 @@ end
 -- A character's manifest decoded ahead of the next library update (workshop.lua, as each model installs): the decode,
 -- up to 20 ms for a large character, falls in that model's own frame instead of in one frame with others (ADR 0255).
 function library.Prime(id) if validId(id) then manifest(id) end end
+-- What each library.Add listed, by the revision it made ({[revision]={ids}}, ADR 0258): new entries and entries listed
+-- again (a package's model over the player's own copy). The library window brings those rows up to date instead of
+-- building its list again. The last sixteen revisions are kept; a rebuild clears them, so a window that missed a change
+-- builds its list again.
+library.added=library.added or {}
 -- Characters just installed from a Workshop package (workshop.lua): their entries alone, as a rebuild lists them,
 -- without reading every other model's files again (a tenth of a second in a library of two hundred, ADR 0255).
 function library.Add(ids)
  if not library.entries then return library.Refresh() end
- local deleting,sources,added=deletingIds(),nil,false
+ local deleting,sources,listed,seen=deletingIds(),nil,{},{}
  for _,id in ipairs(ids) do
-  if validId(id) and not deleting[id] then
+  if validId(id) and not deleting[id] and not seen[id] then
+   seen[id]=true
    sources=sources or library.SourcePaths('character')
    local entry=entryFor(id,sources)
-   if entry then library.entries[id]=entry added=true end
+   if entry then library.entries[id]=entry listed[#listed+1]=id end
   end
  end
- if not added then return library.entries end
+ if #listed==0 then return library.entries end
  library.revision=(library.revision or 0)+1
+ local added=library.added
+ added[library.revision]=listed
+ for revision in pairs(added) do if revision<=library.revision-16 then added[revision]=nil end end
  hook.Run('MMDHL.LibraryChanged')
  return library.entries
 end
@@ -165,7 +174,7 @@ function library.Refresh()
    entries[id].name=entries[id].settings.name or entries[id].name
   end end
  end
- library.entries=entries library.revision=(library.revision or 0)+1
+ library.entries=entries library.revision=(library.revision or 0)+1 library.added={}
  hook.Run('MMDHL.LibraryChanged')
  return entries
 end

@@ -10135,3 +10135,40 @@ behaviour only, the harness's stand-in is written for the test.
   hooks added after ULib are not timed during the load. In the PoC its end-of-load line named the probe's 5 ms hook
   without ULib and a hook registered before ULib (`RTXReady_RenderLightUpdaters`, 0.8 s) with it. DLib's takeover
   removes the field the same way, by its source.
+
+## The library window's list: what an update costs (2026-11-21, Claude; [ADR 0258](decisions/0258-the-library-window-adds-rows-for-new-characters.md))
+
+- **GMod's `DListView`** (`garrysmod/lua/vgui/dlistview.lua` in the installed game): `AddLine` (line 303) makes a
+  `DListView_Line` on the list's canvas and appends it to `Lines` (its ID is that index) and to `Sorted`, the display
+  order; `DataLayout` (278) lays out `Sorted`'s visible lines; `Clear` (543) removes every line and empties both;
+  `SortByColumn` (486) sorts `Sorted` by a column's sort value or text; `GetSelected` (556) walks `Lines`; `RemoveLine`
+  (110) sets `Lines[ID]` to nil, a hole that `#Lines` (the library window's count line) no longer counts across.
+  `DListView_Line:SetColumnText` (`dlistview_line.lua:111`) makes a `DListViewLabel` for each column, so a row of the
+  library list is three scripted panels. A column header's click is `DListView_Column:DoClick`
+  (`dlistview_column.lua:92`): `self:GetParent():SortByColumn(...)`.
+- **`vgui.Create` of a scripted panel** (`includes/extensions/client/panel/scriptedpanels.lua:23-51`) makes its base
+  panel first, then `table.Merge(panel:GetTable(), metatable)` and `Init`: every method is copied into the instance,
+  and a field set on the instance (the library window's `SortByColumn` wrapper) is what other panels call. One row of
+  the library list is eight `vgui.Create` calls (the line and its base `Panel`, each label with `DLabel` and `Label`):
+  about 1,760 for a rebuild of 220 rows.
+- **Sandbox's spawn menu closes on a click on its background** (`gamemodes/sandbox/gamemode/spawnmenu/spawnmenu.lua`:
+  `PANEL:OnMousePressed` calls `self:Close()`, line 82; `GM:OnSpawnMenuClose` calls `g_SpawnMenu:Close()`, 259). A
+  hidden library window does not update (`PANEL:Think` returns first) and rebuilds when shown again. In this work's first
+  after-run the window stopped updating 14 s into the install while another session drove the field game's window;
+  `pack_install_probe.lua` now keeps the spawn menu open while it runs.
+- **The user's library already holds the pack's models.** The content pack of ADR 0255's report installs eleven
+  characters and one static prop (`枪`); the field install's library has asset folders for all twelve (the same
+  asset id, so the same content). The PoC runs with `--seed-library` therefore install the characters over entries
+  the library has (a takeover: the package's settings and a Workshop origin), as the user's own game does, and the
+  prop through the props library's rebuild. ADR 0258's first form rebuilt the window's list for such an update; its
+  final form dresses those rows again.
+- **What an update of the window costs** (PoC, gm_construct at 1600x900, `pack_install_session.py` with the pack of ADR
+  0255's report and that branch's RTX package, `--seed-library` with the user's library, `--spawnmenu`; each branch's
+  `library.lua`, `workshop.lua` and `ui.lua` run over the package's with `--hotloader-lua`; no other game running).
+  Before (ADR 0255's window, runs `before3` and `before4`): each of the six updates during the installs rebuilt the
+  list, `Refresh` 18.0-30.5 ms (inclusive), its frame 41.5-62.8 ms, the next frame 18.2-39.2 ms. After (`after4`, the
+  final code): each of the three updates brought rows up to date alone, `AddRows` 1.4-6.9 ms, its frame 18.8-22.6 ms,
+  the next frame 10.3-14.8 ms. The install's median frame was 10.4-11.8 ms in all four runs; `vgui.Create` ran about
+  13,400 times in a before run and 8,000-8,700 in an after run. Without the folder tree's relabel (`after3`),
+  `AddRows` took 3.6-16.3 ms, most of it the tree built again for a package's new count of models (about 330
+  `vgui.Create` calls for its twenty-odd nodes).

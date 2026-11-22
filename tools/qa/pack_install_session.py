@@ -28,7 +28,7 @@ TASK = 'Content package install timing (pack_install_session)'
 ATTACH = 'print("NLPACK_ATTACHED " .. tostring(NLPACK ~= nil))\n'
 
 
-OVERRIDE = ('library.lua', 'workshop.lua')
+OVERRIDE = ('library.lua', 'workshop.lua', 'ui.lua')
 
 
 def settings_lua(args) -> str:
@@ -39,7 +39,8 @@ def settings_lua(args) -> str:
 
 def write_probe(args, folder: Path) -> Path:
     """The probe as a one-session add-on, so it runs from the map's first frame; a copy goes to the evidence. With
-    --hotloader-lua, the branch's library.lua and workshop.lua go beside it, and it includes them over the package's."""
+    --hotloader-lua, the branch's library.lua, workshop.lua and ui.lua go beside it, and it includes them over the
+    package's."""
     code = settings_lua(args) + (TOOLS / 'qa/pack_install_probe.lua').read_text(encoding='utf-8')
     target = PROBE_ADDON / 'lua/autorun/client/zz_nlpack_probe.lua'
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -121,6 +122,19 @@ def report(result: dict) -> None:
     print('top functions (self time):')
     for row in (result.get('functions') or [])[:15]:
         print(f"  {row['self_ms']:>10} ms self, {row['incl_ms']:>10} ms incl, {row['calls']:>7} calls, max {row['max_ms']} ms  {row['name']}")
+    watched = [e for e in result.get('events') or [] if e['kind'] in (
+        'library_revision', 'window_shown', 'window_hidden', 'spawnmenu_close_kept_open')]
+    if watched:
+        print('library revisions (listed: characters library.Add listed; none: a rebuild) and the library window:')
+        for e in watched:
+            print(f"  {e['t']:>9.3f} s  {e['kind']} {e.get('detail') or ''}")
+    updates = result.get('library_updates') or []
+    if updates:
+        print("library window updates (rebuild: the whole list again; rows: new rows added alone):")
+        for update in updates:
+            spent = update.get('refresh_ms') if update['kind'] == 'rebuild' else update.get('add_rows_ms')
+            print(f"  {update['t']:>9.3f} s  {update['kind']:<7} {spent} ms in the call, frame {update['ms']} ms, "
+                  f"next frame {update.get('next_ms')} ms (busy {update['busy']}, installed {update['installed']})")
 
 
 def main(argv=None) -> int:
@@ -136,8 +150,8 @@ def main(argv=None) -> int:
                              "manifests and settings and its props are copied in, so the install meets a library that size")
     parser.add_argument('--spawnmenu', action='store_true', help="open the spawn menu on the Model Hotloader's tab while the models install")
     parser.add_argument('--hotloader-lua', type=Path,
-                        help="a Model Hotloader lua/mmdhl folder whose library.lua and workshop.lua run over the package's "
-                             "for this session (a branch's change, before a package is built from it)")
+                        help="a Model Hotloader lua/mmdhl folder whose library.lua, workshop.lua and ui.lua run over the "
+                             "package's for this session (a branch's change, before a package is built from it)")
     parser.add_argument('--quiet', type=float, default=10, help='seconds without an install before the probe ends')
     parser.add_argument('--start', type=float, default=180, help='seconds for an install to begin after the spawn')
     parser.add_argument('--limit', type=float, default=1200, help='seconds for the whole probe')
@@ -150,6 +164,8 @@ def main(argv=None) -> int:
     parser.add_argument('--extra', action='append', default=[], help='a launch option for the game (repeatable)')
     parser.add_argument('--lock-timeout', type=int, default=6 * 3600)
     parser.add_argument('--keep-copies', action='store_true')
+    parser.add_argument('--keep-field-game', action='store_true',
+                        help="leave a running field game alone (another task's test uses it); the timings share the computer with it")
     parser.add_argument('--rollback', action='store_true', help='restore the PoC after an interrupted run')
     args = parser.parse_args(argv)
     main_root = vs.main_checkout()
@@ -202,7 +218,11 @@ def main(argv=None) -> int:
             vs.command(['tools/poc_session.py', '--evidence', evidence / 'poc', 'install', '--allow-local',
                         args.package.resolve(), '--allow-local', args.pack.resolve(), '--remix', 'on', '--replace-config'],
                        evidence, 'install')
-            vs.write_json(evidence / 'field-games.json', r12a.end_field_games())
+            if args.keep_field_game:
+                # Another task's test in the field game: left running, and the timings share the computer with it.
+                vs.write_json(evidence / 'field-games.json', {'time': poc.now(), 'kept': poc.game_processes(poc.FIELD_ROOT)})
+            else:
+                vs.write_json(evidence / 'field-games.json', r12a.end_field_games())
             folder = evidence / args.label
             folder.mkdir(parents=True, exist_ok=True)
             attach = write_probe(args, folder)

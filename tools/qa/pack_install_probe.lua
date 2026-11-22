@@ -14,6 +14,9 @@ local LONG = (S.long or 50) / 1000
 P.began = clock()
 P.frames, P.events, P.long, P.stats, P.frame, P.wrapped = {}, {}, {}, {}, {}, {}
 P.stack = {}
+-- The library window's updates: each frame in which its list was built again (Refresh) or rows were added to it
+-- (AddRows, ADR 0258), with the time of each, the frame's length and the next frame's (layout and removed panels).
+P.updates, P.frameIncl = {}, {}
 
 -- A branch's Model Hotloader files run over the package's for this session (the driver's --hotloader-lua): included
 -- again here, before the map's first frame, as the add-on included its own.
@@ -44,6 +47,7 @@ local function leave(frameEntry, name, ...)
     s.calls, s.incl, s.self = s.calls + 1, s.incl + dt, s.self + own
     if dt > s.max then s.max = dt end
     P.frame[name] = (P.frame[name] or 0) + own
+    if name:sub(1, 11) == "ui.Library." then P.frameIncl[name] = (P.frameIncl[name] or 0) + dt end
     return ...
 end
 -- The install's steps, each call with its time, first two arguments and first result: when each file's transfer and
@@ -109,9 +113,12 @@ local function wrap_all()
         for _, key in ipairs({ "Scan", "Busy", "Reconcile", "AfterInstalls" }) do
             wrap_field(mmdhl.workshop, key, "workshop." .. key)
         end
-        -- The library window's rebuild of its list (the spawn menu's External Models tab).
+        -- The library window's rebuild of its list (the spawn menu's External Models tab), and its rows added alone.
         local panel = vgui.GetControlTable and vgui.GetControlTable("MMDHLLibrary")
-        if panel then wrap_field(panel, "Refresh", "ui.Library.Refresh") end
+        if panel then
+            wrap_field(panel, "Refresh", "ui.Library.Refresh")
+            wrap_field(panel, "AddRows", "ui.Library.AddRows")
+        end
     end
     wrap_hooks()
 end
@@ -146,6 +153,24 @@ local function top(tbl, n)
     return out
 end
 local function busy() return mmdhl and mmdhl.workshop and mmdhl.workshop.Busy and mmdhl.workshop.Busy() or false end
+local lastUpdate
+-- What the library window's updates depend on, as events: each library revision (how many characters library.Add
+-- listed for it, or none: a rebuild) and the spawn menu's library window shown or hidden (a hidden one does not update).
+local seenRevision, windowShown
+local function watchLibrary()
+    local library = mmdhl and mmdhl.library
+    if library and library.revision ~= seenRevision then
+        seenRevision = library.revision
+        local listed = istable(library.added) and library.added[library.revision]
+        event("library_revision", { revision = library.revision, listed = listed and #listed or nil })
+    end
+    local window = mmdhl and IsValid(mmdhl.spawnPanel) and mmdhl.spawnPanel.Library
+    local shown = IsValid(window) and mmdhl.PanelVisible and mmdhl.PanelVisible(window) or false
+    if shown ~= windowShown then
+        windowShown = shown
+        event(shown and "window_shown" or "window_hidden", {})
+    end
+end
 hook.Add("Think", "NLPACK.Frame", function()
     local t = clock()
     if last then
@@ -156,6 +181,14 @@ hook.Add("Think", "NLPACK.Frame", function()
             P.long[#P.long + 1] = { t = math.Round(now(), 3), ms = math.Round(dt * 1000, 1), busy = b, installed = installedCount,
                 top = top(P.frame, 6) }
         end
+        if lastUpdate then lastUpdate.next_ms = math.Round(dt * 1000, 2) lastUpdate = nil end
+        local rebuild, rows = P.frameIncl["ui.Library.Refresh"], P.frameIncl["ui.Library.AddRows"]
+        if rebuild or rows then
+            lastUpdate = { t = math.Round(now(), 3), ms = math.Round(dt * 1000, 2), kind = rebuild and "rebuild" or "rows",
+                refresh_ms = rebuild and math.Round(rebuild * 1000, 2) or nil, add_rows_ms = rows and math.Round(rows * 1000, 2) or nil,
+                busy = b, installed = installedCount, top = top(P.frame, 4) }
+            P.updates[#P.updates + 1] = lastUpdate
+        end
         if b ~= busyNow then
             busyNow = b
             event(b and "busy" or "idle", { installed = installedCount })
@@ -163,7 +196,8 @@ hook.Add("Think", "NLPACK.Frame", function()
             if b then busySeen = true quietSince = nil else quietSince = now() end
         end
     end
-    P.frame = {}
+    watchLibrary()
+    P.frame, P.frameIncl = {}, {}
     last = clock()
     if not lastWrap or t - lastWrap > 2 then lastWrap = t wrap_all() end
 end)
@@ -198,12 +232,13 @@ local function summary()
     while #rows > 80 do rows[#rows] = nil end
     return { started = startedAt, done = P.doneAt, seconds = P.doneAt and startedAt and math.Round(P.doneAt - startedAt, 2) or nil,
         installed = installTimes, install_frames = install, before_install = before, median_ms = median(all),
-        long_frames = P.long, functions = rows, events = P.events, trace = P.trace,
+        long_frames = P.long, functions = rows, events = P.events, trace = P.trace, library_updates = P.updates,
         library = mmdhl and mmdhl.library and mmdhl.library.entries and table.Count(mmdhl.library.entries) or nil }
 end
 local function finish(reason)
     if finished then return end
     finished = true
+    if IsValid(g_SpawnMenu) and g_SpawnMenu.NLPACKClose then g_SpawnMenu.Close, g_SpawnMenu.NLPACKClose = g_SpawnMenu.NLPACKClose, nil end
     event("finish", { reason = reason })
     file.CreateDir("nlpack_probe")
     file.Write("nlpack_probe/result.json", util.TableToJSON(summary(), true))
@@ -236,6 +271,15 @@ hook.Add("InitPostEntity", "NLPACK.Start", function()
             local menu = IsValid(g_SpawnMenu) and g_SpawnMenu.CreateMenu
             local name = mmdhl and mmdhl.L and mmdhl.L("common.external_models")
             if IsValid(menu) and name and menu.SwitchToName then menu:SwitchToName(name) event("spawnmenu_tab", { name = name }) end
+            -- Kept open until the probe ends: a click on the menu's background (sandbox closes it then) or a release
+            -- of the menu key while the window lost focus would hide the library window, which then stops updating.
+            if IsValid(g_SpawnMenu) and not g_SpawnMenu.NLPACKClose then
+                g_SpawnMenu.NLPACKClose = g_SpawnMenu.Close
+                g_SpawnMenu.Close = function()
+                    P.closesKept = (P.closesKept or 0) + 1
+                    event("spawnmenu_close_kept_open", { n = P.closesKept })
+                end
+            end
         end)
     end
 end)

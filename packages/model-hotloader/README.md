@@ -120,3 +120,13 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   seconds, instead of a full rebuild per model, each manifest decoded as its model installs (`library.Prime`); the state
   file is written once for a burst. The natives run a file's
   commit and a model's asset check below normal CPU priority (`source/install-priority.patch`).
+- **2026-11-21, the library window adds rows for new characters** (the follow-up ADR 0255 left: each library update of
+  a pack's install rebuilt the open window's whole list; [report](../../docs/handover/library-rows-report.md),
+  [ADR 0258](../../docs/decisions/0258-the-library-window-adds-rows-for-new-characters.md)): `library.Add` records the
+  ids each revision listed (`library.added`, the last sixteen; `library.Refresh` clears it), and the library window
+  (`mmd_hotloader/lua/mmdhl/ui.lua`) brings their rows up to date alone (`AddRows`): new rows for new characters, the
+  rows of characters listed again (a package's model over the player's own copy) dressed again, with the code a rebuild
+  uses (`AddRow`, `DressRow`) and each where a rebuild's sort puts it, the folder tree, total, counts and details
+  brought up to date and the selection left as it is; a row that would have to go and any other change still build the
+  list again (`Refresh`). The folder tree relabels a package's node when only its count of models changed, instead of
+  being built again (`RefreshFolders`).

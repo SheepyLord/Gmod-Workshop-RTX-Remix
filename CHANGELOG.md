@@ -6,6 +6,26 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The library window keeps up with a content pack's install without stuttering (2026-11-21)
+
+- **With the spawn menu open on External Models while a content pack installs, the list no longer stutters each time
+  new characters arrive.** The Model Hotloader's library window built its whole list again at every update of the
+  library: with a library of 220 characters, a frame of 40-90 ms each time a pack's install listed new models (three to
+  five times for a pack of twelve). Now only the rows of the characters an update lists are made or brought up to date:
+  a new character gets a row of its own, and a character a package takes over (the same model you imported yourself)
+  keeps its row with the package's name and badge, each where it belongs (favourites first, then by name), with the
+  folder tree and the counts up to date and your selection left as it is. In a test with the user's library, the
+  window's own work per update fell from 18-31 ms to 1-7 ms and those frames from 42-63 ms to 19-23 ms.
+- Behind it ([ADR 0258](docs/decisions/0258-the-library-window-adds-rows-for-new-characters.md)): `library.Add` records
+  which characters each of its updates listed (`library.added`); the window's `AddRows` makes new rows and dresses again
+  the rows of characters listed again, with the code a rebuild uses (`AddRow`, `DressRow`), and places each in the
+  list's display order by binary search; the folder tree relabels a package's node when only its count changed; a row
+  that would have to go and any other change (a rename, a move, a deletion, a folder or search change, a full rebuild,
+  translated names, a column sort) still build the list again. Tests: `test_hotloader_library_rows.py` (an update shows
+  the same rows as a rebuild, also over 150 random libraries; other changes still rebuild). `pack_install_session.py`
+  runs a branch's `ui.lua` too and can leave a field game another test uses running (`--keep-field-game`); its probe
+  keeps the spawn menu open and lists each update of the window.
+
 ### The render guard works with ULX's ULib too (2026-11-21)
 
 - **With ULX installed (its library ULib), the RTX package protects add-ons' drawing again.** ULib, which about

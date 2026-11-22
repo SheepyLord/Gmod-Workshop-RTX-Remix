@@ -6,6 +6,28 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The animation player keeps imported characters' built motions (2026-11-22)
+
+- **A motion you built for an imported character stays built: after you resize the character, import it again, update
+  the Model Hotloader or start a new session.** The Advanced MMD Animation Player names each built motion after the
+  character's model, and the Model Hotloader makes a new model for a character whenever its size, its import, its
+  materials or attachments, or the Hotloader itself change: every motion then had to be built again (in the user's
+  game the character's model changed 102 times since 2026-11-01, sixty times for a new size alone). Now a character's
+  models that share one skeleton share their built motions, and so do your expression mappings for them. Motions you
+  built before this version are adopted once, the first time a map runs: models of one skeleton are joined under the
+  one with the most motions. Another NPC type (citizen, Combine, player model), other expressions or a different
+  skeleton still build their own, as they must.
+- At another size a shared motion plays as it was built: its rotations and movement are a new build's; only the
+  pelvis/spine correction keeps the size it was built at (0.16 units at most for a 20 % change of size). Clear it and
+  build again for the new size if you want that exactly.
+- Behind it ([ADR 0259](docs/decisions/0259-imported-characters-share-their-builds-across-carriers.md)): the new
+  `sv_skeletons.lua` compares a carrier's rig manifest (its role, profile, IK chains and locks, morphs and bones
+  exactly; its bones' rotations, offsets divided by its size and Reference pose within 1e-4) with the skeletons kept in
+  `data/mmd_vmd_npc/built/_skeletons.dat`, and `BuiltTail` names a carrier's builds after its skeleton's build model;
+  a built file records the carrier it was made on (`built_on`). Built files of the format before `_fm2` stay as they
+  are. Tests: `test_motion_skeletons.py` (new), `test_motion_server.py`'s carriers test; two PoC sessions build a
+  dance on an imported character and find it at 1.25 and, in a new game, 1.5 times its size, without building.
+
 ### Skills: a river-valley town and a snowbound research base remastered (2026-11-22)
 
 - **`remix-map-pbr` learns from gm_fork and gm_boreas** (the user's request of 2026-11-22: Workshop 326332456 and

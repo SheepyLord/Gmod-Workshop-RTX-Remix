@@ -142,7 +142,10 @@ function MMDVMDNPC.FindExactFlexOnEntity(ent, flexName)
     return exact_flex_on_entity(ent, flexName)
 end
 
+-- A Model Hotloader character's mappings are kept under its build model (sv_skeletons.lua,
+-- ADR 0259), like its builds: they follow it across sizes, imports and updates.
 local function flex_override_model_key(modelPath)
+    if MMDVMDNPC.BuildModelKey then modelPath = MMDVMDNPC.BuildModelKey(modelPath) end
     modelPath = string.lower(tostring(modelPath or ""))
     modelPath = string.gsub(modelPath, "\\", "/")
     return modelPath
@@ -255,6 +258,7 @@ function MMDVMDNPC.SetFlexOverrideForModel(modelPath, mmdName, sourceName, flexN
 
     overrides[modelKey] = modelOverrides
     MMDVMDNPC.SaveFlexOverrides()
+    if MMDVMDNPC.NoteBuildModel then MMDVMDNPC.NoteBuildModel(modelPath) end
     return true
 end
 

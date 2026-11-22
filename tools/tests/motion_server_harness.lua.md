@@ -11,7 +11,7 @@ luajit tools\tests\motion_server_harness.lua <scenario> packages\character-motio
 
 Scenarios: `select`, `play`, `reset`, `stop_all`, `disconnect`, `debug_rate`, `cvar_shutdown`, `cvar_crash`,
 `cvar_lua`, `cvar_admin`, `built_budget`, `build_limits`, `keep_flexes`, `ragdoll_collision`, `built_flags`,
-`details_walk` (what each checks: the table in [test_motion_server.py.md](test_motion_server.py.md)). The cvar
+`details_walk`, `build_model` (what each checks: the table in [test_motion_server.py.md](test_motion_server.py.md)). The cvar
 scenarios load the file a second time, with the same `data/` and cvars, for the next map's Lua state. The budget
 scenarios lower the limits through `MMDVMDNPC.Guard`.
 
@@ -23,6 +23,12 @@ a model whose name has `caped` 22, three of them on main bones), the collider cl
 
 Scenario `dancer_gone_music` (2026-11-16): a dance with its music playing, its dancer invalidated, one Think: the
 state goes and `mmdvmd_audio_stop` is sent.
+
+Scenario `build_model` (ADR 0259, 2026-11-22): `BuildModelKey`, `SameBuildModel`, `BuildModelMembers` and
+`NoteBuildModel` stubbed for three carriers of one skeleton (the real ones are in `sv_skeletons.lua`, tested by
+[motion_skeleton_harness.lua](motion_skeleton_harness.lua.md)); a build is driven to its end through
+`mmdvmd_build_frame_result`, then danced, invalidated through `mmdvmd_flex_override_clear` and cleared through
+`ClearBuiltForPlayer`, with `file.Find` and `BuiltHeader` answering for the built folder.
 
 **Output:** `PASS <scenario>`, exit 0; a failed check raises `FAIL <scenario>: <why>` (exit 1).
 **Writes:** nothing on disk.

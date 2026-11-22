@@ -787,6 +787,15 @@ local function sequence()
         print("NLMP_FEATURES " .. (ok and "done" or tostring(result)))
     end
 
+    -- ADR 0259: session one builds and checks a resized carrier, session two (a new game) finds that build.
+    if SETTINGS.carriers and SETTINGS.carriers ~= "" then
+        local ok, result = pcall(run_server, "carriers_" .. SETTINGS.carriers, 300)
+        local carriersOut = ok and result or { error = tostring(result) }
+        file.CreateDir("nlmp_probe")
+        file.Write("nlmp_probe/carriers.json", util.TableToJSON(carriersOut, true))
+        print("NLMP_CARRIERS " .. (ok and "done" or tostring(result)))
+    end
+
     if SETTINGS.camera then
         local ok, result = pcall(camera_checks, npcs)
         local cameraOut = ok and result or { error = tostring(result) }

@@ -30,7 +30,8 @@ python tools\qa\mmd_player_session.py --evidence out\mmd-player\before --rollbac
 | `--camera` | After the steps, check "Hide yourself during camera motion" (the user's request of 2026-11-21) in the game, with screenshots (below); the run then waits for its screenshots with `poc_session.py --lua-shots` instead of `--lua-manual` |
 | `--copies` | With `--camera`: turn on the RTX fixes' body and weapon copies (`rtx_pseudoplayer`, `rtx_pseudoweapon`: the companion's "Local player shadow", off in the classic settings) for the checks, and back after |
 | `--hide-off` | With `--camera`: keep `mmd_vmd_npc_cam_hide_player` off for the whole run, a control in which the hide never runs (the phases and screenshots keep their names) |
-| `--no-steps` | Skip the timed click-through (with `--features`, `--qol` or `--camera`: the checks alone, a shorter run) |
+| `--carriers build\|find` | Built animations that follow an imported character ([ADR 0259](../../docs/decisions/0259-imported-characters-share-their-builds-across-carriers.md)): `build` builds the test dance on the first NPC and dances it on the character spawned at 1.25 times its size; `find`, in a later run with the same `--data`, spawns it at 1.5 times its size and finds and dances that build (below) |
+| `--no-steps` | Skip the timed click-through (with `--features`, `--qol`, `--camera` or `--carriers`: the checks alone, a shorter run) |
 | `--motions A B` | The two motion ids to pick (default: a third and two thirds down the sorted list) |
 | `--window` | Seconds measured after each action (4) |
 | `--settle` | Seconds after the NPCs spawn before the first step (8) |
@@ -108,6 +109,24 @@ the checks bring their own test dance.
 New-Item -ItemType Directory -Force out\mcam\data\mmd_vmd_npc
 python tools\qa\mmd_player_session.py --evidence out\mcam\poc-run --package out\mcam\pkg\<name>.gma --label camera `
     --data out\mcam\data --camera --no-steps
+```
+
+With `--carriers` ([ADR 0259](../../docs/decisions/0259-imported-characters-share-their-builds-across-carriers.md)),
+`results\carriers.json`: for `build`, `build` (as `--features`' build), `first` (the first NPC's carrier: `model`,
+`build_model`, `rig_key`, `scale`, `scale_multiplier`, the motions `built` for it, `built_path`, `built_exists`),
+`header` (the built file's `model` and `built_on`), `index` (the skeleton file: `saved`, `migrated`, its build models),
+`resized` (the same for the character at 1.25 times its size) and `resized_play` (the dance on it: `start_ok`,
+`playing`, the playback's `path` and `built_model`, `build_started`, the hands and head at `rest` and `dancing`); for
+`find`, `index`, `motion_present`, `default_size` (the first NPC's carrier), `found` and `play` (the character at 1.5
+times its size). The PoC's character library is restored after each run, so the second run's carriers are fitted
+again and only the skeleton file in `--data` links them to the first.
+
+```powershell
+New-Item -ItemType Directory -Force out\mmdkeys-poc\data\mmd_vmd_npc
+python tools\qa\mmd_player_session.py --evidence out\mmdkeys-poc\s1 --package out\mmdkeys-poc\pkg\<name>.gma --label build `
+    --data out\mmdkeys-poc\data --carriers build --no-steps
+python tools\qa\mmd_player_session.py --evidence out\mmdkeys-poc\s2 --package out\mmdkeys-poc\pkg\<name>.gma --label find `
+    --data out\mmdkeys-poc\data --carriers find --no-steps
 ```
 
 **Exit:** 0 when the run finished (its steps may still have failed: see the printed lines and

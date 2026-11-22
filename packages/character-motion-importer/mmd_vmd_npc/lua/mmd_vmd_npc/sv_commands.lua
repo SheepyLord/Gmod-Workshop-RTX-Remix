@@ -15,8 +15,15 @@ MMDVMDNPC.CVarOriginals = MMDVMDNPC.CVarOriginals or {}
 MMDVMDNPC.RPEBodySuppressionToken = MMDVMDNPC.RPEBodySuppressionToken or nil
 MMDVMDNPC.AudioOffsets = MMDVMDNPC.AudioOffsets or nil
 
-MMDVMDNPC.PendingBuildConfirm = MMDVMDNPC.PendingBuildConfirm or {}  
-MMDVMDNPC.PendingAutoPlay = MMDVMDNPC.PendingAutoPlay or {}          
+MMDVMDNPC.PendingBuildConfirm = MMDVMDNPC.PendingBuildConfirm or {}
+MMDVMDNPC.PendingAutoPlay = MMDVMDNPC.PendingAutoPlay or {}
+
+-- The model whose name a model's builds take, and the models sharing it (sv_skeletons.lua, ADR 0259):
+-- a Model Hotloader character's carriers share their builds. Without that file, each model its own.
+MMDVMDNPC.BuildModelKey = MMDVMDNPC.BuildModelKey or function(modelPath) return tostring(modelPath or "") end
+MMDVMDNPC.SameBuildModel = MMDVMDNPC.SameBuildModel or function(a, b) return tostring(a or "") == tostring(b or "") end
+MMDVMDNPC.BuildModelMembers = MMDVMDNPC.BuildModelMembers or function(key) return { tostring(key or "") } end
+MMDVMDNPC.NoteBuildModel = MMDVMDNPC.NoteBuildModel or function() return false end
 
 local ZERO_VECTOR = Vector(0, 0, 0)
 local ZERO_ANGLE = Angle(0, 0, 0)
@@ -989,11 +996,13 @@ local function invalidate_built_for_model(modelPath)
     -- multi-MB parse for unindexed files, so header-confirming the whole
     -- directory on a cold index would freeze the frame this click runs in.
     local removed = 0
-    local safeName = MMDVMDNPC.SafeModelName(modelPath)
+    -- An imported character's builds are under its build model, shared by its carriers (ADR 0259).
+    local buildModel = MMDVMDNPC.BuildModelKey(modelPath)
+    local safeName = MMDVMDNPC.SafeModelName(buildModel)
     for _, name in ipairs(file.Find(MMDVMDNPC.BuiltRoot .. "/*_" .. safeName .. "_*" .. MMDVMDNPC.CacheExtension, "DATA") or {}) do
         local path = MMDVMDNPC.BuiltRoot .. "/" .. name
         local header = MMDVMDNPC.BuiltHeader and MMDVMDNPC.BuiltHeader(path, MMDVMDNPC.BuiltCache[path]) or nil
-        if header and tostring(header.model or "") == modelPath then
+        if header and MMDVMDNPC.SameBuildModel(header.model, buildModel) then
             file.Delete(path)
             MMDVMDNPC.BuiltCache[path] = nil
             if MMDVMDNPC.ForgetBuiltHeader then MMDVMDNPC.ForgetBuiltHeader(path) end
@@ -1003,10 +1012,13 @@ local function invalidate_built_for_model(modelPath)
 
     -- Clients keep their own built replicas (ClientBuiltCache) for the local
     -- interpolated poser; tell them theirs are stale too, or they would keep
-    -- replaying the pre-edit build under the same path key.
-    net.Start("mmdvmd_client_built_invalidate")
-        net.WriteString(modelPath)
-    net.Broadcast()
+    -- replaying the pre-edit build under the same path key. A replica names the
+    -- carrier it was built on: one message for each carrier sharing these builds.
+    for _, member in ipairs(MMDVMDNPC.BuildModelMembers(buildModel)) do
+        net.Start("mmdvmd_client_built_invalidate")
+            net.WriteString(member)
+        net.Broadcast()
+    end
     return removed
 end
 
@@ -2893,11 +2905,15 @@ local function finalize_build(ply, job)
         return
     end
 
-    -- Frames were accepted strictly in order, so job.frames is already sorted.
+    -- Frames were accepted strictly in order, so job.frames is already sorted. An imported
+    -- character's build names its build model, which other carriers of its skeleton look for,
+    -- and the carrier it was solved on (ADR 0259).
+    local buildModel = MMDVMDNPC.BuildModelKey(job.model)
     local built = {
         format = MMDVMDNPC.BuiltFormat,
         motion_id = job.motionID,
-        model = job.model,
+        model = buildModel,
+        built_on = buildModel ~= job.model and job.model or nil,
         fps = job.motion.fps or MMDVMDNPC.VMDFPS or 30,
         playback_hz = clamp_playback_hz(job.playbackHz),
         frame_start = job.startFrame,
@@ -2924,6 +2940,7 @@ local function finalize_build(ply, job)
     file.CreateDir(MMDVMDNPC.BuiltRoot)
     local text = built_json(built, job.jsonChunks or {})
     file.Write(path, text)
+    MMDVMDNPC.NoteBuildModel(job.model)
     job.jsonChunks = nil
     built.frames = job.frames
     store_built_cache(path, built, #text)
@@ -2956,7 +2973,7 @@ local function load_built_animation(motionID, ent, options)
     if parsed.format ~= MMDVMDNPC.BuiltFormat then
         return nil, "unsupported built animation format: " .. tostring(parsed.format or "missing")
     end
-    if tostring(parsed.model or "") ~= tostring(ent:GetModel() or "") then
+    if not MMDVMDNPC.SameBuildModel(parsed.model, ent:GetModel()) then
         return nil, "built animation model does not match selected actor"
     end
 
@@ -2986,7 +3003,7 @@ local function built_matches_scope(built, motionID, model)
     if not istable(built) then return false end
     if built.format ~= MMDVMDNPC.BuiltFormat then return false end
     if tostring(built.motion_id or "") ~= tostring(motionID or "") then return false end
-    if model ~= nil and tostring(built.model or "") ~= tostring(model or "") then return false end
+    if model ~= nil and not MMDVMDNPC.SameBuildModel(built.model, model) then return false end
     return true
 end
 
@@ -3017,9 +3034,10 @@ local function remove_matching_built_cache(motionID, model)
         removed = removed + 1
     end
 
+    -- An imported character's builds are named after its build model, which its carriers share (ADR 0259).
     local glob
     if wantModel ~= nil then
-        glob = id .. "_" .. MMDVMDNPC.SafeModelName(model) .. "_*" .. MMDVMDNPC.CacheExtension
+        glob = id .. "_" .. MMDVMDNPC.SafeModelName(MMDVMDNPC.BuildModelKey(model)) .. "_*" .. MMDVMDNPC.CacheExtension
     else
         glob = id .. "_*" .. MMDVMDNPC.CacheExtension
     end
@@ -3030,7 +3048,7 @@ local function remove_matching_built_cache(motionID, model)
         seen[path] = true
         local header = MMDVMDNPC.BuiltHeader and MMDVMDNPC.BuiltHeader(path, MMDVMDNPC.BuiltCache[path]) or nil
         if header and tostring(header.motion_id or "") == id
-            and (wantModel == nil or tostring(header.model or "") == wantModel) then
+            and (wantModel == nil or MMDVMDNPC.SameBuildModel(header.model, wantModel)) then
             drop(path)
         end
     end

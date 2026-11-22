@@ -5431,9 +5431,12 @@ function MMDVMDNPC.SafeModelName(modelPath)
     return name
 end
 
--- What follows the motion id in a built-cache file name for this model and these options.
+-- What follows the motion id in a built-cache file name for this model and these options. A Model
+-- Hotloader character's builds take its build model's name (sv_skeletons.lua, ADR 0259), so they
+-- follow it across sizes, imports and updates; any other model keeps its own.
 function MMDVMDNPC.BuiltTail(modelPath, options)
     options = options or {}
+    if MMDVMDNPC.BuildModelKey then modelPath = MMDVMDNPC.BuildModelKey(modelPath) end
     local suffix = string.format(
         "tw%d_ht%d_eye%d_sp%d_fm2",
         options.disableArmTwist and 1 or 0,

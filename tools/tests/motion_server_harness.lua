@@ -540,6 +540,54 @@ elseif scenario=='built_flags' then
  M().DebugTargets[attacker]=nil strings={} tick(0.3)
  receive('mmdvmd_built_flags_request',attacker,false,false,false,false)
  check(strings[1]=='' and strings[2]==nil,'flags without a selected actor')
+elseif scenario=='build_model' then
+ -- ADR 0259: an imported character's carriers share their builds under a build model (sv_skeletons.lua, its own
+ -- harness); here what sv_commands does with it. Carriers b and c resize carrier a.
+ local a,b,c='models/mmd/aaaaaaaaaaaaaaaa/lycia.mdl','models/mmd/bbbbbbbbbbbbbbbb/lycia.mdl','models/mmd/cccccccccccccccc/lycia.mdl'
+ local share={[a]=a,[b]=a,[c]=a}
+ local noted={}
+ M().BuildModelKey=function(m) return share[m] or m end
+ M().SameBuildModel=function(x,y) return M().BuildModelKey(x)==M().BuildModelKey(y) end
+ M().BuildModelMembers=function(key) if key==a then return {a,b,c} end return {key} end
+ M().NoteBuildModel=function(m) noted[#noted+1]=m end
+ M().SafeModelName=function(m) return (m:gsub('%W','_')) end
+ local namedPath=M().BuiltPath
+ M().BuiltPath=function(id,model) return namedPath(id,M().BuildModelKey(model)) end
+ -- A build solved on carrier b is written under a's name, names a and the carrier it was made on, and keeps a.
+ local dancer=entity('npc',{model=b})
+ M().BuildJobs[attacker]={id=21,ply=attacker,ent=dancer,motionID='m',model=b,options={},sentPlan=true,currentFrame=0,nextRequestFrame=1,
+  startFrame=0,endFrame=0,motion={boneTracks={},flexTracks={}},frames={},bones={},flexes={},inflight={{first=0,count=1}}}
+ receive('mmdvmd_build_frame_result',attacker,21,0,1,0,0,true)
+ local path=M().BuiltPath('m',a)
+ check(M().BuildJobs[attacker]==nil and disk[path]~=nil,'the build was not written under the build model\'s name')
+ local saved=util.JSONToTable(disk[path])
+ check(saved.model==a and saved.built_on==b,'the built file does not name its build model and carrier: '..tostring(saved.model)..' '..tostring(saved.built_on))
+ check(noted[1]==b,'the build did not keep its build model')
+ -- Carrier c dances it; a model outside the group does not take a file that names a.
+ local other=entity('npc',{model=c})
+ M().DebugTargets[attacker]=other receive('mmdvmd_play_request',attacker,'m')
+ check(M().Playbacks[other]~=nil,'another carrier of the skeleton did not dance the build')
+ M().StopPlayback(other,true)
+ local stranger=entity('npc',{model='models/mmd/dddddddddddddddd/topaz.mdl'})
+ disk[M().BuiltPath('m',stranger:GetModel())]=disk[path]
+ M().DebugTargets[attacker]=stranger receive('mmdvmd_play_request',attacker,'m')
+ check(M().Playbacks[stranger]==nil,'a model outside the group danced a build naming a')
+ -- An expression mapping changed through carrier c removes the shared builds, and every carrier's client replica.
+ local builtName=path:match('[^/]+$')
+ file.Find=function(pattern) if pattern:find(M().SafeModelName(a),1,true) then return {builtName},{} end return {},{} end
+ M().BuiltHeader=function(p) local t=disk[p] and util.JSONToTable(disk[p]) return t and {motion_id=t.motion_id,model=t.model} end
+ M().ClearFlexOverrideForModel=function() return true end
+ local invalidations=sentCount('mmdvmd_client_built_invalidate')
+ local strings={} net.WriteString=function(s) strings[#strings+1]=s end
+ M().DebugTargets[admin]=other
+ receive('mmdvmd_flex_override_clear',admin,other,'m','まばたき','blink')
+ check(disk[path]==nil,'the shared build stayed after its mapping changed')
+ check(sentCount('mmdvmd_client_built_invalidate')==invalidations+3,'not one replica message per carrier: '..(sentCount('mmdvmd_client_built_invalidate')-invalidations))
+ check(table.concat(strings,','):find(a..','..b..','..c,1,true)~=nil,'the replica messages do not name the three carriers: '..table.concat(strings,','))
+ -- Clearing a motion for carrier b removes the build a holds.
+ disk[path]=util.TableToJSON({format='built-test',model=a,motion_id='m',frame_start=0,frame_end=0,fps=30,frames={}})
+ M().DebugTargets[admin]=dancer
+ check(M().ClearBuiltForPlayer(admin,'m','model') and disk[path]==nil,'clearing through another carrier left the shared build')
 elseif scenario=='details_walk' then
  -- The details walk reads each motion's metadata once from the index and lists the built folder once
  -- (it tested every motion's files several times and every built file once: the user's report).

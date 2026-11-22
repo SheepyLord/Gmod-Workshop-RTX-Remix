@@ -76,6 +76,10 @@ class MotionServerTests(unittest.TestCase):
     def test_the_details_walk_tests_no_files_per_motion(self):
         self.run_lua('details_walk')
 
+    def test_an_imported_characters_carriers_share_their_builds(self):
+        # ADR 0259: a build solved on one carrier is written under the build model's name and found by the others.
+        self.run_lua('build_model')
+
     def test_the_main_chunk_stays_below_luas_local_limit(self):
         # sv_commands.lua's main chunk is near Lua's 200 locals: LuaJIT refuses to load it past that.
         result = subprocess.run([LUAJIT, '-e', f"assert(loadfile([[{ADDON / 'sv_commands.lua'}]]))"],

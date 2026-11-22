@@ -4063,3 +4063,36 @@ separator now has 57 texts in each catalog.
   menu open while it runs. Runs in the handover report.
 - Not covered: the field install, GUI Scaler in a game (its mark checked under LuaJIT only), a multiplayer game's
   server-approved models (they reach the library by full rebuilds, unchanged).
+
+## Built animations shared across an imported character's carriers (ADR 0259)
+
+- **LuaJIT**: [`test_motion_skeletons.py`](../tools/tests/test_motion_skeletons.py.md) (new, 7 tests) runs the shipped
+  `sh_core.lua`, `sv_cache.lua` and `sv_skeletons.lua` over an in-memory `data/` with rig manifests made as the
+  Hotloader writes them: a resized carrier finds the build (the same file name, listed, accepted) and a head turned
+  half a degree does not; float noise of a millionth matches, a thousandth does not; a new import, materials,
+  attachments, name, donor hash and fit generator share the builds, other morphs, profile, role, bones or Reference
+  offsets do not; the next session matches from the skeleton file after the build model's rig is gone; the migration
+  joins two carriers of one skeleton under the one with more builds, renames the other's current-format file unless
+  the name is taken, leaves an earlier-format file, another skeleton, a carrier without its rig and a Source model
+  alone, merges the mappings (the kept one's win), runs through the stepped timer and never again; a lookup completes
+  it at once; mappings follow the character. [`test_motion_server.py`](../tools/tests/test_motion_server.py.md)'s
+  `build_model` drives `sv_commands.lua`: a build solved on one carrier is written under the build model's name with
+  `built_on`, another carrier dances it, a model outside the group does not, a mapping change through any carrier
+  removes the shared build and sends one replica message per carrier, Clear for one carrier removes it. The new
+  scenarios fail on the code before; three broken copies of `sv_skeletons.lua` (no build model, a tolerance a hundred
+  times looser, morphs left out of the family) each failed a scenario.
+- **Offline, a copy of the user's data**: `sv_skeletons.lua`'s migration under LuaJIT over the field's 668 rig
+  manifests, its expression mappings and empty stand-ins of its 286 built files (out\mmd-built-keys, the field only
+  read): 30 rig reads, 24 skeletons kept, 5 carriers joined, 3 builds renamed, 3 left (the kept carrier had the motion);
+  the 213 files of the earlier format untouched.
+- **PoC** ([`mmd_player_session.py`](../tools/qa/mmd_player_session.py.md) `--carriers build`, then `--carriers find`
+  in a new game with the same `--data`): the PoC library's imported character (Linlong) built the test dance in 2.3 s;
+  the same character at 1.25 times its size (a new carrier, `eec7a2ea...`) and, in the second game, at 1.5 times
+  (`cf161f4e...`, a carrier the PoC never made; the library is restored between runs) found the build of the first
+  carrier (`53f26d7c...`) through the skeleton file and danced it with no build started, its hands raised 11-13 units
+  into the held pose. One start of the second game crashed before the main menu (0xC0000005 at address 0: Chromium's
+  `chrome_elf.dll` called through a null pointer inside the signature check NVIDIA NGX ran, no add-on loaded yet) and
+  was run again.
+- Not covered: the field install (the migration runs there at the first map start after the update), a re-import or
+  Hotloader update in a game (their carriers' rigs measured offline, matching under LuaJIT), multiplayer, and a client
+  replica played on another carrier (the server's pose plays, as for any build of an earlier session).

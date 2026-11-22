@@ -54,6 +54,17 @@ folder as `nlmp_probe/server.txt`, and one console line runs it on the server
   (`mmdhl.Spawn`, role `player`), waiting up to 90 s; `camera_cleanup` stops the dances and deletes the camera dance
   and its build.
 
+- The carriers phase ([ADR 0259](../../docs/decisions/0259-imported-characters-share-their-builds-across-carriers.md),
+  2026-11-22): `carriers_build` builds the test dance on the first NPC as `build` does, records its carrier (model,
+  build model, rig key and size, the motions built for it, the built file and its header's `model` and `built_on`)
+  and the skeleton file (`_skeletons.dat`: saved, migrated, its build models), then spawns the character as a citizen
+  at 1.25 times its size (a new carrier, `scaleMultiplier`), records the same for it and dances the build there
+  (`play_check`: the playback's file and build model, whether a build started, the hands and head at rest and a second
+  into the held pose), and removes it; `carriers_find`, in a later game with the same data, records the skeleton file
+  and the first NPC's carrier, spawns the character at 1.5 times its size (a carrier the PoC never made) and records
+  and dances it the same way. Neither deletes the test dance or its build (the run's `--data` folder keeps them for
+  the next).
+
 Console output: `NLMP_SERVER_READY`, `NLMP_ERROR spawn <reason>`, `NLMP_ERROR <job> <error>`. Side effects: the
 cheats and AI settings above for this session, two NPCs, the tool gun, the network strings `nlmp_cmd` and
 `nlmp_reply`, the test dances and their builds (removed by `cleanup` and `camera_cleanup`), with the camera phase an

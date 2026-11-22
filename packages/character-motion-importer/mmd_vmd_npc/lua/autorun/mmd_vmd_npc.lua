@@ -72,6 +72,7 @@ include("mmd_vmd_npc/sh_core.lua")
 
 if SERVER then
     include("mmd_vmd_npc/sv_cache.lua")
+    include("mmd_vmd_npc/sv_skeletons.lua")
     include("mmd_vmd_npc/sv_commands.lua")
 else
     include("mmd_vmd_npc/cl_camera.lua")

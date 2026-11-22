@@ -83,8 +83,13 @@ screenshot is an `NL_SHOT <label>` line answered by the driver's `nl_shot_taken 
 `data\nlmp_probe\camera.json`, then `NLMP_CAMERA` is printed; the option is set back on, the flashlight off and the
 other settings above as they were.
 
+With `carriers` (`"build"` or `"find"`, [ADR 0259](../../docs/decisions/0259-imported-characters-share-their-builds-across-carriers.md),
+2026-11-22; alone or after the others): the server half's `carriers_build` or `carriers_find` (up to 300 s), its answer
+in `data\nlmp_probe\carriers.json`, then `NLMP_CARRIERS` is printed.
+
 Settings (a line the driver puts in front): `NLMP_SETTINGS = {window = 4, settle = 8, manager = false,
-tab = false, features = false, steps = true, qol = false, camera = false, copies = false, hide = true, motions = {}}`.
+tab = false, features = false, steps = true, qol = false, camera = false, copies = false, hide = true, carriers = "",
+motions = {}}`.
 
 Console output: `NLMP_CLIENT_READY`, `NLMP_SETUP <json>`, `NLMP_MOTIONS`, one `NLMP_STEP <step> max <n> ms`
 line per step, `NLMP_ERROR <message>` on a failure, `NL_SHOT <label>` per camera screenshot, then `NLMP_DONE` and

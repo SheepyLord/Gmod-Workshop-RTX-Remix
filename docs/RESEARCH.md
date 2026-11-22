@@ -10172,3 +10172,50 @@ behaviour only, the harness's stand-in is written for the test.
   13,400 times in a before run and 8,000-8,700 in an after run. Without the folder tree's relabel (`after3`),
   `AddRows` took 3.6-16.3 ms, most of it the tree built again for a package's new count of models (about 330
   `vgui.Create` calls for its twenty-odd nodes).
+
+## Imported characters' carriers and the animation player's built files (2026-11-22, Claude; [ADR 0259](decisions/0259-imported-characters-share-their-builds-across-carriers.md))
+
+- **A built animation is named after the actor's model path.** `sh_core.lua` `MMDVMDNPC.BuiltTail` (line 5437 on the
+  branch): `_<SafeModelName>_<util.CRC of the lower-case path>_tw<n>_ht<n>_eye<n>_sp<n>_fm2.json` after the motion id;
+  `sv_commands.lua` `load_built_animation` refused a file whose header's `model` was not the actor's model.
+  The built files of the format before `_fm2` are not read by the add-on at all.
+- **A Model Hotloader carrier's path is a hash of its whole fit.** The Hotloader's `rig.cpp:72-74` (`identify`):
+  `key` = the first 32 hex of the hash of the manifest's JSON without `key`, `model` and `gma`; the model is
+  `models/mmd/<key[1..16]>/<readable name>.mdl`. The manifest holds the size (`scale`, `scaleMultiplier`,
+  `sourceUnitsPerPmx`), the asset id (a new one at each import), materials, attachments, bodies and physics edits,
+  the role and the NPC profile with its donor's hashes (`rig_animation.cpp:113-116`), the fit `generator` and
+  `version`. An actor's bones are turned by `meshYaw` 90 and stand on `actorOrigin` 2.4 units, the same at every size
+  (`rig_animation.cpp:50-52`). The server puts a spawn's `scaleMultiplier` on a grid of 0.05 (`server.lua:10-14`,
+  `quantized(..., 20, .1, 4)`, since the review of 2026-11-16); a restored save fits again with `scale = rig.scale *
+  .0254` (`persistence.lua:97`).
+- **What a build depends on.** `cl_menu.lua` `fast_compile_solver` (line 2957) reads each bone's world angles in the
+  actor's Reference (or Referencef) pose and the bone and flex indices; the only positions it reads are the spine's and
+  the pelvis's, for the pelvis/spine correction (line 3011, on by default). Motion offsets come from the motion as they
+  are. An imported actor's flex ids are its morphs' native index, or the native flex count plus the PMX index
+  (`sh_core.lua` `MorphControllerID`); the Hotloader's `GetMorphs` is the manifest's `morphs`.
+- **The user's game (read only, 2026-11-22).** 668 rig manifests for 183 assets (one asset 58 rigs, most from fit
+  generators 14-30). Grouped by character name, 102 consecutive carriers since 2026-11-01: about sixty differ in size
+  (with it every bone position, the bodies and the Reference), about twenty-five in role or NPC profile, about fifteen
+  in asset (a new import), the rest in attachments, materials or generator alone. A new size came on 17 of the 21
+  days. The built folder: 286 files, 73 of the current format; one motion was built three times for one character
+  (2026-11-17, -20 and -20), another twice in seven minutes (2026-11-15, a new size). On 2026-11-08 the donor citizen
+  files changed (`sourceHash` `0f82b9c4ea...` to `5e591309e8...`): carriers fitted after it have `ikLocks` [0, 1, 2, 3]
+  and no pose parameters, before it [2, 3] and four.
+- **Scale variants of one fit are one skeleton.** In those rigs, 358 pairs of one asset, role, profile and generator
+  at different sizes: each bone's rotation within 1.8e-6 per quaternion component, its offset from its parent divided
+  by the size (the root's above `actorOrigin`) within 3.6e-6, the Reference rotations identical; the Reference offsets
+  of the profile skeleton's bones are the same at every size, the fitted ones scale. Positions in model space divided
+  by the size are not enough: the fixed `actorOrigin` makes them differ by 2.4/s1 - 2.4/s2 (0.08 for 2.9 against 3.2).
+  A quaternion comparison through `acos` of the dot product reads 0.063 degrees for identical rotations stored as
+  float32: compare components.
+- **Re-imports and look-alikes.** Of 85 pairs of rigs of one name from different assets in one exact family (role,
+  profile, includes, IK chains and locks, bone names and parents, morphs), 79 are identical within 1e-4 (most exactly),
+  across generators 30 and 31; 12 pairs of different names (an outfit variant of one base model) also are.
+- **The migration on a copy of the user's data** (`sv_skeletons.lua` under LuaJIT over the rigs, the mappings and
+  empty stand-ins of the built files): 30 rig reads, 24 skeletons kept, 5 carriers joined to them, 3 builds renamed
+  and 3 left (the kept carrier had the motion), 1.2 s of CPU with a JSON decoder in Lua (the game's is native).
+- **The pelvis/spine correction's scale.** The distance between a citizen carrier's `ValveBiped.Bip01_Pelvis` and
+  `ValveBiped.Bip01_Spine`, divided by its `scaleMultiplier`: 0.06 units in the median of the user's 298 citizen
+  carriers, 2.10 at most (the fit puts the spine at the PMX's lower and upper body start, often one point). The
+  correction is half the change of that offset, `|offset| * sin(angle / 2)` for a pelvis turned by `angle`, and scales
+  with the carrier: a build reused at a size 20 % off is 0.16 units off at most for a 45-degree turn.

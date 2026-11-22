@@ -585,8 +585,102 @@ local function player_model(ply)
     return out
 end
 
+-- ---- Builds that follow an imported character across its carriers (ADR 0259, the user's report of 2026-11-22) ----
+-- Session one builds the test dance on the first NPC (the default size), then spawns the character at 1.25 times its
+-- size (a new carrier) and dances the build there; session two, a new game, spawns it at 1.5 times (a carrier this
+-- PoC never made) and must find the build of session one and dance it without building.
+local function spawn_scaled(ply, scale, offset)
+    local asset = first_asset()
+    if not (asset and mmdhl and mmdhl.SpawnNPC) then return nil, "no imported character" end
+    local yaw = ply:EyeAngles().y
+    local facing = Angle(0, yaw, 0)
+    local pos = ground(ply:GetPos() + facing:Forward() * 260 + facing:Right() * offset)
+    local done, result, err = false, nil, nil
+    mmdhl.SpawnNPC(ply, asset, "citizen", { position = { pos.x, pos.y, pos.z }, weapon = "none", scaleMultiplier = scale },
+        function(ent, e) done, result, err = true, ent, e end)
+    local began = CurTime()
+    while not done and CurTime() - began < 120 do sleep(0.25) end
+    if not IsValid(result) then return nil, tostring(err or "spawn timed out") end
+    result:SetPos(pos)
+    result:SetAngles(Angle(0, yaw + 180, 0))
+    return result
+end
+local function built_header(path)
+    local raw = file.Read(path, "DATA")
+    local parsed = raw and util.JSONToTable(raw)
+    if not istable(parsed) then return nil end
+    return { model = parsed.model, built_on = parsed.built_on, motion_id = parsed.motion_id, frames = istable(parsed.frames) and #parsed.frames or nil }
+end
+local function carrier_state(npc)
+    local model = npc:GetModel()
+    local rig = mmdhl and mmdhl.GetRig and mmdhl.GetRig(npc) or nil
+    local ids = {}
+    for id in pairs(MMDVMDNPC.BuiltMotionIDs(model, {})) do ids[#ids + 1] = id end
+    table.sort(ids)
+    local path = MMDVMDNPC.BuiltPath(Q.motionID, model, {})
+    return { model = model, build_model = MMDVMDNPC.BuildModelKey(model), scale = rig and rig.scale or nil,
+        scale_multiplier = rig and rig.scaleMultiplier or nil, rig_key = rig and rig.key or nil, built = ids, built_path = path,
+        built_exists = path and file.Exists(path, "DATA") or false }
+end
+local function skeleton_index()
+    local S = MMDVMDNPC.Skeletons
+    local raw = S and file.Read(S.IndexPath, "DATA")
+    local parsed = raw and util.JSONToTable(raw)
+    local out = { saved = raw ~= nil, migrated = istable(parsed) and parsed.migrated or nil, models = {} }
+    for _, entry in ipairs(istable(parsed) and istable(parsed.skeletons) and parsed.skeletons or {}) do
+        out.models[#out.models + 1] = { model = entry.model, bones = entry.bones, refs = entry.refs, scale = entry.scale, name = entry.name ~= nil }
+    end
+    return out
+end
+-- The dance from the countdown into its held pose (the arms out from frame 4), then stopped.
+local function play_check(ply, npc)
+    MMDVMDNPC.DebugTargets[ply] = npc
+    local jobBefore = MMDVMDNPC.BuildJobs[ply]
+    local out = { rest = bones_of(npc) }
+    out.start_ok, out.start_err = MMDVMDNPC.StartPlaybackForPlayer(ply, Q.motionID, {}, PLAY)
+    local state = MMDVMDNPC.Playbacks[npc]
+    out.playing = state ~= nil
+    out.path = state and state.path or nil
+    out.built_model = state and state.built and state.built.model or nil
+    out.build_started = MMDVMDNPC.BuildJobs[ply] ~= nil and MMDVMDNPC.BuildJobs[ply] ~= jobBefore
+    sleep(3.5)
+    out.dancing = bones_of(npc)
+    if MMDVMDNPC.Playbacks[npc] then MMDVMDNPC.StopPlayback(npc, true) end
+    return out
+end
+local function carriers_build(ply)
+    local out = { build = build_test(ply) }
+    out.first = carrier_state(Q.npcs[1])
+    out.header = built_header(out.first.built_path)
+    sleep(1.5)
+    out.index = skeleton_index()
+    local resized, err = spawn_scaled(ply, 1.25, -40)
+    out.resized_error = err
+    if resized then
+        out.resized = carrier_state(resized)
+        out.resized_play = play_check(ply, resized)
+        resized:Remove()
+    end
+    return out
+end
+local function carriers_find(ply)
+    local out = { index = skeleton_index(), motion_present = file.Exists(MMDVMDNPC.MotionPath(Q.motionID), "DATA") }
+    out.default_size = carrier_state(Q.npcs[1])
+    local npc, err = spawn_scaled(ply, 1.5, -40)
+    out.spawn_error = err
+    if npc then
+        out.found = carrier_state(npc)
+        out.header = out.found.built_exists and built_header(out.found.built_path) or nil
+        out.play = play_check(ply, npc)
+        npc:Remove()
+    end
+    return out
+end
+
 net.Receive("nlmp_cmd", function(_, ply)
     local cmd = net.ReadString()
+    if cmd == "carriers_build" then job(ply, "carriers_build", function() return carriers_build(ply) end) return end
+    if cmd == "carriers_find" then job(ply, "carriers_find", function() return carriers_find(ply) end) return end
     if cmd == "build" then job(ply, "build", function() return build_test(ply) end) return end
     if cmd == "collision" then job(ply, "collision", function() return collision_test(ply) end) return end
     if cmd == "followers" then job(ply, "followers", function() return follower_probe() end) return end

@@ -52,7 +52,7 @@ def settings_lua(args) -> str:
             f'features = {"true" if args.features else "false"}, steps = {"false" if args.no_steps else "true"}, '
             f'qol = {"true" if args.qol else "false"}, camera = {"true" if args.camera else "false"}, '
             f'copies = {"true" if args.copies else "false"}, hide = {"false" if args.hide_off else "true"}, '
-            f'motions = {{{motions}}}}}\n')
+            f'carriers = {json.dumps(args.carriers or "")}, motions = {{{motions}}}}}\n')
 
 
 def run_command(args, evidence: Path, probe: Path) -> list[str]:
@@ -130,7 +130,10 @@ def main(argv=None) -> int:
                         help='with --camera: turn on the RTX fixes\' body and weapon copies ("Local player shadow") for the checks')
     parser.add_argument('--hide-off', action='store_true',
                         help='with --camera: keep the option off for the whole run (a control: the hide never runs)')
-    parser.add_argument('--no-steps', action='store_true', help='skip the timed click-through (with --features, --qol or --camera: the checks alone)')
+    parser.add_argument('--carriers', choices=('build', 'find'),
+                        help='builds that follow an imported character (ADR 0259): "build" builds the test dance and dances it at '
+                             'another size; "find", in a later run with the same --data, finds it at a third size')
+    parser.add_argument('--no-steps', action='store_true', help='skip the timed click-through (with --features, --qol, --camera or --carriers: the checks alone)')
     parser.add_argument('--motions', nargs='*', default=[], help='the two motion ids to select (default: a third and two thirds down the list)')
     parser.add_argument('--window', type=float, default=4, help='seconds measured after each action')
     parser.add_argument('--settle', type=float, default=8, help='seconds after the NPCs spawn before the first step')
@@ -228,6 +231,9 @@ def main(argv=None) -> int:
     camera = evidence / args.label / 'results' / 'camera.json'
     if camera.is_file():
         print('camera:', camera, '(screenshots in', evidence / 'poc' / args.label, ')')
+    carriers = evidence / args.label / 'results' / 'carriers.json'
+    if carriers.is_file():
+        print('carriers:', carriers)
     return 0
 
 

@@ -94,3 +94,12 @@ evidence folder of 2026-11-22 01:50 UTC. The game had run 1 h 37 min, in the pac
 - The render thread's own runs of the lists in normal frames, and the material system's other runners: the dispatch
   is rewritten only for the length of `AllowThreading(false)`.
 - An object written over with bytes that look the same in its first 32.
+
+## Published
+
+Under the standing permission (AGENTS.md rule 5: `main` pushed and item 3829070317 updated once `tools\test.ps1`
+passes; the gate's results above). Fast-forwarded `main` from `11e21cf0` to `f1629dc9` (the branch's three commits);
+the merge's hook built the package here and uploaded item 3829070317 as **`0.0.0-dev.20261122030548+82015679`**: content digest
+`314d5a31...`, the same as the branch's final local build, with one change note carrying the new changelog section.
+The field game deploys it at its next start; if a run check event is ever logged there, its record in
+`garrysmod/data/native-loader/render-queue-check.log` names the calls run just before it.

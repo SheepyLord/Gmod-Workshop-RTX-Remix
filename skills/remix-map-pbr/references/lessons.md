@@ -826,6 +826,22 @@ request "avoid wasting usage", 2026-11-20)
 - The tools capture the window (`PrintWindow` with `PW_RENDERFULLCONTENT`; make the process DPI-aware first, or
   the capture is the window's top-left quarter at 200 % scaling). `STRTX_CAPTURE=jpeg` brings the command back.
 
+**An overlay's FPS counter in every window capture** (MP, 2026-11-21)
+- Symptom: a green "180 FPS" in the top-right corner, 65 x 26 px at 4K, in every window capture of the
+  gm_mallparking sessions: the 31 tour shots, the gallery and the stock pairs too. Nobody saw it until the
+  Workshop screenshots.
+- Cause: Steam's overlay (`gameoverlayrenderer64.dll`) and NVIDIA's (`nvspcap64.dll`) are loaded into the game
+  and draw into its frame before it is presented; `PrintWindow` captures what is presented, while the engine's
+  `jpeg` reads the frame before them. The counter is the user's setting: leave it.
+- Fix: `workshop_shots.py export` finds it (green-dominant pixels in the corner) and paints it out: the box
+  filled from the pixels around it (Laplace) plus the grain of the patch below it, clipped. Grain taken from
+  the patch to its left carried a panel joint into the fill on a bright tunnel wall. Evidence shots keep it.
+
+**Five `gmod.exe` for one game** (MP, 2026-11-21)
+- A PoC session shows five `gmod.exe`: the game and its four Chromium helpers (`--type=renderer` three
+  times, `--type=utility` once), each with the game as its parent. Check the parent before you count games
+  or end one.
+
 ## Packaging and licensing
 
 **A mod that fits ships whole** (AG, 2026-11-19)

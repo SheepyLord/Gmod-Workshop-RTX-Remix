@@ -225,8 +225,39 @@ embedded content!" is harmless. Only measure cold loads on a quiet machine.
   `abtest.py` when it matters.
 - Hash coverage, the light count, the visibility counts, the load time.
 - For a choice: the options with their measured trade-offs, the conservative one first.
+- The ten Workshop screenshots (below), with the package.
 
 Keep evidence frames whole: no cropping in place of the full frame (an enlarged inset beside it is fine).
+
+## Workshop screenshots
+
+Every map port ends with ten screenshots the user can post on the item's page (the user, 2026-11-21). The
+tour's cameras check the map (eye height, a 90-degree lens, every region); these are framed for people.
+gm_mallparking's `workshop_shots.py` does it (copy it with the pipeline; it holds views through
+`tour.run_cams`):
+
+- **Views.** `tools/workshop_<map>.json`, `{name: {pos, ang, fov, player?, settle?}}`, about twenty
+  candidates for ten. Start from the tour's best cameras and frame them: the eye lower over wet or glossy
+  floors (gm_mallparking: 26-58 units above the floor instead of 64; at 26 the wet band fills with the
+  lamps' reflections), a narrower lens down long rooms (58-75 degrees), a few degrees of pitch, and in each
+  the remaster's best (puddles, lit fixtures, mirrors, glass) or a landmark. The player stands at the
+  camera by default, so a camera below eye height puts the body under the floor, out of the frame;
+  `player` stands it elsewhere (the restroom mirror: under the floor, out of the reflection).
+- **Session.** Freeze the sky clock (`nativeloader_sky_time_passes 0`, `nativeloader_sky_hour 14`), hide the
+  upscaling hint (`nativeloader_upscaling_hint 0`) and remove the loader's update window (its `DFrame`,
+  from Lua); put the clock and the hint back before quitting. `shoot` holds each view 12 s, three times the
+  tour's, and captures the window into `work/shots/<map>/workshop/` with a sheet (gm_mallparking: 21 views
+  in 4.4 minutes at 4K).
+- **Pick ten** by eye, one per region or feature: no blown-out sky, no black frame, nothing in front that
+  fills a third of the frame (a door frame, a bollard, a rolled-up insulation mat sent three of
+  gm_mallparking's candidates back), no HUD or hint. Look at the hero at 1:1 for noise. `export` writes them
+  numbered in the order given (put the best first: it is the natural preview), 1920x1080 from the 4K
+  capture with Lanczos, at the highest JPEG quality under 1 MB (Steam's limit for an item's images is
+  believed to be 1 MB; gm_mallparking's ten: quality 94-95, 0.53-0.97 MB), into the fork's
+  `docs/<map>_rtx/workshop/` with a sheet and, with `--out`, beside the package
+  (`out/packages/<map>-rtx/workshop_screenshots/`). It paints out an overlay's FPS counter first (lessons,
+  "An overlay's FPS counter in every window capture"); check the corners anyway. Send them to the user
+  with the package; they add them on the item's page themselves (`gmpublish` uploads only the icon).
 
 ## On the PoC with the native loader
 

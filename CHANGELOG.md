@@ -110,6 +110,9 @@ Versions follow the loader's CMake project version once it ships; until then eve
 - **The remaster as one package that stands alone** (`gm-mallparking-rtx`, 3,612,924,456 bytes, every texture
   whole): built, its manifest checked with `nlctl`, and not uploaded. In the user's game 126 of its 274 hashes
   belong to remaster folders that sort first, whose versions show on this map, as the user chose for the office.
+- **Ten Workshop screenshots with every map port** (the user's request of 2026-11-21). `remix-map-pbr` now ends a
+  port with ten views framed for the item's page, 1920x1080 and under 1 MB each, beside the package: a lower eye
+  over the wet floors, a narrower lens down the bays. gm_mallparking's ten are made.
 
 ### Disconnecting after a long session no longer crashes (2026-11-21)
 

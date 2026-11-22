@@ -106,6 +106,10 @@ Read the references when you reach their stage:
   offset where it ended before your launch.
 - **Shared game.** Other sessions may drive the same game. Tell them before a capture, keep camera
   overrides to the capture, and put back every option you toggled and every entity you spawned.
+- **Ten Workshop screenshots with every map** (the user, 2026-11-21: "make 10 screenshots so I could post
+  to the workshop, this apply to all future ports"). The tours survey the map for checking; before you
+  finish, shoot views framed for people, pick ten and send them with the package (step 17;
+  `references/testing.md`, "Workshop screenshots").
 - **Don't get stuck on side issues.** Note them, keep the evidence, move on.
 - Report plainly what changed and how it looks, with the numbers and what was not checked.
 
@@ -276,6 +280,10 @@ other two maps' equivalents are in `references/pipeline.md`.
     (below): before packing, every asset its layers name must be inside it and every texture in it named by
     a layer (cmdr_office_summer's `pack_mod.py` stops otherwise); then run the map on the PoC with nothing
     but the package's files (`references/testing.md`, "A package alone").
+    Then, package or not, the ten Workshop screenshots: `python workshop_shots.py shoot <map>` captures the
+    views of `tools/workshop_<map>.json` at the game's resolution; `python workshop_shots.py export <map>
+    <view> ... --out out\packages\<map>-rtx\workshop_screenshots` writes the ten chosen ones numbered,
+    1920x1080 and under 1 MB, also into the fork's `docs/<map>_rtx/workshop/`. Send them to the user.
 
 ## Standards and decisions (with the numbers)
 
@@ -360,6 +368,7 @@ calling them standards for a new map):
 | `python live_hashes.py` | live hashes from the running game |
 | `python oai_tex.py --plan [--reuse <another remaster's work>]` / `--estimate` | cmdr_office_summer: reuse, skip or send each texture (full or half size) and what it will cost, before any request (`OPENAI_API_KEY` from the environment only) |
 | `python oai_tex.py --batch-submit` / `--batch-poll [--wait]` / `--prepare` | the planned requests as one Batch API job at half price, the answers scored, the kept ones into `jobs_oai.json` |
+| `python oai_tex.py <name> ... --gen full\|half [--force]` | gm_mallparking: the same requests in realtime, several at a time, scored as they come; this user's choice since 2026-11-21 (no Batch API, "even at more cost") |
 | `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only ...]` | upscale, normal, roughness, height |
 | `python compose.py [--only ...] [--force]` | PBR maps per recipe |
 | `python plant_atlas.py [--cc0 DIR] [--preview]` | lestnicha3: CC0 photoscanned plants and a drawn dandelion clock into the grass atlas (after `compose.py`) |
@@ -370,6 +379,7 @@ calling them standards for a new map):
 | `python anchor_cams.py [--pick N GAP] [--shots label]` | gm_stelliferous: cameras from the map's soundscapes and teleport destinations |
 | `python wallclock.py <label> [camera ...]` | gm_stelliferous: frame times by wall clock, for stock frames over GMod's 100 ms clamp |
 | `python tour.py <map> <label> [camera ...]` | screenshots and contact sheet |
+| `python workshop_shots.py shoot <map> [view ...]` / `export <map> <view> ... [--out DIR]` | gm_mallparking: views framed for the Workshop page, captured at 4K; the chosen ten numbered, 1920x1080, under 1 MB, an overlay's FPS counter painted out |
 | `python stock.py on\|off` | the running map as stock GMod RTX, and back |
 | `python compare.py <after> [before]` | docs gallery and before/after pairs |
 | `python perf.py <map> [label] [camera ...]` | frame times per camera |
@@ -424,6 +434,7 @@ calling them standards for a new map):
 | The game ends seconds after a screenshot (vphysics.dll access violation, or "CUtlStack::EnsureCapacity ran out of memory!") | The map underflows the material system's stacks ("PopMatrix: Underflow!" in the console) and the `jpeg` command's push then fails: capture the window (gm_stelliferous's `game.screenshot`); with that map's add-on running there was no underflow (lessons, ST) |
 | A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, and answer `NativeLoaderSkyFixed` from its load so the companion keeps out also under the player's own sky (ADR 0248; lessons, ST); without an API sun, a sky file (`"sky": "map"`, ADR 0249) does it with no Lua. The player's chat line at the map's start names the sky and how to switch; `nativeloader_sky_status` says why |
 | Station windows an opaque blue sheet | Refract-shader glass has no colour texture: a clear glass material on the windows' live hash (`extra_hashes`) |
+| A green "180 FPS" in the top-right corner of every window capture | An overlay's FPS counter (Steam's or NVIDIA's, both loaded into the game; the user's setting, leave it) drawn into the frame that `PrintWindow` captures: `workshop_shots.py export` paints it out; evidence shots keep it (lessons, MP) |
 
 ## Done criteria for a map
 
@@ -437,5 +448,7 @@ calling them standards for a new map):
 - Unloading the map puts back every Remix option and engine setting it changed; nothing forced that R3-016
   forbids.
 - The doc page written in the fork, and the licence status of the derived textures stated.
+- Ten Workshop screenshots, 1920x1080 and under 1 MB each, beside the package and in the fork's docs, sent
+  to the user (the user, 2026-11-21).
 - A package or Workshop item only if the user asked for one; recorded in this repository's `docs/handover`
   and `CHANGELOG.md` when they ask for that.

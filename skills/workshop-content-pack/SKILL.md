@@ -328,6 +328,9 @@ On the PoC the loader deployed it beside the published RTX package and the add-o
 user's.
 Keep packs under about 4 GB (the Workshop's guideline). `check_pack.py --addon <folder> --mod <folder>
 --gma <file>` checks a plain Lua add-on without the Hotloader rules.
+A remaster's ten Workshop screenshots (remix-map-pbr, "Workshop screenshots"; the user's rule of
+2026-11-21) lie beside its package in `out\packages\<map>-rtx\workshop_screenshots\`, numbered, 1920x1080
+and under 1 MB. The user adds them on the item's page; `gmpublish` takes only the 512x512 icon.
 
 ### A remaster larger than one item
 

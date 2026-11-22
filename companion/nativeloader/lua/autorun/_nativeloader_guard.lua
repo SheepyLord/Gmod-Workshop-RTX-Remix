@@ -606,6 +606,7 @@ lua/mmd_vmd_npc/cl_radial.lua
 lua/mmd_vmd_npc/sh_core.lua
 lua/mmd_vmd_npc/sv_cache.lua
 lua/mmd_vmd_npc/sv_commands.lua
+lua/mmd_vmd_npc/sv_skeletons.lua
 lua/mmdhl/actors.lua
 lua/mmdhl/bodygroups.lua
 lua/mmdhl/bone_mapper.lua

@@ -132,3 +132,22 @@ through DLib; fires the gamemode's loading events through DLib's `hook.Call`; an
 loading event and the off switch. `dlib_hooks_multiplayer` (the late route) has DLib take over before the guard
 installs, with MineMod's stand-in and an owned callback registered before it, then an owned and a server callback
 after it.
+
+ADR 0257 (ULib's hook library): `ulibTakeover(global)` is a stand-in written for the test, from ULib's documented
+behaviour (ULib is CC BY-NC-SA 3.0; none of its code is here): it reads `GetTable()`, then runs a chunk named
+`@lua/ulib/shared/hook.lua` with the hook table itself as its environment, as `module("hook")` does, so its
+`GetTable`, `GetULibTable`, `Add`, `Remove`, `Run` and `Call` are written into the hook table's fields; the old hooks
+are added again at priority 0. Records `registry[event][priority][name] = {fn, isstring}`, the five priority lists made
+with an event's first hook, the add-on's own function in a plain table; `Add` checks its arguments, rounds the
+priority down into -2..2 and removes the name at every priority first; `Call` runs the priorities in order, reads each
+record's `fn` as it comes to it, takes a value only from -1..1, drops an invalid object's hook from both tables, then
+calls the gamemode; `Add` and `Run` find `Remove` and `Call` in the hook table when they run. `ulib_hooks` (the early
+route) registers an effect through the guard's filter and a failing render callback before the takeover, then through
+ULib MineMod's stand-in, another effect, a `NeedsDepthPass` hook, a failing render callback that pushes a target, HUDs
+at every priority (the monitors returning values), an object's hook and one of an object that goes away, keeps ULib's
+`Add` in a local, fires the gamemode's loading events through ULib's `hook.Call`, and runs frames with a gamemode that
+asks for the depth pass, ULib's value rules, hooks added later (through `hook.Add` and the kept `Add`), an
+autorefreshed MineMod, a slow callback, a second loading event and the off switch. `ulib_hooks_multiplayer` (the late
+route) has ULib take over before the guard installs, with MineMod's stand-in, an effect and an owned callback
+registered through it, then an owned callback through the private hook proxy and through ULib's `Add`, and a server's
+callback.

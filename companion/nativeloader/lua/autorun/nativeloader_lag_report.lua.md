@@ -23,10 +23,14 @@ report follows in the same console.
    (`SysTime()` before and after, inclusive time, the call count and the slowest call; arguments, return values and
    errors pass through), and counts frames (the client's `Think`) or ticks (the server's `Tick`). A hook's function
    is swapped in the hook table itself, not with `hook.Add`, whose checks and other add-ons' wrappers of it would
-   run again: GMod's `hook.GetTable()` is the live table; with ULib's hook library (`hook.GetULibTable`) the
-   function is swapped at the hook's own priority and in the plain table ULib keeps beside it (the render guard
-   runs its events from that table). With any other hook library the hooks are left alone and the report says how
-   many. A hook of a panel or entity that is gone is skipped. On the client each timer is entered in
+   run again: GMod's `hook.GetTable()` is the live table. With ULib's hook library (`hook.GetULibTable`) the timer
+   goes into the hook's record, at its own priority, which is what ULib runs, and into the plain table ULib keeps
+   beside it. The record may hold the render guard's wrapper of the add-on's function, since the guard works inside
+   ULib's records ([ADR 0257](../../../../docs/decisions/0257-the-guard-inside-ulibs-hook-library.md)): what the record
+   holds is what is timed (`swapIn`), so the guard keeps protecting the function meanwhile, the hook is named by the
+   add-on's function from the plain table, and the record gets back what it held (`swapOut`, only while ULib still
+   holds that record and it still holds the timer). With any other hook library the hooks are left alone and the
+   report says how many. A hook of a panel or entity that is gone is skipped. On the client each timer is entered in
    the render guard's `NativeLoaderRenderGuard.timed`, so the guard keeps naming, and treating, the function it times.
 2. After the given time puts back every hook, gamemode function and net receiver that is still the timer it
    installed (one its add-on replaced or removed meanwhile is left alone). This happens even when the report itself

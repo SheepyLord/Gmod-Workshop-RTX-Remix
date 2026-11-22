@@ -134,3 +134,26 @@ callback keeps its identity and its error propagates, `NeedsDepthPass` answers f
 change the early scenario fails at its first check (no library found); with that check left out, MineMod's line was
 drawn in four frames of four, the later effect ran every frame, `NeedsDepthPass` was true and a render callback's error
 came out of `hook.Call`.
+
+ADR 0257 adds `test_the_guard_works_inside_ulibs_hook_library` (the `ulib_hooks` and `ulib_hooks_multiplayer`
+scenarios, with the harness's stand-in that does what ULib's hook library does). Early route: the guard finds ULib's
+library at the gamemode's load (`hook_library` `"ULib"`, one console line), and ULib's `Call`, `Add`, `Remove` and
+`GetTable` stay in the hook table, `hook.GetTable()` and `hook.GetULibTable()` the same tables; ULib's order holds
+(monitor -2, -1, 0, 1, monitor 2, the monitors' values ignored); MineMod's line stays off the screen and its hook is
+not entered while its `Think` hook runs; the effects registered before and after ULib stay inert; failing render
+callbacks, before ULib and after it, are contained, what they pushed is popped, and they are stopped after three
+failures; an object's hook gets its object and a gone object's hook is dropped by ULib; `NeedsDepthPass` answers false,
+also with no add-on hook and a gamemode that asks for the pass; `hook.GetTable()` still holds the add-ons' own
+functions; ULib's value rules hold (a value from -1 ends the call, a monitor's does not); hooks added later, through
+`hook.Add` and through a kept reference to ULib's `Add`, and an autorefreshed MineMod hook are protected the same way;
+a slow callback is named with its hook at its share of each frame (the frame counted once); a second loading event
+adds and wraps nothing twice; with `nativeloader_guard 0` everything runs as ULib runs it. Late route: found at the
+install, ULib's `Call` (the remote server's dispatcher) unchanged and no hook of the guard's own; MineMod's line, an
+effect and an owned callback registered before the install are kept off, inert and protected; owned callbacks after
+it, through the private proxy and through ULib's `Add`, are protected; a server's callback keeps its identity and its
+error propagates; `NeedsDepthPass` answers false. Against the guard before this change both scenarios fail at the
+check that the library was found; with that check left out, the early route drew MineMod's line in four frames of
+four, ran the later effect every frame, let eight render callback errors out of `hook.Call` and answered
+`NeedsDepthPass` true. Changing the guard back step by step (no watch on new names, no walk of the records already
+there, no depth pass hook, no frame hook, a frame counted twice, the guard's own hooks also in the late route) makes
+one of the two scenarios fail each time.

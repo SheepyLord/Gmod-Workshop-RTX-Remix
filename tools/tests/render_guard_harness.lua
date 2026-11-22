@@ -19,6 +19,7 @@ if scenario=="realm_server" then CLIENT,SERVER=false,true end
 if scenario=="realm_menu" then CLIENT,MENU_DLL=false,true end
 local multiplayer = scenario=="verified_multiplayer" or scenario=="cached_multiplayer" or scenario:find("^r8_mp_")~=nil
     or scenario=="minemod_notice_multiplayer" or scenario=="dxlevel_multiplayer" or scenario=="dlib_hooks_multiplayer"
+    or scenario=="ulib_hooks_multiplayer"
 __NATIVELOADER_RTX_GUARD_EARLY = not multiplayer and scenario~="no_proof" and scenario~="inherited_proof"
     and scenario~="autorun"
 -- status.json as the loader writes it. Remote vanilla clients have none; an RTX-off start reports
@@ -386,6 +387,68 @@ local function dlibTakeover(global)
     setmetatable(global,{__index=H,__newindex=function(_,key,value) if H[key]~=value then rawset(H,key,value) end end})
     return H
 end
+-- ULib (ULX's library, Workshop 557962238, github.com/TeamUlysses/ulib) brings its own hook library as well, from its
+-- client autorun (ulib_init.lua includes ulib/cl_init.lua, which includes lua/ulib/shared/hook.lua), after the early
+-- guard. A stand-in written for the test, doing what ULib's hook library does: it reads hook.GetTable() first, then runs
+-- with the hook table itself as its environment (module("hook")), so its GetTable, GetULibTable, Add, Remove, Run and
+-- Call take the place of the fields there; the old hooks are added again at the default priority. It keeps the hooks as
+-- registry[event][priority][name] = {fn = ..., isstring = ...}, the priority lists -2..2 made with an event's first
+-- hook, and the add-on's own function in a plain table that GetTable gives. Add drops a call whose function, event or
+-- priority is not one, rounds the priority down into -2..2 and first removes the name at every priority. Call runs the
+-- priorities in order and each record's fn as it comes to it, takes a value only from -1..1 (-2 and 2 are monitors),
+-- drops the hook of an object that is no longer valid from both tables, then calls the gamemode's method. Add and Run
+-- find Remove and Call in the hook table when they run.
+local function ulibTakeover(global)
+    if rawget(global,"GetULibTable") then return end
+    local old=global.GetTable()
+    local chunk=assert(loadstring([[
+        local registry, plain, valid, floor, kind, iterate = {}, {}, ...
+        function GetTable() return plain end
+        function GetULibTable() return registry end
+        function Add(event, id, fn, priority)
+            priority = priority or 0
+            if kind(fn) ~= "function" or kind(event) ~= "string" or kind(priority) ~= "number" then return end
+            priority = floor(priority)
+            if priority < -2 then priority = -2 elseif priority > 2 then priority = 2 end
+            Remove(event, id)
+            if registry[event] == nil then
+                registry[event] = {[-2] = {}, [-1] = {}, [0] = {}, [1] = {}, [2] = {}}
+                plain[event] = {}
+            end
+            registry[event][priority][id] = {fn = fn, isstring = kind(id) == "string"}
+            plain[event][id] = fn
+        end
+        function Remove(event, id)
+            if kind(event) ~= "string" or registry[event] == nil then return end
+            for priority = -2, 2 do registry[event][priority][id] = nil end
+            plain[event][id] = nil
+        end
+        function Run(event, ...) return Call(event, nil, ...) end
+        function Call(event, gm, ...)
+            local levels = registry[event]
+            if levels ~= nil then
+                for priority = -2, 2 do
+                    for id, record in iterate(levels[priority]) do
+                        local a, b, c, d, e, f
+                        if record.isstring then a, b, c, d, e, f = record.fn(...)
+                        elseif valid(id) then a, b, c, d, e, f = record.fn(id, ...)
+                        else levels[priority][id] = nil plain[event][id] = nil end
+                        if a ~= nil and priority > -2 and priority < 2 then return a, b, c, d, e, f end
+                    end
+                end
+            end
+            if not gm then return end
+            local method = gm[event]
+            if method == nil then return end
+            return method(gm, ...)
+        end
+    ]],"@lua/ulib/shared/hook.lua"))
+    setfenv(chunk,global)
+    chunk(IsValid,math.floor,type,pairs)
+    for event,names in pairs(old) do
+        for id,fn in pairs(names) do global.Add(event,id,fn) end
+    end
+end
 -- R23 (ADR 0130): the engine guard module, recorded. The early view loads it; the late private
 -- multiplayer route must not.
 local engineGuardCalls={}
@@ -436,6 +499,30 @@ if scenario=="dlib_hooks_multiplayer" then
     hook.Add("PostRender","owned-early",ownedFunction(function()
         dlibMultiplayer.ownedCalls=dlibMultiplayer.ownedCalls+1 error("owned render failure")
     end))
+end
+-- A remote server's ULib likewise: its client autorun ran before the late route, and the server's add-ons registered
+-- through it, MineMod (its stand-in), an effect and an owned callback of the bootstrap's among them.
+local ulibMultiplayer
+if scenario=="ulib_hooks_multiplayer" then
+    ulibTakeover(hook)
+    ulibMultiplayer={call=rawget(hook,"Call"),add=rawget(hook,"Add"),registry=hook.GetULibTable(),plain=hook.GetTable(),
+        ownedCalls=0,effectCalls=0}
+    MINEMOD_HUD_CALLS=0
+    MC={TexturePackPending=true,ResourcePacks={jobs={{state="failed",error="resource_sampling_unsupported:[[0,0,0]]"}},
+        lastId=1}}
+    assert(loadstring([[
+        local R = MC.ResourcePacks
+        hook.Add("HUDPaint", "mc_resource_pack_loading", function()
+            MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 1
+            draw.SimpleText("Default texture pack is not ready: " .. tostring(R.jobs[R.lastId].error))
+        end)
+    ]],"@lua/mc/cl_resource_packs.lua"))()
+    assert(loadstring('hook.Add("RenderScreenspaceEffects","ssr",function() ULIB_MP_EFFECT() end, 1)',
+        "@lua/postprocess/pp_ssr.lua"))()
+    ULIB_MP_EFFECT=function() ulibMultiplayer.effectCalls=ulibMultiplayer.effectCalls+1 end
+    hook.Add("PostRender","owned-early",ownedFunction(function()
+        ulibMultiplayer.ownedCalls=ulibMultiplayer.ownedCalls+1 error("owned render failure")
+    end),-1)
 end
 if multiplayer or scenario=="inherited_proof" then
     if multiplayer then
@@ -1601,6 +1688,170 @@ elseif scenario=="dlib_hooks_multiplayer" then
     hook.Add("NeedsDepthPass","depth",function() return true end)
     eq(hook.Call("NeedsDepthPass"),false,"the filter answers the depth pass")
     eq(library.Call2,dlibMultiplayer.call2)
+elseif scenario=="ulib_hooks" then
+    -- ULib, like DLib above: its client autorun runs after the early guard and puts its own hook library in the hook
+    -- table's fields, over the guard's dispatcher and filter. Every hook then runs from ULib's records, through the
+    -- dispatcher the engine took after the autoruns: ULib's.
+    eq(guard.installation,"early")
+    local drawn={}
+    draw={SimpleText=function(text)drawn[#drawn+1]=text end}
+    local guardCall,guardAdd=hook.Call,hook.Add
+    -- Before ULib's autorun: an effect registers through the guard's filter, and a render callback that fails.
+    local early,earlyBad=0,0
+    assert(loadstring('hook.Add("RenderScreenspaceEffects","ssdo",function() EARLY_EFFECT() end)',
+        "@lua/postprocess/ssdo.lua"))()
+    EARLY_EFFECT=function() early=early+1 end
+    hook.Add("PostDrawHUD","early_bad",function() earlyBad=earlyBad+1 error("early render failure") end)
+    ulibTakeover(hook)
+    local ulibCall,ulibAdd,ulibRemove,ulibGet=rawget(hook,"Call"),rawget(hook,"Add"),rawget(hook,"Remove"),
+        rawget(hook,"GetTable")
+    assert(ulibCall~=guardCall and ulibAdd~=guardAdd,"ULib took the dispatcher and the registration")
+    local registry,plain=hook.GetULibTable(),hook.GetTable()
+    -- Add-ons after ULib: MineMod (its stand-in, as in minemod_notice), another effect, a depth pass, a failing render
+    -- callback, HUDs at ULib's priorities and monitors, a hook of an object and one of an object that goes away.
+    MINEMOD_HUD_CALLS=0
+    local R={jobs={{state="failed",
+        error="resource_sampling_unsupported:[[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0],[0,0,0]]"}},lastId=1}
+    MC={TexturePackPending=true,ResourcePacks=R}
+    assert(loadstring([[
+        local R = MC.ResourcePacks
+        hook.Add("HUDPaint", "mc_resource_pack_loading", function()
+            MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 1
+            if not MC.TexturePackPending then return end
+            local text, job = "Baking the default texture pack", R.lastId and R.jobs[R.lastId]
+            if job and job.state == "failed" then text = "Default texture pack is not ready: " .. tostring(job.error) end
+            draw.SimpleText(text, "DermaDefaultBold", ScrW() / 2, ScrH() / 2)
+        end)
+        hook.Add("Think", "mc_resource_pack_think", function() MINEMOD_HUD_CALLS = MINEMOD_HUD_CALLS + 100 end)
+    ]],"@lua/mc/cl_resource_packs.lua"))()
+    local minemod=plain.HUDPaint.mc_resource_pack_loading
+    local late=0
+    assert(loadstring('hook.Add("RenderScreenspaceEffects","ssr",function() LATE_EFFECT() end, -1)',
+        "@lua/postprocess/pp_ssr.lua"))()
+    LATE_EFFECT=function() late=late+1 end
+    local depth=function() return true end
+    hook.Add("NeedsDepthPass","wants_depth",depth)
+    local badCalls=0
+    hook.Add("PostRender","bad",function()
+        badCalls=badCalls+1 render.PushRenderTarget(texture("left_open",32,32)) error("render callback failure")
+    end,1)
+    local order={}
+    hook.Add("HUDPaint","watch_first",function() order[#order+1]="watch_first" return "ignored" end,-2)
+    hook.Add("HUDPaint","first",function() order[#order+1]="first" end,-1)
+    hook.Add("HUDPaint","normal",function() order[#order+1]="normal" end)
+    hook.Add("HUDPaint","second",function() order[#order+1]="second" end,1)
+    hook.Add("HUDPaint","watch_last",function() order[#order+1]="watch_last" return "ignored" end,2)
+    local object,objectCalls={valid=true},0
+    hook.Add("HUDPaint",object,function(self) eq(self,object) objectCalls=objectCalls+1 end)
+    local gone,goneCalls={valid=true},0
+    hook.Add("HUDPaint",gone,function() goneCalls=goneCalls+1 end)
+    -- An add-on that keeps ULib's Add in a local and registers with it later.
+    local cachedAdd=hook.Add
+    -- The gamemode loads: the engine's loading events go through ULib's hook.Call, before anything draws.
+    for _,event in ipairs({"PreGamemodeLoaded","OnGamemodeLoaded","PostGamemodeLoaded","Initialize"}) do hook.Call(event) end
+    eq(guard.hook_library,"ULib","the guard found ULib's hook library")
+    local function said()
+        local count=0
+        for _,line in ipairs(messages) do if line:find("ULib",1,true) then count=count+1 end end
+        return count
+    end
+    eq(said(),1,"one console line says so")
+    eq(rawget(hook,"Call"),ulibCall) eq(rawget(hook,"Add"),ulibAdd) eq(rawget(hook,"Remove"),ulibRemove)
+    eq(rawget(hook,"GetTable"),ulibGet,"ULib's functions stay in the hook table")
+    eq(hook.GetTable(),plain) eq(hook.GetULibTable(),registry,"and the tables it gives stay its own")
+    local gm={NeedsDepthPass=function() return true end}
+    local function frame()
+        hook.Call("PreRender",gm) hook.Call("RenderScreenspaceEffects",gm) hook.Call("HUDPaint",gm)
+        hook.Call("PostDrawHUD",gm) hook.Call("PostRender",gm)
+    end
+    frame()
+    eq(table.concat(order," "),"watch_first first normal second watch_last","ULib's priorities and monitors stay")
+    gone.valid=false
+    for _=1,3 do frame() end
+    eq(#drawn,0,"MineMod's line stays off the screen") eq(MINEMOD_HUD_CALLS,0,"its hook is not entered")
+    hook.Call("Think") eq(MINEMOD_HUD_CALLS,100,"its other hook runs")
+    eq(early,0) eq(late,0,"the effects stay inert, registered before ULib or after it")
+    eq(badCalls,3,"a failing render callback is contained, and quarantined after three failures")
+    eq(earlyBad,3,"one registered before ULib as well")
+    eq(#rtStack,0,"what it left open is closed")
+    eq(objectCalls,4,"a hook of an object gets its object")
+    eq(goneCalls,1) eq(plain.HUDPaint[gone],nil,"the hook of an object that went away is dropped, as ULib does")
+    eq(hook.Call("NeedsDepthPass",gm),false,"no depth pass")
+    eq(plain.HUDPaint.mc_resource_pack_loading,minemod,"hook.GetTable() gives the add-ons' own functions")
+    eq(plain.NeedsDepthPass.wants_depth,depth)
+    hook.Remove("NeedsDepthPass","wants_depth")
+    eq(hook.Call("NeedsDepthPass",gm),false,"none either where only the gamemode asks for one")
+    -- ULib's rule for values: one from -1..1 ends the call, one from a monitor does not.
+    local after=0
+    hook.Add("PreDrawHUD","answer",function() return "answered" end,-1)
+    hook.Add("PreDrawHUD","after",function() after=after+1 end,1)
+    eq(hook.Call("PreDrawHUD"),"answered") eq(after,0)
+    hook.Add("PostDrawEffects","watch",function() return "ignored" end,-2)
+    hook.Add("PostDrawEffects","real",function() return "real" end)
+    eq(hook.Call("PostDrawEffects"),"real")
+    -- Added once the guard is inside ULib, through hook.Add and through the reference kept before, and an autorefreshed
+    -- MineMod: the same protections.
+    local later,cached=0,0
+    hook.Add("PostRender","later",function() later=later+1 error("later failure") end)
+    cachedAdd("PostRender","cached",function() cached=cached+1 error("cached failure") end,-1)
+    assert(loadstring([[hook.Add("HUDPaint", "mc_resource_pack_loading", function() draw.SimpleText("again") end)]],
+        "@lua/mc/cl_resource_packs.lua"))()
+    for _=1,4 do frame() end
+    eq(later,3) eq(cached,3) eq(#drawn,0)
+    -- Slow render callbacks are named with their hook through ULib as well (R28), and each frame is counted once.
+    hook.Add("PreDrawViewModels","heavy",function() now=now+0.006 end)
+    for _=1,400 do hook.Call("PreRender") now=now+0.010 hook.Call("PreDrawViewModels") end
+    local slow
+    for _,record in ipairs(guard.slow) do if record.id=="heavy" then slow=record end end
+    assert(slow and slow.api=="PreDrawViewModels","a slow callback is named with its hook")
+    assert(slow.ms>5.5 and slow.ms<6.5,"its share of each frame: "..tostring(slow.ms))
+    -- A second gamemode event finds the guard in place: nothing is wrapped or added twice.
+    hook.Call("InitPostEntity")
+    eq(said(),1) eq(#drawn,0)
+    local own=0
+    for _,list in pairs(registry.NeedsDepthPass) do
+        for id in pairs(list) do if tostring(id):find("nativeloader",1,true) then own=own+1 end end
+    end
+    eq(own,1,"the guard's own depth pass answer once")
+    -- With the guard switched off, everything runs as ULib runs it.
+    cv.nativeloader_guard.value="0"
+    for _,id in ipairs({"bad","later","cached"}) do hook.Remove("PostRender",id) end
+    hook.Remove("PostDrawHUD","early_bad")
+    frame()
+    eq(#drawn,1) eq(drawn[1],"again","MineMod's line shows with the guard off")
+    eq(early,1) eq(late,1)
+    eq(hook.Call("NeedsDepthPass",gm),true)
+elseif scenario=="ulib_hooks_multiplayer" then
+    -- ULib was in charge before the late route: the guard finds it at its install and works inside its records only.
+    -- The remote server's dispatcher, ULib's Call, stays as it is, and the guard adds no hook of its own (ADR 0052).
+    eq(guard.installation,"verified multiplayer bootstrap")
+    eq(guard.hook_library,"ULib","found at the late install")
+    eq(rawget(hook,"Call"),ulibMultiplayer.call,"the remote server's dispatcher stays as it is")
+    eq(hook.GetTable(),ulibMultiplayer.plain) eq(hook.GetULibTable(),ulibMultiplayer.registry)
+    eq(hook.GetTable().NeedsDepthPass,nil,"no hook of the guard's own") eq(hook.GetTable().PreRender,nil)
+    local drawn={}
+    draw={SimpleText=function(text)drawn[#drawn+1]=text end}
+    for _=1,4 do hook.Call("HUDPaint") hook.Call("RenderScreenspaceEffects") hook.Call("PostRender") end
+    eq(#drawn,0,"MineMod's line, registered before the late route, stays off the screen") eq(MINEMOD_HUD_CALLS,0)
+    eq(ulibMultiplayer.effectCalls,0,"an effect registered before it stays inert")
+    eq(ulibMultiplayer.ownedCalls,3,"an owned render callback registered before it is protected and quarantined")
+    -- Registered after the install: an owned callback through the private hook proxy, one through ULib's Add as the
+    -- server's Lua kept it, and a server's own callback.
+    local later,direct=0,0
+    privateHook.Add("PostRender","owned-late",ownedFunction(function() later=later+1 error("owned late failure") end))
+    ulibMultiplayer.add("PostRender","owned-direct",ownedFunction(function()
+        direct=direct+1 error("owned direct failure")
+    end),1)
+    for _=1,4 do hook.Call("PostRender") end
+    eq(later,3) eq(direct,3)
+    local server=function() error("server callback error") end
+    hook.Add("PostRender","server",server)
+    eq(hook.GetTable().PostRender.server,server,"a server's registration keeps its identity")
+    assert(not pcall(hook.Call,"PostRender"),"a server's error still propagates as in vanilla GMod")
+    hook.Remove("PostRender","server")
+    hook.Add("NeedsDepthPass","depth",function() return true end)
+    eq(hook.Call("NeedsDepthPass"),false,"the filter answers the depth pass")
+    eq(rawget(hook,"Call"),ulibMultiplayer.call)
 elseif scenario=="off" then
     GetRenderTargetEx("_rt_shadowdepthtexture_0",-99,-99,999,0,0,0,9999)
     CreateMaterial("depth","DepthWrite",{}) render.GetResolvedFullFrameDepth() render.SetRenderTargetEx(2)

@@ -333,3 +333,32 @@ DLib reloaded by autorefresh is found again at `OnReloaded`. One `adapted` recor
 `[nativeloader] RTX guard: hook library: DLib runs the game's hooks from its own lists: the guard's protections run
 inside them (lua/dlib/modules/hook.lua)`; `NativeLoaderRenderGuard.hook_library` is `"DLib"`. The scenarios `dlib_hooks`
 and `dlib_hooks_multiplayer` of the harness, with a stand-in that takes the hook library over as DLib does, cover each.
+
+ADR 0257 ([the guard inside ULib's hook library](../../../../docs/decisions/0257-the-guard-inside-ulibs-hook-library.md)),
+the follow-up of the DLib check: **ULib** (ULX's library, Workshop 557962238, github.com/TeamUlysses/ulib) takes the
+hook library over from its client autorun as well, its own way. `lua/ulib/shared/hook.lua` reads `hook.GetTable()`,
+runs `module("hook")`, whose environment is the hook table itself, and so writes its `GetTable`, `GetULibTable`, `Add`,
+`Remove`, `Run` and `Call` over this guard's dispatcher and filter; it adds the hooks registered so far again at the
+default priority. The engine keeps the dispatcher it finds after the autoruns, ULib's, so every protection of the hook
+layer was gone in games with ULib, as with DLib. ULib's `Call` runs `hook.GetULibTable()`'s records,
+`[event][priority][name] = {fn = ..., isstring = ...}`, priority by priority from -2 to 2, reading each record's `fn`
+when it comes to it, and ignores the values of -2 and 2 (the monitors). The guard works inside those records
+(`adoptULib` in the file) once `GetULibTable` is a field of the hook table itself (DLib's alias is read through
+`__index` and does not count) and `hook.Call` is still there: at its install where ULib came first (the late
+multiplayer route), else at the first loading event, as for DLib. Each record's `fn` is wrapped by the same rule as
+DLib's callbacks (`wrap`: through `protectedCall` with its hook's name, in the late route only an owned callback of a
+late event, or through the filter). Every record ULib makes later is wrapped as it is put in place: ULib's `Add`
+removes the name at every priority first, so a new record is a new key in a priority list, which the guard watches
+(`watchNames`, a metatable on each list whose `__newindex` stores the record and wraps its `fn`; `watchEvents` on the
+registry for a new event's lists). That covers ULib's `Add` however it is reached, also a reference an add-on kept; a
+list that already has someone else's metatable is left to the next loading event's walk. Outside the late route, and
+where this guard's own dispatcher (`dispatcher`) does not still stand first, two hooks of its own at ULib's priorities
+do the dispatcher's other jobs: `NeedsDepthPass` `nativeloader_guard_depth` at -1 answers false while the guard is on
+(before the add-ons' answers and the gamemode's), `PreRender` `nativeloader_guard_frame` at -2 counts the frame
+(`frameBegins`). ULib's priorities, monitors and removal of gone objects' hooks stay its own, its functions stay in the
+hook table, `hook.GetTable()` and `hook.GetULibTable()` give the same tables, the plain one still with the add-ons'
+own functions; the gamemode's own methods run as ULib runs them. One `adapted` record and one console line: `[nativeloader] RTX guard: hook library: ULib runs the
+game's hooks from its own lists: the guard's protections run inside them (lua/ulib/shared/hook.lua)`;
+`NativeLoaderRenderGuard.hook_library` is `"ULib"`. The companion's lag report times what a ULib record holds and puts
+it back. The scenarios `ulib_hooks` and `ulib_hooks_multiplayer` of the harness, with a stand-in that does what ULib's
+hook library does, cover each.

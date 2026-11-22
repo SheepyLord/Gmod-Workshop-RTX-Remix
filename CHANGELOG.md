@@ -6,6 +6,25 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The render guard works with ULX's ULib too (2026-11-21)
+
+- **With ULX installed (its library ULib), the RTX package protects add-ons' drawing again.** ULib, which about
+  1.4 million players have, replaces the game's hook system when it loads, as DLib does in its own way, and the
+  package's render guard lost its hold on every hook: MineMod's "Default texture pack is not ready" line came back,
+  screen-space effects that cannot work under RTX ran, the depth pass was asked for, and an add-on's drawing code that
+  fails errored every frame instead of being contained and stopped after three failures in a row; slow drawing code was
+  no longer named. All of that works again with ULib installed, and ULib and ULX keep working as before, with their
+  hook priorities.
+- **`nativeloader_lag_report` keeps timing every hook in games with ULib**, the guarded drawing hooks among them.
+- Behind it ([ADR 0257](docs/decisions/0257-the-guard-inside-ulibs-hook-library.md), after DLib's): ULib's client
+  autorun runs `module("hook")` in the hook table itself and writes its own `Call` and `Add` over the guard's, and the
+  engine keeps ULib's dispatcher. The guard now works inside ULib's records: each record's function runs through the
+  guard's protected call or its filter, every record ULib makes later is wrapped as ULib puts it in place, and two
+  hooks of the guard's own at ULib's priorities refuse the depth pass and count the frames. `hook.Call`, `hook.Add` and
+  `hook.GetTable()` stay ULib's. The lag report times what a ULib record holds. Package only. Tests:
+  `test_render_guard.py` (`ulib_hooks`, `ulib_hooks_multiplayer`, with a stand-in that does what ULib's hook library
+  does), `test_lag_report.py` (`ulib_guard`), and PoC sessions with the real ULib (Workshop 557962238).
+
 ### "Default texture pack is not ready" with DLib installed; the render guard works with DLib (2026-11-21)
 
 - **"Default texture pack is not ready: resource_sampling_unsupported..." no longer shows in the middle of the screen

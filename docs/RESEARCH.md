@@ -10074,3 +10074,64 @@ on 2026-11-21 (item 1153306104, updated 2026-10-24, `dlib.gma` 19,157,137 bytes;
   route's walk of `hook.GetTable()` changes DLib's plain table, which DLib does not dispatch from).
 - **The guard's own dispatcher in DLib's place would not do:** it iterates `hook.GetTable()`, which ignores DLib's
   priorities, still holds the hooks DLib disabled, and its `IsValid(id)` test would delete DLib's coroutine hooks.
+
+## ULib's hook library and the render guard (2026-11-21, Claude; [ADR 0257](decisions/0257-the-guard-inside-ulibs-hook-library.md))
+
+The follow-up the DLib check named. Read from ULib's source, GitHub `TeamUlysses/ulib` at `147657e3` (2025-08-29);
+the Workshop item 557962238 ("ULib", `ulib.gma` 246,309 bytes, updated 2025-08-24, 1,421,484 subscriptions on
+2026-11-21, downloaded with steamcmd's anonymous login on the user's approval) has the same
+`lua/ulib/shared/hook.lua`, byte for byte (5,751 bytes, SHA-256 `e2aea798...`). ULib is CC BY-NC-SA 3.0: read for
+behaviour only, the harness's stand-in is written for the test.
+
+- **Load path:** `lua/autorun/ulib_init.lua:5` includes `ulib/cl_init.lua` in the client realm; `cl_init.lua:6`
+  includes `ulib/shared/hook.lua` (after its defines, misc and util). So the takeover is an autorun's, after the early
+  guard.
+- **The takeover:** `hook.lua:1` returns at once where `hook.GetULibTable` exists (no second run by autorefresh;
+  also where DLib's library, which has that alias, is already in charge); `:19-23` set the globals `HOOK_MONITOR_HIGH`
+  -2, `HOOK_HIGH` -1, `HOOK_NORMAL` 0, `HOOK_LOW` 1, `HOOK_MONITOR_LOW` 2; `:26` takes `hook.GetTable()` (in an RTX game
+  GMod's table behind the guard: the add-ons' functions and the filter's wrappers); `:28` runs `module("hook")`.
+  GMod's own hook module is `package.loaded.hook`, so the file's environment is the hook table itself, and `:36-37`
+  (`GetTable`, `GetULibTable`), `:42` (`Add`), `:69` (`Remove`), `:87` (`Run`) and `:98` (`Call`) are written into its
+  fields, over the guard's `Call` and `Add`. `:159-163` add the old hooks again through `Add`, at priority 0.
+- **Records:** `Add` (`:42-63`) takes priority 0 by default, does nothing for a function that is not one, an event that
+  is not a string or a priority that is not a number, rounds the priority down and clamps it to -2..2 (`:49-51`), calls
+  `Remove` first (`:53`: a name is unique across the priorities), makes the event's five lists with its first hook
+  (`:55-58`), and stores `Hooks[event][priority][name] = {fn = func, isstring = isstring(name)}` (`:60`) and
+  `BackwardsHooks[event][name] = func` (`:61`, the table `GetTable` returns). `Remove` (`:69-80`) sets the name to nil
+  at every priority, an assignment to an absent key at the priorities that do not have it.
+- **Dispatch:** `Call` (`:98-156`) runs the priorities -2..2 in order, `pairs` within each, reading `v.fn` when it
+  comes to it (`:115`; with the object first for a key that is not a string, `:130`); a value ends the call only from
+  -1..1 (`:116`, `:131`); the hook of an object that is no longer valid is dropped from both tables (`:138-139`); then
+  the gamemode's method, if `gm` has one (`:149-154`). `Run` (`:87-93`) caches `gmod.GetGamemode()` and finds `Call` in
+  its environment, the hook table, at each call.
+- **History:** `GetULibTable` since 2015-04-11 (`014f69b0`), the records `{fn, isstring}` since 2015-03 (`97b9bb41`),
+  the last change 2025-05-26 (`94312ede`, `Run`'s cached gamemode).
+- **So the guard's hook layer was gone in every RTX game with ULib**, as with DLib. The harness's stand-in against the
+  guard before ADR 0257 (DLib's version): in four frames MineMod's line four times, the effect registered after ULib
+  four times (the one registered before ULib kept the filter's wrapper, which ULib moved over), two failing render
+  callbacks called four times each with eight errors out of `hook.Call`, `NeedsDepthPass` true. The R28 note (in "R28:
+  what lags an RTX frame") that the guard's `hook.Call` runs ULib's hooks from the plain table holds only where the
+  guard's dispatcher stands in front of ULib's, which the early view never gives: ULib's autorun writes `hook.Call`
+  over after the guard.
+- **The lag report** put its timer into a ULib record only where the record held the add-on's own function
+  (`rawequal(slot.fn, from)`, with `from` taken from the plain table); with the guard's wrapper in the record, every
+  guarded hook would have been left untimed.
+- **VR's takeovers of ULib's lists** (`vr/addon/lua/nlvr/core/cl_view_hooks.lua`, `modules/cl_weapons.lua`,
+  `modules/cl_tools_beam.lua`) put a table of their own in an existing event's place (an assignment to a key that is
+  there, which the registry's watch does not see), whose priority lists have metatables of their own and write
+  through to the lists they hold: the guard leaves a list with a metatable alone, and those writes reach the watched
+  lists underneath. `CalcView`, `DrawPhysgunBeam` and `EntityFireBullets` are not events the guard protects.
+- **In the game** (PoC, 2026-11-21, gm_construct, RTX on; the real ULib as a loose add-on and a test add-on whose
+  client autorun runs after ULib's): `hook.Call`, `hook.Add` and `hook.GetTable` came from `lua/ulib/shared/hook.lua`
+  after the load, and the engine's events ran through ULib's `Call` (the published guard's dispatcher recorded
+  nothing): MineMod's stand-in, the effect stand-in, the depth pass hook and a failing `PostRender` callback ran in
+  all 1,517 frames; ULib's priority order held (-2, -1, 0, 1, 2 in the first frame). With ADR 0257 the same session:
+  `hook_library` `ULib`, the guard's records again (MineMod's note, the effect refused, the failures contained and
+  stopped after three, a 5 ms HUD hook named at 5.0 ms of every frame), ULib's lists holding the guard's two hooks
+  and MineMod's record a function of the guard's, which `debug.getinfo` gives as `lua/includes/init.lua` (the loader's
+  view the guard is installed from). Numbers in the [report](handover/ulib-hooks-report.md).
+- **The load accelerator's callback timing stops at ULib's autorun** (ADR 0241): `load_callbacks.lua` puts its timer
+  in `hook.Add` from `!!!!!nlloadaccel.lua`, the first autorun; ULib's `module("hook")` writes `Add` over it, so the
+  hooks added after ULib are not timed during the load. In the PoC its end-of-load line named the probe's 5 ms hook
+  without ULib and a hook registered before ULib (`RTXReady_RenderLightUpdaters`, 0.8 s) with it. DLib's takeover
+  removes the field the same way, by its source.

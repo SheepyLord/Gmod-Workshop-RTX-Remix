@@ -16,8 +16,12 @@ companion's [`nativeloader_lag_report.lua`](../nativeloader/lua/autorun/nativelo
   there, its modules and its base gamemode), the net receivers, the render guard's read-backs, fonts and slow
   callbacks, and writes the same lines to its data file; the time is clamped to 2-120 s and a word gives 10.
 - **ulib:** a hook library with a function per priority (`hook.GetULibTable`): the timer goes in at the hook's own
-  priority and into the plain table kept beside it (the render guard runs its events from that one), and comes out
-  of both again.
+  priority and into the plain table kept beside it, and comes out of both again.
+- **ulib_guard:** as `ulib`, with ULib's records of `HUDPaint` and `PostRender` holding a stand-in of the render
+  guard's wrapper of the add-on's function, as the guard works inside ULib's records (ADR 0257): the record's timer
+  times that wrapper (every timed call still goes through it), the hooks are named by the add-ons' own functions, and
+  each record gets the guard's wrapper back while the plain table gets the add-on's function. The lag report before
+  ADR 0257 fails here (those hooks were not timed).
 - **copy:** a hook library whose `hook.GetTable` hands out a copy: no hook is touched, the gamemode's functions are
   timed all the same, and the report counts the hooks it could not time.
 - **failure:** the report's file cannot be written: everything is put back, the failure is said, and the next

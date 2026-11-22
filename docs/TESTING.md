@@ -4014,3 +4014,30 @@ separator now has 57 texts in each catalog.
   [report](handover/dlib-hooks-report.md).
 - Not covered: the real MineMod (its stand-in only), a multiplayer game with DLib, ULib (a likely case of the same
   kind), a DLib reloaded by autorefresh in a game.
+
+## The render guard inside ULib's hook library (ADR 0257)
+
+- **LuaJIT** ([`test_render_guard.py`](../tools/tests/test_render_guard.py.md)
+  `test_the_guard_works_inside_ulibs_hook_library`): the harness's stand-in does what ULib's hook library does
+  (`ulibTakeover` in [`render_guard_harness.lua`](../tools/tests/render_guard_harness.lua.md)). `ulib_hooks`: the early
+  guard, then ULib, then add-ons through ULib at its priorities, the gamemode's loading events, frames: MineMod's line
+  kept off, the effects inert, failing render callbacks (before ULib and after it) contained and stopped, ULib's order,
+  monitors and value rules kept, `NeedsDepthPass` false (also where only the gamemode asks), `hook.Call`, `hook.Add`,
+  `hook.GetTable()` and `hook.GetULibTable()` unchanged, hooks added later (also through a kept reference to ULib's
+  `Add`) protected, slow callbacks named per frame, the off switch. `ulib_hooks_multiplayer`: ULib before the late
+  route's install, its dispatcher untouched. Both fail on the guard before the fix; six step-backs of the fix each fail
+  one of them. [`test_lag_report.py`](../companion/tests/test_lag_report.py.md) `ulib_guard`: the lag report times a
+  ULib record that holds the guard's wrapper and gives the record back; fails on the lag report before the fix.
+- **PoC** (2026-11-21, a driver under the worktree's `out/ulib-poc`, holding `out\r10\poc.lock`, the PoC's state moved
+  aside and put back): the published package and the branch's, each with and without the real ULib (Workshop
+  557962238 as a loose add-on), then the branch's final build again; a test add-on (a MineMod stand-in at
+  `lua/mc/cl_resource_packs.lua`, an effect stand-in at `lua/postprocess/pp_ssr.lua`, a `NeedsDepthPass` hook, a
+  `PostRender` callback failing ten times, HUD hooks at ULib's five priorities, a 5 ms HUD hook, a lag report run),
+  gm_construct, 1600x900, a report Lua after 45 s. Published + ULib: MineMod's line, the effect and the depth pass hook
+  in all 1,517 frames, all ten failures uncontained, no guard record (screenshot: the line in the middle of the
+  screen); the branch + ULib: none of them, `hook_library` `ULib`, the callback stopped after three failures, ULib's
+  order kept, the 5 ms hook named by the guard and timed by the lag report through the guard's wrapper (screenshot:
+  nothing in the middle); without ULib both packages alike. The branch's final build again, with and without ULib:
+  the same (1,678 and 1,642 frames). Results in the [report](handover/ulib-hooks-report.md).
+- Not covered: the real MineMod (its stand-in only), ULX itself (ULib alone), a multiplayer game with ULib from a
+  server, ULib and DLib in one game (by the source, DLib's library is kept and ULib's does not take over).

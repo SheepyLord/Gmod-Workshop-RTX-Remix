@@ -11,6 +11,16 @@ function IsValid(v) return type(v) == "table" and v.valid == true end
 function math.Clamp(v, low, high) return math.min(math.max(v, low), high) end
 -- The hook library: GMod's own (hook.GetTable is the live table), ULib's (a function per priority, and a plain
 -- table kept beside it), or one this report does not know (hook.GetTable hands out a copy).
+local ulib = scenario == "ulib" or scenario == "ulib_guard"
+-- ulib_guard: the render guard works inside ULib's records (ADR 0257). There a record of a render event holds the
+-- guard's wrapper of the add-on's function, the plain table the function itself.
+local guarded, guardedCalls = {}, 0
+local function guardOf(event, fn)
+    if scenario ~= "ulib_guard" or (event ~= "HUDPaint" and event ~= "PostRender") then return fn end
+    if not guarded[fn] then guarded[fn] = function(...) guardedCalls = guardedCalls + 1 return fn(...) end end
+    return guarded[fn]
+end
+local function held(fn) return guarded[fn] or fn end
 local hooks, added = {}, {}
 local levels = {}
 hook = {GetTable = function() return hooks end,
@@ -18,17 +28,17 @@ hook = {GetTable = function() return hooks end,
         added[#added + 1] = tostring(event) .. "/" .. tostring(id)
         hooks[event] = hooks[event] or {}
         hooks[event][id] = fn
-        if scenario == "ulib" then
+        if ulib then
             levels[event] = levels[event] or {[-2] = {}, [-1] = {}, [0] = {}, [1] = {}, [2] = {}}
             for _, list in pairs(levels[event]) do list[id] = nil end
-            levels[event][0][id] = {fn = fn, isstring = type(id) == "string"}
+            levels[event][0][id] = {fn = guardOf(event, fn), isstring = type(id) == "string"}
         end
     end,
     Remove = function(event, id)
         if hooks[event] then hooks[event][id] = nil end
         if levels[event] then for _, list in pairs(levels[event]) do list[id] = nil end end
     end}
-if scenario == "ulib" then hook.GetULibTable = function() return levels end end
+if ulib then hook.GetULibTable = function() return levels end end
 if scenario == "copy" then
     hook.GetTable = function()
         local copy = {}
@@ -121,14 +131,14 @@ hook.Add("PostRender", "dynamic", replaced)
 hook.Add("RenderScreenspaceEffects", "thing_bloom", bloom)
 hook.Add("RenderScreenspaceEffects", "bloom", stock)
 net.Receivers.slow_message = receiver
-if scenario == "ulib" then
+if ulib then
     -- A hook the server's admin tool gave a priority keeps it.
     levels.Think[0].slow_think = nil
     levels.Think[-2].slow_think = {fn = slow, isstring = true}
 end
 -- What the game's hook.Call would run for an event's named hooks.
 local function installed(event, id)
-    if scenario == "ulib" then
+    if ulib then
         for _, list in pairs(levels[event]) do if list[id] then return list[id].fn end end
         return nil
     end
@@ -153,17 +163,23 @@ if scenario == "copy" then
     io.write("PASS copy\n")
     return
 end
-assert(installed("Think", "slow_think") ~= slow and installed("HUDPaint", "thing_hud") ~= hud, "hooks are timed")
-eq(installed("HUDPaint", gone), goneFn, "a hook of something that is gone is left to the hook library")
+assert(installed("Think", "slow_think") ~= slow and installed("HUDPaint", "thing_hud") ~= held(hud), "hooks are timed")
+eq(installed("HUDPaint", gone), held(goneFn), "a hook of something that is gone is left to the hook library")
 assert(net.Receivers.slow_message ~= receiver, "net receivers are timed")
 assert(GAMEMODE.Think ~= gmThink and GAMEMODE.HUDPaint ~= gmPaint, "the gamemode's functions are timed")
 eq(GAMEMODE.Name, "ThingRP") eq(type(GAMEMODE.BaseClass), "table")
 eq(NativeLoaderRenderGuard.timed[installed("Think", "slow_think")], slow, "the render guard is told which function a timer times")
-if scenario == "ulib" then
+if ulib then
     eq(levels.Think[-2].slow_think.fn, installed("Think", "slow_think"), "the hook keeps its priority")
     eq(levels.Think[0].slow_think, nil)
-    -- The render guard runs its events from the plain table: the timer is there too.
     eq(hooks.Think.slow_think, installed("Think", "slow_think"), "the plain table beside it has the timer as well")
+end
+if scenario == "ulib_guard" then
+    -- The record holds the guard's wrapper: that is what is timed, so the guard keeps protecting the function.
+    assert(installed("HUDPaint", "thing_hud") ~= hooks.HUDPaint.thing_hud, "the record's timer times what it held")
+    local before = guardedCalls
+    installed("HUDPaint", "thing_hud")()
+    eq(guardedCalls, before + 1, "the guard's wrapper still runs inside the timer")
 end
 run(nil, nil, {"5"})
 assert(output("already measuring"), "one measurement at a time") eq(#timers, 1)
@@ -206,16 +222,21 @@ if scenario == "failure" then
     return
 end
 timers[1].fn()
-eq(installed("Think", "slow_think"), slow, "put back") eq(installed("HUDPaint", "thing_hud"), hud)
-eq(installed("HUDPaint", object), objectFn)
-eq(installed("PostRender", "dynamic"), replacement, "a hook its add-on replaced stays the add-on's")
+eq(installed("Think", "slow_think"), slow, "put back") eq(installed("HUDPaint", "thing_hud"), held(hud))
+eq(installed("HUDPaint", object), held(objectFn))
+eq(installed("PostRender", "dynamic"), held(replacement), "a hook its add-on replaced stays the add-on's")
 eq(net.Receivers.slow_message, receiver)
 eq(GAMEMODE.Think, gmThink, "the gamemode's functions are put back") eq(GAMEMODE.HUDPaint, gmPaint)
 eq(installed("Think", "nativeloader_lag_report"), nil, "the frame counter is gone")
-if scenario == "ulib" then
+if ulib then
     eq(levels.Think[-2].slow_think.fn, slow, "back at its priority")
     eq(hooks.Think.slow_think, slow, "and back in the plain table")
     eq(hooks.HUDPaint.thing_hud, hud)
+end
+if scenario == "ulib_guard" then
+    eq(levels.HUDPaint[0].thing_hud.fn, guarded[hud], "the guard's wrapper is back in ULib's record")
+    eq(levels.PostRender[0].game_draw.fn, guarded[base])
+    assert(guardedCalls >= 200, "every timed call of a guarded hook went through the guard's wrapper")
 end
 local summary = assert(output("Lag report (client, gm_test"), "the summary")
 assert(summary:find("99 frames", 1, true), summary)

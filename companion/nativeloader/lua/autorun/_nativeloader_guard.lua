@@ -2090,9 +2090,11 @@ local function frameBegins()
     framesSeen = framesSeen + 1
     if not frameNumber and frame == nil and busy == 0 then resync() end
 end
+-- The guard's own dispatcher, so that a hook library found later (ULib, below) can tell whether it still stands first.
+local dispatcher
 if not late then
     local originalCall = hook.Call
-    hook.Call = function(name, gm, ...)
+    dispatcher = function(name, gm, ...)
         if not events[name] or not active() then return originalCall(name, gm, ...) end
         if name == "NeedsDepthPass" then return false end
         if name == "PreRender" then frameBegins() end
@@ -2121,6 +2123,7 @@ if not late then
             return gamemodeResult(protectedCall(fn, name, gm, ...))
         end
     end
+    hook.Call = dispatcher
 end
 -- Capability policy applies to remote callbacks too, without catching their unrelated errors.
 -- Wrapping these entries also covers an engine/add-on that cached the original hook.Call.
@@ -2227,6 +2230,19 @@ end
 -- the dispatcher protects runs through protectedCall (the late route: an owned one of a late event), any other through
 -- the filter. DLib's order, priorities, disabled hooks and post modifiers stay its own, and hook.GetTable() still gives
 -- the add-ons' own functions; the gamemode's own methods run as DLib runs them.
+-- ULib (ULX's library, Workshop 557962238, github.com/TeamUlysses/ulib) takes the hook library over from its client
+-- autorun as well, its own way: lua/ulib/shared/hook.lua reads hook.GetTable(), then runs module("hook"), which makes
+-- the hook table itself its environment, so its GetTable, GetULibTable, Add, Remove, Run and Call are written over the
+-- guard's dispatcher and filter there; the hooks registered so far are added again at the default priority. The same
+-- protections were lost in every game with ULib (ULX's servers and players). ULib's Call runs hook.GetULibTable()'s
+-- records, [event][priority][name] = {fn = ..., isstring = ...}, priority by priority from -2 to 2, reading each
+-- record's fn when it comes to it; -2 and 2 are monitors, whose values it ignores. The engine keeps the dispatcher it
+-- finds after the autoruns, ULib's, so the guard does not take hook.Call back: it works inside ULib's records. Each
+-- record's fn is wrapped as DLib's callbacks are, and so is every record ULib makes later, however its Add was reached
+-- (the guard sees the new name in ULib's priority lists). Outside the late route two hooks of the guard's own, at
+-- ULib's priorities, do what the dispatcher did: NeedsDepthPass answered false before the add-ons' answers (-1), and
+-- the frame counted at PreRender's first priority (-2). ULib's priorities, monitors and functions stay its own,
+-- hook.GetTable() still gives the add-ons' own functions, and the gamemode's own methods run as ULib runs them.
 do
     local loadingEvents = {Initialize = true, InitPostEntity = true, OnReloaded = true}
     local adapted, library = setmetatable({}, {__mode = "k"}), nil
@@ -2270,7 +2286,7 @@ do
             end
         end
     end
-    local function adopt()
+    local function adoptDLib()
         local dlib = rawget(_G, "DLib")
         if type(dlib) ~= "table" or rawget(hook, "Call") ~= nil then return end
         local found, dlibHook, taken = pcall(function() return dlib.hook, dlib.ghook end)
@@ -2310,6 +2326,82 @@ do
             report("adapted", "hook library", "DLib runs the game's hooks from its own lists: the guard's protections "
                 .. "run inside them", source)
         end
+    end
+    -- ULib: the lists of names each priority list is, which the guard watches, and the event of each.
+    local armed = setmetatable({}, {__mode = "k"})
+    local function adaptRecord(event, id, record)
+        local fn = type(record) == "table" and rawget(record, "fn")
+        if type(fn) == "function" and not guardWrappers[fn] then
+            local wrapper = wrap(event, id, fn)
+            if wrapper ~= fn then rawset(record, "fn", wrapper) end
+        end
+    end
+    -- ULib's Add first removes the name at every priority, then puts the new record in one list: a new key there.
+    local watchNames = {__newindex = function(list, id, record)
+        rawset(list, id, record)
+        local event = armed[list]
+        if event ~= nil and record ~= nil then pcall(adaptRecord, event, id, record) end
+    end}
+    local function arm(event, levels)
+        if type(levels) ~= "table" then return end
+        for _, list in pairs(levels) do
+            if type(list) == "table" then
+                for id, record in pairs(list) do adaptRecord(event, id, record) end
+                -- A list with a metatable of someone else's is left to the next adoption's walk.
+                if armed[list] == nil and getmetatable(list) == nil then
+                    armed[list] = event
+                    setmetatable(list, watchNames)
+                end
+            end
+        end
+    end
+    -- An event's priority lists, made with its first hook.
+    local watchEvents = {__newindex = function(registry, event, levels)
+        rawset(registry, event, levels)
+        pcall(arm, event, levels)
+    end}
+    local function frameHook() if active() then frameBegins() end end
+    local function depthHook() if active() then return false end end
+    guardWrappers[frameHook], guardWrappers[depthHook] = true, true
+    local function holds(registry, event, id, fn)
+        local levels = rawget(registry, event)
+        if type(levels) ~= "table" then return false end
+        for _, list in pairs(levels) do
+            local record = type(list) == "table" and rawget(list, id)
+            if type(record) == "table" and rawget(record, "fn") == fn then return true end
+        end
+        return false
+    end
+    local ulibRegistry
+    local function adoptULib()
+        local getULib = rawget(hook, "GetULibTable")
+        -- DLib leaves no hook.Call in the hook table; its own GetULibTable is read through __index.
+        if type(getULib) ~= "function" or rawget(hook, "Call") == nil then return end
+        local ok, registry = pcall(getULib)
+        if not ok or type(registry) ~= "table" then return end
+        for event, levels in pairs(registry) do arm(event, levels) end
+        if getmetatable(registry) == nil then setmetatable(registry, watchEvents) end
+        -- Not in the late route, which leaves the remote server's dispatcher as it is, nor where the guard's own
+        -- dispatcher still stands first (a ULib loaded before the guard): that one answers and counts itself.
+        local add = rawget(hook, "Add")
+        if not late and rawget(hook, "Call") ~= dispatcher and type(add) == "function" then
+            if not holds(registry, "NeedsDepthPass", "nativeloader_guard_depth", depthHook) then
+                pcall(add, "NeedsDepthPass", "nativeloader_guard_depth", depthHook, -1)
+            end
+            if not holds(registry, "PreRender", "nativeloader_guard_frame", frameHook) then
+                pcall(add, "PreRender", "nativeloader_guard_frame", frameHook, -2)
+            end
+        end
+        if ulibRegistry ~= registry then
+            ulibRegistry = registry
+            state.hook_library = "ULib"
+            report("adapted", "hook library", "ULib runs the game's hooks from its own lists: the guard's protections "
+                .. "run inside them", functionSource(getULib))
+        end
+    end
+    local function adopt()
+        adoptDLib()
+        adoptULib()
     end
     adopt()
     for _, event in ipairs({"PreGamemodeLoaded", "OnGamemodeLoaded", "PostGamemodeLoaded", "Initialize",

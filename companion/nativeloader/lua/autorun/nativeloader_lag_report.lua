@@ -64,36 +64,60 @@ end
 
 -- Puts one function in a hook's place without hook.Add, whose checks and other add-ons' wrappers of it would run
 -- again (and which, in ULib's hook library, would move the hook to the default priority). GMod's hook table is the
--- live one. ULib keeps its own, with a function per priority, and the plain table beside it, which the render
--- guard runs its events from: there the function is put into both. With any other hook library the hook is left
--- alone.
+-- live one. With any other hook library the hook is left alone.
 local function swap(event, id, from, to)
-    if isfunction(hook.GetULibTable) then
-        local all = hook.GetULibTable()
-        local levels = istable(all) and all[event]
-        local done = false
-        if istable(levels) then
-            for _, list in pairs(levels) do
-                local slot = istable(list) and list[id]
-                if istable(slot) and rawequal(slot.fn, from) then
-                    slot.fn = to
-                    done = true
-                    break
-                end
-            end
-        end
-        local plain = hook.GetTable()[event]
-        if istable(plain) and rawequal(plain[id], from) then
-            plain[id] = to
-            done = true
-        end
-        return done
-    end
     local list = hook.GetTable()[event]
     if not istable(list) or not rawequal(list[id], from) then return false end
     list[id] = to
     local now = hook.GetTable()[event]
     return istable(now) and rawequal(now[id], to)
+end
+-- ULib runs a hook from its own record (a list per priority) and keeps the add-on's function in a plain table beside
+-- it. The record can hold another function than that one: the render guard's wrapper of it, since the guard works
+-- inside ULib's records (ADR 0257). What the record holds is what is timed, so the guard keeps protecting the function
+-- meanwhile, and it is what is put back; the plain table gets the timer as well.
+local function ulibRecord(event, id)
+    local all = hook.GetULibTable()
+    local levels = istable(all) and all[event]
+    if not istable(levels) then return nil end
+    for _, list in pairs(levels) do
+        local slot = istable(list) and list[id]
+        if istable(slot) and isfunction(slot.fn) then return slot end
+    end
+end
+local function swapIn(entry)
+    if not isfunction(hook.GetULibTable) then return swap(entry.event, entry.id, entry.fn, entry.wrapper) end
+    local done = false
+    local slot = ulibRecord(entry.event, entry.id)
+    if slot then
+        local held = slot.fn
+        entry.slot, entry.held = slot, held
+        entry.inSlot = rawequal(held, entry.fn) and entry.wrapper or wrap(held, entry)
+        slot.fn = entry.inSlot
+        done = true
+    end
+    local plain = hook.GetTable()[entry.event]
+    if istable(plain) and rawequal(plain[entry.id], entry.fn) then
+        plain[entry.id] = entry.wrapper
+        done = true
+    end
+    return done
+end
+-- Only where the hook still holds the timer: a record ULib no longer holds, or a function put in its place, stays.
+local function swapOut(entry)
+    if not isfunction(hook.GetULibTable) then return swap(entry.event, entry.id, entry.wrapper, entry.fn) end
+    local done = false
+    local slot = entry.slot
+    if slot and ulibRecord(entry.event, entry.id) == slot and rawequal(slot.fn, entry.inSlot) then
+        slot.fn = entry.held
+        done = true
+    end
+    local plain = hook.GetTable()[entry.event]
+    if istable(plain) and rawequal(plain[entry.id], entry.wrapper) then
+        plain[entry.id] = entry.fn
+        done = true
+    end
+    return done
 end
 
 local function top(entries, count)
@@ -132,7 +156,7 @@ local function report(seconds)
     end
     for _, item in ipairs(found) do
         local entry = entryFor(item[1], item[2], item[3])
-        if swap(entry.event, entry.id, entry.fn, entry.wrapper) then
+        if swapIn(entry) then
             wrapped[#wrapped + 1] = entry
         else
             hooks[#hooks] = nil
@@ -183,7 +207,7 @@ local function report(seconds)
     local function putBack()
         hook.Remove(frameEvent, "nativeloader_lag_report")
         for _, entry in ipairs(wrapped) do
-            if swap(entry.event, entry.id, entry.wrapper, entry.fn) then restored = restored + 1 end
+            if swapOut(entry) then restored = restored + 1 end
         end
         for _, entry in ipairs(methods) do
             if istable(gm) and rawequal(rawget(gm, entry.event), entry.wrapper) then rawset(gm, entry.event, entry.fn) end

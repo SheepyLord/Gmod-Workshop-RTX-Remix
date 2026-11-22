@@ -99,6 +99,15 @@ class RenderGuardTests(unittest.TestCase):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
 
+    def test_the_guard_works_inside_ulibs_hook_library(self):
+        # ULib (ULX's library, Workshop 557962238) writes its own hook library over the hook table's fields from its
+        # client autorun, after the early guard, so the guard's dispatcher and registration filter were never called
+        # again. The early route, and the late multiplayer route where ULib came first; ULib's priorities and monitors
+        # stay, hook.Call stays ULib's.
+        for scenario in ("ulib_hooks", "ulib_hooks_multiplayer"):
+            with self.subTest(scenario=scenario):
+                self.run_case(scenario)
+
     def test_nested_views_are_bounded_but_sequential_views_remain(self):
         self.run_case("views")
 

@@ -189,6 +189,7 @@ Results to quote, all at 4K with DLSS on an RTX 5090 and a Ryzen 9 9950X3D:
 | gm_csgoagency, 18 cameras (player at the spawn) | 16.2 ms | 18.4 ms | 21.3 ms (a side hall) |
 | cmdr_office_summer, 24 cameras (player placed) | 11.7 ms | 14.2 ms | 17.8 ms median, 19.2 ms p99 (the courtyard) |
 | gm_stelliferous, 32 cameras (player placed; other programs open) | about 150 ms (wall clock, 8 cameras) | 19.6 ms (25.1 ms by wall clock at the same 8) | 38.1 ms median (the core) |
+| gm_mallparking, 31 cameras (player placed; a stock session of its own) | 18.2 ms (18.4 ms by wall clock) | 16.8 ms | 19.7 ms (a long bay) |
 
 ## Visibility checks
 

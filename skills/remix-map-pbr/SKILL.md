@@ -1,6 +1,6 @@
 ---
 name: remix-map-pbr
-description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency, cmdr_office_summer and gm_stelliferous remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
+description: Remaster a Garry's Mod map for RTX Remix (GMod RTX) the way the user's gm_poolrooms, Backrooms, modern_house, lestnicha3, gm_brmovie_complete, gm_csgoagency, cmdr_office_summer, gm_stelliferous and gm_mallparking remasters were made - extract the Workshop map, classify its materials (checked against their VMTs), generate AI PBR maps (each albedo optionally re-rendered first by OpenAI's image model and scored for fidelity; PBRify upscale, normal, roughness, height), add CC0 photoscans where textures or plants are too low-res, build a Remix mod of mat_HASH layers keyed by live-checked texture hashes, and add a map-only Lua add-on with Remix API lights, the physical sky, night lights, mirrors, glass, water, scoped settings and visibility; then tour, compare with stock, measure frame and load times. Use it when a map should look PBR or RTX-remastered, map textures need PBR maps or upscaling, or the task is a map's Remix mod, lights, sky, plants, mirrors, water or caustics, map artifacts, slow loading or low frame rates under GMod RTX, culling for path tracing, or a map before/after. Not for characters (mmd-remix-pbr); a remaster's Workshop upload, and a map whose Remix mod is already finished (the classic install's Poolday and SafeHouse: ported, not remade), follow workshop-content-pack.
 ---
 
 # Map remaster for RTX Remix (Garry's Mod RTX)
@@ -41,7 +41,12 @@ cmdr_office_summer's for a space station in orbit: the map's own skybox drawn (`
 upscaled) with an API sun, 2253 Remix API lights on its lamps and 2189 light entities switched by the PAS, the
 `$selfillum` glow masks emitting on any class, the cameras from the map's soundscapes (`anchor_cams.py`), and
 tours that capture the window, since the engine's own screenshot ended stock sessions on that map ($6.11 of
-OpenAI usage for 118 kept and 20 reused, about $0.05 a kept texture).
+OpenAI usage for 118 kept and 20 reused, about $0.05 a kept texture). gm_mallparking (`source/gm_mallparking_rtx/
+tools`, branch `claude/mallparking-rtx`) is gm_stelliferous's for an underground mall's parking garage: standing
+water from the puddle floor's own specular mask (`compose.py`'s `puddle`), cameras from `survey.py` (no
+soundscapes), lights eight times the office's levels for fixtures 5-16 m apart, clear glass and PVC strip curtains
+from the originals' alpha (`glass_layers.py`), the mall's mirrors drawn back, and the OpenAI requests sent in
+realtime at the user's wish ($4.44 for 72 kept and 26 reused).
 
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it

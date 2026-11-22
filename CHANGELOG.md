@@ -6,6 +6,24 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: an underground parking garage remastered, OpenAI requests in realtime (2026-11-21)
+
+- **`remix-map-pbr` learns from gm_mallparking** (the user's request of 2026-11-21: Workshop 2619660952, the
+  underground parking garage of a mall, at the earlier remasters' standard). The remaster lives on a local branch
+  of the user's fork (`claude/mallparking-rtx`, its doc `docs/GM_MALLPARKING_RTX.md`) and in the user's game; its
+  textures derive from the map's and stay local. The garage's puddles are standing water now (near-mirror
+  reflections of the lamps, from the puddle floor's own specular mask), its 220 fluorescent fixtures, 57 prison
+  lamps and 16 cage bulbs carry 377 Remix API lights in the mapper's cool fluorescent white, its windows,
+  storefronts and walk-through strip curtains are glass and PVC, and the mall's restroom mirrors reflect again
+  (gmRTX removes them). 274 PBR replacements, 98 colours from OpenAI's image model (72 answers kept, 26 reused
+  free); $4.44, sent in realtime at the user's wish rather than as a batch job. 16.8 ms median at 4K against
+  stock's 18.2 ms. The skill records the inverted puddle mask and the `puddle` recipe, light levels that follow
+  the fixture spacing, detail-baked sources too large for OpenAI's input, names that fool the generic class
+  rules, and stock mode, which cannot bring gmRTX's lights back in the same session.
+- **The remaster as one package that stands alone** (`gm-mallparking-rtx`, 3,612,924,456 bytes, every texture
+  whole): built, its manifest checked with `nlctl`, and not uploaded. In the user's game 126 of its 274 hashes
+  belong to remaster folders that sort first, whose versions show on this map, as the user chose for the office.
+
 ### Disconnecting after a long session no longer crashes (2026-11-21)
 
 - **Leaving a map or a server after a long session with lots spawned could still close the game with "Garry's Mod

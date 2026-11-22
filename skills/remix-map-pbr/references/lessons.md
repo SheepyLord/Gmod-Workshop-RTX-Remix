@@ -522,6 +522,23 @@ request "avoid wasting usage", 2026-11-20)
 - `oai_tex.py --prepare` blends a tiling answer's edges with the local DAT upscale read from `work/ai_dat`:
   copy those there before the `jobs_oai.json` run rewrites `work/ai`.
 
+**Realtime requests** (MP, 2026-11-21)
+- The user asked for realtime requests instead of the Batch API, at twice the price ("Don't submit batch job,
+  submit realtime job to OpenAI even at more cost"): pilot, then `oai_tex.py <names> --gen full|half` (parallel
+  workers); a refused answer is sent again with `--force` (without it the tool returns the saved answer). The
+  batch already running was 70 of 73 done when the user asked; its last request was cancelled.
+- A texture with Source `$detail` is decoded with the detail baked in at up to 4096 px (`work/src_detail`): its
+  canvas with the tiling margin was 5120 px (47 MB as PNG), which the endpoint refused as "invalid input image
+  file", in the batch and synchronously. `MAX_INPUT_EDGE` (2048) sends a larger source at that size; the
+  answers kept the painted bay lines in place.
+- A soft-edged mask tolerates a small shift: the puddle floor's answer moved parts by 2.1 px (90th percentile),
+  over the 1.5 px every kept layout must meet, while its water mask has a soft rim: `SHIFT_TOLERANCE` gives that
+  class 3 px. 72 answers kept and 4 refused (a rewritten print, moved tile scratches, two brightened props);
+  $4.44 in all (batch $2.88 for 66, realtime $1.38 for 10 and the 4 batch answers they replaced), about $0.06 a
+  kept texture.
+- The first local pass can leave out the props OpenAI re-renders (their maps come from the answer), not the
+  tiling textures: `--prepare` blends a kept layout's wrapped edges with the local upscale in `work/ai_dat`.
+
 ## Lights and sky
 
 **Fixture colours from the mapper's light entities** (AG, 2026-11-19)
@@ -635,6 +652,37 @@ request "avoid wasting usage", 2026-11-20)
   whose sky is a picture with no API sun can ship a sky file instead of Lua (`data_static/nativeloader/sky/<map>/`).
   The map's 3D skybox shows under the companion's "map's own sky" only at scale 16 (gm_stelliferous's is 64, and
   empty).
+
+**A parking garage with standing water** (MP = gm_mallparking, 2026-11-21)
+- The puddle floor's alpha is its specular mask ($basealphaenvmapmask), and it is dark where the water stands:
+  the author drew the dry concrete white and the puddles and a wet band black. Read a mask by eye before using it.
+  `compose.py`'s `puddle` key (`{"rough", "lo", "hi", "invert", "darken", "flat"}`) makes the masked parts water:
+  roughness to a near mirror (0.05), the concrete 10 % darker, relief and parallax flattened, with a soft rim.
+  `envmask` alone lowers roughness by at most 60 % (concrete's 0.66 to 0.26), not to water.
+- Names fool the generic rules: "street" contains "tree" (the street electrical boxes became foliage), "hose"
+  made a fire-hose cabinet rubber, "water" took the water heater out of the AI stage, "door" made a steel roll-up
+  door wood. Put map rules first and read the class report's small classes.
+- Lit and dark lamps: check whether the lit material has a texture of its own before making a dark tag. HL2's
+  fluorescent fixtures use prison_objects004_on (lit, with the glow mask) and prison_objects004 (dark): separate
+  hashes, no tag needed. The skin decides which one a placed fixture shows (27 of 220 left dark).
+- Light levels follow the fixture spacing: at the office's levels this garage (fixtures 5 to 16 m apart, 373
+  light entities) came out at a tenth of stock's brightness, pools of light under black ceilings. Measure the
+  tour's mean luminance against the stock shots per camera (auto-exposure compresses it: x8 on the lights gave
+  the median camera 0.10 to 0.61 of stock at the same six, the bright store and tunnel unchanged); the shipped
+  style is x8 (1.16 of stock on the median of 31). Drawing the whole map with every light on (`mprtx_vis all`)
+  cost 25-30 % more frame time for the same brightness: the dark bays were dim lights, not missing ones.
+- `tools/stock.py on` does not bring gmRTX's light updater's lights back in a session that started with the
+  remaster: the stock tour came out black. Shoot stock and time it in a session of its own, the remaster's
+  junctions set aside.
+- No soundscapes and no teleports: `survey.py stock 40` (cameras over the larger floor faces) gave 31 views across
+  the garage, the mall, the service corridors and the roof, which became the tour cameras. Freeze the sky's
+  clock for the tours (`nativeloader_sky_time_passes 0`): it ran from sunset to night during the first one.
+- The user's own game was running (path tracing, 15 GB, 15 GB of commit memory free): the local AI stage waited
+  until it closed (an AI batch beside a game once ended in VK_ERROR_DEVICE_LOST); OpenAI and CPU work went on.
+- In the user's game 126 of the mod's 274 hashes (38 % of the map's area, 63 % of its prop instances) belong to
+  folders that sort first (bigcity, the office, funkis, the Backrooms remasters): their versions show on this map,
+  as the user chose for the office (no tag textures). Compare against every folder in the game the mod goes to,
+  not only the PoC's (20 there).
 
 ## Mirrors, sprites and map clean-up
 

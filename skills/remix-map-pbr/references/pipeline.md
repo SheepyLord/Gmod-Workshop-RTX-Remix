@@ -229,6 +229,7 @@ Per texture, from `work/ai/<name>/` and the originals in `work/src/`, writes `wo
 | `emissive` | emission for light textures from their bright diffuser (luminance above 55 % of the 99th percentile); with `$selfillum` the alpha mask times that threshold, so the trim ring does not glow |
 | `emit_rects` | the [u0, v0, u1, v1] parts of an atlas that are the lamp |
 | `backdrop` | the whole colour emits (painted distant views) |
+| `puddle` | standing water where the specular mask (its alpha with `invert` when the water is dark there) passes from `lo` to `hi`: roughness to `rough`, albedo times `darken`, relief and parallax flattened by `flat` (gm_mallparking's puddle floor) |
 
 lestnicha3's `compose.py` adds:
 

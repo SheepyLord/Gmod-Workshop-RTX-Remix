@@ -4,7 +4,8 @@ In RTX starts every map shows the RTX sky by default: the runtime's physical sky
 weather, driven by the companion's Sky and weather settings. A map's RTX version (a content package, a remaster's
 add-on) can bring a sky of its own, which shows **above** the RTX sky: by default on that map, with the player free to
 pick the RTX sky or the map's original sky for that map ([ADR 0249](decisions/0249-which-sky-a-map-shows.md)). At the
-map's start one chat line tells the player which sky shows and how to switch.
+map's start a chat line can tell the player which sky shows and how to switch: "Say which sky shows", off by
+default ([ADR 0253](decisions/0253-the-skys-chat-line-is-off-by-default.md)).
 
 There are two ways. A **sky file** needs no code and is the one to use for a sky that is a picture: the map's own
 skybox (perhaps replaced by your Remix mod) or another skybox. A **Lua add-on** that sets the sky itself (a time of day
@@ -78,7 +79,7 @@ own sky. A player who switches back to your sky during the session sees it from 
 
 ## What the player sees
 
-- **The chat line**, once at the map's start: "[RTX] This map shows the sky of Construct HD. For the RTX sky: type
+- **The chat line**, once at the map's start when the player ticked "Say which sky shows" (off by default): "[RTX] This map shows the sky of Construct HD. For the RTX sky: type
   nativeloader_sky_here rtx in the console, or use RTX Remix > Sky and weather in the spawn menu." (in the player's
   language), or that the map shows the RTX sky and has its own (with a 3D skybox, or none to switch to).
 - **RTX Remix > Sky and weather**: what the map shows; This map (Automatic, RTX sky, The map's own sky, Sky of <your

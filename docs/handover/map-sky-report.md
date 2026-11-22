@@ -145,3 +145,9 @@ version can declare its sky the same way (a sky file, no code), so the same conf
 - Committed on `map-sky` as `51914bdc` and merged into `main` by fast-forward from `28b7aa7f`. The merge's hook
   uploaded item 3829070317 as `0.0.0-dev.20261121012404+c409f3e0` (content digest `0841011e...`), with one change note:
   this entry. A player's game deploys it at its next start (Steam may first only download it).
+
+## Later: the chat line off by default (ADR 0253)
+
+On 2026-11-21 the user, seeing the line in their game, asked for it hidden by default. `nativeloader_sky_message` now
+defaults to 0 and a saved 1 goes off once ([ADR 0253](../decisions/0253-the-skys-chat-line-is-off-by-default.md)); the
+chat line's words, the console's line and the panel are as this report describes.

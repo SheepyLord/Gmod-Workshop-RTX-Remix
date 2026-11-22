@@ -42,6 +42,18 @@ if CLIENT then
         file.CreateDir(MARKER_FOLDER)
         file.Write(skyMarker, changed and "migrated 0/30 to 1/20\n" or "kept player settings\n")
     end)
+    -- ADR 0253 (the user's request of 2026-11-21): the sky's chat line at a map's start is off by default. GMod saved
+    -- the earlier default (on) in client.vdf, so a saved "on" goes off once; a player who ticks it again keeps it.
+    hook.Add("NativeLoaderSkyDefaults", "nativeloader_defaults_sky_message", function()
+        local messageMarker = MARKER_FOLDER .. "/sky_message_client_v1.txt"
+        if file.Exists(messageMarker, "DATA") then return end
+        local message = GetConVar("nativeloader_sky_message")
+        if not message then return end
+        local changed = message:GetBool()
+        if changed then message:SetString("0") end
+        file.CreateDir(MARKER_FOLDER)
+        file.Write(messageMarker, changed and "turned the chat line off\n" or "the chat line was off\n")
+    end)
 end
 
 -- Sets the classic values; only those still at the add-on's default unless `all`. Returns how many

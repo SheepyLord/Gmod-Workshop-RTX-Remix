@@ -121,7 +121,12 @@ The harness is written to a scratch folder under `out\tmp`.
   patch switches mocked, each change logged with the fixes' warning switch as `r_3dsky`'s callback sees it):
   - `test_every_map_shows_the_rtx_sky_by_default_and_the_chat_line_says_how_to_switch`: the RTX sky and no engine
     change at the start; the chat line for a 3D skybox, a 2D sky only, missing sky textures, no sky faces; off with
-    `nativeloader_sky_message 0`, the console's line still there;
+    `nativeloader_sky_message 0`, the console's line still there (these scenarios start with the line ticked and its
+    migration done: the harness's `LINE_DEFAULT` and `LINE_MIGRATION` start a new player's game or one saved before
+    ADR 0253 instead);
+  - `test_the_chat_line_is_off_by_default_and_a_saved_old_default_goes_off_once` (ADR 0253): no chat line in a new
+    player's game, the console's line still there; a saved `1` from before goes to `0` once (`nativeloader_defaults.lua`,
+    the marker `sky_message_client_v1.txt`); with the marker there a ticked line shows;
   - `test_this_maps_own_sky_shows_its_3d_skybox_through_the_pas_and_is_remembered`: `nativeloader_sky_here map`
     (`rtx.skyMode 0`, the map's sun back, `r_3dsky 1` between `rtx_show_3dsky_warning 0` and `1`, the PAS switches, the
     old values recorded, the choice saved), `rtx` (all put back), `auto` (the choice forgotten); the saved choice from

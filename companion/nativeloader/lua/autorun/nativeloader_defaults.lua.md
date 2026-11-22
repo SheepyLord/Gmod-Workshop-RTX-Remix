@@ -11,6 +11,13 @@ reapply other classic settings or count as a deliberate takeover of a map add-on
 [ADR 0117](../../../../docs/decisions/0117-startup-upscaling-hint-and-sky-defaults.md). Inputs are the
 two client ConVars and marker; outputs are those two values and marker. No exit code (game Lua).
 
+The same hook also turns the sky's chat line off once
+([ADR 0253](../../../../docs/decisions/0253-the-skys-chat-line-is-off-by-default.md)): GMod saved the earlier default of
+`nativeloader_sky_message` (1) in `client.vdf`, so when no marker
+`nativeloader_companion/sky_message_client_v1.txt` exists and the setting is on, immediate `ConVar:SetString` writes
+`0`; the marker then records `turned the chat line off` or `the chat line was off`, and a player who ticks "Say which
+sky shows" later keeps it. Client only; nothing happens without the ConVar.
+
 The companion's first-run defaults for the RTX add-ons' settings
 ([ADR 0020](../../../../docs/decisions/0020-classic-rtx-settings-as-defaults.md)). Shared: it runs
 on the server and on the client.

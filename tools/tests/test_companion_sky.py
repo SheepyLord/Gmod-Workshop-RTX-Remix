@@ -120,6 +120,12 @@ function CreateClientConVar(name, default)
   -- Most scenarios inspect a fixed sky/weather in isolation. Freeze the clock explicitly; the
   -- defaults scenarios below exercise the real moving default and its migration instead.
   if name == "nativeloader_sky_time_passes" and not RUNNING_DEFAULTS then c.value = "0" end
+  -- ADR 0253: the chat line is off by default. The scenarios read it, so they start as a player who ticked "Say which
+  -- sky shows" (the line on, its migration done below) unless LINE_DEFAULT (a new player's game) or LINE_MIGRATION (a
+  -- game saved before the change) asks otherwise.
+  if name == "nativeloader_sky_message" and not LINE_DEFAULT and not LINE_MIGRATION and not (PRESET and PRESET[name]) then
+    c.value = "1"
+  end
   function c:GetString() return self.value end
   function c:GetBool() return (tonumber(self.value) or 0) ~= 0 end
   function c:GetFloat() return tonumber(self.value) or 0 end
@@ -208,6 +214,7 @@ local function bspFile(data)
   }
 end
 local data = {}
+if not LINE_DEFAULT and not LINE_MIGRATION then data["nativeloader_companion/sky_message_client_v1.txt"] = "done\n" end
 -- ADR 0249: a map's sky faces are there (materials/skybox/<name><side>.vmt) unless FACES is false or a table of the
 -- paths that are; sky files (SKY_FILES: path -> text) are add-ons' data_static; JSON maps a file's text to the
 -- table util.JSONToTable gives (none for text it cannot read); SAVED_CHOICES is sky_maps.txt from an earlier game.
@@ -387,6 +394,8 @@ if SCRIPT == "mapsky" then
   end
   print("choices " .. (data["nativeloader_companion/sky_maps.txt"] or ""):gsub("\n", ";"))
   print("enginelog " .. table.concat(engineLog, ","))
+  print("message " .. convars.nativeloader_sky_message.value .. " "
+    .. tostring(data["nativeloader_companion/sky_message_client_v1.txt"]):gsub("\n", ""))
   local lines, realPrint = {}, print
   print = function(text) lines[#lines + 1] = text end
   cmd("nativeloader_sky_status")
@@ -992,6 +1001,22 @@ class SkyTests(unittest.TestCase):
         out = self.map_sky(preset='PRESET = { nativeloader_sky_message = "0" }\n')
         self.assertNotIn('chat', out)
         self.assertIn('This map shows the RTX sky.', out['status_message'])
+
+    def test_the_chat_line_is_off_by_default_and_a_saved_old_default_goes_off_once(self):
+        # ADR 0253, the user's request of 2026-11-21 ("Make this notice hidden by default"): a new player's game says
+        # nothing in chat; the console and the panel still say which sky shows.
+        out = self.map_sky(LINE_DEFAULT=True)
+        self.assertNotIn('chat', out)
+        self.assertIn('This map shows the RTX sky.', out['status_message'])
+        self.assertEqual(out['message'], '0 the chat line was off')
+        # A game that saved the earlier default (on) in client.vdf: off once, the marker written ...
+        out = self.map_sky(preset='PRESET = { nativeloader_sky_message = "1" }\n', LINE_MIGRATION=True)
+        self.assertNotIn('chat', out)
+        self.assertEqual(out['message'], '0 turned the chat line off')
+        # ... and once the marker is there, a player who ticks "Say which sky shows" again keeps the line.
+        out = self.map_sky(preset='PRESET = { nativeloader_sky_message = "1" }\n')
+        self.assertEqual(out['message'], '1 done')
+        self.assertTrue(out['chat'].startswith('[RTX] This map shows the RTX sky. '), out['chat'])
 
     def test_this_maps_own_sky_shows_its_3d_skybox_through_the_pas_and_is_remembered(self):
         out = self.map_sky('{ "nativeloader_sky_here", "map" }, { "nativeloader_sky_here", "rtx" }, '

@@ -3,7 +3,8 @@
 - Status: Accepted 2026-11-20 (the user's request and their three answers below); supersedes in part
   [ADR 0031](0031-physical-sky-time-and-weather.md) (rule 1's "the map's skybox": now one choice per map, with its 3D
   skybox, and the default for other maps); extends [ADR 0248](0248-a-maps-add-on-keeps-a-fixed-sky.md) to every sky
-  that is not the RTX sky
+  that is not the RTX sky; superseded in part by [0253](0253-the-skys-chat-line-is-off-by-default.md) (decision 6: the chat line is
+  off by default)
 - Package only: the companion ([nativeloader_sky.lua](../../companion/nativeloader/lua/autorun/nativeloader_sky.lua.md),
   [map_sky.lua](../../companion/nativeloader/lua/nativeloader/map_sky.lua.md)) and its translations. No `winmm.dll`,
   runtime or fixes change.

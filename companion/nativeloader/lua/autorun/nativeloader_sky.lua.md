@@ -69,7 +69,7 @@ Saved client settings, shown in the RTX Remix tab under "Sky and weather":
 |---|---|---|
 | `nativeloader_sky` | `1` | The sky of maps without a choice of their own ("Other maps"): 1 the RTX sky (the physical sky); 0 their own sky, with its 3D skybox (ADR 0249). A map's RTX version's sky comes first. Changing it takes no map's sky over |
 | `nativeloader_sky_here` | `auto` | This map's sky ("This map"), not saved itself but remembered per map in `data/nativeloader_companion/sky_maps.txt` (one `<map> <choice>` a line; `auto` is not written) and set from it at each map's start: `auto`, `rtx`, `map`, `addon` or a sky file's id (ADR 0249) |
-| `nativeloader_sky_message` | `1` | One chat line at a map's start says which sky shows and how to switch ("Say which sky shows"); the console gets it in English either way |
+| `nativeloader_sky_message` | `0` | One chat line at a map's start says which sky shows and how to switch ("Say which sky shows"); off by default (ADR 0253; a saved copy of the earlier default, on, goes off once: `nativeloader_defaults.lua`); the console gets it in English either way |
 | `nativeloader_sky_no_horizon` | `0` | 1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and the moon (R26). Changing it does not take a map's sky over |
 | `nativeloader_sky_follow_map` | `1` | The time and the sun's direction come from the map's own sun |
 | `nativeloader_sky_hour` | `14.5` | Time of day, 0-24. Following the map, it shows the map's time |
@@ -373,7 +373,7 @@ choice, `nativeloader_sky` and the add-on's answer stay the same.
   convar goes back.
 - **`nativeloader_sky` changes** re-resolve (a map's own sky may come or go) and take nothing over.
 - **The chat line**, 6 s after `InitPostEntity` (after the add-ons have said whose the sky is), once per map load, only
-  with the Remix API there: `[RTX] ` and `map_sky.state`, `advice` and `limit` translated (`L`), joined by spaces;
+  with the Remix API there and "Say which sky shows" ticked (off by default, ADR 0253): `[RTX] ` and `map_sky.state`, `advice` and `limit` translated (`L`), joined by spaces;
   the console gets the English line (`[nativeloader] sky: ...`) also with `nativeloader_sky_message 0`.
 - **`NATIVELOADER_SKY.takenOver()`** is also true once the player chose another sky for the map. It runs no owner hook
   (gm_stelliferous RTX asks it from its own answer to `NativeLoaderSkyOwner`); `fixed()` it may run.

@@ -6,6 +6,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The sky's chat line at a map's start is off by default (2026-11-21)
+
+- **No more "[RTX] This map shows the RTX sky..." line in chat at each map's start**, unless you want it: tick
+  **Say which sky shows** in RTX Remix > Sky and weather. Games that already had the line on get it off once; tick it
+  again to keep it. The panel still says which sky the map shows, and the console still gets the line.
+- Behind it ([ADR 0253](docs/decisions/0253-the-skys-chat-line-is-off-by-default.md)): `nativeloader_sky_message` defaults to 0, and
+  `nativeloader_defaults.lua` turns a saved 1 off once (marker `sky_message_client_v1.txt`), since GMod keeps a
+  setting's default in `client.vdf`. Tests: `test_companion_sky.py`.
+
 ### The weapon copy keeps third-person path tracing and stays out of your own view; imported characters' hair near spotlights (2026-11-21)
 
 - **With the RTX fixes' weapon copy on (Pseudoweapon Enabled in the RTX fixes' settings, off by default) and a scripted

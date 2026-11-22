@@ -3944,3 +3944,12 @@ separator now has 57 texts in each catalog.
 - Not covered: a multiplayer game, scripted weapons other than the tool gun, Customisable Weaponry 2.0 (its `WMEnt` no
   longer updated by the copy in first person), the weapon copy's private textures (`rtx_pseudoweapon_unique_hashes 1`),
   the field install.
+
+## The sky's chat line off by default (ADR 0253)
+
+- **LuaJIT** ([`test_companion_sky.py`](../tools/tests/test_companion_sky.py.md)
+  `test_the_chat_line_is_off_by_default_and_a_saved_old_default_goes_off_once`): no chat line in a new player's game,
+  the console's line kept; a saved `nativeloader_sky_message 1` from before goes to 0 once and the marker is written;
+  with the marker a ticked line shows. The other map-sky scenarios start with the line ticked.
+- Not covered in a game: the chat line's absence is the old `nativeloader_sky_message 0` path, which ADR 0249's PoC runs
+  covered; the one-time switch-off ran only under LuaJIT.

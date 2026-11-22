@@ -35,7 +35,9 @@ local DEFAULTS = {
     nativeloader_sky_moon_day = "1",
     nativeloader_sky_eclipse = "", nativeloader_sky_eclipse_amount = "100", nativeloader_sky_stars = "map",
     nativeloader_weather = "partlyCloudy", nativeloader_weather_seconds = "30", nativeloader_sky_interval = "0.02",
-    nativeloader_sky_message = "1",
+    -- ADR 0253: the chat line at a map's start is off by default (nativeloader_defaults.lua turns a saved copy of the
+    -- earlier default off once).
+    nativeloader_sky_message = "0",
 }
 
 -- The night sky editor (ADR 0227): each element of the night sky on its own, on the RTX Remix tab's Night sky
@@ -71,7 +73,7 @@ for name, entry in pairs(NIGHT_SETTINGS) do DEFAULTS[name] = tostring(entry[2]) 
 local HELP = {
     nativeloader_sky = "Sky on maps without a choice of their own (nativeloader_sky_here): 1 the RTX sky (sun, clouds, stars, "
         .. "moon), 0 the map's own sky and its 3D skybox. A map's RTX version's own sky comes first",
-    nativeloader_sky_message = "1: one chat line at a map's start says which sky shows and how to switch",
+    nativeloader_sky_message = "1: one chat line at a map's start says which sky shows and how to switch (off by default)",
     nativeloader_sky_no_horizon = "1: the physical sky has no horizon: the sky goes on below it, with clouds, the stars and "
         .. "the moon (maps that float in the sky or in space)",
     nativeloader_sky_follow_map = "1: the time of day and the sun's direction come from the map's own sun",
@@ -932,8 +934,8 @@ local function message(translate)
     return table.concat(out, " ")
 end
 
--- One chat line at the map's start: which sky shows and how to switch (the user's request of 2026-11-20). The
--- console gets it in English, for bug reports.
+-- One chat line at the map's start: which sky shows and how to switch (the user's request of 2026-11-20), with "Say
+-- which sky shows" ticked, off by default (ADR 0253). The console gets it in English either way, for bug reports.
 local said = false
 local function say()
     if said or not ready() then return end

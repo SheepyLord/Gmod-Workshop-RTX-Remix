@@ -84,6 +84,8 @@ times for one character in four days, another twice in seven minutes after a res
 
 - `packages/character-motion-importer/mmd_vmd_npc/lua/mmd_vmd_npc/sv_skeletons.lua` (new), `sh_core.lua`,
   `sv_cache.lua`, `sv_commands.lua`, `lua/autorun/mmd_vmd_npc.lua`; the part's `files.json`.
+- `companion/nativeloader/lua/autorun/_nativeloader_guard.lua`: the render guard's list of the package's own Lua
+  paths names `lua/mmd_vmd_npc/sv_skeletons.lua` (`test_render_guard_addons.py` requires every indexed one).
 - Tests: [motion_skeleton_harness.lua](../../tools/tests/motion_skeleton_harness.lua.md) and
   [test_motion_skeletons.py](../../tools/tests/test_motion_skeletons.py.md) (new),
   [motion_server_harness.lua](../../tools/tests/motion_server_harness.lua.md) and
@@ -92,6 +94,16 @@ times for one character in four days, another twice in seven minutes after a res
   [mmd_player_probe.lua](../../tools/qa/mmd_player_probe.lua.md), [mmd_player_server.lua](../../tools/qa/mmd_player_server.lua.md).
 - Docs: ADR 0259 and its row, CHANGELOG, ROADMAP, RESEARCH, TESTING, AGENTS.md, this report and its line in the
   handover index.
+
+## Published
+
+`tools	est.ps1 -Config Release` passed on the branch (35 native tests; 2,201, 29 and 26 Python tests; "All checks
+passed"), after one fix the first run asked for: the render guard's list of bundled paths now names the new server
+file. `origin/main` had not moved from `c58a5da2`, so `main` was fast-forwarded to `217abd73` and pushed. The merge's
+hook uploaded item 3829070317 as **0.0.0-dev.20261122231627+872153d3** (2,325,070,203 bytes, SHA-256
+`49b726e345e50bd5908a45e2a5bc0040b30264f26c4f807cd3363e6c2b71094c`, content digest `cfc4ffdb...`) at 2026-11-22
+23:17 UTC, with one change note of about 5,200 characters: this round's entry and the skills entry before it, the
+changelog since the last upload (ADR 0222). The push's hook found the same inputs and uploaded nothing.
 
 ## Notes and open questions
 

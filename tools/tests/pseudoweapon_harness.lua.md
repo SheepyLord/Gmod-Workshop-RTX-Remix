@@ -1,7 +1,8 @@
 # pseudoweapon_harness.lua
 
 A LuaJIT harness for the RTX fixes' weapon copy, `lua/entities/rtx_pseudoweapon.lua` in the fixes part
-([ADR 0251](../../docs/decisions/0251-the-weapon-copy-draws-nothing-before-the-frame.md)), run by
+([ADR 0251](../../docs/decisions/0251-the-weapon-copy-draws-nothing-before-the-frame.md),
+[ADR 0252](../../docs/decisions/0252-the-weapon-copy-draws-only-with-its-private-textures.md)), run by
 [test_pseudoweapon.py](test_pseudoweapon.py.md).
 
 ```powershell
@@ -10,11 +11,15 @@ luajit tools\tests\pseudoweapon_harness.lua <scenario> packages\fixes\garrysmod\
 
 It reads the file and turns GMod's C-style `!=` and `!` into Lua's `~=` and `not` (LuaJIT knows neither), stubs the
 parts of the game's API the entity uses (`ENT`, `LocalPlayer`, `GetConVar` with `rtx_pseudoweapon` 1 and
-`rtx_pseudoweapon_unique_hashes` 0, `ClientsideModel`, `hook`, `file.Exists`, `util.CRC`, `Color`, the enums), loads the
-file, creates the entity (`Initialize`) and runs its `Think` three times. The held weapon is the tool gun; in the
+`rtx_pseudoweapon_unique_hashes` 0, `ClientsideModel`, `Material`, `CreateMaterial`, `GetRenderTargetEx`, `render`,
+`cam`, `draw` and `surface` counting their calls by phase, `file`, `RemixCategoryManager`, `hook`, `util.CRC`, `Color`,
+the enums), loads the file, creates the entity (`Initialize`) and runs its `Think` three times. The held weapon is the tool gun; in the
 `_lua` scenarios it has `DrawWorldModel` (a scripted weapon), in the `_engine` ones it has none (an engine weapon).
 
-Scenarios: `first_lua`, `third_lua`, `first_engine`, `third_engine` (first or third person: `ShouldDrawLocalPlayer`).
-Each checks that `Think` called no `DrawWorldModel` and drew no model, and that it set up the player's and the weapon's
-bones on every call. Prints `PASS <scenario>`; a failed check raises `FAIL <scenario>: <why>` (exit code 1). Writes no
+Scenarios: `first_lua`, `third_lua`, `first_engine`, `third_engine` (first or third person: `ShouldDrawLocalPlayer`),
+and `draw`. Each checks that `Think` called no `DrawWorldModel`, drew no model and made no render call, and that it set
+up the player's and the weapon's bones on every call. `draw` then runs the copy model's own draw three times: the
+first makes the two private textures (two captures) and draws with both materials, every draw puts the overrides
+back, the materials are registered until the stub says their hashes are known (the second call) and then left alone;
+after a weapon change `Think` again makes no render call and the next draw makes the new textures. Prints `PASS <scenario>`; a failed check raises `FAIL <scenario>: <why>` (exit code 1). Writes no
 file.

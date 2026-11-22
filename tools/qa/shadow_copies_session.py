@@ -34,7 +34,45 @@ ORDERS = {
 }
 
 
+# Which part of the weapon copy brings the body copy into your first-person view (the tool gun in hand): its entity's
+# own draw, its client-side model's, the tool gun's screen add-on, another scripted weapon, its private textures.
+COPY_ENTITIES = 'for _, e in ipairs(ents.FindByClass("rtx_pseudoweapon")) do '
+DIAGNOSE = [
+    {'label': '02_body_on', 'set': [(BODY, '1')]},
+    {'label': '03_weapon_on', 'set': [(WEAPON, '1')]},
+    {'label': '04_entity_hidden', 'lua': COPY_ENTITIES + 'e.RenderOverride = function() end end'},
+    {'label': '05_model_hidden', 'lua': COPY_ENTITIES + 'for _, c in ipairs(e:GetChildren()) do '
+                                        'c.RenderOverride = function() end end end'},
+    {'label': '06_drawn_screen_off', 'set': [('dts_enabled', '0')],
+     'lua': COPY_ENTITIES + 'e.RenderOverride = nil for _, c in ipairs(e:GetChildren()) do '
+                            'c.RenderOverride = PseudoweaponRender end end'},
+    {'label': '07_camera_swep', 'set': [('dts_enabled', '1'), ('nlshadow_weapon', 'gmod_camera')]},
+    # The switch back to the tool gun makes the copy build its private textures (MaterialSet, on a weapon change).
+    {'label': '08_private_textures', 'set': [('rtx_pseudoweapon_unique_hashes', '1'), ('nlshadow_weapon', 'gmod_tool')],
+     'wait': 16},
+]
+
+
+# Both copies with the tool gun in first person and in third person, then the gravity gun and the tool gun again
+# (each weapon change makes the weapon copy's private textures anew).
+VERIFY = [
+    {'label': '02_body_on', 'set': [(BODY, '1')]},
+    {'label': '03_both_on', 'set': [(WEAPON, '1')]},
+    {'label': '04_third_both', 'view': 'third'},
+    {'label': '05_gravity_gun', 'view': 'first', 'set': [('nlshadow_weapon', 'weapon_physcannon')]},
+    {'label': '06_tool_gun_again', 'set': [('nlshadow_weapon', 'gmod_tool')]},
+]
+
+
 def steps(args) -> list[dict]:
+    if args.order == 'verify':
+        rows = [dict(row) for row in VERIFY]
+        rows.append({'label': '07_both_off', 'set': [(BODY, '0'), (WEAPON, '0')]})
+        return rows
+    if args.order == 'diagnose':
+        rows = [dict(row) for row in DIAGNOSE]
+        rows.append({'label': '09_both_off', 'set': [(BODY, '0'), (WEAPON, '0'), ('rtx_pseudoweapon_unique_hashes', '0')]})
+        return rows
     rows = [{'label': label, 'set': changes, **({'view': view} if view else {})}
             for label, changes, view in ORDERS[args.order]]
     if args.player_model:
@@ -97,8 +135,9 @@ def main(argv=None) -> int:
     parser.add_argument('--evidence', type=Path, required=True, help='a new folder under this repository\'s out')
     parser.add_argument('--package', type=Path, help='the RTX package (.gma) to deploy')
     parser.add_argument('--label', default='run', help='the run\'s name in the evidence')
-    parser.add_argument('--order', choices=sorted(ORDERS), default='body-first',
-                        help='which copy is switched on first (default: the body)')
+    parser.add_argument('--order', choices=sorted([*ORDERS, 'diagnose', 'verify']), default='body-first',
+                        help='which copy is switched on first (default: the body), the third-person sequence, the '
+                             'diagnostic sequence for the weapon copy in first person, or the verification sequence')
     parser.add_argument('--character', action='store_true',
                         help='spawn the PoC library\'s first imported character as an NPC in front of you first')
     parser.add_argument('--player-model', action='store_true',

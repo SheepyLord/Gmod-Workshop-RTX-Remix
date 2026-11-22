@@ -192,10 +192,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/mcam",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "4afbfd96574b4caa529416611a5972f097eb7f44",
+    "commit": "dbb1c5f5a56eeedacdc47e781b2f54d3ae29a270",
     "dirty": false
    },
-   "imported": "2026-11-21T21:02:18+00:00"
+   "imported": "2026-11-22T00:04:43+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_map_fixes.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\translation-review\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\cl_map_fixes.lua",
@@ -1596,9 +1596,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/entities/rtx_pseudoweapon.lua": {
-   "size": 11042,
-   "sha256": "517797416699bae98bb345089687240a728c16e46c19020ba23838d678959424",
-   "mtime_ns": 1795294930193539600,
+   "size": 11627,
+   "sha256": "ab3bfec6ea12400294330d2caa80ec47d4d9cba3e6b2f7f200d7d6b88315f131",
+   "mtime_ns": 1795305801059695900,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/patcher/addons/cl_arc9.lua": {

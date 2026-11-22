@@ -46,42 +46,43 @@ function ENT:Initialize()
 end
 
 local materialtable = {}
+-- The private textures are made at the copy's first draw after a weapon change, inside the frame (ADR 0252), and
+-- each material is registered as the player model's once its hashes are known.
+local MaterialSet
+local materialsWanted = false
+local registered = {}
 
 -- We use this to override materials in dx7 mode.
-function PseudoweaponRender(self) 
-	
-
-	if (!materialtable) then return end
-	if (!GetConVar( "rtx_pseudoweapon_unique_hashes" ):GetBool()) then 
-		render.ModelMaterialOverride(nil,nil)
-		render.SuppressEngineLighting( true )
-		self:DrawModel()
-		render.SuppressEngineLighting( false )
-		return
-	else
-		--render.MaterialOverride(nil)
-		for k, v in pairs(materialtable) do
-	
-			--print(k)
-			--self:SetSubMaterial(k, "!pseudoplayermaterial" .. k)
-			render.MaterialOverrideByIndex( k-1, v ) 
-			--render.ModelMaterialOverride( Material("!pseudoplayermaterial" .. k))
+-- Only with its private textures (ADR 0252, as the body copy since ADR 0043): with the real weapon's textures the copy
+-- cannot be told from other weapons, so it showed in the player's own first-person view and the body copy with it.
+-- Until they exist the copy draws nothing.
+function PseudoweaponRender(self)
+	if materialsWanted and MaterialSet then
+		materialsWanted = false
+		MaterialSet()
+	end
+	if (!next(materialtable)) then return end
+	for k, v in pairs(materialtable) do
+		render.MaterialOverrideByIndex( k-1, v )
+	end
+	render.SuppressEngineLighting( true )
+	self:DrawModel()
+	render.SuppressEngineLighting( false )
+	render.MaterialOverrideByIndex()
+	if RemixCategoryManager and RemixCategoryManager.RegisterPlayerProxyMaterial then
+		for _, v in pairs(materialtable) do
+			local name = v:GetName()
+			if not registered[name] then registered[name] = RemixCategoryManager.RegisterPlayerProxyMaterial(name) end
 		end
-		render.SuppressEngineLighting( true )
-		self:DrawModel()
-		render.SuppressEngineLighting( false )
-		render.ModelMaterialOverride(nil,nil)
-	end 
-	
+	end
 end
 
 -- This fucking piece of shit allows us to have a slighly modified texture for the local players own weapons.
 -- This is so we can have it be invisible but still cast shadows and draw in reflections, while not making other weapons invisible.
-local function MaterialSet()
-	if (!pseudoweapon) then return end 
-	if (!GetConVar( "rtx_pseudoweapon_unique_hashes" ):GetBool()) then return end
+function MaterialSet()
+	if (!pseudoweapon) then return end
+	-- Always, whatever the legacy rtx_pseudoweapon_unique_hashes says (ADR 0252).
 
-	
 	-- Workaround for issue: https://github.com/Facepunch/garrysmod-issues/issues/5826
 	pseudoweapon.RenderOverride = PseudoweaponRender 
 	for k, v in pairs(pseudoweapon:GetMaterials()) do
@@ -182,6 +183,7 @@ function ENT:Think()
 		pseudoweapon = ClientsideModel(weaponmodel)
 		pseudoweapon:SetParent(self)
 		pseudoweapon:AddEffects( EF_BONEMERGE )
+		pseudoweapon.RenderOverride = PseudoweaponRender
 		pseudoweapon:SetRenderMode(2)
 		pseudoweapon:SetColor(Color(255,255,255,0))
 	end
@@ -223,9 +225,9 @@ function ENT:Think()
 			materialSuffix = "_" .. util.CRC(weaponClass)
 			print("[gmRTX] - Weapon changed, material suffix: " .. materialSuffix .. " (" .. weaponClass .. ")")
 			
-			-- Clear material table and recreate materials
+			-- Clear material table and recreate materials, at the copy's next draw (inside the frame, ADR 0252)
 			materialtable = {}
-			MaterialSet()
+			materialsWanted = true
 			 
 		end
 		self:SetRenderOrigin(LocalPlayer():GetActiveWeapon():GetRenderOrigin())

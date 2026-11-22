@@ -3927,14 +3927,17 @@ separator now has 57 texts in each catalog.
 
 - **LuaJIT**: [`test_pseudoweapon.py`](../tools/tests/test_pseudoweapon.py.md) (new) runs the shipped
   `rtx_pseudoweapon.lua`'s `Think` with the tool gun as a scripted weapon in first and third person and as an engine
-  weapon: no `DrawWorldModel`, no model drawn, the player's and the weapon's bones set up on every call; it fails on the
-  file before the fix. [`test_hotloader_scene_visibility.py`](../tools/tests/test_hotloader_scene_visibility.py.md)
+  weapon: no `DrawWorldModel`, no model drawn, no render call, the player's and the weapon's bones set up on every
+  call; and the copy's own draw (`draw`): its private textures made at the first draw with the legacy
+  `rtx_pseudoweapon_unique_hashes 0` and used, the material overrides put back, the materials registered once their
+  hashes are known, new textures at the next draw after a weapon change. It fails on the file before the fixes, and
+  `draw` on the file with ADR 0251 alone. [`test_hotloader_scene_visibility.py`](../tools/tests/test_hotloader_scene_visibility.py.md)
   `no_scale` (new): a sprite and a studio model without a model scale stay in at their size, a blank model and a no-draw
   sprite are left out, the capture goes on; it fails on the file before the fix with the field's
   `attempt to compare nil with number`.
 - **PoC** ([`shadow_copies_session.py`](../tools/qa/shadow_copies_session.py.md), new, holding `out\r10\poc.lock`; RTX on,
   the package's add-ons, gm_construct): the copies switched on and off mid-session in first and third person
-  (`--order`), a screenshot and the frame times per step, the tool gun or the default weapon in hand (`--weapon`), the
+  (`--order`; `diagnose` leaves out the weapon copy's parts one by one, `verify` checks ADR 0251 and 0252), a screenshot and the frame times per step, the tool gun or the default weapon in hand (`--weapon`), the
   time of day held (`--hour`), an imported character as an NPC and as your own model (`--character`,
   `--player-model`), and the server's entities without a model scale. Runs before and after the fix in the handover
   report.

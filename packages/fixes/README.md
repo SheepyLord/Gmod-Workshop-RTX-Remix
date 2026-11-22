@@ -16,6 +16,11 @@ The follow-up of 2026-11-21 ("Local player shadow: lost path tracing"),
   (`SetupBones`) where it called the weapon's `DrawWorldModel()`. That draw ran before the frame was rendered;
   with a scripted weapon in hand (the tool gun) it reached Remix with no camera of the frame, and third-person
   views lost their path tracing.
+- The same file, the follow-up "Weapon copy shows both copies in first person"
+  ([ADR 0252](../../docs/decisions/0252-the-weapon-copy-draws-only-with-its-private-textures.md)): the copy draws only with its private textures, whatever
+  `rtx_pseudoweapon_unique_hashes` says, made at its first draw after a weapon change (`PseudoweaponRender` calls
+  `MaterialSet`; `Think` no longer does); it puts the material overrides back after its draw and registers its
+  materials as the player model's at draw time.
 
 ## Another add-on may keep the flashlight dark (2026-11-21)
 

@@ -6,7 +6,7 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
-### Third-person views keep their path tracing with the weapon copy on; imported characters' hair near spotlights (2026-11-21)
+### The weapon copy keeps third-person path tracing and stays out of your own view; imported characters' hair near spotlights (2026-11-21)
 
 - **With the RTX fixes' weapon copy on (Pseudoweapon Enabled in the RTX fixes' settings, off by default) and a scripted
   weapon in hand (the tool gun, most add-on weapons), every third-person view lost its path tracing.** A dance's camera
@@ -14,13 +14,20 @@ Versions follow the loader's CMake project version once it ships; until then eve
   until the view went back to first person. The copy drew the weapon once per frame before the frame began; it now sets
   up the bones it follows and draws nothing then. In the PoC a third-person frame took 4 ms without path tracing; with
   the fix 13-15 ms, path traced, the RTX sky back.
+- **With the weapon copy on, nothing of you shows in your own first-person view any more.** With the tool gun in hand,
+  your body copy's glasses, teeth and arms and a second tool gun in their hands were drawn in front of you. Under the
+  classic settings the weapon copy drew the real weapon's textures, which nothing can hide from your view; it now always
+  draws its own copies of them, made at its first draw after you change weapons, as the body copy does.
 - **Imported characters' hair and clothing keep following the scene near a spotlight's beam or a sprite.** The Model
   Hotloader's scene capture asked such entities, which have no model scale, for one and stopped there for that tick,
   printing `secondary_collision.lua:111: attempt to compare nil with number`. On gm_construct the spawn's five spotlights
   did it, for example with Local player shadow on and an imported character as your own model. They now count as drawn
   at their size.
-- **Behind it** ([ADR 0251](docs/decisions/0251-the-weapon-copy-draws-nothing-before-the-frame.md)): `rtx_pseudoweapon.lua`'s
-  `Think` called the held weapon's `DrawWorldModel()`; it now calls `SetupBones()` on the player and the weapon. Tests:
+- **Behind it** ([ADR 0251](docs/decisions/0251-the-weapon-copy-draws-nothing-before-the-frame.md),
+  [ADR 0252](docs/decisions/0252-the-weapon-copy-draws-only-with-its-private-textures.md)): `rtx_pseudoweapon.lua`'s `Think` called the held weapon's
+  `DrawWorldModel()`; it now calls `SetupBones()` on the player and the weapon. The copy's own textures are made at its
+  first draw after a weapon change, whatever the legacy `rtx_pseudoweapon_unique_hashes` says, as the body copy's are
+  (ADR 0043). Tests:
   `test_pseudoweapon.py` (new) and a case for entities without a model scale in `test_hotloader_scene_visibility.py`;
   both fail on the old files. `tools/qa/shadow_copies_session.py` (new) switches the copies on and off in a PoC game, in
   first and third person, with screenshots and frame times, and names the server's entities without a model scale.

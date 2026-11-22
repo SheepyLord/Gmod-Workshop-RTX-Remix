@@ -7,14 +7,18 @@ From a coroutine on `Think` it waits `settle` seconds (the RTX fixes reload mode
 switches' values (`rtx_pseudoplayer`, `rtx_pseudoweapon`) and the sky's clock (`nativeloader_sky_time_passes`,
 `nativeloader_sky_hour`), holds the time of day at `hour` when set, puts `weapon` in the player's hand when set
 (`nlshadow_weapon`), runs `nlshadow_character` first when `character` is set,
-then records `01_before` and each step of `steps`: the step's console commands (`set`: a switch and its value;
-`run`: a command such as `nlshadow_player_model`), a wait (`wait`, 12 s), a state and a screenshot. A state is the
+then records `01_before` and each step of `steps`: the view (`view`: `third` draws you from 120 units behind with a
+`CalcView` returning `drawviewer`, as the motion importer's camera does; `first` ends it), the step's console commands
+(`set`: a console variable or command and its value; `run`: a command such as `nlshadow_player_model`), a diagnostic
+change in client Lua (`lua`, run with `RunString`; an error prints `NLSH_LUA_ERROR`), a wait (`wait`, 12 s), a state and
+a screenshot. A state is the
 switches' values, the copies counted (`ents.FindByClass`), whether the player is drawn in third person, the held
 weapon's class and the frame times over three seconds (`frames`, `median_ms`, `p90_ms`); it is printed as
 `NLSH_STATE <json>`. A screenshot is `NL_SHOT <step>`, answered by the run with `nl_shot_taken <n>`; the RTX Remix
 guide and the loader's update reminder are closed first.
 
-At the end it puts the switches and the sky's clock back as it found them, asks the server half for its report
+At the end it returns to the game's own view and puts the switches, `rtx_pseudoweapon_unique_hashes`, `dts_enabled` and the sky's
+clock back as it found them, asks the server half for its report
 (`nlshadow_server_report`), writes `data\nlshadow\client.json` (`settings`, `original`, `steps`) and prints
 `NL_SHOT_DONE`. An error prints `NLSH_ERROR <message>` and `NL_SHOT_DONE`.
 

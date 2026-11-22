@@ -9920,3 +9920,14 @@ the package before the fix (`0.0.0-dev.20261121092444+412a014d`), `fixed-1`, `fi
   hidden in first person (`first_person.lua`, `HiddenFirstPerson`), so the client asks the server for the scene
   (`secondary_collision.lua`, `MMDHL.LocalSceneDemand`) and the capture runs. Without the copy it rests in first person:
   ADR 0250's camera runs 1 and 2 logged no error, runs 3 and 4 logged 43 and 34.
+- **The weapon copy's real textures** (`diag-2` and `verify-1`, `--order diagnose` and `verify`, the tool gun, first
+  person; the field game no longer ran beside the PoC, so the frames were shorter). With ADR 0251's package and both
+  copies on, leaving out the weapon copy entity's own draw (`04_entity_hidden`) still showed both copies; leaving out its
+  client-side model's draw as well (`05_model_hidden`) gave a clean view; both drawn again with the tool gun screen
+  add-on off (`06_drawn_screen_off`, `dts_enabled 0`) showed them again; the camera SWEP in hand (`07_camera_swep`) and
+  the copy's private textures (`08_private_textures`, `rtx_pseudoweapon_unique_hashes 1`, its four materials registered
+  as `0x80000`) showed nothing. The copy's model drew the real tool gun's textures under the classic
+  `rtx_pseudoweapon_unique_hashes 0`. With ADR 0252 (private textures always, made at the copy's first draw): nothing of
+  you in first person with both copies (`03_both_on`), with the gravity gun (`05_gravity_gun`, one material registered)
+  and with the tool gun again (`06_tool_gun_again`, its four materials reused), path traced in third person
+  (`04_third_both`); median frames 6.0-8.2 ms.

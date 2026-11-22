@@ -19,7 +19,7 @@ python -I tools\qa\shadow_copies_session.py --evidence out\lshadow\run1 --rollba
 | `--evidence` | A new folder under this repository's `out` (refused otherwise, or when it is not empty) |
 | `--package` | The RTX package (`.gma`) to deploy in the PoC |
 | `--label` | The run's name in the evidence (default `run`) |
-| `--order` | `body-first` (default) or `weapon-first`: which copy is switched on first |
+| `--order` | `body-first` (default) or `weapon-first`: which copy is switched on first; `third-person`: the third-person sequence; `diagnose`: the weapon copy's diagnostic sequence; `verify`: the check of ADR 0251 and 0252 (below) |
 | `--character` | Before the first shot, the PoC library's first imported character as an NPC in front of you (the Model Hotloader's scene capture then classifies what is near it) |
 | `--player-model` | With both copies on, that character as your own model (a step of its own) |
 | `--weapon` | A weapon class to hold from the start, given if missing (`gmod_tool`: the tool gun draws a screen of its own) |
@@ -32,9 +32,24 @@ python -I tools\qa\shadow_copies_session.py --evidence out\lshadow\run1 --rollba
 | `--keep-copies` | Keep the evidence's bulk copies after a verified rollback |
 | `--rollback` | Restore the PoC after an interrupted run |
 
-The steps, each a wait, a state line and a screenshot: `01_before`; the first copy on (`02_body_on` or
-`02_weapon_on`); `03_both_on`; with `--player-model`, `04_player_model`; `05_both_off`. At the end the switches and
-the sky's clock (`nativeloader_sky_time_passes`, `nativeloader_sky_hour`) go back to the values the session found.
+The steps, each a wait, a state line and a screenshot, after `01_before`:
+
+- `body-first` and `weapon-first`: the first copy on (`02_body_on` or `02_weapon_on`), `03_both_on`.
+- `third-person`: a view 120 units behind you that draws you (`drawviewer`, as the motion importer's camera): copies
+  off (`02_third_off`), the weapon copy (`03_third_weapon`), both (`04_third_both`), then first person with both
+  (`05_first_both`).
+- `diagnose` (first person; hold the tool gun with `--weapon gmod_tool`): the body copy (`02_body_on`), the weapon copy
+  (`03_weapon_on`), the weapon copy entity's own draw left out (`04_entity_hidden`), its client-side model's too
+  (`05_model_hidden`), both drawn again with the tool gun screen add-on off (`06_drawn_screen_off`, `dts_enabled 0`), the
+  camera SWEP in hand (`07_camera_swep`), the tool gun again with the weapon copy's private textures
+  (`08_private_textures`, `rtx_pseudoweapon_unique_hashes 1`).
+- `verify` (hold the tool gun with `--weapon gmod_tool`): the body copy (`02_body_on`), both copies (`03_both_on`), both
+  in third person (`04_third_both`), the gravity gun in first person (`05_gravity_gun`), the tool gun again
+  (`06_tool_gun_again`: the weapon copy makes its textures anew).
+- With `--player-model`, `06_player_model`; at the end the copies off (`07_both_off`, or `09_both_off` after `diagnose`).
+
+At the end the switches, `rtx_pseudoweapon_unique_hashes`, `dts_enabled` and the sky's clock
+(`nativeloader_sky_time_passes`, `nativeloader_sky_hour`) go back to the values the session found.
 
 What it does, holding `out\r10\poc.lock` (the shared PoC lock, polled four times a second as
 [mmd_player_session.py](mmd_player_session.py.md) does):

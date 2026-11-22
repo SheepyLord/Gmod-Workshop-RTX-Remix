@@ -83,13 +83,19 @@ local function step(entry)
     if entry.view then thirdPerson = entry.view == "third" end
     for _, change in ipairs(entry.set or {}) do RunConsoleCommand(change[1], change[2]) end
     for _, command in ipairs(entry.run or {}) do RunConsoleCommand(command) end
+    -- A diagnostic change in client Lua (the session's own code, never the player's input).
+    if entry.lua then
+        local err = RunString(entry.lua, "nlshadow_step", false)
+        if err then print("NLSH_LUA_ERROR " .. entry.label .. " " .. tostring(err)) end
+    end
     wait(entry.wait or SETTINGS.wait or 12)
     state(entry.label)
     shot(entry.label)
 end
 
 -- Settings the run changes and puts back: the copies' switches and the sky's clock.
-local KEPT = { "rtx_pseudoplayer", "rtx_pseudoweapon", "nativeloader_sky_time_passes", "nativeloader_sky_hour" }
+local KEPT = { "rtx_pseudoplayer", "rtx_pseudoweapon", "rtx_pseudoweapon_unique_hashes", "dts_enabled",
+    "nativeloader_sky_time_passes", "nativeloader_sky_hour" }
 
 co = coroutine.create(function()
     wait(SETTINGS.settle or 15)

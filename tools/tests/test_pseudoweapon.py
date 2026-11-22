@@ -35,6 +35,11 @@ class PseudoweaponTests(unittest.TestCase):
         self.run_lua('first_engine')
         self.run_lua('third_engine')
 
+    def test_the_copy_draws_only_with_its_private_textures(self):
+        # ADR 0252: made at the copy's first draw (inside the frame), also with the legacy unique hashes 0; the overrides
+        # put back; the materials registered as the player model's; a weapon change makes new ones at the next draw.
+        self.run_lua('draw')
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -4211,6 +4211,13 @@ separator now has 57 texts in each catalog.
     restores queued, 10 calls skipped and logged at `AllowThreading(false)`), `test` 1 (4 drops, 4 put back), `plain`
     1, `busy` 1 (two minutes crowded: nothing dropped, put back or skipped). The second series (one run of each kind)
     ran with the stricter verdicts above.
+- **Field** (2026-11-23, the published package `0.0.0-dev.20261123212444+ec7d0621` deployed, gm_construct, each run
+  ending with `disconnect` and a normal quit; scratch driver `out/qflush-field/field_run.py` of the main checkout, which
+  runs `poc_session.py --root <field install> --allow-steam-managed run --workshop --addons --no-window` under the PoC
+  lock): the Lua global in mid-game ("Ran 27", the uncache, `returned true true`), the console command in one console
+  line ("Ran 25", "Starting cleanup (manual console command)", the uncache) and the map exit with setters queued right
+  before it ("Ran 288", the uncache): each exit 0, no new crash dump, one flush line each in the field's
+  `render-queue-check.log` and no event.
 - Not covered: other code that keeps material variables across an uncache in the middle of a game; the render
   thread's own runs in normal frames (no longer needed for this cleanup); a refusal in the real game (it needs the
   engine guard absent or its flush off while queued rendering is on, covered only by the regression).

@@ -130,7 +130,25 @@ Nothing was committed to the fork or pushed.
 
 ## Published
 
-(filled in by the main session after the runs)
+Merged to `main` as `be9c7527` (a fast-forward) and pushed; Workshop item 3829070317 updated as
+`0.0.0-dev.20261123212444+ec7d0621` (2026-11-23 21:25 UTC), its change note the CHANGELOG entry. The merge's own upload
+attempt ended with Steam's "Generic failure"; the push's, twenty seconds later, went through, and Steam delivered that
+package to the field install at its next start.
+
+**In the field install**, with that package deployed (`poc_session.py --root <field install> --allow-steam-managed run
+--workshop --addons --no-window --map gm_construct`, each run ending with `disconnect` and a normal quit; only each
+session's own part of the console was read; nothing spawned, nothing installed by hand): three runs, each exit 0 with no
+new crash dump.
+
+- The Lua global in the middle of the game (`queue_midgame_client.lua`): 10 setter calls, "Ran 27 queued render calls
+  before the purge", the uncache, "RTX_CleanupMapTextures returned true true"; the game played on, and its `disconnect`
+  ran 234 calls before that cleanup.
+- The console command (`nlqueue_touch;rtx_flush_textures` as one console line): "Ran 25 queued render calls before the
+  purge", "Starting cleanup (manual console command)", the uncache.
+- The map exit with setters queued right before it (`queue_stale_client.lua`): 29 materials restored, "Ran 288 queued
+  render calls before the purge", the uncache.
+
+The field's `render-queue-check.log` has one flush line for each of these and no event.
 
 ## The independent review
 

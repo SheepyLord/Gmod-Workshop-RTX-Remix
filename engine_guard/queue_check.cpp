@@ -1,8 +1,10 @@
-// Queued render calls checked before the material system leaves threaded rendering (ADR 0247).
+// Queued render calls checked before the material system leaves threaded rendering (ADR 0247), watched while the
+// game runs them (ADR 0254), and run before the RTX fixes' map-exit cleanup (ADR 0261). See queue_check.h.
 #include "queue_check.h"
 
 #include "guard.h"  // find(): byte patterns with wildcards; allocate_near()
 #include "run_check.h"
+#include "target_check.h"
 
 #include <windows.h>
 
@@ -304,6 +306,70 @@ const std::uintptr_t* find_vtable(const std::uint8_t* image, std::uintptr_t load
 }
 
 namespace {
+// The queued context's flush up to its Unlock: mov rcx,[rdi+ms]; mov rax,[rcx]; call [rax+Lock]; xor edx,edx;
+// mov rcx,rdi; mov rbx,rax; call CallQueued; mov rcx,[rdi+ms]; mov rdx,rbx (then one of the two Unlock calls below).
+const std::vector<int>& flush_body() {
+  static const std::vector<int> pattern = {0x48, 0x8B, 0x8F, -1,   -1,   -1,   -1,   0x48, 0x8B, 0x01, 0xFF, 0x90, -1,
+                                           -1,   -1,   -1,   0x33, 0xD2, 0x48, 0x8B, 0xCF, 0x48, 0x8B, 0xD8, 0xE8, -1,
+                                           -1,   -1,   -1,   0x48, 0x8B, 0x8F, -1,   -1,   -1,   -1,   0x48, 0x8B, 0xD3};
+  return pattern;
+}
+constexpr std::size_t kFlushLockLoad = 3, kFlushLock = 12, kFlushCall = 24, kFlushUnlockLoad = 32, kFlushTail = 39;
+
+// The Unlock call right after it, nothing between: mov r8,[rcx]; call [r8+Unlock] or mov rax,[rcx]; call [rax+Unlock].
+// The displacement's offset in the tail, or SIZE_MAX.
+std::size_t unlock_call(const std::uint8_t* code, std::size_t size, std::size_t at) noexcept {
+  static const std::uint8_t r8[] = {0x4C, 0x8B, 0x01, 0x41, 0xFF, 0x90};
+  static const std::uint8_t rax[] = {0x48, 0x8B, 0x01, 0xFF, 0x90};
+  if (at + sizeof(r8) + 4 <= size && std::memcmp(code + at, r8, sizeof(r8)) == 0) return at + sizeof(r8);
+  if (at + sizeof(rax) + 4 <= size && std::memcmp(code + at, rax, sizeof(rax)) == 0) return at + sizeof(rax);
+  return SIZE_MAX;
+}
+
+FlushSlot flush_failed(const char* why) {
+  FlushSlot out;
+  out.reason = why;
+  return out;
+}
+}  // namespace
+
+FlushSlot find_flush(const std::uint8_t* image, std::uintptr_t loaded_base, const std::uintptr_t* vtable,
+                     std::size_t slots, const Layout& layout) noexcept {
+  try {
+    Sections s;
+    if (!vtable || !read_sections(image, s)) return flush_failed("materialsystem.dll's headers could not be read");
+    if (!layout.found() || layout.lock_slot == SIZE_MAX || layout.unlock_slot == SIZE_MAX || !layout.call_queued_rva)
+      return flush_failed("the material system's layout was not found");
+    std::size_t found = 0, slot = SIZE_MAX;
+    for (std::size_t i = 0; i < std::min(slots, kMaxSlots); ++i) {
+      std::size_t size = 0;
+      std::uintptr_t rva = 0;
+      const auto* code = function_code(image, loaded_base, s, vtable[i], size, rva);
+      if (!code) continue;
+      for (const std::size_t at : nl::engine_guard::find(code, size, flush_body(), 8)) {
+        // Only in the slot's own function: the window can run on into the next function (no padding between
+        // them in this game), where a look-alike behind an unrelated method must not count.
+        if (at > kFlushStart) continue;
+        const std::size_t unlock = unlock_call(code, size, at + kFlushTail);
+        if (unlock == SIZE_MAX) continue;
+        if (u32(code + at + kFlushLock) != layout.lock_slot * 8 || u32(code + unlock) != layout.unlock_slot * 8) continue;
+        if (u32(code + at + kFlushLockLoad) != u32(code + at + kFlushUnlockLoad)) continue;
+        if (call_target(code, rva, at + kFlushCall) != layout.call_queued_rva) continue;
+        ++found;
+        slot = i;
+      }
+    }
+    if (found == 0) return flush_failed("the queued context's flush (Lock, CallQueued, Unlock) was not found in its vtable");
+    if (found > 1) return flush_failed("the queued context's flush was found more than once in its vtable");
+    FlushSlot out;
+    out.slot = slot;
+    return out;
+  } catch (...) {
+    return flush_failed("the queued context's code could not be read");
+  }
+}
+
+namespace {
 // Readable committed memory at [address, address + size).
 bool readable(std::uintptr_t address, std::size_t size) noexcept {
   while (size) {
@@ -474,6 +540,11 @@ std::string rtti_name(std::uintptr_t vtable) noexcept {
   }
 }
 
+bool rtti_name_into(std::uintptr_t vtable, char* out, std::size_t size) noexcept {
+  if (!out || size < 2) return false;
+  return rtti_name_raw(vtable, out, size);
+}
+
 namespace {
 using AllowThreading = bool (*)(void* self, bool allow, int service_thread);
 using LockFn = void* (*)(void* self);
@@ -500,6 +571,18 @@ std::uint8_t* g_dispatch = nullptr;        // CallQueued's per-call dispatch in 
 std::vector<std::uint8_t> g_dispatch_patch;  // its bytes while a run is watched
 run_check::Run g_run;
 std::atomic<std::uint64_t> g_runs{0}, g_put_back{0}, g_skipped{0}, g_ended{0};
+
+// ADR 0261. Set at install and never after, except g_target's class cache, which only the main thread touches inside
+// a watched run.
+using FlushFn = void (*)(void* context);
+FlushFn g_flush_fn = nullptr;            // the queued context's flush (find_flush)
+bool g_flush_ready = false;
+std::string g_flush_reason = "not installed";
+bool g_no_flush = false;                 // -nl_queue_check_no_flush
+unsigned long g_main_thread = 0;         // the thread that installed (the game's main thread)
+bool g_target_ready = false;
+target_check::Judge g_target;
+std::atomic<std::uint64_t> g_flushes{0}, g_gone{0};
 
 // The test pair (-nl_queue_check_test with the run check ready): laid out as the engine's functors. The first writes
 // over the second's element while the engine runs the list, with what the field's crashes found there (a pointer to
@@ -536,6 +619,11 @@ using Owner = int (*)(std::uint64_t* checks, std::uint64_t* dropped, int* test);
 Owner g_owner = nullptr;  // under g_install
 using RunOwner = int (*)(std::uint64_t* runs, std::uint64_t* put_back, std::uint64_t* skipped, std::uint64_t* ended);
 RunOwner g_run_owner = nullptr;  // under g_install
+// ADR 0261: the other copy's flush and its counts.
+using FlushOwner = int (*)(std::uint64_t* calls, char* why, std::size_t size);
+FlushOwner g_flush_owner = nullptr;  // under g_install
+using FlushStatusOwner = int (*)(std::uint64_t* flushes, std::uint64_t* gone, int* target, int* no_flush);
+FlushStatusOwner g_flush_status_owner = nullptr;  // under g_install
 
 using Msg = void (*)(const char*, ...);
 void say(const char* text) {
@@ -616,19 +704,56 @@ void unpatch_dispatch() noexcept {
     write_code(g_dispatch, run_check::kDispatch.data(), run_check::kDispatchSize);
 }
 
-std::string narrow(const wchar_t* text) {
-  char out[MAX_PATH * 3]{};
-  WideCharToMultiByte(CP_UTF8, 0, text, -1, out, sizeof(out), nullptr, nullptr);
-  return out;
+// The modules the log names, by base, captured where the loader lock may be taken (at install, and at each check
+// before the material system's lock): the log is also written while the engine runs the lists with that lock held,
+// where GetModuleFileNameW (the loader lock) could wait on a thread that waits on the material system (ADR 0261).
+struct Known {
+  std::uintptr_t base;
+  const char* name;
+};
+Known g_known[8] = {};  // main thread only
+std::size_t g_known_count = 0;
+std::wstring g_log_path;  // captured with them (or given by use_for_test)
+
+void capture_modules() noexcept {
+  static const wchar_t* const wide[] = {L"materialsystem.dll", L"studiorender.dll", L"engine.dll", L"client.dll",
+                                        L"shaderapidx9.dll"};
+  static const char* const names[] = {"materialsystem.dll", "studiorender.dll", "engine.dll", "client.dll",
+                                      "shaderapidx9.dll"};
+  std::size_t count = 0;
+  for (std::size_t i = 0; i < 5; ++i)
+    if (const HMODULE module = GetModuleHandleW(wide[i]))
+      g_known[count++] = {reinterpret_cast<std::uintptr_t>(module), names[i]};
+  HMODULE self = nullptr;
+  if (GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                         reinterpret_cast<LPCWSTR>(&capture_modules), &self))
+    g_known[count++] = {reinterpret_cast<std::uintptr_t>(self), "nlengineguard"};
+  g_known_count = count;
+  if (!g_log_path.empty()) return;
+  try {
+    wchar_t exe[MAX_PATH]{};
+    if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return;
+    std::wstring root(exe);
+    for (int i = 0; i < 3; ++i) {  // ...\bin\win64\gmod.exe -> the game root
+      const auto slash = root.find_last_of(L"\\/");
+      if (slash == std::wstring::npos) return;
+      root.erase(slash);
+    }
+    g_log_path = root + L"\\garrysmod\\data\\native-loader\\render-queue-check.log";
+  } catch (...) {
+  }
 }
 
+// The module an address lies in, from the captured bases; else the image's base address ("" outside any image).
 std::string module_name(std::uintptr_t address) {
   MEMORY_BASIC_INFORMATION m{};
   if (!VirtualQuery(reinterpret_cast<const void*>(address), &m, sizeof(m)) || m.Type != MEM_IMAGE) return {};
-  wchar_t path[MAX_PATH]{};
-  if (!GetModuleFileNameW(static_cast<HMODULE>(m.AllocationBase), path, MAX_PATH)) return {};
-  const wchar_t* name = std::wcsrchr(path, L'\\');
-  return narrow(name ? name + 1 : path);
+  const auto base = reinterpret_cast<std::uintptr_t>(m.AllocationBase);
+  for (std::size_t i = 0; i < g_known_count; ++i)
+    if (g_known[i].base == base) return g_known[i].name;
+  char text[48];
+  std::snprintf(text, sizeof(text), "the image at 0x%llx", static_cast<unsigned long long>(base));
+  return text;
 }
 
 std::string hex(std::uintptr_t value) {
@@ -669,18 +794,12 @@ std::string describe_memory(std::uintptr_t address) {
   return out;
 }
 
+// The log's path, captured by capture_modules (no loader lock here); its folder is made when missing.
 std::wstring log_path() {
-  wchar_t exe[MAX_PATH]{};
-  if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return {};
-  std::wstring root(exe);
-  for (int i = 0; i < 3; ++i) {  // ...\bin\win64\gmod.exe -> the game root
-    const auto slash = root.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) return {};
-    root.erase(slash);
-  }
-  const std::wstring folder = root + L"\\garrysmod\\data\\native-loader";
-  CreateDirectoryW(folder.c_str(), nullptr);
-  return folder + L"\\render-queue-check.log";
+  if (g_log_path.empty()) return {};
+  const auto slash = g_log_path.find_last_of(L"\\/");
+  if (slash != std::wstring::npos) CreateDirectoryW(g_log_path.substr(0, slash).c_str(), nullptr);
+  return g_log_path;
 }
 
 // Appends to the log, which keeps its last 128 KiB once it passes 256 KiB.
@@ -727,14 +846,21 @@ std::string utc_now() {
   return text;
 }
 
+// What ran the lists: the engine leaving threaded rendering (AllowThreading(false)), or the queued context's flush that
+// Lua asked for before the RTX fixes' cleanup (ADR 0261). Checks and flushes are numbered apart.
+enum class Kind { leave, flush };
+const char* label(Kind kind) { return kind == Kind::leave ? "check" : "flush"; }
+
 // Says what a check dropped (or could not walk): the console once per check, the log with the details.
-void record(const Report& report, bool walked, std::uint64_t check) {
+void record(const Report& report, bool walked, Kind kind, std::uint64_t number) {
   try {
     std::uint32_t tests = 0;
     for (std::uint32_t i = 0; i < report.recorded; ++i)
       if (report.drops[i].why == Why::test) ++tests;
     const std::uint32_t real = report.dropped - std::min(tests, report.dropped);
-    std::string text = utc_now() + " check " + std::to_string(check) + " before the game left threaded rendering:";
+    std::string text = utc_now() + " " + label(kind) + " " + std::to_string(number) +
+                       (kind == Kind::leave ? " before the game left threaded rendering:"
+                                            : " before the queued context's flush:");
     for (std::uint32_t i = 0; i < report.lists; ++i)
       text += (i ? ", " : " ") + std::string("list ") + std::to_string(i) +
               ((report.broken >> i) & 1 ? " not walked" : " " + std::to_string(report.calls[i]) + " calls");
@@ -759,8 +885,8 @@ void record(const Report& report, bool walked, std::uint64_t check) {
     write_log(text);
     if (real) {
       say(("[NativeLoader] Dropped " + std::to_string(real) +
-           " queued render call(s) whose object was already gone, before the game left threaded rendering (engine "
-           "guard, ADR 0247). Details: garrysmod/data/native-loader/render-queue-check.log\n")
+           " queued render call(s) whose object was already gone, before the game ran them (engine guard, ADR 0247). "
+           "Details: garrysmod/data/native-loader/render-queue-check.log\n")
               .c_str());
     }
     if (tests) say("[NativeLoader] Queue check test: the test call was dropped (engine guard, ADR 0247).\n");
@@ -787,10 +913,93 @@ std::string words_text(const std::uintptr_t* words, std::uint32_t count) {
   return text.empty() ? std::string("none read") : text;
 }
 
-// Says what the run check found while the engine ran the lists: the console once, the log with the details and the
-// calls that ran just before each event. The test pair's own event is told apart; `victim_ran`: its second call ran in
-// this run.
-void record_run(std::uint64_t check, bool victim_ran) {
+// One event of a watched run, as the log says it.
+std::string record_text(const run_check::Record& r) {
+  std::string text = "  " + place(r) + ": " + run_check::describe(r.event) +
+                     (g_test_victim_element && r.element == g_test_victim_element ? " (the test call)" : "") + "\n";
+  if (r.position != UINT32_MAX) {
+    text += "    when checked: next " + hex(r.was[0]) + ", object " + hex(r.was[1]);
+    if (r.words) text += " (" + describe_table(r.words_was[0]) + ")";
+    text += "\n";
+  }
+  if (r.list != UINT32_MAX && r.event != run_check::Event::target_gone) {
+    text += "    as the run found it: next " + hex(r.now[0]) + ", object " + hex(r.now[1]);
+    if (r.now[1] && r.now[1] != r.was[1]) text += " (in " + describe_memory(r.now[1]) + ")";
+    text += "\n";
+  }
+  if (r.event == run_check::Event::object_changed) {
+    text += "    the object's first words when checked: " + words_text(r.words_was, r.words) +
+            "; now: " + words_text(r.words_now, r.words) + "\n";
+    if (r.before_read)
+      text += "    the 16 bytes before the element when checked: " + words_text(r.before_was, 2) +
+              "; now: " + words_text(r.before_now, 2) + "\n";
+  }
+  if (r.event == run_check::Event::target_gone) {
+    const target_check::Finding& f = r.target;
+    text += "    material variable " + hex(f.variable) + " (the functor's word at +" + hex(f.offset) + ", " +
+            describe_table(f.functor_table) + "): " + target_check::describe(f.verdict) + "\n";
+    text += "    found: the variable's first word " + hex(f.variable_table) + " (CMaterialVar's " +
+            hex(g_target.variable_table) + "), its material " + hex(f.owner) + ", whose first word " +
+            hex(f.owner_table) + " (CMaterial's " + hex(g_target.material_table) + "), parameters " +
+            hex(f.parameters) + ", " + std::to_string(f.count) + " of them\n";
+  }
+  if (r.recent_count) {
+    text += "    run just before it, newest first:";
+    for (std::uint32_t c = 0; c < r.recent_count; ++c) {
+      const run_check::Recent& recent = r.recent[c];
+      text += (c ? "; " : " ") + std::string("list ") + std::to_string(recent.list) + " " +
+              (recent.position == UINT32_MAX ? std::string("unseen call")
+                                             : "call " + std::to_string(recent.position + 1)) +
+              " " + describe_table(recent.table);
+    }
+    text += "\n";
+  }
+  return text;
+}
+
+// The watched run's log (main thread only): a header line at its first event, each event when it happens (a run that
+// crashes keeps what it wrote), a summary line at its end (record_run).
+// At most kLogEvents events are written per run, so a run cannot rotate its own header out of the log (the rest are
+// counted in its summary line).
+constexpr std::uint64_t kLogEvents = 32;
+struct RunLog {
+  Kind kind = Kind::leave;
+  std::uint64_t number = 0;
+  std::uint64_t written = 0;  // events written
+  std::uint64_t told = 0;     // events the run check told
+};
+RunLog g_run_log;
+
+void notify_event(void*, const run_check::Record& r) {
+  ++g_run_log.told;
+  if (g_run_log.written >= kLogEvents) return;
+  try {
+    std::string text;
+    if (!g_run_log.written)
+      text = utc_now() + " " + label(g_run_log.kind) + " " + std::to_string(g_run_log.number) +
+             " while the game ran the queued calls (each event as it happened):\n";
+    text += record_text(r);
+    ++g_run_log.written;
+    write_log(text);
+  } catch (...) {
+  }
+}
+
+// The target judge the run check asks right before each call (ADR 0261).
+target_check::Verdict judge_target(void*, std::uintptr_t object, target_check::Finding& finding) {
+  return target_check::judge(g_target, object, finding);
+}
+
+run_check::Hooks run_hooks() {
+  run_check::Hooks hooks;
+  if (g_target_ready) hooks.target = &judge_target;
+  hooks.notify = &notify_event;
+  return hooks;
+}
+
+// Says how a watched run ended: the log's summary line when it wrote events, the console once. The test pair's own
+// event is told apart; `victim_ran`: its second call ran in this run.
+void record_run(Kind kind, std::uint64_t number, bool victim_ran) {
   try {
     const run_check::Totals& totals = g_run.totals();
     std::uint64_t test_events = 0;
@@ -807,106 +1016,107 @@ void record_run(std::uint64_t check, bool victim_ran) {
       say("[NativeLoader] Queue check test: the run check put back the test call written over during the run (engine "
           "guard, ADR 0254).\n");
     if (!events) return;
-    std::string text = utc_now() + " check " + std::to_string(check) + " while the game ran the queued calls: " +
+    std::string text = utc_now() + " " + label(kind) + " " + std::to_string(number) + " run ended: " +
                        std::to_string(totals.run) + " calls run, " + std::to_string(totals.put_back) + " put back, " +
-                       std::to_string(totals.skipped) + " skipped, " + std::to_string(totals.ended) +
+                       std::to_string(totals.skipped) + " skipped (" + std::to_string(totals.gone) +
+                       " on a material variable that was gone), " + std::to_string(totals.ended) +
                        " lists ended early";
     if (totals.strangers) text += ", " + std::to_string(totals.strangers) + " calls it had not seen";
-    text += "\n";
-    for (std::uint32_t i = 0; i < g_run.recorded(); ++i) {
-      const run_check::Record& r = g_run.records()[i];
-      text += "  " + place(r) + ": " + run_check::describe(r.event) +
-              (g_test_victim_element && r.element == g_test_victim_element ? " (the test call)" : "") + "\n";
-      if (r.position != UINT32_MAX) {
-        text += "    when checked: next " + hex(r.was[0]) + ", object " + hex(r.was[1]);
-        if (r.words) text += " (" + describe_table(r.words_was[0]) + ")";
-        text += "\n";
-      }
-      if (r.list != UINT32_MAX) {
-        text += "    as the run found it: next " + hex(r.now[0]) + ", object " + hex(r.now[1]);
-        if (r.now[1] && r.now[1] != r.was[1]) text += " (in " + describe_memory(r.now[1]) + ")";
-        text += "\n";
-      }
-      if (r.event == run_check::Event::object_changed) {
-        text += "    the object's first words when checked: " + words_text(r.words_was, r.words) +
-                "; now: " + words_text(r.words_now, r.words) + "\n";
-        if (r.before_read)
-          text += "    the 16 bytes before the element when checked: " + words_text(r.before_was, 2) +
-                  "; now: " + words_text(r.before_now, 2) + "\n";
-      }
-      if (r.recent_count) {
-        text += "    run just before it, newest first:";
-        for (std::uint32_t c = 0; c < r.recent_count; ++c) {
-          const run_check::Recent& recent = r.recent[c];
-          text += (c ? "; " : " ") + std::string("list ") + std::to_string(recent.list) + " " +
-                  (recent.position == UINT32_MAX ? std::string("unseen call")
-                                                 : "call " + std::to_string(recent.position + 1)) +
-                  " " + describe_table(recent.table);
-        }
-        text += "\n";
-      }
-    }
-    const std::uint64_t recorded_events = g_run.recorded();
-    if (events > recorded_events) text += "  and " + std::to_string(events - recorded_events) + " more\n";
-    write_log(text);
-    if (events > test_events)
+    const std::uint64_t unwritten = std::max(events, g_run_log.told) - g_run_log.written;
+    if (unwritten) text += "; " + std::to_string(unwritten) + " events not written";
+    write_log(text + "\n");
+    const std::uint64_t other = events - std::min(events, totals.gone);
+    if (other > test_events)
       say(("[NativeLoader] Put back " + std::to_string(totals.put_back) + " and skipped " +
-           std::to_string(totals.skipped) +
-           " queued render call(s) written over while the game ran them, before it left threaded rendering (engine "
-           "guard, ADR 0254). Details: garrysmod/data/native-loader/render-queue-check.log\n")
+           std::to_string(totals.skipped - std::min(totals.skipped, totals.gone)) +
+           " queued render call(s) written over while the game ran them (engine guard, ADR 0254). Details: "
+           "garrysmod/data/native-loader/render-queue-check.log\n")
+              .c_str());
+    if (totals.gone)
+      say(("[NativeLoader] Skipped " + std::to_string(totals.gone) +
+           " queued render call(s) on a material variable that was already gone (engine guard, ADR 0261). Details: "
+           "garrysmod/data/native-loader/render-queue-check.log\n")
               .c_str());
   } catch (...) {
   }
 }
 
-// Before the engine leaves threaded rendering: the lock (the render thread finishes the frame it was given and the
-// hardware context becomes this thread's), the walk, with the run check ready what every element looks like now, the
-// unlock. True when the run is to be watched.
-bool check(void* self, std::uint64_t& number) {
+// The calls a list holds now (0 when it cannot be walked), under SEH.
+std::uint32_t count_guarded(const List& list) noexcept {
+  std::uintptr_t length = 0;
+  __try {
+    if (!walkable(list, length)) length = 0;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    length = 0;
+  }
+  return static_cast<std::uint32_t>(std::min<std::uintptr_t>(length, UINT32_MAX));
+}
+
+constexpr std::uint64_t kLogFlushes = 64;  // flushes per process whose routine line the log gets
+
+// What the check found before a run.
+struct Prepared {
+  bool watch = false;           // the run is to be watched (the run check kept the lists)
+  std::size_t current = SIZE_MAX;  // the queued context this thread records into, or SIZE_MAX
+  void* context = nullptr;      // that context
+  List list{};                  // its call list
+  std::uint32_t queued = 0;     // its calls after the walk
+  std::uint64_t number = 0;     // the check's or the flush's number
+};
+
+// Before the engine runs the lists: the lock (the render thread finishes the frame it was given and the hardware
+// context becomes this thread's), the walk, with the run check ready what every element looks like now, the unlock.
+std::atomic<std::uint64_t> g_flush_calls{0};  // flushes asked for (each its own number in the log)
+Prepared check(void* self, Kind kind) {
+  Prepared out;
   const auto base = reinterpret_cast<std::uintptr_t>(self);
+  capture_modules();  // before the material system's lock: it may take the loader lock
   void* const lock = g_lock(self);
   List lists[kMaxLists]{};
-  std::size_t current = SIZE_MAX;
   for (std::uint32_t i = 0; i < g_layout.count; ++i) {
     const std::uintptr_t context = base + g_layout.contexts + std::uintptr_t{i} * g_layout.stride;
-    if (reinterpret_cast<void*>(context) == lock) current = i;
+    if (reinterpret_cast<void*>(context) == lock) out.current = i;
     lists[i].header = reinterpret_cast<std::uintptr_t*>(context + g_layout.list);
     lists[i].arena_begin = context + g_layout.list + kListHeader;
     lists[i].arena_end = lists[i].arena_begin + kArena;
   }
   Report report{};
-  bool walked = true, watch = false;
+  bool walked = true;
   // Only when this thread was recording into a queued context: then Lock waited for the render thread's frame, and
   // nothing runs a list while the walk reads it.
-  if (current != SIZE_MAX) {
-    walked = clean_guarded(lists, g_layout.count, g_test ? current : SIZE_MAX, g_test && g_run_ready, &report);
+  if (out.current != SIZE_MAX) {
+    out.context = lock;
+    out.list = lists[out.current];
+    walked = clean_guarded(lists, g_layout.count, g_test ? out.current : SIZE_MAX, g_test && g_run_ready, &report);
+    out.queued = count_guarded(out.list);
     if (walked && g_run_ready) {
-      g_run.begin(lists, g_layout.count, &judge_memory_any, nullptr, GetCurrentThreadId());
-      watch = g_run.see();
+      g_run.begin(lists, g_layout.count, &judge_memory_any, nullptr, GetCurrentThreadId(), &run_check::call_object,
+                  run_hooks());
+      out.watch = g_run.see();
     }
   }
   g_unlock(self, lock);
-  number = g_checks.fetch_add(1) + 1;
+  out.number = kind == Kind::leave ? g_checks.fetch_add(1) + 1 : g_flush_calls.fetch_add(1) + 1;
   g_dropped.fetch_add(report.dropped);
-  if (report.dropped || report.broken || !walked) record(report, walked, number);
-  return watch;
+  if (report.dropped || report.broken || !walked) record(report, walked, kind, out.number);
+  return out;
 }
 
-// AllowThreading(false): the check, then the engine's own function, its runs of the lists watched when the check
-// kept them (the render thread is idle until the engine's function returns: Lock waited for its frame, and only this
-// thread hands it another). A call of it from inside a watched run (never seen) gets the engine's function alone, so
-// the run being watched keeps what its check saw.
+// The engine's function (AllowThreading, or the queued context's flush), its runs of the lists watched when the check
+// kept them: the render thread is idle until the engine's function returns (Lock waited for its frame, and only this
+// thread hands it another). True when the run was watched.
 bool g_watching = false;  // main thread only
-bool hook_allow(void* self, bool allow, int service_thread) {
-  if (allow || self != g_object || g_watching) return g_allow(self, allow, service_thread);
-  std::uint64_t number = 0;
-  if (!check(self, number) || !patch_dispatch()) {
+template <class Engine>
+bool run_watched(const Prepared& prepared, Kind kind, Engine&& engine) {
+  if (!prepared.watch || !patch_dispatch()) {
     g_run.end();
-    return g_allow(self, allow, service_thread);
+    engine();
+    return false;
   }
+  g_run_log = RunLog{kind, prepared.number, 0, 0};
   const int victim_runs = g_test_victim_runs.load();
   g_watching = true;
-  const bool result = g_allow(self, allow, service_thread);
+  engine();
   g_watching = false;
   unpatch_dispatch();
   g_run.end();
@@ -914,13 +1124,77 @@ bool hook_allow(void* self, bool allow, int service_thread) {
   g_put_back.fetch_add(g_run.totals().put_back);
   g_skipped.fetch_add(g_run.totals().skipped);
   g_ended.fetch_add(g_run.totals().ended);
-  record_run(number, g_test_victim_runs.load() > victim_runs);
+  g_gone.fetch_add(g_run.totals().gone);
+  record_run(kind, prepared.number, g_test_victim_runs.load() > victim_runs);
+  return true;
+}
+
+// AllowThreading(false): the check, then the engine's own function. A call of it from inside a watched run (never
+// seen) gets the engine's function alone, so the run being watched keeps what its check saw.
+bool hook_allow(void* self, bool allow, int service_thread) {
+  if (allow || self != g_object || g_watching) return g_allow(self, allow, service_thread);
+  const Prepared prepared = check(self, Kind::leave);
+  bool result = false;
+  run_watched(prepared, Kind::leave, [&] { result = g_allow(self, allow, service_thread); });
   return result;
+}
+
+// The flush (ADR 0261) in the copy that installed: the same check and watched run as AllowThreading(false), with the
+// queued context's own flush (Lock; CallQueued(this, 0); Unlock) as the engine's function.
+FlushResult flush_here() {
+  FlushResult out;
+  if (!g_flush_ready) {
+    out.why = "the queue flush is off: " + g_flush_reason;
+    return out;
+  }
+  if (GetCurrentThreadId() != g_main_thread) {
+    out.why = "not called on the game's main thread";
+    return out;
+  }
+  if (g_watching) {
+    out.why = "called while the queued calls run";
+    return out;
+  }
+  if (g_no_flush) {
+    out.ok = true;
+    out.why = "the test option -nl_queue_check_no_flush: nothing was run";
+    return out;
+  }
+  const Prepared prepared = check(g_object, Kind::flush);
+  if (prepared.current == SIZE_MAX) {
+    g_run.end();
+    out.ok = true;
+    out.why = "nothing queued: this thread does not record into a queued context";
+    return out;
+  }
+  g_flushes.fetch_add(1);
+  void* const context = prepared.context;
+  const bool watched = run_watched(prepared, Kind::flush, [context] { g_flush_fn(context); });
+  const run_check::Totals totals = watched ? g_run.totals() : run_check::Totals{};
+  out.calls = watched ? totals.run : prepared.queued;
+  // The context's flush ran what was queued before it. Inside a render block it queues one call of its own after
+  // itself (the matching end of the block), so the list need not be empty now: that is said, not refused.
+  out.ok = true;
+  out.why = "ran " + std::to_string(out.calls) + " queued render call(s) through the queued context's flush";
+  if (totals.skipped)
+    out.why += "; skipped " + std::to_string(totals.skipped) + " (" + std::to_string(totals.gone) +
+               " on a material variable that was gone)";
+  const std::uint32_t again = count_guarded(prepared.list);
+  if (again) out.why += "; " + std::to_string(again) + " call(s) queued again by the flush";
+  // The routine line for the first kLogFlushes flushes of a process only: any client Lua can call the flush every
+  // frame, and the log must not rotate crash evidence away. Events and summaries are always written.
+  if (prepared.number <= kLogFlushes)
+    write_log(utc_now() + " flush " + std::to_string(prepared.number) + ": list " + std::to_string(prepared.current) +
+              " held " + std::to_string(prepared.queued) + " calls; " + (watched ? "watched; " : "not watched; ") +
+              out.why + "\n");
+  return out;
 }
 
 Status fail(std::string reason) {
   g_status.installed = false;
   g_status.reason = std::move(reason);
+  if (g_status.flush_reason.empty()) g_status.flush_reason = "the queue check is not installed";
+  if (g_status.target_reason.empty()) g_status.target_reason = "the queue check is not installed";
   return g_status;
 }
 
@@ -937,6 +1211,10 @@ Owner other_copy(RunOwner& run_owner) {
     const auto owner = reinterpret_cast<Owner>(GetProcAddress(module, "nl_engine_guard_queue_check_v1"));
     if (owner && owner(nullptr, nullptr, nullptr) >= 0) {
       run_owner = reinterpret_cast<RunOwner>(GetProcAddress(module, "nl_engine_guard_run_check_v1"));
+      // ADR 0261: its flush and its counts, when it has them.
+      g_flush_owner = reinterpret_cast<FlushOwner>(GetProcAddress(module, "nl_engine_guard_queue_flush_v1"));
+      g_flush_status_owner =
+          reinterpret_cast<FlushStatusOwner>(GetProcAddress(module, "nl_engine_guard_queue_flush_status_v1"));
       return owner;
     }
   }
@@ -994,6 +1272,37 @@ bool layout_guarded(const std::uint8_t* image, std::uintptr_t base, const std::u
   }
 }
 
+__declspec(noinline) void flush_into(const std::uint8_t* image, std::uintptr_t base, const std::uintptr_t* vtable,
+                                     std::size_t slots, const Layout& layout, FlushSlot& out) noexcept {
+  out = find_flush(image, base, vtable, slots, layout);
+}
+
+// find_flush on the loaded image, under SEH.
+bool flush_guarded(const std::uint8_t* image, std::uintptr_t base, const std::uintptr_t* vtable, std::size_t slots,
+                   const Layout& layout, FlushSlot& out) noexcept {
+  __try {
+    flush_into(image, base, vtable, slots, layout, out);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
+__declspec(noinline) void target_into(const std::uint8_t* image, std::uintptr_t base,
+                                      target_check::Layout& out) noexcept {
+  out = target_check::find_layout(image, base);
+}
+
+// target_check::find_layout on the loaded image, under SEH.
+bool target_guarded(const std::uint8_t* image, std::uintptr_t base, target_check::Layout& out) noexcept {
+  __try {
+    target_into(image, base, out);
+    return true;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return false;
+  }
+}
+
 // How many of the vtable's slots point at code in some loaded image (another module's hook included): its length.
 std::size_t vtable_slots(const std::uintptr_t* vtable) noexcept {
   std::size_t slots = 0;
@@ -1001,6 +1310,55 @@ std::size_t vtable_slots(const std::uintptr_t* vtable) noexcept {
          (image_section(vtable[slots], 1) & IMAGE_SCN_MEM_EXECUTE))
     ++slots;
   return slots;
+}
+
+// The queued context's flush (ADR 0261): found in the live context's vtable (the class the install checked by RTTI),
+// which must be materialsystem.dll's read-only data. Otherwise the flush is off and says why.
+void prepare_flush(const std::uint8_t* image, std::uintptr_t base, const Layout& layout, void* object) {
+  g_status.queue_flush = false;
+  const HMODULE module = reinterpret_cast<HMODULE>(const_cast<std::uint8_t*>(image));
+  const std::uintptr_t context = reinterpret_cast<std::uintptr_t>(object) + layout.contexts;
+  const auto* const vtable = *reinterpret_cast<const std::uintptr_t* const*>(context);
+  MEMORY_BASIC_INFORMATION m{};
+  if (!VirtualQuery(vtable, &m, sizeof(m)) || m.AllocationBase != module ||
+      (image_section(reinterpret_cast<std::uintptr_t>(vtable), 8) & IMAGE_SCN_MEM_WRITE)) {
+    g_flush_reason = "the queued context's vtable is not materialsystem.dll's";
+  } else {
+    FlushSlot slot;
+    if (!flush_guarded(image, base, vtable, vtable_slots(vtable), layout, slot))
+      g_flush_reason = "the queued context's code could not be read";
+    else if (!slot.found())
+      g_flush_reason = slot.reason;
+    else {
+      g_flush_fn = reinterpret_cast<FlushFn>(vtable[slot.slot]);
+      g_flush_ready = true;
+      g_flush_reason = "installed";
+    }
+  }
+  g_status.queue_flush = g_flush_ready;
+  g_status.flush_reason = g_flush_reason;
+}
+
+// The target check (ADR 0261) lives in the run check's step: without the run check it is off.
+void prepare_target(const std::uint8_t* image, std::uintptr_t base) {
+  g_status.target_check = false;
+  if (!g_run_ready) {
+    g_status.target_reason = "the run check is off";
+    return;
+  }
+  target_check::Layout layout;
+  if (!target_guarded(image, base, layout)) {
+    g_status.target_reason = "materialsystem.dll's code could not be read";
+    return;
+  }
+  if (!layout.found()) {
+    g_status.target_reason = layout.reason;
+    return;
+  }
+  g_target.use(layout);
+  g_target_ready = true;
+  g_status.target_check = true;
+  g_status.target_reason = "installed";
 }
 
 bool launched_with(const wchar_t* option) {
@@ -1032,6 +1390,16 @@ Status install_locked() {
     g_status.run_check = run_owner && run_owner(nullptr, nullptr, nullptr, nullptr) > 0;
     g_status.run_reason = g_status.run_check ? "installed by the other copy of this module"
                                              : "not in the other copy of this module";
+    // ADR 0261: the flush is forwarded to the copy that installed; its target check is its own.
+    int target = 0, no_flush = 0;
+    const int flush = g_flush_status_owner ? g_flush_status_owner(nullptr, nullptr, &target, &no_flush) : -1;
+    g_status.queue_flush = g_flush_owner && flush > 0;
+    g_status.flush_reason = g_status.queue_flush ? "installed by the other copy of this module"
+                                                 : "not in the other copy of this module";
+    g_status.target_check = flush >= 0 && target != 0;
+    g_status.target_reason = g_status.target_check ? "installed by the other copy of this module"
+                                                   : "not in the other copy of this module";
+    g_status.no_flush = no_flush != 0;
     return g_status;
   }
   const HMODULE module = GetModuleHandleW(L"materialsystem.dll");
@@ -1071,7 +1439,13 @@ Status install_locked() {
   g_unlock = reinterpret_cast<UnlockFn>(vtable[layout.unlock_slot]);
   g_layout = layout;
   g_object = object;
+  g_main_thread = GetCurrentThreadId();
+  capture_modules();
   prepare_run_check(image, layout);
+  prepare_flush(image, base, layout, object);
+  prepare_target(image, base);
+  g_no_flush = launched_with(L"-nl_queue_check_no_flush");
+  g_status.no_flush = g_no_flush;
   if (launched_with(L"-nl_queue_check_test")) {
     void* const block = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 64);
     g_test_object[0] = reinterpret_cast<std::uintptr_t>(block);
@@ -1105,6 +1479,17 @@ Status install_locked() {
   if (g_test && g_run_ready && g_test_junk)
     say("[NativeLoader] Queue check test: each check also queues a pair of calls, the first writing over the second's "
         "element.\n");
+  if (g_flush_ready)
+    say("[NativeLoader] Queued render calls can be run before the RTX fixes' map-exit cleanup (engine guard, ADR "
+        "0261).\n");
+  else
+    say(("[NativeLoader] The queue flush is off: " + g_flush_reason + " (engine guard, ADR 0261).\n").c_str());
+  if (g_target_ready)
+    say("[NativeLoader] Queued calls on a material variable that is gone are skipped (engine guard, ADR 0261).\n");
+  else
+    say(("[NativeLoader] The target check is off: " + g_status.target_reason + " (engine guard, ADR 0261).\n").c_str());
+  if (g_no_flush)
+    say("[NativeLoader] Queue flush test: the flush runs nothing and says it succeeded (-nl_queue_check_no_flush).\n");
   return g_status;
 }
 
@@ -1117,6 +1502,7 @@ Status fill(Status out) {
     out.dropped = dropped;
     out.test = test != 0;
     if (g_run_owner) g_run_owner(&out.runs, &out.put_back, &out.skipped, &out.ended);
+    if (g_flush_status_owner) g_flush_status_owner(&out.flushes, &out.gone, nullptr, nullptr);
   } else {
     out.checks = g_checks.load();
     out.dropped = g_dropped.load();
@@ -1125,8 +1511,21 @@ Status fill(Status out) {
     out.put_back = g_put_back.load();
     out.skipped = g_skipped.load();
     out.ended = g_ended.load();
+    out.flushes = g_flushes.load();
+    out.gone = g_gone.load();
   }
   return out;
+}
+
+// The flush in the copy that installed, never throwing.
+FlushResult flush_safe() noexcept {
+  try {
+    return flush_here();
+  } catch (...) {
+    FlushResult out;
+    out.why = "the queue flush failed";
+    return out;
+  }
 }
 }  // namespace
 
@@ -1150,6 +1549,105 @@ extern "C" __declspec(dllexport) int nl_engine_guard_run_check_v1(std::uint64_t*
   if (skipped) *skipped = g_skipped.load();
   if (ended) *ended = g_ended.load();
   return g_run_ready ? 1 : 0;
+}
+
+// ADR 0261: the flush, run in the copy that installed for the other copy. -1 when this copy did not install, 1 when
+// what this thread had queued has run, 0 when it could not make sure; `why` gets a NUL-terminated reason.
+extern "C" __declspec(dllexport) int nl_engine_guard_queue_flush_v1(std::uint64_t* calls, char* why,
+                                                                     std::size_t size) noexcept {
+  if (!g_owns.load()) return -1;
+  const FlushResult result = flush_safe();
+  if (calls) *calls = result.calls;
+  if (why && size) {
+    const std::size_t n = std::min(size - 1, result.why.size());
+    std::memcpy(why, result.why.data(), n);
+    why[n] = 0;
+  }
+  return result.ok ? 1 : 0;
+}
+
+// And its counts: -1 when this copy did not install, 0 when its flush is off, 1 when on.
+extern "C" __declspec(dllexport) int nl_engine_guard_queue_flush_status_v1(std::uint64_t* flushes,
+                                                                            std::uint64_t* gone, int* target,
+                                                                            int* no_flush) noexcept {
+  if (!g_owns.load()) return -1;
+  if (flushes) *flushes = g_flushes.load();
+  if (gone) *gone = g_gone.load();
+  if (target) *target = g_target_ready ? 1 : 0;
+  if (no_flush) *no_flush = g_no_flush ? 1 : 0;
+  return g_flush_ready ? 1 : 0;
+}
+
+FlushResult flush() noexcept {
+  try {
+    FlushOwner owner = nullptr;
+    bool forwarded = false;
+    std::string reason;
+    {
+      std::lock_guard<std::mutex> lock(g_install);
+      forwarded = g_owner != nullptr;
+      owner = g_flush_owner;
+      reason = g_status.reason;
+    }
+    if (forwarded) {
+      FlushResult out;
+      if (!owner) {
+        out.why = "the queue flush is not in the other copy of this module";
+        return out;
+      }
+      char why[256] = {};
+      const int result = owner(&out.calls, why, sizeof(why));
+      out.ok = result == 1;
+      out.why = result < 0 ? std::string("the other copy of this module did not install the queue check") : why;
+      return out;
+    }
+    if (!g_owns.load()) {
+      FlushResult out;
+      out.why = "the queue check is not installed: " + (reason.empty() ? std::string("not yet") : reason);
+      return out;
+    }
+    return flush_safe();
+  } catch (...) {
+    FlushResult out;
+    out.why = "the queue flush failed";
+    return out;
+  }
+}
+
+void use_for_test(const StandIns& stand_ins) noexcept {
+  try {
+    std::lock_guard<std::mutex> lock(g_install);
+    g_layout = stand_ins.layout;
+    g_object = stand_ins.system;
+    g_lock = stand_ins.lock;
+    g_unlock = stand_ins.unlock;
+    g_flush_fn = stand_ins.flush;
+    g_flush_ready = stand_ins.flush != nullptr;
+    g_flush_reason = g_flush_ready ? "installed" : "no flush given";
+    g_no_flush = stand_ins.no_flush;
+    g_main_thread = GetCurrentThreadId();
+    g_log_path = stand_ins.log;
+    g_owns.store(true);
+  } catch (...) {
+  }
+}
+
+void reset_for_test() noexcept {
+  try {
+    std::lock_guard<std::mutex> lock(g_install);
+    g_owns.store(false);
+    g_flush_ready = false;
+    g_flush_fn = nullptr;
+    g_flush_reason = "not installed";
+    g_no_flush = false;
+    g_object = nullptr;
+    g_lock = nullptr;
+    g_unlock = nullptr;
+    g_layout = Layout{};
+    g_main_thread = 0;
+    g_log_path.clear();
+  } catch (...) {
+  }
 }
 
 Status install() noexcept {

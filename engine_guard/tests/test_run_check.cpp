@@ -2,14 +2,26 @@
 // through Run::step as CallQueued's loop would, with what the field's crashes found written over them during the run:
 // elements put back, changed calls skipped, a call never run twice, links that leave the arena ended, calls appended
 // during the run followed, nothing changed when nothing was written over; and the rewritten dispatch itself, executed
-// as machine code: the engine's loop with it runs the list through step and the original bytes come back.
+// as machine code: the engine's loop with it runs the list through step and the original bytes come back. ADR 0261:
+// the target judge asked right before each call (seen elements and strangers), a gone target skipped, counted and
+// recorded, the notify told at the event (before later calls run), a variable an earlier call of the same run
+// destroyed caught at its own call (with a fake judge and with the real one on fake memory), and the queued context's
+// flush executed as machine code (Lock, CallQueued, Unlock through stand-ins), its run going through step.
 #include "nl_test.h"
 #include "guard.h"
 #include "run_check.h"
+#include "target_check.h"
+#include "queue_check.h"
 
 #include <windows.h>
 
+#include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <cstring>
 #include <new>
 #include <thread>
@@ -17,6 +29,7 @@
 
 namespace qc = nl::engine_guard::queue_check;
 namespace rc = nl::engine_guard::run_check;
+namespace tc = nl::engine_guard::target_check;
 
 namespace {
 std::uintptr_t address(const void* pointer) { return reinterpret_cast<std::uintptr_t>(pointer); }
@@ -440,4 +453,478 @@ TEST_CASE("run check: the rewritten dispatch, executed, runs the engine's loop t
   CHECK(std::memcmp(code, kRunner, sizeof(kRunner)) == 0);
   VirtualFree(slot, 0, MEM_RELEASE);
   VirtualFree(code, 0, MEM_RELEASE);
+}
+
+namespace {
+// ADR 0261: the target judge as a fake. Calls whose object is in g_gone_objects are on a material variable that is
+// gone; every other call is not judged.
+std::vector<std::uintptr_t> g_gone_objects;
+int g_judged = 0;
+tc::Verdict fake_target(void*, std::uintptr_t object, tc::Finding& finding) {
+  ++g_judged;
+  finding.functor_table = *reinterpret_cast<const std::uintptr_t*>(object);
+  for (const std::uintptr_t gone : g_gone_objects)
+    if (gone == object) {
+      finding.variable = 0x5eed;
+      return tc::Verdict::not_in_parameters;
+    }
+  return tc::Verdict::not_judged;
+}
+
+// What the notify saw, and when: the calls run by then.
+struct Told {
+  rc::Event event;
+  std::size_t ran_by_then;
+  std::uintptr_t element;
+  tc::Verdict verdict;
+};
+std::vector<Told> g_told;
+void notify(void*, const rc::Record& record) {
+  g_told.push_back({record.event, g_order.size(), record.element, record.target.verdict});
+}
+
+rc::Hooks fake_hooks() {
+  rc::Hooks hooks;
+  hooks.target = &fake_target;
+  hooks.notify = &notify;
+  return hooks;
+}
+
+rc::Run& watched_with(rc::Run& run, EngineList& list, const rc::Hooks& hooks) {
+  run.begin(&list.list, 1, &judge, nullptr, GetCurrentThreadId(), &rc::call_object, hooks);
+  REQUIRE(run.see());
+  g_list = &list;
+  g_run = &run;
+  g_order.clear();
+  g_told.clear();
+  g_judged = 0;
+  return run;
+}
+}  // namespace
+
+TEST_CASE("run check: a call whose material variable is gone is skipped and told when it happens (ADR 0261)") {
+  {  // seen elements: the third call's target is gone
+    EngineList list;
+    for (int i = 1; i <= 4; ++i) list.push(i);
+    g_gone_objects = {list.element(2)[1]};
+    rc::Run run;
+    engine_run(watched_with(run, list, fake_hooks()), list.list);
+    CHECK(g_order == ids({1, 2, 4}));
+    CHECK(g_judged == 4);  // every call judged right before it would run
+    CHECK(run.totals().run == 3);
+    CHECK(run.totals().skipped == 1);
+    CHECK(run.totals().gone == 1);
+    CHECK(run.totals().put_back == 0);
+    REQUIRE(run.recorded() == 1);
+    const rc::Record& r = run.records()[0];
+    CHECK(r.event == rc::Event::target_gone);
+    CHECK(r.position == 2);
+    CHECK(r.element == list.elements[2]);
+    CHECK(r.target.verdict == tc::Verdict::not_in_parameters);
+    CHECK(r.target.variable == 0x5eed);
+    CHECK(r.target.functor_table == *reinterpret_cast<const std::uintptr_t*>(list.call(2)));
+    REQUIRE(r.recent_count == 2);
+    CHECK(r.recent[0].position == 1);
+    // Told at the event, before the fourth call ran: a run that crashed after it would still have said it.
+    REQUIRE(g_told.size() == 1);
+    CHECK(g_told[0].event == rc::Event::target_gone);
+    CHECK(g_told[0].ran_by_then == 2);
+    CHECK(g_told[0].verdict == tc::Verdict::not_in_parameters);
+    CHECK(std::strlen(rc::describe(rc::Event::target_gone)) > 10);
+    run.end();
+  }
+  {  // a stranger (appended by the last call during the run) whose target is gone: skipped as well
+    EngineList list;
+    list.push(1);
+    list.push(2, [](Fn*) {
+      const std::uintptr_t e = g_list->push(9);
+      g_gone_objects = {reinterpret_cast<std::uintptr_t*>(e)[1]};
+    });
+    rc::Run run;
+    g_gone_objects.clear();
+    engine_run(watched_with(run, list, fake_hooks()), list.list);
+    CHECK(g_order == ids({1, 2}));
+    CHECK(run.totals().strangers == 1);
+    CHECK(run.totals().gone == 1);
+    REQUIRE(run.recorded() == 1);
+    CHECK(run.records()[0].event == rc::Event::target_gone);
+    CHECK(run.records()[0].position == UINT32_MAX);
+    run.end();
+  }
+  {  // a variable an earlier call of the same run destroyed: caught at its own call
+    EngineList list;
+    list.push(1);
+    list.push(2, [](Fn*) { g_gone_objects = {g_list->element(3)[1]}; });  // the cleanup, as a queued call
+    list.push(3);
+    list.push(4);
+    list.push(5);
+    rc::Run run;
+    g_gone_objects.clear();
+    engine_run(watched_with(run, list, fake_hooks()), list.list);
+    CHECK(g_order == ids({1, 2, 3, 5}));
+    CHECK(run.totals().gone == 1);
+    REQUIRE(g_told.size() == 1);
+    CHECK(g_told[0].ran_by_then == 3);
+    run.end();
+  }
+  {  // no target judge: every call runs as before; events past the record limit are still told, up to theirs
+    EngineList list(8192);
+    for (int i = 0; i < 40; ++i) list.push(i);
+    g_gone_objects.clear();
+    for (std::size_t k = 0; k < 40; ++k) g_gone_objects.push_back(list.element(k)[1]);
+    rc::Hooks hooks = fake_hooks();
+    hooks.target = nullptr;
+    rc::Run plain;
+    engine_run(watched_with(plain, list, hooks), list.list);
+    CHECK(g_order.size() == 40);
+    CHECK(plain.totals().gone == 0);
+    plain.end();
+    EngineList again(8192);
+    for (int i = 0; i < 40; ++i) again.push(i);
+    g_gone_objects.clear();
+    for (std::size_t k = 0; k < 40; ++k) g_gone_objects.push_back(again.element(k)[1]);
+    rc::Run all;
+    engine_run(watched_with(all, again, fake_hooks()), again.list);
+    CHECK(g_order.empty());
+    CHECK(all.totals().gone == 40);
+    CHECK(all.recorded() == rc::kMaxRecords);
+    CHECK(g_told.size() == 40);  // every event told, beyond the records kept
+    all.end();
+  }
+  g_gone_objects.clear();
+}
+
+namespace {
+// The real target judge on fake memory: the designated calls keep a material variable at +24 (Fn::tail); the second
+// call's action uncaches the material as CMaterial::CleanUpShaderParams does (array and count 0).
+struct Material {
+  alignas(8) std::uint8_t variable[0x48] = {};
+  alignas(8) std::uint8_t material[0x48] = {};
+  std::uintptr_t params[1] = {};
+};
+const std::uintptr_t kVarTable[1] = {};
+const std::uintptr_t kMatTable[1] = {};
+Material* g_material = nullptr;
+tc::Judge* g_real = nullptr;
+std::vector<std::uintptr_t> g_designated;
+tc::Verdict real_target(void*, std::uintptr_t object, tc::Finding& finding) {
+  for (const std::uintptr_t d : g_designated)
+    if (d == object) return tc::judge(*g_real, object, finding);
+  return tc::Verdict::not_judged;
+}
+void put_word(std::uint8_t* at, std::uintptr_t value) { std::memcpy(at, &value, sizeof(value)); }
+}  // namespace
+
+TEST_CASE("run check: the real target judge skips a setter whose material an earlier call uncached") {
+  Material m;
+  put_word(m.variable, address(kVarTable));
+  put_word(m.variable + 0x31, address(m.material));
+  put_word(m.material, address(kMatTable));
+  m.material[0x32] = 1;
+  m.params[0] = address(m.variable);
+  put_word(m.material + 0x38, address(m.params));
+  g_material = &m;
+  tc::Judge judge_real;
+  judge_real.variable_table = address(kVarTable);
+  judge_real.material_table = address(kMatTable);
+  judge_real.owner = 0x31;
+  judge_real.count = 0x32;
+  judge_real.params = 0x38;
+  judge_real.resolver = nullptr;
+  g_real = &judge_real;
+  EngineList list;
+  list.push(1);
+  list.push(2, [](Fn*) {  // UncacheAllMaterials: the material lists no variable any more
+    put_word(g_material->material + 0x38, 0);
+    g_material->material[0x32] = 0;
+  });
+  list.push(3);
+  // The first and the third call are setters on the variable (their class keeps it at +24).
+  list.call(0)->tail = address(m.variable);
+  list.call(2)->tail = address(m.variable);
+  judge_real.classes.add(*reinterpret_cast<const std::uintptr_t*>(list.call(0)), 24);
+  g_designated = {list.element(0)[1], list.element(2)[1]};
+  rc::Hooks hooks;
+  hooks.target = &real_target;
+  hooks.notify = &notify;
+  rc::Run run;
+  engine_run(watched_with(run, list, hooks), list.list);
+  CHECK(g_order == ids({1, 2}));
+  CHECK(run.totals().gone == 1);
+  REQUIRE(run.recorded() == 1);
+  CHECK(run.records()[0].target.verdict == tc::Verdict::no_parameters);
+  CHECK(run.records()[0].target.variable == address(m.variable));
+  CHECK(run.records()[0].target.owner == address(m.material));
+  run.end();
+  g_designated.clear();
+  g_real = nullptr;
+  g_material = nullptr;
+}
+
+namespace {
+// The queued context's flush (ADR 0261) in machine code, in a page of its own, as materialsystem.dll has it: Lock and
+// Unlock through the material system's vtable (C++ stand-ins below), CallQueued between them. The stand-in CallQueued
+// runs the context's list (its head the context's first word, its tail the second) with the engine's dispatch, then
+// empties it. CallQueued at 0:
+//   push rbx; push rsi; sub rsp,28h; mov rsi,rcx; mov rbx,[rsi]; test rbx,rbx; je done;
+//   loop: mov rcx,[rbx+8]; mov rax,[rcx]; call [rax+18h]; mov rbx,[rbx]; test rbx,rbx; jne loop;
+//   done: mov qword ptr [rsi],0; mov qword ptr [rsi+8],0; add rsp,28h; pop rsi; pop rbx; ret
+const std::uint8_t kCallQueued[] = {0x53, 0x56, 0x48, 0x83, 0xEC, 0x28, 0x48, 0x8B, 0xF1, 0x48, 0x8B, 0x1E, 0x48,
+                                    0x85, 0xDB, 0x74, 0x12, 0x48, 0x8B, 0x4B, 0x08, 0x48, 0x8B, 0x01, 0xFF, 0x50,
+                                    0x18, 0x48, 0x8B, 0x1B, 0x48, 0x85, 0xDB, 0x75, 0xEE, 0x48, 0xC7, 0x06, 0x00,
+                                    0x00, 0x00, 0x00, 0x48, 0xC7, 0x46, 0x08, 0x00, 0x00, 0x00, 0x00, 0x48, 0x83,
+                                    0xC4, 0x28, 0x5E, 0x5B, 0xC3};
+constexpr std::size_t kCallQueuedDispatch = 17;
+constexpr std::size_t kFlushAt = 0x80;
+constexpr std::uint32_t kSystem = 0x40;  // the context's material system pointer
+
+// The flush at kFlushAt: mov [rsp+8],rbx; push rdi; sub rsp,20h; mov rdi,rcx; mov rcx,[rdi+40h]; mov rax,[rcx];
+// call [rax+10h] (Lock); xor edx,edx; mov rcx,rdi; mov rbx,rax; call CallQueued; mov rcx,[rdi+40h]; mov rdx,rbx;
+// mov r8,[rcx]; call [r8+18h] (Unlock); mov rbx,[rsp+30h]; add rsp,20h; pop rdi; ret
+std::vector<std::uint8_t> flush_bytes() {
+  std::vector<std::uint8_t> code = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xF9,
+                                    0x48, 0x8B, 0x8F, kSystem, 0, 0, 0, 0x48, 0x8B, 0x01, 0xFF, 0x90, 0x10, 0, 0, 0,
+                                    0x33, 0xD2, 0x48, 0x8B, 0xCF, 0x48, 0x8B, 0xD8, 0xE8};
+  const std::int32_t relative = -static_cast<std::int32_t>(kFlushAt + code.size() + 4);
+  for (int i = 0; i < 4; ++i) code.push_back(static_cast<std::uint8_t>(static_cast<std::uint32_t>(relative) >> (8 * i)));
+  code.insert(code.end(), {0x48, 0x8B, 0x8F, kSystem, 0, 0, 0, 0x48, 0x8B, 0xD3, 0x4C, 0x8B, 0x01, 0x41, 0xFF, 0x90,
+                           0x18, 0, 0, 0, 0x48, 0x8B, 0x5C, 0x24, 0x30, 0x48, 0x83, 0xC4, 0x20, 0x5F, 0xC3});
+  return code;
+}
+
+std::vector<char> g_lock_order;
+void* const kLockToken = reinterpret_cast<void*>(0x10C4);
+void* fake_lock(void*) {
+  g_lock_order.push_back('L');
+  return kLockToken;
+}
+// The engine's flush inside a render block queues one call after its Unlock (the block's matching end): the
+// stand-in does that when g_requeue names a list.
+const qc::List* g_requeue = nullptr;
+std::uintptr_t g_requeue_object = 0;
+void fake_unlock(void*, void* token) {
+  g_lock_order.push_back(token == kLockToken ? 'U' : '?');
+  if (g_requeue) qc::append(*g_requeue, g_requeue_object);
+  g_requeue = nullptr;
+}
+const void* const kSystemTable[4] = {nullptr, nullptr, reinterpret_cast<const void*>(&fake_lock),
+                                     reinterpret_cast<const void*>(&fake_unlock)};
+struct FakeSystem {
+  const void* const* vtable = kSystemTable;
+};
+struct FakeContext {
+  std::uintptr_t head = 0;
+  std::uintptr_t unused[7] = {};
+  FakeSystem* system = nullptr;  // at +0x40
+};
+static_assert(offsetof(FakeContext, system) == kSystem, "the flush reads it there");
+
+rc::Run* g_page_run = nullptr;
+void page_step(std::uintptr_t* element) noexcept { g_page_run->step(element); }
+}  // namespace
+
+TEST_CASE("run check: the queued context's flush, executed, runs the list through step between Lock and Unlock") {
+  auto* code = static_cast<std::uint8_t*>(VirtualAlloc(nullptr, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+  REQUIRE(code != nullptr);
+  std::memset(code, 0xCC, 4096);
+  std::memcpy(code, kCallQueued, sizeof(kCallQueued));
+  const auto flush = flush_bytes();
+  std::memcpy(code + kFlushAt, flush.data(), flush.size());
+  CHECK(std::memcmp(code + kCallQueuedDispatch, rc::kDispatch.data(), rc::kDispatchSize) == 0);
+  FlushInstructionCache(GetCurrentProcess(), code, 4096);
+  using Flush = void (*)(void* context);
+  const auto run_flush = reinterpret_cast<Flush>(code + kFlushAt);
+  FakeSystem system;
+  FakeContext context;
+  context.system = &system;
+  {  // as the engine's: every call once, between Lock and Unlock, and the list emptied
+    EngineList list;
+    for (int i = 1; i <= 3; ++i) list.push(i);
+    context.head = list.words[0];
+    g_order.clear();
+    g_lock_order.clear();
+    run_flush(&context);
+    CHECK(g_order == ids({1, 2, 3}));
+    CHECK(context.head == 0);
+    CHECK(g_lock_order == std::vector<char>({'L', 'U'}));
+  }
+  // The dispatch rewritten as the engine guard does for a flush: the run goes through step, which asks the target
+  // judge; the second call uncaches the fourth's material.
+  std::uint8_t* const site = code + kCallQueuedDispatch;
+  void* const slot = nl::engine_guard::allocate_near(address(site));
+  REQUIRE(slot != nullptr);
+  void (*const entry)(std::uintptr_t*) noexcept = &page_step;
+  std::memcpy(slot, &entry, sizeof(entry));
+  const auto patch = rc::dispatch_patch(address(site), address(slot));
+  REQUIRE(patch.size() == rc::kDispatchSize);
+  std::memcpy(site, patch.data(), patch.size());
+  FlushInstructionCache(GetCurrentProcess(), site, patch.size());
+  {
+    EngineList list;
+    list.push(1);
+    list.push(2, [](Fn*) { g_gone_objects = {g_list->element(3)[1]}; });
+    list.push(3);
+    list.push(4);
+    list.push(5);
+    g_gone_objects.clear();
+    rc::Run run;
+    watched_with(run, list, fake_hooks());
+    g_page_run = &run;
+    g_lock_order.clear();
+    context.head = list.words[0];
+    run_flush(&context);
+    CHECK(g_order == ids({1, 2, 3, 5}));
+    CHECK(run.totals().run == 4);
+    CHECK(run.totals().gone == 1);
+    CHECK(context.head == 0);
+    CHECK(g_lock_order == std::vector<char>({'L', 'U'}));
+    REQUIRE(g_told.size() == 1);
+    CHECK(g_told[0].ran_by_then == 3);
+    run.end();
+    g_page_run = nullptr;
+  }
+  std::memcpy(site, rc::kDispatch.data(), rc::kDispatchSize);  // put back
+  CHECK(std::memcmp(code, kCallQueued, sizeof(kCallQueued)) == 0);
+  g_gone_objects.clear();
+  VirtualFree(slot, 0, MEM_RELEASE);
+  VirtualFree(code, 0, MEM_RELEASE);
+}
+
+namespace {
+// The flush's own logic (queue_check::flush, ADR 0261) on stand-ins: a material system object whose one queued context
+// holds its call list at its start (as the machine-code CallQueued reads it), Lock returning that context while
+// g_recording, the machine-code flush as the context's flush.
+void* g_seam_context = nullptr;
+bool g_recording = true;
+void* seam_lock(void*) { return g_recording ? g_seam_context : reinterpret_cast<void*>(0x5eed0); }
+void seam_unlock(void*, void*) {}
+
+std::string read_text(const std::filesystem::path& path) {
+  std::ifstream file(path, std::ios::binary);
+  std::stringstream text;
+  text << file.rdbuf();
+  return text.str();
+}
+}  // namespace
+
+TEST_CASE("run check: the flush's outcome on stand-ins (nothing queued, flushed, queued again, refused, test option)") {
+  if (GetModuleHandleW(L"d3d9.dll")) return;  // never in this test process
+  auto* code = static_cast<std::uint8_t*>(VirtualAlloc(nullptr, 4096, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+  REQUIRE(code != nullptr);
+  std::memset(code, 0xCC, 4096);
+  std::memcpy(code, kCallQueued, sizeof(kCallQueued));
+  const auto flush = flush_bytes();
+  std::memcpy(code + kFlushAt, flush.data(), flush.size());
+  FlushInstructionCache(GetCurrentProcess(), code, 4096);
+  // The material system object: its context at +0x1000, the list's header at the context's start, the arena after it.
+  const std::size_t size = 0x1000 + qc::kListHeader + 0x1000000 + 0x1000;
+  auto* system = static_cast<std::uint8_t*>(VirtualAlloc(nullptr, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+  REQUIRE(system != nullptr);
+  auto* context = reinterpret_cast<FakeContext*>(system + 0x1000);
+  FakeSystem fake_system;
+  context->system = &fake_system;
+  g_seam_context = context;
+  qc::List list;
+  list.header = reinterpret_cast<std::uintptr_t*>(context);
+  list.arena_begin = address(context) + qc::kListHeader;
+  list.arena_end = list.arena_begin + 0x1000000;
+  list.header[2] = address(context) + 0x100;  // elements after the system pointer at +0x40
+  std::vector<Fn*> calls;
+  auto queue = [&](int id) {
+    calls.push_back(new Fn(id, nullptr));
+    REQUIRE(qc::append(list, address(calls.back())));
+  };
+  const auto folder = nl::test::scratch_dir("queue_flush");
+  const auto log = folder / "render-queue-check.log";
+  qc::StandIns stand_ins;
+  stand_ins.system = system;
+  stand_ins.layout.contexts = 0x1000;
+  stand_ins.layout.stride = 0x2000000;
+  stand_ins.layout.count = 1;
+  stand_ins.layout.list = 0;
+  stand_ins.lock = &seam_lock;
+  stand_ins.unlock = &seam_unlock;
+  stand_ins.flush = reinterpret_cast<void (*)(void*)>(code + kFlushAt);
+  stand_ins.log = log.wstring();
+  qc::use_for_test(stand_ins);
+  {  // not recording into a queued context: nothing run, ok
+    g_recording = false;
+    g_lock_order.clear();
+    const qc::FlushResult result = qc::flush();
+    CHECK(result.ok);
+    CHECK(result.calls == 0);
+    CHECK(result.why.find("nothing queued") != std::string::npos);
+    CHECK(g_lock_order.empty());
+    g_recording = true;
+  }
+  {  // three calls queued: run through the context's flush, between its Lock and Unlock
+    for (int i = 1; i <= 3; ++i) queue(i);
+    g_order.clear();
+    g_lock_order.clear();
+    const qc::FlushResult result = qc::flush();
+    CHECK(result.ok);
+    CHECK(result.calls == 3);
+    CHECK(g_order == ids({1, 2, 3}));
+    CHECK(g_lock_order == std::vector<char>({'L', 'U'}));
+    CHECK(result.why.find("ran 3 queued render call(s)") != std::string::npos);
+    CHECK(result.why.find("queued again") == std::string::npos);
+    CHECK(context->head == 0);
+  }
+  {  // the flush queues one call after itself (inside a render block): still ok, and said
+    queue(4);
+    queue(5);
+    calls.push_back(new Fn(6, nullptr));
+    g_requeue = &list;
+    g_requeue_object = address(calls.back());
+    g_order.clear();
+    const qc::FlushResult result = qc::flush();
+    CHECK(result.ok);
+    CHECK(result.calls == 2);
+    CHECK(g_order == ids({4, 5}));
+    CHECK(result.why.find("; 1 call(s) queued again by the flush") != std::string::npos);
+    CHECK(context->head != 0);
+    g_order.clear();
+    CHECK(qc::flush().ok);  // the next flush runs it
+    CHECK(g_order == ids({6}));
+  }
+  {  // another thread is refused; nothing runs
+    queue(7);
+    qc::FlushResult result;
+    std::thread other([&] { result = qc::flush(); });
+    other.join();
+    CHECK(!result.ok);
+    CHECK(result.why.find("main thread") != std::string::npos);
+    g_order.clear();
+    CHECK(qc::flush().ok);
+    CHECK(g_order == ids({7}));
+  }
+  // The log: the nothing-queued flush had its own number (1, no line); the real ones are 2, 3, 4 and 5.
+  std::string text = read_text(log);
+  CHECK(text.find(" flush 1:") == std::string::npos);
+  CHECK(text.find(" flush 2: list 0 held 3 calls; not watched; ran 3 queued render call(s)") != std::string::npos);
+  CHECK(text.find(" flush 3: list 0 held 2 calls") != std::string::npos);
+  CHECK(text.find("1 call(s) queued again by the flush") != std::string::npos);
+  // Routine lines for the first 64 flushes of a process only.
+  for (int i = 0; i < 70; ++i) CHECK(qc::flush().ok);
+  text = read_text(log);
+  CHECK(text.find(" flush 64:") != std::string::npos);
+  CHECK(text.find(" flush 65:") == std::string::npos);
+  {  // the test option: ok, nothing run
+    stand_ins.no_flush = true;
+    qc::use_for_test(stand_ins);
+    queue(8);
+    g_order.clear();
+    const qc::FlushResult result = qc::flush();
+    CHECK(result.ok);
+    CHECK(result.calls == 0);
+    CHECK(result.why.find("-nl_queue_check_no_flush") != std::string::npos);
+    CHECK(g_order.empty());
+  }
+  qc::reset_for_test();
+  CHECK(!qc::flush().ok);  // not installed again
+  for (Fn* fn : calls) delete fn;
+  VirtualFree(system, 0, MEM_RELEASE);
+  VirtualFree(code, 0, MEM_RELEASE);
+  std::error_code ignored;
+  std::filesystem::remove_all(folder, ignored);
 }

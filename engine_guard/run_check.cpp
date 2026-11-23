@@ -1,4 +1,5 @@
-// Queued render calls checked again while the game runs them (ADR 0254). See run_check.h.
+// Queued render calls checked again while the game runs them (ADR 0254), their targets judged (ADR 0261). See
+// run_check.h.
 #include "run_check.h"
 
 #include <windows.h>
@@ -23,6 +24,8 @@ const char* describe(Event event) noexcept {
       return "its call changed the element's link to the next call: put back";
     case Event::ended:
       return "its link to the next call leads out of the list's arena: the list ends here";
+    case Event::target_gone:
+      return "its call's material variable is gone (destroyed while the call waited): skipped";
   }
   return "?";
 }
@@ -57,7 +60,7 @@ std::uint32_t read_words(std::uintptr_t address, std::uintptr_t* out, std::uint3
 }  // namespace
 
 void Run::begin(const queue_check::List* lists, std::size_t count, Judge judge, void* judge_context,
-                unsigned long thread, Caller caller) {
+                unsigned long thread, Caller caller, const Hooks& hooks) {
   end();
   count_ = std::min(count, kLists);
   for (std::size_t i = 0; i < kLists; ++i) {
@@ -67,6 +70,8 @@ void Run::begin(const queue_check::List* lists, std::size_t count, Judge judge, 
   judge_ = judge;
   judge_context_ = judge_context;
   caller_ = caller ? caller : &call_object;
+  hooks_ = hooks;
+  notified_ = 0;
   thread_ = thread;
   entries_.clear();
   totals_ = {};
@@ -161,9 +166,12 @@ bool Run::unchanged(const Entry& entry, std::uintptr_t* words_now, std::uint32_t
 }
 
 void Run::note(Event event, int list, const Entry* entry, std::uintptr_t element, const std::uintptr_t* words_now,
-               std::uint32_t words) noexcept {
-  if (recorded_ >= kMaxRecords) return;
-  Record& r = records_[recorded_++];
+               std::uint32_t words, const target_check::Finding* target) noexcept {
+  const bool keep = recorded_ < kMaxRecords;
+  const bool tell = hooks_.notify && notified_ < kMaxNotified;
+  if (!keep && !tell) return;
+  Record spare;
+  Record& r = keep ? records_[recorded_++] : spare;
   r = Record{};
   r.event = event;
   r.list = list >= 0 ? static_cast<std::uint32_t>(list) : UINT32_MAX;
@@ -195,12 +203,37 @@ void Run::note(Event event, int list, const Entry* entry, std::uintptr_t element
   for (std::uint32_t i = 0; i < recent_count_; ++i)
     r.recent[i] = recent_[(recent_next_ + kRecent - 1 - i) % kRecent];
   r.recent_count = recent_count_;
+  if (target) r.target = *target;
+  if (tell) {
+    ++notified_;
+    hooks_.notify(hooks_.notify_context, r);  // written when it happens: a run that crashes later keeps it
+  }
 }
 
 void Run::ran(int list, std::uint32_t position, std::uintptr_t table) noexcept {
   recent_[recent_next_] = Recent{static_cast<std::uint32_t>(list), position, table};
   recent_next_ = (recent_next_ + 1) % kRecent;
   if (recent_count_ < kRecent) ++recent_count_;
+}
+
+bool Run::run(int list, const Entry* entry, std::uintptr_t element, std::uint32_t position, std::uintptr_t object,
+              std::uintptr_t table) noexcept {
+  if (hooks_.target) {
+    // Asked right before the call: a variable an earlier call of this run destroyed is caught too.
+    target_check::Finding finding;
+    const target_check::Verdict verdict = hooks_.target(hooks_.target_context, object, finding);
+    if (target_check::gone(verdict)) {
+      finding.verdict = verdict;
+      note(Event::target_gone, list, entry, element, nullptr, 0, &finding);
+      ++totals_.skipped;
+      ++totals_.gone;
+      return false;
+    }
+  }
+  ran(list, position, table);
+  ++totals_.run;
+  caller_(object);
+  return true;
 }
 
 void Run::step(std::uintptr_t* element) noexcept {
@@ -230,9 +263,7 @@ void Run::step(std::uintptr_t* element) noexcept {
     std::uintptr_t words_now[kObjectWords] = {};
     std::uint32_t words = 0;
     if (unchanged(*entry, words_now, words)) {
-      ran(list, entry->position, entry->words[0]);
-      ++totals_.run;
-      caller_(entry->object);
+      run(list, entry, e, entry->position, entry->object, entry->words[0]);
     } else {
       note(Event::object_changed, list, entry, e, words_now, words);
       ++totals_.skipped;
@@ -260,9 +291,7 @@ void Run::step(std::uintptr_t* element) noexcept {
   std::uintptr_t table = 0;
   if (totals_.strangers <= kMaxStrangers && judge_ && judge_(judge_context_, object) == queue_check::Why::live &&
       read_words(object, &table, 1) == 1) {
-    ran(list, UINT32_MAX, table);
-    ++totals_.run;
-    caller_(object);
+    run(list, nullptr, e, UINT32_MAX, object, table);
   } else {
     note(Event::stranger, list, nullptr, e, nullptr, 0);
     ++totals_.skipped;

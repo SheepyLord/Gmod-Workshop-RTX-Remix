@@ -30,6 +30,15 @@ plain one, each changing level and disconnecting. The run check (2026-11-21,
 [ADR 0254](decisions/0254-queued-render-calls-checked-again-while-the-game-runs-them.md)) adds `engine_guard/run_check.*`
 and `tests/test_run_check.cpp`, and under `tools/qa` the driver's busy kind with its
 [server script](../tools/qa/queue_busy_server.lua.md).
+The queue flush and the target check (2026-11-23,
+[ADR 0261](decisions/0261-queued-render-calls-run-before-the-map-exit-cleanup.md)) add `engine_guard/target_check.*`
+(which queued calls act on a material variable, and whether that variable is still one of its material) and
+`tests/test_target_check.cpp`; `queue_check.*` gains the queued context's own flush (`find_flush`, `flush`,
+`nlengineguard.RunQueuedRenderCalls()`), which the RTX fixes' `ShutDown` hook calls before their map-exit cleanup, and
+the run check's log written as events happen. Under `tools/qa` the driver gains the `stale` and `stale-net` kinds with
+their [client Lua](../tools/qa/queue_stale_client.lua.md); under `tools/tests`
+[`test_texture_cleanup_flush.py`](../tools/tests/test_texture_cleanup_flush.py.md) runs the fixes' hook in its
+[LuaJIT harness](../tools/tests/texture_cleanup_harness.lua.md).
 
 R20-A adds `loader/proxy/loader_release.h` / `.cpp` (bounded published-release record and native
 runtime ownership checks), `loader/proxy/ui/menu_choices.lua` (bounded local menu preferences),

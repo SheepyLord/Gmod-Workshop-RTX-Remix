@@ -3,7 +3,9 @@
 - Status: Accepted 2026-11-21 (the user's report: "Disconnecting from a map / server still causes fast termination
   crash, when a session is long / with lots of things spawned"); extends
   [ADR 0247](0247-queued-render-calls-checked-before-the-game-leaves-threaded-rendering.md), the guard the user chose on
-  2026-11-19, which stays as it is.
+  2026-11-19, which stays as it is. Its reading of the crash corrected by
+  [ADR 0261](0261-queued-render-calls-run-before-the-map-exit-cleanup.md) (the element was intact; its call's material
+  variable had been destroyed), which also changes decision 7 below; the mechanism stays.
 - Package only: the engine guard (`gmcl_`/`gmsv_nlengineguard_win64.dll`, the fixes part,
   [engine_guard/run_check.h](../../engine_guard/run_check.h)). No `winmm.dll` change: the user rejected loader
   changes (2026-11-17).

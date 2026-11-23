@@ -1,24 +1,29 @@
 // Queued render calls checked again while the game runs them (ADR 0254), after the queue check (ADR 0247).
 //
 // The queue check walks both queued contexts' call lists before IMaterialSystem::AllowThreading(false) and drops calls
-// whose object is already gone. A field crash of 2026-11-22 showed a second kind: that check ran, found every call
-// live (fourteen of GMod's own functor classes) and dropped nothing, and then, while ForceSingleThreaded ran the list,
-// the 660th element of context 1 held a pointer to freed heap memory where GMod's own call had been. GMod's appenders
-// put every functor in the context's own arena, never on the heap, so the element itself had been written over during
-// the run (the 2026-11-19 crash failed at the same element). So the check also watches the run:
+// whose object is already gone. ADR 0254 read a field crash of 2026-11-22 as a second kind: that check had passed every
+// call, and the 660th element of context 1 then held a pointer to freed heap memory, which looked like an element
+// written over while ForceSingleThreaded ran the list. ADR 0261 found the real cause: the element was intact, its
+// call's target was gone (a queued CMaterialVar setter whose variable the RTX fixes' map-exit cleanup had destroyed;
+// target_check.h). The run check stays as a guard against elements written over, and now also judges each call's
+// target right before it runs:
 //
 // - After its walk it keeps what every element looked like: its two words (the next element, the call's object), the
 //   object's first words and the 16 bytes before the element (where the engine lays the call's own object).
-// - While AllowThreading(false) runs (main thread only, the render thread idle), CallQueued's per-call dispatch
+// - While the engine runs the lists (AllowThreading(false), or the queued context's own flush that the engine guard
+//   calls before the fixes' cleanup; main thread only, the render thread idle), CallQueued's per-call dispatch
 //   (mov rcx,[rbx+8]; mov rax,[rcx]; call [rax+18h]) is rewritten in memory to call step() with the element: an
 //   element whose words changed is put back as the check saw it, a call whose object changed is skipped, an element
 //   run a second time in one pass is skipped and ends its list, and every link the engine follows next leads to a real
-//   element or nowhere. Unchanged calls run as before. The dispatch is put back when AllowThreading returns.
-// - What it found goes to the queue check's log with the calls that ran just before (their classes), so a field game
-//   names the code that wrote over the list.
+//   element or nowhere. Right before a call runs, the target judge (ADR 0261) may skip it: a call on a material
+//   variable that is no longer a variable of its material. Unchanged calls run as before. The dispatch is put back
+//   when the engine's function returns.
+// - Each event goes to the caller's notify as it happens (the game writes it to the queue check's log then, so a run
+//   that crashes still leaves its log), with the calls that ran just before (their classes).
 #pragma once
 
 #include "queue_check.h"
+#include "target_check.h"
 
 #include <array>
 #include <cstddef>
@@ -62,6 +67,7 @@ enum class Event : std::uint8_t {
   stranger,        // an element the check never saw, whose object is not live: skipped
   next_put_back,   // the call changed its own element's link: put back
   ended,           // a link led out of its list's arena: the list ends there
+  target_gone,     // the call's material variable is gone (ADR 0261): skipped
 };
 const char* describe(Event event) noexcept;
 
@@ -89,6 +95,7 @@ struct Record {
   bool before_read = false;
   Recent recent[kRecent];  // the calls run just before it, newest first
   std::uint32_t recent_count = 0;
+  target_check::Finding target;  // target_gone: what the target judge found
 };
 
 struct Totals {
@@ -97,6 +104,7 @@ struct Totals {
   std::uint64_t skipped = 0;    // calls not run (object_changed, ran_twice, stranger)
   std::uint64_t ended = 0;      // lists ended early (ended, and ran_twice's end)
   std::uint64_t strangers = 0;  // elements the check never saw, followed
+  std::uint64_t gone = 0;       // calls skipped because their material variable was gone (also in skipped; ADR 0261)
 };
 
 // Decides a stranger's object, as the queue check's judge does.
@@ -105,18 +113,32 @@ using Judge = queue_check::Judge;
 using Caller = void (*)(std::uintptr_t object);
 void call_object(std::uintptr_t object);
 
+// ADR 0261: judges a call's target right before it runs (a gone verdict skips it). The game's wraps
+// target_check::judge; tests give fakes.
+using TargetJudge = target_check::Verdict (*)(void* context, std::uintptr_t object, target_check::Finding& finding);
+// Told each event as it happens (after its record is filled). Must not throw.
+using Notify = void (*)(void* context, const Record& record);
+inline constexpr std::size_t kMaxNotified = 256;  // events told per run at most (every one is counted)
+
+struct Hooks {
+  TargetJudge target = nullptr;
+  void* target_context = nullptr;
+  Notify notify = nullptr;
+  void* notify_context = nullptr;
+};
+
 // One watched run over the queued contexts' lists. Main thread only (the thread that began it); step() on any other
 // thread, or with nothing begun, just calls the element's object as the engine would.
 class Run {
  public:
   // Starts watching these lists; `thread` is the one whose CallQueued will reach step().
   void begin(const queue_check::List* lists, std::size_t count, Judge judge, void* judge_context, unsigned long thread,
-             Caller caller = &call_object);
+             Caller caller = &call_object, const Hooks& hooks = {});
   // Keeps every element of the lists as they are now (after the walk). A list that cannot be walked is not kept: its
   // elements are judged as strangers. False (nothing watched) when the memory could not be read or kept.
   bool see() noexcept;
-  // CallQueued's loop body while the dispatch is rewritten: runs or skips the element's call and leaves the element's
-  // next word leading to a real element or nowhere.
+  // CallQueued's loop body while the dispatch is rewritten: runs or skips the element's call (the target judge asked
+  // right before it would run) and leaves the element's next word leading to a real element or nowhere.
   void step(std::uintptr_t* element) noexcept;
   // Stops watching; the totals and records stay until the next begin().
   void end() noexcept;
@@ -134,14 +156,19 @@ class Run {
   bool plausible(int list, std::uintptr_t next) const noexcept;
   bool unchanged(const Entry& entry, std::uintptr_t* words_now, std::uint32_t& words) const noexcept;
   void note(Event event, int list, const Entry* entry, std::uintptr_t element, const std::uintptr_t* words_now,
-            std::uint32_t words) noexcept;
+            std::uint32_t words, const target_check::Finding* target = nullptr) noexcept;
   void ran(int list, std::uint32_t position, std::uintptr_t object) noexcept;
+  // Runs the call unless the target judge finds its target gone (then notes and counts it). True when it ran.
+  bool run(int list, const Entry* entry, std::uintptr_t element, std::uint32_t position, std::uintptr_t object,
+           std::uintptr_t table) noexcept;
 
   queue_check::List lists_[kLists] = {};
   std::size_t count_ = 0;
   Judge judge_ = nullptr;
   void* judge_context_ = nullptr;
   Caller caller_ = &call_object;
+  Hooks hooks_{};
+  std::uint32_t notified_ = 0;
   unsigned long thread_ = 0;
   bool watching_ = false;
   std::vector<Entry> entries_;  // sorted by element

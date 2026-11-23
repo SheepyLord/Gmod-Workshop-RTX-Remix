@@ -6,6 +6,42 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Leaving a map or disconnecting no longer crashes after playing with imported characters (2026-11-23)
+
+- **Leaving a map, changing map or typing `disconnect` no longer closes the game with "Garry's Mod closed
+  unexpectedly", "Fail-fast termination" (exit 0xC0000409), after you played with imported characters or with any
+  add-on that sets a material parameter when a map ends.** This is the crash the updates of 2026-11-19 and 2026-11-21
+  tried to fix. Both guarded the wrong thing: they checked the render calls the game had left waiting, and those calls
+  were intact. What was gone was the material setting each call was about to change.
+- **What happened.** When a map ends, the RTX fixes empty the game's material cache to free texture memory. That
+  destroys every material's settings at once. With threaded rendering, a material change made a moment earlier (the
+  RTX package itself puts imported characters' eye and hair materials back as the map ends) is not done yet: it waits
+  in the render queue, pointing at the setting. A moment later the game ran it on freed memory and crashed.
+- **What changed.** Before the fixes empty the cache, the engine guard now runs the waiting render calls, through the
+  game's own routine for that. If it cannot, the fixes leave the cache as it is for that map (the textures are freed at
+  the next one) and say so in the console. And if a waiting call still finds its material setting gone, it is skipped
+  and written to `garrysmod/data/native-loader/render-queue-check.log`, now as it happens, so even a crash would leave
+  the log behind.
+- **On an older version**, the console command `rtx_flush_textures_on_map_exit 0` avoids the crash: it skips the
+  map-exit cleanup, at the cost of texture memory until the next map.
+- Behind it ([ADR 0261](docs/decisions/0261-queued-render-calls-run-before-the-map-exit-cleanup.md), extending ADR 0247
+  and ADR 0254 and correcting ADR 0254's reading of the crash): the three field crashes after 2026-11-21 (2026-11-22
+  05:17 UTC, 2026-11-23 05:57 and 06:39 UTC) all failed in a queued `CMaterialVar` setter, which keeps the raw variable
+  pointer; the fixes' `RTX_CleanupMapTextures` calls `UncacheAllMaterials`, and its `Flush` does not run the main
+  thread's queued calls. On the test install the crash came every time (4 of 4) with a `ShutDown` hook setting
+  file-based materials as the companion does, and never with the cleanup off (2 of 2). The engine guard finds the queued
+  context's own flush by machine code (`Lock`, `CallQueued`, `Unlock`, nothing called between) and runs the main
+  thread's calls through it with the checks of ADR 0247 and 0254: `nlengineguard.RunQueuedRenderCalls() -> ok, calls,
+  why`, which the fixes' `ShutDown` hook calls first; without the engine guard the hook skips the cleanup unless
+  `mat_queue_mode` is 0. While queued calls run under the guard's watch, a call on a material variable that is no
+  longer a variable of its material (its vtable, its owner's and the owner's parameter array, offsets read from the
+  getters' code) is skipped. ADR 0254's mechanism stays; it now also lets Lua ask for the flush (its decision 7
+  changed). `nlengineguard.queue_flush`, `.target_check` and two more `QueueCheck()` numbers say how it went. Not
+  covered: the fixes' console command `rtx_flush_textures` in the middle of a game, and the render thread's own runs.
+  Tests: `test_target_check.cpp` (new), the flush and the target judge in `test_queue_check.cpp` and
+  `test_run_check.cpp`, `test_texture_cleanup_flush.py` (new) with its LuaJIT harness, and PoC sessions with
+  `queue_check_session.py`'s new `stale` and `stale-net` kinds.
+
 ### A full disk no longer leaves you guessing why RTX Remix did not update (2026-11-22)
 
 - **When your drive is too full for an update, the main menu now says so.** The RTX Remix loader unpacks updates of RTX

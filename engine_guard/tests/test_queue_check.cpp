@@ -1,12 +1,16 @@
 // The queue check (ADR 0247): the material system's layout found once in an installed game's materialsystem.dll,
 // stale calls dropped and live ones kept (in order, head and tail following), broken lists left as they are, the
 // engine's way of appending, the judge on real memory, RTTI names, nothing installed outside a Remix start, and the
-// module's contract (every realm installs it and publishes how it went).
+// module's contract (every realm installs it and publishes how it went). ADR 0261: the queued context's flush found
+// once in a synthetic image (never its look-alikes, never twice, never with the wrong Lock, Unlock, call or material
+// system pointer) and in an installed game's materialsystem.dll; the module's new fields and function; the flush
+// refused outside an install.
 #include "nl_test.h"
 #include "queue_check.h"
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -386,4 +390,257 @@ TEST_CASE("queue check: the module installs it in every realm and publishes how 
   CHECK(reason != std::string::npos && reason < menu);
   CHECK(run_reason != std::string::npos && run_reason < menu);
   CHECK(function != std::string::npos && function < menu);
+}
+
+namespace {
+// ADR 0261: a synthetic materialsystem.dll mapped as an image: headers, a code section (padded with int3) and a
+// read-only data section holding a vtable, so find_flush reads it as it reads the game's.
+struct FakeImage {
+  static constexpr std::uintptr_t kBase = 0x180000000;
+  static constexpr std::uint32_t kCode = 0x1000, kData = 0x3000, kSize = 0x4000;
+  static constexpr std::uint32_t kCallQueued = 0x2800, kRet = 0x2900;
+  std::vector<std::uint8_t> bytes;
+  std::uint32_t next = kCode;
+  FakeImage() : bytes(kSize, 0) {
+    std::fill(bytes.begin() + kCode, bytes.begin() + kData, std::uint8_t{0xCC});
+    auto* dos = reinterpret_cast<IMAGE_DOS_HEADER*>(bytes.data());
+    dos->e_magic = IMAGE_DOS_SIGNATURE;
+    dos->e_lfanew = 0x80;
+    auto* nt = reinterpret_cast<IMAGE_NT_HEADERS64*>(bytes.data() + 0x80);
+    nt->Signature = IMAGE_NT_SIGNATURE;
+    nt->FileHeader.Machine = IMAGE_FILE_MACHINE_AMD64;
+    nt->FileHeader.NumberOfSections = 2;
+    nt->FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER64);
+    nt->OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR64_MAGIC;
+    nt->OptionalHeader.ImageBase = kBase;
+    nt->OptionalHeader.SizeOfImage = kSize;
+    auto* sections = IMAGE_FIRST_SECTION(nt);
+    std::memcpy(sections[0].Name, ".text", 5);
+    sections[0].VirtualAddress = kCode;
+    sections[0].Misc.VirtualSize = kData - kCode;
+    sections[0].SizeOfRawData = kData - kCode;
+    sections[0].Characteristics = IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ;
+    std::memcpy(sections[1].Name, ".rdata", 6);
+    sections[1].VirtualAddress = kData;
+    sections[1].Misc.VirtualSize = kSize - kData;
+    sections[1].SizeOfRawData = kSize - kData;
+    sections[1].Characteristics = IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
+    bytes[kCallQueued] = 0xC3;
+    bytes[kRet] = 0xC3;
+    for (std::size_t i = 0; i < 16; ++i) vtable()[i] = kBase + kRet;
+  }
+  std::uintptr_t* vtable() { return reinterpret_cast<std::uintptr_t*>(bytes.data() + kData); }
+  // Places a function in the code section (int3 after it) and points `slot` at it.
+  void put(std::size_t slot, const std::vector<std::uint8_t>& code) {
+    std::memcpy(bytes.data() + next, code.data(), code.size());
+    vtable()[slot] = kBase + next;
+    next += static_cast<std::uint32_t>((code.size() + 0x20) & ~std::size_t{0xF});
+  }
+  std::uint32_t at() const { return next; }
+};
+
+void put32(std::vector<std::uint8_t>& code, std::uint32_t value) {
+  for (int i = 0; i < 4; ++i) code.push_back(static_cast<std::uint8_t>(value >> (8 * i)));
+}
+
+enum class Shape { flush, lookalike, rax_tail };
+// The queued context's flush as materialsystem.dll has it (slot 195 of the build of 2026-11), placed at `rva`: the
+// look-alikes call something between CallQueued and Unlock (slots 11 and 99 there).
+std::vector<std::uint8_t> flush_code(std::uint32_t rva, Shape shape, std::uint32_t lock = 106 * 8,
+                                     std::uint32_t unlock = 107 * 8, std::uint32_t target = FakeImage::kCallQueued,
+                                     std::uint32_t system = 0x2a0, std::uint32_t system_again = 0x2a0) {
+  std::vector<std::uint8_t> code = {0x48, 0x89, 0x5C, 0x24, 0x08, 0x57, 0x48, 0x83, 0xEC, 0x20, 0x48, 0x8B, 0xF9,
+                                    0x48, 0x8B, 0x8F};
+  put32(code, system);
+  code.insert(code.end(), {0x48, 0x8B, 0x01, 0xFF, 0x90});
+  put32(code, lock);
+  code.insert(code.end(), {0x33, 0xD2, 0x48, 0x8B, 0xCF, 0x48, 0x8B, 0xD8, 0xE8});
+  put32(code, static_cast<std::uint32_t>(static_cast<std::int64_t>(target) - static_cast<std::int64_t>(rva + code.size() + 4)));
+  if (shape == Shape::lookalike)  // mov rcx,[rip+x]; mov r10,[rcx]; call [r10+4F8h]
+    code.insert(code.end(), {0x48, 0x8B, 0x0D, 0, 0, 0, 0, 0x4C, 0x8B, 0x11, 0x41, 0xFF, 0x92, 0xF8, 0x04, 0, 0});
+  code.insert(code.end(), {0x48, 0x8B, 0x8F});
+  put32(code, system_again);
+  code.insert(code.end(), {0x48, 0x8B, 0xD3});
+  if (shape == Shape::rax_tail)
+    code.insert(code.end(), {0x48, 0x8B, 0x01, 0xFF, 0x90});
+  else
+    code.insert(code.end(), {0x4C, 0x8B, 0x01, 0x41, 0xFF, 0x90});
+  put32(code, unlock);
+  code.insert(code.end(), {0x48, 0x8B, 0x5C, 0x24, 0x30, 0x48, 0x83, 0xC4, 0x20, 0x5F, 0xC3});
+  return code;
+}
+
+qc::Layout flush_layout() {
+  qc::Layout layout;
+  layout.lock_slot = 106;
+  layout.unlock_slot = 107;
+  layout.call_queued_rva = FakeImage::kCallQueued;
+  return layout;
+}
+
+qc::FlushSlot find_in(FakeImage& image) {
+  return qc::find_flush(image.bytes.data(), FakeImage::kBase, image.vtable(), 16, flush_layout());
+}
+}  // namespace
+
+TEST_CASE("queue check: the queued context's flush is found once, never its look-alikes (ADR 0261)") {
+  {  // the flush among its look-alikes
+    FakeImage image;
+    image.put(3, flush_code(image.at(), Shape::lookalike));
+    image.put(5, flush_code(image.at(), Shape::flush));
+    image.put(9, flush_code(image.at(), Shape::lookalike));
+    const qc::FlushSlot slot = find_in(image);
+    CHECK(slot.found());
+    CHECK(slot.slot == 5);
+  }
+  {  // Unlock through rax, as the look-alikes load it
+    FakeImage image;
+    image.put(7, flush_code(image.at(), Shape::rax_tail));
+    CHECK(find_in(image).slot == 7);
+  }
+  {  // only look-alikes: not found
+    FakeImage image;
+    image.put(3, flush_code(image.at(), Shape::lookalike));
+    image.put(4, flush_code(image.at(), Shape::lookalike));
+    const qc::FlushSlot slot = find_in(image);
+    CHECK(!slot.found());
+    CHECK(slot.slot == SIZE_MAX);
+  }
+  {  // found twice: refused
+    FakeImage image;
+    image.put(2, flush_code(image.at(), Shape::flush));
+    image.put(6, flush_code(image.at(), Shape::flush));
+    const qc::FlushSlot slot = find_in(image);
+    CHECK(!slot.found());
+    CHECK(slot.reason.find("more than once") != std::string::npos);
+  }
+  {  // the wrong Lock, the wrong Unlock, another call than CallQueued, two material system pointers
+    for (int variant = 0; variant < 4; ++variant) {
+      FakeImage image;
+      const std::uint32_t rva = image.at();
+      image.put(5, variant == 0   ? flush_code(rva, Shape::flush, 105 * 8)
+                   : variant == 1 ? flush_code(rva, Shape::flush, 106 * 8, 108 * 8)
+                   : variant == 2 ? flush_code(rva, Shape::flush, 106 * 8, 107 * 8, FakeImage::kRet)
+                                  : flush_code(rva, Shape::flush, 106 * 8, 107 * 8, FakeImage::kCallQueued, 0x2a0, 0x2a8));
+      CHECK(!find_in(image).found());
+    }
+  }
+  {  // no layout, no vtable
+    FakeImage image;
+    image.put(5, flush_code(image.at(), Shape::flush));
+    qc::Layout broken = flush_layout();
+    broken.reason = "not found";
+    CHECK(!qc::find_flush(image.bytes.data(), FakeImage::kBase, image.vtable(), 16, broken).found());
+    CHECK(!qc::find_flush(image.bytes.data(), FakeImage::kBase, nullptr, 16, flush_layout()).found());
+  }
+}
+
+TEST_CASE("queue check: a flush pattern beyond the start of a slot's own function is not accepted") {
+  // An unrelated method (0x70 bytes, then ret) followed without padding by the flush itself, as functions follow each
+  // other in this game: the unrelated slot's window reaches the flush's pattern at +0x7E.
+  FakeImage image;
+  const std::uint32_t first = image.at();
+  std::vector<std::uint8_t> code(0x70, 0x90);
+  code.push_back(0xC3);
+  const std::uint32_t flush_rva = first + static_cast<std::uint32_t>(code.size());
+  const auto flush = flush_code(flush_rva, Shape::flush);
+  code.insert(code.end(), flush.begin(), flush.end());
+  image.put(3, code);
+  const qc::FlushSlot beyond = find_in(image);
+  CHECK(!beyond.found());
+  CHECK(beyond.slot == SIZE_MAX);
+  // The flush's own slot, its pattern near its start: accepted, and only there.
+  image.vtable()[5] = FakeImage::kBase + flush_rva;
+  const qc::FlushSlot own = find_in(image);
+  CHECK(own.found());
+  CHECK(own.slot == 5);
+  static_assert(qc::kFlushStart >= 0x35, "the game's flush starts its Lock at +0x35");
+}
+
+TEST_CASE("queue check: the queued context's flush is found once in an installed game's materialsystem.dll") {
+  const std::wstring path = installed(L"NL_MATERIALSYSTEM_DLL", L"bin\\win64\\materialsystem.dll");
+  if (path.empty()) return;  // no game on this machine (CI)
+  const HMODULE mapped = LoadLibraryExW(path.c_str(), nullptr, LOAD_LIBRARY_AS_IMAGE_RESOURCE | LOAD_LIBRARY_AS_DATAFILE);
+  REQUIRE(mapped != nullptr);
+  const auto* base = reinterpret_cast<const std::uint8_t*>(address(mapped) & ~std::uintptr_t{3});
+  const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS64*>(base + reinterpret_cast<const IMAGE_DOS_HEADER*>(base)->e_lfanew);
+  const std::uintptr_t preferred = nt->OptionalHeader.ImageBase;
+  const auto* sections = IMAGE_FIRST_SECTION(nt);
+  auto in_code = [&](std::uintptr_t pointer) {
+    if (pointer < preferred) return false;
+    const std::uintptr_t rva = pointer - preferred;
+    for (unsigned s = 0; s < nt->FileHeader.NumberOfSections; ++s)
+      if ((sections[s].Characteristics & IMAGE_SCN_MEM_EXECUTE) && rva >= sections[s].VirtualAddress &&
+          rva < sections[s].VirtualAddress + sections[s].Misc.VirtualSize)
+        return true;
+    return false;
+  };
+  auto length = [&](const std::uintptr_t* vtable) {
+    std::size_t slots = 0;
+    while (slots < qc::kMaxSlots && in_code(vtable[slots])) ++slots;
+    return slots;
+  };
+  const std::uintptr_t* system = qc::find_vtable(base, preferred, ".?AVCMaterialSystem@@");
+  const std::uintptr_t* context = qc::find_vtable(base, preferred, ".?AVCMatQueuedRenderContext@@");
+  REQUIRE(system != nullptr);
+  REQUIRE(context != nullptr);
+  const qc::Layout layout = qc::find_layout(base, preferred, system, length(system));
+  REQUIRE(layout.found());
+  const qc::FlushSlot slot = qc::find_flush(base, preferred, context, length(context), layout);
+  if (!slot.found()) std::printf("  flush not found: %s\n", slot.reason.c_str());
+  CHECK(slot.found());
+  if (slot.found()) {
+    std::printf("  the queued context's flush: slot %zu of %zu, at 0x%llx\n", slot.slot, length(context),
+                static_cast<unsigned long long>(context[slot.slot] - preferred));
+    // It calls CallQueued: an E8 in its code reaches the layout's CallQueued.
+    const std::uintptr_t rva = context[slot.slot] - preferred;
+    const std::uint8_t* code = base + rva;
+    bool calls = false;
+    for (std::size_t i = 0; i + 5 < 0x80 && !calls; ++i) {
+      if (code[i] != 0xE8) continue;
+      std::int32_t relative = 0;
+      std::memcpy(&relative, code + i + 1, 4);
+      calls = static_cast<std::uintptr_t>(static_cast<std::int64_t>(rva + i + 5) + relative) == layout.call_queued_rva;
+    }
+    CHECK(calls);
+  }
+  // The material system's own vtable has no such slot.
+  CHECK(!qc::find_flush(base, preferred, system, length(system), layout).found());
+  FreeLibrary(mapped);
+}
+
+TEST_CASE("queue check: the module publishes the flush and the target check, RunQueuedRenderCalls outside the menu") {
+  std::ifstream file(NL_ENGINE_GUARD_MODULE_SOURCE);
+  REQUIRE(file.good());
+  std::stringstream read;
+  read << file.rdbuf();
+  const std::string text = read.str();
+  const auto open = text.find("GMOD_MODULE_OPEN()");
+  REQUIRE(open != std::string::npos);
+  const auto menu = text.find("if (menu) {", open);
+  REQUIRE(menu != std::string::npos);
+  const auto realms = text.find("} else {", menu);
+  REQUIRE(realms != std::string::npos);
+  const auto flush = text.find("SetField(-2, \"queue_flush\")", open);
+  const auto target = text.find("SetField(-2, \"target_check\")", open);
+  CHECK(flush != std::string::npos && flush < menu);
+  CHECK(target != std::string::npos && target < menu);
+  const auto run = text.find("SetField(-2, \"RunQueuedRenderCalls\")", open);
+  CHECK(run != std::string::npos && run > realms);
+  const auto queue_check = text.find("LUA_FUNCTION_STATIC(QueueCheck)");
+  REQUIRE(queue_check != std::string::npos);
+  CHECK(text.find("return 8;", queue_check) < text.find("LUA_FUNCTION_STATIC(RunQueuedRenderCalls)"));
+}
+
+TEST_CASE("queue check: the flush refuses outside an install") {
+  if (GetModuleHandleW(L"d3d9.dll")) return;  // never in this test process
+  const qc::FlushResult result = qc::flush();
+  CHECK(!result.ok);
+  CHECK(result.calls == 0);
+  CHECK(!result.why.empty());
+  const qc::Status status = qc::status();
+  CHECK(!status.queue_flush);
+  CHECK(!status.target_check);
+  CHECK(status.flushes == 0);
+  CHECK(status.gone == 0);
 }

@@ -4126,3 +4126,43 @@ separator now has 57 texts in each catalog.
 - Not covered: a real refusal by the loader in a game (the card reads its report, tested under LuaJIT with the loader's
   own words; the refusal itself is the loader's tests'), a first installation that does not fit (nothing in the game can
   show it), the field install, a 4K screen (the card scales by the screen height, as the companion's other notices).
+
+## The queue flush and the target check (ADR 0261)
+
+- **C++ (CTest `nl_engine_guard_tests`):** `test_target_check.cpp` (new): the functor classes classified by RTTI name
+  and call code (every material-variable setter shape `materialsystem.dll` has, the string setter's included; other
+  classes, other objects, wrong orders, other bases, `xmm0` arguments, no jump and bad offsets refused); the layout found
+  in an installed game's `materialsystem.dll` (skipped without a game) and refused for this test executable and for
+  copies whose getters are not the expected code; the judge on fake variables and materials in test memory (live; the
+  variable's or the material's first word wrong; no array or no count; not in the array; the variable, the material or
+  the array unreadable; no owner; unknown classes); the class cache and the game's resolver. `test_queue_check.cpp`:
+  the queued context's flush found once in a synthetic image and never in its look-alikes (a call between `CallQueued`
+  and `Unlock`, the wrong `Lock` or `Unlock` slot, another call target, two material system pointers, a match away from
+  the function's start, two matches), found in an installed game's `materialsystem.dll` and not in `CMaterialSystem`'s
+  vtable; `module.cpp` publishing `queue_flush`, `target_check`, `RunQueuedRenderCalls` (client and server realms) and
+  the two new `QueueCheck()` numbers; the flush refused outside an install. `test_run_check.cpp`: the target judge
+  asked right before each call (elements the check saw and strangers), gone targets skipped, counted, recorded and told
+  as they happen, a variable an earlier call of the same run destroyed caught (with a fake judge and with the real one
+  on fake memory), events past the record limit still told, and the queued context's flush executed as machine code
+  (`Lock`, `CallQueued`, `Unlock` through stand-ins) with its run going through the step.
+- **LuaJIT** ([`test_texture_cleanup_flush.py`](../tools/tests/test_texture_cleanup_flush.py.md), new): the packaged
+  `cl_rtx.lua`'s hook `RTXTextureCleanup_MapExit` cut out and run in
+  [`texture_cleanup_harness.lua`](../tools/tests/texture_cleanup_harness.lua.md): the flush before the cleanup, the
+  count line when calls ran, the cleanup skipped with one line when the flush returns false or raises, and the
+  behaviour without the engine guard; and the surfaces: `module.cpp`'s fields, the driver's line and log counters in the
+  formats the engine guard and the hook print, its `stale` and `stale-net` plans, the stale client's hook and lines.
+- **PoC** ([`queue_check_session.py`](../tools/qa/queue_check_session.py.md), each run judged PASS or FAIL; RTX on with
+  the package's add-ons, gm_construct, `map gm_flatgrass`, then `disconnect`):
+  - `stale`: [`queue_stale_client.lua`](../tools/qa/queue_stale_client.lua.md) sets texture and integer variables of
+    file-based and `CreateMaterial` materials at `ShutDown`, in the order that crashed (its hook before the fixes'
+    one). A pass: exit 0, the hook's "Ran <n> queued render calls before the purge" at the level change and at the
+    disconnect, the cleanup run, nothing skipped.
+  - `stale-net` (`-nl_queue_check_no_flush`: the flush runs nothing and says it succeeded): the same setters reach
+    `AllowThreading(false)` after the uncache. A pass: exit 0, the console's "Skipped <n> queued render call(s) on a
+    material variable that was already gone", and each skip in `render-queue-check.log`.
+  - `test` and `plain` as for ADR 0247 and 0254: the test call dropped and the test pair put back; nothing dropped or
+    skipped in a plain session.
+  - The driver copies each run's new crash dumps and the loader's session folders to `<run>\crash\` before the restore.
+- Not covered: the fixes' console command `rtx_flush_textures` in the middle of a game (the render thread then runs the
+  list unwatched), the render thread's own runs in normal frames, variables of other material classes, and the field
+  install (the reproduction is on the PoC, with the field's exact fault).

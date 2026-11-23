@@ -25,6 +25,21 @@
 // and while AllowThreading(false) runs, CallQueued's per-call dispatch goes through it, so an element written over
 // during the run is put back and a call whose object changed is skipped. In a test session each check also appends
 // a pair of calls, the first writing over the second's element as the field's crashes found it.
+//
+// ADR 0261 found what the field's crashes really were: not an element written over, but a queued CMaterialVar setter
+// whose variable IMaterialSystem::UncacheAllMaterials had destroyed (the RTX fixes' map-exit cleanup calls it from the
+// client's ShutDown hook, with the main thread's calls still queued). So:
+// - flush() runs the calls this thread has queued now, before the cleanup: the engine's own flush of a queued context
+//   (CMatQueuedRenderContext's one vtable slot that is Lock; CallQueued(this, 0); Unlock and calls nothing between
+//   CallQueued and Unlock; find_flush), through the same check, walk and watched run as AllowThreading(false). Main
+//   thread only; the copy of this module that did not install forwards it to the one that did
+//   (nl_engine_guard_queue_flush_v1). Lua: nlengineguard.RunQueuedRenderCalls(). With the launch option
+//   -nl_queue_check_no_flush (tests) it runs nothing and says it succeeded.
+// - The run check judges each call's target right before it runs (target_check.h): a call on a material variable that
+//   is no longer a variable of its material is skipped and logged.
+// - The run check's events are written to the log as they happen, not after the run (at most 32 per run; the routine
+//   flush line for a process's first 64 flushes), with module names from bases captured outside the material system's
+//   lock (nothing written during the engine's run takes the loader lock).
 #pragma once
 
 #include <cstddef>
@@ -128,6 +143,25 @@ bool append(const List& list, std::uintptr_t object) noexcept;
 
 // A class's MSVC RTTI name (".?AV...@@") from a vtable in a loaded image, or "" (read under SEH).
 std::string rtti_name(std::uintptr_t vtable) noexcept;
+// The same into a buffer, without allocating; false (and "") when there is none.
+bool rtti_name_into(std::uintptr_t vtable, char* out, std::size_t size) noexcept;
+
+// The queued context's flush (ADR 0261): in CMatQueuedRenderContext's vtable (`vtable`, `slots` readable, in a mapped
+// image as for find_layout), the one slot whose code is
+//   mov rcx,[rdi+ms]; mov rax,[rcx]; call [rax+Lock]; xor edx,edx; mov rcx,rdi; mov rbx,rax; call CallQueued;
+//   mov rcx,[rdi+ms]; mov rdx,rbx; mov r8|rax,[rcx]; call [r8|rax+Unlock]
+// with Lock and Unlock the material system's slots times 8, CallQueued the layout's and both loads of the material
+// system's pointer the same: nothing is called between CallQueued and Unlock. Found exactly once, or not at all.
+// The flush's Lock must start this close to its function's start (the build of 2026-11: +0x35); a match further in
+// may lie in the next function, which follows without padding.
+inline constexpr std::size_t kFlushStart = 0x60;
+struct FlushSlot {
+  std::size_t slot = SIZE_MAX;
+  std::string reason;  // empty when found exactly once
+  bool found() const noexcept { return reason.empty(); }
+};
+FlushSlot find_flush(const std::uint8_t* image, std::uintptr_t loaded_base, const std::uintptr_t* vtable,
+                     std::size_t slots, const Layout& layout) noexcept;
 
 struct Status {
   bool installed = false;
@@ -142,7 +176,44 @@ struct Status {
   std::uint64_t put_back = 0;    // elements put back as the check saw them
   std::uint64_t skipped = 0;     // calls not run
   std::uint64_t ended = 0;       // lists ended early
+  // ADR 0261: the queued context's flush and the target check.
+  bool queue_flush = false;
+  std::string flush_reason;      // "installed", "installed by the other copy of this module", or why not
+  bool target_check = false;
+  std::string target_reason;     // "installed", "installed by the other copy of this module", or why not
+  std::uint64_t flushes = 0;     // flushes that ran the queued context's flush
+  std::uint64_t gone = 0;        // calls skipped because their material variable was gone (also in skipped)
+  bool no_flush = false;         // -nl_queue_check_no_flush
 };
+
+// What flush() did. ok: what this thread had queued has run (the context's flush ran, this thread does not record into
+// a queued context, or the test option said so). Inside a render block the engine's flush queues one call of its own
+// after itself; `why` then says how many are queued again.
+struct FlushResult {
+  bool ok = false;
+  std::uint64_t calls = 0;  // calls run through the flush
+  std::string why;
+};
+
+// Runs the calls this thread has queued through the queued context's own flush, watched as the engine's run at
+// AllowThreading(false) is (ADR 0261). Main thread only. Never throws.
+FlushResult flush() noexcept;
+
+// Tests only (ADR 0261): the flush's own logic without a game. use_for_test makes this copy's flush() use stand-ins as
+// if install() had found them (the run check off): the material system object, the layout of its queued contexts,
+// Lock, Unlock and the context's flush, the calling thread as the main thread, and `log` as the log's path;
+// reset_for_test undoes it. The module never calls them.
+struct StandIns {
+  void* system = nullptr;
+  Layout layout;
+  void* (*lock)(void* system) = nullptr;
+  void (*unlock)(void* system, void* lock) = nullptr;
+  void (*flush)(void* context) = nullptr;
+  bool no_flush = false;
+  std::wstring log;
+};
+void use_for_test(const StandIns& stand_ins) noexcept;
+void reset_for_test() noexcept;
 
 // Wraps AllowThreading's slot of the loaded materialsystem.dll. Idempotent, also across the client and the server copy
 // of this module; pins this module first (the slot points into it for the process's lifetime). Does nothing without

@@ -3,7 +3,8 @@
 - Status: Accepted 2026-11-19 (the user's choice after the investigation of their crash at `disconnect`: "I typed
   disconnect to attempt to go back to the main menu and led to the crash. The guard sounds good."); extended by
   [0254](0254-queued-render-calls-checked-again-while-the-game-runs-them.md) (the calls checked again while the game
-  runs them)
+  runs them); extended by [ADR 0261](0261-queued-render-calls-run-before-the-map-exit-cleanup.md) (the queued calls
+  run before the RTX fixes' map-exit cleanup, and calls on a destroyed material variable skipped)
 - Package only: the engine guard (`gmcl_`/`gmsv_nlengineguard_win64.dll`, the fixes part,
   [engine_guard/queue_check.h](../../engine_guard/queue_check.h)). No `winmm.dll` change: the user rejected loader
   changes (2026-11-17).

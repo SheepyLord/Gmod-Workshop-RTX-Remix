@@ -10245,3 +10245,100 @@ behaviour only, the harness's stand-in is written for the test.
 - **What the menu realm can measure.** GMod's Lua has no free-space call; the companion's menu scripts get native
   helpers only from the RTX client module's menu API while they run (`run_menu_scripts`), which already holds the
   verified game folder and has read the journal (`nl::journal::load`) at its verification.
+
+## The crash at disconnect: queued material-variable setters on destroyed variables (2026-11-23, Claude; [ADR 0261](decisions/0261-queued-render-calls-run-before-the-map-exit-cleanup.md))
+
+Three field games after ADR 0254 was published closed at `disconnect` with exit 0xC0000409: 2026-11-22 05:17 UTC,
+2026-11-23 05:57 UTC and 06:39 UTC (sessions of 75, 9 and 41 minutes). Copies of their dumps and the scratch notes are
+in `out/crash-20261123` of the main checkout; the PoC reproduction in `out/stale-repro`. GMod's `materialsystem.dll`
+timestamp 0x6af5f3c7, as before; the RVAs below are for reading along and are never hard-coded.
+
+- **The path.** All three: the `disconnect` callback (`engine.dll`+0x1c93e0, `Host_Disconnect`: `cl.Disconnect`
+  (+0x20ebf0, the client's `ShutDown` hooks, entities, Lua state and modules), then `Host_AllowQueuedMaterialSystem(false)`
+  (+0x1c1240), then `HostState_GameShutdown`) > the guard's `hook_allow` > `AllowThreading` (+0x18a90) >
+  `ForceSingleThreaded` (+0x1cc10) > `EndQueue` (+0x31cc0) > `CallQueued` (dispatch rewritten) > the run check's
+  `Run::step` (`gmsv_nlengineguard`+0x25d60) > `call_object` > the functor. In `step`'s frame `r8` is the call's
+  position and `r9` its functor's vtable (the arguments of `Run::ran`).
+  - 2026-11-22 05:17: execute at address 0; functor class `CMemberFunctor1<CMaterialVar*, void (CMaterialVar::*)(int),
+    int>` (vtable +0xba898), list 0, position 219 (functor at arena +0x2910, element +0x2938).
+  - 2026-11-23 05:57 and 06:39: read of address 0 at +0x266cb; functor class
+    `CMemberFunctor1<CMaterialVar*, void (CMaterialVar::*)(ITexture*), ITexture*>` (vtable +0xba910); positions 326
+    (list 1) and 219 (list 0).
+  - No `render-queue-check.log` in the field: the run check wrote its log only after the run, so a run that crashed
+    logged nothing.
+- **A queued call's layout.** Each call takes 48 bytes of the context's arena: its 32-byte functor, then its 16-byte
+  element `{next, object}`. Position 219 has 219 calls of 48 bytes before it, functor at +0x2910 and element at
+  +0x2938: the element of the 2026-11-19 and 2026-11-22 01:50 crashes. ADR 0254 counted it as the 660th, in 16-byte
+  steps. The material-variable functors' call (vtable slot 3) is `[mov edx|rdx,[rcx+20h]]; mov rax,rcx;
+  mov rcx,[rcx+18h]; jmp [rax+10h]` (+0x16d50 for an `int`, +0x16d60 for a pointer, +0xcd20 without an argument): the
+  target object at functor+0x18, the member function at +0x10, the argument at +0x20. RTTI names
+  `.?AV?$CMemberFunctor1@PEAVCMaterialVar@@P81@EAAXH@ZH...` (int) and
+  `.?AV?$CMemberFunctor1@PEAVCMaterialVar@@P81@EAAXPEAVITexture@@@ZPEAV2@...` (texture). The functor keeps the raw
+  variable pointer (`CRefCountServiceNull`): nothing keeps the variable alive.
+- **What destroys the variables.** The RTX fixes' binary module (`gmcl_RTXFixesBinary`, upstream commit `c8adbc1` of
+  2026-08-08, "unload textures on disconnect") registers `RTX_CleanupMapTextures`; the fixes' Lua calls it from the
+  client's `ShutDown` hook `RTXTextureCleanup_MapExit` (`cl_rtx.lua`). Natively (`PerformTextureCleanup`):
+  `materials->Flush(true); MaterialPipeline::Pipeline::Instance().ClearMapState(); materials->UncacheAllMaterials();`.
+  `IMaterialSystem::Flush` (`CMaterialSystem` slot 43, +0x1cb00) flushes only the thread's render context; in queued
+  rendering the calls the main thread has recorded stay in the list. `UncacheAllMaterials` (slot 69, +0x253a0) calls
+  `CMaterial::Uncache(false)` (slot 62, +0x125e0) on every material; for a file-based material, and a Lua-created one
+  without references, that is `CleanUpShaderParams` (+0xd6b0), which destroys each variable, frees the array and then
+  stores 0 at +0x38 (the array) and 0 at +0x32 (the count). `UncacheUnusedMaterials` (slot 70, +0x25460) is `Lock`,
+  `Flush(true)`, then `Uncache(false)` for each material whose reference count is <= 0. A material made with
+  `CreateMaterial` keeps its variables while it is referenced.
+- **The two faults.** Variable memory reused: its first word is a heap link and `SetIntValue`'s vcall thunk
+  (+0x17028: `mov rax,[rcx]; jmp [rax+20h]`) goes to address 0 or garbage (2026-11-19, 2026-11-22 twice). Variable
+  memory not reused: `SetTextureValue` (+0x286b0) runs, `CMaterialVar::CleanUpData` (+0x26650) finds type TEXTURE with
+  a NULL texture (the destructor's own `CleanUpData` left it so) and reads address 0 at +0x266cb (2026-11-23 twice, and
+  the PoC). GMod's crash handler then fails (`engine.dll`+0x34b9dc, exit 0xC0000409).
+- **A variable and a material.** `CMaterialVar` (vtable +0xba3e0, 0x41 bytes): slot 4 `SetIntValue`, 14
+  `SetTextureValue`, 24 `GetOwningMaterial` = `mov rax,[rcx+31h]; ret` (+0x274e0: the owner is the unaligned word at
+  +0x31), 32 the scalar deleting destructor (+0x265f0: stores the class's own vtable, calls `CleanUpData`, destroys the
+  temporary variable at +0x29, leaves the owner word). `CMaterial` (vtable +0xb4f30): slot 40 `ShaderParamCount` =
+  `movzx eax, byte ptr [rcx+32h]; ret` (+0x120d0), 41 `GetShaderParams` = `mov rax,[rcx+38h]; ret` (+0xf240). So a
+  variable is alive exactly when its first word is `CMaterialVar`'s vtable, its owner's first word `CMaterial`'s, and
+  the owner's array (`[owner+0x38]`, `[owner+0x32]` entries) contains it. `CMaterial_QueueFriendly` (what the main
+  thread sees in queued mode) queues `DecrementReferenceCount` (+0x12c40), `DeleteIfUnreferenced` (+0x12ca0) and
+  `RecomputeStateSnapshots` (+0x13000) as `CMemberFunctor0<IMaterialInternal*, void (IMaterial::*)()>` (vtable
+  +0xb6068).
+- **The engine's own flush of a queued context.** `CMatQueuedRenderContext` (vtable +0xb71a0, 234 slots) slot 195
+  (+0x32770): when the render-block depth (`[this+0x10002e0]`) is above 0, queue a call on the hardware context (thunk
+  +0x30370); `m_pMaterialSystem` (`[this+0x2a0]`)`->Lock()` (`call [rax+0x350]`, slot 106); `CallQueued(this, 0)`
+  (`xor edx,edx; mov rcx,rdi; call +0x30f80`); `->Unlock(lock)` (`call [r8+0x358]`, slot 107); when the depth is above
+  0, queue the matching call (thunk +0x30378). The engine calls it itself in the middle of a frame when the list grows
+  too large (+0x1d170, "Render queue too large, flushing!": it waits for the active job, then `call [rax+0x618]` on the
+  thread's context). `CallQueued` has four callers: `EndQueue` (no lock), this flush, and two synchronous methods
+  (slot 11 `ReadPixels` +0x34640, slot 99 +0x34730) of the same shape with one more call between `CallQueued` and
+  `Unlock`. `AllowThreading(bAllow, nServiceThread)` for `false`: `ForceSingleThreaded`, then `Lock`,
+  `SetThreadMode(0, -1)` (slot 14), `Unlock`.
+- **Who queues setters at `ShutDown`.** The companion puts imported characters' file-based materials (`mmd/<id>/<name>`)
+  back at `ShutDown`: `nativeloader_eye_whites.lua` `restore()` (`SetTexture("$basetexture")`) and
+  `nativeloader_imported_parts.lua` `restoreHair()` (`SetInt("$flags")`, `SetInt("$allowalphatocoverage")`,
+  `Recompute()`). When its hooks run before the fixes' one, their setters wait in the list through the uncache. Any
+  add-on that sets a material parameter at `ShutDown`, or in the last frame, does the same.
+- **Reproduced on the PoC** (`out/stale-repro/run1..run4`; the published package `0.0.0-dev.20261123002706+24c6839a`,
+  gm_construct, then `map gm_flatgrass`, there the client Lua, then `disconnect`; a client `ShutDown` hook doing
+  `SetTexture`, `SetInt`, `SetInt`, `Recompute` as the companion does): materials made with `CreateMaterial` and
+  file-based ones together: crash at the `disconnect` (exit 0xC0000409);
+  `CreateMaterial` ones only: no crash; file-based ones only: crash, the field's dump (read of 0 at +0x266cb < +0x288e2
+  < the guard's step, functor vtable +0xba910, position 220); no Lua: no crash; file-based with
+  `rtx_flush_textures_on_map_exit 0` ("Skipping map-exit purge"): no crash, 2 of 2, while the same session with the
+  cleanup on crashed 2 of 2. With the cleanup on, every run that set a file-based material's variable at `ShutDown`
+  crashed: 4 of 4. The console order showed the setter hook ran before the fixes' hook.
+- **The principle of the fix, with code that already existed** (`out/stale-repro/run4`, 2 of 2 clean): the same
+  crashing session with one `render.CapturePixels()` before `RTX_CleanupMapTextures`. A screen read-back makes the
+  queued context run its list on the main thread (`ReadPixels`: `Lock`, `CallQueued`, the read, `Unlock`), so the
+  setters ran on live variables; the cleanup then uncached everything ("Source material cache fully uncached") and the
+  session went through its `disconnect` and quit with exit 0.
+- **The earlier section corrected.** "The crash at disconnect that the check did not catch" (2026-11-21) concluded
+  that the element had been written over during the run because the call went through a heap address. Read again,
+  both of its dumps (`out/crash-20261119`, `out/crash-20261122`) are `SetIntValue` through its vcall thunk with `rcx` a
+  heap address (the variable) whose first word is another heap address; `rbx` was the element at arena +0x2938 both
+  times. What that section took for the functor (`rcx`) was the functor's target, which the functor's own call loads
+  from +0x18. Its findings that GMod keeps queued calls in the context's arena and that ADR 0247's check passed every
+  call stand; its "written over" conclusion does not. That section is left as it was written.
+- **The fix in the PoC** (the branch's first build, `0.0.0-dev.20261123190843+a7fdc101`; `out/qflush-poc/run1`): with
+  the flush, the cleanup came after 234 and then 274 queued calls had run and nothing was skipped; with the flush
+  switched off (`-nl_queue_check_no_flush`), the run check skipped 10 calls on variables that were gone, texture setters
+  ("its material lists no variable any more (uncached)") and integer setters ("the material variable's first word is
+  not CMaterialVar's vtable"), the field's two fault kinds, and the session exited 0.

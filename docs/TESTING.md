@@ -4164,5 +4164,10 @@ separator now has 57 texts in each catalog.
     skipped in a plain session.
   - The driver copies each run's new crash dumps and the loader's session folders to `<run>\crash\` before the restore.
 - Not covered: the fixes' console command `rtx_flush_textures` in the middle of a game (the render thread then runs the
-  list unwatched), the render thread's own runs in normal frames, variables of other material classes, and the field
-  install (the reproduction is on the PoC, with the field's exact fault).
+  list unwatched), the render thread's own runs in normal frames, variables of other material classes, and the field's
+  own sessions with imported characters (the reproduction is a hook that sets variables as the companion does, on the
+  PoC with the field's exact fault).
+- **The field install, once after the publish** (`out\qflush-field`): `poc_session.py --root <field install>
+  --allow-steam-managed run --workshop --addons --no-window --map gm_construct --lua tools\qa\queue_stale_client.lua
+  --before-quit-console disconnect` with the published package deployed: the flush ran 288 queued calls before the
+  cleanup, the cleanup ran, a normal quit with exit 0 and no new crash dump.

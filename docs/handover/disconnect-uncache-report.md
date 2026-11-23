@@ -98,7 +98,9 @@ skipped; texture memory stays in use until the next map).
   runs the list unwatched. The same class of fault; it needs a change in the fixes' native module.
 - The render thread's own runs of the lists in normal frames are not watched.
 - Variables of other material classes are not judged.
-- The field install was not run by us: the reproduction is on the PoC, with the field's exact fault.
+- The field's own sessions (imported characters spawned, then `disconnect`) were not replayed: the reproduction is a
+  hook that sets variables as the companion does, on the PoC with the field's exact fault and once in the field
+  install after the publish (below).
 
 ## Checked
 
@@ -157,7 +159,26 @@ skipped; texture memory stays in use until the next map).
 ## Published
 
 `tools\test.ps1 -Config Release` passed on the branch (`NL_FIXES_CLONE` set; 35 native tests; 2,223, 29 and 26 Python
-tests; "All checks passed"). The merge to `main` and the Workshop upload are recorded here once made.
+tests; "All checks passed"). `origin/main` had not moved from `e9dd7042`, so `main` was fast-forwarded to `0fcfb021`
+and pushed. The merge's hook built the package here and uploaded item 3829070317 as
+**0.0.0-dev.20261123195551+1732099f** (2,325,200,160 bytes, SHA-256
+`ed93333aee593ecafd49477e9933b4b2c9bbb4182f0e8b71614dc210691b33ff`, content digest `fa5372df...`, the digest of the
+package the final PoC series ran) at 2026-11-23 19:56 UTC, with one change note: the version line and this round's
+changelog entry (ADR 0222). The push's hook found the same inputs and uploaded nothing.
+
+**The field install, after the publish** (the user's standing permission to run the field game for tests; no game
+was running; `poc_session.py --root <field install> --allow-steam-managed`, `run --workshop --addons --no-window --map
+gm_construct --before-quit-console disconnect`, under `out\r10\poc.lock`; evidence `out\qflush-field`; only this
+session's part of the console log was read; nothing spawned, nothing installed by hand):
+
+- `f1-download`: the start still ran the package of the day before (`...002706+24c6839a`); Steam fetched the new item
+  during it. A plain session: map, `disconnect`, a normal quit, exit 0.
+- `f2-stale`: the loader deployed `0.0.0-dev.20261123195551+1732099f` (229 changes). The engine guard said all four of
+  its lines (the flush and the target check installed in the field's `materialsystem.dll`). With
+  `queue_stale_client.lua` armed right before the fixes' cleanup hook, the `disconnect` printed "queued restores for 29
+  materials at ShutDown", then "[RTX Texture Cleanup] Ran 288 queued render calls before the purge" and "Source
+  material cache fully uncached"; a normal quit, exit 0, no Lua error, no new crash dump. The field's
+  `render-queue-check.log` now exists, with that flush's line (288 calls, watched, nothing skipped).
 
 ## Notes and open questions
 

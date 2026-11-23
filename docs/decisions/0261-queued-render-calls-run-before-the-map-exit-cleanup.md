@@ -125,4 +125,6 @@ destroyed variables".
 - Not covered: the fixes' console command `rtx_flush_textures` runs the same uncache in the middle of a game, and the
   render thread then runs the list unwatched (the same class of fault; it needs a change in the fixes' native
   module); the render thread's own runs in normal frames are not watched; variables of other material classes are not
-  judged; the field install was not run by us (the reproduction is on the PoC, with the field's exact fault).
+  judged; the field's own sessions with imported characters were not replayed (the reproduction is a hook that sets
+  variables as the companion does: on the PoC with the field's exact fault, and once in the field install after the
+  publish, where the session with it went through its `disconnect` cleanly).

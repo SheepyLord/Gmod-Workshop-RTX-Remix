@@ -533,6 +533,50 @@ class StepRunTests(unittest.TestCase):
             with mock.patch('sys.stderr'):
                 ps.main(['--evidence', str(self.evidence), 'run', '--name', 'x', '--menu-shot'])
 
+    def test_menu_console_commands_are_sent_at_the_menu_each_with_its_screenshot(self):
+        # --menu-console: after the menu shot, each command goes to the menu's console, and with --menu-shot a
+        # screenshot menu-<n>.png follows it; then the map is asked for.
+        clock, game, events = Clock(), FakeGame(), []
+        log = self.root / 'garrysmod' / 'console.log'
+
+        def launch(arguments, **_):
+            log.write_text('Mounted 755 of 755 workshop addons!\n', encoding='utf-8')
+            return game
+
+        def console(hwnd, command, attempts=6, check=None):
+            events.append(command)
+            if command == 'map gm_construct':
+                with open(log, 'a', encoding='utf-8') as handle:
+                    handle.write('Clientside Lua startup!\n')
+            elif command == 'quit':
+                game.quit()
+            return True
+
+        def screenshot(window, destination):
+            events.append(('shot', window, destination.name))
+            return {'file': destination.name}
+
+        with mock.patch.object(ps, 'game_processes', return_value=[]), \
+                mock.patch.object(ps, 'terminate', return_value=[]), \
+                mock.patch.object(ps.subprocess, 'Popen', side_effect=launch), \
+                mock.patch.object(ps.time, 'sleep', clock.sleep), mock.patch.object(ps.time, 'monotonic', clock.monotonic), \
+                mock.patch.object(ps, 'console', side_effect=console), \
+                mock.patch.object(ps, 'console_window', return_value=7), \
+                mock.patch.object(ps, 'game_window', return_value=9), \
+                mock.patch.object(ps, 'screenshot', side_effect=screenshot), \
+                mock.patch.object(ps, 'modules_of', return_value=[]):
+            record = ps.step_run(run_args(self.root, self.evidence, workshop=True, menu_shot=True,
+                                          menu_console=['first_command', 'second_command 2']))
+        self.assertEqual(events, [('shot', 9, 'menu.png'), 'first_command', ('shot', 9, 'menu-1.png'),
+                                  'second_command 2', ('shot', 9, 'menu-2.png'), 'map gm_construct', 'quit'])
+        self.assertEqual(record['menu_console'], [
+            {'command': 'first_command', 'sent': True, 'screenshot': {'file': 'menu-1.png'}},
+            {'command': 'second_command 2', 'sent': True, 'screenshot': {'file': 'menu-2.png'}}])
+        self.assertTrue(record['map_loaded'])
+        with self.assertRaises(SystemExit):  # it waits at the menu only with --workshop and --map
+            with mock.patch('sys.stderr'):
+                ps.main(['--evidence', str(self.evidence), 'run', '--name', 'x', '--menu-console', 'first_command'])
+
     def test_with_workshop_add_ons_the_map_waits_for_the_workshop_mount(self):
         # A map on the command line, or sent while Steam still lists the subscriptions, waits on that
         # fetch and the game stops answering: the run starts at the menu and asks for the map once the

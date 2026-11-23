@@ -67,6 +67,10 @@ Exit code: unittest's (0 when all pass).
   `crash-reports\`, both named in the record.
 - `test_the_menu_shot_is_taken_at_the_menu_before_the_map` (R4): `--menu-shot` captures `menu.png` once
   the Workshop is mounted and before `map` is sent.
+- `test_menu_console_commands_are_sent_at_the_menu_each_with_its_screenshot` (ADR 0260): `--menu-console`
+  sends each command at the menu after `menu.png`, each followed by `menu-<n>.png`, before `map`; the
+  record lists each command, whether it was sent and its screenshot; without `--workshop` the option is
+  refused. Callers that build their own arguments without the option still run.
 - **R6 unattended failure handling.** Fake process/windows/logs exercise both device-loss markers,
   an old log (unchanged, appended and rewritten), a persistent hung window, the 20 s continuous-hang
   grace and recovery during a normal 12 s load stall. Console retries check health after a 10 s

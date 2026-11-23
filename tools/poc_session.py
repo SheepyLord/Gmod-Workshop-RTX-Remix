@@ -1097,9 +1097,10 @@ def step_run(args) -> dict:
                 record["menu_screenshot"] = take_screenshot(menu_window, evidence / "menu.png") if menu_window else None
             hwnd = console_window(process.pid) if record["workshop_ready"] else None
             # Console commands at the main menu (a menu script's own, such as a card's preview), each followed,
-            # with --menu-shot, by menu-<n>.png three seconds later.
+            # with --menu-shot, by menu-<n>.png three seconds later. Callers that build their own arguments may
+            # leave the option out.
             record["menu_console"] = []
-            for index, command in enumerate(args.menu_console, 1):
+            for index, command in enumerate(getattr(args, "menu_console", None) or [], 1):
                 sent = bool(hwnd) and send(hwnd, command)
                 entry = {"command": command, "sent": sent}
                 if sent:

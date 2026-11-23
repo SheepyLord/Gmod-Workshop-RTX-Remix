@@ -27,13 +27,15 @@ matdebug.lua) first return unless the companion's first autorun says this machin
 (NativeLoaderRTXStart) or the verified multiplayer initializer runs them. A start through an off switch, a game
 whose loader was removed, or files a loader left behind therefore run none of the fixes without the runtime.
 
-Native loader (ADR 0261): the ShutDown hook RTXTextureCleanup_MapExit calls the binary module's
-RTX_CleanupMapTextures, which uncaches every material and so destroys their variables at once. A
+Native loader (ADR 0261, ADR 0262): the ShutDown hook RTXTextureCleanup_MapExit calls the binary
+module's RTX_CleanupMapTextures, which uncaches every material and so destroys their variables at once. A
 material setter queued before it (queued rendering keeps the raw variable) then ran on freed memory
 when the game left threaded rendering, and the game closed with 0xC0000409 at `disconnect` or a level
-change. Before the cleanup the hook now calls the engine guard's nlengineguard.RunQueuedRenderCalls()
-under pcall, which runs the calls the main thread has queued. When it returns false or errors, the
-cleanup is skipped and one line says why (the textures stay in memory until the next map); when it ran
-calls, one line gives their count. Without the engine guard's function the hook fails closed: the
-cleanup runs only when mat_queue_mode is 0 (nothing is ever queued then); otherwise it is skipped and
-one line says so.
+change. ADR 0261 had this hook call the engine guard's nlengineguard.RunQueuedRenderCalls() first. Since
+ADR 0262 the module's cleanup does that itself, whoever calls it (this hook, any Lua calling the global,
+the console command rtx_flush_textures): it asks the engine guard's exported flush to run the calls the
+main thread has queued, prints "Ran <n> queued render calls before the purge" when it ran some, and,
+when it could not make sure, skips the purge with one line ("Purge skipped: queued render calls could
+not be run first (<why>)") and returns false (the textures stay in memory until a later cleanup can run). With a
+single-threaded material system nothing is ever queued and the cleanup runs at once. The hook is again
+only the pcall of the global and its two outcomes.

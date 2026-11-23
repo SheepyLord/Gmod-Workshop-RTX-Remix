@@ -33,7 +33,9 @@
 //   (CMatQueuedRenderContext's one vtable slot that is Lock; CallQueued(this, 0); Unlock and calls nothing between
 //   CallQueued and Unlock; find_flush), through the same check, walk and watched run as AllowThreading(false). Main
 //   thread only; the copy of this module that did not install forwards it to the one that did
-//   (nl_engine_guard_queue_flush_v1). Lua: nlengineguard.RunQueuedRenderCalls(). With the launch option
+//   (nl_engine_guard_queue_flush_v1). The RTX fixes' native texture cleanup calls that export too, in both copies,
+//   before it uncaches every material (ADR 0262): its name and signature are a contract with that module.
+//   Lua: nlengineguard.RunQueuedRenderCalls(). With the launch option
 //   -nl_queue_check_no_flush (tests) it runs nothing and says it succeeded.
 // - The run check judges each call's target right before it runs (target_check.h): a call on a material variable that
 //   is no longer a variable of its material is skipped and logged.

@@ -236,32 +236,9 @@ hook.Add("ShutDown", "RTXTextureCleanup_MapExit", function()
         return
     end
 
-    -- Native loader (ADR 0261): the cleanup uncaches every material, which destroys their variables at once. A
-    -- material setter queued earlier (by any ShutDown hook or the last frame) still holds its variable and would run
-    -- on freed memory when the game leaves threaded rendering. The engine guard runs those queued calls first; when it
-    -- cannot, the cleanup runs only without queued rendering (mat_queue_mode 0: nothing is ever queued) and is skipped
-    -- otherwise (it costs memory until the next map; an uncache with calls still queued can crash the game).
-    local guard = rawget(_G, "nlengineguard")
-    if istable(guard) and isfunction(guard.RunQueuedRenderCalls) then
-        local called, flushed, calls, why = pcall(guard.RunQueuedRenderCalls)
-        if not called or not flushed then
-            local reason = called and why or flushed
-            print("[RTX Texture Cleanup] Map-exit purge skipped: queued render calls could not be run first ("
-                .. tostring(reason or "no reason given") .. ")")
-            return
-        end
-        if (tonumber(calls) or 0) > 0 then
-            print("[RTX Texture Cleanup] Ran " .. tostring(calls) .. " queued render calls before the purge")
-        end
-    else
-        local mode = GetConVar and GetConVar("mat_queue_mode")
-        if not mode or mode:GetInt() ~= 0 then
-            print("[RTX Texture Cleanup] Map-exit purge skipped: the engine guard cannot run the queued render calls "
-                .. "first and queued rendering is on (mat_queue_mode " .. (mode and mode:GetString() or "unknown") .. ")")
-            return
-        end
-    end
-
+    -- Native loader (ADR 0262): the cleanup itself has the engine guard run the queued render calls first (any
+    -- material setter queued before it would otherwise run on a destroyed variable), whoever calls it, and returns
+    -- false with one console line when it could not.
     local ok, queued = pcall(RTX_CleanupMapTextures)
     if not ok then
         ErrorNoHalt("[RTX Texture Cleanup] Map-exit cleanup failed: " .. tostring(queued) .. "\n")

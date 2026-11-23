@@ -132,19 +132,22 @@ def shipped_options():
 class LuaGuardTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """The patch touches exactly its files; each changed one is the last earlier copy with the patch applied (no
-        patch between changed it), each new one the patch's added lines. pins.json builds the module with it last,
-        right after topbr-scope."""
+        patch between changed it), each new one the patch's added lines. pins.json builds the module with it right
+        after topbr-scope; cleanup-drain, the sixteenth, follows it and changes module.cpp again."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), sorted(list(CHANGED) + NEW))
         order = [folder.name for folder in folders()]
         for path, before in CHANGED.items():
             self.assertEqual(apply(patch, path, text(SKINNING / before / path)), text(FOLDER / path), path)
-            later = [name for name in order[order.index(before) + 1:] if name != FOLDER.name and (SKINNING / name / path).exists()]
+            later = [name for name in order[order.index(before) + 1:order.index(FOLDER.name)]
+                     if (SKINNING / name / path).exists()]
             self.assertEqual(later, [], path)
         for path in NEW:
             self.assertEqual(added(patch, path), text(FOLDER / path).rstrip('\n').split('\n'), path)
-        self.assertEqual(PINS['patches'][-1], PATCH.relative_to(REPO).as_posix())
-        self.assertEqual(PINS['patches'][-2], 'packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch')
+        patches = PINS['patches']
+        at = patches.index(PATCH.relative_to(REPO).as_posix())
+        self.assertEqual(patches[at - 1], 'packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch')
+        self.assertEqual(patches[at + 1:], ['packages/fixes/licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch'])
         self.assertIn('source/*', PINS['patch_paths'])
 
     def test_set_config_variable_takes_only_the_packages_options(self):
@@ -244,7 +247,7 @@ class LuaGuardTests(unittest.TestCase):
 
 @unittest.skipUnless(os.name == 'nt' and VS.is_dir(), 'MSVC x64 Build Tools unavailable')
 class LuaGuardRegressions(unittest.TestCase):
-    """The patch's four regressions, compiled with /W4 /WX on the module's headers as the fifteen patches leave them
+    """The patch's four regressions, compiled with /W4 /WX on the module's headers as the sixteen patches leave them
     (every folder's files in pins.json's order, later over earlier), and the option policy's verdict on every option
     the package's Lua and data set."""
 

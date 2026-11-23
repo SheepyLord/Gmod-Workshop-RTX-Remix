@@ -5,8 +5,11 @@ runs them, so the level change and the disconnect go through the drop path and t
 plain session that changes level and disconnects with nothing to drop or put back; a busy session that crowds the first
 map (queue_busy_server.lua) before the level change and the disconnect; and the stale sessions (queue_stale_client.lua:
 material variables set at ShutDown, right before the RTX fixes' map-exit cleanup uncaches every material, at the final
-disconnect): stale, where the fixes' hook runs the queued calls first through the engine guard's flush, and stale-net,
-launched with -nl_queue_check_no_flush, where the run check must skip the calls on variables that are gone. Holds
+disconnect): stale, where the fixes' cleanup runs the queued calls first through the engine guard's flush, and
+stale-net, launched with -nl_queue_check_no_flush, where the run check must skip the calls on variables that are gone;
+and the midgame sessions (ADR 0262, queue_midgame_client.lua: file-based materials' variables set, then the fixes'
+cleanup in the same frame, in the middle of a game): midgame through the Lua global RTX_CleanupMapTextures,
+midgame-console through the console command rtx_flush_textures in one console line with the setters. Holds
 out/r10/poc.lock, snapshots the PoC with the VR driver's helpers, keeps each run's new crash dumps and loader session
 logs, restores the PoC at the end, judges each run against what its kind must show and exits 1 when one fails. See
 queue_check_session.py.md."""
@@ -51,11 +54,32 @@ LINES = {
     'target_off': r'\[NativeLoader\] The target check is off',
     'no_flush_armed': r'\[NativeLoader\] Queue flush test: the flush runs nothing',
     'gone': r'\[NativeLoader\] Skipped \d+ queued render call\(s\) on a material variable that was already gone',
+    # The RTX fixes' cleanup (its native module since ADR 0262).
     'cleanup_flushed': r'\[RTX Texture Cleanup\] Ran \d+ queued render calls before the purge',
-    'cleanup_skipped': r'\[RTX Texture Cleanup\] Map-exit purge skipped',
+    'cleanup_skipped': r'\[RTX Texture Cleanup\] Purge skipped: queued render calls could not be run first',
+    'cleanup_started': r'\[RTX Texture Cleanup\] Starting cleanup',
+    'cleanup_uncached': r'\[RTX Texture Cleanup\] Source material cache fully uncached',
     'stale_armed': r'\[nlqueue\] stale: armed',
     'stale_queued': r'\[nlqueue\] stale: queued restores',
+    # ADR 0262: the midgame runs (queue_midgame_client.lua and the console line the driver sends).
+    'midgame_armed': r'\[nlqueue\] midgame: armed',
+    'midgame_queued': r'\[nlqueue\] midgame: queued setters',
+    'midgame_returned': r'\[nlqueue\] midgame: RTX_CleanupMapTextures returned',
+    'midgame_sent': r'nlqueue midgame console sent',
 }
+# The midgame runs' console line: the setters and the cleanup in one pass of the command buffer, then a marker; both
+# sent before the run's own disconnect.
+MIDGAME_CONSOLE = ['nlqueue_touch;rtx_flush_textures', 'echo nlqueue midgame console sent']
+MIDGAME_QUEUED = '[nlqueue] midgame: queued setters'
+MIDGAME_END = {'midgame': '[nlqueue] midgame: RTX_CleanupMapTextures returned', 'midgame-console': 'nlqueue midgame console sent'}
+# What ties a cleanup to the setters queued right before it: the cleanup's count of the calls it had run first, its
+# uncache line, and the number of setter calls or materials each client prints.
+RAN = re.compile(r'\[RTX Texture Cleanup\] Ran (\d+) queued render calls before the purge')
+UNCACHED = '[RTX Texture Cleanup] Source material cache fully uncached'
+MIDGAME_SETTERS = re.compile(r'\[nlqueue\] midgame: queued setters for \d+ file-based materials \((\d+) calls\)')
+STALE_QUEUED = re.compile(r'\[nlqueue\] stale: queued restores for (\d+) materials')
+# queue_stale_client.lua sets a texture on every material: the setter and its texture's release, two queued calls.
+STALE_CALLS_EACH = 2
 # The log's lines (engine_guard/queue_check.cpp), counted per run: the walks before a run, the watched runs that wrote
 # events (a header at the first, each event as it happened, a summary at the end), the flushes.
 LOG_LINES = {
@@ -72,9 +96,11 @@ BUSY_SOURCE = Path(__file__).resolve().with_name('queue_busy_server.lua')
 BUSY_DATA = Path('garrysmod/data/nlqueue/busy.txt')
 BUSY_RUN = 'lua_run RunString(file.Read("nlqueue/busy.txt","DATA"),"nlqueue_busy")'
 STALE_SOURCE = Path(__file__).resolve().with_name('queue_stale_client.lua')
+MIDGAME_SOURCE = Path(__file__).resolve().with_name('queue_midgame_client.lua')
 # What the restore removes and a crash leaves: copied into each run's evidence first.
 KEEP = ('crashes', 'native-loader/logs/sessions')
-KINDS = ('test', 'plain', 'busy', 'stale', 'stale-net')
+KINDS = ('test', 'plain', 'busy', 'stale', 'stale-net', 'midgame', 'midgame-console')
+MIDGAME_MODES = {'midgame': 'lua', 'midgame-console': 'console'}
 
 
 def plan_runs(args) -> list[dict]:
@@ -82,8 +108,16 @@ def plan_runs(args) -> list[dict]:
     for n in range(1, args.repeat + 1):
         for kind in args.kinds:
             runs.append({'name': f'{kind}-{n}', 'kind': kind, 'test': kind == 'test', 'busy': kind == 'busy',
-                         'stale': kind in ('stale', 'stale-net'), 'no_flush': kind == 'stale-net'})
+                         'stale': kind in ('stale', 'stale-net'), 'no_flush': kind == 'stale-net',
+                         'midgame': MIDGAME_MODES.get(kind)})
     return runs
+
+
+def midgame_lua(run: dict, evidence: Path) -> Path:
+    """The run's copy of queue_midgame_client.lua with its mode set first (NLQ_MODE), in the evidence folder."""
+    path = evidence / f'{run["name"]}-client.lua'
+    path.write_text(f'NLQ_MODE = "{run["midgame"]}"\n' + MIDGAME_SOURCE.read_text(encoding='utf-8'), encoding='utf-8')
+    return path
 
 
 def run_arguments(run: dict, evidence: Path, args) -> list[str]:
@@ -101,6 +135,13 @@ def run_arguments(run: dict, evidence: Path, args) -> list[str]:
         result += ['--lua', str(STALE_SOURCE)]
     if run.get('no_flush'):
         result.append('--extra=-nl_queue_check_no_flush')
+    if run.get('midgame'):
+        result += ['--lua', str(midgame_lua(run, evidence))]
+        if run['midgame'] == 'console':
+            # Before the run's own disconnect: the setters and the cleanup in one console line, then the marker.
+            at = result.index('--before-quit-console')
+            for command in reversed(MIDGAME_CONSOLE):
+                result[at:at] = ['--before-quit-console', command]
     return result
 
 
@@ -125,6 +166,57 @@ def stale_before_cleanup(text: str) -> bool:
     """The stale Lua's restores were queued before the fixes' cleanup hook ran (a cleanup line after them)."""
     queued = text.find('[nlqueue] stale: queued restores')
     return queued >= 0 and text.find('[RTX Texture Cleanup]', queued) > queued
+
+
+def cleanup_in(part: str) -> dict:
+    """The fixes' cleanup in a piece of the console: its "Ran <n>" lines (`ran`) and "fully uncached" lines
+    (`uncached`), the count of the first "Ran" line (`first_calls`), and whether that line comes before the first
+    "fully uncached" one (`ordered`: the queued calls ran before that purge)."""
+    ran = list(RAN.finditer(part))
+    uncached = part.find(UNCACHED)
+    return {'ran': len(ran), 'uncached': part.count(UNCACHED), 'first_calls': int(ran[0][1]) if ran else 0,
+            'ordered': bool(ran) and uncached >= 0 and ran[0].start() < uncached}
+
+
+def stale_after(text: str) -> dict:
+    """The fixes' cleanup after the first `[nlqueue] stale: queued restores` line (the stale client queues them right
+    before the cleanup hook's body): the materials that line counts (`stale_materials`), the cleanup's lines after it
+    (`stale_ran_after`, `stale_uncached_after`), the first "Ran" line's count (`stale_first_ran_calls`) and whether
+    that line comes before the uncache (`stale_ran_then_uncached`)."""
+    found = STALE_QUEUED.search(text)
+    after = cleanup_in(text[found.start():] if found else '')
+    return {'stale_materials': int(found[1]) if found else 0, 'stale_ran_after': after['ran'],
+            'stale_uncached_after': after['uncached'], 'stale_first_ran_calls': after['first_calls'],
+            'stale_ran_then_uncached': after['ordered']}
+
+
+def midgame_after(text: str, kind: str) -> dict:
+    """The fixes' cleanup lines after the first `[nlqueue] midgame: queued setters` line: in all the rest of the
+    console (`midgame_ran_after`, `midgame_uncached_after`), and before the run's own end line, the Lua global's
+    `returned` line or the console run's marker (`midgame_ran_before_end`, `midgame_uncached_before_end`), so the
+    count is the mid-game cleanup's and not the disconnect's. Also the setter calls the client says it made
+    (`midgame_setter_calls`), the count of the first "Ran" line before the end line (`midgame_first_ran_calls`) and
+    whether that line comes before the uncache (`midgame_ran_then_uncached`)."""
+    result = {'midgame_ran_after': 0, 'midgame_uncached_after': 0, 'midgame_ran_before_end': 0,
+              'midgame_uncached_before_end': 0, 'midgame_setter_calls': 0, 'midgame_first_ran_calls': 0,
+              'midgame_ran_then_uncached': False}
+    start = text.find(MIDGAME_QUEUED)
+    if start < 0:
+        return result
+    rest = text[start:]
+    setters = MIDGAME_SETTERS.match(rest)
+    result['midgame_setter_calls'] = int(setters[1]) if setters else 0
+    after = cleanup_in(rest)
+    result['midgame_ran_after'] = after['ran']
+    result['midgame_uncached_after'] = after['uncached']
+    end = rest.find(MIDGAME_END.get(kind, '\0'))
+    if end >= 0:
+        before = cleanup_in(rest[:end])
+        result['midgame_ran_before_end'] = before['ran']
+        result['midgame_uncached_before_end'] = before['uncached']
+        result['midgame_first_ran_calls'] = before['first_calls']
+        result['midgame_ran_then_uncached'] = before['ordered']
+    return result
 
 
 def judge(record: dict) -> list[str]:
@@ -152,16 +244,41 @@ def judge(record: dict) -> list[str]:
         for key in ('dropped', 'put_back', 'gone'):
             need(key, lambda v: v == 0, '0')
     elif kind == 'stale':
+        # The cleanup right after the restores ran at least their calls, then uncached.
         need('stale_queued', lambda v: v >= 1, '>= 1')
         need('cleanup_flushed', lambda v: v >= 1, '>= 1')
+        need('stale_materials', lambda v: v >= 1, '>= 1')
+        need('stale_ran_after', lambda v: v >= 1, '>= 1')
+        need('stale_uncached_after', lambda v: v >= 1, '>= 1')
+        wanted = STALE_CALLS_EACH * (record.get('stale_materials', 0) or 0)
+        need('stale_first_ran_calls', lambda v: v >= max(wanted, 1), f'>= {max(wanted, 1)}')
+        if not record.get('stale_ran_then_uncached'):
+            reasons.append('the cleanup after the stale restores did not run the queued calls before it uncached')
         need('cleanup_skipped', lambda v: v == 0, '0')
         need('gone', lambda v: v == 0, '0')
     elif kind == 'stale-net':
+        # The cleanup uncached with the restores still queued (the flush ran nothing), and the net skipped them.
         need('stale_queued', lambda v: v >= 1, '>= 1')
+        need('stale_uncached_after', lambda v: v >= 1, '>= 1')
         need('gone', lambda v: v >= 1, '>= 1')
         value = record.get('log_gone_events', 0) or 0
         if value < 1:
             reasons.append(f'log_gone_events {value} (expected >= 1)')
+    elif kind in ('midgame', 'midgame-console'):
+        need('midgame_queued', lambda v: v >= 1, '>= 1')
+        need('midgame_ran_after', lambda v: v >= 1, '>= 1')
+        need('midgame_uncached_after', lambda v: v >= 1, '>= 1')
+        need('midgame_ran_before_end', lambda v: v >= 1, '>= 1')
+        need('midgame_uncached_before_end', lambda v: v >= 1, '>= 1')
+        # The mid-game cleanup ran at least the setters' calls, then uncached.
+        need('midgame_setter_calls', lambda v: v >= 1, '>= 1')
+        wanted = max(record.get('midgame_setter_calls', 0) or 0, 1)
+        need('midgame_first_ran_calls', lambda v: v >= wanted, f'>= {wanted}')
+        if not record.get('midgame_ran_then_uncached'):
+            reasons.append('the mid-game cleanup did not run the queued calls before it uncached')
+        need('midgame_returned' if kind == 'midgame' else 'midgame_sent', lambda v: v >= 1, '>= 1')
+        for key in ('dropped', 'put_back', 'gone', 'cleanup_skipped'):
+            need(key, lambda v: v == 0, '0')
     if kind in ('stale', 'stale-net') and not record.get('stale_order'):
         reasons.append('the stale restores were not queued before the cleanup hook ran')
     return reasons
@@ -248,6 +365,7 @@ def main(argv=None) -> int:
                 record = {'name': run['name'], 'kind': run.get('kind'), 'test': run['test'],
                           'busy': run.get('busy', False),
                           'stale': run.get('stale', False), 'no_flush': run.get('no_flush', False),
+                          'midgame': run.get('midgame'),
                           'started': dt.datetime.now(dt.timezone.utc).isoformat()}
                 print(run['name'], flush=True)
                 try:
@@ -265,6 +383,10 @@ def main(argv=None) -> int:
                 text = console.read_text(encoding='utf-8', errors='replace') if console.exists() else None
                 record['lines'] = count_lines(text) if text is not None else None
                 record['stale_order'] = stale_before_cleanup(text) if text is not None else False
+                if run.get('stale'):
+                    record.update(stale_after(text or ''))
+                if run.get('midgame'):
+                    record.update(midgame_after(text or '', run['kind']))
                 if log.exists():
                     copy = evidence / run['name'] / 'render-queue-check.log'
                     copy.parent.mkdir(parents=True, exist_ok=True)
@@ -303,7 +425,17 @@ def main(argv=None) -> int:
               f' kept {len(record.get("kept") or [])}'
               + (f', busy reports {lines.get("busy_report")}' if record.get('busy') else '')
               + (f', stale armed {lines.get("stale_armed")}, queued {lines.get("stale_queued")}'
-                 + (', no flush' if record.get('no_flush') else '') if record.get('stale') else ''))
+                 f' ({record.get("stale_materials", 0)} materials), the cleanup after them ran'
+                 f' {record.get("stale_first_ran_calls", 0)} calls first'
+                 f' ({record.get("stale_ran_after", 0)} ran lines, {record.get("stale_uncached_after", 0)} uncached)'
+                 + (', no flush' if record.get('no_flush') else '') if record.get('stale') else '')
+              + (f', midgame ({record["midgame"]}) armed {lines.get("midgame_armed")},'
+                 f' queued {lines.get("midgame_queued")} ({record.get("midgame_setter_calls", 0)} setter calls),'
+                 f' cleanup ran {record.get("midgame_ran_after", 0)}'
+                 f' and uncached {record.get("midgame_uncached_after", 0)} after the setters'
+                 f' ({record.get("midgame_ran_before_end", 0)} and {record.get("midgame_uncached_before_end", 0)}'
+                 f' before the run\'s end line, the first having run {record.get("midgame_first_ran_calls", 0)}'
+                 f' calls)' if record.get('midgame') else ''))
     failed = [record['name'] for record in results if record['verdict'] != 'PASS']
     print(f'{len(results) - len(failed)} of {len(results)} runs passed' + (f'; failed: {", ".join(failed)}' if failed
                                                                             else ''))

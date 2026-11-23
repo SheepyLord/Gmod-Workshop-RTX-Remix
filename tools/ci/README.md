@@ -99,10 +99,14 @@ R20-E adds the sixth `fixes.patches` entry, `upscaling-state/upscaling-state.pat
 `fixes.patched_tree.source`; the pins' shape and build procedure are unchanged. It supplies
 `RemixConfig.GetUpscalingState()` and returns `nil` with older runtimes.
 
+ADR 0262 adds the sixteenth and last `fixes.patches` entry, `cleanup-drain/cleanup-drain.patch` (the texture cleanup
+asks the engine guard's `nl_engine_guard_queue_flush_v1` to run the queued render calls first), and updates
+`fixes.patched_tree.source`; the pins' shape and build procedure are unchanged.
+
 Every script runs on this machine too, without network where local copies are given:
 
 ```powershell
-tools\ci\build_modules.ps1 -FixesClone H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed -GmodCommon H:\BACKUP_20260815\Modding\garrys-mod-rtx-remixed\garrysmod_common -Premake <premake5.exe 5.0.0-beta2>
+tools\ci\build_modules.ps1 -FixesClone <fixes clone> -GmodCommon <fixes clone>\garrysmod_common -Premake <premake5.exe 5.0.0-beta2>
 python tools\ci\collect_runtime.py <fork>\_output
 python tools\ci\collect_repo_build.py
 python tools\ci\fetch_prebuilt.py --from out\inputs

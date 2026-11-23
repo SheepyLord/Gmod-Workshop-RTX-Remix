@@ -13,8 +13,9 @@ cd tools; python -m unittest discover -s tests -p test_lua_guards.py -v
 - `test_complete_files_are_the_patch_applied`: `lua-guards.patch` touches exactly its eleven files. Each changed file
   is the last earlier copy with the patch applied (`lua_path_policy.h` and `tests/lua_path_policy_test.cpp` from
   autopbr, `to_pbr.cpp` from topbr-scope, `module.cpp` from backrooms, `config_lua_bindings.cpp` from upscaling-state;
-  no folder between holds the file), each new file the patch's added lines. `tools/ci/pins.json` builds the module with
-  the patch last, right after topbr-scope.
+  no folder between holds the file; the sixteenth patch, [cleanup-drain](test_cleanup_drain.py.md), changes
+  `module.cpp` again after it), each new file the patch's added lines. `tools/ci/pins.json` builds the module with the
+  patch right after topbr-scope and cleanup-drain after it.
 - `test_set_config_variable_takes_only_the_packages_options`: the generic setter asks
   `RemixOptionPolicy::LuaMaySet` before the Remix API; every other setter of the binding names its option; the review's
   list (captures, replacement switches, the sky probe's size, crash and debugger hotkeys, the profiler, automation, free
@@ -40,7 +41,7 @@ cd tools; python -m unittest discover -s tests -p test_lua_guards.py -v
 - `test_the_model_reload_runs_single_threaded_twice_a_map`: the binding asks `materials->GetThreadMode()` and the
   allowance before it flushes, the allowance restarts in `GMOD_MODULE_OPEN`, and `cl_rtx.lua`'s last call still
   switches `mat_queue_mode` to 0 (the native check needs it).
-- `LuaGuardRegressions` (Windows with the VS 2022 Build Tools): the module's sources as the fifteen patches leave them
+- `LuaGuardRegressions` (Windows with the VS 2022 Build Tools): the module's sources as the sixteen patches leave them
   (every patch folder's `source/` and `tests/` in `pins.json`'s order, later over earlier) are copied to a scratch
   tree under `out\tmp`; `lua_path_policy_test`, `remix_option_policy_test`, `model_reload_policy_test` and
   `game_source_test` are compiled with `cl /EHsc /std:c++17 /W4 /WX /UNDEBUG` and must print their `PASS` lines; then

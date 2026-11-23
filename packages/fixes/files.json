@@ -562,20 +562,20 @@
    "git": {
     "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "e9dd704234b90edee79ecd0fae40c809b8b60a79",
+    "commit": "611968007ffee9c512914936c1ff14ad104f18e1",
     "dirty": false
    },
-   "imported": "2026-11-23T19:30:16+00:00"
+   "imported": "2026-11-23T20:36:38+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua.md": {
-   "source": "<repo>\\out\\fixes-edit\\cl_rtx.lua.md",
+   "source": "<repo>\\out\\tmp\\reindex\\cl_rtx.lua.md",
    "git": {
     "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "e9dd704234b90edee79ecd0fae40c809b8b60a79",
+    "commit": "611968007ffee9c512914936c1ff14ad104f18e1",
     "dirty": false
    },
-   "imported": "2026-11-23T19:30:16+00:00"
+   "imported": "2026-11-23T21:16:56+00:00"
   },
   "source/debug/addon/lua/autorun/client/rtx_debug.lua.md": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\orphan\\out\\fixes-edit\\debug\\rtx_debug.lua.md",
@@ -588,14 +588,14 @@
    "imported": "2026-11-14T04:10:58+00:00"
   },
   "modules/gmcl_RTXFixesBinary_win64.dll": {
-   "source": "Q:\\built\\fixes\\modules\\gmcl_RTXFixesBinary_win64.dll",
+   "source": "<repo>\\out\\ci\\built\\fixes\\modules\\gmcl_RTXFixesBinary_win64.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-fx",
+    "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
+    "commit": "611968007ffee9c512914936c1ff14ad104f18e1",
     "dirty": false
    },
-   "imported": "2026-11-16T13:12:34+00:00"
+   "imported": "2026-11-23T20:36:38+00:00"
   },
   "garrysmod/garrysmod/addons/Glass-Rewrite-Remix/lua/autorun/server/glass_debris.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r5-glass\\out\\tmp\\glass-stage\\Glass-Rewrite-Remix\\lua\\autorun\\server\\glass_debris.lua",
@@ -1500,15 +1500,15 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua": {
-   "size": 12312,
-   "sha256": "bf2dd498ff4b81ac39669a356f49af86f3b33e2aecc771a40ceeabc6b4f5c0e1",
-   "mtime_ns": 1795462186794481800,
+   "size": 10929,
+   "sha256": "d1a75f546166eb6ed84c3ce0cb1149258c1b377655f34182792f8d45a7b3181f",
+   "mtime_ns": 1795466175168460500,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua.md": {
-   "size": 2980,
-   "sha256": "d6ec79c28054432515be24cd87a52bc11abd2c0b96437773b8a1011f29c7d430",
-   "mtime_ns": 1795462186794982100,
+   "size": 3252,
+   "sha256": "02cd136448f439c2a59f0447fee1cd13afa2a293a589c18b9f6990c44912ba41",
+   "mtime_ns": 1795467426776040300,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/autorun/matdebug.lua": {
@@ -3986,12 +3986,12 @@
    "stored_sha256": "26acfcd8e9ad3a412be89de8e77911970ec03234fea35df042ed71f46ea004c8"
   },
   "modules/gmcl_RTXFixesBinary_win64.dll": {
-   "size": 5655040,
-   "sha256": "bbee8323c604cc657fda281d8244d15a2f99a83a21fd4c825921960bc5d6f214",
-   "mtime_ns": 1794834734370724600,
+   "size": 5658112,
+   "sha256": "b0391bf290dbdae617174f656250184502d4c53c0b6a37d73eed1641696eee48",
+   "mtime_ns": 1795466176258143700,
    "stored": "xz",
-   "stored_size": 1088352,
-   "stored_sha256": "f21e1708e2fe0063f8ec2084b7cf3854dc0cbb441f5e914ea7b42e7e1c5091b2"
+   "stored_size": 1091240,
+   "stored_sha256": "57cf9e65a456329e47ffb3318a4cd38e266bba6ff1898d9e6109136e62f4245c"
   },
   "modules/gmcl_rtxwater_win64.dll": {
    "size": 281088,

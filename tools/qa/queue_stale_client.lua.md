@@ -7,7 +7,7 @@ to imported characters' materials (`SetTexture("$basetexture")`, `SetInt("$flags
 queued rendering each setter waits in the list the main thread records, holding its material variable; the RTX fixes'
 map-exit cleanup (`RTXTextureCleanup_MapExit`, `UncacheAllMaterials`) then destroys every file-based material's
 variables. Before ADR 0261 the game crashed after this 4 of 4 times (exit 0xC0000409). A `stale` run must not crash
-because the fixes' hook runs the queued calls first; a `stale-net` run (the flush switched off with
+because the fixes' cleanup runs the queued calls first (since ADR 0262 the native cleanup asks the engine guard itself); a `stale-net` run (the flush switched off with
 `-nl_queue_check_no_flush`) must not crash because the run check skips the calls whose variable is gone.
 
 Client realm. The driver passes it to [`poc_session.py`](../poc_session.py.md) `run --lua`, which runs it through the

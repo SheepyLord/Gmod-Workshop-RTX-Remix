@@ -173,8 +173,13 @@ the client realm by the early view of `includes/init.lua`, which also covers rem
     (`nl_engine_guard_queue_flush_v1`, its counts through `nl_engine_guard_queue_flush_status_v1`). Lua, client and
     server realms: `nlengineguard.RunQueuedRenderCalls() -> ok, calls, why`. `ok` is true once the context's flush has
     run: inside a render block the engine's flush queues one call of its own after itself, so the list need not be
-    empty (`why` then says `N call(s) queued again by the flush`). The fixes' hook calls it before the cleanup and
-    skips the cleanup when it returns false; without the function it runs the cleanup only with `mat_queue_mode` 0.
+    empty (`why` then says `N call(s) queued again by the flush`). Since ADR 0262 the RTX fixes' native texture
+    cleanup (`PerformTextureCleanup` in `gmcl_RTXFixesBinary_win64.dll`, the fixes' sixteenth patch `cleanup-drain`)
+    calls `nl_engine_guard_queue_flush_v1` itself, in both copies (the first that answers 0 or 1 decides), before it
+    uncaches every material, whoever calls it (the map-exit hook, the Lua global `RTX_CleanupMapTextures`, the console
+    command `rtx_flush_textures`), and skips the purge when no copy could make sure; the fixes' hook no longer calls
+    `RunQueuedRenderCalls`. The export's name, its signature (`int (std::uint64_t* calls, char* why, std::size_t
+    size)`) and its answers (-1 not installed, 1 ran, 0 could not make sure) are therefore a contract with that module.
     `-nl_queue_check_no_flush` (tests): the flush runs nothing and reports success, so the net below is exercised in
     the real game. `use_for_test`/`reset_for_test` give the flush stand-ins (tests only).
   - **The target check, the net (`target_check.h`).** At install: `CMaterialVar`'s and `CMaterial`'s vtables by RTTI;

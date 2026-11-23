@@ -149,8 +149,8 @@ skipped; texture memory stays in use until the next map).
 - `packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua` and its `.md`;
   `packages/fixes/modules/gmcl_nlengineguard_win64.dll`, `gmsv_nlengineguard_win64.dll` (rebuilt),
   `packages/fixes/files.json`, `tools/ci/pins.json`.
-- Tests: [test_texture_cleanup_flush.py](../../tools/tests/test_texture_cleanup_flush.py.md) and
-  [texture_cleanup_harness.lua](../../tools/tests/texture_cleanup_harness.lua.md) (new).
+- Tests: `test_texture_cleanup_flush.py` and `texture_cleanup_harness.lua` (new) (replaced by
+  [test_cleanup_drain.py](../../tools/tests/test_cleanup_drain.py.md) in the follow-up, ADR 0262).
 - QA: [queue_check_session.py](../../tools/qa/queue_check_session.py.md) (the `stale` and `stale-net` kinds, crash
   evidence kept, PASS or FAIL per run), [queue_stale_client.lua](../../tools/qa/queue_stale_client.lua.md) (new).
 - Docs: ADR 0261 and its row, one status line each in ADR 0247 and ADR 0254, CHANGELOG, ROADMAP, RESEARCH, TESTING,
@@ -185,10 +185,13 @@ session's part of the console log was read; nothing spawned, nothing installed b
 1. **The console command `rtx_flush_textures`** uncaches in the middle of a game. With setters queued in that frame
    the render thread runs them on destroyed variables, unwatched. Not seen in the field; it needs the fixes' native
    module to change.
+   Done in the follow-up: [cleanup-drain-report.md](cleanup-drain-report.md) (ADR 0262).
 2. **Should the fixes' native module drain properly itself?** `PerformTextureCleanup`'s `Flush(true)` does not run the
    main thread's queued calls, contrary to its comment. Running the queued context's flush there (or taking the
    material system's lock and leaving threaded rendering first) would fix the map-exit cleanup and the console command
    at the source; this round kept to the engine guard and the Lua hook.
+   Done in the follow-up: the cleanup asks the engine guard's exported flush itself,
+   [cleanup-drain-report.md](cleanup-drain-report.md) (ADR 0262).
 3. **The companion's `ShutDown` restores** (the eye whites' `$basetexture`, solid hair's `$flags` and
    `$allowalphatocoverage`) are harmless now, since the flush runs them before the uncache, but pointless for materials
    about to be uncached. Leaving them out when the fixes' cleanup will run would remove the most common source of these

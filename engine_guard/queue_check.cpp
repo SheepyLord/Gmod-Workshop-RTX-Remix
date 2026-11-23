@@ -1553,6 +1553,9 @@ extern "C" __declspec(dllexport) int nl_engine_guard_run_check_v1(std::uint64_t*
 
 // ADR 0261: the flush, run in the copy that installed for the other copy. -1 when this copy did not install, 1 when
 // what this thread had queued has run, 0 when it could not make sure; `why` gets a NUL-terminated reason.
+// ADR 0262: the RTX fixes' native texture cleanup (PerformTextureCleanup in gmcl_RTXFixesBinary_win64.dll) calls this
+// export too, in both copies, before it uncaches every material. Its name, its signature and the meaning of its answers
+// are a contract with that module: change them only with a new name.
 extern "C" __declspec(dllexport) int nl_engine_guard_queue_flush_v1(std::uint64_t* calls, char* why,
                                                                      std::size_t size) noexcept {
   if (!g_owns.load()) return -1;

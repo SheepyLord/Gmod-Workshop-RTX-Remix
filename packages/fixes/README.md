@@ -6,6 +6,22 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## The texture cleanup runs the queued render calls first, whoever calls it (2026-11-23)
+
+The native loader's ADR 0262. Imported with `inputs.py --file`; every other indexed input is unchanged.
+
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,658,112 bytes, SHA-256 `b0391bf2...696eee48`): the public base with the
+  sixteen patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The sixteenth,
+  [cleanup-drain.patch](licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch)
+  ([source, tests](licenses/oversized-skinning/cleanup-drain/README.md)): `PerformTextureCleanup`, behind the map-exit
+  hook, the Lua global `RTX_CleanupMapTextures` and the console command `rtx_flush_textures`, has the engine guard run
+  the render calls the main thread has queued (its export `nl_engine_guard_queue_flush_v1`, asked in both copies)
+  before it uncaches every material, and skips the purge with one line when nobody can make sure. In the middle of a
+  game the render thread otherwise ran setters queued before the cleanup on destroyed material variables (exit
+  0xC0000005 on the PoC).
+- `garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua` and its `.md`: the hook `RTXTextureCleanup_MapExit`
+  calls `RTX_CleanupMapTextures` alone again, as before ADR 0261 (the module now runs the queued calls itself).
+
 ## The weapon copy draws nothing before the frame (2026-11-21)
 
 The follow-up of 2026-11-21 ("Local player shadow: lost path tracing"),

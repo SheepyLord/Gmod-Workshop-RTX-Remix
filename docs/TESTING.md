@@ -4145,9 +4145,10 @@ separator now has 57 texts in each catalog.
   as they happen, a variable an earlier call of the same run destroyed caught (with a fake judge and with the real one
   on fake memory), events past the record limit still told, and the queued context's flush executed as machine code
   (`Lock`, `CallQueued`, `Unlock` through stand-ins) with its run going through the step.
-- **LuaJIT** ([`test_texture_cleanup_flush.py`](../tools/tests/test_texture_cleanup_flush.py.md), new): the packaged
-  `cl_rtx.lua`'s hook `RTXTextureCleanup_MapExit` cut out and run in
-  [`texture_cleanup_harness.lua`](../tools/tests/texture_cleanup_harness.lua.md): the flush before the cleanup, the
+- **LuaJIT** (`test_texture_cleanup_flush.py`, new; replaced by
+  [`test_cleanup_drain.py`](../tools/tests/test_cleanup_drain.py.md) when the drain moved into the fixes' module, ADR
+  0262): the packaged `cl_rtx.lua`'s hook `RTXTextureCleanup_MapExit` cut out and run in
+  `texture_cleanup_harness.lua`: the flush before the cleanup, the
   count line when calls ran, the cleanup skipped with one line when the flush returns false or raises, and the
   behaviour without the engine guard; and the surfaces: `module.cpp`'s fields, the driver's line and log counters in the
   formats the engine guard and the hook print, its `stale` and `stale-net` plans, the stale client's hook and lines.
@@ -4171,3 +4172,45 @@ separator now has 57 texts in each catalog.
   --allow-steam-managed run --workshop --addons --no-window --map gm_construct --lua tools\qa\queue_stale_client.lua
   --before-quit-console disconnect` with the published package deployed: the flush ran 288 queued calls before the
   cleanup, the cleanup ran, a normal quit with exit 0 and no new crash dump.
+
+## The cleanup's own drain (ADR 0262)
+
+- **C++, standalone** ([`cleanup_drain_test.cpp`](../packages/fixes/licenses/oversized-skinning/cleanup-drain/tests/cleanup_drain_test.cpp),
+  the fixes' sixteenth patch, [cleanup-drain](../packages/fixes/licenses/oversized-skinning/cleanup-drain/README.md)): the decision header `cleanup_drain.h` compiled alone with MSVC (`/W4 /WX /UNDEBUG`): a
+  single-threaded material system (no copy asked); the first copy answering 1 with a count; the first -1 and the second
+  1; the first 0 (refused with its reason, the second not asked); both -1; none loaded; a null between; the largest
+  count; an empty reason for either answer; a reason without its NUL.
+- **Python** ([`test_cleanup_drain.py`](../tools/tests/test_cleanup_drain.py.md), in the Release gate; it replaces ADR
+  0261's `test_texture_cleanup_flush.py` and keeps its surface checks): the patch folder's files are the patch applied
+  over lua-guards' `module.cpp`, and `pins.json` builds it last; `PerformTextureCleanup` asks the drain right after its
+  two early returns and before `Starting cleanup`, the VRAM report, `ClearMapState` and `UncacheAllMaterials`, prints
+  the refusal and count lines, and returns false on a refusal; the console command and the Lua global reach the uncache
+  only through it; the drain asks `gmcl_` then `gmsv_nlengineguard_win64.dll` for the export, whose name and parameter
+  types match `engine_guard/queue_check.cpp`'s; `cl_rtx.lua`'s hook calls `pcall(RTX_CleanupMapTextures)` alone; the
+  regression above compiled and run on the header as the sixteen patches leave it; the QA driver's plans, line counts
+  and verdicts for the stale and midgame kinds.
+- **PoC** ([`queue_check_session.py`](../tools/qa/queue_check_session.py.md), each run judged PASS or FAIL;
+  [`queue_midgame_client.lua`](../tools/qa/queue_midgame_client.lua.md) sets `$basetexture` and `$flags` of five
+  file-based materials in the middle of a game):
+  - `midgame`: the Lua global `RTX_CleanupMapTextures()` called in the same chunk as the setters. A pass: no crash, the
+    cleanup's "Ran <n> queued render calls before the purge" and "Source material cache fully uncached" after the
+    setters' line and before the global's `returned` line, `<n>` at least the setter calls the client printed and the
+    "Ran" line before the uncache, nothing dropped, put back, skipped or purge skipped.
+  - `midgame-console`: `nlqueue_touch;rtx_flush_textures` sent as one console line (the setters and the command in one
+    pass of the command buffer), then a marker. A pass: the same lines after the setters and before the marker.
+  - `stale` (ADR 0261's kind, now through the module) is judged the same way on the cleanup right after its restores:
+    its "Ran <n>" line, at least two calls for each material restored, before its uncache line. A "Ran" line elsewhere
+    in the console (the level change's cleanup prints one) does not pass it. `stale-net` must also show that cleanup's
+    uncache line, the restores still queued.
+  - Before ADR 0262 both mid-game kinds closed the game with exit 0xC0000005 (the Lua global 3 of 3, the console
+    command 2 of 2, on the package of ADR 0261).
+  - Results on the package built from the branch (evidence `out/cdrain-poc` of the main checkout), 15 of 15 PASS, every
+    run exit 0 with no new dump: `midgame` 3 ("Ran 27" after 10 setter calls, the uncache, `returned true true`, then
+    220 calls run before the disconnect's cleanup), `midgame-console` 3 ("Ran 25", "Starting cleanup (manual console
+    command)", the uncache), `stale` 3 (29 materials, "Ran 274", the uncache), `stale-net` 3 (the uncache with the
+    restores queued, 10 calls skipped and logged at `AllowThreading(false)`), `test` 1 (4 drops, 4 put back), `plain`
+    1, `busy` 1 (two minutes crowded: nothing dropped, put back or skipped). The second series (one run of each kind)
+    ran with the stricter verdicts above.
+- Not covered: other code that keeps material variables across an uncache in the middle of a game; the render
+  thread's own runs in normal frames (no longer needed for this cleanup); a refusal in the real game (it needs the
+  engine guard absent or its flush off while queued rendering is on, covered only by the regression).

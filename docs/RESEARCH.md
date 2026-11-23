@@ -10342,3 +10342,60 @@ timestamp 0x6af5f3c7, as before; the RVAs below are for reading along and are ne
   switched off (`-nl_queue_check_no_flush`), the run check skipped 10 calls on variables that were gone, texture setters
   ("its material lists no variable any more (uncached)") and integer setters ("the material variable's first word is
   not CMaterialVar's vtable"), the field's two fault kinds, and the session exited 0.
+
+## The same fault in the middle of a game: the cleanup's console command and Lua global (2026-11-23, Claude; [ADR 0262](decisions/0262-the-texture-cleanup-runs-the-queued-render-calls-itself.md))
+
+After ADR 0261 was published. The scratch notes are in `out/crash-20261123` of the main checkout
+(`FINDINGS-MIDGAME.md`), the reproduction in `out/midgame-repro`; the published package
+`0.0.0-dev.20261123195551+1732099f` (ADR 0261 in it) on the PoC.
+
+- **Three callers of one uncache.** The RTX fixes' `PerformTextureCleanup` (`source/module.cpp`) is reached by the
+  `ShutDown` hook `RTXTextureCleanup_MapExit` through the Lua global, by the console command `rtx_flush_textures`
+  (`FlushTexturesCommand` > `PerformTextureCleanup("manual console command", false)`, registered by the module for each
+  client Lua state) and by the Lua global `RTX_CleanupMapTextures` itself (`CleanupMapTextures_Lua` >
+  `PerformTextureCleanup("client Lua ShutDown", true)`), which any client Lua can call at any time, a server's Lua sent
+  to the client too. Only the second argument differs: the global honours `rtx_flush_textures_on_map_exit`, the command
+  does not. ADR 0261 protected only the hook.
+- **Who runs the list in the middle of a game.** The render thread, at the end of the frame:
+  `ThreadExecuteQueuedContext` (`materialsystem.dll`+0x24f3a) > `EndQueue` (+0x31cd8) > `CallQueued` (return address
+  +0x3104a, the engine's own dispatch: ADR 0254's run check rewrites it only for `AllowThreading(false)` and the
+  flush). An uncache on the main thread with setters queued earlier in the frame leaves them for the render thread on
+  freed memory, unwatched.
+- **The dump** (the Lua global, the runtime's crashpad dump; GMod's own handler wrote none): exit 0xC0000005; the render
+  thread, an execute fault at a heap address; `rbx` an element at arena +0x88 of context 0 (the third call of that
+  frame's list); `rcx` a heap address (the variable) whose first word (`rax`) is another heap address. The field's
+  fault of ADR 0261 in a normal frame.
+- **The reproduction.** The Lua global, called in one Lua chunk right after `SetTexture` and `SetInt` on five
+  file-based materials: the cleanup ran ("Source material cache fully uncached", it returned true), then the crash: 3 of
+  3. The console command: 2 of 2, but only with the setters queued in the same pass of the command buffer, before the
+  command: a Lua console command that sets them, then `rtx_flush_textures`, in one console line
+  (`nlqueue_touch;rtx_flush_textures`; the console shows "queued setters for 5 file-based materials", then "Starting
+  cleanup (manual console command)", then the game is gone).
+- **`lua_run_cl` runs its code later.** `lua_run_cl <code>;rtx_flush_textures` did not reproduce it (exit 0): the
+  console shows the cleanup's lines before the setters' line, so the cleanup came first. A Lua console command
+  (`concommand.Add`) runs when the buffer reaches it.
+- **Typed alone it is unlikely.** A command typed alone at the console runs at the start of a frame, when the main
+  thread's list is nearly empty; a bind or an add-on that runs Lua and then the command in one line can hit the fault.
+- **Two copies of the engine guard.** Both `gmcl_nlengineguard_win64.dll` and `gmsv_nlengineguard_win64.dll` can be
+  in the process (the server copy, loaded by the menu, can own the hooks; the client copy then answers -1). Their
+  export `nl_engine_guard_queue_flush_v1` answers -1 in a copy that did not install its queue check, and 1 (ran) or 0
+  (could not make sure, with the reason) in the one that did; so a caller asks both and takes the first 0 or 1. The fixes'
+  cleanup asks the client copy first, then the server copy.
+- **Which list was left, and why the engine's own lock did not help.** In queued threaded rendering two lists exist at
+  a time: the one the main thread records for this frame, and the last frame's, which the render thread may still be
+  running when the cleanup is called. The last frame's was never the problem. `UncacheAllMaterials` (`CMaterialSystem`
+  slot 69, `materialsystem.dll`+0x253a0, timestamp 0x6af5f3c7; read for this, never hard-coded) is `Lock` (slot 106),
+  `Flush(true)` (slot 43), each material's `Uncache(false)` (`CMaterial` slot 62), the texture manager's removal of
+  unused textures, `Unlock` (slot 107). `Lock` (+0x1ea00) waits for the render thread: when the calling thread's
+  render context is not the hardware context and the active render job (the pointer at `this`+0x2003070) has a status
+  of 1, 2 or 4 (pending, in progress, unserviced), it calls the thread pool with that one job, wait-for-all and a
+  timeout of -1 (the SDK's source has `m_pActiveAsyncJob->WaitForFinish()` in this place); then it makes the hardware
+  context this thread's context. So the uncache's own `Flush(true)` goes to the hardware context, and this frame's
+  list in the queued context is left as it is: its setters outlive their variables. The engine's flush of a queued
+  context (ADR 0261: `Lock`, `CallQueued(this, 0)`, `Unlock`) is what runs that list, and the cleanup now asks for it
+  first; the render thread gets its next job only at the main thread's `EndFrame`, so nothing queued before the
+  cleanup is left anywhere after the drain.
+- **After the fix** (the PoC, the package built from the branch, the first run): the mid-game cleanup through the Lua
+  global printed "Ran 27 queued render calls before the purge" right after the setters' line (ten setter calls on five
+  materials; a texture setter queues its texture's release too), uncached, returned true, and the game went on to its
+  `disconnect` (220 calls run before that cleanup) and exit 0. The same session crashed 3 of 3 before.

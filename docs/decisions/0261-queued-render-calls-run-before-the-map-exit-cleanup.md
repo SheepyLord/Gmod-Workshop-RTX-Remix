@@ -5,7 +5,9 @@
   documentations."). Supersedes [ADR 0254](0254-queued-render-calls-checked-again-while-the-game-runs-them.md)'s
   reading of the crash of 2026-11-22 (an element written over during the run) and changes its decision 7 ("Lua reads,
   never switches"); extends [ADR 0247](0247-queued-render-calls-checked-before-the-game-leaves-threaded-rendering.md)
-  and ADR 0254, whose mechanisms stay as they are.
+  and ADR 0254, whose mechanisms stay as they are. Decision 2 is superseded by
+  [ADR 0262](0262-the-texture-cleanup-runs-the-queued-render-calls-itself.md) (2026-11-23): the RTX fixes' native
+  cleanup now runs the queued render calls itself, whoever calls it, and the hook calls it alone again.
 - Package only: the engine guard (`gmcl_`/`gmsv_nlengineguard_win64.dll`, the fixes part,
   [engine_guard/queue_check.h](../../engine_guard/queue_check.h), [run_check.h](../../engine_guard/run_check.h),
   [target_check.h](../../engine_guard/target_check.h)) and the RTX fixes' Lua

@@ -36,9 +36,14 @@ The queue flush and the target check (2026-11-23,
 `tests/test_target_check.cpp`; `queue_check.*` gains the queued context's own flush (`find_flush`, `flush`,
 `nlengineguard.RunQueuedRenderCalls()`), which the RTX fixes' `ShutDown` hook calls before their map-exit cleanup, and
 the run check's log written as events happen. Under `tools/qa` the driver gains the `stale` and `stale-net` kinds with
-their [client Lua](../tools/qa/queue_stale_client.lua.md); under `tools/tests`
-[`test_texture_cleanup_flush.py`](../tools/tests/test_texture_cleanup_flush.py.md) runs the fixes' hook in its
-[LuaJIT harness](../tools/tests/texture_cleanup_harness.lua.md).
+their [client Lua](../tools/qa/queue_stale_client.lua.md); under `tools/tests` `test_texture_cleanup_flush.py` ran the
+fixes' hook in its LuaJIT harness, replaced by [`test_cleanup_drain.py`](../tools/tests/test_cleanup_drain.py.md) when
+the drain moved into the fixes' module (ADR 0262).
+The cleanup's own drain (2026-11-23,
+[ADR 0262](decisions/0262-the-texture-cleanup-runs-the-queued-render-calls-itself.md)) adds the fixes' sixteenth native
+patch [cleanup-drain](../packages/fixes/licenses/oversized-skinning/cleanup-drain/README.md) (the texture cleanup asks
+the engine guard's exported flush before it uncaches, whoever calls it) and under `tools/qa` the driver's `midgame` and
+`midgame-console` kinds with their [client Lua](../tools/qa/queue_midgame_client.lua.md).
 
 R20-A adds `loader/proxy/loader_release.h` / `.cpp` (bounded published-release record and native
 runtime ownership checks), `loader/proxy/ui/menu_choices.lua` (bounded local menu preferences),

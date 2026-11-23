@@ -6,6 +6,29 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The `rtx_flush_textures` console command no longer crashes the game (2026-11-23)
+
+- **The console command `rtx_flush_textures`, and add-ons that call the RTX fixes' texture cleanup
+  (`RTX_CleanupMapTextures`) in the middle of a game, no longer close the game with exit 0xC0000005.** It was the same
+  fault as the crash at `disconnect` fixed today, in a normal frame: material changes made just before the cleanup still
+  waited in the render queue when the cleanup emptied the material cache, and the render thread then ran them on freed
+  memory. Typing the command alone was unlikely to hit it; a bind or an add-on that runs Lua and then the command in
+  one line could.
+- **What changed.** The fixes' texture cleanup itself now has the engine guard run the waiting render calls first,
+  whoever calls it (the map exit, the console command, any Lua). If that cannot be done, the cleanup is skipped with one
+  console line (`Purge skipped: queued render calls could not be run first`) and the textures stay in memory until a
+  later cleanup can run. The fixes' map-exit hook simply calls the cleanup again.
+- **On an older version**, do not put `rtx_flush_textures` in a bind or a console line after Lua commands.
+- Behind it ([ADR 0262](docs/decisions/0262-the-texture-cleanup-runs-the-queued-render-calls-itself.md), extending
+  ADR 0261 and superseding its decision 2): the fixes' sixteenth native patch `cleanup-drain` has
+  `PerformTextureCleanup` ask the engine guard's export `nl_engine_guard_queue_flush_v1` (the client copy, then the
+  server copy) before it uncaches; a single-threaded material system needs no flush. Reproduced on the test install
+  with the published package of ADR 0261: the Lua global 3 of 3, the console command 2 of 2; with the fix both ran
+  clean, 3 of 3 each. Tests: the drain's
+  standalone C++ regression and `test_cleanup_drain.py` (it replaces the hook's LuaJIT harness test), and the QA
+  driver's new `midgame` and `midgame-console` kinds. Not covered: other code that keeps material variables across an
+  uncache in the middle of a game, and the render thread's own runs in normal frames.
+
 ### Leaving a map or disconnecting no longer crashes after playing with imported characters (2026-11-23)
 
 - **Leaving a map, changing map or typing `disconnect` no longer closes the game with "Garry's Mod closed

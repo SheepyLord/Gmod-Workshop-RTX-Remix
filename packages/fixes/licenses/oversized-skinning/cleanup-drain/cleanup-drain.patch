@@ -1,0 +1,337 @@
+diff --git a/source/cleanup_drain.h b/source/cleanup_drain.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4535973bcf28c2ae01812f389cc1d038a809251f
+--- /dev/null
++++ b/source/cleanup_drain.h
+@@ -0,0 +1,78 @@
++// GPL-2.0, like the rest of the RTX fixes. The native loader's ADR 0262: whether PerformTextureCleanup may uncache
++// every material now. UncacheAllMaterials destroys the variables of every file-based material at once, on the calling
++// thread. In queued rendering a material-variable setter made on the main thread (IMaterial:SetTexture, SetInt ...
++// from Lua) does not write the variable: it waits in the list the main thread records, holding the raw variable
++// pointer, and the render thread runs it at the end of the frame (or AllowThreading(false) when the game leaves
++// threaded rendering). An uncache with such calls still queued leaves them pointing at freed memory: the field's
++// crashes at disconnect (ADR 0261) and the same fault in the middle of a game through rtx_flush_textures or
++// RTX_CleanupMapTextures. So the cleanup first has the native loader's engine guard run the calls queued so far,
++// through its exported flush (nl_engine_guard_queue_flush_v1 in gmcl_ or gmsv_nlengineguard_win64.dll, the copy that
++// installed its queue check), and does not run when nobody can make sure. A single-threaded material system never
++// queues, so nothing needs to run first. No SDK and no Windows header: tests/cleanup_drain_test.cpp compiles this file
++// alone; the module resolves the exports and passes them in.
++#pragma once
++
++#include <cstddef>
++#include <cstdint>
++#include <cstring>
++
++namespace CleanupDrain {
++
++// The engine guard's export (engine_guard/queue_check.cpp in the native loader's repository): -1 when this copy of the
++// engine guard did not install its queue check, 1 when what the calling thread had queued has run, 0 when it could not
++// make sure; `calls` gets the number of calls it ran, `why` a NUL-terminated reason of at most `size` bytes.
++constexpr const char* kExport = "nl_engine_guard_queue_flush_v1";
++using QueueFlush = int (*)(std::uint64_t* calls, char* why, std::size_t size);
++
++// The engine guard's two copies, in the order the module asks them (both can be in the process; only one installs).
++constexpr std::size_t kCopies = 2;
++constexpr std::size_t kReasonSize = 256;
++
++struct Result {
++    bool mayRun = false;      // the cleanup may uncache now
++    bool flushAsked = false;  // a copy of the engine guard was asked to run the queued calls
++    std::uint64_t calls = 0;  // the calls it ran
++    char why[kReasonSize] = {};
++};
++
++inline void SetReason(Result& result, const char* text) noexcept {
++    if (!text) text = "";
++    std::size_t n = std::strlen(text);
++    if (n >= kReasonSize) n = kReasonSize - 1;
++    std::memcpy(result.why, text, n);
++    result.why[n] = 0;
++}
++
++// singleThreaded: materials && materials->GetThreadMode() == MATERIAL_SINGLE_THREADED. copies: the engine guard's
++// exports, one per copy in the order to ask, null for a copy that is not loaded or has no such export. The first copy
++// that answers 0 or 1 decides; a copy that answers anything else (-1: it did not install) passes to the next.
++inline Result Decide(bool singleThreaded, const QueueFlush* copies, std::size_t count) noexcept {
++    Result result;
++    if (singleThreaded) {
++        result.mayRun = true;
++        SetReason(result, "the material system is single-threaded: nothing is queued");
++        return result;
++    }
++    for (std::size_t i = 0; copies && i < count; ++i) {
++        if (!copies[i]) continue;
++        std::uint64_t calls = 0;
++        char why[kReasonSize] = {};
++        const int answer = copies[i](&calls, why, sizeof(why));
++        why[kReasonSize - 1] = 0;  // whatever the copy wrote
++        if (answer != 0 && answer != 1) continue;
++        result.flushAsked = true;
++        result.calls = calls;
++        result.mayRun = answer == 1;
++        if (why[0]) {
++            SetReason(result, why);
++        } else {
++            SetReason(result, result.mayRun ? "the queued render calls ran"
++                                            : "the engine guard could not make sure the queued render calls ran");
++        }
++        return result;
++    }
++    SetReason(result, "the engine guard's queue flush is not available");
++    return result;
++}
++
++}  // namespace CleanupDrain
+diff --git a/source/module.cpp b/source/module.cpp
+index a0dfa319b7851b61f5cfe5ef9ff3253d7bc42bbf..c19dcc49fdeeb13f6dd7daa2bbf1e4392d58111d 100644
+--- a/source/module.cpp
++++ b/source/module.cpp
+@@ -38,6 +38,7 @@
+ #include "model_draw_hook.h"
+ #include "material_pipeline/material_pipeline.h"
+ #ifdef _WIN64
++#include "cleanup_drain.h"
+ #include "model_reload_policy.h"
+ #include <filesystem>
+ #include <optional>
+@@ -108,6 +109,32 @@ namespace {
+             stats.usedAppBufferBytes / bytesPerMiB);
+     }
+ 
++    // The native loader's ADR 0262: runs the render calls this thread has queued, through the engine guard's exported
++    // flush (cleanup_drain.h). Both copies of the engine guard (gmcl_ and gmsv_) can be in the process; only the one
++    // that installed its queue check answers. Throws nothing.
++    CleanupDrain::Result DrainQueuedRenderCalls() noexcept {
++        try {
++            const bool singleThreaded = materials && materials->GetThreadMode() == MATERIAL_SINGLE_THREADED;
++            CleanupDrain::QueueFlush copies[CleanupDrain::kCopies] = {};
++            const wchar_t* const names[CleanupDrain::kCopies] = {
++                L"gmcl_nlengineguard_win64.dll", L"gmsv_nlengineguard_win64.dll"};
++            if (!singleThreaded) {
++                for (std::size_t i = 0; i < CleanupDrain::kCopies; ++i) {
++                    const HMODULE module = GetModuleHandleW(names[i]);
++                    if (module) {
++                        copies[i] = reinterpret_cast<CleanupDrain::QueueFlush>(
++                            GetProcAddress(module, CleanupDrain::kExport));
++                    }
++                }
++            }
++            return CleanupDrain::Decide(singleThreaded, copies, CleanupDrain::kCopies);
++        } catch (...) {
++            CleanupDrain::Result refused;
++            CleanupDrain::SetReason(refused, "the queue flush failed");
++            return refused;
++        }
++    }
++
+     bool PerformTextureCleanup(const char* reason, bool honorMapExitConvar) {
+         if (g_moduleClosing) {
+             return false;
+@@ -119,13 +146,26 @@ namespace {
+             return false;
+         }
+ 
++        // The native loader's ADR 0262: UncacheAllMaterials below destroys every file-based material's variables,
++        // while setters the main thread queued in queued rendering still hold them (the render thread, or
++        // AllowThreading(false), would run them on freed memory). Whoever calls the cleanup (the map-exit hook, the
++        // Lua global, rtx_flush_textures), the engine guard runs those queued calls first, or the purge is skipped.
++        const CleanupDrain::Result drain = DrainQueuedRenderCalls();
++        if (!drain.mayRun) {
++            Msg("[RTX Texture Cleanup] Purge skipped: queued render calls could not be run first (%s)\n", drain.why);
++            return false;
++        }
++        if (drain.calls > 0) {
++            Msg("[RTX Texture Cleanup] Ran %llu queued render calls before the purge\n",
++                static_cast<unsigned long long>(drain.calls));
++        }
++
+         Msg("[RTX Texture Cleanup] Starting cleanup (%s)\n", reason);
+         Msg("[RTX Texture Cleanup] VRAM before Source material purge:\n");
+         PrintVramStats();
+ 
+-        // Lua ShutDown can overlap queued material work. Drain it before releasing
+-        // pipeline or Source references; otherwise an in-flight shader draw can use
+-        // a material while UncacheAllMaterials tears it down.
++        // IMaterialSystem::Flush flushes only this thread's render context; it does not run the calls the main
++        // thread has recorded in queued rendering (those ran above, through the engine guard: ADR 0262).
+         if (materials) {
+             materials->Flush(true);
+         }
+diff --git a/tests/cleanup_drain_test.cpp b/tests/cleanup_drain_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..fad0dbc9055070ee35f8408c570ca611be3997d1
+--- /dev/null
++++ b/tests/cleanup_drain_test.cpp
+@@ -0,0 +1,172 @@
++// GPL-2.0. The native loader's ADR 0262: regression for source/cleanup_drain.h, whether PerformTextureCleanup may
++// uncache every material after asking the engine guard to run the render calls queued so far. Compiles alone (no SDK):
++// cl /EHsc /std:c++17 /W4 /WX /UNDEBUG tests/cleanup_drain_test.cpp
++#include <cassert>
++#include <cstdint>
++#include <cstring>
++#include <iostream>
++#include <limits>
++#include <string>
++#include "../source/cleanup_drain.h"
++
++namespace {
++
++int g_asked[2] = {};
++
++void Reset() { g_asked[0] = g_asked[1] = 0; }
++
++void Write(char* why, std::size_t size, const char* text) {
++    if (!why || !size) return;
++    std::size_t n = std::strlen(text);
++    if (n >= size) n = size - 1;
++    std::memcpy(why, text, n);
++    why[n] = 0;
++}
++
++// Stand-ins for nl_engine_guard_queue_flush_v1 in the engine guard's two copies.
++int NotInstalledA(std::uint64_t* calls, char* why, std::size_t size) {
++    ++g_asked[0];
++    if (calls) *calls = 7;  // ignored: this copy did not answer
++    Write(why, size, "not installed");
++    return -1;
++}
++int NotInstalledB(std::uint64_t*, char*, std::size_t) {
++    ++g_asked[1];
++    return -1;
++}
++int RanA(std::uint64_t* calls, char* why, std::size_t size) {
++    ++g_asked[0];
++    if (calls) *calls = 234;
++    Write(why, size, "ran 234 queued render call(s)");
++    return 1;
++}
++int RanB(std::uint64_t* calls, char* why, std::size_t size) {
++    ++g_asked[1];
++    if (calls) *calls = 12;
++    Write(why, size, "ran 12 queued render call(s)");
++    return 1;
++}
++int RefusedA(std::uint64_t* calls, char* why, std::size_t size) {
++    ++g_asked[0];
++    if (calls) *calls = 0;
++    Write(why, size, "not on the main thread");
++    return 0;
++}
++int RefusedSilentA(std::uint64_t*, char*, std::size_t) {
++    ++g_asked[0];
++    return 0;
++}
++int HugeA(std::uint64_t* calls, char* why, std::size_t size) {
++    ++g_asked[0];
++    if (calls) *calls = std::numeric_limits<std::uint64_t>::max();
++    Write(why, size, "ran");
++    return 1;
++}
++int RanSilentB(std::uint64_t* calls, char*, std::size_t) {
++    ++g_asked[1];
++    if (calls) *calls = 3;
++    return 1;
++}
++int UnterminatedA(std::uint64_t* calls, char* why, std::size_t size) {
++    ++g_asked[0];
++    if (calls) *calls = 1;
++    for (std::size_t i = 0; i < size; ++i) why[i] = 'x';  // no NUL: the decision ends it
++    return 1;
++}
++
++std::string Why(const CleanupDrain::Result& result) { return std::string(result.why); }
++
++}  // namespace
++
++int main() {
++    using CleanupDrain::Decide;
++    using CleanupDrain::QueueFlush;
++
++    // Single-threaded: nothing is ever queued; the cleanup runs and no copy is asked.
++    {
++        Reset();
++        const QueueFlush copies[2] = {RanA, RanB};
++        const auto result = Decide(true, copies, 2);
++        assert(result.mayRun && !result.flushAsked && result.calls == 0 && !Why(result).empty());
++        assert(g_asked[0] == 0 && g_asked[1] == 0 && "no flush asked when single-threaded");
++        const auto none = Decide(true, nullptr, 0);
++        assert(none.mayRun && !none.flushAsked);
++    }
++    // The first copy runs the calls: its count and reason; the second is not asked.
++    {
++        Reset();
++        const QueueFlush copies[2] = {RanA, RanB};
++        const auto result = Decide(false, copies, 2);
++        assert(result.mayRun && result.flushAsked && result.calls == 234);
++        assert(Why(result) == "ran 234 queued render call(s)");
++        assert(g_asked[0] == 1 && g_asked[1] == 0);
++    }
++    // The first did not install (-1), the second ran them: the second decides, the first's count is not kept.
++    {
++        Reset();
++        const QueueFlush copies[2] = {NotInstalledA, RanB};
++        const auto result = Decide(false, copies, 2);
++        assert(result.mayRun && result.flushAsked && result.calls == 12 && Why(result) == "ran 12 queued render call(s)");
++        assert(g_asked[0] == 1 && g_asked[1] == 1);
++    }
++    // The first could not make sure (0): refused with its reason; the second is not asked.
++    {
++        Reset();
++        const QueueFlush copies[2] = {RefusedA, RanB};
++        const auto result = Decide(false, copies, 2);
++        assert(!result.mayRun && result.flushAsked && result.calls == 0 && Why(result) == "not on the main thread");
++        assert(g_asked[0] == 1 && g_asked[1] == 0);
++    }
++    // Both copies loaded, neither installed: refused, not available.
++    {
++        Reset();
++        const QueueFlush copies[2] = {NotInstalledA, NotInstalledB};
++        const auto result = Decide(false, copies, 2);
++        assert(!result.mayRun && !result.flushAsked && result.calls == 0);
++        assert(Why(result) == "the engine guard's queue flush is not available");
++        assert(g_asked[0] == 1 && g_asked[1] == 1);
++    }
++    // No copy loaded (or no such export): refused.
++    {
++        const QueueFlush copies[2] = {nullptr, nullptr};
++        const auto result = Decide(false, copies, 2);
++        assert(!result.mayRun && !result.flushAsked && Why(result) == "the engine guard's queue flush is not available");
++        const auto none = Decide(false, nullptr, 2);
++        assert(!none.mayRun && !none.flushAsked);
++    }
++    // A null between: passed over.
++    {
++        Reset();
++        const QueueFlush copies[3] = {nullptr, NotInstalledB, RanA};
++        const auto result = Decide(false, copies, 3);
++        assert(result.mayRun && result.calls == 234 && g_asked[0] == 1 && g_asked[1] == 1);
++    }
++    // A huge count is kept as it is.
++    {
++        Reset();
++        const QueueFlush copies[2] = {HugeA, RanB};
++        const auto result = Decide(false, copies, 2);
++        assert(result.mayRun && result.calls == std::numeric_limits<std::uint64_t>::max());
++    }
++    // An empty reason: a text of its own, for either answer.
++    {
++        Reset();
++        const QueueFlush refused[2] = {RefusedSilentA, RanB};
++        const auto no = Decide(false, refused, 2);
++        assert(!no.mayRun && no.flushAsked && !Why(no).empty() && g_asked[1] == 0);
++        const QueueFlush ran[2] = {nullptr, RanSilentB};
++        const auto yes = Decide(false, ran, 2);
++        assert(yes.mayRun && yes.calls == 3 && !Why(yes).empty());
++    }
++    // A reason the copy did not end: cut at the buffer's size.
++    {
++        Reset();
++        const QueueFlush copies[1] = {UnterminatedA};
++        const auto result = Decide(false, copies, 1);
++        assert(result.mayRun && Why(result).size() == CleanupDrain::kReasonSize - 1);
++    }
++    assert(std::string(CleanupDrain::kExport) == "nl_engine_guard_queue_flush_v1");
++    std::cout << "PASS cleanup drain: no flush when single-threaded; the first engine guard copy that answers 0 or 1 "
++                 "decides (its count and reason kept), -1 and missing copies passed over, none answering refuses\n";
++    return 0;
++}

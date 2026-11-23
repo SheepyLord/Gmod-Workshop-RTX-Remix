@@ -34,7 +34,8 @@
       "packages/fixes/licenses/oversized-skinning/player-categories/player-categories.patch",
       "packages/fixes/licenses/oversized-skinning/eye-texgen/eye-texgen.patch",
       "packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch",
-      "packages/fixes/licenses/oversized-skinning/lua-guards/lua-guards.patch"
+      "packages/fixes/licenses/oversized-skinning/lua-guards/lua-guards.patch",
+      "packages/fixes/licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch"
     ],
     "patch_paths": [
       "source/*",
@@ -42,7 +43,7 @@
       "public/*"
     ],
     "patched_tree": {
-      "source": "14a120ec5deacad2633daae28fc85da079f32223",
+      "source": "c5f7ad05057b6706191c449c04d2575750c11f2a",
       "public": "7165af4dc4ab4d841a19b7405211b27190bddea6",
       "premake5.lua": "b308ed2f6b0b31aa7b69f0ee576c0bcf5f666cd1"
     },
@@ -167,10 +168,10 @@
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "engine_guard": "a81eb424526c9af37708a923ea4e57a32ead5758dca344a94b5945a5a59eb9da",
+          "engine_guard": "677bab0abbfb331b2cea052c76055ed8d017259d11577efaa5ac55c9f98b78a5",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "e9dd704234b90edee79ecd0fae40c809b8b60a79 (with uncommitted changes)",
+        "commit": "611968007ffee9c512914936c1ff14ad104f18e1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "kept: a build of these sources is the same image"
       }
@@ -194,10 +195,10 @@
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "engine_guard": "a81eb424526c9af37708a923ea4e57a32ead5758dca344a94b5945a5a59eb9da",
+          "engine_guard": "677bab0abbfb331b2cea052c76055ed8d017259d11577efaa5ac55c9f98b78a5",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39"
         },
-        "commit": "e9dd704234b90edee79ecd0fae40c809b8b60a79 (with uncommitted changes)",
+        "commit": "611968007ffee9c512914936c1ff14ad104f18e1 (with uncommitted changes)",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
         "how": "kept: a build of these sources is the same image"
       }

@@ -125,7 +125,14 @@ as it was).
 
 ## Published
 
-Not yet: the gate, then `main` and the item.
+`tools\test.ps1 -Config Release` passed on the branch (35 native tests; 2,212, 29 and 26 Python tests; "All checks
+passed"), after one fix the first run asked for: three `test_poc_session.py` tests build `step_run`'s arguments
+themselves, without the new `menu_console`, which `poc_session.py` now reads with a default (and a new test sends two
+menu commands with their screenshots). `origin/main` had not moved from `b14a21cc`, so `main` was fast-forwarded to
+`e4f0beca` and pushed. The merge's hook uploaded item 3829070317 as **0.0.0-dev.20261123002706+24c6839a**
+(2,325,115,036 bytes, SHA-256 `7be418f8c601201ec946ee8fbe6659e836243027ca4f841a346d2785a830a356`, content digest
+`34a86584...`) at 2026-11-23 00:27 UTC, with one change note of 2,139 characters: the version line and this round's
+changelog entry (ADR 0222). The push's hook found the same inputs and uploaded nothing.
 
 ## Notes and open questions
 

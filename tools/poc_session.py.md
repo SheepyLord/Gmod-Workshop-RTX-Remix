@@ -166,6 +166,10 @@ copy. The record's `settings_back` is `restored`, `not sent` (a command was not 
   - **`--menu-shot`** (with `--workshop` and a map) saves `menu.png` of the main menu once the Workshop
     is mounted, before the map is asked for: the loader's diagnostics panel, the native add-on cards
     and the startup text are only there (record: `menu_screenshot`).
+  - **`--menu-console COMMAND`** (repeatable, with `--workshop` and a map) sends each command to the console
+    at the main menu after that screenshot, before the map, such as a menu script's own command (the disk
+    space card's preview, ADR 0260; GMod has no `lua_run_menu`); with `--menu-shot` each is followed three
+    seconds later by `menu-<n>.png` (record: `menu_console`, each command, whether it was sent, its screenshot).
 
   It waits for `Clientside Lua startup!` in `console.log` (`--timeout`, 300 s), then:
   `--load-save <name>` sends `gm_load` and waits for the next map (`save_command` and `save_loaded`

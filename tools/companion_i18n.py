@@ -33,7 +33,8 @@ LUA_ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', '\\': '\\', '"': '"', "'": "'", 
 CONVERSION = re.compile(r'%[-+ #0]*\d*(?:\.\d+)?[sdifgxXqc%]')
 # Product names, abbreviations (the guide's explained words, R14) and words that are also correct
 # French. Everything else needs a translation.
-UNCHANGED = {language: {'Advanced MMD Animation Player', 'DLSS', 'PBR', 'VRAM', 'Remix API'} for language in LANGUAGES}
+UNCHANGED = {language: {'Advanced MMD Animation Player', 'DLSS', 'PBR', 'VRAM', 'Remix API', '%s GB', '%s MB'}
+             for language in LANGUAGES}
 UNCHANGED['fr'] |= {'Auto', 'Ultra', 'Blizzard', 'Smog', 'Path tracing', 'Constellations'}
 
 

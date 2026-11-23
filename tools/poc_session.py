@@ -1096,6 +1096,18 @@ def step_run(args) -> dict:
                 menu_window = game_window(process.pid)
                 record["menu_screenshot"] = take_screenshot(menu_window, evidence / "menu.png") if menu_window else None
             hwnd = console_window(process.pid) if record["workshop_ready"] else None
+            # Console commands at the main menu (a menu script's own, such as a card's preview), each followed,
+            # with --menu-shot, by menu-<n>.png three seconds later.
+            record["menu_console"] = []
+            for index, command in enumerate(args.menu_console, 1):
+                sent = bool(hwnd) and send(hwnd, command)
+                entry = {"command": command, "sent": sent}
+                if sent:
+                    time.sleep(3)
+                    if args.menu_shot:
+                        menu_window = game_window(process.pid)
+                        entry["screenshot"] = take_screenshot(menu_window, evidence / f"menu-{index}.png") if menu_window else None
+                record["menu_console"].append(entry)
             record["map_command"] = bool(hwnd) and send(hwnd, f"map {args.map}")
         loaded = wait_for_map(1, began + args.timeout) if not menu_first or record["map_command"] else False
         record["map_loaded"] = loaded
@@ -1366,6 +1378,9 @@ def main(argv=None) -> int:
     run.add_argument("--players", type=int, default=1, help="maxplayers (1: single-player)")
     run.add_argument("--addons", action="store_true", help="mount local add-ons (leave out -noaddons)")
     run.add_argument("--workshop", action="store_true", help="mount Workshop add-ons (leave out -noworkshop)")
+    run.add_argument("--menu-console", action="append", default=[], metavar="COMMAND",
+                     help="with --workshop and --map: a console command at the main menu before the map (repeatable); "
+                          "with --menu-shot, menu-<n>.png three seconds after each")
     run.add_argument("--menu-shot", action="store_true",
                      help="with --workshop and --map: a screenshot of the main menu (menu.png) once the Workshop is "
                           "mounted, before the map is asked for")
@@ -1399,6 +1414,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.action == "run" and args.menu_shot and not (args.workshop and args.map):
         parser.error("--menu-shot needs --workshop and --map: only then does the run wait at the menu")
+    if args.action == "run" and args.menu_console and not (args.workshop and args.map):
+        parser.error("--menu-console needs --workshop and --map: only then does the run wait at the menu")
     if args.action == 'run' and args.lua_manual and (not args.lua or args.screenshots or args.menu_shot or args.fps):
         parser.error('--lua-manual needs --lua and --screenshots 0, without --menu-shot or --fps')
     try:

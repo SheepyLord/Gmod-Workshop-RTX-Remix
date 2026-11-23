@@ -6,6 +6,27 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A full disk no longer leaves you guessing why RTX Remix did not update (2026-11-22)
+
+- **When your drive is too full for an update, the main menu now says so.** The RTX Remix loader unpacks updates of RTX
+  Remix and its content packs when the game starts, and it already checked the space first: when the new files do not
+  fit, or the drive fills while it unpacks, it changes nothing and the game keeps the versions it had, so nothing is
+  ever left half installed. But it said this only in its log, and the update was tried again at every start. Now a card
+  at the main menu tells you how much the update needed and how much was free, that nothing was changed, and how much
+  to free on which drive; restart after freeing it and the update installs.
+- **And before it happens:** when your drive has less free space than the largest of your RTX packages would need to
+  unpack its next update (with room for the game's own caches), a card says how much is free and how much to free. It
+  has Don't show this again; a failed update is always shown.
+- A first installation that does not fit still cannot be shown in the game (nothing of the package is installed yet,
+  and the loader itself is not changed): the loader's report `garrysmod/data/native-loader/status.json` says it.
+- Behind it ([ADR 0260](docs/decisions/0260-the-package-says-when-the-disk-is-too-full-for-updates.md)): the RTX client
+  module's menu API measures the game drive (as the loader does) and each deployed package's payload folder and other
+  files (from the loader's journal); the companion's new menu script `disk_space.lua` reads the loader's start-up report
+  for its own refusal ("not enough free disk space ...") or a full disk while unpacking (Windows error 112 or 39). The
+  cards are in the companion's six languages; `nativeloader_disk_space`, `nativeloader_disk_space_status` and
+  `nativeloader_disk_space_preview need|full|low` show and explain them. `poc_session.py` gains `--menu-console` for
+  commands at the main menu. Tests: `test_disk_space_notice.py` (10, new) and the client module's `test_disk_space.cpp`.
+
 ### The animation player keeps imported characters' built motions (2026-11-22)
 
 - **A motion you built for an imported character stays built: after you resize the character, import it again, update

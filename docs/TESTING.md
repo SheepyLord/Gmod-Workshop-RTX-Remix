@@ -4096,3 +4096,33 @@ separator now has 57 texts in each catalog.
 - Not covered: the field install (the migration runs there at the first map start after the update), a re-import or
   Hotloader update in a game (their carriers' rigs measured offline, matching under LuaJIT), multiplayer, and a client
   replica played on another carrier (the server's pose plays, as for any build of an earlier session).
+
+## The disk space notice (ADR 0260)
+
+- **C++**: `loader/client/tests/test_disk_space.cpp` (new, 4 tests, in `nl_client_catalog_tests`): each package's
+  payload folder and other files summed apart from a generation (a payload path in other letter case counted in, a
+  sibling folder sharing the prefix not, a package the generation does not list left out, a duplicate id counted once);
+  sizes saturate instead of wrapping; `drive_space` answers for the current folder and nothing for a volume that does
+  not exist; `module.cpp` registers `disk_space` in the menu API only and fills the footprints at its verification.
+- **LuaJIT**: [`test_disk_space_notice.py`](../tools/tests/test_disk_space_notice.py.md) (new, 10 tests) runs the
+  shipped `nativeloader/menu/disk_space.lua` in a mocked menu realm
+  ([`disk_space_harness.lua`](../tools/tests/disk_space_harness.lua.md), 8 scenarios): the loader's refusal (its own
+  words in `status.json`) shows what was needed, kept and free and how much to free, rounded up, a size's number and unit
+  joined by a no-break space; a full disk while unpacking (Windows error 112 or 39) shows its card; too little space for
+  the largest package shows the warning, Don't show this again keeps it away (a cookie), the reset command brings it
+  back, a failure card shows anyway; enough space shows nothing; an older client module without `disk_space` still
+  explains a failure, its drive from the runtime folder; other failures and other realms show nothing; the previews show
+  each card and leave the real state; the cards follow the player's language with translated units; the script
+  compiles; the loader's wording the script reads is pinned to `loader/core/src/deploy.cpp` and `fs.cpp`. The no-break
+  space check fails on the script without it.
+- **Translations**: `tools\companion_i18n.py check` passes, 799 strings in each of the six languages; `%s GB` and
+  `%s MB` may stay as they are (Chinese, Japanese, Korean).
+- **PoC, a real RTX start** ([`disk_space_session.py`](../tools/qa/disk_space_session.py.md), with `poc_session.py
+  --menu-console`): the RTX client module's measure at the main menu, "drive H: has 137614 MiB free of 1907729 MiB;
+  largest package gmod-rtx-remix: 2216 MiB; wanted free 2792 MiB; last deployment deployed" (Python: 139846 MiB free
+  before the run deployed the 2.2 GB package), no card with that much space; the previews' screenshots in English
+  (need, full, low: the text wrapped inside the card, the warning's two buttons side by side) and in Japanese (the
+  same cards through Tahoma's font linking, lines broken between characters).
+- Not covered: a real refusal by the loader in a game (the card reads its report, tested under LuaJIT with the loader's
+  own words; the refusal itself is the loader's tests'), a first installation that does not fit (nothing in the game can
+  show it), the field install, a 4K screen (the card scales by the screen height, as the companion's other notices).

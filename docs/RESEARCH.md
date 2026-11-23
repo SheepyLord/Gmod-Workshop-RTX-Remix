@@ -10219,3 +10219,29 @@ behaviour only, the harness's stand-in is written for the test.
   carriers, 2.10 at most (the fit puts the spine at the PMX's lower and upper body start, often one point). The
   correction is half the change of that offset, `|offset| * sin(angle / 2)` for a pelvis turned by `angle`, and scales
   with the carrier: a build reused at a size 20 % off is 0.16 units off at most for a 45-degree turn.
+
+## The loader on a full disk (2026-11-22, Claude; [ADR 0260](decisions/0260-the-package-says-when-the-disk-is-too-full-for-updates.md))
+
+- **The space check before unpacking.** `loader/core/src/deploy.cpp`: `kSpareBytes` = 64 MiB (line 44);
+  `disk_space` (991) is `GetDiskFreeSpaceExW` on the game root (bytes available to this user, and the volume's total);
+  `ensure_space` (999) throws "not enough free disk space: the new files need N MiB and 64 MiB should stay free, but
+  only K MiB are free" when `available < needed` or less than 64 MiB would stay. `needed` (1155-1183) is the size of
+  every file still to unpack: a new version's whole payload folder (`stage_payload`), the root files that are new or
+  changed, the legacy migration's stock files. A package declaring more than the whole volume holds is re-planned as
+  broken (1167) and the others go on. The check runs before anything in place changes.
+- **A write that fails** while unpacking or moving says `cannot write <path> (Windows error 112)` (`fs.cpp:15`; 112 is
+  `ERROR_DISK_FULL`, 39 `ERROR_HANDLE_DISK_FULL`). Any exception of an apply becomes outcome `failed` with the message
+  (`guarded`, 1625); a failed move phase is undone ("; the change was undone", `transact`); the next run's `begin`
+  (461) removes the staging folder (`collect`, 377) before it plans again.
+- **What the start does then.** `startup.cpp:71` `after_deployment`: a failed deployment with no pending transaction
+  activates the committed generation ("deployment failed (...); using the current committed generation"). The report
+  is `garrysmod/data/native-loader/status.json`: `deployment.outcome` `failed` and `deployment.reason` the message
+  (`status.cpp:83`), the message also in `errors` (`loader/proxy/startup.cpp:425`). The proxy shows no window for it:
+  its one `MessageBoxW` (`observer.cpp:113`) is the previous session's exit report.
+- **What updates need in the user's game** (its journal, `native-loader/state.json`, 12 MB, read only): 25 packages,
+  20,274 files, 57.7 GiB. The RTX package: payload folder 1.36 GiB, other files 0.80 GiB; its last two payload folders
+  are kept (2.8 GB, the rollback target). The map content packs: 3.49-3.65 GiB each, all in their other files (no
+  payload). An RTX update therefore asks for about 1.4 GiB + its changed files + 64 MiB at its start.
+- **What the menu realm can measure.** GMod's Lua has no free-space call; the companion's menu scripts get native
+  helpers only from the RTX client module's menu API while they run (`run_menu_scripts`), which already holds the
+  verified game folder and has read the journal (`nl::journal::load`) at its verification.

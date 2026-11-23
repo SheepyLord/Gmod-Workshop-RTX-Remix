@@ -675,6 +675,7 @@ lua/nativeloader/guide_pages.lua
 lua/nativeloader/i18n.lua
 lua/nativeloader/leftovers_window.lua
 lua/nativeloader/map_sky.lua
+lua/nativeloader/menu/disk_space.lua
 lua/nativeloader/menu/load_accel.lua
 lua/nativeloader/menu/loading_status.lua
 lua/nativeloader/menu/multiplayer_cheats.lua

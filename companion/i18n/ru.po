@@ -27,451 +27,451 @@ msgstr ""
 msgid "Effect categories: %d observed materials"
 msgstr "Категории эффектов: обнаружено материалов — %d"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1262
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
 msgid "Clear"
 msgstr "Ясно"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1262
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
 msgid "Partly cloudy"
 msgstr "Переменная облачность"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1262
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
 msgid "Overcast"
 msgstr "Пасмурно"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Hazy"
 msgstr "Дымка"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Foggy"
 msgstr "Туман"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Drizzle"
 msgstr "Морось"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Rain"
 msgstr "Дождь"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1266
 msgid "Thunderstorm"
 msgstr "Гроза"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1266
 msgid "Snow"
 msgstr "Снег"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1266
 msgid "Blizzard"
 msgstr "Метель"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
 msgid "Sandstorm"
 msgstr "Песчаная буря"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
 msgid "Smog"
 msgstr "Смог"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Spring"
 msgstr "Весна"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Summer"
 msgstr "Лето"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Autumn"
 msgstr "Осень"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Winter"
 msgstr "Зима"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1268
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
 msgid "New moon"
 msgstr "Новолуние"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1268
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
 msgid "Waxing crescent"
 msgstr "Растущий серп"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
 msgid "First quarter"
 msgstr "Первая четверть"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
 msgid "Waxing gibbous"
 msgstr "Растущая луна"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
 msgid "Full moon"
 msgstr "Полнолуние"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
 msgid "Waning gibbous"
 msgstr "Убывающая луна"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
 msgid "Last quarter"
 msgstr "Последняя четверть"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1273
 msgid "Waning crescent"
 msgstr "Убывающий серп"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1274
 msgid "No eclipse"
 msgstr "Без затмения"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1274
 msgid "Lunar eclipse"
 msgstr "Лунное затмение"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1274
 msgid "Solar eclipse"
 msgstr "Солнечное затмение"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1273
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1391
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1393
 msgid "Night sky image"
 msgstr "Изображение ночного неба"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1273
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1404
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1406
 msgid "Simulated stars"
 msgstr "Процедурные звёзды"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1277
 msgid "Sunrise"
 msgstr "Рассвет"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1277
 msgid "Morning"
 msgstr "Утро"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1277
 msgid "Noon"
 msgstr "Полдень"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1276
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1278
 msgid "Sunset"
 msgstr "Закат"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1276
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1278
 msgid "Night"
 msgstr "Ночь"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1286
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1383
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1288
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1385
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:269
 msgid "The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."
 msgstr "Remix API недоступен в этой сессии, поэтому эти настройки нельзя применить. Выполните nativeloader_status, чтобы узнать подробности."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1290
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1292
 #, c-format
 msgid "On this map %s keeps a sky of its own, such as space, that no time of day or weather fits. It keeps that sky until a setting here is changed; your settings then replace it until the next map."
 msgstr "На этой карте %s сохраняет собственное небо, например космос, к которому не подходят ни время суток, ни погода. Это небо сохраняется, пока здесь не изменена какая-либо настройка; после этого его до следующей карты заменяют ваши настройки."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1292
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1294
 #, c-format
 msgid "On this map %s also sets the sky. It keeps its sky while Follow the map's sun is ticked and nothing here is changed; otherwise your settings here replace it."
 msgstr "На этой карте небо также настраивает %s. Его небо сохраняется, пока включена настройка «Солнце как на карте» и здесь ничего не изменено; иначе его заменяют ваши настройки в этом разделе."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1308
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1310
 msgid "This map"
 msgstr "Эта карта"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1312
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1314
 msgid "Remembered for this map. Automatic shows the sky of the map's RTX version where it has one, else the choice under Other maps."
 msgstr "Запоминается для этой карты. «Автоматически» показывает небо RTX-версии карты, если оно есть, иначе выбор в пункте «Другие карты»."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1313
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1315
 msgid "This map has no sky of its own to switch to."
 msgstr "У этой карты нет собственного неба, на которое можно переключиться."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1314
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1316
 msgid "Other maps"
 msgstr "Другие карты"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1315
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1317
 #: nativeloader/lua/nativeloader/map_sky.lua:222
 msgid "RTX sky"
 msgstr "Небо RTX"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1316
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1318
 msgid "Their own sky"
 msgstr "Их собственное небо"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1317
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1319
 msgid "The RTX sky has a sun, clouds, stars and a moon, and lights the map from them. A map's own sky shows its sky textures and, where it has one, its 3D skybox."
 msgstr "У неба RTX есть солнце, облака, звёзды и луна, и они освещают карту. Собственное небо карты показывает её текстуры неба и, если он есть, её 3D-скайбокс."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1318
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1320
 msgid "Say which sky shows"
 msgstr "Сообщать, какое небо показано"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1319
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1321
 msgid "A chat line at each map's start says which sky shows and how to switch."
 msgstr "При запуске каждой карты строка в чате сообщает, какое небо показано и как его переключить."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1320
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1322
 msgid "Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."
 msgstr "Время суток, погода и ночное небо относятся к небу RTX. На карте с другим небом изменение любого из них показывает небо RTX до запуска следующей карты."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1321
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1323
 msgid "No horizon"
 msgstr "Без горизонта"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1322
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1324
 msgid "For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."
 msgstr "Для карт, парящих в небе или в космосе: ниже горизонта вместо дымки над землёй продолжается небо с облаками, звёздами и луной."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1323
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1325
 msgid "Follow the map's sun"
 msgstr "Солнце как на карте"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1324
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1326
 msgid "Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."
 msgstr "Размещает солнце там, где находится собственное солнце карты; если дополнение карты, например Modern House RTX, задаёт своё небо, сохраняет это небо. Изменение параметров «Время суток» или «Азимут солнца» отключает эту настройку."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1325
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1327
 msgid "Time of day"
 msgstr "Время суток"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1329
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1331
 #, c-format
 msgid "Now %s"
 msgstr "Сейчас %s"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1347
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1349
 msgid "Sun direction"
 msgstr "Азимут солнца"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1348
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1350
 msgid "Turns the sun's path around the sky."
 msgstr "Поворачивает траекторию солнца по горизонтали."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1349
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1387
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1351
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1389
 msgid "Time passes"
 msgstr "Время идёт"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1350
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1352
 msgid "Day length (min)"
 msgstr "Длина суток (мин)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1351
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1353
 msgid "Time passes is on by default. A whole day takes 20 real minutes; untick Time passes to stop the clock."
 msgstr "«Время идёт» включено по умолчанию. Сутки длятся 20 реальных минут; снимите этот флажок, чтобы остановить часы."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1352
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1354
 msgid "Sky update interval (s)"
 msgstr "Обновление неба (с)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1353
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1355
 msgid "How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."
 msgstr "Как часто сдвигаются солнце, луна, звёзды и погода, в секундах: 0.02 — 50 раз в секунду, 0 — каждый кадр. Больший интервал немного сокращает время обработки кадра, но небо движется рывками."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1354
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1356
 msgid "Season"
 msgstr "Время года"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1355
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1410
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1357
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1412
 msgid "Moon"
 msgstr "Луна"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1356
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1358
 msgid "Moon by day"
 msgstr "Луна днём"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1357
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1359
 msgid "How bright the moon is while the sun is up. At 1 it is as bright as the real Moon: a pale disc over the blue sky, a quarter clear in the afternoon, a crescent faint near the sun. Higher makes it stand out; 0 hides it by day."
 msgstr "Яркость луны, пока солнце над горизонтом. При 1 она так же ярка, как настоящая Луна: бледный диск на голубом небе, первая четверть хорошо видна после полудня, серп едва заметен рядом с солнцем. Большие значения делают её заметнее; 0 скрывает её днём."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1358
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1360
 msgid "Eclipse"
 msgstr "Затмение"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1359
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1361
 msgid "Eclipse progress"
 msgstr "Ход затмения"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1360
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1362
 msgid "From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."
 msgstr "От первого касания (0) до середины (100): лунное затмение полное с 70, солнечное — с 90. Затмение задаёт фазу Луны, а если солнце не с той стороны горизонта — и время."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1361
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1389
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1363
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1391
 msgid "Night sky"
 msgstr "Ночное небо"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1362
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1364
 msgid "Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."
 msgstr "Изображение ночного неба: чёткие звёзды, галактика и туманности. Изображение поворачивается в зависимости от времени суток и времени года."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1363
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1365
 msgid "The Night sky editor, next to this page, sets how each part of the night sky looks."
 msgstr "«Редактор ночного неба» рядом с этой страницей задаёт вид каждой части ночного неба."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1364
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1366
 msgid "Weather"
 msgstr "Погода"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1365
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1367
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:278
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:282
 msgid "(leave to Remix)"
 msgstr "(на усмотрение Remix)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1367
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1369
 msgid "Clouds, haze, fog, rain and snow, from Remix's own weather presets."
 msgstr "Облака, дымка, туман, дождь и снег из собственных пресетов погоды Remix."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1368
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1370
 msgid "Weather change (s)"
 msgstr "Смена погоды (с)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1369
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1371
 msgid "How long a change of weather takes."
 msgstr "Сколько длится смена погоды."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1370
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1372
 msgid "Reset the sky and weather"
 msgstr "Сбросить небо и погоду"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1385
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1387
 msgid "How each part of the night sky looks. Brightness: 1 is as drawn, 0 hides it. Colour: 0 is grey, 1 as drawn, 2 stronger. Look up at the night sky while you drag."
 msgstr "Как выглядит каждая часть ночного неба. Яркость: 1 — как нарисовано, 0 — скрыто. Цвет: 0 — серый, 1 — как нарисовано, 2 — насыщеннее. Смотрите на ночное небо, пока двигаете ползунки."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1386
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1388
 msgid "Go to night"
 msgstr "Перейти к ночи"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1388
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1390
 msgid "Untick Time passes to keep the night while you edit."
 msgstr "Снимите флажок «Время идёт», чтобы ночь не кончалась, пока вы настраиваете небо."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1392
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1394
 msgid "All layers"
 msgstr "Все слои"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1393
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1395
 msgid "Stars"
 msgstr "Звёзды"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1394
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1396
 msgid "Star colour"
 msgstr "Цвет звёзд"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1395
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1397
 msgid "Constellations"
 msgstr "Созвездия"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1396
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1398
 msgid "Constellation colour"
 msgstr "Цвет созвездий"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1397
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1399
 msgid "The constellations' bright blue and violet stars. They come out with the first stars at dusk; the Milky Way and the nebulae wait for full darkness."
 msgstr "Яркие голубые и фиолетовые звёзды созвездий. Они появляются вместе с первыми звёздами в сумерках, а Млечный Путь и туманности — только в полной темноте."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1398
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1400
 msgid "Milky Way"
 msgstr "Млечный Путь"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1399
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1401
 msgid "Milky Way colour"
 msgstr "Цвет Млечного Пути"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1400
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1402
 msgid "Nebulae"
 msgstr "Туманности"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1401
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1403
 msgid "Nebula colour"
 msgstr "Цвет туманностей"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1402
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1404
 msgid "A part at 0 is hidden, and its texture leaves video memory."
 msgstr "Часть со значением 0 скрыта, а её текстура выгружается из видеопамяти."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1405
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1407
 msgid "Used when Night sky is set to Simulated stars."
 msgstr "Действует, когда для «Ночного неба» выбраны «Процедурные звёзды»."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1406
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1411
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1421
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1424
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1408
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1413
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1423
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1426
 msgid "Brightness"
 msgstr "Яркость"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1407
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1409
 msgid "Density"
 msgstr "Плотность"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1408
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1410
 msgid "Twinkle"
 msgstr "Мерцание"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1412
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1414
 msgid "The moon's disc and its light on the map."
 msgstr "Диск луны и её свет на карте."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1413
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1415
 msgid "Size (degrees)"
 msgstr "Размер (градусы)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1414
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1416
 msgid "How wide the moon looks: the real Moon is about 0.5 degrees. Its light on the map stays the same. A larger moon passes further from Earth's shadow, so it moves a little in the sky; eclipses follow its size."
 msgstr "Видимый размер луны: настоящая Луна — около 0,5 градуса. Её свет на карте не меняется. Большая луна проходит дальше от тени Земли, поэтому немного смещается на небе; затмения подстраиваются под размер."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1415
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1417
 msgid "Glow"
 msgstr "Ореол"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1416
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1418
 msgid "Earthshine"
 msgstr "Пепельный свет"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1417
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1419
 msgid "Glow: the halo around the moon. Earthshine: the faint light on its dark side, clearest at a crescent."
 msgstr "Ореол: сияние вокруг луны. Пепельный свет: слабый свет на её тёмной стороне, лучше всего виден у серпа."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1419
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1421
 msgid "Shooting stars"
 msgstr "Падающие звёзды"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1420
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1422
 msgid "Per minute"
 msgstr "В минуту"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1423
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1425
 msgid "Night glow"
 msgstr "Свечение неба"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1425
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1427
 msgid "The faint glow of the night air between the stars, from the weather. At 0 the space between the stars is black."
 msgstr "Слабое свечение ночного воздуха между звёздами, оно зависит от погоды. При 0 пространство между звёздами чёрное."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1426
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1428
 msgid "Reset the night sky"
 msgstr "Сбросить ночное небо"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1433
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1433
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1434
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1435
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1435
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1436
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:108
 msgid "Sky and weather"
 msgstr "Небо и погода"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1434
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1436
 msgid "Night sky editor"
 msgstr "Редактор ночного неба"
 
@@ -813,6 +813,7 @@ msgid "Copied"
 msgstr "Скопировано"
 
 #: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:49
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:34
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
 msgid "Don't show this again"
@@ -1893,6 +1894,7 @@ msgid "To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and
 msgstr "Чтобы снова использовать RTX Remix, верните winmm.dll в GarrysMod\\bin\\win64 и подпишитесь на RTX Remix в Workshop."
 
 #: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:29
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:33
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
 msgid "OK"
 msgstr "ОК"
@@ -3153,6 +3155,62 @@ msgstr "Собственного неба, на которое можно пер
 #, c-format
 msgid "Its 3D skybox (scale %d) cannot be shown under RTX yet."
 msgstr "Её 3D-скайбокс (масштаб %d) пока нельзя показать под RTX."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:21
+msgid "Not enough disk space to install updates"
+msgstr "Недостаточно места на диске для установки обновлений"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:22
+#, c-format
+msgid "At the last start the RTX Remix loader needed %s free on drive %s to unpack updates of RTX Remix or its content packs, and keeps another %s free, but only %s were free."
+msgstr "При последнем запуске загрузчику RTX Remix требовалось %s свободного места на диске %s, чтобы распаковать обновления RTX Remix или его пакетов контента, и ещё %s он оставляет свободными, но свободно было только %s."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:23
+#, c-format
+msgid "At the last start drive %s ran out of space while the RTX Remix loader unpacked updates of RTX Remix or its content packs."
+msgstr "При последнем запуске на диске %s закончилось место, пока загрузчик RTX Remix распаковывал обновления RTX Remix или его пакетов контента."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:24
+msgid "Nothing was changed: the game runs the versions that were installed before."
+msgstr "Ничего не изменилось: игра работает с версиями, установленными ранее."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:25
+#, c-format
+msgid "Free at least %s on drive %s, then restart the game: the updates are installed at the next start."
+msgstr "Освободите не менее %s на диске %s и перезапустите игру: обновления установятся при следующем запуске."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:26
+#, c-format
+msgid "Free some space on drive %s, then restart the game: the updates are installed at the next start."
+msgstr "Освободите место на диске %s и перезапустите игру: обновления установятся при следующем запуске."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:27
+msgid "Little free disk space for updates"
+msgstr "Мало свободного места на диске для обновлений"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:28
+#, c-format
+msgid "Drive %s has %s free. RTX Remix and its content packs unpack their updates on this drive, and the largest of them needs up to %s at once."
+msgstr "На диске %s свободно %s. RTX Remix и его пакеты контента распаковывают обновления на этот диск, и самому большому из них нужно до %s за раз."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:29
+msgid "With less free space than that, an update is not installed and the game keeps the versions it has."
+msgstr "Если свободного места меньше, обновление не устанавливается и игра остаётся на текущих версиях."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:30
+#, c-format
+msgid "Free at least %s on drive %s so that updates can be installed."
+msgstr "Освободите не менее %s на диске %s, чтобы обновления могли установиться."
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:31
+#, c-format
+msgid "%s GB"
+msgstr "%s ГБ"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:32
+#, c-format
+msgid "%s MB"
+msgstr "%s МБ"
 
 #: nativeloader/lua/nativeloader/menu/loading_status.lua:18
 msgid "Loading…"

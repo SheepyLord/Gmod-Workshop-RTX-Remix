@@ -38,7 +38,8 @@ Those sources use `NL`, `NN` and `NP` markers under `packages/`. `build` include
 Lua file. Add-on names intentionally unchanged are listed in that folder's `unchanged.json`.
 `check(..., complete=False)` remains available to draft-editor callers; shipping `build` defaults
 to complete catalogs. A translation may equal the English only for the texts in the script's
-`UNCHANGED` table: product names, the guide's abbreviations (DLSS, PBR, VRAM, Remix API) and a few
+`UNCHANGED` table: product names, the guide's abbreviations (DLSS, PBR, VRAM, Remix API), the size units `%s GB` and
+`%s MB` (ADR 0260: Chinese, Japanese and Korean write them so) and a few
 words that are also correct French (since R14; "Constellations" since ADR 0227). Stray percent signs in formatted messages are rejected; literal `%%` is valid.
 
 The generated add-on namespace identifies its GPL-2.0 source data and points to the editable catalog copies and license shipped with the package.

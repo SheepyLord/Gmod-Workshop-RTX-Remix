@@ -1,6 +1,7 @@
 #include "catalog.h"
 #include "bootstrap_data.h"
 #include "addon_list.h"
+#include "disk_space.h"
 #include "former_rtx.h"
 #include "leftovers.h"
 #include "steam_switch.h"
@@ -30,6 +31,7 @@ std::string status = "not initialized";
 std::filesystem::path verified_root;  // the game folder of the verified RTX start (ADR 0188)
 std::string rtx_item;                 // the Workshop item the verified RTX package came from, or empty (ADR 0189)
 bool listed_by_us = false;            // this session wrote rtx_item into GMod's add-on list (ADR 0189)
+std::vector<nl::client::PackageFootprint> footprints;  // what each deployed package holds (ADR 0260)
 nl::client::PollGate gate;
 constexpr const char* kHook = "NativeLoader.VerifiedRTXClient";
 constexpr const char* kRegistry = "NativeLoader.VerifiedRTXClient.Identity";
@@ -191,6 +193,41 @@ LUA_FUNCTION_STATIC(MenuSteamState) {
                   : *state == nl::client::SteamItem::enabled ? "enabled" : "not listed");
   return 1;
 }
+// ADR 0260: the free space of the game's drive, read now as the loader reads it before it unpacks, and what each package
+// of the committed generation holds (its payload folder, unpacked whole for each new version, and its other files), so
+// the companion's menu can warn before an update no longer fits and explain one that did not. Menu realm only; reads.
+// Returns { available, total, drive, packages = { { id, payload, files }, ... } } in bytes, or nil and why.
+LUA_FUNCTION_STATIC(MenuDiskSpace) {
+  if (!catalog || LUA != menu) {
+    LUA->PushNil(); LUA->PushString("disk space is unavailable in this realm"); return 2;
+  }
+  std::optional<nl::client::DriveSpace> space;
+  try {
+    space = nl::client::drive_space(verified_root);
+  } catch (...) {
+    space.reset();
+  }
+  if (!space) {
+    LUA->PushNil(); LUA->PushString(("Windows cannot tell the free space (error " + std::to_string(GetLastError()) + ")").c_str());
+    return 2;
+  }
+  LUA->CreateTable();
+  LUA->PushNumber(static_cast<double>(space->available)); LUA->SetField(-2, "available");
+  LUA->PushNumber(static_cast<double>(space->total)); LUA->SetField(-2, "total");
+  LUA->PushString(space->drive.c_str()); LUA->SetField(-2, "drive");
+  LUA->CreateTable();
+  double index = 0;
+  for (const auto& footprint : footprints) {
+    LUA->PushNumber(++index);
+    LUA->CreateTable();
+    LUA->PushString(footprint.id.c_str()); LUA->SetField(-2, "id");
+    LUA->PushNumber(static_cast<double>(footprint.payload)); LUA->SetField(-2, "payload");
+    LUA->PushNumber(static_cast<double>(footprint.files)); LUA->SetField(-2, "files");
+    LUA->SetTable(-3);
+  }
+  LUA->SetField(-2, "packages");
+  return 1;
+}
 // The Workshop item a generation's RTX package came from (its archive's folder), or empty for another source.
 std::string workshop_item(const nl::journal::Generation& generation) {
   for (const auto& package : generation.packages) {
@@ -211,6 +248,7 @@ unsigned run_menu_scripts(ILuaBase* lua) {
   lua->PushString(catalog->identity.c_str()); lua->SetField(-2, "identity");
   lua->PushCFunction(MenuAddonList); lua->SetField(-2, "rtx_addon_list");
   lua->PushCFunction(MenuSteamState); lua->SetField(-2, "rtx_steam_state");
+  lua->PushCFunction(MenuDiskSpace); lua->SetField(-2, "disk_space");
   lua->PushString(rtx_item.c_str()); lua->SetField(-2, "rtx_item");
   lua->SetField(GarrysMod::Lua::INDEX_GLOBAL, kMenuApi);
   unsigned ran = 0;
@@ -501,6 +539,7 @@ GMOD_MODULE_OPEN() {
     menu = LUA;
     verified_root = root;
     rtx_item = workshop_item(*journal->current);
+    footprints = nl::client::package_footprints(*journal->current);
     listed_by_us = false;
     status = "verified; waiting for the client realm";
     status += archive_former_rtx(root, *journal);
@@ -525,6 +564,7 @@ GMOD_MODULE_CLOSE() {
     try { hook(LUA, false); } catch (...) { }
     release_adopted_files();
     menu = nullptr; client = nullptr; shared = nullptr; catalog.reset(); verified_root.clear(); rtx_item.clear();
+    footprints.clear();
   }
   return 0;
 }

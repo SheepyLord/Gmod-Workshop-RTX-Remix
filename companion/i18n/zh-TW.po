@@ -27,451 +27,451 @@ msgstr ""
 msgid "Effect categories: %d observed materials"
 msgstr "效果分類：已觀察 %d 個材質"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1262
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
 msgid "Clear"
 msgstr "晴朗"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1262
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
 msgid "Partly cloudy"
 msgstr "晴時多雲"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1262
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
 msgid "Overcast"
 msgstr "陰天"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Hazy"
 msgstr "薄霧"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Foggy"
 msgstr "霧"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Drizzle"
 msgstr "毛毛雨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1263
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
 msgid "Rain"
 msgstr "雨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1266
 msgid "Thunderstorm"
 msgstr "雷雨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1266
 msgid "Snow"
 msgstr "雪"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1264
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1266
 msgid "Blizzard"
 msgstr "暴風雪"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
 msgid "Sandstorm"
 msgstr "沙塵暴"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1265
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
 msgid "Smog"
 msgstr "霧霾"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Spring"
 msgstr "春季"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Summer"
 msgstr "夏季"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Autumn"
 msgstr "秋季"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1267
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
 msgid "Winter"
 msgstr "冬季"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1268
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
 msgid "New moon"
 msgstr "新月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1268
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
 msgid "Waxing crescent"
 msgstr "眉月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
 msgid "First quarter"
 msgstr "上弦月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
 msgid "Waxing gibbous"
 msgstr "盈凸月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1269
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
 msgid "Full moon"
 msgstr "滿月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
 msgid "Waning gibbous"
 msgstr "虧凸月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1270
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
 msgid "Last quarter"
 msgstr "下弦月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1271
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1273
 msgid "Waning crescent"
 msgstr "殘月"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1274
 msgid "No eclipse"
 msgstr "無日月食"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1274
 msgid "Lunar eclipse"
 msgstr "月食"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1272
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1274
 msgid "Solar eclipse"
 msgstr "日食"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1273
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1391
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1393
 msgid "Night sky image"
 msgstr "夜空影像"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1273
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1404
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1406
 msgid "Simulated stars"
 msgstr "模擬星星"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1277
 msgid "Sunrise"
 msgstr "日出"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1277
 msgid "Morning"
 msgstr "早晨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1275
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1277
 msgid "Noon"
 msgstr "正午"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1276
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1278
 msgid "Sunset"
 msgstr "日落"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1276
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1278
 msgid "Night"
 msgstr "夜晚"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1286
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1383
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1288
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1385
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:269
 msgid "The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."
 msgstr "本次遊戲中無法使用 Remix API，因此無法套用這些設定。請執行 nativeloader_status 以查看詳細資訊。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1290
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1292
 #, c-format
 msgid "On this map %s keeps a sky of its own, such as space, that no time of day or weather fits. It keeps that sky until a setting here is changed; your settings then replace it until the next map."
 msgstr "在此地圖上，%s 保留其自有的天空（例如太空），任何時間或天氣都不適用於它。在這裡變更任何設定之前會保留該天空；變更後，這裡的設定會取代它，直到下一張地圖。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1292
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1294
 #, c-format
 msgid "On this map %s also sets the sky. It keeps its sky while Follow the map's sun is ticked and nothing here is changed; otherwise your settings here replace it."
 msgstr "在此地圖上，天空也由 %s 設定。勾選「跟隨地圖的太陽」且未在這裡變更任何設定時，會保留其天空；否則會用這裡的設定取代它。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1308
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1310
 msgid "This map"
 msgstr "此地圖"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1312
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1314
 msgid "Remembered for this map. Automatic shows the sky of the map's RTX version where it has one, else the choice under Other maps."
 msgstr "此選擇會為此地圖記住。「自動」會在地圖的 RTX 版本帶有自己的天空時顯示該天空，否則使用「其他地圖」中的選擇。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1313
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1315
 msgid "This map has no sky of its own to switch to."
 msgstr "此地圖沒有可切換的內建天空。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1314
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1316
 msgid "Other maps"
 msgstr "其他地圖"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1315
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1317
 #: nativeloader/lua/nativeloader/map_sky.lua:222
 msgid "RTX sky"
 msgstr "RTX 天空"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1316
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1318
 msgid "Their own sky"
 msgstr "各自內建的天空"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1317
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1319
 msgid "The RTX sky has a sun, clouds, stars and a moon, and lights the map from them. A map's own sky shows its sky textures and, where it has one, its 3D skybox."
 msgstr "RTX 天空有太陽、雲、星星與月亮，並由它們照亮地圖。地圖內建的天空會顯示它的天空材質，若有 3D 天空盒也會一併顯示。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1318
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1320
 msgid "Say which sky shows"
 msgstr "說明顯示的天空"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1319
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1321
 msgid "A chat line at each map's start says which sky shows and how to switch."
 msgstr "每張地圖開始時，聊天欄中會有一行說明顯示的是哪種天空以及如何切換。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1320
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1322
 msgid "Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."
 msgstr "時間、天氣與夜空屬於 RTX 天空。在顯示其他天空的地圖上，變更其中任一項會顯示 RTX 天空，直到下一張地圖開始。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1321
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1323
 msgid "No horizon"
 msgstr "無地平線"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1322
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1324
 msgid "For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."
 msgstr "適用於漂浮在空中或太空中的地圖：地平線以下不再是地面的薄霧，而是繼續延伸的天空，有雲、星星與月亮。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1323
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1325
 msgid "Follow the map's sun"
 msgstr "跟隨地圖的太陽"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1324
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1326
 msgid "Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."
 msgstr "將太陽放在地圖自身太陽的位置；如果地圖的附加元件（如 Modern House RTX）設定了自己的天空，則保留該天空。調整「時間」或「太陽方向」會關閉此項。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1325
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1327
 msgid "Time of day"
 msgstr "時間"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1329
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1331
 #, c-format
 msgid "Now %s"
 msgstr "現在 %s"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1347
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1349
 msgid "Sun direction"
 msgstr "太陽方向"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1348
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1350
 msgid "Turns the sun's path around the sky."
 msgstr "讓太陽的運行軌跡繞著天空轉動。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1349
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1387
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1351
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1389
 msgid "Time passes"
 msgstr "時間流逝"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1350
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1352
 msgid "Day length (min)"
 msgstr "一天時長(分鐘)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1351
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1353
 msgid "Time passes is on by default. A whole day takes 20 real minutes; untick Time passes to stop the clock."
 msgstr "預設開啟時間流逝。一天持續現實中的 20 分鐘；取消勾選「時間流逝」即可停止時鐘。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1352
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1354
 msgid "Sky update interval (s)"
 msgstr "天空更新間隔(秒)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1353
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1355
 msgid "How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."
 msgstr "太陽、月亮、星空和天氣的更新間隔，以秒為單位：0.02 表示每秒更新 50 次，0 表示每個畫格更新。較長的間隔能稍微減少每個畫格的運算時間，但天空的變化會顯得不連續。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1354
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1356
 msgid "Season"
 msgstr "季節"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1355
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1410
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1357
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1412
 msgid "Moon"
 msgstr "月亮"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1356
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1358
 msgid "Moon by day"
 msgstr "白天的月亮"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1357
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1359
 msgid "How bright the moon is while the sun is up. At 1 it is as bright as the real Moon: a pale disc over the blue sky, a quarter clear in the afternoon, a crescent faint near the sun. Higher makes it stand out; 0 hides it by day."
 msgstr "太陽在天上時月亮的亮度。為 1 時與真實月亮一樣亮：藍天上一個淡淡的圓盤，下午的上弦月清晰可見，眉月在太陽附近若隱若現。數值越高越醒目；為 0 時白天隱藏月亮。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1358
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1360
 msgid "Eclipse"
 msgstr "日月食"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1359
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1361
 msgid "Eclipse progress"
 msgstr "日月食進度"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1360
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1362
 msgid "From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."
 msgstr "從初虧（0）到食甚（100）：月食從 70 起為全食，日食從 90 起為全食。選擇食會設定月相；若太陽在地平線的另一側，也會調整時間。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1361
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1389
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1363
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1391
 msgid "Night sky"
 msgstr "夜空"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1362
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1364
 msgid "Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."
 msgstr "夜空影像：清晰的星星、銀河與星雲，隨時間與季節轉動。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1363
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1365
 msgid "The Night sky editor, next to this page, sets how each part of the night sky looks."
 msgstr "本頁旁邊的「夜空編輯器」可以設定夜空中每個部分的樣子。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1364
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1366
 msgid "Weather"
 msgstr "天氣"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1365
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1367
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:278
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:282
 msgid "(leave to Remix)"
 msgstr "（由 Remix 決定）"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1367
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1369
 msgid "Clouds, haze, fog, rain and snow, from Remix's own weather presets."
 msgstr "雲、薄霧、霧、雨與雪，來自 Remix 內建的天氣預設。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1368
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1370
 msgid "Weather change (s)"
 msgstr "天氣變換(秒)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1369
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1371
 msgid "How long a change of weather takes."
 msgstr "天氣變化所需的時間。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1370
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1372
 msgid "Reset the sky and weather"
 msgstr "重設天空與天氣"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1385
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1387
 msgid "How each part of the night sky looks. Brightness: 1 is as drawn, 0 hides it. Colour: 0 is grey, 1 as drawn, 2 stronger. Look up at the night sky while you drag."
 msgstr "夜空中每個部分的樣子。亮度：1 為原樣，0 隱藏。顏色：0 為灰色，1 為原樣，2 更濃。拖動滑桿時抬頭看看夜空。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1386
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1388
 msgid "Go to night"
 msgstr "切換到夜晚"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1388
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1390
 msgid "Untick Time passes to keep the night while you edit."
 msgstr "取消勾選「時間流逝」，編輯時就會一直是夜晚。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1392
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1394
 msgid "All layers"
 msgstr "全部圖層"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1393
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1395
 msgid "Stars"
 msgstr "星星"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1394
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1396
 msgid "Star colour"
 msgstr "星星顏色"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1395
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1397
 msgid "Constellations"
 msgstr "星座"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1396
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1398
 msgid "Constellation colour"
 msgstr "星座顏色"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1397
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1399
 msgid "The constellations' bright blue and violet stars. They come out with the first stars at dusk; the Milky Way and the nebulae wait for full darkness."
 msgstr "星座中明亮的藍色與紫色星星。它們在黃昏時隨第一批星星出現；銀河與星雲要等到天完全黑下來。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1398
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1400
 msgid "Milky Way"
 msgstr "銀河"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1399
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1401
 msgid "Milky Way colour"
 msgstr "銀河顏色"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1400
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1402
 msgid "Nebulae"
 msgstr "星雲"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1401
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1403
 msgid "Nebula colour"
 msgstr "星雲顏色"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1402
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1404
 msgid "A part at 0 is hidden, and its texture leaves video memory."
 msgstr "設為 0 的部分會被隱藏，其紋理也會從顯示記憶體中釋放。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1405
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1407
 msgid "Used when Night sky is set to Simulated stars."
 msgstr "當「夜空」設為「模擬星星」時使用。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1406
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1411
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1421
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1424
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1408
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1413
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1423
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1426
 msgid "Brightness"
 msgstr "亮度"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1407
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1409
 msgid "Density"
 msgstr "密度"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1408
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1410
 msgid "Twinkle"
 msgstr "閃爍"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1412
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1414
 msgid "The moon's disc and its light on the map."
 msgstr "月亮的圓盤，以及它照在地圖上的光。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1413
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1415
 msgid "Size (degrees)"
 msgstr "大小（度）"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1414
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1416
 msgid "How wide the moon looks: the real Moon is about 0.5 degrees. Its light on the map stays the same. A larger moon passes further from Earth's shadow, so it moves a little in the sky; eclipses follow its size."
 msgstr "月亮看起來有多大：真實的月亮約為 0.5 度。它照在地圖上的光保持不變。更大的月亮會離地球的影子更遠，所以它在天空中的位置會稍有移動；日月食會隨它的大小變化。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1415
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1417
 msgid "Glow"
 msgstr "光暈"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1416
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1418
 msgid "Earthshine"
 msgstr "地照"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1417
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1419
 msgid "Glow: the halo around the moon. Earthshine: the faint light on its dark side, clearest at a crescent."
 msgstr "光暈：月亮周圍的光環。地照：月亮暗面上的微光，在月牙時最明顯。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1419
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1421
 msgid "Shooting stars"
 msgstr "流星"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1420
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1422
 msgid "Per minute"
 msgstr "每分鐘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1423
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1425
 msgid "Night glow"
 msgstr "夜天光"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1425
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1427
 msgid "The faint glow of the night air between the stars, from the weather. At 0 the space between the stars is black."
 msgstr "星星之間夜空大氣的微光，來自天氣設定。設為 0 時，星星之間是一片漆黑。"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1426
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1428
 msgid "Reset the night sky"
 msgstr "重設夜空"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1433
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1433
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1434
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1435
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1435
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1436
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:108
 msgid "Sky and weather"
 msgstr "天空與天氣"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1434
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1436
 msgid "Night sky editor"
 msgstr "夜空編輯器"
 
@@ -813,6 +813,7 @@ msgid "Copied"
 msgstr "已複製"
 
 #: nativeloader/lua/autorun/client/nativeloader_leftovers_popup.lua:49
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:34
 #: nativeloader/lua/nativeloader/menu/multiplayer_notice.lua:16
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:34
 msgid "Don't show this again"
@@ -1893,6 +1894,7 @@ msgid "To use RTX Remix again, put winmm.dll back into GarrysMod\\bin\\win64 and
 msgstr "若要再次使用 RTX Remix，請將 winmm.dll 放回 GarrysMod\\bin\\win64，並在 Workshop 上訂閱 RTX Remix。"
 
 #: nativeloader/lua/autorun/server/nativeloader_leftovers.lua:29
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:33
 #: nativeloader/lua/nativeloader/menu/unsubscribed_notice.lua:33
 msgid "OK"
 msgstr "確定"
@@ -3153,6 +3155,62 @@ msgstr "它沒有可切換的內建天空。時間與天氣：生成選單中的
 #, c-format
 msgid "Its 3D skybox (scale %d) cannot be shown under RTX yet."
 msgstr "它的 3D 天空盒（比例 %d）目前還無法在 RTX 下顯示。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:21
+msgid "Not enough disk space to install updates"
+msgstr "磁碟空間不足，無法安裝更新"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:22
+#, c-format
+msgid "At the last start the RTX Remix loader needed %s free on drive %s to unpack updates of RTX Remix or its content packs, and keeps another %s free, but only %s were free."
+msgstr "上次啟動時，RTX Remix 載入器需要 %s 的可用空間（磁碟機 %s）來解壓縮 RTX Remix 或其內容包的更新，並另外保留 %s 的可用空間，但當時只有 %s 可用。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:23
+#, c-format
+msgid "At the last start drive %s ran out of space while the RTX Remix loader unpacked updates of RTX Remix or its content packs."
+msgstr "上次啟動時，RTX Remix 載入器在解壓縮 RTX Remix 或其內容包的更新時，磁碟機 %s 的空間已用盡。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:24
+msgid "Nothing was changed: the game runs the versions that were installed before."
+msgstr "未做任何變更：遊戲執行的是先前安裝的版本。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:25
+#, c-format
+msgid "Free at least %s on drive %s, then restart the game: the updates are installed at the next start."
+msgstr "請釋放至少 %s 的空間（磁碟機 %s），然後重新啟動遊戲：更新會在下次啟動時安裝。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:26
+#, c-format
+msgid "Free some space on drive %s, then restart the game: the updates are installed at the next start."
+msgstr "請在磁碟機 %s 上釋放一些空間，然後重新啟動遊戲：更新會在下次啟動時安裝。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:27
+msgid "Little free disk space for updates"
+msgstr "用於更新的磁碟可用空間不足"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:28
+#, c-format
+msgid "Drive %s has %s free. RTX Remix and its content packs unpack their updates on this drive, and the largest of them needs up to %s at once."
+msgstr "磁碟機 %s 的可用空間為 %s。RTX Remix 及其內容包會在此磁碟機上解壓縮更新，其中最大的一個一次最多需要 %s。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:29
+msgid "With less free space than that, an update is not installed and the game keeps the versions it has."
+msgstr "如果可用空間少於此值，更新將不會安裝，遊戲會繼續使用現有版本。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:30
+#, c-format
+msgid "Free at least %s on drive %s so that updates can be installed."
+msgstr "請釋放至少 %s 的空間（磁碟機 %s），以便安裝更新。"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:31
+#, c-format
+msgid "%s GB"
+msgstr "%s GB"
+
+#: nativeloader/lua/nativeloader/menu/disk_space.lua:32
+#, c-format
+msgid "%s MB"
+msgstr "%s MB"
 
 #: nativeloader/lua/nativeloader/menu/loading_status.lua:18
 msgid "Loading…"

@@ -54,6 +54,12 @@ closed. Other owners, changed recipes or no patch sets never refuse.
 Build with `cmake --build --preset win64-release --target nl_client_catalog_tests`, then
 `ctest --test-dir out/build/win64-release -R ^nl_client_catalog_tests$ --output-on-failure`.
 
+`test_disk_space.cpp` (ADR 0260) sums a generation's packages apart (payload folder by the journal's case rules, a
+sibling folder not counted, other files, a package the generation does not list left out, an id listed twice once),
+saturates at the largest size, reads the free space of this folder's drive (and nothing for a volume that does not
+exist), and checks in `module.cpp` that `disk_space` answers in the menu realm only, from the verified game folder, and
+that the sizes are taken from the committed generation before the menu scripts run.
+
 `test_prelude.cpp` (ADR 0246) checks the client prelude hook against a stand-in Lua state, an object whose vtable lies in
 this test executable's data and whose 128 slots are distinct functions of its code: calls through the vendored
 `ILuaInterface` header land in the slots `prelude.h` names (IsClient 76, FindAndRunScript 97 at `0x308`, RunStringEx

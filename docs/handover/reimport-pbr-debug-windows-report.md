@@ -117,7 +117,11 @@ same texture, whose names are not submitted again, would have lost them for the 
 
 ## Published
 
-(filled in after the publish)
+Merged to `main` as `5b831611` (a fast-forward) and pushed; Workshop item 3829070317 updated as
+`0.0.0-dev.20261124082855+6b799cdf` (2026-11-24 08:29 UTC), its change note the two CHANGELOG entries; the push's own
+publish found the inputs unchanged. No run in the field install: checking these there would import a model into the
+player's library and write a test motion into their motion folder; the PoC runs above cover both. The field game the
+first PoC run found running was ended by its driver (the standing rule that a field game is a test session).
 
 ## Notes and open questions
 

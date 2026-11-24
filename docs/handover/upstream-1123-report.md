@@ -27,9 +27,13 @@ loader 0.16.0, performance tier Low (an 8 GB laptop GPU).
   `mod=issue14_control ... materials=1 ... textures=2`, no `USD mod worker failed`. The drum turns dark mirror metal
   with the mod, and stays so with ToPBR on at scope 2 for 90 s; ToPBR's `materials.usda` names none of the authored
   hashes.
-- **The reply** (drafted in the main checkout's `out/issue14/reply-draft.md`, not posted without the user's word)
-  explains the label and asks for the mod's folder layout, whether Alt+X lists the mod, and the Remix log's
-  `[RTX Mod Load] mod=<folder>` and `USD mod worker failed` lines.
+- **The reply**, posted on the issue on 2026-11-24 at the user's word (the main checkout's
+  `out/issue14/reply-posted.md`), explains the label and asks for the mod's folder layout, whether Alt+X lists the mod,
+  and the Remix log's `[RTX Mod Load] mod=<folder>` and `USD mod worker failed` lines. Checked against the runtime's code
+  before posting: a mod is a `mod.*` file directly in a folder of `rtx-remix\mods`, the first one found in that folder
+  (`ModManager::enumerateModsInDir`, `modExists` in `rtx_mod_manager.cpp`); Alt+X > Enhancements > Loaded USD Files
+  names every mod `mod.usda`, with the full path when its first line is hovered; the log line carries a timestamp and
+  `info:` before `[RTX Mod Load]`, and the folder name with spaces as `_` (`UsdMod::Impl::logLoadStats`).
 - The probe became [`authored_mod_session.py`](../../tools/qa/authored_mod_session.py.md).
 
 ## The merge
@@ -105,4 +109,5 @@ previous package too: the level an RTX start sets, after other sessions' tests i
   and the pane still left no `procedural_shard` entities, so the reading of 2026-11-14 (the module not loading) does not
   explain it. The probes count the Glass-Rewrite-Remix add-on's `procedural_shard` entities and spawn its
   `procedural_shard_4`: they may predate the G1 glass system, or glass may not break as it should. Not this change.
-- The reply to GitHub issue 14 waits for the user's word.
+- GitHub issue 14 waits for the reporter's answer (the mod's folder, its Loaded USD Files entry, the Remix log's lines);
+  the reply was posted on 2026-11-24.

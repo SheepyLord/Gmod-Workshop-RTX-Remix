@@ -10460,6 +10460,15 @@ after a second import in the same session; a restart gave them.
 - Every mod's load logs 18 `[SecretReplacement] Could not find stage: <that mod's folder>\./SubUSDs/SM_Prop_CompanionCube_*.usd`
   warnings (180 in a PoC start with ten mods): one mod's secret replacement stages are looked up relative to each mod's
   folder in turn. Only log noise; seen with patches 0001-0105.
+- Where a mod must sit, and how a player finds it (checked for the reply on the issue; the fork tree with patches
+  0001-0106): `ModManager::enumerateModsInDir` takes only the folders directly under `rtx-remix\mods`, and `modExists`
+  takes from each the first entry the folder listing returns whose stem is `mod` and whose extension is a USD one
+  (`rtx_mod_manager.cpp:43`, `164-195`; `isValidMod`, `rtx_mod_usd.cpp:3079-3087`). On NTFS the listing is in name
+  order, so a `mod.usd` beside a `mod.usda` is the one loaded. Alt+X > Enhancements shows "Mods Discovered: N", and its
+  Loaded USD Files header lists each loaded mod under its main file's name, so every entry reads `mod.usda`; hovering
+  an entry's first line shows the full path (`dxvk_imgui.cpp:2198-2286`). The `[RTX Mod Load]` line names the mod's
+  folder with spaces and tabs as `_`, after the log's timestamp and `info:` (`UsdMod::Impl::logLoadStats`,
+  `rtx_mod_usd.cpp:2180-2192`).
 - [`authored_mod_session.py`](../tools/qa/authored_mod_session.py.md) results: see TESTING.md.
 
 ## The option update mutex on the D3D9 draw path after the 2026-11-23 merge (2026-11-24, Claude, ADR 0265)

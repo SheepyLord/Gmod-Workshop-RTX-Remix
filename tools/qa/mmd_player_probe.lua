@@ -700,6 +700,80 @@ local function camera_checks(npcs)
     return out
 end
 
+-- ---- Hide the debug windows and stay in debug mode (ADR 0264, the user's request of 2026-11-24) ----
+-- The debug window on the first NPC at frame 60 (the test dance's arms out), with the camera debug panel open. Its
+-- Hide windows button hides both: the mouse and keyboard are the game's again, debug mode (the server's debug frame,
+-- the NPC's pose) stays. The context menu's key, the console command and opening debug mode again show them; closing
+-- the window ends debug mode as before. Screenshots: shown, hidden at once (with the notice), hidden once the notice
+-- has gone, back.
+local function debug_windows_test()
+    local out = {}
+    wait_for(function()
+        for _, panel in ipairs(vgui.GetWorldPanel():GetChildren()) do
+            if IsValid(panel) and isfunction(panel.GetTitle) and string.find(string.lower(tostring(panel:GetTitle())), "remix guide", 1, true) then return true end
+        end
+        return false
+    end, 15)
+    clear_windows()
+    -- The server half's build writes the test dance and selects the first NPC (the debug target).
+    out.build = run_server("build", 150)
+    out.show_function = isfunction(MMDVMDNPC.ShowDebugMenu) and isfunction(MMDVMDNPC.SetDebugWindowsHidden)
+    if not out.show_function then return out end
+    MMDVMDNPC.ShowDebugMenu(PROBE_MOTION, 60)
+    wait(3)
+    local frame = MMDVMDNPC.DebugFrame
+    out.window = IsValid(frame) and IsValid(frame.HideWindows)
+    if not out.window then return out end
+    out.button = { text = frame.HideWindows:GetText(), tooltip = frame.HideWindows:GetTooltip(), wide = frame.HideWindows:GetWide() }
+    if IsValid(frame.CameraPreview) then frame.CameraPreview:SetValue(1) end
+    wait(1.5)
+    local camera = MMDVMDNPC.CameraDebugPanel
+    out.camera_panel = IsValid(camera)
+    local function state()
+        local focus = vgui.GetKeyboardFocus()
+        return { frame = IsValid(frame) and frame:IsVisible() or false, camera = IsValid(camera) and camera:IsVisible() or false,
+            cursor = vgui.CursorVisible(), hidden = MMDVMDNPC.DebugWindowsHidden(),
+            focus_in_window = IsValid(focus) and IsValid(frame) and (focus == frame or focus:HasParent(frame)) or false,
+            server = run_server("debug_state", 10) }
+    end
+    out.shown = state()
+    out.shot_shown = shot("debug_shown")
+    frame.HideWindows:DoClick()
+    wait(0.5)
+    out.hidden = state()
+    out.shot_hidden_notice = shot("debug_hidden_notice")
+    -- The notice stays six seconds.
+    wait(7)
+    out.hidden_later = state()
+    out.shot_hidden = shot("debug_hidden")
+    -- The context menu's key brings them back; once it is let go, the debug window keeps the mouse.
+    RunConsoleCommand("+menu_context")
+    wait(0.8)
+    out.context_open = state()
+    RunConsoleCommand("-menu_context")
+    wait(0.8)
+    out.context_closed = state()
+    out.shot_back = shot("debug_back")
+    RunConsoleCommand("mmdvmd_debug_panels", "0")
+    wait(0.5)
+    out.command_hidden = state()
+    RunConsoleCommand("mmdvmd_debug_panels", "1")
+    wait(0.5)
+    out.command_shown = state()
+    -- Opening debug mode again (the tool's button, the motion window, the console) shows hidden windows.
+    RunConsoleCommand("mmdvmd_debug_panels", "0")
+    wait(0.5)
+    MMDVMDNPC.ShowDebugMenu(PROBE_MOTION, 60)
+    wait(1.5)
+    out.reopened = state()
+    frame:Close()
+    wait(1.5)
+    out.closed = { hidden = MMDVMDNPC.DebugWindowsHidden(), cursor = vgui.CursorVisible(), server = run_server("debug_state", 10) }
+    if IsValid(MMDVMDNPC.CameraDebugPanel) then MMDVMDNPC.CloseCameraDebugPanel() end
+    run_server("cleanup", 10)
+    return out
+end
+
 local function pick_motions()
     local ids = {}
     for _, meta in ipairs(MMDVMDNPC.MotionDetailsOrdered or {}) do ids[#ids + 1] = tostring(meta.id) end
@@ -802,6 +876,14 @@ local function sequence()
         file.CreateDir("nlmp_probe")
         file.Write("nlmp_probe/camera.json", util.TableToJSON(cameraOut, true))
         print("NLMP_CAMERA " .. (ok and "done" or tostring(result)))
+    end
+
+    if SETTINGS.debug_windows then
+        local ok, result = pcall(debug_windows_test)
+        local windowsOut = ok and result or { error = tostring(result) }
+        file.CreateDir("nlmp_probe")
+        file.Write("nlmp_probe/debug_windows.json", util.TableToJSON(windowsOut, true))
+        print("NLMP_DEBUG_WINDOWS " .. (ok and "done" or tostring(result)))
     end
 
     file.Write("nlmp_probe/summary.json", util.TableToJSON({ motions = motionCount, motionA = motionA, motionB = motionB,

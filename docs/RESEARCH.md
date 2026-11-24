@@ -10399,3 +10399,44 @@ After ADR 0261 was published. The scratch notes are in `out/crash-20261123` of t
   global printed "Ran 27 queued render calls before the purge" right after the setters' line (ten setter calls on five
   materials; a texture setter queues its texture's release too), uncached, returned true, and the game went on to its
   `disconnect` (220 calls run before that cleanup) and exit 0. The same session crashed 3 of 3 before.
+
+## A model imported again in the same session: ToPBR's session caches (2026-11-24, Claude; [ADR 0263](decisions/0263-a-re-import-looks-at-the-models-folder-again.md))
+
+The user's report of 2026-11-24: a character imported before its game maps were copied into its folder kept no maps
+after a second import in the same session; a restart gave them.
+
+- **The same asset id.** A Model Hotloader character's id is a hash of its manifest
+  (`packages/model-hotloader/source/mmdhl/native/assets.cpp`, `manifest.dump()` hashed after the textures are prepared):
+  the PMX's content, the textures its materials name (base, sphere, toon), the warnings and `fullTextures` when a
+  texture was kept above 4096. Maps beside the PMX that no material names are not in it, so importing an unchanged PMX
+  again gives the same id and the same material names `mmd/<16 hex digits>/...`.
+- **Four layers that keep the first answer for the session.** The fixes' Lua (`cl_rtx_topbr_conversion.lua`, Think hook
+  `RTXToPBR_GameMaps`) walks the loaded assets (`mmdhl.assets`) eight materials a frame, five seconds between passes,
+  and submits each material name once (`gameSubmitted`). The module's `QueueGameMaterial` refuses a name already
+  submitted (`m_gameSubmitted`). Its worker (`WorkerThreadFunc`, locals for the worker's life) scans a model's folder
+  once (`GamePBR::DiscoveryCache`, at most eight folders: `game_matching.inl`'s `Discovery` lists the folder's images in
+  its constructor, depth 6, at most 4,096 entries, and never again) and resolves each texture identity once
+  (`GameRegistry::Session::ResolveOnce`, which reserves the "no maps" answer before resolving, so a failed or empty
+  conversion is not tried again until a new session). `SourceModels` (`game_source.h`) is kept only while the PMX's
+  size and write time stay the same, so it never held a stale answer. The registry itself (`game_registry.h`
+  `Registry::Resolve`) calls the converter whenever the source is readable and drops a record that converts to nothing:
+  a "no maps" answer is never saved, which is why a restart helped.
+- **`ToPBR.ClearCache()`** (`rtx_topbr_clear`) stops the worker, so the next one starts with empty caches, but it also
+  forgets every world conversion, deletes `pbr_ineligible_cache.txt` and retracts the published layer: too broad for one
+  re-import.
+- **What a finished import tells Lua.** `library.lua` runs `hook.Run('MMDHL.Imported', status.asset)` on the client
+  after `library.Refresh()`, for every completed character import and for the entity editor's Reload; the entry
+  (`mmdhl.library.entries[id].source`) holds the PMX's path.
+
+## The MMD animation player's debug windows (2026-11-24, Claude; [ADR 0264](decisions/0264-hide-the-debug-windows-and-stay-in-debug-mode.md))
+
+- **Two windows.** `MMDVMDNPC.DebugFrame` (`cl_menu.lua`, "Raw Animation Debug") is a `DFrame` made a popup
+  (`MakePopup`) when created; `MMDVMDNPC.CameraDebugPanel`, opened by its Camera preview box, is a plain `DFrame` beside
+  it. Closing the debug window (`OnClose`) sends `mmdvmd_debug_close`: the server drops the held expression and, unless a
+  dance plays, puts the target back in its reference pose (`sv_commands.lua`).
+- **What keeps running while they are hidden.** A playing preview steps on a timer (`MMDVMDNPCDebugPreviewPlay`, which
+  calls `OpenDebugMenu` for the next frame); the server answers each frame and poses the target. The window's `Think`
+  (the lists rebuilt once a timeline drag ends) does not run while it is hidden.
+- **Its explicit openers**: the tool's Debug Selected Motion (Advanced tab), the motion window's Debug button and double
+  click, the console command `mmdvmd_debug` (client) and the server's `mmdvmd_debug_open`. The window's own buttons,
+  timeline, option boxes and the preview call `OpenDebugMenu` too.

@@ -1,0 +1,497 @@
+diff --git a/source/material_pipeline/to_pbr/game_rescan.h b/source/material_pipeline/to_pbr/game_rescan.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..dfb7dbdd4e8417bf668f11f43443140626457fb9
+--- /dev/null
++++ b/source/material_pipeline/to_pbr/game_rescan.h
+@@ -0,0 +1,147 @@
++// GPL-2.0, like the rest of the RTX fixes. The native loader's ADR 0263: a Model Hotloader character imported again in
++// the same game. A character's asset id is a hash of its manifest, which names the PMX's own textures and not the maps
++// beside it, so the import of an unchanged PMX keeps its id and its material names (mmd/<the id's first 16 hex digits>/
++// ...). ToPBR's game maps submitted each material name once a game session, and the worker kept each model folder's
++// scan and each texture's resolution, a "no maps" result too, for its life: maps put beside the model after its first
++// import were found only after a restart. ToPBR.RescanGameSource(source, prefix) forgets the prefix's submissions and
++// has the worker drop its folder scans and the resolutions of that character's textures; the driver then submits the
++// character's materials again. What it takes from Lua, what it forgets and which live materials the worker's rescan
++// concerns are decided here. Standard C++ only: tests/game_rescan_test.cpp compiles this file alone.
++#pragma once
++
++#include <chrono>
++#include <cstddef>
++#include <cwctype>
++#include <filesystem>
++#include <set>
++#include <string>
++#include <string_view>
++
++namespace MaterialPipeline { namespace ToPBR { namespace GameRescan {
++
++// "mmd/", the first 16 hex digits of the asset id, "/": how every material name of one character starts
++// (QueueGameMaterial takes a name whose characters 4 to 19 are hex digits and whose 20th is '/').
++constexpr std::size_t PrefixSize = 21;
++
++inline bool HexDigit(char c) {
++    return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
++}
++
++inline bool Prefix(std::string_view prefix) {
++    if (prefix.size() != PrefixSize || prefix.substr(0, 4) != "mmd/" || prefix[20] != '/') return false;
++    for (std::size_t i = 4; i < 20; ++i)
++        if (!HexDigit(prefix[i])) return false;
++    return true;
++}
++
++// Whether a material name is one of the prefix's (compared byte for byte, as the submitted names are).
++inline bool Named(std::string_view name, std::string_view prefix) {
++    return name.size() > prefix.size() && name.substr(0, prefix.size()) == prefix;
++}
++
++// The character's model as Lua names it: at most QueueGameMaterial's bound for a source, no control character (a NUL
++// included), a file name before ".pmx" in any case. LuaPathPolicy::LocalDrivePath decides the rest. Nothing is opened.
++constexpr std::size_t MaxSource = 2048;
++
++inline bool Source(std::string_view source) {
++    if (source.size() < 5 || source.size() > MaxSource) return false;
++    for (char c : source) {
++        const auto byte = static_cast<unsigned char>(c);
++        if (byte < 0x20 || byte == 0x7F) return false;
++    }
++    std::string extension;
++    for (char c : source.substr(source.size() - 4))
++        extension += (c >= 'A' && c <= 'Z') ? static_cast<char>(c - 'A' + 'a') : c;
++    const char before = source[source.size() - 5];
++    return extension == ".pmx" && before != '/' && before != '\\';
++}
++
++// One file's name as Windows compares names: '/' and '\' alike, "." and ".." segments and repeated separators
++// resolved, letters without case. Lexical only (nothing is opened); empty for a name that is not UTF-8.
++inline std::wstring Normal(std::string_view path) {
++    if (path.empty()) return {};
++    try {
++        std::wstring text = std::filesystem::u8path(std::string(path)).lexically_normal().wstring();
++        for (auto& c : text) c = static_cast<wchar_t>(std::towlower(c));
++        return text;
++    } catch (...) {
++        return {};
++    }
++}
++
++inline bool SameFile(std::string_view a, std::string_view b) {
++    const std::wstring left = Normal(a);
++    return !left.empty() && left == Normal(b);
++}
++
++// Whether a live game-map job is the rescanned character's: its material name has the prefix, or its model is the
++// same file (the same PMX imported before under another asset id, whose textures the character may share).
++inline bool Affected(std::string_view name, std::string_view source, std::string_view prefix, std::string_view model) {
++    return Named(name, prefix) || SameFile(source, model);
++}
++
++// The texture identities a rescan lets go: those of the live jobs Affected names. `jobs` maps a material name to a job
++// with an `identity` and a `source` (the worker's live jobs); a job without an identity is none.
++template <class Jobs>
++std::set<std::string> Identities(const Jobs& jobs, std::string_view prefix, std::string_view model) {
++    std::set<std::string> found;
++    for (const auto& item : jobs)
++        if (!item.second.identity.empty() && Affected(item.first, item.second.source, prefix, model))
++            found.insert(item.second.identity);
++    return found;
++}
++
++// The model's file name, for the console line.
++inline std::string FileName(std::string_view source) {
++    const std::size_t slash = source.find_last_of("/\\");
++    return std::string(slash == std::string_view::npos ? source : source.substr(slash + 1));
++}
++
++// Forgets the prefix's names among the submitted ones, so the driver may submit them again; returns how many.
++template <class Names>
++std::size_t Forget(Names& names, std::string_view prefix) {
++    std::size_t forgotten = 0;
++    for (auto it = names.begin(); it != names.end();) {
++        if (Named(*it, prefix)) {
++            it = names.erase(it);
++            ++forgotten;
++        } else {
++            ++it;
++        }
++    }
++    return forgotten;
++}
++
++// The prefix's views say "waiting", without an error, until the worker resolves their textures again; their family
++// stays. `views` is ordered by name (a std::map). Returns how many.
++template <class Views>
++std::size_t Wait(Views& views, std::string_view prefix) {
++    std::size_t count = 0;
++    for (auto it = views.lower_bound(std::string(prefix)); it != views.end() && Named(it->first, prefix); ++it) {
++        it->second.state = "waiting";
++        it->second.error.clear();
++        ++count;
++    }
++    return count;
++}
++
++// At most one rescan a second (a refused call does not move the second): any server's client Lua reaches
++// RescanGameSource, and a loop must not keep the worker reading model folders. One owner thread.
++class Limit {
++public:
++    using Clock = std::chrono::steady_clock;
++    static constexpr Clock::duration Interval = std::chrono::seconds(1);
++
++    bool Take(Clock::time_point now) {
++        if (taken_ && now - last_ < Interval) return false;
++        taken_ = true;
++        last_ = now;
++        return true;
++    }
++
++private:
++    Clock::time_point last_{};
++    bool taken_ = false;
++};
++
++}}}
+diff --git a/source/material_pipeline/to_pbr/to_pbr.cpp b/source/material_pipeline/to_pbr/to_pbr.cpp
+index b5b4609a9cbdb2ad3c7e98335cbb3c1b27eab1bf..83fc08d7d2966e3b080eea5011b4dc6233e408fa 100644
+--- a/source/material_pipeline/to_pbr/to_pbr.cpp
++++ b/source/material_pipeline/to_pbr/to_pbr.cpp
+@@ -4668,6 +4668,29 @@ bool TextureProcessor::QueueGameMaterial(const std::string& name, const std::str
+     return true;
+ }
+ 
++// The native loader's ADR 0263: a Model Hotloader character imported again in the same game (game_rescan.h). An
++// unchanged PMX keeps its asset id and so its material names, which were submitted once for the session, and the worker
++// kept its folder scans and its textures' resolutions, a "no maps" result too: maps put beside the model after its
++// first import were never looked for. The prefix's names may be submitted again, their views wait, and the worker's job
++// (action "rescan", which GameMaterialAction cannot name) drops the folder scans and those resolutions. Any server's
++// client Lua reaches this (R19, ADR 0112): only while the player's game maps are on, for one character's prefix and a
++// .pmx on a local drive, at most once a second, with room in the queue; nothing is opened here.
++bool TextureProcessor::RescanGameSource(const std::string& source, const std::string& prefix) {
++    if (!m_initialized || !m_gameEnabled.load() || !GameRescan::Prefix(prefix) || !GameRescan::Source(source) ||
++        !LuaPathPolicy::LocalDrivePath(source)) return false;
++    std::lock_guard<std::mutex> lock(m_queueMutex);
++    if (m_gameQueue.size() >= 128 || !m_rescanLimit.Take(std::chrono::steady_clock::now())) return false;
++    GameRescan::Forget(m_gameSubmitted, prefix);
++    GameRescan::Wait(m_gameViews, prefix);
++    GameJob job;
++    job.name = prefix;
++    job.source = source;
++    job.action = "rescan";
++    m_gameQueue.push(std::move(job));
++    m_queueCondition.notify_one();
++    return true;
++}
++
+ void TextureProcessor::PumpSnapshots() {
+     if (!m_initialized) return;
+     // R19 (ADR 0112): the player's settings win over any Lua that kept the native switches on (a
+@@ -4883,6 +4906,21 @@ void TextureProcessor::WorkerThreadFunc() {
+     std::map<std::string,GameJob> liveJobs;
+     std::map<std::string,GameView> identityViews;
+     GameRegistry::Session gameSession; // ClearCache stops this worker; every restart starts fresh.
++    // The native loader's ADR 0263: the identities a rescan let go. Their next resolution replaces the maps registered
++    // for their live materials (RegisterProcessedMaterial), or, finding none or failing, takes them back (retract).
++    std::set<std::string> rescanned;
++    const auto retract=[&](const std::string& identity) {
++        bool removed=false;
++        {
++            std::lock_guard<std::recursive_mutex> lock(m_mutex);
++            for(const auto& item:liveJobs)if(item.second.identity==identity)
++                for(auto h:item.second.hashes) {
++                    auto i=m_processedMaterialInfo.find(h);
++                    if(i!=m_processedMaterialInfo.end() && i->second.importedGame){m_processedMaterialInfo.erase(i);removed=true;}
++                }
++        }
++        if(removed)m_publishRequested.store(true);
++    };
+     const auto saveRegistry = [this]() {
+         if (!m_gameRegistry->Save() && !m_gameRegistrySaveWarned) {
+             m_gameRegistrySaveWarned = true;
+@@ -4931,6 +4969,26 @@ void TextureProcessor::WorkerThreadFunc() {
+                 std::lock_guard<std::mutex> lock(m_queueMutex); m_metadataReady.push(std::move(prepared));
+             }
+         }
++        if (gotGame && gameJob.action=="rescan") {
++            // The native loader's ADR 0263 (RescanGameSource, game_rescan.h): the character was imported again. Every
++            // model folder is read again when next asked (each folder's scan was kept for the worker's life), and the
++            // textures of the character's live materials, and of any live material drawn from the same PMX file,
++            // resolve again, a "no maps" result too; a manual choice stays (overrides.Select). Their registered maps
++            // stay until that resolution replaces them or takes them back. The driver submits the materials again.
++            gotGame=false;
++            try {
++                discovery=GamePBR::DiscoveryCache();
++                const auto identities=GameRescan::Identities(liveJobs,gameJob.name,gameJob.source);
++                for(const auto& identity:identities) {
++                    gameSession.Erase(identity);identityViews.erase(identity);
++                    if(rescanned.size()<GameRegistry::MaxRecords)rescanned.insert(identity);
++                }
++                Msg("[MaterialPipeline::ToPBR] Game maps looked at again: %s (%zu textures)\n",
++                    GameRescan::FileName(gameJob.source).c_str(),identities.size());
++            } catch (const std::exception& e) {
++                Warning("[MaterialPipeline::ToPBR] Game maps not looked at again: %s\n",e.what());
++            }
++        }
+         if (gotGame) {
+             m_backgroundProcessing.store(true);
+             try {
+@@ -5027,8 +5085,9 @@ void TextureProcessor::WorkerThreadFunc() {
+                         for(auto h:item.second.hashes){auto i=m_processedMaterialInfo.find(h);if(i!=m_processedMaterialInfo.end() && i->second.importedGame)m_processedMaterialInfo.erase(i);}
+                     m_publishRequested.store(true);
+                 }
++                const bool resolving=m_gameEnabled.load() || !gameJob.action.empty();
+                 const auto record = gameSession.ResolveOnce(gameJob.identity, gameJob.hashes,
+-                    m_gameEnabled.load() || !gameJob.action.empty(), [&]() {
++                    resolving, [&]() {
+                     if(!overrides.Readable()){view.state="error";view.error="Saved override file is unreadable; automatic maps suppressed";return std::optional<GameRegistry::Record>{};}
+                     try {
+                         if(const auto maps=overrides.Compact(gameJob.identity,transcode))
+@@ -5072,6 +5131,9 @@ void TextureProcessor::WorkerThreadFunc() {
+                     }
+                     return selected;
+                 });
++                // ADR 0263: the first resolution since a rescan. A record replaces the maps registered before (below);
++                // none takes them back.
++                if(resolving && rescanned.erase(gameJob.identity) && !record)retract(gameJob.identity);
+                 if(const auto c=overrides.Find(gameJob.identity))view.state=c->mode=="none"?"none":"override";
+                 else if(view.state=="waiting")view.state=record?"automatic":"none";
+                 identityViews[gameJob.identity]=view;
+@@ -5100,6 +5162,8 @@ void TextureProcessor::WorkerThreadFunc() {
+                     }}
+                 if(gameJob.action.empty() && !gameJob.identity.empty()) {
+                     auto& known=identityViews[gameJob.identity];known.identity=gameJob.identity;known.state="error";known.error=e.what();
++                    // ADR 0263: a failed first resolution since a rescan takes back the maps registered before it.
++                    if(rescanned.erase(gameJob.identity))retract(gameJob.identity);
+                 }
+                 Warning("[MaterialPipeline::ToPBR] Game maps skipped: %s (%s)\n", gameJob.base.c_str(), e.what());
+                 std::lock_guard<std::recursive_mutex> lock(m_mutex); ++m_stats.failedConversions;
+@@ -5519,6 +5583,18 @@ LUA_FUNCTION(ToPBR_ClearCache) {
+     return 0;
+ }
+ 
++// The native loader's ADR 0263: a Model Hotloader character imported again in the same game (RescanGameSource). Both
++// strings are taken whole, so one with a NUL inside is refused, not cut short.
++LUA_FUNCTION(ToPBR_RescanGameSource) {
++    for(int i=1;i<=2;++i)LUA->CheckType(i,GarrysMod::Lua::Type::String);
++    unsigned int sourceSize=0,prefixSize=0;
++    const char* source=LUA->GetString(1,&sourceSize);
++    const char* prefix=LUA->GetString(2,&prefixSize);
++    LUA->PushBool(source && prefix && MaterialPipeline::ToPBR::TextureProcessor::Instance().RescanGameSource(
++        std::string(source,sourceSize),std::string(prefix,prefixSize)));
++    return 1;
++}
++
+ LUA_FUNCTION(ToPBR_ConvertTexture) {
+     if (!LUA->IsType(1, GarrysMod::Lua::Type::String)) {
+         LUA->ThrowError("Expected string for texture path");
+@@ -6034,6 +6110,9 @@ void InitializeToPBRLuaBindings(GarrysMod::Lua::ILuaBase* LUA) {
+     
+     LUA->PushCFunction(ToPBR_ClearCache);
+     LUA->SetField(-2, "ClearCache");
++    // A character imported again (the native loader's ADR 0263).
++    LUA->PushCFunction(ToPBR_RescanGameSource);
++    LUA->SetField(-2, "RescanGameSource");
+     
+     LUA->PushCFunction(ToPBR_ConvertTexture);
+     LUA->SetField(-2, "ConvertTexture");
+diff --git a/source/material_pipeline/to_pbr/to_pbr.h b/source/material_pipeline/to_pbr/to_pbr.h
+index 97c9a624b02c58416d79eb87d08cd19caf9576c0..d26a03629d4f2f03906ffbc482954aed9ad5e763 100644
+--- a/source/material_pipeline/to_pbr/to_pbr.h
++++ b/source/material_pipeline/to_pbr/to_pbr.h
+@@ -22,6 +22,7 @@
+ #include <GarrysMod/Lua/Interface.h>
+ 
+ #include "topbr_scope.h"
++#include "game_rescan.h"
+ 
+ // Forward declarations
+ class IMaterial;
+@@ -368,6 +369,12 @@ public:
+     GameView GetGameView(const std::string& name);
+     bool QueueGameMaterial(const std::string& name, const std::string& source, const std::string& base,
+         const std::string& action="",const std::string& normal="",const std::string& packed="",const std::string& emission="",int layout=0);
++    // The native loader's ADR 0263: a Model Hotloader character imported again in the same game (game_rescan.h).
++    // Forgets which of its materials (`prefix`: "mmd/<16 hex digits>/") were submitted, sets their views to "waiting"
++    // and queues a worker job that reads its model's folder again and resolves its textures anew. Game thread; false
++    // when refused (game maps off, a prefix or source it does not take, a call within a second of the last, a full
++    // queue).
++    bool RescanGameSource(const std::string& source, const std::string& prefix);
+     bool IsEnabled() const { return m_enabled.load(std::memory_order_relaxed); }
+ 
+     // The player's range for world conversion (rtx_topbr_scope, the native loader's ADR 0229; topbr_scope.h):
+@@ -656,11 +663,14 @@ private:
+         MaterialPBRProperties props{};
+         std::vector<uint64_t> hashes;
+     };
++    // action: "" an automatic resolution, a player's choice (QueueGameMaterial), or "rescan" (ADR 0263, only from
++    // RescanGameSource, never from GameMaterialAction; name is then the character's prefix and source its model).
+     struct GameJob { std::string name, source, base, identity; std::vector<uint64_t> hashes;
+         std::string action,normal,packed,emission;int layout=0; };
+     std::map<std::string,GameView> m_gameViews; // m_queueMutex protects UI snapshots.
+     std::queue<GameJob> m_gameQueue;
+     std::unordered_set<std::string> m_gameSubmitted;
++    GameRescan::Limit m_rescanLimit; // ADR 0263: RescanGameSource's one call a second; m_queueMutex protects it.
+     std::unique_ptr<GameRegistry::Registry> m_gameRegistry; // Worker-only; ClearCache retains it.
+     bool m_gameRegistrySaveWarned = false; // Worker-only, once per module session across worker restarts.
+     std::atomic<bool> m_gameEnabled{false};
+diff --git a/tests/game_rescan_test.cpp b/tests/game_rescan_test.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..f635b07badd21a77ff825e3e107140e6ce6cdb18
+--- /dev/null
++++ b/tests/game_rescan_test.cpp
+@@ -0,0 +1,156 @@
++// GPL-2.0. The native loader's ADR 0263: regression for source/material_pipeline/to_pbr/game_rescan.h, what
++// ToPBR.RescanGameSource takes from Lua, what it forgets and which live materials the worker's rescan concerns.
++// Compiles alone (no SDK): cl /EHsc /std:c++17 /W4 /WX /UNDEBUG /utf-8 tests/game_rescan_test.cpp
++#include <chrono>
++#include <cstdlib>
++#include <iostream>
++#include <map>
++#include <set>
++#include <string>
++#include <unordered_set>
++#include "../source/material_pipeline/to_pbr/game_rescan.h"
++
++namespace {
++
++int g_checks = 0;
++
++void Check(bool condition, const char* what) {
++    ++g_checks;
++    if (!condition) {
++        std::cout << "FAIL game rescan: " << what << "\n";
++        std::exit(1);
++    }
++}
++
++// The worker's live jobs and the module's views, as far as the header reads them.
++struct Job {
++    std::string identity, source;
++};
++struct View {
++    std::string identity, state, error, family;
++};
++
++}  // namespace
++
++int main() {
++    namespace R = MaterialPipeline::ToPBR::GameRescan;
++    const std::string prefix = "mmd/0123456789abcdef/";
++
++    // One character's prefix: "mmd/", 16 hex digits, "/".
++    Check(R::Prefix(prefix), "a prefix");
++    Check(R::Prefix("mmd/0123456789ABCDEF/"), "upper-case hex digits, as QueueGameMaterial takes them");
++    Check(!R::Prefix("mmd/0123456789abcdef"), "no closing slash");
++    Check(!R::Prefix("mmd/0123456789abcde/"), "15 digits");
++    Check(!R::Prefix("mmd/0123456789abcdef0/"), "17 digits");
++    Check(!R::Prefix("mmd/0123456789abcdeg/"), "not a hex digit");
++    Check(!R::Prefix("mmd/0123456789abcdef/skin_1"), "a material name is not a prefix");
++    Check(!R::Prefix("mmd/t/0123456789abcd/"), "a texture identity's folder");
++    Check(!R::Prefix("MMD/0123456789abcdef/"), "the folder's case");
++    Check(!R::Prefix("mmd\\0123456789abcdef\\"), "backslashes");
++    Check(!R::Prefix(std::string("mmd/0123456789abc\0ef/", 21)), "a NUL");
++    Check(!R::Prefix(""), "empty");
++
++    // Its names.
++    Check(R::Named("mmd/0123456789abcdef/skin_1", prefix), "a name of the character");
++    Check(!R::Named(prefix, prefix), "the prefix alone is no name");
++    Check(!R::Named("mmd/0123456789abcdee/skin_1", prefix), "another character");
++    Check(!R::Named("mmd/0123456789ABCDEF/skin_1", prefix), "names compare byte for byte");
++    Check(!R::Named("mmd/0123456789abcdef", prefix), "shorter than the prefix");
++
++    // The model as Lua names it.
++    Check(R::Source("C:\\Models\\Miku\\miku.pmx"), "a PMX");
++    Check(R::Source("E:/models/test.PMX"), "the extension in any case");
++    Check(!R::Source("C:\\Models\\Miku\\miku.pmd"), "another extension");
++    Check(!R::Source("C:\\Models\\Miku\\miku.pmx.png"), "an image");
++    Check(!R::Source("C:\\Models\\Miku\\.pmx"), "no file name before .pmx");
++    Check(!R::Source(".pmx"), "too short");
++    Check(!R::Source(std::string("C:\\a\0b.pmx", 10)), "a NUL");
++    Check(!R::Source("C:\\a\nb.pmx"), "a control character");
++    Check(!R::Source("C:\\a\x7F" "b.pmx"), "DEL");
++    Check(R::Source(std::string(R::MaxSource - 4, 'a') + ".pmx"), "2048 bytes");
++    Check(!R::Source(std::string(R::MaxSource - 3, 'a') + ".pmx"), "2049 bytes");
++
++    // One file's names.
++    Check(R::SameFile("C:\\Models\\Miku\\miku.pmx", "c:/models/MIKU/Miku.PMX"), "separators and case");
++    Check(R::SameFile("C:\\Models\\Old\\..\\Miku\\.\\miku.pmx", "C:\\Models\\Miku\\miku.pmx"), "dot segments");
++    Check(R::SameFile("C:\\Models\\\\Miku//miku.pmx", "C:\\Models\\Miku\\miku.pmx"), "repeated separators");
++    Check(R::SameFile(u8"C:\\Models\\\u521D\u97F3\\Miku.pmx", u8"c:/models/\u521D\u97F3/miku.pmx"), "a folder outside ASCII");
++    Check(!R::SameFile("C:\\Models\\Miku\\miku.pmx", "C:\\Models\\Miku2\\miku.pmx"), "another folder");
++    Check(!R::SameFile("C:\\Models\\Miku\\miku.pmx", "D:\\Models\\Miku\\miku.pmx"), "another drive");
++    Check(!R::SameFile("", ""), "no source is no file");
++    Check(!R::SameFile("C:\\a\\b.pmx", ""), "no model");
++    Check(!R::SameFile(std::string("C:\\a\\\xFF.pmx"), std::string("C:\\a\\\xFF.pmx")), "a name that is not UTF-8");
++    Check(R::Normal("C:/Models/Miku/miku.pmx") == L"c:\\models\\miku\\miku.pmx", "the normal form");
++
++    // The identities a rescan lets go: the character's own, and those of the same PMX's earlier import.
++    const std::map<std::string, Job> live = {
++        {"mmd/0123456789abcdef/skin_1", {"mmd/t/1111111111111111", "C:\\Models\\Miku\\miku.pmx"}},
++        {"mmd/0123456789abcdef/hair_2", {"mmd/t/2222222222222222", "C:\\Models\\Miku\\miku.pmx"}},
++        {"mmd/0123456789abcdef/face_3", {"mmd/t/2222222222222222", ""}},
++        {"mmd/fedcba9876543210/skin_1", {"mmd/t/3333333333333333", "c:/models/miku/MIKU.pmx"}},
++        {"mmd/aaaaaaaaaaaaaaaa/body_1", {"mmd/t/4444444444444444", "C:\\Models\\Other\\other.pmx"}},
++        {"mmd/aaaaaaaaaaaaaaaa/hair_2", {"mmd/t/1111111111111111", "C:\\Models\\Other\\other.pmx"}},
++        {"mmd/0123456789abcdef/none_4", {"", "C:\\Models\\Miku\\miku.pmx"}},
++    };
++    Check(R::Identities(live, prefix, "C:/Models/Miku/miku.pmx") ==
++              std::set<std::string>{"mmd/t/1111111111111111", "mmd/t/2222222222222222", "mmd/t/3333333333333333"},
++          "the character's textures and its model's earlier import's, each once, none without an identity");
++    Check(R::Identities(live, "mmd/aaaaaaaaaaaaaaaa/", "C:\\Models\\Elsewhere\\other.pmx") ==
++              std::set<std::string>{"mmd/t/1111111111111111", "mmd/t/4444444444444444"},
++          "by the prefix when the model was moved");
++    Check(R::Identities(live, "mmd/bbbbbbbbbbbbbbbb/", "C:\\Models\\Other\\other.pmx") ==
++              std::set<std::string>{"mmd/t/1111111111111111", "mmd/t/4444444444444444"},
++          "by the model for a new asset id");
++    Check(R::Identities(live, "mmd/bbbbbbbbbbbbbbbb/", "C:\\Models\\Nobody\\nobody.pmx").empty(), "nothing of it is live");
++    Check(R::Identities(std::map<std::string, Job>{}, prefix, "C:\\Models\\Miku\\miku.pmx").empty(), "no live jobs");
++
++    // Forgotten submissions: only the prefix's.
++    std::unordered_set<std::string> submitted = {"mmd/0123456789abcdef/skin_1", "mmd/0123456789abcdef/hair_2",
++                                                 "mmd/0123456789abcdee/skin_1", "mmd/aaaaaaaaaaaaaaaa/body_1"};
++    Check(R::Forget(submitted, prefix) == 2, "the character's two names");
++    Check(submitted == std::unordered_set<std::string>{"mmd/0123456789abcdee/skin_1", "mmd/aaaaaaaaaaaaaaaa/body_1"},
++          "the other characters' names stay submitted");
++    Check(R::Forget(submitted, prefix) == 0, "nothing more to forget");
++    std::set<std::string> ordered = {"mmd/0123456789abcdef/a_1", "mmd/0123456789abcdef/b_2"};
++    Check(R::Forget(ordered, prefix) == 2 && ordered.empty(), "any set of names");
++
++    // Waiting views: the prefix's only, errors cleared, families kept.
++    std::map<std::string, View> views = {
++        {"mmd/0123456789abcdee/zzz_9", {"mmd/t/5555555555555555", "none", "", ""}},
++        {"mmd/0123456789abcdef/hair_2", {"mmd/t/2222222222222222", "none", "", ""}},
++        {"mmd/0123456789abcdef/skin_1", {"mmd/t/1111111111111111", "error", "the model's source is unavailable", "t_actor_x"}},
++        {"mmd/0123456789abcdf0/body_1", {"mmd/t/6666666666666666", "automatic", "", "t_actor_y"}},
++    };
++    Check(R::Wait(views, prefix) == 2, "the character's two views");
++    Check(views["mmd/0123456789abcdef/hair_2"].state == "waiting", "a view without maps waits again");
++    Check(views["mmd/0123456789abcdef/skin_1"].state == "waiting" && views["mmd/0123456789abcdef/skin_1"].error.empty() &&
++              views["mmd/0123456789abcdef/skin_1"].family == "t_actor_x",
++          "an error is cleared, the family kept");
++    Check(views["mmd/0123456789abcdee/zzz_9"].state == "none" && views["mmd/0123456789abcdf0/body_1"].state == "automatic",
++          "the names beside the prefix's keep their views");
++    std::map<std::string, View> none;
++    Check(R::Wait(none, prefix) == 0, "no views");
++
++    // The console line's name.
++    Check(R::FileName("C:\\Models\\Miku\\miku.pmx") == "miku.pmx", "a file name after '\\'");
++    Check(R::FileName("E:/models/test.pmx") == "test.pmx", "a file name after '/'");
++    Check(R::FileName("miku.pmx") == "miku.pmx", "a file name alone");
++
++    // At most one rescan a second; a refused call does not move the second.
++    using Clock = R::Limit::Clock;
++    const Clock::time_point start = Clock::time_point{} + std::chrono::hours(1);
++    R::Limit limit;
++    Check(limit.Take(start), "the first call");
++    Check(!limit.Take(start), "the same moment");
++    Check(!limit.Take(start + std::chrono::milliseconds(999)), "within the second");
++    Check(limit.Take(start + std::chrono::seconds(1)), "a second later");
++    Check(!limit.Take(start + std::chrono::milliseconds(1500)), "half a second after that");
++    Check(limit.Take(start + std::chrono::seconds(2)), "a second after the last call taken");
++    R::Limit fresh;
++    Check(fresh.Take(Clock::time_point{}), "a first call at the clock's start");
++
++    std::cout << "PASS game rescan: " << g_checks
++              << " checks (prefixes, names, sources, one file's names, the identities a rescan lets go, forgotten "
++                 "submissions, waiting views, the console line's name, one rescan a second)\n";
++    return 0;
++}

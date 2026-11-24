@@ -6,6 +6,30 @@ source under `licenses/` are reserved documentation, excluded from the payload i
 builder includes the existing `licenses/oversized-skinning/` tree in the remixbinary add-on as its
 native source bundle, including the R6 change below.
 
+## A character imported again has its game maps looked for again (2026-11-24)
+
+The user's report of 2026-11-24 (maps copied beside a PMX after its first import were not applied when it was imported
+again in the same game), the native loader's ADR 0263. Imported with `inputs.py --file`; every other indexed input is
+unchanged.
+
+- `modules/gmcl_RTXFixesBinary_win64.dll` (5,682,176 bytes, SHA-256 `fc850271...dacc75d9`): the public base with the
+  seventeen patches of `tools/ci/pins.json`, built with `tools/ci/build_modules.ps1 -Only fixes`. The seventeenth,
+  [game-rescan.patch](licenses/oversized-skinning/game-rescan/game-rescan.patch)
+  ([source, tests](licenses/oversized-skinning/game-rescan/README.md)): `ToPBR.RescanGameSource(source, prefix)`. An
+  unchanged PMX keeps its asset id, so its material names, which were submitted once a session, while the worker kept
+  each model folder's scan and each texture's resolution ("no maps" too). The function forgets the character's
+  submissions (`mmd/<16 hex digits>/`), sets their views to waiting and queues a worker job that drops the folder
+  scans and lets go of the resolutions of the character's textures and of any texture drawn from the same PMX file;
+  the next resolution of each replaces the registered maps or, finding none, takes them back, and a manual choice
+  stays. Any server's Lua reaches it: only with the player's game maps on, one character's prefix, a `.pmx` on a local
+  drive, at most once a second; it opens no file. The console says
+  `[MaterialPipeline::ToPBR] Game maps looked at again: <PMX file name> (<n> textures)`.
+- `garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_topbr_conversion.lua`: the hook
+  `RTXToPBR_GameRescan` on the Model Hotloader's `MMDHL.Imported` (after each character import and Reload, with the
+  full asset id): it asks `RescanGameSource` with the library entry's source and the id's prefix, then forgets the
+  character's submitted and pending materials and starts a pass at once, which submits them again. With a module
+  without the function only the submissions start again; a refused rescan changes nothing.
+
 ## The texture cleanup runs the queued render calls first, whoever calls it (2026-11-23)
 
 The native loader's ADR 0262. Imported with `inputs.py --file`; every other indexed input is unchanged.

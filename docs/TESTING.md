@@ -4221,3 +4221,57 @@ separator now has 57 texts in each catalog.
 - Not covered: other code that keeps material variables across an uncache in the middle of a game; the render
   thread's own runs in normal frames (no longer needed for this cleanup); a refusal in the real game (it needs the
   engine guard absent or its flush off while queued rendering is on, covered only by the regression).
+
+## Hiding the debug windows (ADR 0264)
+
+- **LuaJIT** ([`test_motion_tab.py`](../tools/tests/test_motion_tab.py.md), scenario `debug_windows` of
+  [`motion_tab_harness.lua`](../tools/tests/motion_tab_harness.lua.md)): the debug window's Hide windows button (in the
+  button strip at the right, beside Next) hides it and the camera debug panel without closing them or sending
+  `mmdvmd_debug_close`, with a notice naming the key that shows them again (the context menu's as bound, or the
+  player's own); a preview step (`OpenDebugMenu`) leaves them hidden; `OnContextMenuOpen` shows both and gives the debug
+  window `MakePopup` again (once; a second open takes nothing); `mmdvmd_debug_panels` with `0`, `1` and nothing; the
+  player's key (`mmd_vmd_npc_debug_panels_key`) toggles once a press, not while held, not with a text field focused,
+  not at all when unset; `mmdvmd_debug` shows them; with no window nothing counts as hidden; the five new texts in the
+  nine catalogs, each `_fmt` text with one `%s`.
+- **PoC** ([`mmd_player_session.py`](../tools/qa/mmd_player_session.py.md) `--debug-windows --no-steps`, the probe's
+  `debug_windows` check; evidence `out/dbgwin` of the main checkout): debug mode on the test dance's first NPC at frame
+  60, the camera panel ticked. Shown: both windows visible, the cursor on, the keyboard in the window. After Hide
+  windows: both hidden, the cursor off (the game has the mouse), the keyboard out of the window, and the server still at
+  debug frame 60 with the NPC's right hand where the frame puts it (the pose held); the same seven seconds later. Held
+  context menu (`+menu_context`): both back, cursor and keyboard in the window; let go (`-menu_context`): they stay, the
+  window keeps the mouse. `mmdvmd_debug_panels 0` and `1`, and `ShowDebugMenu` on hidden windows: as expected. Closed:
+  debug mode ends as before (the server's debug frame cleared, the NPC back in its reference pose). Screenshots: the
+  windows with the button, the notice, the posed NPC alone, the windows back.
+- Not covered: a real key press for the player's own key (`input.IsKeyDown` is mocked in the harness; the game test
+  sends console commands).
+
+## A re-import looks at the model's folder again (ADR 0263)
+
+- **C++, standalone** ([`game_rescan_test.cpp`](../packages/fixes/licenses/oversized-skinning/game-rescan/tests/game_rescan_test.cpp),
+  the fixes' seventeenth patch, [game-rescan](../packages/fixes/licenses/oversized-skinning/game-rescan/README.md)):
+  `game_rescan.h` compiled alone with MSVC (`/W4 /WX /UNDEBUG`): prefixes (hex case, length, a NUL, a texture
+  identity's folder), names, sources (any case of `.pmx`, a NUL, a control character, 2048 and 2049 bytes), one file's
+  names (separators, case, dot segments, a folder outside ASCII, another drive, a name that is not UTF-8), the
+  identities a rescan lets go (by prefix, by the same model under another asset id, none without an identity),
+  forgotten submissions, waiting views, the console line's name, one rescan a second.
+- **Python** ([`test_game_rescan.py`](../tools/tests/test_game_rescan.py.md), in the Release gate): the folder's files are
+  the patch applied and `pins.json` builds it last; the binding is registered and refuses what it does not take; the
+  worker handles a `rescan` job before the identity logic; the regression above compiled and run; the driver's hook.
+  `test_cleanup_drain.py` and `test_lua_guards.py` now check their patches by their place in `pins.json`, not as the
+  last.
+- **LuaJIT** ([`topbr_harness.lua`](../tools/tests/topbr_harness.lua.md) through `test_topbr.py`): the hook on
+  `MMDHL.Imported` asks `RescanGameSource(source, "mmd/<first 16>/")` for a 64-digit id, forgets the asset's
+  submissions and the progress batch's entries, and the next pass submits them again; a refused or failing rescan and a
+  bad id (16, 63 or 65 digits, upper case, not hex) change nothing; a module without the function still resubmits.
+- **PoC, before the fix** ([`game_rescan_session.py`](../tools/qa/game_rescan_session.py.md) `--expect-none` with the
+  published package `0.0.0-dev.20261123212444+ec7d0621`; evidence `out/game-rescan/old1` of the main checkout): a
+  game-rip character ("Character A", a Silver Palace rip whose `_N` and `_MRA` maps sit in a subfolder) imported without
+  its maps, spawned: of its 28 materials 9 answered `none` (the parts the maps are for: face, skin, body, hair, its
+  weapon, a pupil) and 19 stayed `waiting` (never drawn, so never asked). The maps copied in and the PMX imported again:
+  the same asset id, the same 9 `none`, no "Imported game maps" line: the user's report, reproduced.
+- **PoC, with the fix** (the package built from the branch; `out/game-rescan/fix2`, `fix3` and `fix4`, three runs, the
+  same numbers each time): the same 9 `none` before;
+  maps copied in and imported again: the same asset id, one `Game maps looked at again: <PMX> (8 textures)` line, five
+  `Imported game maps` conversions and 6 materials `automatic` (both body sheets, the weapon, both hair sheets); the face,
+  the skin and a pupil stay `none`, as the converter keeps face, eye and skin materials as Remix draws them. PASS.
+- Not covered: maps copied into the folder without a re-import (taken at the next import or game, as before).

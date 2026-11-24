@@ -27,20 +27,20 @@
    "git": {
     "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "36b64fb8a1838a075e923b1a47719cd9cc87fe9d",
-    "dirty": false
+    "commit": "4173c298b6e0e75c1af4ba2c0e3243b8578c174f",
+    "dirty": true
    },
-   "imported": "2026-11-22T23:02:34+00:00"
+   "imported": "2026-11-24T07:43:53+00:00"
   },
   "mmd_vmd_npc/lua/weapons/gmod_tool/stools/mmd_vmd_npc.lua": {
    "source": "<repo>\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\weapons\\gmod_tool\\stools\\mmd_vmd_npc.lua",
    "git": {
     "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "14b0accd06a723377adc06bcc6d8608578f16509",
-    "dirty": false
+    "commit": "4173c298b6e0e75c1af4ba2c0e3243b8578c174f",
+    "dirty": true
    },
-   "imported": "2026-11-21T09:20:06+00:00"
+   "imported": "2026-11-24T07:43:53+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_camera.lua": {
    "source": "<repo>\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\cl_camera.lua",
@@ -53,14 +53,14 @@
    "imported": "2026-11-21T09:20:06+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_menu.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\cl_menu.lua",
+   "source": "<repo>\\packages\\character-motion-importer\\mmd_vmd_npc\\lua\\mmd_vmd_npc\\cl_menu.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
+    "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "63c325951ba62f72cefb2e2895e1bdb267558c88",
-    "dirty": false
+    "commit": "4173c298b6e0e75c1af4ba2c0e3243b8578c174f",
+    "dirty": true
    },
-   "imported": "2026-11-16T11:55:00+00:00"
+   "imported": "2026-11-24T07:43:53+00:00"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_importer.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r4\\out\\tmp\\stage-r4-own-scale\\cl_importer.lua",
@@ -269,9 +269,9 @@
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_menu.lua": {
-   "size": 281367,
-   "sha256": "2799ccda0695850435eb1e648243e422d0d370effcee7f177c1d40fcea4b246c",
-   "mtime_ns": 1794829693221445000,
+   "size": 288111,
+   "sha256": "c626b33041eebdcdb37cbe5b7b108495ec867bbe516b8f49245e7d4ee391c797",
+   "mtime_ns": 1795506055018034200,
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/cl_radial.lua": {
@@ -281,9 +281,9 @@
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/sh_core.lua": {
-   "size": 503315,
-   "sha256": "81d0b36cae6bf12edbc837c38da3491d2851dfc671c536a559b3555fe488061b",
-   "mtime_ns": 1795386939216088100,
+   "size": 511815,
+   "sha256": "2bc1ca94d7e0d2708df5f0d79f9080d9240da7ffec5a1259ee7b5af65160853e",
+   "mtime_ns": 1795506094034680500,
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/mmd_vmd_npc/sv_cache.lua": {
@@ -305,9 +305,9 @@
    "stored": "plain"
   },
   "mmd_vmd_npc/lua/weapons/gmod_tool/stools/mmd_vmd_npc.lua": {
-   "size": 70552,
-   "sha256": "90741d7b2dde98bf38b70b78c7cf0824d1c8b0b48b46cdcd2f533787c23ed081",
-   "mtime_ns": 1795252506831872500,
+   "size": 70948,
+   "sha256": "db932e2c837495db841d884cff99d451d4b48c39475699246834bdb90dadabfb",
+   "mtime_ns": 1795506066346097900,
    "stored": "plain"
   },
   "mmd_vmd_npc/materials/mmd_vmd_npc/alt.png": {

@@ -9,7 +9,7 @@ luajit tools\tests\motion_tab_harness.lua <scenario> <tab .lua> <add-on lua\mmd_
 ```
 
 Scenarios: `late`, `unavailable`, `windows`, `shared`, `fallback`, `broken`, `scale`, `guiscaler`, `translations`,
-`quiet`, `tool_list`, `timeline` (what each checks: the test's table). The add-on's catalogs and lookups are loaded
+`quiet`, `tool_list`, `timeline`, `debug_windows`, `dance_music` (what each checks: the test's table). The add-on's catalogs and lookups are loaded
 from `sh_core.lua` (the text between `MMDVMDNPC.I18N =` and its `if CLIENT then` block), then its client files run
 whole; `tool_list` also runs the tool file (`../weapons/gmod_tool/stools/mmd_vmd_npc.lua`) and builds its panel.
 Net messages the add-on receives are delivered to its own handlers with the values they carry, read in order
@@ -23,6 +23,12 @@ stay absent until a scenario sets them.
 
 Scenario `dance_music` (2026-11-16) loads `cl_menu.lua`'s music: `sound.PlayFile` gives a mock channel, `Entity` and
 `LocalPlayer` mock positions, and the follow hook runs by hand.
+
+Scenario `debug_windows` (2026-11-24, ADR 0264) opens the debug window and its camera debug panel, then hides and
+shows them through the window's button, `OnContextMenuOpen`, the `mmdvmd_debug_panels` command, the player's own key
+(`input.IsKeyDown` mocked, the Think hook run by hand; `MOUSE_FIRST` set to GMod's 107) and `mmdvmd_debug`;
+`MakePopup` counts its calls and `notification.AddLegacy` records its texts; it also checks the new texts in all nine
+catalogs.
 
 Writes nothing, sends nothing, renders nothing. Prints `PASS <scenario>` and exits 0, or fails an
 assertion with a message (non-zero exit).

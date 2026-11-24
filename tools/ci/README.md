@@ -99,9 +99,13 @@ R20-E adds the sixth `fixes.patches` entry, `upscaling-state/upscaling-state.pat
 `fixes.patched_tree.source`; the pins' shape and build procedure are unchanged. It supplies
 `RemixConfig.GetUpscalingState()` and returns `nil` with older runtimes.
 
-ADR 0262 adds the sixteenth and last `fixes.patches` entry, `cleanup-drain/cleanup-drain.patch` (the texture cleanup
+ADR 0262 adds the sixteenth `fixes.patches` entry, `cleanup-drain/cleanup-drain.patch` (the texture cleanup
 asks the engine guard's `nl_engine_guard_queue_flush_v1` to run the queued render calls first), and updates
 `fixes.patched_tree.source`; the pins' shape and build procedure are unchanged.
+
+ADR 0263 adds the seventeenth and last `fixes.patches` entry, `game-rescan/game-rescan.patch` (`ToPBR.RescanGameSource`:
+a Model Hotloader character imported again has its game maps looked for again), and updates
+`fixes.patched_tree.source` (`41dc27fc...`); the pins' shape and build procedure are unchanged.
 
 Every script runs on this machine too, without network where local copies are given:
 

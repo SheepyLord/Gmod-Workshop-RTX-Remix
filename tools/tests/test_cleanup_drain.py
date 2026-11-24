@@ -1,9 +1,10 @@
 """ADR 0262: the RTX fixes' sixteenth native patch, cleanup-drain. PerformTextureCleanup (the map-exit hook, the Lua global
 RTX_CleanupMapTextures, the console command rtx_flush_textures) has the engine guard run the render calls the main thread
 has queued before it uncaches every material, and skips the purge when nobody can make sure. The folder's complete
-files are the patch applied, pins.json builds the module with it last, the SDK-free regression passes, the export it
-asks for is the engine guard's, the fixes' Lua hook no longer asks the engine guard itself, and the engine guard's Lua
-surface and the PoC driver's kinds, counts and verdicts stay as the cleanup's lines and the QA runs need."""
+files are the patch applied, pins.json builds the module with it right after lua-guards, the SDK-free regression
+passes, the export it asks for is the engine guard's, the fixes' Lua hook no longer asks the engine guard itself, and
+the engine guard's Lua surface and the PoC driver's kinds, counts and verdicts stay as the cleanup's lines and the QA
+runs need. The behaviour checks read the copies the module is built from (the last patch folder holding each file)."""
 import json
 import os
 from pathlib import Path
@@ -24,8 +25,8 @@ PINS = json.loads((REPO / 'tools/ci/pins.json').read_text(encoding='utf-8'))['fi
 # Each file the patch changes and the folder holding its complete copy before it (the last earlier patch to change it).
 CHANGED = {'source/module.cpp': 'lua-guards'}
 NEW = ['source/cleanup_drain.h', 'tests/cleanup_drain_test.cpp']
-MODULE = FOLDER / 'source/module.cpp'
-HEADER = FOLDER / 'source/cleanup_drain.h'
+# The patched native tree (fixes.patched_tree.source) the sixteen patches give; the folder's README names it.
+SIXTEEN = 'c5f7ad05057b6706191c449c04d2575750c11f2a'
 CL_RTX = REPO / 'packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua'
 ENGINE_GUARD = REPO / 'engine_guard/queue_check.cpp'
 VS = Path(os.environ.get('ProgramFiles(x86)', 'C:/Program Files (x86)')) / 'Microsoft Visual Studio/2022/BuildTools'
@@ -51,6 +52,15 @@ def folders():
         if folder not in result:
             result.append(folder)
     return result
+
+
+def newest(path):
+    """The copy of `path` the module is built from: the last patch folder in pins.json's order that holds it."""
+    return [folder for folder in folders() if (folder / path).exists()][-1] / path
+
+
+MODULE = newest('source/module.cpp')
+HEADER = newest('source/cleanup_drain.h')
 
 
 def function(source, signature):
@@ -81,26 +91,30 @@ def parameters(declaration):
 class CleanupDrainPatchTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """The patch touches exactly its three files; module.cpp is lua-guards' copy (no patch between changed it) with
-        the patch applied, the header and the regression its added lines; pins.json builds the module with it last,
-        right after lua-guards."""
+        the patch applied, the header and the regression its added lines; pins.json builds the module with it right
+        after lua-guards (game-rescan, the seventeenth, follows it); the README names the tree the sixteen give, which
+        pins.json records while the patch is the last one."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), sorted(list(CHANGED) + NEW))
         order = [folder.name for folder in folders()]
-        self.assertEqual(order[-1], FOLDER.name)
+        at = order.index(FOLDER.name)
         for path, before in CHANGED.items():
             self.assertEqual(apply(patch, path, text(SKINNING / before / path)), text(FOLDER / path), path)
-            between = [name for name in order[order.index(before) + 1:-1] if (SKINNING / name / path).exists()]
+            between = [name for name in order[order.index(before) + 1:at] if (SKINNING / name / path).exists()]
             self.assertEqual(between, [], path)
         for path in NEW:
             self.assertEqual(added(patch, path), text(FOLDER / path).rstrip('\n').split('\n'), path)
-            earlier = [name for name in order[:-1] if (SKINNING / name / path).exists()]
+            earlier = [name for name in order[:at] if (SKINNING / name / path).exists()]
             self.assertEqual(earlier, [], path)
-        self.assertEqual(PINS['patches'][-1], PATCH.relative_to(REPO).as_posix())
-        self.assertEqual(PINS['patches'][-2], 'packages/fixes/licenses/oversized-skinning/lua-guards/lua-guards.patch')
+        patches = PINS['patches']
+        index = patches.index(PATCH.relative_to(REPO).as_posix())
+        self.assertEqual(patches[index - 1], 'packages/fixes/licenses/oversized-skinning/lua-guards/lua-guards.patch')
         self.assertIn('source/*', PINS['patch_paths'])
         readme = text(FOLDER / 'README.md')
         self.assertIn('sixteenth native patch', readme)
-        self.assertIn(PINS['patched_tree']['source'][:8], readme)
+        self.assertIn(SIXTEEN[:8], readme)
+        if patches[-1] == patches[index]:
+            self.assertEqual(PINS['patched_tree']['source'], SIXTEEN)
 
     def test_the_cleanup_asks_the_drain_first(self):
         """PerformTextureCleanup returns early for a closing module and the map-exit switch, then asks the drain, and
@@ -177,8 +191,8 @@ class CleanupDrainPatchTests(unittest.TestCase):
 @unittest.skipUnless(os.name == 'nt' and VS.is_dir(), 'MSVC x64 Build Tools unavailable')
 class CleanupDrainRegression(unittest.TestCase):
     def test_the_regression_passes(self):
-        """cleanup_drain_test.cpp with /W4 /WX on the header as the sixteen patches leave it (every folder's source/ and
-        tests/ in pins.json's order, later over earlier)."""
+        """cleanup_drain_test.cpp with /W4 /WX on the header as the patches leave it (every folder's source/ and tests/ in
+        pins.json's order, later over earlier)."""
         scratch = REPO / 'out/tmp'
         scratch.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(prefix='cleanup-drain-', dir=scratch) as folder:

@@ -6,6 +6,34 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A model imported again picks up the PBR maps added to its folder (2026-11-24)
+
+- **If you forgot to put a game character's PBR maps (its `_N`, `_MRA`, `_P` ... files) beside its PMX, copy them in
+  and import the PMX again (or use Reload): the maps are now applied in the same game session.** Before, imported game
+  PBR kept its first "no maps" answer until the game restarted. Maps you replace are taken the same way.
+- Why: importing an unchanged PMX again gives the same character (its id comes from the model itself, not from the
+  maps beside it), and the RTX fixes remembered its materials, its folder's files and each texture's answer for the
+  whole session.
+- Behind it ([ADR 0263](docs/decisions/0263-a-re-import-looks-at-the-models-folder-again.md)): the fixes' Lua hooks the
+  Model Hotloader's `MMDHL.Imported`; for that character the fixes' seventeenth native patch `game-rescan`
+  (`ToPBR.RescanGameSource`) forgets its submitted materials, the folder scans and its textures' answers, and the
+  materials are submitted again. The character keeps the maps it had until the new ones are ready. The call takes only
+  a Model Hotloader character and a `.pmx` on a local drive, once a second, while game maps are on. Tests: the patch's
+  standalone regression, `test_game_rescan.py`, the hook in the ToPBR harness, and `game_rescan_session.py` in the PoC
+  (the published package reproduced the report; the new one applied the maps).
+
+### The MMD animation player's debug windows hide without leaving debug mode (2026-11-24)
+
+- **Hide windows**, in the debug window's row of buttons, hides the debug window and the camera debug panel while debug
+  mode stays on: the character keeps the pose and expression shown, a preview that plays goes on, and you can walk,
+  look around and take screenshots. **Press the context menu key (C) to bring them back**, or set your own key in the
+  tool's Advanced tab ("Show/hide debug windows key"), or type `mmdvmd_debug_panels` (`0` hides, `1` shows); opening
+  debug mode again also brings them back. A notice says which key to press.
+- Behind it ([ADR 0264](docs/decisions/0264-hide-the-debug-windows-and-stay-in-debug-mode.md)): the windows are hidden,
+  not closed, so nothing is sent to the server and the mouse and keyboard go back to the game. The texts are in the
+  add-on's nine languages. Tests: the debug window's new scenario in `test_motion_tab.py` under LuaJIT, and
+  `mmd_player_session.py --debug-windows` in the PoC.
+
 ### The `rtx_flush_textures` console command no longer crashes the game (2026-11-23)
 
 - **The console command `rtx_flush_textures`, and add-ons that call the RTX fixes' texture cleanup

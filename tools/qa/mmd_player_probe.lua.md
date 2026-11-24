@@ -87,9 +87,24 @@ With `carriers` (`"build"` or `"find"`, [ADR 0259](../../docs/decisions/0259-imp
 2026-11-22; alone or after the others): the server half's `carriers_build` or `carriers_find` (up to 300 s), its answer
 in `data\nlmp_probe\carriers.json`, then `NLMP_CARRIERS` is printed.
 
+With `debug_windows` ("hide the debug windows and stay in debug mode", the user's request of 2026-11-24,
+[ADR 0264](../../docs/decisions/0264-hide-the-debug-windows-and-stay-in-debug-mode.md); after the others): the probe
+closes the first-run RTX Remix guide, has the server half write and build the test dance on the first NPC (`build`, which
+also selects it: the debug target), opens debug mode on the test dance at frame 60 through `MMDVMDNPC.ShowDebugMenu`
+and ticks the camera debug panel. At each phase it records whether
+the debug window and the camera panel are visible, whether the cursor is (`vgui.CursorVisible()`: whether the game
+has the mouse), whether the keyboard focus is inside the debug window, `MMDVMDNPC.DebugWindowsHidden()` and the server
+half's `debug_state` (the server's last debug frame and the first NPC's bones: debug mode and its pose): `shown`
+(screenshot `debug_shown`), after the window's Hide windows button (`hidden`, `debug_hidden_notice` with the notice),
+seven seconds later (`hidden_later`, `debug_hidden` once the notice has gone), with the context menu held
+(`+menu_context`, `context_open`) and let go (`context_closed`, `debug_back`), after `mmdvmd_debug_panels 0` and `1`
+(`command_hidden`, `command_shown`), hidden and opened again through `ShowDebugMenu` (`reopened`), and after the window
+is closed (`closed`), then the server half's `cleanup` removes the test dance. Also the button's text, tooltip and width
+(`button`). Everything goes to `data\nlmp_probe\debug_windows.json`, then `NLMP_DEBUG_WINDOWS` is printed.
+
 Settings (a line the driver puts in front): `NLMP_SETTINGS = {window = 4, settle = 8, manager = false,
-tab = false, features = false, steps = true, qol = false, camera = false, copies = false, hide = true, carriers = "",
-motions = {}}`.
+tab = false, features = false, steps = true, qol = false, camera = false, copies = false, hide = true,
+debug_windows = false, carriers = "", motions = {}}`.
 
 Console output: `NLMP_CLIENT_READY`, `NLMP_SETUP <json>`, `NLMP_MOTIONS`, one `NLMP_STEP <step> max <n> ms`
 line per step, `NLMP_ERROR <message>` on a failure, `NL_SHOT <label>` per camera screenshot, then `NLMP_DONE` and

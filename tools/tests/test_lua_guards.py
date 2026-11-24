@@ -84,6 +84,13 @@ def folders():
     return result
 
 
+def newest(path):
+    """The copy of `path` the module is built from: the last patch folder in pins.json's order that holds it. The
+    behaviour checks below read these, so a later patch that changes a file is checked too (cleanup-drain changed
+    module.cpp after this patch, game-rescan to_pbr.cpp)."""
+    return [folder for folder in folders() if (folder / path).exists()][-1] / path
+
+
 def runtime_declarations():
     """Every text, key-binding or hash-list option a runtime patch declares in the runtime itself: name -> types. The
     runtime's own unit tests (files under tests/) declare options of their own that the shipped d3d9.dll does not have
@@ -133,7 +140,8 @@ class LuaGuardTests(unittest.TestCase):
     def test_complete_files_are_the_patch_applied(self):
         """The patch touches exactly its files; each changed one is the last earlier copy with the patch applied (no
         patch between changed it), each new one the patch's added lines. pins.json builds the module with it right
-        after topbr-scope; cleanup-drain, the sixteenth, follows it and changes module.cpp again."""
+        after topbr-scope; cleanup-drain, the sixteenth, follows it and changes module.cpp again (and game-rescan, the
+        seventeenth, to_pbr.cpp)."""
         patch = PATCH.read_text(encoding='utf-8')
         self.assertEqual(re.findall(r'^diff --git a/(\S+) b/\1$', patch, re.M), sorted(list(CHANGED) + NEW))
         order = [folder.name for folder in folders()]
@@ -147,19 +155,19 @@ class LuaGuardTests(unittest.TestCase):
         patches = PINS['patches']
         at = patches.index(PATCH.relative_to(REPO).as_posix())
         self.assertEqual(patches[at - 1], 'packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch')
-        self.assertEqual(patches[at + 1:], ['packages/fixes/licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch'])
+        self.assertEqual(patches[at + 1], 'packages/fixes/licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch')
         self.assertIn('source/*', PINS['patch_paths'])
 
     def test_set_config_variable_takes_only_the_packages_options(self):
         """The one generic setter asks the policy before the Remix API; every other setter of the binding names its
         option; the review's list is refused by name; the policy needs no SDK."""
-        binding = text(FOLDER / 'source/remixapi/config_lua_bindings.cpp')
+        binding = text(newest('source/remixapi/config_lua_bindings.cpp'))
         setter = body(binding, 'LUA_FUNCTION(RemixConfig_SetConfigVariable) {')
         self.assertIn('RemixOptionPolicy::LuaMaySet(key, value, &reason)', setter)
         self.assertLess(setter.index('LuaMaySet'), setter.index('configManager.SetConfigVariable(key, value)'))
         keys = re.findall(r'configManager\.SetConfigVariable\(([^,]+),', binding)
         self.assertEqual([key for key in keys if not key.startswith('"rtx.')], ['key'])
-        policy = text(FOLDER / 'source/remix_option_policy.h')
+        policy = text(newest('source/remix_option_policy.h'))
         refused = body(policy, 'inline bool Refused(std::string_view key) {')
         for name in ('"rtx.capture"', '"rtx.enablereplacement"', '"rtx.profiler."', '"rtx.automation."', '"rtx.freecam."',
                      '"rtx.skyprobeside"', '"rtx.welcomemessage"', '"rtx.splashmessagedisplaytimeseconds"',
@@ -168,7 +176,7 @@ class LuaGuardTests(unittest.TestCase):
             self.assertIn(name, refused)
         self.assertLess(body(policy, 'inline bool LuaMaySet(').index('Refused(key)'),
                         body(policy, 'inline bool LuaMaySet(').index('Allowed(key)'))
-        self.assertIn('"rtx.watersim.rings.texture"', body(text(FOLDER / 'source/lua_path_policy.h'),
+        self.assertIn('"rtx.watersim.rings.texture"', body(text(newest('source/lua_path_policy.h')),
                                                           'inline bool RemixPathOption(std::string_view key) {'))
         self.assertNotIn('#include <windows', policy.lower())
 
@@ -212,7 +220,7 @@ class LuaGuardTests(unittest.TestCase):
         """"options" lists through ListOptions and "maps" scans through SourceFolder, both after the source check;
         "maps" takes only images the folder lists; an automatic resolution counts only a usable model as its source;
         no worker path opens a model folder otherwise."""
-        source = text(FOLDER / f'{TO_PBR}/to_pbr.cpp')
+        source = text(newest(f'{TO_PBR}/to_pbr.cpp'))
         worker = body(source, 'void TextureProcessor::WorkerThreadFunc() {')
         self.assertIn('GamePBR::SourceModels sources;', worker)
         self.assertNotIn('discovery.Get(', worker)
@@ -226,7 +234,7 @@ class LuaGuardTests(unittest.TestCase):
                         maps.index('convert(&selected)'))
         self.assertNotIn('std::ifstream source(std::filesystem::u8path(gameJob.source)', worker)
         self.assertIn('const bool sourceReadable = check.usable;', worker)
-        header = text(FOLDER / f'{TO_PBR}/game_source.h')
+        header = text(newest(f'{TO_PBR}/game_source.h'))
         self.assertIn('throw std::runtime_error(SourceRefusal);', body(header, 'inline Discovery& SourceFolder('))
         self.assertIn('options.error = SourceRefusal;', body(header, 'inline Options ListOptions('))
         self.assertIn('ParsePMX(Read(pmx, 256ull * 1024 * 1024))', header)
@@ -234,22 +242,22 @@ class LuaGuardTests(unittest.TestCase):
     def test_the_model_reload_runs_single_threaded_twice_a_map(self):
         """The binding asks the material system's thread mode and the allowance before it flushes; the allowance
         starts again when the module opens for a map; cl_rtx.lua's last call still switches queued rendering off."""
-        module = text(FOLDER / 'source/module.cpp')
+        module = text(newest('source/module.cpp'))
         binding = body(module, 'LUA_FUNCTION(ReloadModelsAfterHardwareSkinningSettings_Lua) {')
         self.assertIn('materials && materials->GetThreadMode() == MATERIAL_SINGLE_THREADED', binding)
         self.assertLess(binding.index('g_modelReloads.Take(singleThreaded, &reason)'),
                         binding.index('ModelLoadHooks::Instance().ReloadModelsAfterSettings();'))
         self.assertIn('g_modelReloads.Reset();', body(module, 'GMOD_MODULE_OPEN() {'))
-        self.assertIn('constexpr int ReloadsPerLuaState = 2;', text(FOLDER / 'source/model_reload_policy.h'))
+        self.assertIn('constexpr int ReloadsPerLuaState = 2;', text(newest('source/model_reload_policy.h')))
         lua = text(REPO / 'packages/fixes/garrysmod/garrysmod/addons/remixbinary/lua/autorun/cl_rtx.lua')
         self.assertIn('RunConsoleCommand("mat_queue_mode", "0")', lua)
 
 
 @unittest.skipUnless(os.name == 'nt' and VS.is_dir(), 'MSVC x64 Build Tools unavailable')
 class LuaGuardRegressions(unittest.TestCase):
-    """The patch's four regressions, compiled with /W4 /WX on the module's headers as the sixteen patches leave them
-    (every folder's files in pins.json's order, later over earlier), and the option policy's verdict on every option
-    the package's Lua and data set."""
+    """The patch's four regressions, compiled with /W4 /WX on the module's headers as the patches leave them (every
+    folder's files in pins.json's order, later over earlier), and the option policy's verdict on every option the
+    package's Lua and data set."""
 
     @classmethod
     def setUpClass(cls):

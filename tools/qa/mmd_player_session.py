@@ -52,6 +52,7 @@ def settings_lua(args) -> str:
             f'features = {"true" if args.features else "false"}, steps = {"false" if args.no_steps else "true"}, '
             f'qol = {"true" if args.qol else "false"}, camera = {"true" if args.camera else "false"}, '
             f'copies = {"true" if args.copies else "false"}, hide = {"false" if args.hide_off else "true"}, '
+            f'debug_windows = {"true" if args.debug_windows else "false"}, '
             f'carriers = {json.dumps(args.carriers or "")}, motions = {{{motions}}}}}\n')
 
 
@@ -62,9 +63,10 @@ def run_command(args, evidence: Path, probe: Path) -> list[str]:
                '--addons', '--players', '1', '--map', args.map, '--width', str(args.width), '--height', str(args.height),
                '--console', 'engine_no_focus_sleep 0',
                '--console', 'lua_run RunString(file.Read("nlmp_probe/server.txt","DATA"),"nlmp_server")']
-    # The camera checks take screenshots: each "NL_SHOT <label>" the probe prints is answered with
+    # The camera and debug-window checks take screenshots: each "NL_SHOT <label>" the probe prints is answered with
     # nl_shot_taken, until NL_SHOT_DONE (--lua-shots); the other checks need none (--lua-manual).
-    completion = ['--lua-shots', str(args.timeout), '--settle', '2'] if args.camera else ['--lua-manual']
+    shots = args.camera or args.debug_windows
+    completion = ['--lua-shots', str(args.timeout), '--settle', '2'] if shots else ['--lua-manual']
     command += ['--lua', str(probe), *completion, '--screenshots', '0', '--timeout', str(args.timeout),
                 '--hang-grace', str(args.hang_grace)]
     if args.workshop:
@@ -130,6 +132,8 @@ def main(argv=None) -> int:
                         help='with --camera: turn on the RTX fixes\' body and weapon copies ("Local player shadow") for the checks')
     parser.add_argument('--hide-off', action='store_true',
                         help='with --camera: keep the option off for the whole run (a control: the hide never runs)')
+    parser.add_argument('--debug-windows', action='store_true',
+                        help='also hide the debug windows and bring them back (ADR 0264), with screenshots')
     parser.add_argument('--carriers', choices=('build', 'find'),
                         help='builds that follow an imported character (ADR 0259): "build" builds the test dance and dances it at '
                              'another size; "find", in a later run with the same --data, finds it at a third size')
@@ -231,6 +235,9 @@ def main(argv=None) -> int:
     camera = evidence / args.label / 'results' / 'camera.json'
     if camera.is_file():
         print('camera:', camera, '(screenshots in', evidence / 'poc' / args.label, ')')
+    windows = evidence / args.label / 'results' / 'debug_windows.json'
+    if windows.is_file():
+        print('debug windows:', windows, '(screenshots in', evidence / 'poc' / args.label, ')')
     carriers = evidence / args.label / 'results' / 'carriers.json'
     if carriers.is_file():
         print('carriers:', carriers)

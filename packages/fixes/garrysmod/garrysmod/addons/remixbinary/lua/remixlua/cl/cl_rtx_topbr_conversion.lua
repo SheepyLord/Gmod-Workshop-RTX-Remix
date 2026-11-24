@@ -841,6 +841,38 @@ hook.Add("Think", "RTXToPBR_GameMaps", function()
     end
 end)
 
+-- The native loader's ADR 0263: a character imported again in the same game. An unchanged PMX keeps its asset id, so
+-- its materials keep their names (mmd/<the id's first 16 hex digits>/...) and were submitted once for the session:
+-- maps put beside the model after its first import were not looked for until a restart. The Model Hotloader runs
+-- MMDHL.Imported with the asset id after each character import and Reload: the native converter forgets the
+-- character's submissions and has its worker read the model's folder again (ToPBR.RescanGameSource), and a pass
+-- started at once submits the character's materials again. With a module that has no RescanGameSource only the
+-- submissions start again; a refused rescan changes nothing. The hook returns nothing (hook.Run stops at a value).
+hook.Add("MMDHL.Imported", "RTXToPBR_GameRescan", function(id)
+    if not isstring(id) or #id ~= 64 or id:find("[^0-9a-f]") then return end
+    local entries = mmdhl and mmdhl.library and mmdhl.library.entries
+    local entry = istable(entries) and entries[id] or nil
+    local source = istable(entry) and entry.source or nil
+    if not isstring(source) or source == "" then return end
+    local prefix = "mmd/" .. id:sub(1, 16) .. "/"
+    local p = GetProcessor()
+    if p and p.RescanGameSource then
+        local ok, rescanned = pcall(p.RescanGameSource, source, prefix)
+        if not ok or rescanned ~= true then return end
+    end
+    for name in pairs(gameSubmitted) do
+        if name:sub(1, #prefix) == prefix then gameSubmitted[name] = nil end
+    end
+    -- Out of the progress batch until submitted again, so each counts once.
+    for name in pairs(gamePending) do
+        if name:sub(1, #prefix) == prefix then
+            gamePending[name], gamePendingCount, gameBatchTotal = nil, gamePendingCount - 1, gameBatchTotal - 1
+        end
+    end
+    if gamePendingCount <= 0 then gamePending, gamePendingCount, gameBatchTotal = {}, 0, 0 end
+    gameAssets, gameNext = nil, 0
+end)
+
 -- R23 (the user's item 3): how many imported game materials are still converting, for the companion's
 -- progress notice. Returns pending, total of the current batch; the batch ends when none is pending.
 -- At most 4 calls a second are useful: each pending material is one native view read.

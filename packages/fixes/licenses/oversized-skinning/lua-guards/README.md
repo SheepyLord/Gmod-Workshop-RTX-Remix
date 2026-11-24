@@ -144,8 +144,8 @@ The four regressions compile alone with MSVC (`cl /EHsc /std:c++17 /W4 /WX /UNDE
 - [model_reload_policy_test.cpp](tests/model_reload_policy_test.cpp): refused under queued rendering without counting,
   two reloads, then none, two again after a reset.
 
-The loader's Release gate compiles and runs all four on the headers as the patches leave them (sixteen since
-[cleanup-drain](../cleanup-drain/README.md)), checks the
+The loader's Release gate compiles and runs all four on the headers as the patches leave them (seventeen since
+[game-rescan](../game-rescan/README.md)), checks the
 folder's files against the patch, checks that every text, key or hash option a runtime patch declares has a verdict,
 and has the option regression judge every option the package's Lua and data set
 ([test_lua_guards.py](../../../../../tools/tests/test_lua_guards.py.md)).

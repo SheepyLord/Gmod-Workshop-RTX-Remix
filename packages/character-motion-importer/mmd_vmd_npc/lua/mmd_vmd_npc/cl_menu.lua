@@ -209,6 +209,10 @@ CreateClientConVar("mmd_vmd_npc_build_frames_per_batch", tostring(MMDVMDNPC.Defa
 CreateClientConVar("mmd_vmd_npc_playback_hz", tostring(MMDVMDNPC.DefaultPlaybackHz or 120), true, false, L("mmd_vmd_npc.ui.playback_updates_per_second"))
 CreateClientConVar("mmd_vmd_npc_hide_hud", "1", true, false, L("mmd_vmd_npc.ui.hide_hud"))
 CreateClientConVar("mmd_vmd_npc_hide_hud_key", "0", true, false, "Key code that toggles hiding the HUD during camera motion")
+-- The user's request of 2026-11-24 (the native loader's ADR 0264): the player's own key that hides the motion and
+-- camera debug windows or shows them again (0: none; the context menu's key still shows them).
+local debugWindowsKeyVar = CreateClientConVar("mmd_vmd_npc_debug_panels_key", "0", true, false,
+    "Key code that hides the motion and camera debug windows or shows them again")
 CreateClientConVar("mmd_vmd_npc_flex_scale_all", "1", true, false, L("mmd_vmd_npc.debug.flex_scale_all"))
 CreateClientConVar("mmd_vmd_npc_flex_scale_eye", "1", true, false, L("mmd_vmd_npc.debug.flex_scale_eye"))
 CreateClientConVar("mmd_vmd_npc_flex_scale_brow", "1", true, false, L("mmd_vmd_npc.debug.flex_scale_brow"))
@@ -4134,6 +4138,113 @@ function MMDVMDNPC.OpenCameraDebugPanel(debugFrame)
     end
 end
 
+-- Hiding the debug windows (the user's request of 2026-11-24, the native loader's ADR 0264) -----------------------
+-- The motion debug window and the camera debug panel are hidden, not closed: debug mode stays on (the held pose, the
+-- frame shown, a preview that plays, the camera preview), and hidden windows hold neither the mouse nor the keyboard,
+-- so the player can move, look around and take screenshots. The context menu's key, the player's own key
+-- (mmd_vmd_npc_debug_panels_key), the console command mmdvmd_debug_panels or opening debug mode again from a menu
+-- shows them where they were.
+local function debug_windows()
+    local windows = {}
+    if IsValid(MMDVMDNPC.DebugFrame) then windows[#windows + 1] = MMDVMDNPC.DebugFrame end
+    if IsValid(MMDVMDNPC.CameraDebugPanel) then windows[#windows + 1] = MMDVMDNPC.CameraDebugPanel end
+    return windows
+end
+
+-- The key that shows the windows again, as the notice and the button's tooltip name it: the player's own key, else
+-- the context menu's, else the console command.
+local function debug_windows_key()
+    local code = debugWindowsKeyVar and debugWindowsKeyVar:GetInt() or 0
+    if code > 0 and input and input.GetKeyName then
+        local name = input.GetKeyName(code)
+        if isstring(name) and name ~= "" then return string.upper(name) end
+    end
+    local bound = input and input.LookupBinding and input.LookupBinding("+menu_context")
+    if isstring(bound) and bound ~= "" then return string.upper(bound) end
+    return "mmdvmd_debug_panels"
+end
+
+function MMDVMDNPC.DebugWindowsHidden()
+    if MMDVMDNPC.DebugPanelsHidden == true and #debug_windows() == 0 then MMDVMDNPC.DebugPanelsHidden = false end
+    return MMDVMDNPC.DebugPanelsHidden == true
+end
+
+-- true hides the debug windows, false shows them again; returns whether anything changed.
+function MMDVMDNPC.SetDebugWindowsHidden(hidden)
+    local windows = debug_windows()
+    if hidden then
+        if #windows == 0 or MMDVMDNPC.DebugPanelsHidden == true then return false end
+        for _, window in ipairs(windows) do window:SetVisible(false) end
+        MMDVMDNPC.DebugPanelsHidden = true
+        if notification and notification.AddLegacy then
+            notification.AddLegacy(LF("mmd_vmd_npc.debug.panels_hidden_fmt", debug_windows_key()), NOTIFY_HINT or 3, 6)
+        end
+        return true
+    end
+    if MMDVMDNPC.DebugPanelsHidden ~= true then return false end
+    MMDVMDNPC.DebugPanelsHidden = false
+    for _, window in ipairs(windows) do window:SetVisible(true) end
+    -- The camera panel is a plain window beside the debug window, which takes the mouse and keyboard again.
+    if IsValid(MMDVMDNPC.DebugFrame) then MMDVMDNPC.DebugFrame:MakePopup() end
+    return true
+end
+
+function MMDVMDNPC.ToggleDebugWindows()
+    return MMDVMDNPC.SetDebugWindowsHidden(not MMDVMDNPC.DebugWindowsHidden())
+end
+
+-- Debug mode opened from a menu or the console shows hidden windows again; the window's own buttons, its timeline
+-- and a playing preview go through OpenDebugMenu alone and leave them as they are.
+function MMDVMDNPC.ShowDebugMenu(motionID, vmdFrame)
+    MMDVMDNPC.SetDebugWindowsHidden(false)
+    MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
+end
+
+-- The context menu's key brings hidden windows back (Sandbox and the gamemodes derived from it).
+hook.Add("OnContextMenuOpen", "MMDVMDNPCDebugWindows", function()
+    if MMDVMDNPC.DebugWindowsHidden() then MMDVMDNPC.SetDebugWindowsHidden(false) end
+end)
+
+-- The player's own key hides the windows or shows them again: not while typing (a text field, the chat) or in the
+-- game's menu. input.WasKeyPressed works only in Move hooks, so Think detects the press itself.
+local debugWindowsKeyWasDown = false
+hook.Add("Think", "MMDVMDNPCDebugWindowsKey", function()
+    local key = debugWindowsKeyVar and debugWindowsKeyVar:GetInt() or 0
+    if key <= 0 then
+        debugWindowsKeyWasDown = false
+        return
+    end
+    local down
+    if MOUSE_FIRST and key >= MOUSE_FIRST then
+        down = input.IsMouseDown and input.IsMouseDown(key) or false
+    else
+        down = input.IsKeyDown and input.IsKeyDown(key) or false
+    end
+    if down and not debugWindowsKeyWasDown and (MMDVMDNPC.DebugWindowsHidden() or #debug_windows() > 0) then
+        local focus = vgui.GetKeyboardFocus and vgui.GetKeyboardFocus()
+        local typing = (IsValid(focus) and isfunction(focus.GetClassName) and focus:GetClassName() == "TextEntry")
+            or (gui.IsGameUIVisible and gui.IsGameUIVisible())
+        if not typing then
+            local ply = LocalPlayer()
+            typing = IsValid(ply) and ply.IsTyping and ply:IsTyping() or false
+        end
+        if not typing then MMDVMDNPC.ToggleDebugWindows() end
+    end
+    debugWindowsKeyWasDown = down == true
+end)
+
+-- mmdvmd_debug_panels hides the debug windows or shows them again; 0 hides them, 1 shows them.
+concommand.Add("mmdvmd_debug_panels", function(_, _, args)
+    local wanted = args and args[1]
+    if wanted == "0" then
+        MMDVMDNPC.SetDebugWindowsHidden(true)
+    elseif wanted == "1" then
+        MMDVMDNPC.SetDebugWindowsHidden(false)
+    else
+        MMDVMDNPC.ToggleDebugWindows()
+    end
+end)
+
 function MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
     motionID = tostring(motionID or "")
     if motionID == "" then return end
@@ -4145,6 +4256,8 @@ function MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
     if not IsValid(frame) then
         frame = vgui.Create("DFrame")
         MMDVMDNPC.DebugFrame = frame
+        -- A new window is shown (ADR 0264).
+        MMDVMDNPC.DebugPanelsHidden = false
         local screenW = ScrW and ScrW() or 1280
         local screenH = ScrH and ScrH() or 720
         local menuScale = MMDVMDNPC.MenuScale()
@@ -4157,6 +4270,7 @@ function MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
             -- No more debug frames wanted: an in-flight response arriving
             -- after this must not silently reopen the window.
             MMDVMDNPC.DebugMenuWanted = false
+            MMDVMDNPC.DebugPanelsHidden = false
             -- Tell the server so it drops the held flex pose and restores the
             -- target's clean reference state (unless a dance is playing).
             net.Start("mmdvmd_debug_close")
@@ -4436,6 +4550,17 @@ function MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
             MMDVMDNPC.OpenDebugMenu(frame.MotionID, frame.NextFrame or frame.ActiveFrame or 0)
         end
 
+        -- ADR 0264: both debug windows out of the way, debug mode kept (to move and take screenshots).
+        frame.HideWindows = vgui.Create("DButton", controls)
+        frame.HideWindows:Dock(RIGHT)
+        frame.HideWindows:DockMargin(0, 0, 6, 0)
+        frame.HideWindows:SetText(L("mmd_vmd_npc.debug.hide_panels"))
+        surface.SetFont(frame.HideWindows:GetFont() or "DermaDefault")
+        frame.HideWindows:SetWide(math.max(110, (surface.GetTextSize(L("mmd_vmd_npc.debug.hide_panels"))) + 24))
+        frame.HideWindows.DoClick = function()
+            MMDVMDNPC.SetDebugWindowsHidden(true)
+        end
+
         frame.Refresh = vgui.Create("DButton", controls)
         frame.Refresh:Dock(FILL)
         frame.Refresh:SetText(L("mmd_vmd_npc.debug.refresh"))
@@ -4508,6 +4633,10 @@ function MMDVMDNPC.OpenDebugMenu(motionID, vmdFrame)
     frame.MotionID = motionID
     frame.RequestedFrame = vmdFrame
     frame:SetTitle(LF("mmd_vmd_npc.debug.title_fmt", motionID))
+    -- The key the tooltip names follows the player's settings (ADR 0264).
+    if IsValid(frame.HideWindows) then
+        frame.HideWindows:SetTooltip(LF("mmd_vmd_npc.debug.hide_panels_tip_fmt", debug_windows_key()))
+    end
     request_debug(motionID, vmdFrame)
 end
 
@@ -5512,7 +5641,8 @@ end)
 net.Receive("mmdvmd_debug_open", function()
     local motionID = net.ReadString()
     local requestedFrame = net.ReadInt(32)
-    MMDVMDNPC.OpenDebugMenu(motionID, requestedFrame)
+    -- Asked for by the player: hidden debug windows come back (ADR 0264).
+    MMDVMDNPC.ShowDebugMenu(motionID, requestedFrame)
 end)
 
 -- Height of a panel stacked from TOP-docked children (and its padding).
@@ -6178,7 +6308,7 @@ function MMDVMDNPC.BuildMotionManager(parent, opts)
     list.DoDoubleClick = function(_, _, line)
         update_selection(line)
         if line and line.MotionID then
-            MMDVMDNPC.OpenDebugMenu(line.MotionID, DEBUG_REFERENCE_FRAME)
+            MMDVMDNPC.ShowDebugMenu(line.MotionID, DEBUG_REFERENCE_FRAME)
         end
     end
 
@@ -6200,7 +6330,7 @@ function MMDVMDNPC.BuildMotionManager(parent, opts)
         local selected = list:GetSelectedLine()
         local line = selected and list:GetLine(selected)
         if line and line.MotionID then
-            MMDVMDNPC.OpenDebugMenu(line.MotionID, DEBUG_REFERENCE_FRAME)
+            MMDVMDNPC.ShowDebugMenu(line.MotionID, DEBUG_REFERENCE_FRAME)
         end
     end
 
@@ -6489,7 +6619,7 @@ concommand.Add("mmdvmd_debug", function(_, _, args)
         print("[MMD VMD] " .. L("mmd_vmd_npc.console.debug_usage"))
         return
     end
-    MMDVMDNPC.OpenDebugMenu(motionID, args and args[2] or DEBUG_REFERENCE_FRAME)
+    MMDVMDNPC.ShowDebugMenu(motionID, args and args[2] or DEBUG_REFERENCE_FRAME)
 end)
 
 hook.Add("PlayerBindPress", "MMD_SpaceToStopAnimation", function(ply, bind, pressed)

@@ -2,8 +2,9 @@
 
 GPL-2.0 changes to `gmcl_RTXFixesBinary_win64.dll`; the parent [COPYING](../COPYING) applies.
 [cleanup-drain.patch](cleanup-drain.patch) is the sixteenth native patch, after [lua-guards](../lua-guards/README.md);
-[pins.json](../../../../../tools/ci/pins.json) (`fixes.patches`) builds the module with it last and records the patched
-native tree the sixteen give (`fixes.patched_tree.source` `c5f7ad05...`; `public` and `premake5.lua` unchanged). The
+[pins.json](../../../../../tools/ci/pins.json) (`fixes.patches`) built the module with it last, and recorded the patched
+native tree the sixteen give (`fixes.patched_tree.source` `c5f7ad05...`; `public` and `premake5.lua` unchanged), until
+[game-rescan](../game-rescan/README.md), the seventeenth, followed it. The
 complete changed file is [module.cpp](source/module.cpp); the new ones [cleanup_drain.h](source/cleanup_drain.h) and the
 regression [cleanup_drain_test.cpp](tests/cleanup_drain_test.cpp), as the work tree has them (CRLF). The build applies
 only the patch's `source/` part. Made in a scratch `git clone --shared` of the user's fork clone, under the worktree's
@@ -75,10 +76,10 @@ second not asked); both -1; none loaded; a null between; the largest count; an e
 reason without its NUL.
 
 The loader's Release gate ([test_cleanup_drain.py](../../../../../tools/tests/test_cleanup_drain.py.md)) compiles and
-runs it on the header as the sixteen patches leave it, checks the folder's files against the patch and the patch's
-place in `pins.json`, that `PerformTextureCleanup` asks the drain before it starts, that both callers reach the uncache
-only through it, that the export name and signature are the ones `engine_guard/queue_check.cpp` exports, and that the
-fixes' Lua hook no longer asks the engine guard itself.
+runs it on the header as the patches leave it (seventeen since game-rescan), checks the folder's files against the
+patch and the patch's place in `pins.json`, that `PerformTextureCleanup` asks the drain before it starts, that both
+callers reach the uncache only through it, that the export name and signature are the ones
+`engine_guard/queue_check.cpp` exports, and that the fixes' Lua hook no longer asks the engine guard itself.
 
 Validated build: 5,658,112 bytes, SHA-256 `b0391bf290dbdae617174f656250184502d4c53c0b6a37d73eed1641696eee48`
 (`build_modules.ps1 -Only fixes` with the user's fork clone, under a `subst` alias of the worktree's `out`,

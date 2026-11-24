@@ -1230,11 +1230,16 @@ function TOOL.BuildCPanel(panel)
         local current = GetConVar("mmd_vmd_npc_motion")
         local motionID = current and current:GetString() or ""
         if motionID ~= "" and MMDVMDNPC and MMDVMDNPC.OpenDebugMenu then
-            MMDVMDNPC.OpenDebugMenu(motionID, -1)
+            -- Hidden debug windows come back too (ADR 0264).
+            local open = MMDVMDNPC.ShowDebugMenu or MMDVMDNPC.OpenDebugMenu
+            open(motionID, -1)
         else
             print("[MMD VMD] " .. L("mmd_vmd_npc.error.select_motion"))
         end
     end)
+    -- ADR 0264: the player's own key that hides the debug windows or shows them again.
+    key_binder(advancedTab, L("mmd_vmd_npc.ui.debug_panels_key"), "mmd_vmd_npc_debug_panels_key", Color(180, 180, 180))
+    advancedTab:Help(L("mmd_vmd_npc.ui.debug_panels_key_help"))
 
     -- Camera tab -----------------------------------------------------------------
     section(cameraTab, L("mmd_vmd_npc.ui.tab.camera"), Color(120, 200, 255))

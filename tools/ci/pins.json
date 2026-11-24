@@ -35,7 +35,8 @@
       "packages/fixes/licenses/oversized-skinning/eye-texgen/eye-texgen.patch",
       "packages/fixes/licenses/oversized-skinning/topbr-scope/topbr-scope.patch",
       "packages/fixes/licenses/oversized-skinning/lua-guards/lua-guards.patch",
-      "packages/fixes/licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch"
+      "packages/fixes/licenses/oversized-skinning/cleanup-drain/cleanup-drain.patch",
+      "packages/fixes/licenses/oversized-skinning/game-rescan/game-rescan.patch"
     ],
     "patch_paths": [
       "source/*",
@@ -43,7 +44,7 @@
       "public/*"
     ],
     "patched_tree": {
-      "source": "c5f7ad05057b6706191c449c04d2575750c11f2a",
+      "source": "41dc27fc1717a5e3d7b35197f76a1bfdf999d358",
       "public": "7165af4dc4ab4d841a19b7405211b27190bddea6",
       "premake5.lua": "b308ed2f6b0b31aa7b69f0ee576c0bcf5f666cd1"
     },

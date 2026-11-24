@@ -44,6 +44,15 @@ The cleanup's own drain (2026-11-23,
 patch [cleanup-drain](../packages/fixes/licenses/oversized-skinning/cleanup-drain/README.md) (the texture cleanup asks
 the engine guard's exported flush before it uncaches, whoever calls it) and under `tools/qa` the driver's `midgame` and
 `midgame-console` kinds with their [client Lua](../tools/qa/queue_midgame_client.lua.md).
+A re-import looks at the model's folder again (2026-11-24,
+[ADR 0263](decisions/0263-a-re-import-looks-at-the-models-folder-again.md)): the fixes' seventeenth native patch
+[game-rescan](../packages/fixes/licenses/oversized-skinning/game-rescan/README.md) (`ToPBR.RescanGameSource`, called by
+the fixes' Lua on the Model Hotloader's `MMDHL.Imported`), under `tools/tests`
+[`test_game_rescan.py`](../tools/tests/test_game_rescan.py.md), and under `tools/qa`
+[`game_rescan_session.py`](../tools/qa/game_rescan_session.py.md) with its [client probe](../tools/qa/game_rescan_probe.lua.md)
+(a game-rip character imported without its maps, then again with them, in the PoC). The MMD animation player's debug
+windows ([ADR 0264](decisions/0264-hide-the-debug-windows-and-stay-in-debug-mode.md)) add the `debug_windows` check to
+[`mmd_player_session.py`](../tools/qa/mmd_player_session.py.md) (`--debug-windows`).
 
 R20-A adds `loader/proxy/loader_release.h` / `.cpp` (bounded published-release record and native
 runtime ownership checks), `loader/proxy/ui/menu_choices.lua` (bounded local menu preferences),

@@ -1,6 +1,7 @@
 -- The Motion importer tab and the Character Motion Importer's builders under mocked Derma.
 -- luajit motion_tab_harness.lua <scenario> <companion tab file> <add-on lua/mmd_vmd_npc folder>
--- Scenarios: late, unavailable, windows, shared, fallback, broken, scale, guiscaler, translations.
+-- Scenarios: late, unavailable, windows, shared, fallback, broken, scale, guiscaler, translations, quiet, tool_list,
+-- timeline, debug_windows, dance_music.
 -- Prints PASS <scenario>.
 local scenario, tabFile, addonDir = arg[1], arg[2], arg[3]
 assert(scenario and tabFile and addonDir, "usage: motion_tab_harness.lua <scenario> <tab> <addon dir>")
@@ -811,6 +812,111 @@ elseif scenario == "timeline" then
     flush_named()
     equal(sent_count("mmdvmd_debug_request"), requests, "moving the knob to the shown frame asked again")
     equal(frame.Timeline:GetValue(), 90, "the knob did not follow the frame shown")
+elseif scenario == "debug_windows" then
+    -- The user's request of 2026-11-24 (ADR 0264): hide the debug windows (motion and camera) and stay in debug
+    -- mode, to move and take screenshots; the context menu's key, the player's own key, the console command or
+    -- opening debug mode again shows them.
+    load_addon(true)
+    named_timers()
+    Panel.Label = false
+    MOUSE_FIRST = 107
+    function Panel:MakePopup() self.popups = (rawget(self, "popups") or 0) + 1 end
+    local notices = {}
+    notification.AddLegacy = function(text) notices[#notices + 1] = tostring(text) end
+    local keys = {}
+    input = { IsKeyDown = function(code) return keys[code] == true end, IsMouseDown = function() return false end,
+        GetKeyName = function(code) return code == 20 and "j" or nil end,
+        LookupBinding = function(bind) return bind == "+menu_context" and "c" or nil end }
+    gui = { IsGameUIVisible = function() return false end }
+    function LocalPlayer() return { valid = true, IsTyping = function() return false end } end
+    local function key(down) keys[20] = down hooks.Think.MMDVMDNPCDebugWindowsKey() end
+
+    MMDVMDNPC.OpenDebugMenu("m", -1)
+    local frame = MMDVMDNPC.DebugFrame
+    assert(IsValid(frame) and IsValid(frame.HideWindows), "the hide button")
+    equal(frame.HideWindows.text, "Hide windows", "the button's text")
+    equal(frame.HideWindows.dock, RIGHT, "the button sits with Next at the right of the button strip")
+    assert(tostring(frame.HideWindows.tooltip):find("Press C to show them again", 1, true), "the tooltip names the key")
+    frame.CameraPreview:SetValue(1)
+    local camera = MMDVMDNPC.CameraDebugPanel
+    assert(IsValid(camera), "the camera debug panel")
+
+    -- Hidden, not closed: debug mode stays on and nothing goes to the server.
+    local closes = sent_count("mmdvmd_debug_close")
+    frame.HideWindows:DoClick()
+    assert(frame.visible == false and camera.visible == false, "both windows are hidden")
+    assert(IsValid(frame) and IsValid(camera), "hiding closed a window")
+    assert(MMDVMDNPC.DebugWindowsHidden(), "the hidden state")
+    equal(sent_count("mmdvmd_debug_close"), closes, "hiding ended debug mode")
+    assert(notices[#notices]:find("Press C to show them again", 1, true), "the notice names the context menu's key")
+    -- The window's own steps (a playing preview, the timeline) leave them hidden.
+    MMDVMDNPC.OpenDebugMenu("m", 5)
+    assert(frame.visible == false, "a preview step showed the windows")
+
+    -- The context menu's key shows both; the debug window takes the mouse and keyboard again.
+    local popups = rawget(frame, "popups") or 0
+    hooks.OnContextMenuOpen.MMDVMDNPCDebugWindows()
+    assert(frame.visible and camera.visible, "the context menu's key did not show them")
+    equal(rawget(frame, "popups"), popups + 1, "the debug window did not take the mouse again")
+    assert(not MMDVMDNPC.DebugWindowsHidden(), "still hidden")
+    hooks.OnContextMenuOpen.MMDVMDNPCDebugWindows()
+    equal(rawget(frame, "popups"), popups + 1, "the context menu took the mouse from shown windows")
+
+    -- The console command: 0 hides, 1 shows, nothing toggles.
+    commands.mmdvmd_debug_panels(nil, nil, { "0" })
+    assert(frame.visible == false and camera.visible == false, "0 did not hide")
+    commands.mmdvmd_debug_panels(nil, nil, { "0" })
+    equal(#notices, 2, "hiding hidden windows noticed again")
+    commands.mmdvmd_debug_panels(nil, nil, {})
+    assert(frame.visible and camera.visible, "a toggle did not show")
+    commands.mmdvmd_debug_panels(nil, nil, { "1" })
+    assert(frame.visible, "1 hid them")
+
+    -- The player's own key: one press, one toggle; a held key toggles once; not while typing in a text field.
+    convar_set("mmd_vmd_npc_debug_panels_key", "20")
+    key(true)
+    assert(frame.visible == false, "the key did not hide")
+    assert(notices[#notices]:find("Press J to show them again", 1, true), "the notice names the player's key")
+    key(true)
+    assert(frame.visible == false, "a held key toggled again")
+    key(false)
+    key(true)
+    assert(frame.visible, "the key did not show")
+    key(false)
+    vgui.GetKeyboardFocus = function() return { valid = true, GetClassName = function() return "TextEntry" end } end
+    key(true)
+    assert(frame.visible, "typing in a text field toggled the windows")
+    key(false)
+    vgui.GetKeyboardFocus = nil
+    convar_set("mmd_vmd_npc_debug_panels_key", "0")
+    key(true)
+    assert(frame.visible, "no key set, yet a key toggled")
+    key(false)
+
+    -- Opening debug mode again from the console (or a menu) shows hidden windows.
+    commands.mmdvmd_debug_panels(nil, nil, { "0" })
+    commands.mmdvmd_debug(nil, nil, { "m" })
+    assert(frame.visible and camera.visible, "debug mode opened again left the windows hidden")
+    -- A window that closes ends the hidden state; with no window, nothing is hidden.
+    commands.mmdvmd_debug_panels(nil, nil, { "0" })
+    frame:Remove()
+    camera:Remove()
+    assert(not MMDVMDNPC.DebugWindowsHidden(), "hidden with no window")
+    commands.mmdvmd_debug_panels(nil, nil, { "0" })
+    assert(not MMDVMDNPC.DebugWindowsHidden(), "no window to hide, yet hidden")
+    -- The tool's Advanced tab sets the key (the translations are in every catalog).
+    for _, language in ipairs({ "en", "zh", "zh-tw", "ja", "ko", "fr", "ru", "ar", "es" }) do
+        for _, phrase in ipairs({ "mmd_vmd_npc.debug.hide_panels", "mmd_vmd_npc.debug.hide_panels_tip_fmt",
+            "mmd_vmd_npc.debug.panels_hidden_fmt", "mmd_vmd_npc.ui.debug_panels_key",
+            "mmd_vmd_npc.ui.debug_panels_key_help" }) do
+            local text = MMDVMDNPC.I18N[language] and MMDVMDNPC.I18N[language][phrase]
+            assert(isstring(text) and text ~= "", language .. " has no " .. phrase)
+            if phrase:find("_fmt", 1, true) then
+                local _, count = text:gsub("%%s", "")
+                equal(count, 1, language .. " " .. phrase .. " takes one key name")
+            end
+        end
+    end
 elseif scenario == "dance_music" then
     -- The user's report of 2026-11-16: a dance's music ends with its dancer, also without the server's stop, and an
     -- NPC spawned later at the dancer's entity index does not bring the song back.

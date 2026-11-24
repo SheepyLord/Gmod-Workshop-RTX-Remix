@@ -5299,6 +5299,80 @@ do
     end
 end
 
+-- The user's request of 2026-11-24 (ADR 0264): hide the debug windows and stay in debug mode, to move and take
+-- screenshots. %s is the key that shows them again.
+do
+    local phrases = {
+        en = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "Hide windows",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "Hide the debug windows (motion and camera) and stay in debug mode, to move around and take screenshots. Press %s to show them again.",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "Debug windows hidden; debug mode is still on. Press %s to show them again.",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "Show/hide debug windows key",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "In debug mode, hides the debug windows (motion and camera) or shows them again; debug mode stays on. Without a key, the context menu key (C by default) shows them again.",
+        },
+        zh = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "隐藏窗口",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "隐藏调试窗口（动作和镜头）并保持调试模式，方便移动和截图。按 %s 重新显示。",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "调试窗口已隐藏，调试模式仍然开启。按 %s 重新显示。",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "显示/隐藏调试窗口按键",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "在调试模式下隐藏或重新显示调试窗口（动作和镜头），调试模式保持开启。未设置按键时，按上下文菜单键（默认为 C）重新显示。",
+        },
+        ["zh-tw"] = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "隱藏視窗",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "隱藏除錯視窗（動作和鏡頭）並保持除錯模式，方便移動和截圖。按 %s 重新顯示。",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "除錯視窗已隱藏，除錯模式仍然開啟。按 %s 重新顯示。",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "顯示/隱藏除錯視窗按鍵",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "在除錯模式下隱藏或重新顯示除錯視窗（動作和鏡頭），除錯模式保持開啟。未設定按鍵時，按快捷選單鍵（預設為 C）重新顯示。",
+        },
+        ja = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "ウィンドウを隠す",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "デバッグウィンドウ（モーションとカメラ）を隠し、デバッグモードのまま移動やスクリーンショットができます。%s で再表示します。",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "デバッグウィンドウを隠しました。デバッグモードは続いています。%s で再表示します。",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "デバッグウィンドウの表示/非表示キー",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "デバッグモード中にデバッグウィンドウ（モーションとカメラ）を隠す、または再表示します。デバッグモードは続きます。キーを設定していないときは、コンテキストメニューのキー（既定は C）で再表示します。",
+        },
+        ko = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "창 숨기기",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "디버그 창(모션과 카메라)을 숨기고 디버그 모드를 유지하여 이동하거나 스크린샷을 찍을 수 있습니다. %s 키를 누르면 다시 표시됩니다.",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "디버그 창을 숨겼습니다. 디버그 모드는 계속 켜져 있습니다. %s 키를 누르면 다시 표시됩니다.",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "디버그 창 표시/숨기기 키",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "디버그 모드에서 디버그 창(모션과 카메라)을 숨기거나 다시 표시합니다. 디버그 모드는 유지됩니다. 키를 지정하지 않으면 컨텍스트 메뉴 키(기본값 C)로 다시 표시합니다.",
+        },
+        fr = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "Masquer les fenêtres",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "Masque les fenêtres de débogage (mouvement et caméra) en restant en mode débogage, pour vous déplacer et prendre des captures d'écran. Appuyez sur %s pour les afficher à nouveau.",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "Fenêtres de débogage masquées ; le mode débogage reste actif. Appuyez sur %s pour les afficher à nouveau.",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "Touche pour afficher/masquer les fenêtres de débogage",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "En mode débogage, masque les fenêtres de débogage (mouvement et caméra) ou les affiche à nouveau ; le mode débogage reste actif. Sans touche, la touche du menu contextuel (C par défaut) les affiche à nouveau.",
+        },
+        ru = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "Скрыть окна",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "Скрывает окна отладки (движение и камера), не выходя из режима отладки, чтобы перемещаться и делать снимки экрана. Нажмите %s, чтобы показать их снова.",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "Окна отладки скрыты; режим отладки остаётся включённым. Нажмите %s, чтобы показать их снова.",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "Клавиша показа/скрытия окон отладки",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "В режиме отладки скрывает окна отладки (движение и камера) или показывает их снова; режим отладки остаётся включённым. Без назначенной клавиши их снова показывает клавиша контекстного меню (по умолчанию C).",
+        },
+        ar = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "إخفاء النوافذ",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "يخفي نوافذ التصحيح (الحركة والكاميرا) مع البقاء في وضع التصحيح، للتنقل والتقاط لقطات الشاشة. اضغط %s لإظهارها مجدداً.",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "تم إخفاء نوافذ التصحيح؛ لا يزال وضع التصحيح مفعّلاً. اضغط %s لإظهارها مجدداً.",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "مفتاح إظهار/إخفاء نوافذ التصحيح",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "في وضع التصحيح، يخفي نوافذ التصحيح (الحركة والكاميرا) أو يعيد إظهارها؛ يبقى وضع التصحيح مفعّلاً. من دون مفتاح، يعيد مفتاح قائمة السياق (C افتراضياً) إظهارها.",
+        },
+        es = {
+            ["mmd_vmd_npc.debug.hide_panels"] = "Ocultar ventanas",
+            ["mmd_vmd_npc.debug.hide_panels_tip_fmt"] = "Oculta las ventanas de depuración (movimiento y cámara) sin salir del modo de depuración, para moverte y hacer capturas de pantalla. Pulsa %s para volver a mostrarlas.",
+            ["mmd_vmd_npc.debug.panels_hidden_fmt"] = "Ventanas de depuración ocultas; el modo de depuración sigue activo. Pulsa %s para volver a mostrarlas.",
+            ["mmd_vmd_npc.ui.debug_panels_key"] = "Tecla para mostrar/ocultar las ventanas de depuración",
+            ["mmd_vmd_npc.ui.debug_panels_key_help"] = "En el modo de depuración, oculta las ventanas de depuración (movimiento y cámara) o vuelve a mostrarlas; el modo de depuración sigue activo. Sin tecla, la tecla del menú contextual (C por defecto) las vuelve a mostrar.",
+        },
+    }
+    for language, entries in pairs(phrases) do
+        MMDVMDNPC.I18N[language] = MMDVMDNPC.I18N[language] or {}
+        for key, text in pairs(entries) do MMDVMDNPC.I18N[language][key] = text end
+    end
+end
+
 MMDVMDNPC.LanguageAliases = {
     english = "en",
     en = "en",

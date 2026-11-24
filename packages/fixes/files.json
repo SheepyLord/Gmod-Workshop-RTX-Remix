@@ -592,10 +592,10 @@
    "git": {
     "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "611968007ffee9c512914936c1ff14ad104f18e1",
+    "commit": "4173c298b6e0e75c1af4ba2c0e3243b8578c174f",
     "dirty": false
    },
-   "imported": "2026-11-23T20:36:38+00:00"
+   "imported": "2026-11-24T07:56:55+00:00"
   },
   "garrysmod/garrysmod/addons/Glass-Rewrite-Remix/lua/autorun/server/glass_debris.lua": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r5-glass\\out\\tmp\\glass-stage\\Glass-Rewrite-Remix\\lua\\autorun\\server\\glass_debris.lua",
@@ -648,14 +648,14 @@
    "imported": "2026-11-01T04:27:28+00:00"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_topbr_conversion.lua": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\msep\\packages\\fixes\\garrysmod\\garrysmod\\addons\\remixbinary\\lua\\remixlua\\cl\\cl_rtx_topbr_conversion.lua",
+   "source": "<repo>\\out\\fixes-edit\\cl_rtx_topbr_conversion.lua",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/msep",
+    "repository": "<repo>",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "63c325951ba62f72cefb2e2895e1bdb267558c88",
+    "commit": "4173c298b6e0e75c1af4ba2c0e3243b8578c174f",
     "dirty": false
    },
-   "imported": "2026-11-16T12:01:57+00:00"
+   "imported": "2026-11-24T07:56:23+00:00"
   },
   "modules/gmcl_rtxwater_win64.dll": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r19-fixes\\out\\ci\\built\\fixes\\modules\\gmcl_rtxwater_win64.dll",
@@ -1746,9 +1746,9 @@
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_rtx_topbr_conversion.lua": {
-   "size": 75645,
-   "sha256": "4618b1f31ea736e993af079b12adddc37e04420f82969e69361fdead28d38bae",
-   "mtime_ns": 1794830490073108600,
+   "size": 77666,
+   "sha256": "8a04948c90c58a1a5a0af2297684edd30206f8f0b1e16cad7930dca7d3a97fdc",
+   "mtime_ns": 1795506881918276100,
    "stored": "plain"
   },
   "garrysmod/garrysmod/addons/remixbinary/lua/remixlua/cl/cl_viewmodel_materials.lua": {
@@ -3986,12 +3986,12 @@
    "stored_sha256": "26acfcd8e9ad3a412be89de8e77911970ec03234fea35df042ed71f46ea004c8"
   },
   "modules/gmcl_RTXFixesBinary_win64.dll": {
-   "size": 5658112,
-   "sha256": "b0391bf290dbdae617174f656250184502d4c53c0b6a37d73eed1641696eee48",
-   "mtime_ns": 1795466176258143700,
+   "size": 5682176,
+   "sha256": "fc850271b02dd0d739c6ee293bb1baf6e3972d5aec55dc65c7ced51ddacc75d9",
+   "mtime_ns": 1795506878953987600,
    "stored": "xz",
-   "stored_size": 1091240,
-   "stored_sha256": "57cf9e65a456329e47ffb3318a4cd38e266bba6ff1898d9e6109136e62f4245c"
+   "stored_size": 1093472,
+   "stored_sha256": "e20189a749c8a7172cde45258f1c64648770a23482fec3272fa9060bbf618d7c"
   },
   "modules/gmcl_rtxwater_win64.dll": {
    "size": 281088,

@@ -12,12 +12,15 @@ driver [queue_check_session.py](../qa/queue_check_session.py.md), with ADR 0262'
 cd tools; python -m unittest discover -s tests -p test_cleanup_drain.py -v
 ```
 
-- `CleanupDrainPatchTests`:
+- `CleanupDrainPatchTests` (the checks of `module.cpp` and `cleanup_drain.h` read the copies the module is built from:
+  the last patch folder in `pins.json`'s order that holds each file):
   - `test_complete_files_are_the_patch_applied`: `cleanup-drain.patch` touches exactly `source/cleanup_drain.h`,
     `source/module.cpp` and `tests/cleanup_drain_test.cpp`; `module.cpp` is lua-guards' copy with the patch applied
     (no folder between holds it), the two new files the patch's added lines (no earlier folder holds them);
-    `tools/ci/pins.json` builds the module with the patch last, right after lua-guards; the folder's README names it the
-    sixteenth native patch and the recorded `patched_tree.source`.
+    `tools/ci/pins.json` builds the module with the patch right after lua-guards ([game-rescan](test_game_rescan.py.md),
+    the seventeenth, follows it); the folder's README names it the sixteenth native patch and the tree the sixteen give
+    (`c5f7ad05...`), which `fixes.patched_tree.source` must be while the patch is the last one. Every check is relative
+    to the patch's place, none assumes it is the last.
   - `test_the_cleanup_asks_the_drain_first`: in `PerformTextureCleanup` the module-closing and map-exit-switch returns
     come first, then `DrainQueuedRenderCalls()`, then `Starting cleanup`, the VRAM report, `ClearMapState` and
     `UncacheAllMaterials`; a refusal prints `Purge skipped: queued render calls could not be run first (%s)` and

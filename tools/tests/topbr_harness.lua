@@ -1,7 +1,7 @@
 -- Regression for the packaged client driver and independent imported-game setting.
 SERVER=false BRANCH="x86-64"
 file={Exists=function() return false end}
-local vars,callbacks,commands,hooks={},{},{},{}
+local vars,callbacks,commands,hooks,events={},{},{},{},{}
 local calls={}
 function Color(...) return {...} end
 function MsgC(...) end
@@ -26,7 +26,7 @@ function RunConsoleCommand(name,value)
 end
 cvars={AddChangeCallback=function(name,fn) callbacks[name]=fn end}
 concommand={Add=function(name,fn) assert(not vars[name],"convar/command collision: "..name) commands[name]=fn end}
-hook={Add=function(event,name,fn) hooks[name]=fn end}
+hook={Add=function(event,name,fn) hooks[name]=fn events[name]=event end}
 -- The player's range (ADR 0229): a map with three BSP materials, one static prop model and one physics prop.
 function IsValid(v) return v~=nil end
 function math.Clamp(v,lo,hi) return math.min(math.max(v,lo),hi) end
@@ -171,4 +171,76 @@ mapName="gm_other"
 calls.scopeSent=nil
 RunConsoleCommand("rtx_topbr_enabled","0") RunConsoleCommand("rtx_topbr_enabled","1")
 assert(calls.scopeSent==1 and calls.queueAtScope==1, "names first, then the queue")
-print("PASS ToPBR driver: diagnostics, settings, bounded metadata discovery, hash retry, source-less queue, clear/requeue, conversion progress and the player's range")
+
+-- A character imported again in the same game (ADR 0263). The Model Hotloader runs MMDHL.Imported with the full asset
+-- id (64 hex digits); the character's material names start with "mmd/" and its first 16.
+assert(events.RTXToPBR_GameRescan=="MMDHL.Imported", "the import hook listens to the Model Hotloader's import event")
+local idA="0123456789abcdef"..string.rep("0",48)
+local idB=string.rep("b",64)
+local nameA1,nameA2,nameB="mmd/0123456789abcdef/skin_1","mmd/0123456789abcdef/hair_2","mmd/bbbbbbbbbbbbbbbb/body_1"
+mmdhl={assets={},library={entries={}}}
+mmdhl.assets[idA]={materials={{path=nameA1},{path=nameA2}}}
+mmdhl.assets[idB]={materials={{path=nameB}}}
+mmdhl.library.entries[idA]={source="E:\\models\\a\\a.pmx",info={materials={{base="tex/a_D.png"},{base="tex/hair_D.png"}}}}
+mmdhl.library.entries[idB]={source="E:\\models\\b\\b.pmx",info={materials={{base="tex/b_D.png"}}}}
+local submitted,rescans,rescanAnswer={},{},true
+p.QueueGameMaterial=function(name) submitted[#submitted+1]=name return true end
+p.GetGameMaterial=function() return {state="waiting"} end
+p.RescanGameSource=function(source,prefix) rescans[#rescans+1]={source,prefix} return rescanAnswer end
+local function sorted(list) local copy={} for i,v in ipairs(list) do copy[i]=v end table.sort(copy) return table.concat(copy,",") end
+commands.rtx_topbr_clear()
+function RealTime() return 300 end
+for _=1,3 do hooks.RTXToPBR_GameMaps() end
+assert(sorted(submitted)==sorted({nameA1,nameA2,nameB}), "each material submitted once: "..sorted(submitted))
+pending,total=RTXGamePBRProgress() assert(pending==3 and total==3, "three converting")
+submitted={}
+assert(select("#",hooks.RTXToPBR_GameRescan(idA))==0, "the hook returns nothing (hook.Run stops at a returned value)")
+assert(#rescans==1 and rescans[1][1]=="E:\\models\\a\\a.pmx" and rescans[1][2]=="mmd/0123456789abcdef/",
+    "the native converter looks at the model's folder again, with the full id's library source and its 16-digit prefix")
+pending,total=RTXGamePBRProgress() assert(pending==1 and total==1, "the character's materials leave the batch until submitted again")
+hooks.RTXToPBR_GameMaps() -- the same moment: the pass starts at once, not five seconds later
+assert(sorted(submitted)==sorted({nameA1,nameA2}), "the character's materials submitted again, the other's not: "..sorted(submitted))
+pending,total=RTXGamePBRProgress() assert(pending==3 and total==3, "each counts once in the batch")
+submitted={}
+function RealTime() return 310 end
+for _=1,3 do hooks.RTXToPBR_GameMaps() end
+assert(#submitted==0, "once again, not at every pass")
+-- A refused or failing rescan changes nothing in the driver.
+rescanAnswer=false
+hooks.RTXToPBR_GameRescan(idA)
+assert(#rescans==2, "asked")
+function RealTime() return 320 end
+for _=1,3 do hooks.RTXToPBR_GameMaps() end
+assert(#submitted==0, "a refused rescan: nothing submitted again")
+p.RescanGameSource=function() error("native failure") end
+hooks.RTXToPBR_GameRescan(idA)
+function RealTime() return 330 end
+for _=1,3 do hooks.RTXToPBR_GameMaps() end
+assert(#submitted==0, "a failing rescan: nothing submitted again")
+-- A module without RescanGameSource: the submissions start again, nothing else.
+p.RescanGameSource=nil
+hooks.RTXToPBR_GameRescan(idB)
+hooks.RTXToPBR_GameMaps()
+assert(sorted(submitted)==nameB, "an older module: the character's materials submitted again")
+-- Ids and library entries it does not take: nothing asked, nothing submitted again.
+submitted={}
+p.RescanGameSource=function(source,prefix) rescans[#rescans+1]={source,prefix} return true end
+local asked=#rescans
+hooks.RTXToPBR_GameRescan(nil)
+for _,bad in ipairs({42,"","0123456789abcdef",string.rep("a",63),string.rep("a",65),string.rep("A",64),
+    string.rep("g",64),"0123456789abcdef/"..string.rep("0",47)}) do hooks.RTXToPBR_GameRescan(bad) end
+assert(#rescans==asked, "a 16-digit, 63- or 65-digit, upper-case or non-hex id is refused")
+local idC=string.rep("c",64)
+hooks.RTXToPBR_GameRescan(idC) -- not in the library
+mmdhl.library.entries[idC]={info={}} hooks.RTXToPBR_GameRescan(idC)
+mmdhl.library.entries[idC]={source=""} hooks.RTXToPBR_GameRescan(idC)
+mmdhl.library.entries[idC]={source=7} hooks.RTXToPBR_GameRescan(idC)
+mmdhl.library.entries[idC]="broken" hooks.RTXToPBR_GameRescan(idC)
+mmdhl.library.entries=nil hooks.RTXToPBR_GameRescan(idA)
+mmdhl.library=nil hooks.RTXToPBR_GameRescan(idA)
+assert(#rescans==asked, "no library entry or no source: nothing asked")
+function RealTime() return 400 end
+for _=1,3 do hooks.RTXToPBR_GameMaps() end
+assert(#submitted==0, "and nothing submitted again")
+mmdhl=nil hooks.RTXToPBR_GameRescan(idA) assert(#rescans==asked, "without the Model Hotloader: nothing")
+print("PASS ToPBR driver: diagnostics, settings, bounded metadata discovery, hash retry, source-less queue, clear/requeue, conversion progress, the player's range and a character imported again")

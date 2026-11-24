@@ -4312,7 +4312,8 @@ separator now has 57 texts in each catalog.
     format loads (`materials=3`, `textures=9`; the control mod 1 and 2) and ToPBR takes none of the four hashes.
   - `release_qa.py` (`out/qa-poc/up1123-2`): `session` and `spawnmenu` PASS. `map-glass` (the pane breaks, no shards)
     and `spawned-glass` (no `procedural_shard_4`) fail as the published package does today (`out/qa-poc/glass-published`)
-    and as both runtimes did on 2026-11-14: the glass module does not load in PoC QA sessions, open. The settings check
+    and as both runtimes did on 2026-11-14 (open: the field run below rules out the module not loading as the whole
+    cause). The settings check
     reported `nativeloader_sky_hour` `18.64` -> `18.639999`; the published package does the same in its `spawnmenu`
     session (`out/qa-poc/spawnmenu-published`, the PoC's saved hour first put back to `18.64`): the spawn menu's Time of
     day slider writes the convar's single-precision value back in the engine's `%f` form. Release QA's settings check
@@ -4332,3 +4333,9 @@ separator now has 57 texts in each catalog.
   - 1280x720, the map part of one menu session each (A first, then B): A 152 frames a second (median 6.04 ms, p99 23.4,
     189 frames over twice the median), B 178 (5.45 ms, p99 9.8, 20). One pair only, in that order.
   - The geometry workers stay idle in the main menu with both (0.0 %), as since patch 0105.
+- **Field, the published package** (`0.0.0-dev.20261124104734+42e4e1f8`; `release_qa.py --field`, one session per hold
+  of the PoC lock, evidence `out/qa-field/up1123`): a first start deployed the previous package and downloaded the new
+  one; then `session` and `spawnmenu` PASS, `map-glass` and `spawned-glass` fail as on the PoC (in `map-glass` the glass
+  module loaded and no `procedural_shard` appeared: open), no crash dump. The Remix logs hold the previous package's
+  error kinds in the field at the same rate (a texture too large for the staging memory, a non-invertible matrix, and
+  the two of the PoC). `DXLevel_V1` 95 -> 90 was flagged with the previous package too (the level of an RTX start).

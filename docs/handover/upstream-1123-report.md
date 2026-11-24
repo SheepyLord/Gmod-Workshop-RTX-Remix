@@ -77,9 +77,32 @@ Details and evidence folders: [TESTING.md](../TESTING.md), "The runtime merges u
 - **PoC with the fixed build** (`d3d9.dll` `74115025`): the issue 14 session PASS (the authored format loads and wins
   over ToPBR under the new runtime too), the character re-import PASS (6 materials `automatic`, as for ADR 0263), release
   QA's `session` and `spawnmenu` PASS. Its two glass sessions fail as the published package's do (today and on
-  2026-11-14: the glass module does not load in PoC QA sessions, open). The Remix logs show no new error.
+  2026-11-14; open, see Open). The Remix logs show no new error.
 - **Release QA's settings check** reported the spawn menu's Time of day slider writing `18.64` back as `18.639999`: the
   published package does the same. The check now compares numbers at the convar's single precision as well.
 - **Performance** (A the published package, B this one, ABBA at 4K): the same frame times (12.0-12.4 ms means both),
   with about 15 % less CPU in the game process (A 227 % and 223 % of one core, B 183 % and 197 %). At 1280x720, one pair
   of sessions (A first): 152 against 178 frames a second, p99 23.4 against 9.8 ms.
+
+## Published
+
+Merged to `main` as `f0b2a3ec` (a fast-forward) and pushed; Workshop item 3829070317 updated as
+`0.0.0-dev.20261124104734+42e4e1f8` (2026-11-24 10:47 UTC), its change note the CHANGELOG entries; the push's own
+publish found the inputs unchanged.
+
+**Field check** (`release_qa.py --field`, one session at a time, each under its own hold of the PoC lock; evidence
+`out/qa-field/up1123`): Steam had not fetched the update, so the first start (release QA's `session`) deployed the
+previous package and downloaded the new one. With the new package (`status.json`: runtime
+`0.0.0-dev.20261124104734+42e4e1f8`, `d3d9.dll` `74115025` deployed): `session` and `spawnmenu` PASS; `map-glass` and
+`spawned-glass` fail as on the PoC, no crash dump. The Remix logs hold the same error kinds, at the same rate, as the
+previous package's start in the field. Release QA flagged `DXLevel_V1` 95 -> 90 in GMod's shared registry key with the
+previous package too: the level an RTX start sets, after other sessions' tests in between had left 95.
+
+## Open
+
+- **Release QA's glass sessions** fail on the PoC and in the field with this package and the published one, in every
+  retained run since 2026-11-14. In the field's `map-glass` session the glass module `gmcl_nlglass_win64.dll` loaded
+  and the pane still left no `procedural_shard` entities, so the reading of 2026-11-14 (the module not loading) does not
+  explain it. The probes count the Glass-Rewrite-Remix add-on's `procedural_shard` entities and spawn its
+  `procedural_shard_4`: they may predate the G1 glass system, or glass may not break as it should. Not this change.
+- The reply to GitHub issue 14 waits for the user's word.

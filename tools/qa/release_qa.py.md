@@ -31,8 +31,14 @@ python tools\qa\release_qa.py --root <install> --evidence <folder> --evaluate-on
 |---|---|---|---|
 | `session` | [`rtx_session_probe.lua`](rtx_session_probe.lua.md) | gm_construct | guard installed with no errors, before and after the toolgun; the toolgun is selected and its screen redraw draws with no error |
 | `spawnmenu` | [`spawnmenu_probe.lua`](spawnmenu_probe.lua.md) | gm_construct | the creation tabs are listed and none is missing |
-| `map-glass` | [`map_glass_probe.lua`](map_glass_probe.lua.md) | modern_house | a glass pane is found and breaks into shards; the probe reaches its end |
-| `spawned-glass` | [`spawned_glass_probe.lua`](spawned_glass_probe.lua.md) | gm_construct | the spawned pane breaks into more shards than it had |
+| `map-glass` | [`map_glass_probe.lua`](map_glass_probe.lua.md) | modern_house | the glass system (G1) tracks a window; with its debris world on Jolt before and after the shot, one 357 round opens the window, breaks it into pieces that are drawn while the view rests on it, and some lie within 512 units of it; the probe reaches its end |
+| `spawned-glass` | [`spawned_glass_probe.lua`](spawned_glass_probe.lua.md) | gm_construct | `gm_spawnsent nlglass_annealed_96x64` spawns a pane that G1 tracks, builds and draws; with the debris world on Jolt, one 357 round leaves a hole and pieces that are drawn |
+
+The glass probes print `NL_QA_GLASS` lines (JSON); the summary keeps them per session under `glass`. G1 keeps no
+entity for a broken piece (its pieces live in each client's debris world), so the rules count what the player
+sees there. Until 2026-11-24 they counted the entities of Glass-Rewrite-Remix, the add-on G1 replaced on
+2026-11-01, and both sessions failed with every package since while the glass worked
+([report](../../docs/handover/release-qa-glass-report.md)).
 
 Every session must also have loaded its map, quit normally, logged no Lua error, run RTX (`active`),
 recorded no status error and finished its probe (`NL_SHOT_DONE`). A session that crashed fails with

@@ -1142,7 +1142,9 @@ problem shows up the way the user meets it.
      Models and Motion importer tabs (labels translated, the importer laid out in place).
 5. **Pass** when every record has `map_loaded`, `normal_quit` and `lua_errors: 0`, the activation is
    `active` with no status errors, the probe lines show the guard installed and no guard errors, the
-   toolgun crop is sharp, glass breaks into shards, and after the runs `user.conf`, `rtx.conf`,
+   toolgun crop is sharp, a map window and a spawned pane break into the glass system's pieces, which are
+   drawn (G1's client debris world, counted by the glass probes since 2026-11-24, see
+   [below](#release-qas-glass-sessions-measure-the-glass-system-g1)), and after the runs `user.conf`, `rtx.conf`,
    `client.vdf`, the loader files and the registry export are unchanged (`config.cfg` is rewritten by
    the game at every normal quit: diff it against the copy; the probes change nothing archived).
 6. **A crash** leaves `rtx-remix\logs\.sentry-native\reports\*.dmp`, which `poc_session.py` copies into
@@ -4339,3 +4341,43 @@ separator now has 57 texts in each catalog.
   module loaded and no `procedural_shard` appeared: open), no crash dump. The Remix logs hold the previous package's
   error kinds in the field at the same rate (a texture too large for the staging memory, a non-invertible matrix, and
   the two of the PoC). `DXLevel_V1` 95 -> 90 was flagged with the previous package too (the level of an RTX start).
+
+## Release QA's glass sessions measure the glass system (G1)
+
+Release QA's `map-glass` and `spawned-glass` sessions failed on the PoC and in the field with every package retained
+since 2026-11-14 (and, by their code, since G1 replaced Glass-Rewrite-Remix on 2026-11-01), while the glass broke: the
+probes counted the old add-on's `procedural_shard` entities and spawned its `procedural_shard_4`, and G1 keeps no
+entity for a broken piece, only pieces in each client's debris world ([report](handover/release-qa-glass-report.md)).
+The 2026-11-14 reading (the glass module not loading) came from a baseline session that ended with 0xC0000409
+before its probe ran.
+
+- **The probes** ([`map_glass_probe.lua`](../tools/qa/map_glass_probe.lua.md),
+  [`spawned_glass_probe.lua`](../tools/qa/spawned_glass_probe.lua.md)) count what the player sees of G1: the window G1
+  tracks (`NLGlass.Client`) or the pane it spawned, tracks and draws (`gm_spawnsent nlglass_annealed_96x64`), the
+  debris world's backend, the opening (the window's entity gone, or the glass left in the pane), the pieces created by
+  one 357 round (`NLGlassDebris.Count()`), the frames that draw them (`NLGlassDebris.Stats()`, sampled every frame in
+  `PostRender`) and, for the map, how many lie within 512 units of the window (`NLGlassDebris.Diagnostics`). They print
+  `NL_QA_GLASS` JSON lines.
+- **The rules** ([`release_qa.py`](../tools/qa/release_qa.py.md)): G1 running, a tracked window (or a spawned pane
+  tracked, built and drawn), the debris world on Jolt before and after the shot, an opening, pieces, pieces drawn, and
+  for the map some within 512 units. The map probe's follow-up rounds (through the hole, at a piece on the floor) are
+  reported, not judged. Unit tests: [`test_release_qa.py`](../tools/tests/test_release_qa.py.md).
+- **PoC, the published package** (`0.0.0-dev.20261124104734+42e4e1f8`, the main checkout's `out/qa-poc/glass-g1-1`):
+  both PASS. `map-glass`: 29 glass windows, 44 tracked by G1 (all native); one round opened the nearest window, 518
+  pieces, drawn in all 160 sampled frames (at most 458 draw calls in a frame while they fell; settled pieces merge into
+  2 batch draws), 140 of the 256 positions read within 512 units, the nearest 77 units from the window's centre;
+  through the hole 0 ray hits, at a piece on the floor 1 ray hit and 6 splits. `spawned-glass`: the pane tracked, its
+  mesh built, 285 draws before the shot; one round left 65 % of its glass and 117 pieces, drawn in all 398 frames.
+  Again (`glass-g1-2`): both PASS; 482 pieces of the same window drawn in all 165 frames, 123 within 512 units, on the
+  floor 2 ray hits and 9 splits; the pane 65 % left, 114 pieces drawn in all 382 frames. Both summaries passed with no
+  watched file, registry value or setting changed.
+- **Negative control** (`glass-g1-negative`): `map-glass` with `lua_run_cl NLGlassDebris.Shutdown()` sent before the
+  probe (the client's broken-glass manager stops; nothing archived). The window still broke, but the debris world
+  stayed `none`, no piece was created and none drawn in 198 frames: FAIL ("broken glass has no Jolt world before the
+  shot", "the window broke into no pieces", "... after the shot"). The old probe printed `pane_valid false shards 0`
+  for this case and for working glass alike.
+- **Field** (`release_qa.py --field --only map-glass,spawned-glass --extra=-insecure --extra=-tickrate --extra=120`, the
+  user's Workshop add-ons, 3840x2160, the main checkout's `out/qa-field/glass-g1`): both PASS. `map-glass`: 50 glass
+  windows, 44 tracked, the same window; 560 pieces drawn in all 110 frames, 176 of 256 within 512 units, on the floor
+  2 ray hits and 5 splits. `spawned-glass`: 65 % of the pane left, 114 pieces drawn in all 141 frames. No watched file,
+  registry value or setting changed.

@@ -25,8 +25,35 @@ GOOD_SESSION_CONSOLE = '\n'.join([
     '[nativeloader] Toolgun screen {"texture":"gmodtoolgunscreen","triangles":2,"captures":360,"draws":180}',
     'NL_QA_GUARD_AFTER_TOOLGUN {"blocked":0,"errors":0,"cleanup":0}',
     'NL_SHOT_DONE', ''])
-MAP_GLASS_CONSOLE = ('NL_GLASS panes 50 func_breakable 50 shards 0\nNL_GLASS before shards 0\n'
-                     'NL_GLASS after_first pane_valid false shards 36\nNL_GLASS after_more shards 36\nNL_GLASS done\n')
+MAP_GLASS_CONSOLE = '\n'.join([
+    'NL_QA_GLASS {"step":"setup","g1":true,"windows":29,"tracked":29,"natives":29,"target":7,"native":true,'
+    '"center":[169.0,887.0,552.0],"backend":"jolt","waited":0,"pieces":0}',
+    'NL_QA_GLASS {"step":"break","open":true,"pane_valid":false,"glass_left":0.0,"pieces":120,"live":120,'
+    '"backend":"jolt","draws":45,"drawn_frames":250,"frames":260,"read":120,"near":118,"nearest":4.2}',
+    'NL_QA_GLASS {"step":"again","pieces":120,"ray_hits":0,"splits":0,"draws":40}',
+    'NL_QA_GLASS {"step":"floor","aimed_at_piece":true,"pieces":122,"ray_hits":2,"splits":1,"draws":41}',
+    'NL_QA_GLASS {"step":"done","pieces":122,"backend":"jolt"}', 'NL_SHOT_DONE', ''])
+SPAWNED_GLASS_CONSOLE = '\n'.join([
+    'NL_QA_GLASS {"step":"setup","g1":true,"preset":"nlglass_annealed_96x64","spawned":true,"tracked":true,'
+    '"center":[1.0,2.0,3.0],"mesh":true,"pane_draws":90,"glass_left":1.0,"backend":"jolt","waited":0,"pieces":0}',
+    'NL_QA_GLASS {"step":"break","open":true,"pane_valid":true,"glass_left":0.62,"pieces":40,"live":40,'
+    '"backend":"jolt","draws":40,"drawn_frames":200,"frames":210,"pane_draws":200}',
+    'NL_QA_GLASS {"step":"done","pieces":40,"backend":"jolt"}', 'NL_SHOT_DONE', ''])
+# What the probes printed until 2026-11-24: the entities of Glass-Rewrite-Remix, which G1 replaced on 2026-11-01.
+STALE_MAP_GLASS_CONSOLE = ('NL_GLASS panes 29 func_breakable 29 shards 0\nNL_GLASS before shards 0\n'
+                           'NL_GLASS after_first pane_valid false shards 0\nNL_GLASS done\n')
+
+
+def replaced(console: str, step: str, **fields) -> str:
+    """`console` with the NL_QA_GLASS line of `step` changed by `fields` (None drops a field)."""
+    lines = []
+    for line in console.split('\n'):
+        if line.startswith('NL_QA_GLASS ') and json.loads(line[12:]).get('step') == step:
+            value = json.loads(line[12:])
+            value.update(fields)
+            line = 'NL_QA_GLASS ' + json.dumps({k: v for k, v in value.items() if v is not None})
+        lines.append(line)
+    return '\n'.join(lines)
 
 
 class CommandTests(unittest.TestCase):
@@ -87,18 +114,52 @@ class RuleTests(unittest.TestCase):
                      exit_name='Windows closed a not-responding program')
         self.assertTrue(any(named['exit_name'] in p for p in qa.check_record(named)))
 
-    def test_spawnmenu_and_glass_rules(self):
+    def test_spawnmenu_rules(self):
         self.assertEqual(qa.check_probe('spawnmenu', 'NL_QA_TABS ["#spawnmenu.content_tab"]\n'), [])
         self.assertEqual(qa.check_probe('spawnmenu', 'NL_QA_TABS []\nNL_QA_TAB_MISSING motion_importer\n'),
                          ['spawn menu tab not found: motion_importer'])
+
+    def assertProblem(self, name, console, words):
+        problems = qa.check_probe(name, console)
+        self.assertTrue(any(words in p for p in problems), (words, problems))
+
+    def test_map_glass_rules_count_what_the_player_sees_of_g1(self):
         self.assertEqual(qa.check_probe('map-glass', MAP_GLASS_CONSOLE), [])
-        unbroken = MAP_GLASS_CONSOLE.replace('pane_valid false shards 36', 'pane_valid true shards 0')
-        self.assertTrue(any('did not break' in p for p in qa.check_probe('map-glass', unbroken)))
-        self.assertTrue(any('no glass pane' in p for p in qa.check_probe('map-glass', 'NL_GLASS no glass pane found\n')))
-        spawned = 'NL_GLASS spawned 1 1.0 2.0 3.0\nNL_GLASS after_shot shards 9\nNL_GLASS done\n'
-        self.assertEqual(qa.check_probe('spawned-glass', spawned), [])
-        self.assertTrue(any('did not break' in p for p in
-                            qa.check_probe('spawned-glass', spawned.replace('shards 9', 'shards 1'))))
+        # The follow-up shots are reported, not judged: no piece may lie under a round.
+        self.assertEqual(qa.check_probe('map-glass', replaced(MAP_GLASS_CONSOLE, 'floor', ray_hits=0, splits=0)), [])
+        for step, fields, words in (
+                ('setup', {'g1': False}, 'glass system is not running'),
+                ('setup', {'tracked': 0}, 'tracks no window'),
+                ('setup', {'target': None}, 'no upright window'),
+                ('setup', {'backend': 'vphysics'}, 'no Jolt world before the shot'),
+                ('break', {'open': False, 'pane_valid': True, 'glass_left': 1.0}, 'window did not break'),
+                ('break', {'pieces': 0}, 'window broke into no pieces'),
+                ('break', {'draws': 0}, 'no broken glass was drawn'),
+                ('break', {'backend': 'none'}, 'no Jolt world after the shot'),
+                ('break', {'near': 0}, 'within 512 units of the window')):
+            with self.subTest(step=step, fields=fields):
+                self.assertProblem('map-glass', replaced(MAP_GLASS_CONSOLE, step, **fields), words)
+        self.assertProblem('map-glass', MAP_GLASS_CONSOLE.replace('"step":"done"', '"step":"other"'), 'did not reach its end')
+        self.assertProblem('map-glass', 'NL_QA_GLASS {"step":"error","error":"x.lua:1: boom"}\n', 'the glass probe failed: x.lua:1: boom')
+        # The probe as it was until 2026-11-24 (Glass-Rewrite-Remix's entities) prints nothing these rules accept.
+        self.assertProblem('map-glass', STALE_MAP_GLASS_CONSOLE, 'no setup line')
+
+    def test_spawned_glass_rules_count_what_the_player_sees_of_g1(self):
+        self.assertEqual(qa.check_probe('spawned-glass', SPAWNED_GLASS_CONSOLE), [])
+        for step, fields, words in (
+                ('setup', {'spawned': False}, 'not spawned (gm_spawnsent nlglass_annealed_96x64)'),
+                ('setup', {'mesh': False}, 'spawned pane was not drawn'),
+                ('setup', {'pane_draws': 0}, 'spawned pane was not drawn'),
+                ('setup', {'backend': 'loading'}, 'no Jolt world before the shot'),
+                ('break', {'open': False, 'glass_left': 1.0}, 'spawned pane did not break: entity valid True, 100% of its glass left'),
+                ('break', {'pieces': 0}, 'spawned pane broke into no pieces'),
+                ('break', {'draws': 0}, 'no broken glass was drawn while the view rested on the spawned pane')):
+            with self.subTest(step=step, fields=fields):
+                self.assertProblem('spawned-glass', replaced(SPAWNED_GLASS_CONSOLE, step, **fields), words)
+        # A map window's distance rule is no spawned-pane rule.
+        self.assertEqual(qa.check_probe('spawned-glass', replaced(SPAWNED_GLASS_CONSOLE, 'break', near=0)), [])
+        self.assertProblem('spawned-glass', 'NL_GLASS spawned 0 none\nNL_GLASS after_shot shards 0\nNL_GLASS done\n',
+                           'no setup line')
 
 
 class SettingsTests(unittest.TestCase):
@@ -177,6 +238,9 @@ class EvaluateOnlyTests(unittest.TestCase):
         self.assertEqual(code, 0, summary)
         self.assertEqual([s['step'] for s in summary['sessions']], ['02-session', '03-map-glass'])
         self.assertTrue(summary['passed'])
+        # The glass session keeps what its probe measured, step by step.
+        self.assertNotIn('glass', summary['sessions'][0])
+        self.assertEqual(summary['sessions'][1]['glass']['break']['pieces'], 120)
 
     def test_a_missing_or_failed_session_fails_the_summary(self):
         history = [self.record('01-spawnmenu', 'NL_QA_TABS []\n', exit=3221225477, normal_quit=False,

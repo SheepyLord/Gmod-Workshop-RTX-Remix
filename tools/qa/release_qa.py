@@ -36,7 +36,6 @@ SESSIONS = {
     "spawned-glass": {"probe": "spawned_glass_probe.lua", "shots": 120, "map": "gm_construct", "cheats": True},
 }
 QA_LINE = re.compile(r"(?m)^NL_QA_([A-Z_]+) (.*?)\s*$")
-GLASS_LINE = re.compile(r"(?m)^NL_GLASS (.*?)\s*$")
 TOOLGUN_LINE = re.compile(r"(?m)^\[nativeloader\] Toolgun screen (\{.*\})\s*$")
 STEP_FOLDER = re.compile(r"^(\d+)-")
 
@@ -113,21 +112,64 @@ def check_record(record: dict) -> list[str]:
     return problems
 
 
-def glass_counts(console: str) -> dict[str, list[str]]:
-    """NL_GLASS <event> <words...> lines by event, the last of each."""
-    events: dict[str, list[str]] = {}
-    for line in GLASS_LINE.findall(console):
-        words = line.split()
-        if words:
-            events[words[0] if words[0] != "no" else line] = words[1:]
-    return events
+def glass_steps(console: str) -> dict[str, dict]:
+    """The glass probes' NL_QA_GLASS lines (one JSON object each) by their "step", the last of each."""
+    return {line["step"]: line for line in probe_lines(console).get("GLASS", [])
+            if isinstance(line, dict) and isinstance(line.get("step"), str)}
 
 
-def word_after(words: list[str], key: str) -> int | None:
-    try:
-        return int(words[words.index(key) + 1])
-    except (ValueError, IndexError):
-        return None
+def number(value) -> float:
+    """A probe's number; anything else (absent, not a number) is 0."""
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
+
+
+def count(value) -> int:
+    return int(number(value))
+
+
+def check_glass(name: str, console: str) -> list[str]:
+    """What the glass probes show wrong. The glass system (G1, glass/addon) keeps no entity for a broken piece:
+    its pieces live in the client's debris world, so the probes count what the player sees there (the window G1
+    tracks or the pane it draws, the opening, the pieces and the frames that draw them). Until 2026-11-24 they
+    counted procedural_shard entities, Glass-Rewrite-Remix's, the add-on G1 replaced on 2026-11-01."""
+    steps = glass_steps(console)
+    problems = [f"the glass probe failed: {steps['error'].get('error')}"] if "error" in steps else []
+    if "done" not in steps:
+        problems.append("the glass probe did not reach its end")
+    setup = steps.get("setup")
+    if setup is None:
+        return [*problems, "the glass probe printed no setup line"]
+    if not setup.get("g1"):
+        return [*problems, "the glass system is not running (no NLGlass.Client or NLGlassDebris on the client)"]
+    if name == "map-glass":
+        if not count(setup.get("tracked")):
+            problems.append(f"the glass system tracks no window on the map ({count(setup.get('windows'))} glass windows)")
+        if setup.get("target") is None:
+            return [*problems, "no upright window to shoot"]
+    else:
+        if not setup.get("spawned"):
+            return [*problems, f"the glass pane was not spawned (gm_spawnsent {setup.get('preset')})"]
+        if not setup.get("mesh") or not count(setup.get("pane_draws")):
+            problems.append(f"the spawned pane was not drawn: mesh {setup.get('mesh')}, {count(setup.get('pane_draws'))} draws")
+    if setup.get("backend") != "jolt":
+        problems.append(f"broken glass has no Jolt world before the shot: backend {setup.get('backend')}")
+    broke = steps.get("break")
+    if broke is None:
+        return [*problems, "no line after the shot"]
+    what = "window" if name == "map-glass" else "spawned pane"
+    if not broke.get("open"):
+        problems.append(f"the {what} did not break: entity valid {broke.get('pane_valid')}, "
+                        f"{round(100 * number(broke.get('glass_left')))}% of its glass left")
+    if count(broke.get("pieces")) <= 0:
+        problems.append(f"the {what} broke into no pieces")
+    elif count(broke.get("draws")) <= 0:
+        problems.append(f"no broken glass was drawn while the view rested on the {what} ({count(broke.get('frames'))} frames)")
+    if broke.get("backend") != "jolt":
+        problems.append(f"broken glass has no Jolt world after the shot: backend {broke.get('backend')}")
+    if name == "map-glass" and count(broke.get("pieces")) > 0 and not count(broke.get("near")):
+        problems.append(f"no broken piece lies within 512 units of the window: {count(broke.get('read'))} read, "
+                        f"nearest {broke.get('nearest')}")
+    return problems
 
 
 def check_probe(name: str, console: str) -> list[str]:
@@ -155,22 +197,7 @@ def check_probe(name: str, console: str) -> list[str]:
         for tab in lines.get("TAB_MISSING", []):
             problems.append(f"spawn menu tab not found: {tab}")
     elif name in ("map-glass", "spawned-glass"):
-        events = glass_counts(console)
-        if "done" not in events:
-            problems.append("the glass probe did not reach its end")
-        if name == "map-glass":
-            if any(event.startswith("no glass") for event in events):
-                problems.append("no glass pane found on the map")
-            shards = word_after(events.get("after_first", []), "shards")
-            if not shards:
-                problems.append(f"the window did not break into shards: {events.get('after_first')}")
-        else:
-            spawned = word_after(["n", *events.get("spawned", [])], "n")
-            after = word_after(events.get("after_shot", []), "shards")
-            if not spawned:
-                problems.append("the glass pane was not spawned")
-            elif not after or after <= spawned:
-                problems.append(f"the spawned pane did not break: {spawned} shard(s) before, {after} after")
+        problems += check_glass(name, console)
     return problems
 
 
@@ -252,12 +279,15 @@ def evaluate(name: str, step: str, evidence: Path, output: str = "") -> dict:
         problems += check_probe(name, console)
     if record.get("crash_reports"):
         problems.append(f"crash minidumps kept in {step}\\crash-reports: {record['crash_reports']}")
-    return {"name": name, "step": step, "passed": not problems, "problems": problems,
-            "seconds_to_map": record.get("seconds_to_map"), "exit": record.get("exit"),
-            "exit_hex": record.get("exit_hex"), "exit_name": record.get("exit_name"),
-            "device_lost": record.get("device_lost", False), "hung_seconds": record.get("hung_seconds"),
-            "shots": [shot.get("label") for shot in record.get("lua_shots") or []],
-            "menu_screenshot": record.get("menu_screenshot")}
+    result = {"name": name, "step": step, "passed": not problems, "problems": problems,
+              "seconds_to_map": record.get("seconds_to_map"), "exit": record.get("exit"),
+              "exit_hex": record.get("exit_hex"), "exit_name": record.get("exit_name"),
+              "device_lost": record.get("device_lost", False), "hung_seconds": record.get("hung_seconds"),
+              "shots": [shot.get("label") for shot in record.get("lua_shots") or []],
+              "menu_screenshot": record.get("menu_screenshot")}
+    if name in ("map-glass", "spawned-glass"):
+        result["glass"] = glass_steps(console)  # what the probe measured, step by step
+    return result
 
 
 def main(argv=None) -> int:

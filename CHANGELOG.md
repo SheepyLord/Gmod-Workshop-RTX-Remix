@@ -6,6 +6,15 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Release QA checks the glass players have (2026-11-24)
+
+- Nothing changes in the game: windows and spawned glass break as before. Release QA's two glass sessions had failed
+  with every package since the glass overhaul (G1, 2026-11-01), because their probes still counted the entities of the
+  glass add-on G1 replaced, though the glass broke. They now count what the player sees of the glass system: the
+  window it tracks or the pane it spawned and draws, the opening one 357 round leaves, the broken pieces in the
+  player's own game and the frames that draw them; both pass on the PoC and in the field with the published package
+  ([report](docs/handover/release-qa-glass-report.md)).
+
 ### RTX Remix brought up to NVIDIA's latest again (2026-11-24)
 
 - **The RTX Remix runtime now has NVIDIA's fixes of the past ten days**: fewer crashes when video memory runs short or

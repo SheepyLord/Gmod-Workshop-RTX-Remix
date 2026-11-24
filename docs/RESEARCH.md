@@ -10440,3 +10440,44 @@ after a second import in the same session; a restart gave them.
 - **Its explicit openers**: the tool's Debug Selected Motion (Advanced tab), the motion window's Debug button and double
   click, the console command `mmdvmd_debug` (client) and the server's `mmdvmd_debug_open`. The window's own buttons,
   timeline, option boxes and the preview call `OpenDebugMenu` too.
+
+## Authored Remix mods and the "Legacy material" label (2026-11-24, Claude; GitHub issue 14)
+
+- Alt+X's texture info prints "Replaced material" or "Legacy material" from `isMaterialReplacement(texHash)`, which is
+  `AssetReplacer::getReplacementMaterial(texHash) != nullptr` (`src/dxvk/imgui/dxvk_imgui.cpp` of the fork, lines
+  1434-1451 with patches 0001-0105). `getReplacementMaterial` walks every loaded mod in rank order and returns the first
+  material for the hash, or nothing while `rtx.enableReplacementMaterials` is off (`rtx_asset_replacer.cpp:110-122`).
+  So "Legacy material" means no loaded mod, `~gmod_topbr` included, has a material for that texture hash: an authored
+  mod losing to ToPBR would show "Replaced material".
+- The Toolkit's packaged format (`over "RootNode" { over "Looks" { over "mat_<HASH>" { over "Shader" { ... } } } }`,
+  no `info:mdl:sourceAsset`, no albedo) loads: `findMaterialShader` takes the child named `Shader` even when it is an
+  untyped `over` (`rtx_mod_usd.cpp:651-665`), and `getMaterialHash` reads the hash from the `mat_` name before it looks
+  at the prim's type (`rtx_mod_usd.cpp:667-687`). The material is then Opaque.
+- `[RTX Mod Load] mod=<folder> ... materials=N ... textures=M` (runtime patch 0086, one line per mod's first load):
+  `materials` counts the prims under `/RootNode/Looks` walked, `textures` the maps resolved; three materials with three
+  maps each gave `materials=3 textures=9` in the PoC. A mod whose first load throws logs `USD mod worker failed; keeping
+  current scene: <what>` and stays unloaded for the session (`rebuildWorkerEntry`, `applyPendingRebuild`).
+- Every mod's load logs 18 `[SecretReplacement] Could not find stage: <that mod's folder>\./SubUSDs/SM_Prop_CompanionCube_*.usd`
+  warnings (180 in a PoC start with ten mods): one mod's secret replacement stages are looked up relative to each mod's
+  folder in turn. Only log noise; seen with patches 0001-0105.
+- [`authored_mod_session.py`](../tools/qa/authored_mod_session.py.md) results: see TESTING.md.
+
+## The option update mutex on the D3D9 draw path after the 2026-11-23 merge (2026-11-24, Claude, ADR 0265)
+
+Line numbers are the fork tree's with patches 0001-0106.
+
+- `RtxOptionImpl::getUpdateMutex()` is one non-recursive `std::mutex` (`rtx_option.h:110`). Upstream's `main` of
+  2026-11-23 takes it around the fixed-function stage loops: `d3d9_device.cpp:7784` (`optionLock`, released at 7834
+  after the loop) and `d3d9_rtx.cpp:1168`. Locked a second time on one thread, MSVC's `std::mutex::lock` throws
+  `std::system_error` with `resource_deadlock_would_occur` (36): an unhandled C++ exception (0xE06D7363) in the game. In
+  the first build it came out of `D3D9DeviceEx::DrawIndexedPrimitive+0x2b9` (return address at `d3d9_device.cpp:2740`).
+- The fork's `TextureCategorySets::refresh()` (`rtx_texture_category_sets.h:20-41`) takes that mutex whenever any
+  option's resolved revision moved since its last copy, and `D3D9Rtx::GetTextureCategories()` (`d3d9_rtx.h:196`) calls
+  it. Reads of the copies (`RtxOptionHashSetCopy::contains`) and `tagInvalidationScope()` take no lock.
+- Getters that still lock: `getValue()` of a type without `kLockFreeRead` (hash sets, strings, vectors;
+  `rtx_option.h:734`), `containsHash()` (554), `getCopy()` (411), `getMinValue`/`getMaxValue`, and every setter.
+  `hasValueInLayer()` does not lock (its callers hold the mutex). Code under either stage-loop lock may call none of the
+  locking ones.
+- The first build's three minidumps were read with the `minidump` package and DbgHelp with the build's `d3d9.pdb`
+  (`SYMBOL_INFOW.SizeOfStruct` is 88 on x64). The thrown `std::system_error` holds its error value at offset 24 and its
+  category pointer at offset 32 (after the vtable and `std::exception`'s data).

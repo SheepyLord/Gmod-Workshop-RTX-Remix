@@ -4275,3 +4275,60 @@ separator now has 57 texts in each catalog.
   `Imported game maps` conversions and 6 materials `automatic` (both body sheets, the weapon, both hair sheets); the face,
   the skin and a pupil stay `none`, as the converter keeps face, eye and skin materials as Remix draws them. PASS.
 - Not covered: maps copied into the folder without a re-import (taken at the next import or game, as before).
+
+## An authored Remix mod in the Toolkit's format under the package (GitHub issue 14)
+
+- **PoC, the published package** (`0.0.0-dev.20261124082855+6b799cdf`, runtime patches 0001-0105, the runtime of the
+  issue's package; the probe that became [`authored_mod_session.py`](../tools/qa/authored_mod_session.py.md), evidence
+  `out/issue14/run2` and `run3` of the main checkout): the Remix texture hashes of the crowbar's view model
+  (`40E1336635659BEE`, `B82E3786629E13FC`) and of an oil drum (`80160066B663ED4E`) went into a mod in the issue's format
+  (`over "mat_<hash>"`, an untyped `over "Shader"` with only metallic, normal and roughness `*.a.rtex.dds` maps), and a
+  crate's (`BEEC6B226AF7AE99`) into a control mod in rpai's format. The Remix log: `[RTX Mod Load] mod=issue14_toolkit
+  ... materials=3 ... textures=9`, `mod=issue14_control ... materials=1 ... textures=2`, no `USD mod worker failed`.
+  Screenshots: the drum rusty without the mods, dark mirror metal with them, the same after 90 s of ToPBR at scope 2;
+  ToPBR's `materials.usda` names none of the four hashes. The issue is not reproduced: the format applies, and ToPBR does
+  not take an authored hash.
+
+## The runtime merges upstream dxvk-remix main of 2026-11-23 (ADR 0265)
+
+- **The runtime's unit suite** (`meson test -C _CompRelease_x64 --suite dxvk --no-rebuild` in the fork tree after the
+  build, 80 tests): 77 pass under meson. `test_remix_api_version` fails in the build folder with 0xC0000139 (Windows
+  loads System32's `d3d9.dll` first) and passes beside the built DLL with meson's library path: a 0.1000.0 or 0.1000.1
+  client gets 328 bytes, 0.1000.2 344, 0.1000.3 376, the bytes behind each keep their canary, stock 0.6.x and other
+  minors are refused. `test_remix_categories` cannot load `d3d9.dll` in its process, as before. `test_documentation`
+  failed until `RtxOptions.md` was regenerated from the build (upstream's new options: the GPU-resident scene, the
+  dissolve patterns, memory fault injection, particle birth masks), then passed. Upstream's new tests (spawn masks,
+  memory diagnostics, the particle schema) and the fork's (`test_memory_stats_data`, `test_worker_idle`, the MMD alpha
+  and option layer tests) pass.
+- **PoC, the first build** (`d3d9.dll` `804b7da0`, package `0.0.0-dev.20261124093853+5dabbe61`): every session crashed
+  at its first draws. `authored_mod_session.py` (evidence `out/authored-mod/final1`), release QA's first session
+  (`out/qa-poc/up1123`) and the character test (`out/game-rescan/up1123`) left three minidumps with one stack:
+  `std::system_error` (EDEADLK, 36) thrown under `D3D9DeviceEx::DrawIndexedPrimitive`, symbolized with the build's PDB.
+  The cause and the fix are in the [report](handover/upstream-1123-report.md) ("Found in the PoC").
+- **The unit suite again after the fix** (`d3d9.dll` `74115025`): 78 of 80 pass under meson; `test_remix_api_version`
+  passes beside the built DLL; `test_remix_categories` as before.
+- **PoC, the fixed build** (`d3d9.dll` `74115025`, package `0.0.0-dev.20261124095718+5dabbe61`):
+  - [`authored_mod_session.py`](../tools/qa/authored_mod_session.py.md) (`out/authored-mod/final2`): PASS. The issue 14
+    format loads (`materials=3`, `textures=9`; the control mod 1 and 2) and ToPBR takes none of the four hashes.
+  - `release_qa.py` (`out/qa-poc/up1123-2`): `session` and `spawnmenu` PASS. `map-glass` (the pane breaks, no shards)
+    and `spawned-glass` (no `procedural_shard_4`) fail as the published package does today (`out/qa-poc/glass-published`)
+    and as both runtimes did on 2026-11-14: the glass module does not load in PoC QA sessions, open. The settings check
+    reported `nativeloader_sky_hour` `18.64` -> `18.639999`; the published package does the same in its `spawnmenu`
+    session (`out/qa-poc/spawnmenu-published`, the PoC's saved hour first put back to `18.64`): the spawn menu's Time of
+    day slider writes the convar's single-precision value back in the engine's `%f` form. Release QA's settings check
+    now compares numbers at that precision too ([`release_qa.py`](../tools/qa/release_qa.py.md), a unit test for it).
+  - `game_rescan_session.py` (`out/game-rescan/up1123-2`): PASS. Before the re-import 9 `none` and 19 `waiting`, after
+    it 3 `none`, 19 `waiting` and 6 `automatic`, as for ADR 0263.
+  - The seven sessions' Remix logs hold only the two error kinds the published package's logs hold, at the same rate
+    (`GetShaderModule: Out of range of supported shader model`; device objects not disposed of at exit).
+- **Performance, A against B** ([`remix_workers_session.py`](../tools/qa/remix_workers_session.py.md), evidence
+  `out/remix-workers/up1123-ab`; A the published package, B this one; gm_construct at the queued-draws lab's view,
+  frames timed for 60 s after 60 s; the machine 3-12 % busy before each session; every session ran its own `d3d9.dll`
+  and put the settings back):
+  - 4K map sessions in the order A B B A: frames A 12.26 / 12.19 / 15.13 ms and 12.04 / 12.00 / 14.71 (mean / median /
+    p99), B 12.36 / 12.35 / 14.74 and 12.04 / 12.00 / 14.61: the same within the A runs' own spread (the GPU sets the
+    pace). The game process used 226.7 % and 222.8 % of one core with A, 183.1 % and 197.4 % with B: about 15 % less CPU
+    for the same frames.
+  - 1280x720, the map part of one menu session each (A first, then B): A 152 frames a second (median 6.04 ms, p99 23.4,
+    189 frames over twice the median), B 178 (5.45 ms, p99 9.8, 20). One pair only, in that order.
+  - The geometry workers stay idle in the main menu with both (0.0 %), as since patch 0105.

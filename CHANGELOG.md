@@ -6,6 +6,31 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### RTX Remix brought up to NVIDIA's latest again (2026-11-24)
+
+- **The RTX Remix runtime now has NVIDIA's fixes of the past ten days**: fewer crashes when video memory runs short or
+  a game sends bad data, GPU-instanced objects drawn where they belong, subsurface scattering (skin, wax) on
+  first-person weapons and hands at their real size, decals seen through glass or water again, colour grading that no
+  longer overshoots at high saturation, and less CPU time per frame (fewer locks on the draw path, cached texture budget
+  and light conversion work; in our test at 4K the game used about 15% less CPU for the same frame rate).
+- A GPU queue error the runtime used to wait out now ends the game with the GPU crash dialog, as NVIDIA's runtime now
+  does: those waits could hang the game.
+- Behind it ([ADR 0265](docs/decisions/0265-the-runtime-merges-upstream-main-of-2026-11-23.md)): runtime patch 0106
+  merges NVIDIA's `dxvk-remix` `main` of 2026-11-23 (`2b46bed0c..58ac72412`, 25 commits) onto patches 0001-0105. The
+  fork's Remix API becomes 0.1000.3 (upstream's GPU-resident scene functions after the fork's own; the package's
+  modules, built against 0.1000.1, load unchanged). The particle schema ships with the new birth mask properties.
+- Release QA's settings check no longer counts the spawn menu's Time of day slider writing the same hour back at single
+  precision (`18.64` as `18.639999`) as a changed setting.
+
+### An authored Remix mod in the Toolkit's format still wins over ToPBR (GitHub issue 14, 2026-11-24)
+
+- GitHub issue 14 reported custom RTX weapon mods no longer applying after the ToPBR update. A mod in the issue's exact
+  format (`over "mat_<hash>"` with only metallic, normal and roughness maps) applies under the published package and
+  under the new runtime, with ToPBR off and at "everything it can convert", and ToPBR leaves its hashes alone: not
+  reproduced. The issue's screenshot ("Legacy material") means no loaded mod had the weapon texture's material, so the
+  reply asks for the reporter's Remix log.
+- New test: [`authored_mod_session.py`](tools/qa/authored_mod_session.py.md) checks it in the PoC.
+
 ### A model imported again picks up the PBR maps added to its folder (2026-11-24)
 
 - **If you forgot to put a game character's PBR maps (its `_N`, `_MRA`, `_P` ... files) beside its PMX, copy them in

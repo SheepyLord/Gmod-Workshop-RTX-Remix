@@ -53,7 +53,8 @@ Any change fails the summary. The game itself writes `garrysmod\cfg\config.cfg` 
 client convars add-ons archive) at a normal quit, so those two are copied before and after
 (`before-config.cfg`, `after-client.vdf`, ...) and compared value by value (`settings` in the summary:
 `changed`, `added`, `removed`); numbers compare as numbers, since a slider writes a convar back in the
-engine's `%f` form (`0.00` becoming `0.000000` is no change, R5). A new key, such as an add-on version's new convar, is only reported.
+engine's `%f` form (`0.00` becoming `0.000000` is no change, R5), and also at single precision, which the engine
+prints (the spawn menu's Time of day slider writes `18.64` back as `18.639999`: no change; 2026-11-24). A new key, such as an add-on version's new convar, is only reported.
 A changed or removed value fails in `client.vdf`, and in `config.cfg` for `mat_queue_mode`, which a session
 switches off for a moment and must put back (R4-28).
 Crash prompts throughout each run are declined by `poc_session.py`'s background watchdog (never

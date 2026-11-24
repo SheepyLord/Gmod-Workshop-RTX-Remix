@@ -28,8 +28,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "541806a9fa1f00504c2a24ea0e0f707a0a051bf12108b9355ef8f6735a64262c",
-  "built_from": "HEAD -> claude/remix-workers 0165da89b (with what the rest of this record names)",
+  "d3d9.dll": "74115025eaa60ab65fcde74b2c90b7c3c22690c8fc8b5603f39c264d60770b33",
+  "built_from": "HEAD -> claude/upstream-main-1123 51dde2c63 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -155,6 +155,7 @@
    "patches/0103-The-startup-text-from-rtx-remix-mods-nativeloader_ui.patch": "83d66a2dce954691bb5f449d33f3e18034d8c1783541b5fe56d375b27886afd5",
    "patches/0104-The-Remix-API-an-empty-value-changes-nothing-and-suc.patch": "d982178c59d004f257798309bff317780c95bdb641d9ed58db4589184ffbee8a",
    "patches/0105-The-geometry-workers-sleep-when-idle-instead-of-poll.patch": "4290048fe33d9b0ee5dad8550b68d379d1de8a9e87c14919eeac987a3c29cb63",
+   "patches/0106-Merge-upstream-dxvk-remix-main-of-2026-11-23-2b46bed.patch": "f1df6b42df973dcb01b1545faa7ef6df403ca3ad26d7e7a9439ddd24c73b2abd",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

@@ -27,10 +27,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "0165da89b509f97a304d95337a03cc55d049d15e",
+    "commit": "51dde2c63ebc59da7919495fae96044f69d5184d",
     "dirty": false
    },
-   "imported": "2026-11-17T07:38:49+00:00"
+   "imported": "2026-11-24T09:57:06+00:00"
   },
   "layers/classic_remix_defaults.conf": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\fx\\out\\layers\\classic_remix_defaults.conf",
@@ -157,10 +157,10 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
+    "commit": "21dedfd9556315c53651a0df9b73f33a84e85b89",
     "dirty": false
    },
-   "imported": "2026-11-14T20:04:03+00:00"
+   "imported": "2026-11-24T09:32:39+00:00"
   },
   "files/atmosphere/nebula.dds": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula.dds",
@@ -313,12 +313,12 @@
    "stored_sha256": "9abbc646f44e7dd8345bb6d33949bd7f8ecbb97b96de9b0e50d785e1b31b6837"
   },
   "files/d3d9.dll": {
-   "size": 479886336,
-   "sha256": "541806a9fa1f00504c2a24ea0e0f707a0a051bf12108b9355ef8f6735a64262c",
-   "mtime_ns": 1794901004618235300,
+   "size": 510292480,
+   "sha256": "74115025eaa60ab65fcde74b2c90b7c3c22690c8fc8b5603f39c264d60770b33",
+   "mtime_ns": 1795514072597770200,
    "stored": "xz",
-   "stored_size": 70854432,
-   "stored_sha256": "6fe913c841c018b0cf7989ce20216012da95f6750a3134ba3096caa51e7f6769"
+   "stored_size": 74876380,
+   "stored_sha256": "2c3175f4c648b5cc33b240f4e7356e7ad3b258a55039ab3d3a6d29c7f1bb31e2"
   },
   "files/GFSDK_Aftermath_Lib.x64.dll": {
    "size": 9240728,
@@ -873,9 +873,9 @@
    "stored": "plain"
   },
   "files/usd/plugins/RemixParticleSystem/generatedSchema.usda": {
-   "size": 57360,
-   "sha256": "f522befd3f83127aed6cbd995bdd34c09baff900ece7993f5bd11f57305d7906",
-   "mtime_ns": 1794683948068266000,
+   "size": 58961,
+   "sha256": "0b4c36920b94557f1b761fb7e5e9a2ce8045e3d5b067c1c4ea86e6dc566e13c9",
+   "mtime_ns": 1795510817395143100,
    "stored": "plain"
   },
   "files/usd/plugins/RemixParticleSystem/RemixParticleSystem.dll": {

@@ -9,6 +9,7 @@ import datetime as _dt
 import hashlib
 import json
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -200,12 +201,14 @@ def settings(path: Path) -> dict[str, str]:
 
 def same_value(a: str, b: str) -> bool:
     """Equal as written, or as numbers: a slider writes a convar back in the engine's %f form
-    ("0.00" becomes "0.000000") without changing it (R5)."""
+    ("0.00" becomes "0.000000") without changing it (R5). The engine prints the convar's
+    single-precision value, so "18.64" comes back as "18.639999": equal at that precision too."""
     if a == b:
         return True
     try:
-        return float(a) == float(b)
-    except ValueError:
+        x, y = float(a), float(b)
+        return x == y or struct.pack("<f", x) == struct.pack("<f", y)
+    except (ValueError, OverflowError):
         return False
 
 

@@ -1,5 +1,44 @@
 # runtime/
 
+Patch `0106-Merge-upstream-dxvk-remix-main-of-2026-11-23-2b46bed.patch`
+([ADR 0265](../docs/decisions/0265-the-runtime-merges-upstream-main-of-2026-11-23.md),
+[report](../docs/handover/upstream-1123-report.md), fork branch `claude/upstream-main-1123`, on 0105's `0165da89b`):
+NVIDIA's `dxvk-remix` `main` of 2026-11-23 (`58ac72412`), the 25 commits after 0093's `2b46bed0c`, merged with
+`2b46bed0c` as the base (a temporary `git replace --graft` of 0093's squashed commit `20e3553eb` onto it) and squashed
+into one commit. Of upstream's 194 files, 99 are files patches 0001-0105 change too; 49 conflicted. The next update
+merges `58ac72412..<main>` the same way.
+
+- **Remix API 0.1000.3.** Upstream's `SceneInstanceAdd`, `SceneInstanceUpdate`, `SceneInstanceRemove` and
+  `UpdateMaterial` (its 0.6.12, the experimental GPU-resident scene, `rtx.gpuResidentScene`, off) are slots 43-46 after
+  `AddWaterDisturbance` (376 bytes); `remixapi_InstanceInfoParticleSpawnMaskEXT` is struct type 34 (33 upstream).
+  `util_remix_api_version.h` writes a 0.1000.2 client its 344 bytes and a 0.1000.0 or 0.1000.1 client its 328; the
+  fork's `docs/RemixApiChangelog.md` has the entry.
+- **GPU layouts.** Upstream's view-model material bit is texture flag bit 31 (`rtx_materials.h`, `surface.h`; 22
+  upstream, inside the MMD alpha cutoff's bits 19-30); `RtInstance` is 832 bytes with the fork's MMD alpha key and
+  upstream's original mesh members in its copy constructor; `GpuParticleSystemDesc` 128 bytes and the particle constants
+  480 (`worldToProjection` at 352: the fork's `sceneTlasValid` row and upstream's spawn context row).
+- **Behaviour.** A failed queue submission or fence wait ends the process through the fork's
+  `handleDeviceLost(reason)`, with upstream's memory report; option reads of trivially copyable values come from
+  upstream's published copy inside the fork's `kLockFreeRead` branch, and a layer's save keeps upstream's NoSave rule
+  under the fork's update mutex; RTX IO keeps a failed read's target until its reads complete and marks it failed only
+  in the current upload generation; the texture categories stay the fork's `TextureCategorySets`, upstream's new
+  `getTargetBuffer()` included, and upstream's new option locks around the fixed-function stage loops
+  (`d3d9_device.cpp`, `d3d9_rtx.cpp`) see only those copies, refreshed before the lock is taken (the update mutex is
+  not recursive); upstream's per-frame light conversion cache keeps the fork's lookup logging; the global
+  tonemapper keeps its colour grading controls with upstream's shared, clamped `colorGrading`; upstream's local
+  tonemapper changes stay out (the fork has none).
+- **Left to the build:** the spawn kernel rejects a masked-out birth in the fork's `SpawnSample` form, upstream's
+  GPU-resident frame end calls the fork's `manageTextureVram(ctx)`, upstream's spawn mask test expects type 34. The
+  fork's `test_memory_diagnostics` (the memory log throttle) became `test_memory_stats_data`.
+- **Found in the PoC:** the first build (`804b7da0`) refreshed the category copies inside `d3d9_device.cpp`'s locked
+  stage loop, locking the update mutex twice on one thread: `std::system_error` (EDEADLK) and a crash at the first
+  draws of every session. The refresh now comes before the lock.
+
+Built by `build_runtime.ps1` in `out/worktrees/r17/out/runtime-src` (0001-0106): **`d3d9.dll` 510,292,480 bytes, SHA-256
+`74115025eaa60ab65fcde74b2c90b7c3c22690c8fc8b5603f39c264d60770b33`** (74,876,380 bytes xz in Git LFS). Imported beside it from the same build with `tools\inputs.py import runtime
+--file`: `usd/plugins/RemixParticleSystem/generatedSchema.usda` (upstream's birth mask properties). No loader
+(`winmm.dll`) change.
+
 Patch `0105-The-geometry-workers-sleep-when-idle-instead-of-poll.patch` (S1 of the second load speed-up plan, the
 user's request of 2026-11-17 to do its remaining items; [ADR 0243](../docs/decisions/0243-the-geometry-workers-sleep-when-idle.md),
 [report](../docs/handover/remix-workers-report.md); fork branch `claude/remix-workers`, commit `0165da89b` on 0104's
@@ -778,6 +817,7 @@ NVIDIA's SDKs, is about 3.6 GB and keeps its own history, so this repository hol
 | `0092-Reflex-no-sent-message-is-dispatched-...` | The Reflex latency ping inside Present peeks only while `GetQueueStatus` shows a posted message and no sent one (`PM_REMOVE \| PM_QS_POSTMESSAGE`): no window procedure runs mid-frame ([ADR 0216](../docs/decisions/0216-the-runtimes-pipeline-handle-race-and-in-present-message-dispatch-fixed.md)) |
 | `0093-Merge-upstream-dxvk-remix-main-...` | NVIDIA's dxvk-remix `main` of 2026-11-14 (`remix-1.6.1..2b46bed0c`, 57 commits): RTXDI `dc8eb03` with the fork's volumetrics, Remix API 0.1000.2 with upstream's additions after the fork's, the fork's GPU bits kept and upstream's moved, `usdg.dll` beside `d3d9.dll` ([ADR 0218](../docs/decisions/0218-the-runtime-follows-upstream-dxvk-remix-main.md)) |
 | `0094-DLSS-frame-generation-keeps-the-UI-...` | DLSS Frame Generation gets the frame before its UI (NGX's HUD-less colour): a copy of the back buffer filled at injection, blitted beside each frame generation back buffer with the back buffer's own blit, passed for each frame that filled it, so the crosshair and the HUD stay in place in the generated frames ([ADR 0223](../docs/decisions/0223-frame-generation-gets-the-frame-before-its-ui.md)) |
+| `0106-Merge-upstream-dxvk-remix-main-...` | NVIDIA's dxvk-remix `main` of 2026-11-23 (`2b46bed0c..58ac72412`, 25 commits): VRAM pressure crash fixes, the merged BLAS transform fix, view-model SSS, fewer draw-path locks, the GH:1112 revert; Remix API 0.1000.3 with upstream's GPU-resident scene functions after the fork's; upstream's view-model bit at texture flag bit 31 ([ADR 0265](../docs/decisions/0265-the-runtime-merges-upstream-main-of-2026-11-23.md)) |
 
 - [`build_runtime.ps1`](build_runtime.ps1.md): applies them in a worktree of a fork clone, builds, and
   stores the new `d3d9.dll` in [`packages/runtime`](../packages/README.md).

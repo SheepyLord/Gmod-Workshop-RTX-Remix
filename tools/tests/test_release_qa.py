@@ -142,6 +142,15 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(qa.settings_changes(hour, rewritten)['changed'], {})
         moved = self.write('m.vdf', '"CVars"\n{\n\t"nativeloader_sky_hour"\t\t"2.130000"\n\t"skin"\t\t"y"\n}\n')
         self.assertEqual(sorted(qa.settings_changes(hour, moved)['changed']), ['"nativeloader_sky_hour"', '"skin"'])
+        # The engine prints the convar's single-precision value: the spawn menu's Time of day slider wrote
+        # 18.64 back as 18.639999 (2026-11-24, the published package and the new runtime alike). One step of
+        # that precision further is still a change.
+        evening = self.write('e2.vdf', '"CVars"\n{\n\t"nativeloader_sky_hour"\t\t"18.64"\n}\n')
+        printed = self.write('p.vdf', '"CVars"\n{\n\t"nativeloader_sky_hour"\t\t"18.639999"\n}\n')
+        self.assertEqual(qa.settings_changes(evening, printed)['problems'], [])
+        later = self.write('l.vdf', '"CVars"\n{\n\t"nativeloader_sky_hour"\t\t"18.640001"\n}\n')
+        self.assertEqual(list(qa.settings_changes(evening, later)['changed']), ['"nativeloader_sky_hour"'])
+        self.assertFalse(qa.same_value('1e39', '1e40'))  # beyond single precision: compared as written
 
 
 class EvaluateOnlyTests(unittest.TestCase):

@@ -180,3 +180,11 @@ applied cleanly. These notes call the character Character A and leave out its bo
   merged into `main`.
 - The PoC crash in the Hotloader's drawing (`mmd::executeItem`, `shaderapidx9.dll+0x94fe`), seen once in four
   sessions with this change: to watch for in later runs and field reports.
+
+## Published
+
+Merged to `main` as `65f21e2f` (a fast-forward of the branch's two commits) and pushed (`50f36ada..65f21e2f`, five
+Git LFS objects, 6.3 MB); Workshop item 3829070317 updated as `0.0.0-dev.20261125084526+82cd43a9` (2026-11-25 08:45
+UTC), content digest `eed1ec59...`, the same content as the package checked in the PoC, its change note the
+CHANGELOG entry. The push's own publish found the inputs unchanged. Not run in the field install: the user's field
+game ran throughout and was left alone; it takes the update at its next start.

@@ -11,12 +11,16 @@ def png(width,height,rgba):
  rows=b''.join(b'\0'+rgba[y*width*4:(y+1)*width*4] for y in range(height))
  def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
  return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(rows))+chunk(b'IEND',b'')
-def make(rope=False,cycle=False,texture=False,humanoid=False,joint=(0,1),material_count=2,chain=0,chain_damping=.5,chain_mass_ratio=1,chain_masses=None,chain_locked=False,extra_vertices=0,bad='',morph_vertex=3,morph_offset=1,island=False,texture_name='checker.dds',group_chain=0,group_lattice=0,control_root=False,uv_switch=0):
+def make(rope=False,cycle=False,texture=False,humanoid=False,joint=(0,1),material_count=2,chain=0,chain_damping=.5,chain_mass_ratio=1,chain_masses=None,chain_locked=False,extra_vertices=0,bad='',morph_vertex=3,morph_offset=1,island=False,texture_name='checker.dds',group_chain=0,group_lattice=0,control_root=False,uv_switch=0,boneless=False):
  # bad: one non-finite or runaway value per section. The loader repairs them (soft bodies are
  # rejected); the repair kinds mirror released models: a NaN vertex, NaN normal, BDEF4 weights
  # of (1, 1, 1, -2) on one bone, a bone parented to itself, a 1e21 kg anchor, a 1e14 spring.
  # uv_switch: the Fabric grid maps to u 0-0.25 (column x at u x/16, row y at v y/4) and a
  # texture (UV) morph after the other morphs moves all of it by that much in u.
+ # boneless (with a chain): rigid bodies without a bone, as skirt lattices and chest helpers
+ # author them: a side body beside each hair link jointed to it and to the next side body, a
+ # helper jointed to the head, and a kinematic (follow-bone) body without a bone jointed to that
+ # helper. They collide with nothing (mask 0): only their joints move them.
  nan=float('nan');inf=float('inf')
  b=bytearray(b'PMX '+pack('fB',2.1,8)+bytes([1,1,4,4,4,4,4,4]))
  b+=text('MMDHL regression rope' if rope else 'MMDHL regression cloth')+text('Generated fixture')+text('CC0 procedural test geometry')+text('')
@@ -110,14 +114,28 @@ def make(rope=False,cycle=False,texture=False,humanoid=False,joint=(0,1),materia
  b+=pack('i',len(morphs))+b''.join(morphs)+pack('i',0) # display frames
  if chain:
   first=hair
-  b+=pack('i',chain+1+(1 if control_root else 0))+text('head')+text('')+pack('iBHB',8,0,0xfffe,0)+vec(.5,.5,.5)+vec(0,17,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
+  b+=pack('i',chain+1+(1 if control_root else 0)+(chain+2 if boneless else 0))+text('head')+text('')+pack('iBHB',8,0,0xfffe,0)+vec(.5,.5,.5)+vec(0,17,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
   for k in range(chain):
    b+=text('hair'+str(k))+text('')+pack('iBHB',first+k,1,0xfffd,2)+vec(.25,.7,0)+vec(0,bones[first+k][1][1]-.6,.3)+vec(0,0,0)+vec(chain_masses[k] if chain_masses else .2*(chain_mass_ratio if k%2 else 1),chain_damping,.5,0,.5)+pack('B',1)
   # A kinematic follower on センター: it must follow the body, not stay at the world origin.
   if control_root:b+=text('center')+text('')+pack('iBHB',top+1,0,0xfffe,0)+vec(.5,.5,.5)+vec(0,8,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
-  b+=pack('i',chain)
+  side=chain+1+(1 if control_root else 0)
+  if boneless:
+   for k in range(chain):
+    b+=text('hair side'+str(k))+text('')+pack('iBHB',-1,2,0,0)+vec(.2,0,0)+vec(.6,bones[first+k][1][1]-.6,.3)+vec(0,0,0)+vec(.2,chain_damping,.5,0,.5)+pack('B',1)
+   b+=text('head helper')+text('')+pack('iBHB',-1,2,0,0)+vec(.2,0,0)+vec(0,17.5,-.6)+vec(0,0,0)+vec(.2,.5,.5,0,.5)+pack('B',1)
+   b+=text('head mount')+text('')+pack('iBHB',-1,2,0,0)+vec(.2,0,0)+vec(0,18.2,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
+  b+=pack('i',chain+(2*chain+1 if boneless else 0))
   for k in range(chain):
    b+=text('hair joint'+str(k))+text('')+pack('Bii',0,k,k+1)+vec(0,bones[first+k][1][1],.3)+vec(0,0,0)+vec(0,0,0)*2+(vec(0,0,0)*4 if chain_locked else vec(-.5,-.5,-.5)+vec(.5,.5,.5)+vec(0,0,0)+vec(4,4,4))
+  if boneless:
+   locked=vec(0,0,0)*2+vec(-.5,-.5,-.5)+vec(.5,.5,.5)+vec(0,0,0)+vec(4,4,4)
+   for k in range(chain):
+    b+=text('side joint'+str(k))+text('')+pack('Bii',0,k+1,side+k)+vec(.3,bones[first+k][1][1]-.6,.3)+vec(0,0,0)+locked
+   for k in range(chain-1):
+    b+=text('side link'+str(k))+text('')+pack('Bii',0,side+k,side+k+1)+vec(.6,bones[first+k][1][1]-1.2,.3)+vec(0,0,0)+locked
+   b+=text('helper joint')+text('')+pack('Bii',0,0,side+chain)+vec(0,17.5,-.3)+vec(0,0,0)+locked
+   b+=text('mount joint')+text('')+pack('Bii',0,side+chain,side+chain+1)+vec(0,17.85,-.3)+vec(0,0,0)+locked
   b+=pack('i',0)
   return bytes(b)
  b+=pack('i',3)
@@ -189,6 +207,9 @@ if __name__=='__main__':
  (out/'native-far-morph.pmx').write_bytes(make(humanoid=True,island=True,morph_vertex=28,morph_offset=100))
  # MMD control roots above the pelvis with vertices, a follower body and IK goals under them (issue #6).
  (out/'native-control-root.pmx').write_bytes(make(humanoid=True,chain=2,control_root=True))
+ # Rigid bodies without a bone beside the hair chain and on the head: under Source control every
+ # reset (the first pose, Reset physics, a teleport) must start them with the body.
+ (out/'native-boneless.pmx').write_bytes(make(humanoid=True,chain=8,boneless=True))
  # MMD control roots in a PMD, whose IK evaluatePose solves: heel IK below the Source-driven ankles.
  (out/'native-control-root.pmd').write_bytes(make_pmd())
  # Alpha-textured materials for the alpha-test coverage the RTX Remix renderer uses: a

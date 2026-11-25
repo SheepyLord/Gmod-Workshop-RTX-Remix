@@ -388,7 +388,7 @@ Secondary::Secondary(Instance& owner):instance(owner){
  }
  for(auto& j:joints)if(j.a<0&&j.b>=0)bodies[j.b].worldAnchored=true;else if(j.b<0&&j.a>=0)bodies[j.a].worldAnchored=true;
  bool changed=true;while(changed){changed=false;for(auto& j:joints)if(j.a>=0&&j.b>=0&&bodies[j.a].worldAnchored!=bodies[j.b].worldAnchored){bodies[j.a].worldAnchored=bodies[j.b].worldAnchored=true;changed=true;}}
- buildAttachments();
+ buildFrames();buildAttachments();
  for(auto& j:joints){float length=j.a>=0&&j.b>=0?(bodies[j.a].initial.getOrigin()-bodies[j.b].initial.getOrigin()).length():0;j.stretchTolerance=btClamped(length*.08f,.02f,.12f);}
  // Bullet does not wake the dynamic neighbours of a moving kinematic body
  // through joints, so each follower remembers the chains it drives.
@@ -464,7 +464,7 @@ void Secondary::applySleepPolicy(){
 }
 void Secondary::follow(bool all,const std::vector<btTransform>& skin){
  bool wake=v2&&sleepEnabled.load();
- for(auto& b:bodies)if(all||b.follower){auto t=b.bone>=0?skin[b.bone]*b.initial:b.initial;b.followStart=all?t:nanoemRigidBody(b.value)->getWorldTransform();if(all)set(b.value,t);else {float m[16];t.getOpenGLMatrix(m);nanoemPhysicsMotionStateSetCurrentWorldTransform(nanoemPhysicsRigidBodyGetMotionState(b.value),m);}b.current=t;nanoemPhysicsRigidBodyResetStates(b.value);
+ for(auto& b:bodies)if(all||b.follower){auto t=animatedPose(b,skin);b.followStart=all?t:nanoemRigidBody(b.value)->getWorldTransform();if(all)set(b.value,t);else {float m[16];t.getOpenGLMatrix(m);nanoemPhysicsMotionStateSetCurrentWorldTransform(nanoemPhysicsRigidBodyGetMotionState(b.value),m);}b.current=t;nanoemPhysicsRigidBodyResetStates(b.value);
   if(wake&&b.follower){
    // Accumulated drift since the follower last woke, so slow motion cannot
    // leave sleeping hair behind or a sleeping collider frozen in place.
@@ -540,6 +540,26 @@ void Secondary::stabilizeJoints(){
  stretchGuardMs+=elapsedMs(started);
 }
 void Secondary::followSoft(bool all,const std::vector<btTransform>& skin){for(size_t si=0;si<soft.size();si++){auto s=soft[si];for(size_t i=0;i<softFrames[si].size();i++)if(all||softFrames[si][i].pinned){int vi=softFrames[si][i].index;if(vi<0)continue;auto& vertex=instance.model->vertices[vi];auto p=skinPosition(vertex,skin),normal=skinNormal(vertex,skin);float position[4]={p.x(),p.y(),p.z(),0},direction[4]={normal.x(),normal.y(),normal.z(),0};nanoemPhysicsSoftBodySetVertexPosition(s,int(i),position);nanoemPhysicsSoftBodySetVertexNormal(s,int(i),direction);}}}
+void Secondary::buildFrames(){
+ // A PMX body without a bone (the lattice bodies between skirt chains, a chest's helper bodies)
+ // has only its rest transform, in the model's rest space. Under Source control that space is the
+ // instance frame (the world origin of a client carrier), so every reset (the first pose, Reset
+ // physics, a teleport) put such bodies at the map origin and their joints dragged the chains
+ // they link across the map. Each rides, as at rest, with the bone of the nearest body that has
+ // one through the authored joints (multi-source shortest paths over rest distances), else with
+ // the Source root (rig bone 0, the pelvis), as the bones nothing poses do (evaluatePose). A body
+ // the world holds through a joint stays where the world holds it, as before (resumeQualityPose).
+ std::vector<std::vector<std::pair<int,float>>> edges(bodies.size());
+ for(auto& j:joints)if(j.a>=0&&j.b>=0){float distance=btMax(.001f,(bodies[j.a].initial.getOrigin()-bodies[j.b].initial.getOrigin()).length());edges[j.a].push_back({j.b,distance});edges[j.b].push_back({j.a,distance});}
+ using Entry=std::pair<float,int>;std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> queue;
+ std::vector<float> distance(bodies.size(),BT_LARGE_FLOAT);
+ for(size_t i=0;i<bodies.size();i++){bodies[i].frame=bodies[i].bone;if(bodies[i].bone>=0){distance[i]=0;queue.push({0.f,int(i)});}}
+ while(!queue.empty()){auto [cost,i]=queue.top();queue.pop();if(cost!=distance[i])continue;
+  for(auto [next,length]:edges[i])if(bodies[next].bone<0&&!bodies[next].worldAnchored&&cost+length<distance[next]){distance[next]=cost+length;bodies[next].frame=bodies[i].frame;queue.push({distance[next],next});}
+ }
+ int root=instance.sourceRig->bones[0].mmd;
+ for(auto& b:bodies)if(b.frame<0&&!b.worldAnchored)b.frame=root;
+}
 void Secondary::buildAttachments(){
  // Multi-source shortest paths stop at other followers. An unrelated
  // kinematic collision partner is not an attachment; only authored joints
@@ -548,7 +568,7 @@ void Secondary::buildAttachments(){
  for(auto& j:joints)if(j.active&&j.a>=0&&j.b>=0){float distance=btMax(.001f,(bodies[j.a].initial.getOrigin()-bodies[j.b].initial.getOrigin()).length());edges[j.a].push_back({j.b,distance});edges[j.b].push_back({j.a,distance});}
  using Entry=std::pair<float,int>;std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> queue;
  std::vector<float> distance(bodies.size(),BT_LARGE_FLOAT);
- for(size_t i=0;i<bodies.size();i++)if(bodies[i].follower&&!bodies[i].worldAnchored&&bodies[i].bone>=0){bodies[i].anchor=int(anchors.size());anchors.push_back(int(i));distance[i]=0;queue.push({0,int(i)});}
+ for(size_t i=0;i<bodies.size();i++)if(bodies[i].follower&&!bodies[i].worldAnchored&&bodies[i].frame>=0){bodies[i].anchor=int(anchors.size());anchors.push_back(int(i));distance[i]=0;queue.push({0,int(i)});}
  while(!queue.empty()){auto [cost,i]=queue.top();queue.pop();if(cost!=distance[i])continue;
   for(auto [next,length]:edges[i])if(!bodies[next].follower&&!bodies[next].worldAnchored&&cost+length<distance[next]){distance[next]=cost+length;bodies[next].anchor=bodies[i].anchor;queue.push({distance[next],next});}
  }
@@ -556,7 +576,7 @@ void Secondary::buildAttachments(){
  anchorLive.resize(anchors.size());anchorPreviousInverse.resize(anchors.size());anchorCurrentInverse.resize(anchors.size());
 }
 void Secondary::readSolved(bool initial,const btTransform& root,const std::vector<btTransform>& skin){
- previousAnchors=currentAnchors;for(size_t i=0;i<anchors.size();i++){auto& b=bodies[anchors[i]];currentAnchors[i]=skin[b.bone]*b.initial;}if(initial)previousAnchors=currentAnchors;
+ previousAnchors=currentAnchors;for(size_t i=0;i<anchors.size();i++){currentAnchors[i]=animatedPose(bodies[anchors[i]],skin);}if(initial)previousAnchors=currentAnchors;
  // Read Bullet's transform directly; the OpenGL matrix round trip copied the
  // same floats through a 16-float buffer for every body every tick.
  for(auto& b:bodies){b.previous=b.current;const auto& t=nanoemRigidBody(b.value)->getWorldTransform();const auto& o=t.getOrigin();const auto& r=t.getBasis();
@@ -568,9 +588,9 @@ void Secondary::readSolved(bool initial,const btTransform& root,const std::vecto
 void Secondary::present(){
  interpolation=std::clamp(accumulator*60.,0.,1.);
  auto& live=anchorLive;auto& a=anchorPreviousInverse;auto& b=anchorCurrentInverse;
- for(size_t i=0;i<anchors.size();i++){auto& body=bodies[anchors[i]];live[i]=instance.skin[body.bone]*body.initial;a[i]=previousAnchors[i].inverse();b[i]=currentAnchors[i].inverse();}
+ for(size_t i=0;i<anchors.size();i++){live[i]=animatedPose(bodies[anchors[i]],instance.skin);a[i]=previousAnchors[i].inverse();b[i]=currentAnchors[i].inverse();}
  for(size_t i=0;i<bodies.size();i++){auto& body=bodies[i];
-  if(body.follower)display[i]=body.bone>=0?instance.skin[body.bone]*body.initial:body.initial;
+  if(body.follower)display[i]=animatedPose(body,instance.skin);
   else if(!instance.presentationDriven||!interpolate)display[i]=body.current;
   else if(body.anchor<0)display[i]=blendPose(body.previous,body.current,float(interpolation));
   else {int k=body.anchor;display[i]=live[k]*blendPose(a[k]*body.previous,b[k]*body.current,float(interpolation));}
@@ -720,7 +740,7 @@ void Secondary::presentAsync(){
   // A local player can start with physics suspended in first person. There is
   // no solved tick yet: present its current animated skeleton, not the body's
   // construction pose at world origin (also used by shadow/reflection passes).
-  for(size_t i=0;i<bodies.size();i++){const auto& b=bodies[i];display[i]=b.bone>=0?instance.skin[b.bone]*b.initial:b.initial;displayCompensation[i].setZero();}
+  for(size_t i=0;i<bodies.size();i++){display[i]=animatedPose(bodies[i],instance.skin);displayCompensation[i].setZero();}
   std::fill(springDisplay.begin(),springDisplay.end(),btQuaternion::getIdentity());
   presentHistory.clear();presentClock=-1;
   return;
@@ -756,9 +776,9 @@ void Secondary::presentAsync(){
  for(auto it=presentHistory.rbegin();it!=presentHistory.rend();++it)if((*it)->simulationTime-TickSeconds<=displayTime+1e-9){use=it->get();break;}
  interpolation=std::clamp((displayTime-(use->simulationTime-TickSeconds))/TickSeconds,0.,1.);
  auto& live=anchorLive;auto& a=anchorPreviousInverse;auto& b=anchorCurrentInverse;
- for(size_t i=0;i<anchors.size();i++){auto& body=bodies[anchors[i]];live[i]=instance.skin[body.bone]*body.initial;a[i]=use->previousAnchors[i].inverse();b[i]=use->currentAnchors[i].inverse();}
+ for(size_t i=0;i<anchors.size();i++){live[i]=animatedPose(bodies[anchors[i]],instance.skin);a[i]=use->previousAnchors[i].inverse();b[i]=use->currentAnchors[i].inverse();}
  for(size_t i=0;i<bodies.size();i++){auto& body=bodies[i];
-  if(body.follower)display[i]=body.bone>=0?instance.skin[body.bone]*body.initial:body.initial;
+  if(body.follower)display[i]=animatedPose(body,instance.skin);
   else if(!interpolate)display[i]=solved->current[i];
   else if(body.anchor<0)display[i]=blendPose(use->previous[i],use->current[i],float(interpolation));
   else {int k=body.anchor;display[i]=live[k]*blendPose(a[k]*use->previous[i],b[k]*use->current[i],float(interpolation));}
@@ -800,7 +820,7 @@ void Secondary::deformSoft(Snapshot& snapshot)const{
 }
 Json Secondary::diagnostics(bool detailed)const{
  if(presentationMode<=0){
-  std::vector<btTransform> current;current.reserve(bodies.size());for(auto& b:bodies)current.push_back(b.bone>=0?instance.skin[b.bone]*b.initial:b.initial);
+  std::vector<btTransform> current;current.reserve(bodies.size());for(auto& b:bodies)current.push_back(animatedPose(b,instance.skin));
   auto out=diagnosticsFrom(detailed,current,Json::object(),frameStats());
   unsigned linked=0;for(const auto& j:jiggle)linked+=j.valveParent>=0;
   auto travel=jiggleTravel.length2()>1e-12f?instance.placement.getBasis()*toSource(jiggleTravel.normalized()):btVector3(0,0,0);

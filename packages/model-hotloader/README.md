@@ -130,3 +130,11 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   brought up to date and the selection left as it is; a row that would have to go and any other change still build the
   list again (`Refresh`). The folder tree relabels a package's node when only its count of models changed, instead of
   being built again (`RefreshFolders`).
+- **2026-11-25, a ragdoll's MMD physics starting far from the model** (the user's report; proposed, on a branch;
+  [handover](../../docs/handover/boneless-bodies-report.md),
+  [ADR 0266](../../docs/decisions/0266-a-body-without-a-bone-starts-with-the-character.md)): a PMX rigid body without a
+  bone (skirt lattices, chest helpers) rides with the bone of the nearest boned body through its joints, else the
+  Source root, wherever the natives place a body from the animation; before, every spawn, Reset physics and teleport
+  put it at the map's origin and its joints dragged the chains it links across the map
+  (`source/boneless-bodies.patch`: `native/secondary.hpp`, `secondary.cpp`, `secondary_quality.cpp`, the C++ test and
+  its fixture). The natives in `bin/` are not rebuilt yet: `tools\ci\build_hotloader.ps1` on Windows, then import them.

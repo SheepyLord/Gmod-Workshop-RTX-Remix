@@ -195,6 +195,38 @@ of characters made the game lag at each model and installed slowly; [handover](.
   Source materials and fit) run under it: the add-on now runs several side by side. A spawn's load (`RequestAsset`)
   keeps the game's priority.
 
+## Changes made here (2026-11-25: bodies without a bone)
+
+`boneless-bodies.patch` holds this repository's change for the user's report of 2026-11-25 (a ragdoll's MMD physics
+started far from the model at a spawn and at Reset physics; [handover](../../../docs/handover/boneless-bodies-report.md),
+[ADR 0266](../../../docs/decisions/0266-a-body-without-a-bone-starts-with-the-character.md)); applied after
+`install-priority.patch`, it gives `mmdhl/` as it is now, except the generated fixture below. Not in the origin
+repository:
+
+- `native/secondary.hpp`, `native/secondary.cpp`: each rigid body has a frame bone (`Rigid::frame`, set by the new
+  `buildFrames` when the physics is built): its own bone; for a PMX body without a bone, the bone of the nearest body
+  with one through the authored joints (shortest paths over rest distances), else the Source root; a body the world
+  holds through a joint keeps none, as before. `animatedPose(body, skin)` (`skin[frame] * initial`) replaces
+  `bone>=0 ? skin[bone]*initial : initial` everywhere a body is placed from the animation: the reset (`follow`), the
+  follow-bone bodies and the anchors of the presentation (`present`, `presentAsync`, `readSolved`,
+  `buildAttachments`), the diagnostics. Before, a body without a bone was placed at its rest transform in the instance
+  frame, the map's origin for a client carrier, at every reset.
+- `native/secondary_quality.cpp`: the same in the lightweight mode's display (`stepSimplified`), the quality blend
+  (`setQuality`, `blendQualityPresentation`) and `resumeQualityPose`.
+- `tests/boneless_body_tests.cpp` (CTest `secondary_boneless_bodies`) and its target in `CMakeLists.txt`: with both
+  CPU backends, a character lying 3,000 units from the origin starts every body and joint as the same start at the
+  origin would, at the first pose, at Reset physics and after a teleport, and its follow-bone body without a bone rides
+  on its head.
+- `scripts/fixtures.py`: `make(..., boneless=True)` adds dynamic bodies without a bone beside the hair chain, each
+  jointed to its hair link and to the next, a dynamic helper without a bone jointed to the head and a follow-bone body
+  without a bone jointed to the helper (they collide with nothing; only their joints move them); the
+  script writes it as `tests/fixtures/native-boneless.pmx` (9,793 bytes, SHA-256
+  `986ea8adce6064c701192ee5784b61dd34654425e630c7267f328b53bbe1ed15`). The other
+  fixtures are byte for byte as before. **Not stored in this part yet**: the change was made where Git LFS could not
+  be reached, so the fixture is imported with the Windows rebuild (generate it with the script in a copy under `out\`
+  and import it with `tools\inputs.py import model-hotloader --file ...`); until then `secondary_boneless_bodies`
+  has no fixture to read.
+
 ## Lua installation override (R21-B)
 
 `../overrides/installation.lua` replaces the add-on's `mmdhl/installation.lua` through

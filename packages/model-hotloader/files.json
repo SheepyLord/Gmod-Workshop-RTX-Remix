@@ -468,14 +468,14 @@
    "imported": "2026-11-05T22:41:28+00:00"
   },
   "source/Source.md": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\packi\\packages\\model-hotloader\\source\\Source.md",
+   "source": "<repo>/packages/model-hotloader/source/Source.md",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/packi",
-    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "11e21cf0d6cfca204818abf53afaae4a021d2b99",
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "12f4cf2ba36e73e0251f855f176ddc269055aed3",
     "dirty": true
    },
-   "imported": "2026-11-22T03:56:25+00:00"
+   "imported": "2026-11-25T07:28:33+00:00"
   },
   "source/r19-changes.patch": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r19-hotloader\\out\\r19-h\\source-docs\\r19-changes.patch",
@@ -668,14 +668,14 @@
    "imported": "2026-11-16T13:21:59+00:00"
   },
   "source/mmdhl/CMakeLists.txt": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\stage\\mmdhl\\CMakeLists.txt",
+   "source": "<repo>/packages/model-hotloader/source/mmdhl/CMakeLists.txt",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
-    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
-    "dirty": false
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-25T07:23:11+00:00"
   },
   "source/backface-twins.patch": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\hlw\\backface-twins.patch",
@@ -888,14 +888,14 @@
    "imported": "2026-11-16T13:21:59+00:00"
   },
   "source/mmdhl/native/secondary.cpp": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\stage\\mmdhl\\native\\secondary.cpp",
+   "source": "<repo>/packages/model-hotloader/source/mmdhl/native/secondary.cpp",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/rv-hl",
-    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
-    "commit": "51ab2ecfc22e470c2df48128a8eec12a2cd285ff",
-    "dirty": false
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
    },
-   "imported": "2026-11-16T13:21:59+00:00"
+   "imported": "2026-11-25T07:26:07+00:00"
   },
   "source/mmdhl/native/props/core.cpp": {
    "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\rv-hl\\out\\hl\\stage\\mmdhl\\native\\props\\core.cpp",
@@ -1006,6 +1006,56 @@
     "dirty": true
    },
    "imported": "2026-11-22T03:56:25+00:00"
+  },
+  "source/mmdhl/native/secondary.hpp": {
+   "source": "<repo>/packages/model-hotloader/source/mmdhl/native/secondary.hpp",
+   "git": {
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
+   },
+   "imported": "2026-11-25T07:26:07+00:00"
+  },
+  "source/mmdhl/native/secondary_quality.cpp": {
+   "source": "<repo>/packages/model-hotloader/source/mmdhl/native/secondary_quality.cpp",
+   "git": {
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
+   },
+   "imported": "2026-11-25T07:26:07+00:00"
+  },
+  "source/mmdhl/scripts/fixtures.py": {
+   "source": "<repo>/packages/model-hotloader/source/mmdhl/scripts/fixtures.py",
+   "git": {
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
+   },
+   "imported": "2026-11-25T07:23:11+00:00"
+  },
+  "source/mmdhl/tests/boneless_body_tests.cpp": {
+   "source": "<repo>/packages/model-hotloader/source/mmdhl/tests/boneless_body_tests.cpp",
+   "git": {
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
+   },
+   "imported": "2026-11-25T07:23:11+00:00"
+  },
+  "source/boneless-bodies.patch": {
+   "source": "<repo>/packages/model-hotloader/source/boneless-bodies.patch",
+   "git": {
+    "repository": "<repo>",
+    "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix",
+    "commit": "50f36ada42f2c939e8273176aeaf252899db9620",
+    "dirty": true
+   },
+   "imported": "2026-11-25T07:26:07+00:00"
   }
  },
  "files": {
@@ -2029,6 +2079,12 @@
    "mtime_ns": 1794815815569192000,
    "stored": "plain"
   },
+  "source/boneless-bodies.patch": {
+   "size": 27961,
+   "sha256": "e27525effdedfc07ab7cc7f8f4a579a5b7c2cf187eac5d9cf72fdf18805c5373",
+   "mtime_ns": 1795591567336375118,
+   "stored": "plain"
+  },
   "source/import-progress.patch": {
    "size": 24353,
    "sha256": "3b17e14106801afc8f0ab55ff3fdc17c6afd12a17dbef9004206f4d69acf203d",
@@ -2042,9 +2098,9 @@
    "stored": "plain"
   },
   "source/mmdhl/CMakeLists.txt": {
-   "size": 34496,
-   "sha256": "8dfb3d4cd1b1e98b1b73ee1a56fe01af171d240eaa6119c531a41c8b3a79f066",
-   "mtime_ns": 1794833443742097400,
+   "size": 35044,
+   "sha256": "122babba037195748ce2fb73e64ea199d063aa55f45a51cd01398bf30f5d289d",
+   "mtime_ns": 1795590595716189885,
    "stored": "plain"
   },
   "source/mmdhl/dependencies.lock.json": {
@@ -2940,15 +2996,15 @@
    "stored": "plain"
   },
   "source/mmdhl/native/secondary.cpp": {
-   "size": 82367,
-   "sha256": "59808710fa2b239c7126dc64d22780c6646a25ad0393a78416108560978c7147",
-   "mtime_ns": 1794833049174475300,
+   "size": 84001,
+   "sha256": "fe55a4d832ab6cef1045b3ac68ee17e4c5b6b2c2e8040116ce270a13b09beeea",
+   "mtime_ns": 1795591459003022045,
    "stored": "plain"
   },
   "source/mmdhl/native/secondary.hpp": {
-   "size": 12851,
-   "sha256": "6345ee75f4569911d562fe9ef0df51bf0eec9ab0448fd326c249c39203aa20dc",
-   "mtime_ns": 1793856348181430000,
+   "size": 13460,
+   "sha256": "5239f3fced045b5d23672558ec9a191aaa431c62ddfeee485993247f2a400951",
+   "mtime_ns": 1795591459006466693,
    "stored": "plain"
   },
   "source/mmdhl/native/secondary_mt.hpp": {
@@ -2958,9 +3014,9 @@
    "stored": "plain"
   },
   "source/mmdhl/native/secondary_quality.cpp": {
-   "size": 10015,
-   "sha256": "7ec2c653b217c1a19c2c5eb43d458fac9766fa230e51245a63906f6d95673ea1",
-   "mtime_ns": 1793856348257765900,
+   "size": 9903,
+   "sha256": "e551e6a835ca0d6fe827be82599c5e3e56de2e0c9868d06c12e215a7cc448d82",
+   "mtime_ns": 1795591459004325492,
    "stored": "plain"
   },
   "source/mmdhl/native/shape_atlas.hpp": {
@@ -3092,9 +3148,9 @@
    "stored": "plain"
   },
   "source/mmdhl/scripts/fixtures.py": {
-   "size": 19662,
-   "sha256": "92de72002484b0cf8bb71fe3d5faa09f099f6dc095c396389d64ab4fefdffb7c",
-   "mtime_ns": 1793856349114690200,
+   "size": 21452,
+   "sha256": "4b81bb3b0170a9afcb060017ef5289d57f75bc934429fb9a620a1c4e4d7d29d0",
+   "mtime_ns": 1795590534113677409,
    "stored": "plain"
   },
   "source/mmdhl/scripts/native_manifest.py": {
@@ -3149,6 +3205,12 @@
    "size": 15186,
    "sha256": "2634b38e6e2ebb50dd4e37ff119c0c946852aed9a23e43e948b5460feecdfd6f",
    "mtime_ns": 1794834150628966000,
+   "stored": "plain"
+  },
+  "source/mmdhl/tests/boneless_body_tests.cpp": {
+   "size": 5140,
+   "sha256": "7ac35a3d59b26dc0439bb07e12638fc6877e5f111813f2208d6ad65a7a747cb0",
+   "mtime_ns": 1795590980662490020,
    "stored": "plain"
   },
   "source/mmdhl/tests/broadphase_tests.cpp": {
@@ -4166,9 +4228,9 @@
    "stored": "plain"
   },
   "source/Source.md": {
-   "size": 18983,
-   "sha256": "3f65700e29ba96e7efc1b36a4b305116a3f57ca1ab89d120f9ed90f8abf82e4f",
-   "mtime_ns": 1795319482315145100,
+   "size": 21793,
+   "sha256": "238e775480614f0d1e49e4f9f29eb63434c3c9eb4afdebfaea878c530ac174ab",
+   "mtime_ns": 1795591672608200353,
    "stored": "plain"
   },
   "source/staged-changes.patch": {

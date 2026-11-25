@@ -1,0 +1,321 @@
+diff --git a/mmdhl/CMakeLists.txt b/mmdhl/CMakeLists.txt
+--- a/mmdhl/CMakeLists.txt
++++ b/mmdhl/CMakeLists.txt
+@@ -343,6 +343,12 @@ target_link_libraries(mmdhl_stretch_ground_tests PRIVATE mmd_runtime)
+ target_compile_options(mmdhl_stretch_ground_tests PRIVATE ${MMDHL_UTF8})
+ add_test(NAME secondary_stretch_ground COMMAND mmdhl_stretch_ground_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-chain.pmx)
+ add_test(NAME secondary_projection_ground COMMAND mmdhl_stretch_ground_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-stretch-prone.pmx)
++# PMX bodies without a bone under Source control: every reset starts them with the character.
++add_executable(mmdhl_boneless_body_tests tests/boneless_body_tests.cpp)
++target_link_libraries(mmdhl_boneless_body_tests PRIVATE mmd_runtime)
++target_compile_options(mmdhl_boneless_body_tests PRIVATE ${MMDHL_UTF8})
++set_target_properties(mmdhl_boneless_body_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
++add_test(NAME secondary_boneless_bodies COMMAND mmdhl_boneless_body_tests ${CMAKE_SOURCE_DIR}/tests/fixtures/native-boneless.pmx)
+ add_executable(mmdhl_broadphase_tests tests/broadphase_tests.cpp)
+ target_link_libraries(mmdhl_broadphase_tests PRIVATE mmd_runtime)
+ add_test(NAME secondary_broadphase COMMAND mmdhl_broadphase_tests)
+diff --git a/mmdhl/native/secondary.cpp b/mmdhl/native/secondary.cpp
+--- a/mmdhl/native/secondary.cpp
++++ b/mmdhl/native/secondary.cpp
+@@ -388,7 +388,7 @@ Secondary::Secondary(Instance& owner):instance(owner){
+  }
+  for(auto& j:joints)if(j.a<0&&j.b>=0)bodies[j.b].worldAnchored=true;else if(j.b<0&&j.a>=0)bodies[j.a].worldAnchored=true;
+  bool changed=true;while(changed){changed=false;for(auto& j:joints)if(j.a>=0&&j.b>=0&&bodies[j.a].worldAnchored!=bodies[j.b].worldAnchored){bodies[j.a].worldAnchored=bodies[j.b].worldAnchored=true;changed=true;}}
+- buildAttachments();
++ buildFrames();buildAttachments();
+  for(auto& j:joints){float length=j.a>=0&&j.b>=0?(bodies[j.a].initial.getOrigin()-bodies[j.b].initial.getOrigin()).length():0;j.stretchTolerance=btClamped(length*.08f,.02f,.12f);}
+  // Bullet does not wake the dynamic neighbours of a moving kinematic body
+  // through joints, so each follower remembers the chains it drives.
+@@ -464,7 +464,7 @@ void Secondary::applySleepPolicy(){
+ }
+ void Secondary::follow(bool all,const std::vector<btTransform>& skin){
+  bool wake=v2&&sleepEnabled.load();
+- for(auto& b:bodies)if(all||b.follower){auto t=b.bone>=0?skin[b.bone]*b.initial:b.initial;b.followStart=all?t:nanoemRigidBody(b.value)->getWorldTransform();if(all)set(b.value,t);else {float m[16];t.getOpenGLMatrix(m);nanoemPhysicsMotionStateSetCurrentWorldTransform(nanoemPhysicsRigidBodyGetMotionState(b.value),m);}b.current=t;nanoemPhysicsRigidBodyResetStates(b.value);
++ for(auto& b:bodies)if(all||b.follower){auto t=animatedPose(b,skin);b.followStart=all?t:nanoemRigidBody(b.value)->getWorldTransform();if(all)set(b.value,t);else {float m[16];t.getOpenGLMatrix(m);nanoemPhysicsMotionStateSetCurrentWorldTransform(nanoemPhysicsRigidBodyGetMotionState(b.value),m);}b.current=t;nanoemPhysicsRigidBodyResetStates(b.value);
+   if(wake&&b.follower){
+    // Accumulated drift since the follower last woke, so slow motion cannot
+    // leave sleeping hair behind or a sleeping collider frozen in place.
+@@ -540,6 +540,26 @@ void Secondary::stabilizeJoints(){
+  stretchGuardMs+=elapsedMs(started);
+ }
+ void Secondary::followSoft(bool all,const std::vector<btTransform>& skin){for(size_t si=0;si<soft.size();si++){auto s=soft[si];for(size_t i=0;i<softFrames[si].size();i++)if(all||softFrames[si][i].pinned){int vi=softFrames[si][i].index;if(vi<0)continue;auto& vertex=instance.model->vertices[vi];auto p=skinPosition(vertex,skin),normal=skinNormal(vertex,skin);float position[4]={p.x(),p.y(),p.z(),0},direction[4]={normal.x(),normal.y(),normal.z(),0};nanoemPhysicsSoftBodySetVertexPosition(s,int(i),position);nanoemPhysicsSoftBodySetVertexNormal(s,int(i),direction);}}}
++void Secondary::buildFrames(){
++ // A PMX body without a bone (the lattice bodies between skirt chains, a chest's helper bodies)
++ // has only its rest transform, in the model's rest space. Under Source control that space is the
++ // instance frame (the world origin of a client carrier), so every reset (the first pose, Reset
++ // physics, a teleport) put such bodies at the map origin and their joints dragged the chains
++ // they link across the map. Each rides, as at rest, with the bone of the nearest body that has
++ // one through the authored joints (multi-source shortest paths over rest distances), else with
++ // the Source root (rig bone 0, the pelvis), as the bones nothing poses do (evaluatePose). A body
++ // the world holds through a joint stays where the world holds it, as before (resumeQualityPose).
++ std::vector<std::vector<std::pair<int,float>>> edges(bodies.size());
++ for(auto& j:joints)if(j.a>=0&&j.b>=0){float distance=btMax(.001f,(bodies[j.a].initial.getOrigin()-bodies[j.b].initial.getOrigin()).length());edges[j.a].push_back({j.b,distance});edges[j.b].push_back({j.a,distance});}
++ using Entry=std::pair<float,int>;std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> queue;
++ std::vector<float> distance(bodies.size(),BT_LARGE_FLOAT);
++ for(size_t i=0;i<bodies.size();i++){bodies[i].frame=bodies[i].bone;if(bodies[i].bone>=0){distance[i]=0;queue.push({0.f,int(i)});}}
++ while(!queue.empty()){auto [cost,i]=queue.top();queue.pop();if(cost!=distance[i])continue;
++  for(auto [next,length]:edges[i])if(bodies[next].bone<0&&!bodies[next].worldAnchored&&cost+length<distance[next]){distance[next]=cost+length;bodies[next].frame=bodies[i].frame;queue.push({distance[next],next});}
++ }
++ int root=instance.sourceRig->bones[0].mmd;
++ for(auto& b:bodies)if(b.frame<0&&!b.worldAnchored)b.frame=root;
++}
+ void Secondary::buildAttachments(){
+  // Multi-source shortest paths stop at other followers. An unrelated
+  // kinematic collision partner is not an attachment; only authored joints
+@@ -548,7 +568,7 @@ void Secondary::buildAttachments(){
+  for(auto& j:joints)if(j.active&&j.a>=0&&j.b>=0){float distance=btMax(.001f,(bodies[j.a].initial.getOrigin()-bodies[j.b].initial.getOrigin()).length());edges[j.a].push_back({j.b,distance});edges[j.b].push_back({j.a,distance});}
+  using Entry=std::pair<float,int>;std::priority_queue<Entry,std::vector<Entry>,std::greater<Entry>> queue;
+  std::vector<float> distance(bodies.size(),BT_LARGE_FLOAT);
+- for(size_t i=0;i<bodies.size();i++)if(bodies[i].follower&&!bodies[i].worldAnchored&&bodies[i].bone>=0){bodies[i].anchor=int(anchors.size());anchors.push_back(int(i));distance[i]=0;queue.push({0,int(i)});}
++ for(size_t i=0;i<bodies.size();i++)if(bodies[i].follower&&!bodies[i].worldAnchored&&bodies[i].frame>=0){bodies[i].anchor=int(anchors.size());anchors.push_back(int(i));distance[i]=0;queue.push({0,int(i)});}
+  while(!queue.empty()){auto [cost,i]=queue.top();queue.pop();if(cost!=distance[i])continue;
+   for(auto [next,length]:edges[i])if(!bodies[next].follower&&!bodies[next].worldAnchored&&cost+length<distance[next]){distance[next]=cost+length;bodies[next].anchor=bodies[i].anchor;queue.push({distance[next],next});}
+  }
+@@ -556,7 +576,7 @@ void Secondary::buildAttachments(){
+  anchorLive.resize(anchors.size());anchorPreviousInverse.resize(anchors.size());anchorCurrentInverse.resize(anchors.size());
+ }
+ void Secondary::readSolved(bool initial,const btTransform& root,const std::vector<btTransform>& skin){
+- previousAnchors=currentAnchors;for(size_t i=0;i<anchors.size();i++){auto& b=bodies[anchors[i]];currentAnchors[i]=skin[b.bone]*b.initial;}if(initial)previousAnchors=currentAnchors;
++ previousAnchors=currentAnchors;for(size_t i=0;i<anchors.size();i++){currentAnchors[i]=animatedPose(bodies[anchors[i]],skin);}if(initial)previousAnchors=currentAnchors;
+  // Read Bullet's transform directly; the OpenGL matrix round trip copied the
+  // same floats through a 16-float buffer for every body every tick.
+  for(auto& b:bodies){b.previous=b.current;const auto& t=nanoemRigidBody(b.value)->getWorldTransform();const auto& o=t.getOrigin();const auto& r=t.getBasis();
+@@ -568,9 +588,9 @@ void Secondary::readSolved(bool initial,const btTransform& root,const std::vecto
+ void Secondary::present(){
+  interpolation=std::clamp(accumulator*60.,0.,1.);
+  auto& live=anchorLive;auto& a=anchorPreviousInverse;auto& b=anchorCurrentInverse;
+- for(size_t i=0;i<anchors.size();i++){auto& body=bodies[anchors[i]];live[i]=instance.skin[body.bone]*body.initial;a[i]=previousAnchors[i].inverse();b[i]=currentAnchors[i].inverse();}
++ for(size_t i=0;i<anchors.size();i++){live[i]=animatedPose(bodies[anchors[i]],instance.skin);a[i]=previousAnchors[i].inverse();b[i]=currentAnchors[i].inverse();}
+  for(size_t i=0;i<bodies.size();i++){auto& body=bodies[i];
+-  if(body.follower)display[i]=body.bone>=0?instance.skin[body.bone]*body.initial:body.initial;
++  if(body.follower)display[i]=animatedPose(body,instance.skin);
+   else if(!instance.presentationDriven||!interpolate)display[i]=body.current;
+   else if(body.anchor<0)display[i]=blendPose(body.previous,body.current,float(interpolation));
+   else {int k=body.anchor;display[i]=live[k]*blendPose(a[k]*body.previous,b[k]*body.current,float(interpolation));}
+@@ -720,7 +740,7 @@ void Secondary::presentAsync(){
+   // A local player can start with physics suspended in first person. There is
+   // no solved tick yet: present its current animated skeleton, not the body's
+   // construction pose at world origin (also used by shadow/reflection passes).
+-  for(size_t i=0;i<bodies.size();i++){const auto& b=bodies[i];display[i]=b.bone>=0?instance.skin[b.bone]*b.initial:b.initial;displayCompensation[i].setZero();}
++  for(size_t i=0;i<bodies.size();i++){display[i]=animatedPose(bodies[i],instance.skin);displayCompensation[i].setZero();}
+   std::fill(springDisplay.begin(),springDisplay.end(),btQuaternion::getIdentity());
+   presentHistory.clear();presentClock=-1;
+   return;
+@@ -756,9 +776,9 @@ void Secondary::presentAsync(){
+  for(auto it=presentHistory.rbegin();it!=presentHistory.rend();++it)if((*it)->simulationTime-TickSeconds<=displayTime+1e-9){use=it->get();break;}
+  interpolation=std::clamp((displayTime-(use->simulationTime-TickSeconds))/TickSeconds,0.,1.);
+  auto& live=anchorLive;auto& a=anchorPreviousInverse;auto& b=anchorCurrentInverse;
+- for(size_t i=0;i<anchors.size();i++){auto& body=bodies[anchors[i]];live[i]=instance.skin[body.bone]*body.initial;a[i]=use->previousAnchors[i].inverse();b[i]=use->currentAnchors[i].inverse();}
++ for(size_t i=0;i<anchors.size();i++){live[i]=animatedPose(bodies[anchors[i]],instance.skin);a[i]=use->previousAnchors[i].inverse();b[i]=use->currentAnchors[i].inverse();}
+  for(size_t i=0;i<bodies.size();i++){auto& body=bodies[i];
+-  if(body.follower)display[i]=body.bone>=0?instance.skin[body.bone]*body.initial:body.initial;
++  if(body.follower)display[i]=animatedPose(body,instance.skin);
+   else if(!interpolate)display[i]=solved->current[i];
+   else if(body.anchor<0)display[i]=blendPose(use->previous[i],use->current[i],float(interpolation));
+   else {int k=body.anchor;display[i]=live[k]*blendPose(a[k]*use->previous[i],b[k]*use->current[i],float(interpolation));}
+@@ -800,7 +820,7 @@ void Secondary::deformSoft(Snapshot& snapshot)const{
+ }
+ Json Secondary::diagnostics(bool detailed)const{
+  if(presentationMode<=0){
+-  std::vector<btTransform> current;current.reserve(bodies.size());for(auto& b:bodies)current.push_back(b.bone>=0?instance.skin[b.bone]*b.initial:b.initial);
++  std::vector<btTransform> current;current.reserve(bodies.size());for(auto& b:bodies)current.push_back(animatedPose(b,instance.skin));
+   auto out=diagnosticsFrom(detailed,current,Json::object(),frameStats());
+   unsigned linked=0;for(const auto& j:jiggle)linked+=j.valveParent>=0;
+   auto travel=jiggleTravel.length2()>1e-12f?instance.placement.getBasis()*toSource(jiggleTravel.normalized()):btVector3(0,0,0);
+diff --git a/mmdhl/native/secondary.hpp b/mmdhl/native/secondary.hpp
+--- a/mmdhl/native/secondary.hpp
++++ b/mmdhl/native/secondary.hpp
+@@ -131,8 +131,14 @@ private:
+  std::unique_ptr<External> external;
+  Instance& instance;
+  nanoem_physics_world_t* world=nullptr;
+- struct Rigid {nanoem_physics_rigid_body_t* value=nullptr;btTransform initial=btTransform::getIdentity(),current=btTransform::getIdentity(),previous=btTransform::getIdentity(),wakeReference=btTransform::getIdentity(),followStart=btTransform::getIdentity();int bone=-1,mode=0,anchor=-1;bool follower=false,worldAnchored=false;std::vector<int> linked;};
++ // frame: the bone whose skinning transform carries the body's animated pose (buildFrames): its own
++ // bone, else the bone of the nearest body with one through the authored joints, else the Source
++ // root; -1 for a body without a bone that the world holds through a joint (it stays at its rest
++ // place in the instance frame, as before).
++ struct Rigid {nanoem_physics_rigid_body_t* value=nullptr;btTransform initial=btTransform::getIdentity(),current=btTransform::getIdentity(),previous=btTransform::getIdentity(),wakeReference=btTransform::getIdentity(),followStart=btTransform::getIdentity();int bone=-1,frame=-1,mode=0,anchor=-1;bool follower=false,worldAnchored=false;std::vector<int> linked;};
+  std::vector<Rigid> bodies;
++ // A body's pose in the animated skeleton `skin`: its rest transform carried by its frame bone.
++ static btTransform animatedPose(const Rigid& b,const std::vector<btTransform>& skin){return b.frame>=0?skin[b.frame]*b.initial:b.initial;}
+  std::vector<btTransform> display;
+  std::vector<btVector3> displayCompensation;
+  struct Joint {nanoem_physics_joint_t* value=nullptr;bool active=false,stretchGuard=false;int a=-1,b=-1,sourceIndex=-1;btTransform frameA,frameB;btVector3 lower,upper;float stretchTolerance=.02f;};
+@@ -202,6 +208,7 @@ private:
+  void applySleepPolicy();
+  void applyTuning();
+  void stabilizeJoints();
++ void buildFrames();
+  void buildAttachments();
+  void readSolved(bool initial,const btTransform& root,const std::vector<btTransform>& skin);
+  void present();
+diff --git a/mmdhl/native/secondary_quality.cpp b/mmdhl/native/secondary_quality.cpp
+--- a/mmdhl/native/secondary_quality.cpp
++++ b/mmdhl/native/secondary_quality.cpp
+@@ -72,7 +72,7 @@ void Secondary::stepSimplified(double seconds,bool teleport){
+   previousJiggleRoot=position;jiggleRootReady=true;
+  }
+  instance.evaluate(true);
+- for(size_t i=0;i<bodies.size();i++)display[i]=bodies[i].bone>=0?instance.skin[bodies[i].bone]*bodies[i].initial:bodies[i].initial;
++ for(size_t i=0;i<bodies.size();i++)display[i]=animatedPose(bodies[i],instance.skin);
+  simplifiedMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
+ }
+ btTransform Secondary::jiggleFeedback(size_t bone,const btTransform& animated)const{
+@@ -124,7 +124,7 @@ void Secondary::setQuality(int divisor,bool suspended){
+  qualitySuspended=suspended;
+  if(!suspended){
+   qualityResume=true;++qualityWakes;qualityBlendStart=instance.sourceTimestamp;qualityBlendPose=display;qualityBlendAnchors.clear();
+-  for(int index:anchors){auto& b=bodies[index];qualityBlendAnchors.push_back((instance.skin[b.bone]*b.initial).inverse());}
++  for(int index:anchors)qualityBlendAnchors.push_back(animatedPose(bodies[index],instance.skin).inverse());
+  }
+ }
+ void Secondary::blendQualityPresentation(){
+@@ -134,7 +134,7 @@ void Secondary::blendQualityPresentation(){
+  t=t*t*(3-2*t);
+  for(size_t i=0;i<bodies.size();i++)if(!bodies[i].follower){
+   auto old=qualityBlendPose[i];int anchor=bodies[i].anchor;
+-  if(anchor>=0){auto& a=bodies[anchors[anchor]];old=instance.skin[a.bone]*a.initial*qualityBlendAnchors[anchor]*old;}
++  if(anchor>=0)old=animatedPose(bodies[anchors[anchor]],instance.skin)*qualityBlendAnchors[anchor]*old;
+   display[i]=btTransform(old.getRotation().slerp(display[i].getRotation(),t),old.getOrigin().lerp(display[i].getOrigin(),t));
+  }
+ }
+@@ -144,12 +144,12 @@ Json Secondary::qualityInfo()const{
+ }
+ void Secondary::resumeQualityPose(const std::vector<btTransform>& skin,const std::vector<btTransform>& pose,bool carryLoose){
+  std::vector<btTransform> live;live.reserve(anchors.size());
+- for(int index:anchors){auto& b=bodies[index];live.push_back(skin[b.bone]*b.initial);}
++ for(int index:anchors)live.push_back(animatedPose(bodies[index],skin));
+  // Components held by the world stay where it holds them.
+  int root=instance.sourceRig->bones[0].mmd;auto loose=carryLoose&&root>=0?pose[root]*currentRoot.inverse():btTransform::getIdentity();
+  for(auto& b:bodies){
+   auto p=b.current;
+-  if(b.follower)p=b.bone>=0?skin[b.bone]*b.initial:b.initial;
++  if(b.follower)p=animatedPose(b,skin);
+   else if(b.anchor>=0)p=live[b.anchor]*currentAnchors[b.anchor].inverse()*p;
+   else if(carryLoose&&!b.worldAnchored)p=loose*p;
+   auto rigid=nanoemRigidBody(b.value);rigid->setWorldTransform(p);rigid->setInterpolationWorldTransform(p);
+diff --git a/mmdhl/scripts/fixtures.py b/mmdhl/scripts/fixtures.py
+--- a/mmdhl/scripts/fixtures.py
++++ b/mmdhl/scripts/fixtures.py
+@@ -11,12 +11,16 @@ def png(width,height,rgba):
+  rows=b''.join(b'\0'+rgba[y*width*4:(y+1)*width*4] for y in range(height))
+  def chunk(kind,data):return struct.pack('>I',len(data))+kind+data+struct.pack('>I',zlib.crc32(kind+data)&0xffffffff)
+  return b'\x89PNG\r\n\x1a\n'+chunk(b'IHDR',struct.pack('>IIBBBBB',width,height,8,6,0,0,0))+chunk(b'IDAT',zlib.compress(rows))+chunk(b'IEND',b'')
+-def make(rope=False,cycle=False,texture=False,humanoid=False,joint=(0,1),material_count=2,chain=0,chain_damping=.5,chain_mass_ratio=1,chain_masses=None,chain_locked=False,extra_vertices=0,bad='',morph_vertex=3,morph_offset=1,island=False,texture_name='checker.dds',group_chain=0,group_lattice=0,control_root=False,uv_switch=0):
++def make(rope=False,cycle=False,texture=False,humanoid=False,joint=(0,1),material_count=2,chain=0,chain_damping=.5,chain_mass_ratio=1,chain_masses=None,chain_locked=False,extra_vertices=0,bad='',morph_vertex=3,morph_offset=1,island=False,texture_name='checker.dds',group_chain=0,group_lattice=0,control_root=False,uv_switch=0,boneless=False):
+  # bad: one non-finite or runaway value per section. The loader repairs them (soft bodies are
+  # rejected); the repair kinds mirror released models: a NaN vertex, NaN normal, BDEF4 weights
+  # of (1, 1, 1, -2) on one bone, a bone parented to itself, a 1e21 kg anchor, a 1e14 spring.
+  # uv_switch: the Fabric grid maps to u 0-0.25 (column x at u x/16, row y at v y/4) and a
+  # texture (UV) morph after the other morphs moves all of it by that much in u.
++ # boneless (with a chain): rigid bodies without a bone, as skirt lattices and chest helpers
++ # author them: a side body beside each hair link jointed to it and to the next side body, a
++ # helper jointed to the head, and a kinematic (follow-bone) body without a bone jointed to that
++ # helper. They collide with nothing (mask 0): only their joints move them.
+  nan=float('nan');inf=float('inf')
+  b=bytearray(b'PMX '+pack('fB',2.1,8)+bytes([1,1,4,4,4,4,4,4]))
+  b+=text('MMDHL regression rope' if rope else 'MMDHL regression cloth')+text('Generated fixture')+text('CC0 procedural test geometry')+text('')
+@@ -110,14 +114,28 @@ def make(rope=False,cycle=False,texture=False,humanoid=False,joint=(0,1),materia
+  b+=pack('i',len(morphs))+b''.join(morphs)+pack('i',0) # display frames
+  if chain:
+   first=hair
+-  b+=pack('i',chain+1+(1 if control_root else 0))+text('head')+text('')+pack('iBHB',8,0,0xfffe,0)+vec(.5,.5,.5)+vec(0,17,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
++  b+=pack('i',chain+1+(1 if control_root else 0)+(chain+2 if boneless else 0))+text('head')+text('')+pack('iBHB',8,0,0xfffe,0)+vec(.5,.5,.5)+vec(0,17,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
+   for k in range(chain):
+    b+=text('hair'+str(k))+text('')+pack('iBHB',first+k,1,0xfffd,2)+vec(.25,.7,0)+vec(0,bones[first+k][1][1]-.6,.3)+vec(0,0,0)+vec(chain_masses[k] if chain_masses else .2*(chain_mass_ratio if k%2 else 1),chain_damping,.5,0,.5)+pack('B',1)
+   # A kinematic follower on センター: it must follow the body, not stay at the world origin.
+   if control_root:b+=text('center')+text('')+pack('iBHB',top+1,0,0xfffe,0)+vec(.5,.5,.5)+vec(0,8,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
+-  b+=pack('i',chain)
++  side=chain+1+(1 if control_root else 0)
++  if boneless:
++   for k in range(chain):
++    b+=text('hair side'+str(k))+text('')+pack('iBHB',-1,2,0,0)+vec(.2,0,0)+vec(.6,bones[first+k][1][1]-.6,.3)+vec(0,0,0)+vec(.2,chain_damping,.5,0,.5)+pack('B',1)
++   b+=text('head helper')+text('')+pack('iBHB',-1,2,0,0)+vec(.2,0,0)+vec(0,17.5,-.6)+vec(0,0,0)+vec(.2,.5,.5,0,.5)+pack('B',1)
++   b+=text('head mount')+text('')+pack('iBHB',-1,2,0,0)+vec(.2,0,0)+vec(0,18.2,0)+vec(0,0,0)+vec(1,.5,.5,0,.5)+pack('B',0)
++  b+=pack('i',chain+(2*chain+1 if boneless else 0))
+   for k in range(chain):
+    b+=text('hair joint'+str(k))+text('')+pack('Bii',0,k,k+1)+vec(0,bones[first+k][1][1],.3)+vec(0,0,0)+vec(0,0,0)*2+(vec(0,0,0)*4 if chain_locked else vec(-.5,-.5,-.5)+vec(.5,.5,.5)+vec(0,0,0)+vec(4,4,4))
++  if boneless:
++   locked=vec(0,0,0)*2+vec(-.5,-.5,-.5)+vec(.5,.5,.5)+vec(0,0,0)+vec(4,4,4)
++   for k in range(chain):
++    b+=text('side joint'+str(k))+text('')+pack('Bii',0,k+1,side+k)+vec(.3,bones[first+k][1][1]-.6,.3)+vec(0,0,0)+locked
++   for k in range(chain-1):
++    b+=text('side link'+str(k))+text('')+pack('Bii',0,side+k,side+k+1)+vec(.6,bones[first+k][1][1]-1.2,.3)+vec(0,0,0)+locked
++   b+=text('helper joint')+text('')+pack('Bii',0,0,side+chain)+vec(0,17.5,-.3)+vec(0,0,0)+locked
++   b+=text('mount joint')+text('')+pack('Bii',0,side+chain,side+chain+1)+vec(0,17.85,-.3)+vec(0,0,0)+locked
+   b+=pack('i',0)
+   return bytes(b)
+  b+=pack('i',3)
+@@ -189,6 +207,9 @@ if __name__=='__main__':
+  (out/'native-far-morph.pmx').write_bytes(make(humanoid=True,island=True,morph_vertex=28,morph_offset=100))
+  # MMD control roots above the pelvis with vertices, a follower body and IK goals under them (issue #6).
+  (out/'native-control-root.pmx').write_bytes(make(humanoid=True,chain=2,control_root=True))
++ # Rigid bodies without a bone beside the hair chain and on the head: under Source control every
++ # reset (the first pose, Reset physics, a teleport) must start them with the body.
++ (out/'native-boneless.pmx').write_bytes(make(humanoid=True,chain=8,boneless=True))
+  # MMD control roots in a PMD, whose IK evaluatePose solves: heel IK below the Source-driven ankles.
+  (out/'native-control-root.pmd').write_bytes(make_pmd())
+  # Alpha-textured materials for the alpha-test coverage the RTX Remix renderer uses: a
+diff --git a/mmdhl/tests/boneless_body_tests.cpp b/mmdhl/tests/boneless_body_tests.cpp
+new file mode 100644
+--- /dev/null
++++ b/mmdhl/tests/boneless_body_tests.cpp
+@@ -0,0 +1,58 @@
++// PMX rigid bodies without a bone (skirt lattices, chest helpers) under Source control. Their rest
++// transform is in the model's rest space, which is the instance frame: the world origin of a client
++// carrier. Every reset (the first pose, Reset physics, a teleport) placed them there, far from the
++// character, and their joints dragged the chains they link across the map. Each start must move
++// rigidly with the character (lying, turned and 3000 units away, against the same start standing at
++// the world origin), every joint must hold from the first frame, and a follow-bone body without a
++// bone must ride along.
++// Usage: mmdhl_boneless_body_tests <native-boneless.pmx>
++#include "runtime.hpp"
++#include "rig.hpp"
++#include "secondary.hpp"
++#include "jobs.hpp"
++#include <iostream>
++#include "wide_main.hpp"
++using namespace mmd;
++namespace {
++btVector3 vec3(const Json& p){return {p[0].get<float>(),p[1].get<float>(),p[2].get<float>()};}
++std::vector<btTransform> palette(const Instance& p,const btTransform& placed){std::vector<btTransform> out;for(auto& b:p.sourceRig->bones)out.push_back(placed*b.rest);return out;}
++void submit(Instance& p,const std::vector<btTransform>& pose,double t,uint64_t frame){p.submitPresentationPose(pose,t,frame);p.secondary->waitAsyncIdle();p.stepSource();}
++// Every body's place in the world, in Source units; the report is kept while its list is read.
++std::vector<btVector3> positions(const Instance& p){auto report=p.secondary->diagnostics();std::vector<btVector3> out;for(auto& b:report["bodyList"])out.push_back(vec3(b["worldPosition"]));
++ if(out.size()!=p.model->bodies.size())throw std::runtime_error("the diagnostics list "+std::to_string(out.size())+" of "+std::to_string(p.model->bodies.size())+" bodies");return out;}
++}
++int wmain(int argc,wchar_t** argv){try{
++ if(argc<2)throw std::runtime_error("Usage: mmdhl_boneless_body_tests <native-boneless.pmx>");
++ int checks=0;auto check=[&](bool ok,const std::string& name){if(!ok)throw std::runtime_error(name);++checks;std::cout<<"PASS "<<name<<"\n";};
++ auto model=parse(readFile(argv[1]));
++ std::vector<size_t> boneless;size_t mount=0;
++ for(size_t i=0;i<model->bodies.size();i++)if(!nanoemModelRigidBodyGetBoneObject(model->bodies[i])){boneless.push_back(i);if(nanoemModelRigidBodyGetTransformType(model->bodies[i])==NANOEM_MODEL_RIGID_BODY_TRANSFORM_TYPE_FROM_BONE_TO_SIMULATION)mount=i;}
++ check(boneless.size()>=3&&mount>0,"the fixture has dynamic and follow-bone bodies without a bone");
++ // Lying on its back, turned and 3000 units from the world origin; then 2000 units further (a teleport).
++ const btTransform far(btQuaternion(btVector3(0,0,1),.9f)*btQuaternion(btVector3(1,0,0),-1.5f),btVector3(2400,-1800,40));
++ const btTransform further(far.getBasis(),far.getOrigin()+btVector3(-2000,0,0));
++ for(auto backend:{"reference","cpu_mt_v2"}){
++  const std::string label=std::string(backend)+": ";
++  // The start at the world origin, standing: the reference every other start must be a rigid motion of.
++  World origin;auto& o=origin.get(origin.create(model,{{"backend","source"},{"presentationDriven",true},{"secondaryCollision",0},{"secondaryBackend",backend}}));
++  submit(o,palette(o,btTransform::getIdentity()),0,1);auto rest=positions(o);
++  World host;auto& p=host.get(host.create(model,{{"backend","source"},{"presentationDriven",true},{"secondaryCollision",0},{"secondaryBackend",backend}}));
++  // Joint errors are PMX units, positions Source units; the error allowed is one physics step's sag.
++  auto starts=[&](const btTransform& placed,const std::string& when){
++   auto now=positions(p);double worst=0,worstBoned=0;
++   for(size_t i=0;i<now.size();i++){double e=(now[i]-placed*rest[i]).length();bool none=std::find(boneless.begin(),boneless.end(),i)!=boneless.end();(none?worst:worstBoned)=std::max(none?worst:worstBoned,e);}
++   double joint=p.secondary->diagnostics()["maxLinearLimitError"].get<double>();
++   std::cout<<"  "<<label<<when<<": bodies without a bone "<<worst<<" Source units from their start, with a bone "<<worstBoned<<", largest joint error "<<joint<<" PMX units\n";
++   check(worst<1,label+when+": bodies without a bone start with the character, not at the world origin");
++   check(worstBoned<1,label+when+": bodies with a bone start with the character");
++   check(joint<.05,label+when+": every joint holds at the start");};
++  submit(p,palette(p,far),0,1);starts(far,"the first pose");
++  double t=0;uint64_t frame=2;for(int f=1;f<=60;f++){t=f/60.;submit(p,palette(p,far),t,frame++);}
++  {double off=(positions(p)[mount]-far*rest[mount]).length();
++   std::cout<<"  "<<label<<"a second later: the follow-bone body without a bone is "<<off<<" Source units from its place on the head\n";
++   check(off<.01,label+"the follow-bone body without a bone rides with the character");}
++  p.reset();t+=1/60.;submit(p,palette(p,far),t,frame++);starts(far,"Reset physics");
++  t+=1/60.;submit(p,palette(p,further),t,frame++);starts(further,"a teleport");
++ }
++ shutdownJobs();std::cout<<checks<<" checks of bodies without a bone passed\n";return 0;
++}catch(const std::exception& e){std::cerr<<"FAIL "<<e.what()<<"\n";shutdownJobs();return 1;}}

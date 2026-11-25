@@ -1,8 +1,9 @@
 # 0266: A rigid body without a bone starts with the character
 
-- Status: Proposed 2026-11-25 (the user's report: "the ragdoll's mmd physics, when spawn or reset, started up at an
-  unexpected position far away from the model", with a character's PMX). It becomes accepted when the natives rebuilt
-  from it on Windows pass the Hotloader's tests and the PoC check with that character, and the user approves it.
+- Status: Accepted 2026-11-25 (the user's "Merge and publish", after the natives rebuilt from it on Windows passed the
+  Hotloader's tests and the PoC check with the character). Proposed the same day for the user's report: "the ragdoll's
+  mmd physics, when spawn or reset, started up at an unexpected position far away from the model", with a character's
+  PMX.
 - Package only: the Model Hotloader's natives (`source/boneless-bodies.patch`: `native/secondary.hpp`, `secondary.cpp`,
   `secondary_quality.cpp`, a C++ test and its generated fixture). No loader (`winmm.dll`), runtime or Lua change.
 - Facts: [RESEARCH.md](../RESEARCH.md), "MMD bodies without a bone under a ragdoll"; report:

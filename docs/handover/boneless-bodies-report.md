@@ -176,6 +176,7 @@ applied cleanly. These notes call the character Character A and leave out its bo
 
 ## Open
 
-- ADR 0266 becomes accepted when the user approves the change; then it is merged into `main`, which publishes it.
+- None for the change: the user approved it on 2026-11-25 ("Merge and publish"); ADR 0266 is accepted and the branch
+  merged into `main`.
 - The PoC crash in the Hotloader's drawing (`mmd::executeItem`, `shaderapidx9.dll+0x94fe`), seen once in four
   sessions with this change: to watch for in later runs and field reports.

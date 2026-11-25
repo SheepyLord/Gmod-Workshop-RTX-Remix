@@ -4381,3 +4381,31 @@ before its probe ran.
   windows, 44 tracked, the same window; 560 pieces drawn in all 110 frames, 176 of 256 within 512 units, on the floor
   2 ray hits and 5 splits. `spawned-glass`: 65 % of the pane left, 114 pieces drawn in all 141 frames. No watched file,
   registry value or setting changed.
+
+## Bodies without a bone start with the character (ADR 0266)
+
+- The Model Hotloader's C++ test `secondary_boneless_bodies` (`source/mmdhl/tests/boneless_body_tests.cpp`, with
+  `tests/fixtures/native-boneless.pmx`, which `scripts/fixtures.py` writes byte for byte; not part of `tools\test.ps1`,
+  which does not build the Hotloader): after `tools\ci\build_hotloader.ps1`, build the target
+  `mmdhl_boneless_body_tests` in its work folder (`cmake --build <work>\src\build --config Release --target ...`) and
+  run it through CTest there (`ctest -C Release -R secondary_boneless_bodies`). With both CPU backends, a character
+  lying 3,000 units from the origin must start every body where the same start at the origin puts it, moved with the
+  character, and every joint within its limits, at the first pose, at Reset physics and after a teleport; its
+  follow-bone body without a bone must ride on its head. It fails on the code before ADR 0266 (bodies without a bone
+  2,941 units from their place) and passes after (0.061 units).
+- The whole CTest suite in that work folder: 38 of 39 pass; `character_import_worker` cannot run from this
+  repository's copy of the source, which has never held its `scripts/test-character-import.py`.
+- On a real character: a scratch harness like the test that loads any `.pmx` or the Hotloader's `model.bin`, places
+  it 1,750 units from the origin, then resets and teleports it, and prints per frame the bodies without a bone's
+  distance from the pelvis, the dynamic bodies with a bone and the farthest drawn vertex
+  ([report](handover/boneless-bodies-report.md)).
+- In a game: `mmdhl.native.GetDiagnostics(instance, true)` lists every body with its `bone` (-1 for none),
+  `follower` and `worldPosition` (Source units); after `sourceTimestamp` is 0 or more (a first pose) their distance
+  from the character's pelvis is where the physics started. `mmdhl.ResetPhysics(ent)` on the client resets it, and
+  `mmdhl.native.SetSecondaryQuality(instance, 1, true|false)` pauses and resumes it as the physics LOD does.
+- **PoC, 2026-11-25** (Character A, the user's imported test character, copied from the field library with its
+  textures; gm_construct, 1920x1080, RTX on): with the published package its 68 bodies without a bone started 600 to
+  840 units from the pelvis at a ragdoll's spawn, Reset physics, a 300-unit move, a pause-move-resume, an NPC's spawn
+  and an NPC's Reset physics; with this change 7 units on average (10 at most) at every one of them, in three
+  sessions. A fourth session crashed in the Hotloader's drawing (`mmd::executeItem`, `shaderapidx9.dll+0x94fe`), in
+  code the change does not touch ([report](handover/boneless-bodies-report.md)).

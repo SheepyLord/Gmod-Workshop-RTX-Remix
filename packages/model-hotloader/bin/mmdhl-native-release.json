@@ -1,6 +1,6 @@
 {
   "api": 1,
-  "build": "9085be02d76d-20261122T035107Z",
+  "build": "50f36ada42f2-20261125T074901Z",
   "installApi": 1,
   "platform": "win64",
   "release": "2.3.1",
@@ -8,22 +8,22 @@
     "client": {
       "name": "gmcl_mmdhl_win64.dll",
       "size": 2936320,
-      "sha256": "8204abefb77c30bc35a99c164aa5b864cc518e48eb8b887b40c7f162f2c1ed0a"
+      "sha256": "2628634af63fc68d3a73ca9e0f7cb9e17d23fae507c7849d5e544c008f950c62"
     },
     "server": {
       "name": "gmsv_mmdhl_win64.dll",
       "size": 1910272,
-      "sha256": "849ec2d9e84f96f3c0f7da807d4710c1df897eefaf06c60f98ba8fb20b79d79d"
+      "sha256": "253c44f2bed39664d91d8c1fde08e0a86edb1e23e44783b8765a3481dc2bfad7"
     },
     "runtime": {
       "name": "mmdhl_runtime_win64.dll",
-      "size": 11000320,
-      "sha256": "aaf8961837c28371f69551099eb66c334ea697ee0372210b1ac0649325e1e0cb"
+      "size": 10994688,
+      "sha256": "87b4aac39a9b3c93396ee9618fbcf54f5e31108a17ae535db1cb474d1805de66"
     },
     "worker": {
       "name": "mmdhl_worker.exe",
       "size": 4257792,
-      "sha256": "d8767c3fbb3ef67b6b32d294a057fe14350ccc4c9947c044f85a38ea947a15b6"
+      "sha256": "70f9bf3970f7f0856c48b96e400a10d504b109c455c92ea1f08766695a8d7368"
     },
     "coacd": {
       "name": "lib_coacd.dll",

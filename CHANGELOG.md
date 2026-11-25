@@ -6,6 +6,18 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Imported characters' skirts and chests no longer fly in from the map's origin (2026-11-25)
+
+- **A Model Hotloader ragdoll or NPC now starts its MMD physics on itself when it spawns, when you use Reset physics
+  and after a teleport.** Before, a character whose model has physics bodies without a bone (skirt lattices and chest
+  helpers often are) had those bodies start at the map's origin, however far away that was; for about half a second
+  their joints pulled them back and dragged the skirt or chest along across the map. Characters without such bodies
+  are unchanged.
+- Behind it ([ADR 0266](docs/decisions/0266-a-body-without-a-bone-starts-with-the-character.md),
+  [report](docs/handover/boneless-bodies-report.md)): each body without a bone now rides with the bone of the nearest
+  body that has one through its joints, else the pelvis, wherever the natives place a body from the animation
+  (`packages/model-hotloader/source/boneless-bodies.patch`); a new C++ test, `secondary_boneless_bodies`.
+
 ### Release QA checks the glass players have (2026-11-24)
 
 - Nothing changes in the game: windows and spawned glass break as before. Release QA's two glass sessions had failed

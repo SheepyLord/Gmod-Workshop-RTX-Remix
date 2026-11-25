@@ -72,7 +72,7 @@ void Secondary::stepSimplified(double seconds,bool teleport){
   previousJiggleRoot=position;jiggleRootReady=true;
  }
  instance.evaluate(true);
- for(size_t i=0;i<bodies.size();i++)display[i]=bodies[i].bone>=0?instance.skin[bodies[i].bone]*bodies[i].initial:bodies[i].initial;
+ for(size_t i=0;i<bodies.size();i++)display[i]=animatedPose(bodies[i],instance.skin);
  simplifiedMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-started).count();
 }
 btTransform Secondary::jiggleFeedback(size_t bone,const btTransform& animated)const{
@@ -124,7 +124,7 @@ void Secondary::setQuality(int divisor,bool suspended){
  qualitySuspended=suspended;
  if(!suspended){
   qualityResume=true;++qualityWakes;qualityBlendStart=instance.sourceTimestamp;qualityBlendPose=display;qualityBlendAnchors.clear();
-  for(int index:anchors){auto& b=bodies[index];qualityBlendAnchors.push_back((instance.skin[b.bone]*b.initial).inverse());}
+  for(int index:anchors)qualityBlendAnchors.push_back(animatedPose(bodies[index],instance.skin).inverse());
  }
 }
 void Secondary::blendQualityPresentation(){
@@ -134,7 +134,7 @@ void Secondary::blendQualityPresentation(){
  t=t*t*(3-2*t);
  for(size_t i=0;i<bodies.size();i++)if(!bodies[i].follower){
   auto old=qualityBlendPose[i];int anchor=bodies[i].anchor;
-  if(anchor>=0){auto& a=bodies[anchors[anchor]];old=instance.skin[a.bone]*a.initial*qualityBlendAnchors[anchor]*old;}
+  if(anchor>=0)old=animatedPose(bodies[anchors[anchor]],instance.skin)*qualityBlendAnchors[anchor]*old;
   display[i]=btTransform(old.getRotation().slerp(display[i].getRotation(),t),old.getOrigin().lerp(display[i].getOrigin(),t));
  }
 }
@@ -144,12 +144,12 @@ Json Secondary::qualityInfo()const{
 }
 void Secondary::resumeQualityPose(const std::vector<btTransform>& skin,const std::vector<btTransform>& pose,bool carryLoose){
  std::vector<btTransform> live;live.reserve(anchors.size());
- for(int index:anchors){auto& b=bodies[index];live.push_back(skin[b.bone]*b.initial);}
+ for(int index:anchors)live.push_back(animatedPose(bodies[index],skin));
  // Components held by the world stay where it holds them.
  int root=instance.sourceRig->bones[0].mmd;auto loose=carryLoose&&root>=0?pose[root]*currentRoot.inverse():btTransform::getIdentity();
  for(auto& b:bodies){
   auto p=b.current;
-  if(b.follower)p=b.bone>=0?skin[b.bone]*b.initial:b.initial;
+  if(b.follower)p=animatedPose(b,skin);
   else if(b.anchor>=0)p=live[b.anchor]*currentAnchors[b.anchor].inverse()*p;
   else if(carryLoose&&!b.worldAnchored)p=loose*p;
   auto rigid=nanoemRigidBody(b.value);rigid->setWorldTransform(p);rigid->setInterpolationWorldTransform(p);

@@ -131,8 +131,14 @@ private:
  std::unique_ptr<External> external;
  Instance& instance;
  nanoem_physics_world_t* world=nullptr;
- struct Rigid {nanoem_physics_rigid_body_t* value=nullptr;btTransform initial=btTransform::getIdentity(),current=btTransform::getIdentity(),previous=btTransform::getIdentity(),wakeReference=btTransform::getIdentity(),followStart=btTransform::getIdentity();int bone=-1,mode=0,anchor=-1;bool follower=false,worldAnchored=false;std::vector<int> linked;};
+ // frame: the bone whose skinning transform carries the body's animated pose (buildFrames): its own
+ // bone, else the bone of the nearest body with one through the authored joints, else the Source
+ // root; -1 for a body without a bone that the world holds through a joint (it stays at its rest
+ // place in the instance frame, as before).
+ struct Rigid {nanoem_physics_rigid_body_t* value=nullptr;btTransform initial=btTransform::getIdentity(),current=btTransform::getIdentity(),previous=btTransform::getIdentity(),wakeReference=btTransform::getIdentity(),followStart=btTransform::getIdentity();int bone=-1,frame=-1,mode=0,anchor=-1;bool follower=false,worldAnchored=false;std::vector<int> linked;};
  std::vector<Rigid> bodies;
+ // A body's pose in the animated skeleton `skin`: its rest transform carried by its frame bone.
+ static btTransform animatedPose(const Rigid& b,const std::vector<btTransform>& skin){return b.frame>=0?skin[b.frame]*b.initial:b.initial;}
  std::vector<btTransform> display;
  std::vector<btVector3> displayCompensation;
  struct Joint {nanoem_physics_joint_t* value=nullptr;bool active=false,stretchGuard=false;int a=-1,b=-1,sourceIndex=-1;btTransform frameA,frameB;btVector3 lower,upper;float stretchTolerance=.02f;};
@@ -202,6 +208,7 @@ private:
  void applySleepPolicy();
  void applyTuning();
  void stabilizeJoints();
+ void buildFrames();
  void buildAttachments();
  void readSolved(bool initial,const btTransform& root,const std::vector<btTransform>& skin);
  void present();

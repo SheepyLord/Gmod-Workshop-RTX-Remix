@@ -10490,3 +10490,44 @@ Line numbers are the fork tree's with patches 0001-0106.
 - The first build's three minidumps were read with the `minidump` package and DbgHelp with the build's `d3d9.pdb`
   (`SYMBOL_INFOW.SizeOfStruct` is 88 on x64). The thrown `std::system_error` holds its error value at offset 24 and its
   category pointer at offset 32 (after the vtable and `std::exception`'s data).
+
+## MMD bodies without a bone under a ragdoll (2026-11-25, Claude; [ADR 0266](decisions/0266-a-body-without-a-bone-starts-with-the-character.md))
+
+The user's report of 2026-11-25: a ragdoll's MMD physics started "at an unexpected position far away from the model"
+at a spawn and at a reset, with the PMX of the user's character (Character A below, a placeholder for that imported
+test character). Read in `packages/model-hotloader/source/mmdhl/native/` and measured with those natives, built first on
+Linux with GCC and then on Windows with MSVC (the harness and its numbers: [report](handover/boneless-bodies-report.md)).
+
+- **The instance frame is the map's origin for a client carrier.** `Instance::Instance` (`physics.cpp`) takes
+  `placement` from the options' position and angles; `mmd_hotloader/lua/mmdhl/instances.lua` creates client carriers
+  with neither, so the placement is the identity. The secondary physics runs in the instance frame (PMX axes and
+  units); `submitSourcePose`/`submitPresentationPose` give it the Source pose relative to the placement, so the
+  skinning transforms carry the character's place in the map.
+- **Where a reset puts a body.** `Secondary::follow(true, skin)` placed each body at
+  `b.bone>=0 ? skin[b.bone]*b.initial : b.initial`; `b.initial` is nanoem's initial motion-state transform
+  (`ext/physics_bullet.cc`, `getMotionStateTransform`: the PMX rest pose, with no bone offset when the body has no
+  bone). Resets: the first pose (`sourceTimestamp < 0`), Reset physics (`ResetPhysics` in `module.cpp` ->
+  `Instance::reset()`, which builds a new `Secondary`, whose constructor resets), a jump of more than 128 Source units,
+  and `preparePresentationMode` (it sets `sourceTeleport`). The same expression placed the follow-bone bodies every
+  frame (`present`, `presentAsync`) and the anchors (`readSolved`); the anchors required a bone.
+- **Character A's bodies.** 68 of its rigid bodies name no bone: 60 skirt lattice bodies (the cross-links between the
+  skirt's chains, all dynamic) and 8 chest helpers (6 dynamic, 2 dynamic with bone alignment). Their joints: 66 to
+  dynamic bodies with a bone, 8 to follow-bone bodies, 2 between two of them; every one reaches a body with a bone
+  through the joints (the chest helpers the chest's bones, the lattice bodies the skirt chains').
+- **Measured** (Character A's ragdoll at Source (1500, -900, 64), 1,750 units from the origin; distances from its
+  pelvis, `cpu_mt_v2`, the default backend; `reference` within a few units). On Linux: at the first frame the bodies
+  without a bone were 1,476 units away on average (1,642 at most), 1,211 at frame 1, 528 at frame 5, 51 at frame 15
+  and 5.4 at frame 30; the boned dynamic bodies reached 139 units (43 settled) and the drawn mesh 124 units, 44
+  vertices beyond 120 units at frame 5. On Windows, at the same place turned 0.6 rad about the vertical: 1,462 on
+  average (1,518 at most) at the first frame, 524 (600) at frame 5, settled by frame 30; the boned dynamic bodies up to
+  151 units, 155 of the 76,876 drawn vertices beyond 120 units at frame 5 (the farthest 147). Reset physics repeated it
+  exactly; a 2,000-unit teleport to 1,030 units from the origin started them 851 units away on average. With the fix,
+  on both systems: 7.4 units on average (10.2 at most) from the first frame and 7.7 (10.7) settled, the boned dynamic
+  bodies 43, the mesh 45.6, at the spawn, Reset physics and the teleport alike.
+- **MSVC and the name `far`.** `<windows.h>` (through `minwindef.h`) defines `far` and `near` as empty macros, so a
+  C++ variable named `far` does not compile with MSVC where those headers are included (`error C2059` at
+  `const btTransform far(...)`); GCC on Linux built it. The new test names its placement `away`.
+- **Bones had the same fault, fixed for issue 6** (the Hotloader's repository): MMD control roots nothing poses
+  (センター, 全ての親) stayed at the instance frame's origin and pulled their vertices and follower bodies there; since
+  then they ride with the Source root as if attached at rest (`evaluatePose` in `model.cpp`). Bodies without a bone
+  had no such step until ADR 0266.

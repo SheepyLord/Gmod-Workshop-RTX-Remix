@@ -6,6 +6,27 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: Half-Life 2's weapons and items in PBR (2026-11-26)
+
+- **`remix-map-pbr` learns the game's own weapons, hands and spawnable items** (the user's request of 2026-11-26: PBR
+  for all vanilla Half-Life 2 weapons, such as the crowbar and the physics gun, and entities, the base colour allowed to
+  be re-rendered by OpenAI's models, then limited to the spawnable entities, no NPCs). Half-Life 2 PBR RTX lives on a
+  local branch of the user's fork (`claude/hl2-pbr-rtx`, its doc `docs/HL2_PBR_RTX.md`) and in the user's game; its
+  textures derive from Valve's and Facepunch's and stay local. 80 textures of the weapons' view and world models, the
+  hands of every player model and the spawn menu's items have PBR materials in every map: steel, paint, polymer and
+  rubber each their own (metal per texel from Source's specular masks and the colour), glowing parts emitting light in
+  the colours the game gave them, the physics gun's glow still taking the player's weapon colour. OpenAI re-rendered 63
+  of the colour sheets ($8.79 in realtime; its moderation refused 10 firearm sheets as illicit, which keep the local
+  upscale). At 4K the remaster costs nothing measurable (11.8-11.9 ms a frame against stock's 12.0-12.4 ms). A
+  2.87 GB package that stands alone (not uploaded) and ten Workshop screenshots lie in `out/packages/hl2-pbr-rtx`.
+- **What the skill records** (`references/game-assets.md`): the inventory from the game's spawn lists and the VMTs'
+  DirectX-level blocks; metal by mask and colour, white paint and labels never metal; glows in the original's colours
+  under the whole mask; a replacement with an emission map of its own turns off the runtime's legacy emissive path,
+  which carries the physics gun's per-player colour; textures with an LOD clamp are drawn, and hashed, at the clamped
+  size (two replacements never applied until the hash of the drawn mip was added; maps' props can carry the same
+  clamp); detail textures baked into a source can blacken it before the image model sees it; OpenAI's moderation of
+  firearms; the showroom for the before and after, and still lifes and first-person views for the Workshop.
+
 ### Imported characters' skirts and chests no longer fly in from the map's origin (2026-11-25)
 
 - **A Model Hotloader ragdoll or NPC now starts its MMD physics on itself when it spawns, when you use Reset physics

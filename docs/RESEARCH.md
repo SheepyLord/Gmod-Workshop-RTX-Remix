@@ -10576,3 +10576,34 @@ Linux with GCC and then on Windows with MSVC (the harness and its numbers: [repo
     in `d3d9_options.cpp`.
 
   A conf's per-application sections match the same name (`config.cpp`). On main, that name is `gmod_win64.exe`.
+
+## Half-Life 2's weapons and items under Remix: glows, LOD clamps, frame times (2026-11-26, Claude)
+
+Found while making Half-Life 2 PBR RTX (`skills/remix-map-pbr/references/game-assets.md`; the fork's branch
+`claude/hl2-pbr-rtx`).
+
+- **A replacement's emission map turns the legacy emissive path off.** In the runtime's
+  `rtx_instance_manager.cpp` (lines 1314-1348 in the fork's tree of 2026-11-26), a draw in the Legacy Emissive
+  category with `useLegacyAlphaState` gets its emission from the albedo texture, its alpha as the mask, tinted per
+  texture hash by `rtx.legacyEmissiveColorsString` and scaled by `rtx.legacyEmissiveIntensitiesString` (default 2.0),
+  unless `suppressLegacyEmissiveOutput` holds, which it does whenever the material has an emissive texture of its own.
+  The albedo must have an alpha format (BC3, BC7, RGBA): a BC7 albedo with an opaque alpha would light the whole surface.
+- **The physics gun's colour reaches Remix through that path.** `v_superphyscannon_sheet.vmt` (and `w_physics_sheet2`)
+  tint `$selfillumtint` by the `PlayerWeaponColor` proxy; the RTX fixes' `cl_physgun_color_sync.lua` writes the
+  normalised `cl_weaponcolor` for the view sheet's hash (and five effect sprites, not the world model's sheet) into
+  `rtx.legacyEmissiveColorsString`, intensity `remix_physgun_intensity` (5.0). A replacement of that sheet keeps the
+  tint only without an emission map and with the glow mask in its albedo's alpha (red `2.0 0.3 0.2` glowed red).
+- **LOD-clamped VTFs.** A VTF 7.3 resource with the tag `LOD` holds clamp U and V (low two bytes of its data, powers of
+  two). At `mat_picmip 0` the game loads at most that size and Remix hashes the loaded top mip: the AR2 ammunition
+  crate's `models/items/combinerifle_ammo.vtf` (`hl2_textures_dir.vpk`, 512x512, clamp 8) drew at 256 with the hash
+  `0xB8313184D0520950` against the file's top mip `0xF74A1ED553D72CCF`; `models/magnusson_device/
+  magnusson_device_basecolor.vtf` (`content_hl2_dir.vpk`, 1024, clamp 9) at 512, `0xE73CFA9630BC3139` against
+  `0x3B840C11E8A4BF04`. XXH64 of the clamped mip predicts the drawn hash exactly.
+- **Frame times** (PoC, gm_construct at 3840x2160, the sky at 14:00, `fps_max` 300, no vsync; three rounds of 8 s after
+  6 s of each scene): the gravity gun, the AR2 and the .357 held, and all 40 world models and items laid out, 12.01,
+  12.07, 12.25 and 12.36 ms medians stock (rounds 11.61-12.48 ms), 11.82, 11.82, 11.76 and 11.92 ms with the package
+  (rounds 11.72-12.01 ms), measured one session after the other. The GPU memory in use (nvidia-smi, the whole GPU's)
+  was 9,763 MB and 9,512 MB.
+- **OpenAI's image edit endpoint** refused 10 of 80 weapon and item textures as `moderation_blocked` ("illicit"): the
+  tool gun's sheet, an ammunition box's art, the .357's, the pistol's and the AR2's view sheets and five world models'
+  sheets; with the prompt's detail reworded to materials only, the SMG's sheet went through and the pistol's did not.

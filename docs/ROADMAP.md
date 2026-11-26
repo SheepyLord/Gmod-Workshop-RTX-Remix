@@ -1,5 +1,15 @@
 # Roadmap
 
+Garry's Mod's main branch (the user's report of 2026-11-25: RTX does not load there) is **postponed to the next
+loader release**. That release collects the loader changes the user postpones. The main branch's 64-bit game,
+`gmod_win64.exe` in the game folder, never loads `bin\win64\winmm.dll`. A second loader file, `bin\win64\wsock32.dll`,
+would start there instead. [The plan](handover/main-branch-plan.md) lists what that release, the runtime and the
+package need.
+
+| Item | State |
+|---|---|
+| Next loader release: the main and prerelease branches | Postponed (the user, 2026-11-25) |
+
 VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing with one-hand
 turning, a freeze key, frame generation in the headset, the desktop's resolution) was **approved by the user on
 2026-11-13 and merged to `main`** as `ecb741be`, published as 0.0.0-dev.20261114041031+02be1344. Claude coded it on

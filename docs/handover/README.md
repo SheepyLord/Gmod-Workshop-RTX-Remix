@@ -1,5 +1,9 @@
 # Handovers
 
+For the next loader release: [main-branch-plan.md](main-branch-plan.md). It covers Garry's Mod's main and prerelease
+branches, where the 64-bit game is `gmod_win64.exe` in the game folder and RTX does not load. The user postponed it on
+2026-11-25, to ship with other loader changes. Nothing is built yet.
+
 VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing, a freeze key,
 frame generation in the headset, the desktop's resolution) was approved by the user on 2026-11-13 and merged to
 `main`; Claude coded it on the branch `vr8` and ran it in the PoC and on the Index: [report](VR-V8-report.md).

@@ -10531,3 +10531,48 @@ Linux with GCC and then on Windows with MSVC (the harness and its numbers: [repo
   (センター, 全ての親) stayed at the instance frame's origin and pulled their vertices and follower bodies there; since
   then they ride with the Source root as if attached at rest (`evaluatePose` in `model.cpp`). Bodies without a bone
   had no such step until ADR 0266.
+
+## Garry's Mod's main branch (2026-11-25, Claude; [plan](handover/main-branch-plan.md), postponed by the user)
+
+- **Builds.** On 2026-11-25, Steam's content log showed main (`public`) and `prerelease` both at build 25375506 (depot
+  4001 manifest 2904029089870460835, depot 4002 manifest 8456439456790142762), and `x86-64` at 26623711. Switching
+  from `x86-64` to main took Steam six seconds: 315 files updated, one moved and 39 deleted, with 89 MB downloaded and
+  1.16 GB staged. The main build's executables carry the PE date 2026-09-15.
+- **Layout.** Main's game folder holds two executables, and `bin\win64` has no `gmod.exe`:
+
+  | Executable | Type and size | `PATH` it sets | Launcher it loads |
+  |---|---|---|---|
+  | `gmod.exe` | x86, 980,816 bytes | `<root>\bin\;...` | `bin\launcher.dll` |
+  | `gmod_win64.exe` | x64, 1,040,208 bytes | `<root>\bin\win64\;...` | `bin\win64\launcher.dll` |
+
+  Both executables also carry the string `Garry's Mod Client Launcher`, and both have a delay import of `libcef.dll`.
+  On x86-64, the root `gmod.exe` is instead the small 32-bit launcher of section 1.
+- **Imports.**
+  - `gmod_win64.exe` imports `KERNEL32, USER32, ADVAPI32, ole32, WINMM (timeGetTime), dbghelp`, and delay-loads
+    `libcef`.
+  - The 32-bit `gmod.exe` imports the same DLLs plus `VERSION`.
+  - As a static import, `WINMM.dll` resolves to System32's at process start: the executable's own folder holds none. A
+    `bin\win64\winmm.dll` therefore never loads on main.
+  - A 64-bit `winmm.dll` beside `gmod_win64.exe` would also be in the 32-bit `gmod.exe`'s folder, which needs a 32-bit
+    one.
+- **The launcher load.** `LoadLibraryExA(<root>\bin\win64\launcher.dll, NULL, 8)` is called at VA `0x140056C73` of
+  build 25375506's `gmod_win64.exe`, after the format string `%s\bin\win64\launcher.dll` (read with
+  `dumpbin /disasm`). Flag 8 is `LOAD_WITH_ALTERED_SEARCH_PATH`, so `launcher.dll`'s imports are searched in
+  `bin\win64` first.
+- **What `launcher.dll` brings.** Its import closure adds `tier0.dll`, `vstdlib.dll` and `steam_api64.dll` (from
+  `bin\win64`), plus `shell32`, `ws2_32` and `wsock32` (System32). `wsock32` is the only one of these that is neither a
+  KnownDLL nor already loaded. `launcher.dll` imports `WSAStartup` and `WSACleanup` from it by name.
+  - `tier0.dll` imports `WS2_32`, not `WSOCK32`.
+  - Steam's `GameOverlayRenderer64.dll` statically imports `KERNEL32, USER32, GDI32, ADVAPI32, ole32, OLEAUT32,
+    CFGMGR32, IMM32, ntdll, WINMM, PSAPI`, and delay-loads `mantle64` and `OPENGL32`.
+  - Later, `ServerBrowser.dll` imports `ntohl, ntohs, htonl, gethostbyname` from `WSOCK32`, and
+    `garrysmod\bin\win64\menusystem.dll` imports `ntohl, gethostbyname`. On x86-64, `bin\win64\launcher.dll` makes the
+    same `WSOCK32` imports.
+- **System32's `wsock32.dll`** (Windows 11 26300) has 75 exports, all with names: 71 are forwarders, and the
+  ordinals run 1-24, 51-57, 101-116, 151, 500 and 1000-1142.
+- **The runtime keys GMod behaviour on the executable's name.** `env::getExeName() == "gmod.exe"` gates:
+  - `waitForEmbeddedChromium` in `rtx_initializer.cpp`;
+  - the defaults of `d3d9.deferManagedTextures`, `d3d9.managedTextureBudgetMiB` and `d3d9.releaseManagedHostCopies`
+    in `d3d9_options.cpp`.
+
+  A conf's per-application sections match the same name (`config.cpp`). On main, that name is `gmod_win64.exe`.

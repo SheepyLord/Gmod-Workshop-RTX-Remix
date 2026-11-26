@@ -1,0 +1,2278 @@
+{
+ "schema": 1,
+ "part": "hl2-pbr-rtx",
+ "origins": {
+  "!hl2_pbr_rtx_shipped_2k": {
+   "source": "<repo>\\out\\worktrees\\hl2pbr-rtx\\source\\hl2_pbr_rtx\\work\\package_2k\\!hl2_pbr_rtx_shipped_2k",
+   "git": {
+    "repository": "<repo>/out/worktrees/hl2pbr-rtx",
+    "remote": "https://github.com/SheepyLord/garrys-mod-rtx-remixed.git",
+    "commit": "664a82ed0db8483a41e0d8a8b1431dbc46579092",
+    "dirty": false
+   },
+   "imported": "2026-11-26T21:38:28+00:00"
+  }
+ },
+ "files": {
+  "!hl2_pbr_rtx_shipped_2k/materials.usda": {
+   "size": 88205,
+   "sha256": "7844529dbf90c6892703fd1c0b096b65831dc0d635bf1c10f313953b5667c8fd",
+   "mtime_ns": 1795721788789764400,
+   "stored": "plain"
+  },
+  "!hl2_pbr_rtx_shipped_2k/mod.usda": {
+   "size": 505,
+   "sha256": "db57674de2b8dd110b7345ef8f70aa0f6c71801474992a4c0612f992f27f414e",
+   "mtime_ns": 1795729088899907200,
+   "stored": "plain"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__camera_albedo_8fe610fa92.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "0d80e849ec87637d8d810dbc54f1502161bef37054d69903be097f2f5e3f9833",
+   "mtime_ns": 1795678755154520100,
+   "stored": "xz",
+   "stored_size": 3976108,
+   "stored_sha256": "ec0ebf1768603c3cf8edd4382855772904846db8b1db9901b9e3b16ae273df8d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__camera_metallic_6bdabd5e1d.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "b24eebb28d5506e7f3b57864b0f9ecd547d0e47b0fa288d3dc5735a66d4d2e74",
+   "mtime_ns": 1795678753316504100,
+   "stored": "xz",
+   "stored_size": 1621152,
+   "stored_sha256": "d5803945a98471bac89f586fa9ff24ce5659b35e0948703bf9a8b95e50599858"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__camera_normal_4880229e3f.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5f39e91b6041adfed75962f268ad56a3e9c4ba476c4284d809da98c8fa9e77d2",
+   "mtime_ns": 1795677813512496300,
+   "stored": "xz",
+   "stored_size": 5252148,
+   "stored_sha256": "4af786a89773387e5455d7041dd1be654ce65a81924d87c6c769c57bbdc75294"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__camera_roughness_0a5c782699.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "2b926f144c721461a041230c365c66410589dbb3b64fd3320d65bc9e61339f51",
+   "mtime_ns": 1795677813467669800,
+   "stored": "xz",
+   "stored_size": 2460928,
+   "stored_sha256": "8a9d25969891e9b5030b8329f687501f95290cd726595cf1cbc832846b3fe263"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__cube_tool_albedo_e2c6240614.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "ac324cd3d21c90fba41ae325981e1b1d0f22b224bf26eecaded090dc895f1e5e",
+   "mtime_ns": 1795678755100974200,
+   "stored": "xz",
+   "stored_size": 3604236,
+   "stored_sha256": "0b9f674f683be736012c8cdfd4e05e271cd757d16c247f3a23c1654f742a17ef"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__cube_tool_metallic_132bd059fc.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "18aa916242d2b95fe1cf8497807a504fb827d13dccc32cf97268522451c52aa5",
+   "mtime_ns": 1795678753380665400,
+   "stored": "xz",
+   "stored_size": 144200,
+   "stored_sha256": "2fa7d06aa82d2d8a8e0a468095efe716006f4043947f8f22694c17942fbc73a1"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__cube_tool_normal_16a18fc789.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "be4212e4b30909b1be07879ef956a26af0bfab36cd523884e81cf5efaa2ae853",
+   "mtime_ns": 1795677813485492600,
+   "stored": "xz",
+   "stored_size": 3831312,
+   "stored_sha256": "7b4ec127bca1ae0df2ade2471edc6a87e401ff7cdf4ce5383e008cd927b025cb"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/maxofs2d__models__cube_tool_roughness_e7f9b3592b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ae9d5312951f711c730b86532f10ad2025a9750eda344feb9b982243c1a07bb6",
+   "mtime_ns": 1795677813921290800,
+   "stored": "xz",
+   "stored_size": 1967756,
+   "stored_sha256": "4c69ac79dc457d529259b2150db0bc9fed7b297926fe6204e08c04e49e8827e2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb01_albedo_6e5ecd6ac7.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "edf115dd7213f939ea40cb109cf4bd04efcfbbc01109cef5591ef56c4eef966a",
+   "mtime_ns": 1795678755175875200,
+   "stored": "xz",
+   "stored_size": 3800004,
+   "stored_sha256": "4e5d6c8dd28431b85e8743014e603bac57814d38ac76c273f9da608e9410b49e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb01_emissive_9ed5891ef6.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "0205e2e8ed0f2a3853c92cfa81165e55010b634b53c06f23e5766571227c6ca2",
+   "mtime_ns": 1795680037824728200,
+   "stored": "xz",
+   "stored_size": 261236,
+   "stored_sha256": "9a6c0b09940bf5d7035220039766dcb43098904b512fa55061ed8c141cfdaa9b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb01_metallic_79173e2716.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "976cee5de483a8e2470de2cc0a2320c45d516f1866d7037ee24a7f94d27449eb",
+   "mtime_ns": 1795678753309993700,
+   "stored": "xz",
+   "stored_size": 961460,
+   "stored_sha256": "a2bba4ceeaf4f333ece50db4185166966f199b1912c0bd7d74adb1504178e5f2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb01_normal_cba8d82e49.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "bcb8ab181b4c92896a75f2719fda25ff2d30a4cf75eda1fe422deb27e3ffc0a5",
+   "mtime_ns": 1795677814642752300,
+   "stored": "xz",
+   "stored_size": 5233612,
+   "stored_sha256": "ab6ce117c29d880dfd50129a326e2bdecdab360974da4a6ceb82941d07b03521"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb01_roughness_47169f760c.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "cee0f88dd8aa8e582eb44a47e21bd07511d027938d0a93f196b9b5af1c7af58f",
+   "mtime_ns": 1795677814571459700,
+   "stored": "xz",
+   "stored_size": 1979548,
+   "stored_sha256": "760664e25056a6a5b51bc7574e038a10a73d6bb97b9955f1051d6d09f17f96f5"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb_off01_albedo_3c7e502da5.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6e0d2d9980901e15f7b1907c3488253fa711c18e71fc0dfe8c5a11d7e05129a7",
+   "mtime_ns": 1795678755550665500,
+   "stored": "xz",
+   "stored_size": 4028376,
+   "stored_sha256": "aaf526ecf4c4293942e2bf42b73f4d401e205afbd8d39255775375929ffdfa3c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb_off01_metallic_8bd9f630ec.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "563a8477883b60bc78267d21f0edf385b0a52b6af85b2eea3a52054869d07000",
+   "mtime_ns": 1795678753977671400,
+   "stored": "xz",
+   "stored_size": 941680,
+   "stored_sha256": "2e75182b4e6701523e05d782bfe99838c477d405317528970ef94f19eaea1474"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb_off01_normal_907a89d4f3.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "ff74ec06d258bdb08f9de848dd527ae6a479e2f8ef815c8fe89a78034dbcb36f",
+   "mtime_ns": 1795677815310895800,
+   "stored": "xz",
+   "stored_size": 5237964,
+   "stored_sha256": "0a2c4b1fe1f83b812970c9e29587fc21d8df4efe6084520ef882ce2131cdd0db"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_helicopter__helicopter_bomb_off01_roughness_6345872c36.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "d39efe9c3dfddf48ecafec2d020a5df13ff2bc46d1f257055fd6a3cfd29dd9d6",
+   "mtime_ns": 1795677815542042600,
+   "stored": "xz",
+   "stored_size": 2007468,
+   "stored_sha256": "cea8f5f6e5261951ba0249a2b2ad053053bbe040a6a6172e50e7714df5e1435c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine03_albedo_e35bb3e950.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "a4df27ff142146441199190086009062fdeee22f1d60b173000a15cae03ef0ef",
+   "mtime_ns": 1795678755881138000,
+   "stored": "xz",
+   "stored_size": 3684028,
+   "stored_sha256": "b08cdce47c0a14d30407f8bfcde33fff13323417aa4a3eaa20bee48123dc3288"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine03_metallic_63f1e9e941.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "41ea53c01585fc451528fc2cf9656984f99fe923cf222cba4032bda5759d8797",
+   "mtime_ns": 1795678755544654600,
+   "stored": "xz",
+   "stored_size": 956128,
+   "stored_sha256": "7edee17cd2c282939a9abbc642666d4463cadc0db505b6541c8d3ce4883b8a71"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine03_normal_ffbf9b11c6.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e2054b643526b72a7b51c98efc4bbd25300a29d500c982c4c65d2e41b0e34d9e",
+   "mtime_ns": 1795677815997474500,
+   "stored": "xz",
+   "stored_size": 4985224,
+   "stored_sha256": "12761167314fb88191f7805b94e4411fb7cf5b094b9dbc3fa964217f831d726b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine03_roughness_910297d850.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "a6c2a53d92471c78db7cb393cc807e29538ae2668ff97107566b14fb26c17f8a",
+   "mtime_ns": 1795677816011418000,
+   "stored": "xz",
+   "stored_size": 2136964,
+   "stored_sha256": "f9b6604ed9964ea86f8224a4e75b51a08d1e71a2756253473a541ff2eef64c23"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen2_albedo_476667907e.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "3eb97d789cf97df1d8119b5de099e540a6a7e13670a5b10cc56fb26ff73b0ab2",
+   "mtime_ns": 1795678757668613200,
+   "stored": "xz",
+   "stored_size": 3838692,
+   "stored_sha256": "54957913628aabc06f08b78255f386592b33bf25eb48a34c26fac07a49fc3237"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen2_metallic_2855fff797.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "145594ea63faf54188d5a8c6138cca62de21349d397dc133b7cd74929f4418f0",
+   "mtime_ns": 1795678756075388800,
+   "stored": "xz",
+   "stored_size": 943072,
+   "stored_sha256": "07acb1e769751fce0e7b9ddc671e6b15fc29207609e674c877784ea93cf594ee"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen2_normal_e6d71a7ac8.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "d36d861fc0054f0eda16ec5c246a061c3966e4ab475ec0b3cb57073370eeddbe",
+   "mtime_ns": 1795677816950717200,
+   "stored": "xz",
+   "stored_size": 5023648,
+   "stored_sha256": "f124f8d6ce8a4d96d669c5fc32c7923f36b46f6fb0bb626be4aa543f3bacaf48"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen2_roughness_0a00ba5a89.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "7f3cd8dbb1ccef965c5f3216f26a63db71300577d8946988039cf67a717619c4",
+   "mtime_ns": 1795677816966904900,
+   "stored": "xz",
+   "stored_size": 2168060,
+   "stored_sha256": "a574eb1fa98dde612602e6183d8ff62b5fe40c5be8dae2ca656bef13c8ea79b7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen_albedo_4022bd4709.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "7efc6b47907499ce7b78206d092484ae76ef49fe355fbe0fa63d78ff38b08be7",
+   "mtime_ns": 1795678757471944300,
+   "stored": "xz",
+   "stored_size": 3846788,
+   "stored_sha256": "aa6c24db22f02ee7d8854f5389c7992167d109d0b81fbe3c725c74c5dadfec63"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen_metallic_2a30e9514f.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "e683bfcdd7a3d7f373645a7bb63dad1150180258a6b34b62ab2cf98c619ca544",
+   "mtime_ns": 1795678755642113400,
+   "stored": "xz",
+   "stored_size": 994304,
+   "stored_sha256": "f7215fb93a2bb6fcb8f5534bd961c6e234cf4d7b6d245a26aff9ca140f7c27f2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen_normal_fd4a2b6108.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5b0bb3d875f6cfe466f6ba2239034469a88024c4372d87aa5bfaa60b4a5fb9b2",
+   "mtime_ns": 1795677816488161000,
+   "stored": "xz",
+   "stored_size": 5000012,
+   "stored_sha256": "fdfb0cad81c6dc1e8f1d28165afd90f5ec8ca0178e7dde156db6a8c687622104"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__combine_mine__combine_mine_citizen_roughness_8582eba7ae.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "5098959f7ce8242c187e51dea555d72d6d00e9aab457d0f90bc50894699def74",
+   "mtime_ns": 1795677816471138100,
+   "stored": "xz",
+   "stored_size": 2145352,
+   "stored_sha256": "8bd1717880b3e6a8cf4c9c1ebd6c26d27f84bc534ddf08c36e2f2da1880fff15"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__healthvial__healthvial_albedo_09121b28e3.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "009a72acfff22d8b851fc9bbad1cabd1b076d058c128f3d3cde98eac1f55f22f",
+   "mtime_ns": 1795678757874592000,
+   "stored": "xz",
+   "stored_size": 3040208,
+   "stored_sha256": "aaf1c1bf394e024316a38d830f6fe2197a5dcff6a48271a4a39350e5112e519d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__healthvial__healthvial_emissive_b5b5b2dc2c.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "51f1ca0ef08af9ff6ece846080878d28762aba6c3f32539507a79ceb9dd98f3c",
+   "mtime_ns": 1795680037839361200,
+   "stored": "xz",
+   "stored_size": 872720,
+   "stored_sha256": "e80336f66d62e6c15eccce411e3350ada5de9278b738bea9b1de02c3c5be5d87"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__healthvial__healthvial_metallic_fbb3f025f6.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "5a22681604e717e479a793ebc2492a419047784ed52b6ccf296f0be448457694",
+   "mtime_ns": 1795678756153025000,
+   "stored": "xz",
+   "stored_size": 35308,
+   "stored_sha256": "5c3b8b1649a33b25a27ab5b498b03e6d3fb9d194077be3d45e49a73958015b39"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__healthvial__healthvial_normal_7aeccb500f.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "271fe873bd1f66d3fd2f44f5ead5b469b03becb05b8d8b4e8cb7f377fc6f45ce",
+   "mtime_ns": 1795677817278525700,
+   "stored": "xz",
+   "stored_size": 3818920,
+   "stored_sha256": "f001fb480054c46922d9f098ad90f25acb82e9044704bd59531dd881d8958549"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__healthvial__healthvial_roughness_894848821d.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "d5f6a4b37770e1bae4032d9d2a79bb759d8bbcea9ed7a056c16f261084025cbb",
+   "mtime_ns": 1795677817402935700,
+   "stored": "xz",
+   "stored_size": 1610720,
+   "stored_sha256": "474a89c647dc14c1f6a4771351d030e2c57c39a8e6cf6e59742702ef3b58e74b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__hevsuit__hevsuit_sheet_albedo_3639602efe.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "17c7244e31ee1d788bc27035d27bf6a45d6dee3cb62fadcb2d4c1e88ec692246",
+   "mtime_ns": 1795681445911753500,
+   "stored": "xz",
+   "stored_size": 4065388,
+   "stored_sha256": "a1b37bf890354e242e59d135bbb10d4c4b380ebc5e65d8d48b7ae9075ba9640d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__hevsuit__hevsuit_sheet_metallic_6e1822e84d.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "f5430a813a4f904a307e184beb4fdb1a979f3707ad3548905ec60bb6fea4a70b",
+   "mtime_ns": 1795678756732501800,
+   "stored": "xz",
+   "stored_size": 924456,
+   "stored_sha256": "aacdc861caca99464aedeb7f775a24a0641dfe2c9881dd721aaea885ffb4a4e6"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__hevsuit__hevsuit_sheet_normal_ae5cc127cd.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "965b4d875fa3c913248df606aa1e827b0572c93e170f5ebcf88bbd2f59374680",
+   "mtime_ns": 1795677817824287700,
+   "stored": "xz",
+   "stored_size": 4772292,
+   "stored_sha256": "9e2ac84065d16aeec2e9dc8f3add56b10967c1e6d50ff208da8372ec714272ac"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__hevsuit__hevsuit_sheet_roughness_08abca1f4b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "8d5a276492e4ecf7645b1b3ad7400ebcac87677ed4e22269c2b801604baf6105",
+   "mtime_ns": 1795681445019709600,
+   "stored": "xz",
+   "stored_size": 2097832,
+   "stored_sha256": "e4c22aa40ffc6062e9dec49eedf4bd0519df99b302875694db2b56f653e8583c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__battery01_albedo_790c955b34.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "c894b9ef85af2cc9994ed8d21e2a4d9eef15ce7d32d184ef867035a3df4e1dc0",
+   "mtime_ns": 1795678759400413700,
+   "stored": "xz",
+   "stored_size": 4286240,
+   "stored_sha256": "01179f617d04cb949ca76397b7078c52780aca09c7ecdef10402a0587fb933d7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__battery01_emissive_6f418fde03.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "bbfae3bc14486b65ca22591c473932260599e00af8fab35a4455ffc89f7e780a",
+   "mtime_ns": 1795680037827234000,
+   "stored": "xz",
+   "stored_size": 190404,
+   "stored_sha256": "2199fdc07aa737f8cc4a903c400c2dd547f019f5164b20e63fb2e2b458b8b71d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__battery01_metallic_0eb8bc3b01.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "83a187cf312ce81cb405a1e336872dd1c38e873752bd410faf6acd5a876ca0b0",
+   "mtime_ns": 1795678758144624900,
+   "stored": "xz",
+   "stored_size": 284764,
+   "stored_sha256": "67ba3715bd4265d447d20026edaaa391fa5a69c03d75ee57ed2f0138192b96cf"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__battery01_normal_6983b2abcc.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "2f675f616d13e2bd0966569d25720f7bbbf258c0bcdf94f366e6ddbf5c754fdc",
+   "mtime_ns": 1795677818344735900,
+   "stored": "xz",
+   "stored_size": 4932244,
+   "stored_sha256": "c4490ffbcc219fd6738fcd6fa676a4cd7a54c20c35a84ddbd589d02eec63db92"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__battery01_roughness_081cfefddd.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "363d8e12662f396e2f1317ae4c2bf32ed4508a986e29ac7fe9d23b7e97e970f5",
+   "mtime_ns": 1795677818357740300,
+   "stored": "xz",
+   "stored_size": 2347504,
+   "stored_sha256": "34ee27eef943a9dbd04585ffcfbd1177dcbff6745b010eb844d54c09873f4e45"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxart1_albedo_fb5ff9e078.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "201bcc812cc139e5e2003b5732828b25d0e179cc879f562004bda698e0577297",
+   "mtime_ns": 1795677819160825300,
+   "stored": "xz",
+   "stored_size": 1738260,
+   "stored_sha256": "aacd2986010023a69ae4762eb58f41831fa0ea18eddb8b9ff328f14f4cc297f9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxart1_normal_d266ba0eaa.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "7d436378ca8cf7ba8dc797c7f14ee136ab6b34554e67346e3f30383713885e26",
+   "mtime_ns": 1795677818814118100,
+   "stored": "xz",
+   "stored_size": 1380968,
+   "stored_sha256": "c668706e6c70974acedb7e1f4559727f1c2e27da6f67a9b9399e84f614fe70ef"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxart1_roughness_4c6888ea90.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "3e9b8108eccdfa7ad608c6786204c70dd63bdd9759f3a299b849520477aa8219",
+   "mtime_ns": 1795677818779114500,
+   "stored": "xz",
+   "stored_size": 632072,
+   "stored_sha256": "d28dc7399a2164842a536334f5f97ba11e4b7a6f8f5a9e9d659bf90b5db00d0c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxmrounds_albedo_2bfe1d9b8d.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "723fec52505af3bc186da634284cd8ffaccd65f8a6e9dbb3393019a2bcb5eff6",
+   "mtime_ns": 1795677819567983600,
+   "stored": "xz",
+   "stored_size": 4684468,
+   "stored_sha256": "3e613197e57e64968be0f9cd0058dd17cdc5db256fca8f4f20dccc1cc8465e7a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxmrounds_normal_6df560c534.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "a1ec78afa163807e96fa7fb42803e3694602a5837f7918a0ed06a9c01c9e62e3",
+   "mtime_ns": 1795677819241589200,
+   "stored": "xz",
+   "stored_size": 5125068,
+   "stored_sha256": "7be99728d80d6f49f0421dde7066727e8689add2cf23d1ef5173d7fd185266fd"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxmrounds_roughness_ab08b92e75.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "fcf0326ea391eb47c3984915cf965834cee0d963cdb8fcee6fb985300610231e",
+   "mtime_ns": 1795677819322776700,
+   "stored": "xz",
+   "stored_size": 2449412,
+   "stored_sha256": "8fda590bf68713590a33aeb98a256a47230914506a3ff760bab505db882c9ca2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxsrounds_albedo_95caf6d1af.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "597dac3355ad5ca80c276840e411bee66b4e6d619add98f7fbc77a35686e2cb4",
+   "mtime_ns": 1795677819747094200,
+   "stored": "xz",
+   "stored_size": 3873088,
+   "stored_sha256": "b2f04ffe2982638c26363da7ac95d92ea7dac736c16efdf9868ac4b688d7fecd"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxsrounds_normal_f4e1041021.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "97a7acd33fa6189afeafec1615ea905828e3ba8419ca8b8dbcd4c0b444025743",
+   "mtime_ns": 1795677819634387800,
+   "stored": "xz",
+   "stored_size": 4412952,
+   "stored_sha256": "a768dc51d9dffbcaaed809464b877dbf24fd4905517bb5b313c0b96d2756af0a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__boxsrounds_roughness_3a788ab6c0.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "1a0702b690ad2a6b04288b43e0b99846586ce2d98fd17e9d0d3806500b10ef94",
+   "mtime_ns": 1795677819738084200,
+   "stored": "xz",
+   "stored_size": 2210892,
+   "stored_sha256": "73c5622b8470e2891e5e3819b7bace21986cebd3e364e21b3ab1201e8896d55f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__buckshot_albedo_ba352a5064.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "9d59ed51af3edb0170148fcae549960bb34ddeb7f7d87074a900a438ab0b0283",
+   "mtime_ns": 1795677820233709900,
+   "stored": "xz",
+   "stored_size": 4517008,
+   "stored_sha256": "a6066ed5b014d0a4dd36651c5335231f91192440bdf77f19ac315a90b5172ce3"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__buckshot_normal_e0d46d4512.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5a100d5a4457db092717dc6eb834d9bfdc3756b2434f5e1206c47a8497f0dcd4",
+   "mtime_ns": 1795677819786156700,
+   "stored": "xz",
+   "stored_size": 5135960,
+   "stored_sha256": "11c6c1895257b76ef488b7ac450bb01dd7b15bc0a0001d6e6c1057229ca81009"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__buckshot_roughness_3f5d571eec.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "10ed131a84025e3721b6f173e503a1525d4389fb379f8d3ebc8933c3cf016682",
+   "mtime_ns": 1795677820025298700,
+   "stored": "xz",
+   "stored_size": 2351972,
+   "stored_sha256": "2165c351d2280b726088d29d27dd727947a9b8d4e4070a9905a9129865c92c93"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combine_rifle_cartridge01_albedo_fcfea1a50f.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "2e208ca4dbaacffcf632ca58380461737c0241d309f0867008d40ff8ce5783d8",
+   "mtime_ns": 1795678759983768400,
+   "stored": "xz",
+   "stored_size": 3185220,
+   "stored_sha256": "37e0b7586ca95eaef2d627d127ce2dc0d4a6a61ea2e4adb6951bd1fa813e47c1"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combine_rifle_cartridge01_emissive_c66cbd19df.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "4294c573bdbdb09f3bf903c9fcf2970260fa584181e2eae8c3bf8fe4e5816b8d",
+   "mtime_ns": 1795680037811218900,
+   "stored": "xz",
+   "stored_size": 112828,
+   "stored_sha256": "1fce62dae2feec162de4224831bd54df9c1a1b5ff86203be9768ad627e68d7ad"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combine_rifle_cartridge01_metallic_60e5fbde92.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "5396e23bff40113406bb90295e5320088df049056efb50e276cf611b6d7274bb",
+   "mtime_ns": 1795678758634608100,
+   "stored": "xz",
+   "stored_size": 62676,
+   "stored_sha256": "563035cc04d7ff1b5149931b8f9ed5bea556a63cc3c7288b595bb66d2b50d3b9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combine_rifle_cartridge01_normal_733b6201fc.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "25078e62278f43e02f3eb455ce7e4ea506daa8f0806471c619c5b32f2e996d42",
+   "mtime_ns": 1795677820268209200,
+   "stored": "xz",
+   "stored_size": 4323424,
+   "stored_sha256": "7448f3b2345014ac8dce407afb12d5b8003b6f3ca7a989a2810ac4fbdce6348c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combine_rifle_cartridge01_roughness_bec70fb93c.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "b4af3a8571e9ec7ebd8065a7da541f09a3c41ca0fa513fa9050ae825f905b1f4",
+   "mtime_ns": 1795677820235246000,
+   "stored": "xz",
+   "stored_size": 1952160,
+   "stored_sha256": "ab8f8d98ef8bb1da6afb5e85ef376d89ecb95c91559a0f8802edaf127869a4ca"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combinerifle_ammo_albedo_addb281823.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "f6850c4dff0510eca233982780dc0752c55988d065b8e91ace485070517b3639",
+   "mtime_ns": 1795677821303107600,
+   "stored": "xz",
+   "stored_size": 4369992,
+   "stored_sha256": "df09669c7e2320df8c690af044ce27c74b3cf3ea9b4d85b4ad0be8afaef0b568"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combinerifle_ammo_emissive_657a3d0f44.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "343564388c935ab1f122f90e023b51d0d12ab2e30bcc41e23e19eeed2cbfc57c",
+   "mtime_ns": 1795680037847865400,
+   "stored": "xz",
+   "stored_size": 591432,
+   "stored_sha256": "d8335a8ce9fbf4c61fde3cabfe8bea6ded85c8a7172d3c89aca241754495fe50"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combinerifle_ammo_metallic_82c6d9cadc.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "25631351b917ab650c487efd20ed172d1d02bcc0043f61993bf9bd3d60723bdb",
+   "mtime_ns": 1795677820732096900,
+   "stored": "xz",
+   "stored_size": 680,
+   "stored_sha256": "aaeede9d126ae797bdf2d8d6a1785dbb4be1f95c73334d47243db0de2c8bbcd1"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combinerifle_ammo_normal_8b1aa60352.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "94d0cfdd4ffddb3a4204d0d5717cd1ede2f64c158a4df40cb2585279d6b60dd5",
+   "mtime_ns": 1795677820751678200,
+   "stored": "xz",
+   "stored_size": 5338580,
+   "stored_sha256": "929c35041ba6c8d5a1d0c82ba038a172d5f2a39395a159c2d375cacf5a5a3ca0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__combinerifle_ammo_roughness_1bd1d51bd5.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "25c0fc5c36a13b42be7485378ce0721e7419d15a369aa53b6df08efe8e49a57a",
+   "mtime_ns": 1795677820737599300,
+   "stored": "xz",
+   "stored_size": 2632496,
+   "stored_sha256": "36b1967d9e98d4ec95d1d63c4269e16cb0f02f9bd4f873f442037861c05b58ea"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__grenade2_albedo_043b3e41b7.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "097610bf4f591c544792600328c3bfa0ba8f5bfc58f4ec00c5f76eb466effb30",
+   "mtime_ns": 1795677821588282600,
+   "stored": "xz",
+   "stored_size": 4758904,
+   "stored_sha256": "1b914acdbee2bf15c20a95ba4f3712d906aefa417a1ccda4c36de03d45c3a419"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__grenade2_metallic_c8331cee3d.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "61cbb57c1e01a17d1bfd2f8c68aa2449dab302277ef956fa92712d1f9a8982de",
+   "mtime_ns": 1795677821223836100,
+   "stored": "xz",
+   "stored_size": 592,
+   "stored_sha256": "111f9512a17b07ce14950e8854f9a1630cafc4047ec2c8971f02decd3bf62ce7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__grenade2_normal_830305a688.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "11cede75c5c8ce5c01006dd608e41f1a663cf23315d2c882b2ff449ffa6679a2",
+   "mtime_ns": 1795677821272590200,
+   "stored": "xz",
+   "stored_size": 5032564,
+   "stored_sha256": "e49fb92e19a16b26f28e7c010073f3401822d6c05771eab30174aa4a041c20da"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__grenade2_roughness_cfeb11bc24.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ba2b79783490c3483bf203383ad63cc6086f22e469e3ee6cf602d40bc022e5e5",
+   "mtime_ns": 1795677821244344300,
+   "stored": "xz",
+   "stored_size": 2471056,
+   "stored_sha256": "515e5c4b17629dab0289bdc06ab6b7371198112599ba3425c9ff8f5b7c556869"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__healthkit01_albedo_5fc2c50171.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "91a27b82398cc6c7778a7024731566e855800694c61f9925f0d049e83fa71edc",
+   "mtime_ns": 1795729088912420000,
+   "stored": "xz",
+   "stored_size": 4119672,
+   "stored_sha256": "d92137d40b38cfc822e3caad545f1e21f23a8bb99c51cd487a0525adf1bf4c38"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__healthkit01_emissive_c8fdcddc68.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "3a7f71c4b1207725f121caa96786ebc2a3141c8b79f03ed72a188e968db8689d",
+   "mtime_ns": 1795729088918652900,
+   "stored": "xz",
+   "stored_size": 268448,
+   "stored_sha256": "0f51bbdb7a84b090973a22177e17e5c34097812914723fa95410bf128ef07e07"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__healthkit01_metallic_1a65c370f8.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "66677fb26a3b498df4a2f443dc8f16e23a8f1dae4ae7ad378751cf6bcbe0f5d2",
+   "mtime_ns": 1795729088924160000,
+   "stored": "xz",
+   "stored_size": 349572,
+   "stored_sha256": "b034ebee24278e5bee8d32a8f051cce561aaece0ab0f9d901b33817b1446c4fb"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__healthkit01_normal_d5de6bda3c.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "982bcdbb53548ee20ef4ee6ebe30f8ea448bd6d1a4ce6eabb0f0ead582532b34",
+   "mtime_ns": 1795729088929664000,
+   "stored": "xz",
+   "stored_size": 4671652,
+   "stored_sha256": "0c826b7b9dd9899f7c91b769f4cceae30d5c2d40d2a784dcc9c883a72865e7d7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__healthkit01_roughness_304530dc9b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "9db8a748c8193f9c5ea4799f9a7af8dad775281f2df1f28000731fd5b0be331a",
+   "mtime_ns": 1795729088934195700,
+   "stored": "xz",
+   "stored_size": 2227256,
+   "stored_sha256": "9f8c60295c1206d5b147cd2c52cd86316577fc45f7908c537e95dc1afba0e970"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__w_grenadesheet_albedo_9a2ed271a5.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e052d1544649decff353e93c1c0a13cd93c6ba9bd9c9aae09d261898cbd42c8b",
+   "mtime_ns": 1795677823022696500,
+   "stored": "xz",
+   "stored_size": 4644000,
+   "stored_sha256": "ae2c38b77f7fdb53ed27804d88f93da84c27afb0972ee2c07b362ff875c3cd74"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__w_grenadesheet_metallic_c8331cee3d.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "61cbb57c1e01a17d1bfd2f8c68aa2449dab302277ef956fa92712d1f9a8982de",
+   "mtime_ns": 1795677822821458800,
+   "stored": "xz",
+   "stored_size": 592,
+   "stored_sha256": "111f9512a17b07ce14950e8854f9a1630cafc4047ec2c8971f02decd3bf62ce7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__w_grenadesheet_normal_b70bbb96f6.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "895cb9271052cd320f447cc190c9e337769b5fc5859a03339f09c8243d857121",
+   "mtime_ns": 1795677822796458000,
+   "stored": "xz",
+   "stored_size": 5335512,
+   "stored_sha256": "cf0476351726860ea2247e4255e03ca8b83cf77b77056d409c70d890ede92649"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__items__w_grenadesheet_roughness_50e40ed674.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "b2ed6e9e1fcc021ca8a3c4cd105b4a0e6c165cd0b069c204e64b4c9d5195f41d",
+   "mtime_ns": 1795677822783951200,
+   "stored": "xz",
+   "stored_size": 2573624,
+   "stored_sha256": "8137774600f139fe7a8b4865da83c5603e6cf2979a0870078a03484b072af4b1"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_basecolor_albedo_d287d20e07.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "ab8344a779ffcb3695b95e8e41c5eda5d766dd16119c79f63206a99719fb4fc8",
+   "mtime_ns": 1795678761960695900,
+   "stored": "xz",
+   "stored_size": 4439984,
+   "stored_sha256": "4452f981c7622e4ce3fbed4c9994da4a9eb4d953c2465934911dccc8b7acd3a1"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_basecolor_metallic_b9007e9754.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "4a171b049128798f832d4e03121f0b3bda9cdfc4bb691b09002e9007633764a0",
+   "mtime_ns": 1795678760343382600,
+   "stored": "xz",
+   "stored_size": 1110484,
+   "stored_sha256": "5535d6414821c9613670bea42ce8e62c56086e7d36bb8b68ad1b0edc50398872"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_basecolor_normal_d89e4f723d.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5cb5e0c77b6d9e221a0cff26cd4e420c3bbdba969e2bfe38fd4756128da7fdd5",
+   "mtime_ns": 1795677823269034000,
+   "stored": "xz",
+   "stored_size": 5319940,
+   "stored_sha256": "1d2c5630404afcb4aedaa4bba35215a4b2dd0d7209e3ca74edab1489c08e75b2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_basecolor_roughness_4f9d87fffc.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "4b9abe0bcf5c91d3cc189420e71512d98a7eb0b9aee9faa28c93ee074ac56eb6",
+   "mtime_ns": 1795677823269034000,
+   "stored": "xz",
+   "stored_size": 2672100,
+   "stored_sha256": "ed4c23211ca823dc1bb388b5ea4202bec42e424dfdf6f5ac7c35eb1b12fb4fd4"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_glow_albedo_081c517a65.a.rtex.dds": {
+   "size": 349700,
+   "sha256": "9bfe5e6a934e42a8f4fccf201538a4756632bf4d59d50d6ba83354ae5a37ee14",
+   "mtime_ns": 1795677824060432300,
+   "stored": "xz",
+   "stored_size": 248920,
+   "stored_sha256": "20b1a4abb05441700efea6edc833f15f8c5400c89f99b8eb8f7fba2fa83dcc20"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_glow_emissive_dc2fd47fc5.e.rtex.dds": {
+   "size": 349700,
+   "sha256": "49df463fb3fbacf9e2199defd91f1eddb5fa20634e8d4ac783f94572ae9484e9",
+   "mtime_ns": 1795677824215293700,
+   "stored": "xz",
+   "stored_size": 82500,
+   "stored_sha256": "d175637156bd57c5e531f6a979d5c39a71a3e74940cc00061123895899c54f46"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_glow_normal_1edeed5fe4.n.rtex.dds": {
+   "size": 349700,
+   "sha256": "dc4b7565baeea8a8b0cfdf6522dce3b77a5996f757fe700d7b6ee5f7727f7f99",
+   "mtime_ns": 1795677823593598200,
+   "stored": "xz",
+   "stored_size": 74304,
+   "stored_sha256": "1d93c0e46db3310d87e3ce468d041d7c64a76c79846ae4aaad9983b1e4c98ae2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__magnusson_device__magnusson_device_glow_roughness_07c3de701c.r.rtex.dds": {
+   "size": 174924,
+   "sha256": "e77ca22194fcddac2076ad4fb90b394e7c48f70b060fc9c6b1c4d13b9233bc94",
+   "mtime_ns": 1795677823828910900,
+   "stored": "xz",
+   "stored_size": 95316,
+   "stored_sha256": "f02119779577708150efee8df42f110dcb8e3c733aea11b993b890f85a8bc7c4"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__combinethumper002_albedo_b5fb088f8b.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5e4b55b3e36b92011b8735be7b5b2c0db42906016b9425cb24997c56ad16cf6c",
+   "mtime_ns": 1795678762316415100,
+   "stored": "xz",
+   "stored_size": 4143664,
+   "stored_sha256": "3a7fbb2f7e0ee1f19b77fb2a0d779883e56cea2dc8f40bca114f18ffea76e59a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__combinethumper002_emissive_aaf5fbb561.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6379497b309051edb8752847c6ca08cecebf44532ea8fcb931d0f7353c4a8090",
+   "mtime_ns": 1795680040212035000,
+   "stored": "xz",
+   "stored_size": 152892,
+   "stored_sha256": "48d2d18110fa207d9f371823a62c5ebac1d8bb155d517fda6950970c47277b49"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__combinethumper002_metallic_3705d2fec2.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "6966a359835299c9a6a7f58740be17fd450d4cdc84cb1940988d4e13dee84063",
+   "mtime_ns": 1795678760546077500,
+   "stored": "xz",
+   "stored_size": 138448,
+   "stored_sha256": "7d8347433c015420448a6f7212aa36be1b16c5bf6dcffd708af9bd9558cd9544"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__combinethumper002_normal_3a53c2aed7.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6cea694b11e120a894a1df5258f7a6248539f298d319a7356c96e59b79717897",
+   "mtime_ns": 1795677824505365100,
+   "stored": "xz",
+   "stored_size": 5025160,
+   "stored_sha256": "bef525f1cb5ca770519bc4e617bce0ddc309f210351bc8676e3ca958fb6b9122"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__combinethumper002_roughness_3d102bb7cc.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "56cd537b39daeeff7ce9d89718a8ec7bb975d68f2f997dec21032fd0f8e79801",
+   "mtime_ns": 1795677824616510000,
+   "stored": "xz",
+   "stored_size": 2421888,
+   "stored_sha256": "d3b962be3a706de57942951d6d7e97e31f9bc6bd3acd0563557556ed5d5e6a0b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__health_charger001_albedo_279e4ccd4b.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "935df712c5311238b42be023bc69ba5e564bc3a150e38968767ae5010b158831",
+   "mtime_ns": 1795678762736789100,
+   "stored": "xz",
+   "stored_size": 4591992,
+   "stored_sha256": "b671e0188a71ecab58ee471bb90723ceac2c2574520dd3b03c5f6ec5277bd74f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__health_charger001_emissive_9e78bcfe33.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "fe7183f137e876fe0c409440c80f8136727e5b55bd9671194727a47012c4d1f3",
+   "mtime_ns": 1795680040200524900,
+   "stored": "xz",
+   "stored_size": 584404,
+   "stored_sha256": "899b3e2c5d2badc3fecad54a8936a6e6ffcf947b969d21071f364034d8a6988b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__health_charger001_metallic_6aa8edc4ed.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "8f528a47116739585c47a82ce3ab8000d830aacce6ee3f48d984387ac9339247",
+   "mtime_ns": 1795678762466232200,
+   "stored": "xz",
+   "stored_size": 1347096,
+   "stored_sha256": "25a812f5e983212e718e415797fd7a213c423f6c3f78f045563139debf9ad621"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__health_charger001_normal_7f80e1977c.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "2e332ef868c383bcc0a933eaf3cc815fd3b952c6dc6647c1401080c48024563a",
+   "mtime_ns": 1795677825110269600,
+   "stored": "xz",
+   "stored_size": 5153360,
+   "stored_sha256": "0d61f8680cffbe23e1a8586bdf2f95d6651a80fec04d8e58e9d104943ebac135"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__health_charger001_roughness_5354beef5d.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "e974a4e812e9a5aa8671dc1836480a2026f303440d7ff168de5c36ece6cda4fc",
+   "mtime_ns": 1795677825090266500,
+   "stored": "xz",
+   "stored_size": 2483972,
+   "stored_sha256": "fef0417f1098625ac59047508403dc6661f14aa5c5c4c559a7e38ed13657a38b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__suit_charger001_sheet_albedo_ffc62f1335.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "61b94190c0ef3f30c3785bf355a3735b1f3c10af82bcbf1f959d53c88780b374",
+   "mtime_ns": 1795678764539320200,
+   "stored": "xz",
+   "stored_size": 4283564,
+   "stored_sha256": "5988aea8a67fbb7502b920be25004200a0fb1be566e0d3b833c8a6c8f95dc328"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__suit_charger001_sheet_emissive_62a62ee2c6.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "3a763ad638e66f6eac41c8b032e14be88b89fded670c64934460699d2770d8b9",
+   "mtime_ns": 1795680040260078400,
+   "stored": "xz",
+   "stored_size": 357100,
+   "stored_sha256": "39bdc4c145ea23b99228d69dc77624d37b682cc9832c75ab36dcdbf0b258967e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__suit_charger001_sheet_metallic_66d0406b28.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "6cdc4c5fb296424875a0bd3f1661bd55b28ca0a39883b46e0f123be11ea52862",
+   "mtime_ns": 1795678763048241500,
+   "stored": "xz",
+   "stored_size": 1177188,
+   "stored_sha256": "db6714a85f3e989ec343099cf9470404017e45946f5ebe94ab1bf868b604a4b0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__suit_charger001_sheet_normal_46c61654d6.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "2c10c071680f5fa27b5104406221edc8f8767d8abf406ca92b93c8220b0d0acf",
+   "mtime_ns": 1795677825588849700,
+   "stored": "xz",
+   "stored_size": 5009956,
+   "stored_sha256": "420b7f7c129bcb989b4cbbe13eb4967727ee92f2ad12a74d675645b226904d51"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__props_combine__suit_charger001_sheet_roughness_7cacf7a3ba.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "16a856c25929aa6836a24a84facb96ba678769447e3a545c569b376e48c7a7cb",
+   "mtime_ns": 1795677825586849000,
+   "stored": "xz",
+   "stored_size": 2370160,
+   "stored_sha256": "8661598a805b75af7311740c3dc43550048d4c80d48e31ad41a9a425015524d9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__shell__casing01_albedo_90ef629134.a.rtex.dds": {
+   "size": 699236,
+   "sha256": "34c4af58e6197638673ae9ec987668f757834f9037b9c6db560e4da257f1b08d",
+   "mtime_ns": 1795677831780825300,
+   "stored": "xz",
+   "stored_size": 616376,
+   "stored_sha256": "3f062bd692d850743ea4d3b79894d74039fb47b59a934f152aa843a526b286bd"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__shell__casing01_metallic_7095b04ffa.m.rtex.dds": {
+   "size": 349692,
+   "sha256": "5e08b9852eb1ba426a76c32864a92d4b3698e913975ef210033fc06c36d0d033",
+   "mtime_ns": 1795677831997149500,
+   "stored": "xz",
+   "stored_size": 240,
+   "stored_sha256": "9eed475e48b52cac519454ca89797700ef6287142e4ac576a21b976b7237f502"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__shell__casing01_normal_14f1ff514e.n.rtex.dds": {
+   "size": 699236,
+   "sha256": "47a80c14a552db1eb5e6c686c1be2d12f8f31a5128a9a66fd909fda7af3dc6bd",
+   "mtime_ns": 1795677831934118700,
+   "stored": "xz",
+   "stored_size": 656156,
+   "stored_sha256": "abbd65470e7811c27160c77b9d519ac0c72dc86e4f1253e7277eb47bf0dc06f7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__shell__casing01_roughness_61b211ffa5.r.rtex.dds": {
+   "size": 349692,
+   "sha256": "c2a1dad197ff68af7f88f1fb370cb89a1cc7e27d5149997cd9926ee21515f5b6",
+   "mtime_ns": 1795677831968631700,
+   "stored": "xz",
+   "stored_size": 325924,
+   "stored_sha256": "9142eae29aeba41801b02a64a4009009b48fb52ea3d61c11b8794f2bac293e1f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__stinger_missile__missile side_albedo_38a68582ba.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "b80437bf3c40fabc5c9146a665c1cf0a461fc5a2e87f2c763f3de14975855db2",
+   "mtime_ns": 1795678766766309200,
+   "stored": "xz",
+   "stored_size": 4312588,
+   "stored_sha256": "cbfa114f19d102323ea328274ca985c781d2cc82a9713aebe1bde919366ad000"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__stinger_missile__missile side_metallic_3edccef7ef.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ce59e2cb1701adddb889f7669c1becb58c400af9c5639f603aa57354311ac791",
+   "mtime_ns": 1795678765408987600,
+   "stored": "xz",
+   "stored_size": 1409656,
+   "stored_sha256": "7e03baac0ef1df7c089a0d20c29a4094c797defcc5e6310f6bbd406cc28a857c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__stinger_missile__missile side_normal_478f1db758.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "09d3ebb5c5ff11439adc8ac61b97d0ce88e57383627fa1c7c4276b33d55a9865",
+   "mtime_ns": 1795677832266458200,
+   "stored": "xz",
+   "stored_size": 5087432,
+   "stored_sha256": "473ff8c838c8e3cad34699074d70b3e8bfe016a761ea7bf11c0f5a56e1711768"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__stinger_missile__missile side_roughness_c647a484d1.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "cb597bf2dea7f76a3964107d566bfba8df2bfb3de5febc3463a0dd39e06a1646",
+   "mtime_ns": 1795677832357550300,
+   "stored": "xz",
+   "stored_size": 2461888,
+   "stored_sha256": "56e67f9f491f83c09a53ddd26b6b92e1798233545caae7fb5cbe71f3c4f77f77"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_357__357_sheet_albedo_19a29e87b7.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "dcacada047ffee10fd20296b88acfec3877e9341ea8a3d1ba74e708f801b5b92",
+   "mtime_ns": 1795729088943593400,
+   "stored": "xz",
+   "stored_size": 4307820,
+   "stored_sha256": "99dd1a82746150c1dcfa8a24e298d77d801ba2f4d2393b43bda9c046ef694e48"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_357__357_sheet_metallic_dc9dd5c33f.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ee355bbe8259b7b8434df57e426afecf89cdba365a6dbab1ae1f13a69ff60b23",
+   "mtime_ns": 1795729088948594600,
+   "stored": "xz",
+   "stored_size": 2071276,
+   "stored_sha256": "d00a6d8607cc5839db9949a2ba146e420dce7791e2e5712a21a1bf80c6fe117c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_357__357_sheet_normal_5a42256856.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "bcc74de11c36e5e4015efc14f4948d30ff8278b61f7abd0482749b0b8483c531",
+   "mtime_ns": 1795729088954106700,
+   "stored": "xz",
+   "stored_size": 4789416,
+   "stored_sha256": "c3b7491d7e6a00cdeac1532ebbc1b67a25f7303ab3ff6e8fc0042cb969074aeb"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_357__357_sheet_roughness_cd74d6de96.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "62adb7335c150bc9b24637d3475d1b9a8294428a1b0e053c6051496777f746c8",
+   "mtime_ns": 1795729088959607200,
+   "stored": "xz",
+   "stored_size": 2468628,
+   "stored_sha256": "d85ea23987635a38fe83a2b672f1ed5dd6759ab17ab2f171afe2d14b2c0e4c91"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_inside_albedo_b033ef26fc.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "892e2c1aa6b8bc42020e6a90f2af94ef226938fc580156fbf34fe8e19a8d2315",
+   "mtime_ns": 1795729088965612700,
+   "stored": "xz",
+   "stored_size": 1717520,
+   "stored_sha256": "529a0557a6d11830aae4e6daa64b28eefaf4b35ce16de0086def4d369b551c89"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_inside_normal_b27254b83e.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "e78641f1f29fe1fd3f7a7e28c601d0349a061b54159c5d6ea1c0dbbbbe117505",
+   "mtime_ns": 1795729088971124300,
+   "stored": "xz",
+   "stored_size": 1978520,
+   "stored_sha256": "94b9ceb1a9ee72dc04d22b9f89da321853212d5fd83cb2723ab2f470ac22bf3e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_inside_roughness_6a778b8c12.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "972d06f442eb2e547b660ed10c680c253a871dfafd546c3382d494dee7913970",
+   "mtime_ns": 1795729088976120300,
+   "stored": "xz",
+   "stored_size": 974028,
+   "stored_sha256": "eae9359f11f9b64ea6410b44d5f003a62a10556e2ce53a570d149853b1e967fc"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_sheet_albedo_d908e41124.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "2e678e74e84d857bc4ad9436fd64e6bf574029ac70eb0ae4c0a6a116d18b2d55",
+   "mtime_ns": 1795729088981632600,
+   "stored": "xz",
+   "stored_size": 4783716,
+   "stored_sha256": "c63d6fc3f542fc3fa81d090c668a29e5ca9fcd5c71e9f46ef0744e110ee0b5df"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_sheet_emissive_cde2db1c0b.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "4806a4d1926bf51d682b2042a9fcc96a0c9f0cca767b704f7a3b0c855e6e34e9",
+   "mtime_ns": 1795729088988631000,
+   "stored": "xz",
+   "stored_size": 45948,
+   "stored_sha256": "06a551908fbf86ca3fca9b68b32b5f7d190867bd13be9f820f882340aa67fdc4"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_sheet_normal_ce73cdcd63.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "77ad9f535a6b5a004ffb7e1f7c209f8d4ee6474cbaf13f56d38c23b0d658ab9c",
+   "mtime_ns": 1795729088993712800,
+   "stored": "xz",
+   "stored_size": 5419268,
+   "stored_sha256": "19f5853f47160bd5fb56067890431aacea8117b3ec7fa0bd24e8916f25beacfd"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_bugbait__bugbait_sheet_roughness_52b08ead8a.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "58e61f323a2195eff7f92837617e10c374a701b31da7cca6b027545a70a7ada1",
+   "mtime_ns": 1795729088998712300,
+   "stored": "xz",
+   "stored_size": 2714712,
+   "stored_sha256": "a492e612fd09c4ab55a2297c478b05deddfefa1e4d28eaad21b243184bbe4443"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_albedo_99bf7f6b89.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "77680202aa3ab71ff7b7b76894496bbdd510c120ff44201d00b9c4669960ac3c",
+   "mtime_ns": 1795729089005220000,
+   "stored": "xz",
+   "stored_size": 4229860,
+   "stored_sha256": "0b5ee581016de9c91eb2240d43b161fa346f8d12e09bde5d0ecdcdb4f606a13c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_glow_albedo_95f6bcd843.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e3c1621ce68b3aa28efd263f1bf460ace358671cd2a2c8856f06e6d6bb733c17",
+   "mtime_ns": 1795729089011729900,
+   "stored": "xz",
+   "stored_size": 4230520,
+   "stored_sha256": "5635df69c0d799c2bc923f9b94e6e133e01b79facd78889694f73fae00ce477a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_glow_emissive_a0d6d0040c.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "38bc25ec7a985cfe280dcc5bd41d18b8843c478802490800157e4122e1a4335f",
+   "mtime_ns": 1795729089017728500,
+   "stored": "xz",
+   "stored_size": 725848,
+   "stored_sha256": "23e845c87e8659ad543f64e4b5287a0c6c2d5625454037be92a9ea0d058456ef"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_glow_metallic_54c587ac5a.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "26532110f9200d7de71f6a09f43da3ebbbe67c9dc9edef146ae2421e33452b8c",
+   "mtime_ns": 1795729089022240400,
+   "stored": "xz",
+   "stored_size": 33432,
+   "stored_sha256": "84ee7a00a5592f085b8ce7efac2156e55595d4c71c344eae6ecfb37354e6a0c6"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_glow_normal_15f4a86320.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "b878f7f9bd1cfa96f1b07a527ce42785a89ab65f2e5f44fe0ff460db658ff8d8",
+   "mtime_ns": 1795729089027739300,
+   "stored": "xz",
+   "stored_size": 5062700,
+   "stored_sha256": "add5fd2dcb048019711526d62983fa179eb9dd46c692cd80ea01f466095bd008"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_glow_roughness_9d302ac6a8.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "a2c4acb929be5fea2d442b6a70a4970d4c0308a0295ee5ec235a58ecda738662",
+   "mtime_ns": 1795729089032786600,
+   "stored": "xz",
+   "stored_size": 2327456,
+   "stored_sha256": "8c5aab474bd26cba085607168fbd6a81dc697c86d8f092749b04e72373fff43f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_metallic_6b3e7fbd6a.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "38e5e2c23bf3c28cd40eeea6fd0c999d8882a5a583c65b96f059056272c24641",
+   "mtime_ns": 1795729089037784500,
+   "stored": "xz",
+   "stored_size": 33072,
+   "stored_sha256": "5570886e8d2837d0111c28f58f36a1e8aa05cf80046d6272d193618cb9c5c4e6"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_normal_7fc513068a.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "c4f4a6349c09ed6daaac6ae0ff81f0b160c741a1375f33b74cf037c874e77d46",
+   "mtime_ns": 1795729089044293300,
+   "stored": "xz",
+   "stored_size": 5077580,
+   "stored_sha256": "81c1eeea0c680a0441d8ec946e0edae87065546a955a41cd8e669888a82bacb6"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__crossbow dirtmap_roughness_fb0e855b51.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "b5901795079d9d392458d4795b201af9cac535e3122beffab86ad6ad1994895b",
+   "mtime_ns": 1795729089049315800,
+   "stored": "xz",
+   "stored_size": 2323872,
+   "stored_sha256": "b3872af447b047bfbaac312198dc1834279759d9379af90c85c053e16f43330f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__rebar_albedo_58e42a208f.a.rtex.dds": {
+   "size": 1398308,
+   "sha256": "7f52fd4dc3b7a376bc3dd85678b37741f315651eaca130f9b1ceb38a5094a1b3",
+   "mtime_ns": 1795678769280704900,
+   "stored": "xz",
+   "stored_size": 1216680,
+   "stored_sha256": "2be434c5fe0d5d2d7b83f580e5f3942c65492b8d1abbb8b6b93f2a6348e8a130"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__rebar_metallic_4e8f8a52f1.m.rtex.dds": {
+   "size": 699228,
+   "sha256": "43b362bba0606820162bae52c3dfc8b43bbae4f624b7df1d2c7b08f273c560eb",
+   "mtime_ns": 1795678768182862900,
+   "stored": "xz",
+   "stored_size": 68612,
+   "stored_sha256": "53a82b5e7e1bfd4d84d00696b9561701b8a366055b583f16b2239d1d69d9b50f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__rebar_normal_b1b0853413.n.rtex.dds": {
+   "size": 1398308,
+   "sha256": "97fd41361e3269dc66b45644be3b71edd2d8a3b53f23c1df90f3c2550042ca16",
+   "mtime_ns": 1795677837422159000,
+   "stored": "xz",
+   "stored_size": 1232216,
+   "stored_sha256": "b6b0387825975d963a7abdeaebd7bbcc2af5c4eec87d374079190268e4fe752f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__rebar_roughness_636ec86e47.r.rtex.dds": {
+   "size": 699228,
+   "sha256": "b362a9b4cc5c39d64d48b9fe50c0222d304a7b4c21d1095d1ce326f5428ee60f",
+   "mtime_ns": 1795677837725807400,
+   "stored": "xz",
+   "stored_size": 638600,
+   "stored_sha256": "39bc36dc6e582c4f4ae273f090b47ef9d465d9e6b0b13eeeb9ecbddc5a0a7a25"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__string_albedo_7a5d0b3e4e.a.rtex.dds": {
+   "size": 349732,
+   "sha256": "a524b37ceb56e882400b0525cc5ec1a69fb0bd3c7fbd1cc2b86bb3b3e4d69bed",
+   "mtime_ns": 1795677838325797400,
+   "stored": "xz",
+   "stored_size": 272036,
+   "stored_sha256": "f18df1a78ddc10aa0f47ec11f4c06a4c1deb1e1e9514a4239b972dedd0431a8c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__string_normal_8e532da61e.n.rtex.dds": {
+   "size": 349732,
+   "sha256": "758f96fe9406a67733e96b90d7f7267759c623e5167483d9a6c4ed1ef95f3467",
+   "mtime_ns": 1795677838040392500,
+   "stored": "xz",
+   "stored_size": 337652,
+   "stored_sha256": "93224d30194e67b918c100857addc942a7c52c37471dea8f1581b0062ab73528"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crossbow__string_roughness_9bab1c4f35.r.rtex.dds": {
+   "size": 174940,
+   "sha256": "f2ea61343daf90bf68581cbb634861729070f325dc3840ae547d13bdda386cb2",
+   "mtime_ns": 1795677838060897600,
+   "stored": "xz",
+   "stored_size": 151188,
+   "stored_sha256": "9b653a35f162dbb4e5d9e20e6eadb7cc888546fb6357755ca9152ac05a8dd6a0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__crowbar_cyl_albedo_5e3644830e.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "92e74dac9ce711d058a7185122cf6fc4e541476b18b96b1b631bc63224e4e49b",
+   "mtime_ns": 1795729089055321000,
+   "stored": "xz",
+   "stored_size": 4330800,
+   "stored_sha256": "641f9f94e43430763c2f34d603703ec5f823853cf3f911ac7054d3fad072ff67"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__crowbar_cyl_metallic_226ca97f2f.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "61cbb57c1e01a17d1bfd2f8c68aa2449dab302277ef956fa92712d1f9a8982de",
+   "mtime_ns": 1795729089060338600,
+   "stored": "xz",
+   "stored_size": 592,
+   "stored_sha256": "111f9512a17b07ce14950e8854f9a1630cafc4047ec2c8971f02decd3bf62ce7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__crowbar_cyl_normal_faa8579f6c.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "eff156bba9c401d72833aa38d8e8d4f52794accfaec14390de3a23c56ab60c36",
+   "mtime_ns": 1795729089066937000,
+   "stored": "xz",
+   "stored_size": 5327472,
+   "stored_sha256": "ad4eba4323b6239a9951f1a9fdec8298eff1ed636b3de641481c6401beadd5ac"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__crowbar_cyl_roughness_0e123fc64b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "c37c78065bb78188d50b73d4a030a04ca8c971507f5e3d2a9c5c6f421be2ce00",
+   "mtime_ns": 1795729089072445900,
+   "stored": "xz",
+   "stored_size": 2724420,
+   "stored_sha256": "777744ef9f3cea34481e7535482eab41b8aaa5d863c55ebcb8da220d5759af13"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__head_albedo_e28d75bdc2.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e29fe771751102b0ba1b885f2f5eb3271db7e919576e4b8080857a149bf8be74",
+   "mtime_ns": 1795729089078445700,
+   "stored": "xz",
+   "stored_size": 4626040,
+   "stored_sha256": "3167d8286e8e2da3c747db99d668cf07a57b488deaa24246ab3459e3749c982e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__head_metallic_3d844063db.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "102ce0e0287c8009d5b65ec244db9ca1e643b43d07467c5c28890ca76368f2c7",
+   "mtime_ns": 1795729089083080500,
+   "stored": "xz",
+   "stored_size": 596,
+   "stored_sha256": "7fbd39bed0f5e681a4a8c4085fdf8be4d847184fa305c1eb917d4f485d6bb52c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__head_normal_204ed086e3.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "8be929241f6f8c5c322ab922f510a31ac23d10e9d9eaf1fb44f30a84bb6f570e",
+   "mtime_ns": 1795729089090106100,
+   "stored": "xz",
+   "stored_size": 5294256,
+   "stored_sha256": "1e310bb9f96265fed51ec3ced5dbd2cdbcd2301162f76f56188b1402018ea3f9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_crowbar__head_roughness_0baf3bb7ae.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "5e6eca53e985ab71282f09c13b82be90b0995a63109573dc2cdc091899af1bc6",
+   "mtime_ns": 1795729089095111400,
+   "stored": "xz",
+   "stored_size": 2393404,
+   "stored_sha256": "835205501e46ef88b5e6d63ba728702908a91aebb0e96578e7ec344a1515f46d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__blackseal_albedo_c89c13d35b.a.rtex.dds": {
+   "size": 349700,
+   "sha256": "736e773d49fc152adf7028fdb43d57a869110867776684a92b0e75646fa94865",
+   "mtime_ns": 1795677839932696300,
+   "stored": "xz",
+   "stored_size": 110456,
+   "stored_sha256": "f130a7ab9348a4f888cfed00ab6081401b3ab85d826d664334074558c428be87"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__blackseal_metallic_fd423bd733.m.rtex.dds": {
+   "size": 174924,
+   "sha256": "edb2abd04e5425eea2e0fa91f03d1202fbe000e79877a42057dac4172205e0ae",
+   "mtime_ns": 1795677840378051100,
+   "stored": "xz",
+   "stored_size": 212,
+   "stored_sha256": "5a61b781a3df7382a345d4ede340cf365bf2edf2ee1eab9556b1b0d4bafbd633"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__blackseal_normal_60d44274d5.n.rtex.dds": {
+   "size": 349700,
+   "sha256": "5c5a622e3949049ad59e2834e776d0b0bbf8c9c38f58c89719c00b733ea31ac4",
+   "mtime_ns": 1795677840199207600,
+   "stored": "xz",
+   "stored_size": 97844,
+   "stored_sha256": "964532f44d81b82a47a255abb3e5f101ea58928e1a5e04f06d3e1bdc36390670"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__blackseal_roughness_b68ca0f7bc.r.rtex.dds": {
+   "size": 174924,
+   "sha256": "d669b50eb9e8a13ccbcf3339cf5c4fdba1a4adaa4c43256af89622c1a004aea8",
+   "mtime_ns": 1795677840290431100,
+   "stored": "xz",
+   "stored_size": 38080,
+   "stored_sha256": "b87d3dc46c6eb9aa9f19c1bba6552163fb39a6e3bbc47339fa42d3f874f25628"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenade body_albedo_75772a0064.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e895c267694a922d755286ebbf08ebbe447fdf18e61959c20bd9099e6f8597b7",
+   "mtime_ns": 1795729089101621500,
+   "stored": "xz",
+   "stored_size": 3923956,
+   "stored_sha256": "c9e6c2d701ae7c571f741190b9cf59288384a47042e6deaf6feeff27e3a72a0b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenade body_metallic_226ca97f2f.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "61cbb57c1e01a17d1bfd2f8c68aa2449dab302277ef956fa92712d1f9a8982de",
+   "mtime_ns": 1795729089106622900,
+   "stored": "xz",
+   "stored_size": 592,
+   "stored_sha256": "111f9512a17b07ce14950e8854f9a1630cafc4047ec2c8971f02decd3bf62ce7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenade body_normal_49139fccf9.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "303ce2ac256376a0788ed1111345ff4b16ec459906a969c743ea38a587e9d41d",
+   "mtime_ns": 1795729089113130700,
+   "stored": "xz",
+   "stored_size": 2756812,
+   "stored_sha256": "f02a427b2565589b7d2118a4d7f5ce419c5f70253c2b9d78514f6ad67b05d9b0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenade body_roughness_527a24e5a9.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "248eebea58ed45650774ac6d1a9f746dbf7784077f2d83d5120c184fdc6d3c03",
+   "mtime_ns": 1795729089118687000,
+   "stored": "xz",
+   "stored_size": 2347052,
+   "stored_sha256": "8d9546b63181b0023ab4252bb5156b04b0376e35197e1cb2156ab7815b848ee7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenadetop_albedo_355753a4b8.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "75d2d248bd368f3dca0f56db851630b7630e984b1431fb923efaddb5ef5041df",
+   "mtime_ns": 1795729089125201000,
+   "stored": "xz",
+   "stored_size": 2342784,
+   "stored_sha256": "c3aa0f1c029f6e7b212bc1ef9fedbc5bdc75bd838034785ae3436fff067f8e6e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenadetop_metallic_226ca97f2f.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "61cbb57c1e01a17d1bfd2f8c68aa2449dab302277ef956fa92712d1f9a8982de",
+   "mtime_ns": 1795729089130226700,
+   "stored": "xz",
+   "stored_size": 592,
+   "stored_sha256": "111f9512a17b07ce14950e8854f9a1630cafc4047ec2c8971f02decd3bf62ce7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenadetop_normal_41d26e535f.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "c0b9734073475ac63e454a284298b91d99151ee6fc661a063e955fa0b1cf5329",
+   "mtime_ns": 1795729089136232300,
+   "stored": "xz",
+   "stored_size": 3038752,
+   "stored_sha256": "fc2375d283538145cbc445ad7e56db6a5a547ec505efb162acea30a9ab806198"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__grenadetop_roughness_0842d2526f.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "58a0f0b4cb91598bf6f456f576a2b5a23d3113f69c7ac505fa384e8e284d78c7",
+   "mtime_ns": 1795729089141740100,
+   "stored": "xz",
+   "stored_size": 1395884,
+   "stored_sha256": "25798aa73886ada0faef4638203240c8f6c7db0934507139a31869b3261ec46e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__handle_albedo_4b30fe0748.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "a0ca12f1f95804bc73422b30a81a344999c2abec5b139560ab81faa860927fdd",
+   "mtime_ns": 1795729089146740900,
+   "stored": "xz",
+   "stored_size": 2063428,
+   "stored_sha256": "eec2119e1f77b79c2a7a847be2bc9e60f8fdad959caaae68e18b3362bf92c3b4"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__handle_metallic_b6e7f9c060.m.rtex.dds": {
+   "size": 1398268,
+   "sha256": "e7a5672d535d4245c14c636149b350c25acbc93f2d262421c4a1c56c1388f0b3",
+   "mtime_ns": 1795729089151252300,
+   "stored": "xz",
+   "stored_size": 384,
+   "stored_sha256": "ef2bc86e3df6541663971e6bca543f4971a2267a74c917500481e6ace57b319d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__handle_normal_41c166e443.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "0f9f3acc6e7aff4fc4649e99f2a6b0bb55bd040456673c5b4045d5776b08eba6",
+   "mtime_ns": 1795729089156252200,
+   "stored": "xz",
+   "stored_size": 2695348,
+   "stored_sha256": "11a79c8133777cac8d230965738767489045a113ef6743cb51db3e488d4b90c5"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__handle_roughness_a157745b3d.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "ce0fe2f563838b2baf74b74d0c15b5185c7bf3b2cd651ffcda350bbac7fd5f68",
+   "mtime_ns": 1795729089160476000,
+   "stored": "xz",
+   "stored_size": 1355572,
+   "stored_sha256": "fb76d74e24728f86c19d6782438266ddb7489015aaaf9327eea869497c236cce"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__rim_albedo_a6cc5a4231.a.rtex.dds": {
+   "size": 1398308,
+   "sha256": "e545efe3b30fc36259fad5701b68b8ab2470c0fe89862f38c6612c0d78bec263",
+   "mtime_ns": 1795729089165478200,
+   "stored": "xz",
+   "stored_size": 1071680,
+   "stored_sha256": "768dabf386830bb9444c01592013b284401a19bb87c2d0f0d8fc48c0ab6d28ce"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__rim_metallic_c4d95c5580.m.rtex.dds": {
+   "size": 699228,
+   "sha256": "1635bcd6436cd8f2c3bedbd4a69d60f7c3d52270683450bc7be6faf1b9474263",
+   "mtime_ns": 1795729089169490600,
+   "stored": "xz",
+   "stored_size": 505128,
+   "stored_sha256": "b4d9fd81f0b8bbed21233947aab40726f6ec0e1e9d1f270eaf5f26e5c7538710"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__rim_normal_5aa84aad40.n.rtex.dds": {
+   "size": 1398308,
+   "sha256": "68dae55203d5fa75863dfd960ab129d1123bcab463c21da86a993464f03ef1b5",
+   "mtime_ns": 1795729089173496700,
+   "stored": "xz",
+   "stored_size": 1330680,
+   "stored_sha256": "f4e68b2f5817e1971e4b091c00c2025b49531885baf706577d186fa63a390d8a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_grenade__rim_roughness_ca27fb6a00.r.rtex.dds": {
+   "size": 699228,
+   "sha256": "47acb24e3ea32790368a01c68ec99ceff04d2a2b60326e2f4c247d4f69ff2480",
+   "mtime_ns": 1795729089177600900,
+   "stored": "xz",
+   "stored_size": 665412,
+   "stored_sha256": "2de9adbbf61c50fde80c188f6952ab3cb3eb06f6f53947dad3fd539272590022"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_hand__v_hand_sheet_albedo_a7246613b8.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "186ee791a243ec494af0d30719834972e3f663da3510470788df7b2f6bdff33a",
+   "mtime_ns": 1795729089184015400,
+   "stored": "xz",
+   "stored_size": 4006604,
+   "stored_sha256": "466217f1472592037c086f48919dd5e6284b8aef2ceb425cf58e2f0bda838249"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_hand__v_hand_sheet_normal_2af1efbd3b.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "f664648be1921dec821a2221259b90938ec8518308c60e1971d8728101898502",
+   "mtime_ns": 1795729089190527600,
+   "stored": "xz",
+   "stored_size": 4372652,
+   "stored_sha256": "135d779a5c4ceeb873ac46289bb7e9a2e59117e942e20f0b38213d45efd0fa07"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_hand__v_hand_sheet_roughness_5081b9e8ed.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "cddb69d996a8d027ca97719fdb5360cc02d0b2df04fa57b1a4cd30ecf538a70e",
+   "mtime_ns": 1795729089195532300,
+   "stored": "xz",
+   "stored_size": 2535256,
+   "stored_sha256": "6b2a2eb5402e346a35bc5f860282f952fcfa67eb20b8c700d5a04e00dfa1c184"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_albedo_b20c0096dd.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "57ca987f70d3a0e0ddf51e2ce9092e0b058879a3732164d4134d44d1b51483b9",
+   "mtime_ns": 1795729089202056800,
+   "stored": "xz",
+   "stored_size": 3863764,
+   "stored_sha256": "7c85b5538d9dff0d159c785aa12b34f1260234675d55f3f36529caea7eed6d07"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_core_albedo_c90ca1f23b.a.rtex.dds": {
+   "size": 1398276,
+   "sha256": "f404e12942cee92ce1576ec45c1e6a4ee0496d1e26fe364104f255e02cbd3387",
+   "mtime_ns": 1795677845749806600,
+   "stored": "xz",
+   "stored_size": 660092,
+   "stored_sha256": "0e4abb48840ebe3d27eb3bbe55c8a43dbb4cc058a2491d8c4b513bbfee826c95"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_core_emissive_8109c11996.e.rtex.dds": {
+   "size": 1398276,
+   "sha256": "d972a6de75f6c2d0791e39091abade822716ca20a7cad795aa5dfc70cc89d3db",
+   "mtime_ns": 1795677846162554100,
+   "stored": "xz",
+   "stored_size": 392824,
+   "stored_sha256": "3b3be7ad229d358392e0063b40734b77387f927a096a69a2c69be96d35df36e7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_core_normal_755052a446.n.rtex.dds": {
+   "size": 1398276,
+   "sha256": "89fac280d2d48a6c9b1a150b6cebabf2688a7af612780ac7d9238c8369fefd89",
+   "mtime_ns": 1795677845283796600,
+   "stored": "xz",
+   "stored_size": 408808,
+   "stored_sha256": "787dbf7125a934c6b0a3d1344cb588077fe9d0d28d30aef823e7bcb34adf8476"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_core_roughness_7090afa949.r.rtex.dds": {
+   "size": 699212,
+   "sha256": "a6f71ec520ed66ee495efa8920593cbc9376a6a774f4ab0b10d8d0b654d1e108",
+   "mtime_ns": 1795677845590686700,
+   "stored": "xz",
+   "stored_size": 259440,
+   "stored_sha256": "3f8cecdeac5db74dfc275c99ef21689e770526dd6cc7ed822f2c4cf44d7a80ac"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_emissive_915163cf6b.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "259f299fca8d6853bb92cbf2376340a6a3b47e6744ef33d3e6bc1b2b3d8c290f",
+   "mtime_ns": 1795729089208056900,
+   "stored": "xz",
+   "stored_size": 10728,
+   "stored_sha256": "8125381dd49bd65cb3d6ffb40dad592ae4b332265147ee0a0a216acc442a1e41"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_metallic_83e98afbf4.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ef19f27c5b7e50754c9f7e8028782081867c03c52f96587b3658b2f9b9482230",
+   "mtime_ns": 1795729089214567800,
+   "stored": "xz",
+   "stored_size": 430896,
+   "stored_sha256": "963b72811ef9a69337078be267925c06398d0118a4f38e8b84b815b895c8d0d8"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_normal_595125b276.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "10a910bacdcad174388b79578de558842509d969ca7e824ef6385cde4be12d63",
+   "mtime_ns": 1795729089221076000,
+   "stored": "xz",
+   "stored_size": 3423760,
+   "stored_sha256": "bf263a451995cd8af50963d02afd4276e4baed4b933f8b550b3a8dbaa06b35b0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_irifle__v_irifle_roughness_c8dca58ebd.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "54d69f178f51023bcf11c6b77251ffbdb7653e36471b15f32f64558a402b9acf",
+   "mtime_ns": 1795729089226076500,
+   "stored": "xz",
+   "stored_size": 2043472,
+   "stored_sha256": "adb90fc338b8f0efbe3d6ecadd33e2afaf04ce34737455e95e859e069f330793"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_physcannon_sheet_albedo_65d3f81eab.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6c75249a400c7ddaaa7dd77de0d21a3adbfff25f4a22a69b3ffeb2d53292dacc",
+   "mtime_ns": 1795729089233114100,
+   "stored": "xz",
+   "stored_size": 4570556,
+   "stored_sha256": "79a66892b19fc4510572a942643c55aa179fa7f5ad87966384492b15aae53a34"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_physcannon_sheet_emissive_19edac8ed7.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "67952aca7decf71f8ddb0c29d3efeed34fb276884268cd45f39e0bc12ecda5a9",
+   "mtime_ns": 1795729089239617800,
+   "stored": "xz",
+   "stored_size": 2509804,
+   "stored_sha256": "bf360e1770457a93c47a4dde596473be1845e92137970c2104f55043b8d74166"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_physcannon_sheet_metallic_3c192df96b.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "d187a3c191ccb6cd24b44896c351ff4b514e8c5759e6a1d78ea52767e7f76048",
+   "mtime_ns": 1795729089245621400,
+   "stored": "xz",
+   "stored_size": 616412,
+   "stored_sha256": "8c31ae07ced124c888bb263f69350433cc4f117a7962b289838ef9f596ecea74"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_physcannon_sheet_normal_8ac7752300.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "763349de410663912a2414b9c84e475f759f75f4f9dbee38c703fa648d879ef6",
+   "mtime_ns": 1795729089253054400,
+   "stored": "xz",
+   "stored_size": 4887804,
+   "stored_sha256": "fbcc63bfc93335a4931325a13f33c7dac75a1f90489a7fec2a250b5e3ca46801"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_physcannon_sheet_roughness_aeb7675c01.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "99ef1fe8584ac35c75eefb4d34ba75c735db8316481eef646889eb354f24d976",
+   "mtime_ns": 1795729089260562300,
+   "stored": "xz",
+   "stored_size": 2486792,
+   "stored_sha256": "5044f60de3041d89fa6d9206d796234d932079d5ad71ae88c2ec6f445323039d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_superphyscannon_sheet_albedo_da8bd74711.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "61f2681edd7de60879a838b5582f5df6b6c9078e5eb2631338f85e8bae60f5a3",
+   "mtime_ns": 1795729089269577900,
+   "stored": "xz",
+   "stored_size": 3944084,
+   "stored_sha256": "d78439baf31c9e0e8486c17f8026088b54ff813d6a2d82e08b692cad63aa9c41"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_superphyscannon_sheet_metallic_2e5bbebfe4.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "a650858ab92df3100dd3d112d6c2af31c0cd5605855826ea71060b22f0735de2",
+   "mtime_ns": 1795729089276582600,
+   "stored": "xz",
+   "stored_size": 771812,
+   "stored_sha256": "92f230de7bfbb60824dba9743e404905e140e0ede13b4207191c3f5bf97ebeaf"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_superphyscannon_sheet_normal_49869a7855.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "22e0edfc9031f13de827835a869b8f8bc31dd3ec5a98a85993552a971a2b4a4f",
+   "mtime_ns": 1795729089285090000,
+   "stored": "xz",
+   "stored_size": 4977288,
+   "stored_sha256": "b6d85e3f7faf441cb89bd4f4ce5951f812840d442e830fb7c7000379bddfe765"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_physcannon__v_superphyscannon_sheet_roughness_7fda41103b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "e96fb35c90f0c5a882537793094d41b44d2167fcb37eab88a9108d4498638114",
+   "mtime_ns": 1795729089291606200,
+   "stored": "xz",
+   "stored_size": 2224560,
+   "stored_sha256": "b3ddff3af7c532e83ccb1aa9203715f80e028c7d282e9d5516cf4a46314f0254"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_pistol__v_pistol_sheet_albedo_fcae3b447a.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "82cab8ee01df5619524f6824411c92783a6bcddf32cd1f4029b22e701bc52ccb",
+   "mtime_ns": 1795729089299602800,
+   "stored": "xz",
+   "stored_size": 3875320,
+   "stored_sha256": "cae305734c821e390974e32f10caec20d2881905c4464f276ae893d94fcbeb42"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_pistol__v_pistol_sheet_emissive_687c3cbea6.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "0c7d07d3cb1612d24b1e71c20454ec01a5d10aae480e5f6daca2cee35d2bdd18",
+   "mtime_ns": 1795729089308176000,
+   "stored": "xz",
+   "stored_size": 9300,
+   "stored_sha256": "d0f972f82270dd238e635c80efb092ba0a9a7dfd49f62ed44bb3379947940345"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_pistol__v_pistol_sheet_metallic_098b40e1e9.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "0b3a7e437f4a9875b04f4a75acdc07c1d84e4364e168e90f681bfe829b363fa3",
+   "mtime_ns": 1795729089315192700,
+   "stored": "xz",
+   "stored_size": 539780,
+   "stored_sha256": "6cf804aafc7897f4ec000c44a9162c8dc37311d05c8ad7fa53704758565e3ade"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_pistol__v_pistol_sheet_normal_194e826025.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "4fb7b24dafe12678ba9222d7b424f6333730b174302875e1a9d84cd703a0a78c",
+   "mtime_ns": 1795729089322708400,
+   "stored": "xz",
+   "stored_size": 5095512,
+   "stored_sha256": "673076644953b42f3be7f29e890d6b12ca22fb2764b28cc87a0cabb24415213b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_pistol__v_pistol_sheet_roughness_73060a6a70.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "4eb374cdd8ff13e10109f142eb6fecbdf19a15d8f187ef398d1050b6b2dd890a",
+   "mtime_ns": 1795729089330217100,
+   "stored": "xz",
+   "stored_size": 2590592,
+   "stored_sha256": "ef0b21b50b5f0293516e065b3c61fe1898a408458683f8128cd6561ad4da0418"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_rocket_launcher__rocket launcher sheet_albedo_b6b3b3c391.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "30c803ce0448dd71372220f45863df18eaccb043661d90e849e5def15863807d",
+   "mtime_ns": 1795729089338221900,
+   "stored": "xz",
+   "stored_size": 3195928,
+   "stored_sha256": "60ea954c5140e8de5d4fc89e107d5a1f217d83d4b6991453f0abf46d6a78a102"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_rocket_launcher__rocket launcher sheet_metallic_943e5c32f2.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "417835b663e348f75b93c557f0baa0bba16dc031da4380559edb3af143b577da",
+   "mtime_ns": 1795729089345006800,
+   "stored": "xz",
+   "stored_size": 218056,
+   "stored_sha256": "c74a91a36aa5f1df0b8a39174b35799881a3012f801e2173d4c02ebc63e69939"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_rocket_launcher__rocket launcher sheet_normal_ae1fd3dc6b.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "283f38eb3dcd139cba24d014ad8a0873f4df8d82cea79b9279ee67676522150d",
+   "mtime_ns": 1795729089353025900,
+   "stored": "xz",
+   "stored_size": 4237016,
+   "stored_sha256": "e7f29008d2c04a68c2619d56f5bb052af139a710d67f6b69034c8b9100a10117"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_rocket_launcher__rocket launcher sheet_roughness_eb035e8a97.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "64f6e621e6e92601367287bf1a991d19d82ea688f7a769ec275a2c0d33a5736c",
+   "mtime_ns": 1795729089359530900,
+   "stored": "xz",
+   "stored_size": 1939364,
+   "stored_sha256": "8d62e6ced59ef26fd6deb0a2332d887de31827dffc662ad4bcbd00dfc0b609a4"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_shotgun__vshotgun_albedo_albedo_67b56ec322.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "94ebcbbb1aefb553124ba53c631023561216b0dac5f53a43986db423e66f4054",
+   "mtime_ns": 1795729089368517800,
+   "stored": "xz",
+   "stored_size": 3729452,
+   "stored_sha256": "3711f324cac9bc889a88bb680b70658a69f41ceb049e360fec86d2942919d15b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_shotgun__vshotgun_albedo_emissive_cf625503a9.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "b466b6cbe2b2c82188f559e0f492b5fba5604ffb9446029f4ccf147a43151a52",
+   "mtime_ns": 1795729089377028800,
+   "stored": "xz",
+   "stored_size": 4440,
+   "stored_sha256": "80c40c261527e232b55166998239b33ddf76b772eb18b1c1c6cfebd0ed73bacf"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_shotgun__vshotgun_albedo_metallic_84ddec58ba.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "6c2dcca4b9ce50aa05df01da6f14cb48a399ed7ee58985ef8c9ef534aaffdc39",
+   "mtime_ns": 1795729089382537500,
+   "stored": "xz",
+   "stored_size": 1174808,
+   "stored_sha256": "0e5de80ecb633879c0a184a7a741a7a5e0e7a0e9fe6f64b7aca3509407e5dc1e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_shotgun__vshotgun_albedo_normal_f636b7fd81.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "c3d18540999f840b1430d50150bd6bd98e78ea5b49da8cd7b1a3fbbfa10ffc2b",
+   "mtime_ns": 1795729089390610700,
+   "stored": "xz",
+   "stored_size": 4772860,
+   "stored_sha256": "f0565a8f9d0af9b3985d4e8d0468d329edc3aff8615f6b4bd3ba1519f40e6d65"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_shotgun__vshotgun_albedo_roughness_d19a13201a.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "07b12b7e094203b75da4d9769ffc8608f3af4bc72bfa56ac98b864cdb26f19c6",
+   "mtime_ns": 1795729089397117000,
+   "stored": "xz",
+   "stored_size": 2316844,
+   "stored_sha256": "20add279929371fb830bfe10d1fe9a7088ea0ee7b2b8a7532fe84ad7bcc904b2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_slam__v_slam_albedo_1de89f6ef3.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "534ebeaaeac6c44700ebd2b1bf54cd9898fe6cba8d4c154483bc8141357e304f",
+   "mtime_ns": 1795729089405172100,
+   "stored": "xz",
+   "stored_size": 3639464,
+   "stored_sha256": "577344ae8ca64445573c82a2bf06f0407e5d40360ac4393aeae0d85995f8a104"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_slam__v_slam_emissive_ca5949787b.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "d730d2c3a643d1f79a78c1c6581ee4ce72dd0f3810855ca38cb0361cc2aac431",
+   "mtime_ns": 1795729089412684700,
+   "stored": "xz",
+   "stored_size": 12576,
+   "stored_sha256": "19ba2f498c74433c74040b62cb28425a2063a420174d01416d36166576f294f3"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_slam__v_slam_metallic_586f063b0e.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "40e8ae30b786910340d6e55acdf76b06efab913e8207bb17fd0739d27b611c3d",
+   "mtime_ns": 1795729089419685300,
+   "stored": "xz",
+   "stored_size": 20604,
+   "stored_sha256": "961fee6a53d0e34d5ef505b9b53498535ea571a2b597efc00f716c521d2678aa"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_slam__v_slam_normal_f0483035ef.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6780c4c2081987a9f906b3b47e9472663350192b28725380cc493ca7add42d64",
+   "mtime_ns": 1795729089427192900,
+   "stored": "xz",
+   "stored_size": 4552024,
+   "stored_sha256": "59172358b4a371009dc2ee299b1ed44c4cfe22938e8eab4295859942c72bf3aa"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_slam__v_slam_roughness_ce4340a33c.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "102b3088c66ab28d6052ef00ca9b3dff4e073917f006130eb702205c9424e3df",
+   "mtime_ns": 1795729089433224300,
+   "stored": "xz",
+   "stored_size": 2028508,
+   "stored_sha256": "ccbdd6769e0dd6e35633907605ea3e22951da7bed738afefdb8088d0ec4f5b2c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_smg1__v_smg1_sheet_albedo_496d6b5b51.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "253912c16175bd507d2126b37e8e64d78b009c3360e81b413d36c50f6c98a050",
+   "mtime_ns": 1795729089441243700,
+   "stored": "xz",
+   "stored_size": 3859440,
+   "stored_sha256": "f2ec37dc8ec924a6ee5a94fe14a1dd7523501234eb0f574224a97d41e1199f46"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_smg1__v_smg1_sheet_metallic_086b8fd48a.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "b2cb54fad55b85f79def9dde41bdb71eec73d83814ed735bb00e19babf9df05c",
+   "mtime_ns": 1795729089448241400,
+   "stored": "xz",
+   "stored_size": 550196,
+   "stored_sha256": "34944ebd1093c90de7dd01197a3a4112bd0b344932502428f461073e59fd9294"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_smg1__v_smg1_sheet_normal_54dcc7fcfc.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "649997cb1ec6ea9a73953f71d58be42c9bf199819774833b76795d3828345231",
+   "mtime_ns": 1795729089455751100,
+   "stored": "xz",
+   "stored_size": 4500292,
+   "stored_sha256": "34286306f3d3205ccc6d7bb6f18128c175db0ec9fe9a4e94c902c2fb6d3b739e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_smg1__v_smg1_sheet_roughness_09da5fef1b.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "dd0101b2dacfaefc37d84d23c0feac9769c657947409a22c958d997d92323bc5",
+   "mtime_ns": 1795729089462768900,
+   "stored": "xz",
+   "stored_size": 2691256,
+   "stored_sha256": "d78723c8e39095ea732bcbfa20f80620cb0581f2e798909a4cd74e4da4e232e7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_stunstick__v_stunstick_diffuse_albedo_d3725d58d6.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "96e5ab18542c5f3829df1a7dcd8aa768e0f17333cc9f63f53a651422671248d7",
+   "mtime_ns": 1795729089469285800,
+   "stored": "xz",
+   "stored_size": 2129712,
+   "stored_sha256": "0275d6a87bae3bcba82b862bcd559709f7d51caa9a0539e36f01ccb51167aea2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_stunstick__v_stunstick_diffuse_metallic_311f56781f.m.rtex.dds": {
+   "size": 1398268,
+   "sha256": "6ba018b665f0568be157fbcfc43eb05d59e80f4d2b5b2cc2d4caa7de7903d5a7",
+   "mtime_ns": 1795729089474793800,
+   "stored": "xz",
+   "stored_size": 62156,
+   "stored_sha256": "d9648b24bbc992385aaeee3328420a59a9f8078293bbe2364f248de1a761dbd5"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_stunstick__v_stunstick_diffuse_normal_fa0c5260e6.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "4539255ae41ff33f59361aeeec347364b78b16b3cb7912b6fd194f82aaf70d16",
+   "mtime_ns": 1795729089480302300,
+   "stored": "xz",
+   "stored_size": 2090564,
+   "stored_sha256": "4b28bd013146d3e89060c725f8f6243d15d01700cdb59925e5539ce77cded88f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_stunstick__v_stunstick_diffuse_roughness_ab9f2800ce.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "99f3f4c0802a536f0ef838fccd2ec446e16cdeff1e14f3fc2d75fd989555366e",
+   "mtime_ns": 1795729089486301000,
+   "stored": "xz",
+   "stored_size": 1324492,
+   "stored_sha256": "78f36d6e0da133f1365c9bb68f14431f714eba70a396cbeafd132aad3df27e50"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun2_albedo_9f600b374b.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6f5bcef1c984f1601a999e1b7ec58c0d84411c64887e8057ee8189a94e90182c",
+   "mtime_ns": 1795729089493810300,
+   "stored": "xz",
+   "stored_size": 3982296,
+   "stored_sha256": "ffe2e4839a28cdc238e0ff36418f11eb198fe1f9214fecf0e14d9313e8ca42c9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun2_emissive_4cce9e7144.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "a39b74c529dbc7eaf4a804d02f09710f9de9be95c3dc2fb49d7cbbaa0841f620",
+   "mtime_ns": 1795729089501889700,
+   "stored": "xz",
+   "stored_size": 115728,
+   "stored_sha256": "439b577220d2692d283805b07192dd39ba409e8a43b71a7901dea43ca7683c35"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun2_metallic_36870bc3eb.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "bd180805bdce5fb4d993ce9f8b13f1872f0dc599b4ad10f8abb269354a61b344",
+   "mtime_ns": 1795729089509401900,
+   "stored": "xz",
+   "stored_size": 109920,
+   "stored_sha256": "32c82151aba213a20bd8da60dd3adb1cef4da8c6c8eb738758e1846c33e79ae2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun2_normal_2be1425987.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "14214c498372d24f6bdb44efe6e239f059f188ae8fc72b04b4f8c9155341188b",
+   "mtime_ns": 1795729089517407600,
+   "stored": "xz",
+   "stored_size": 4634564,
+   "stored_sha256": "b018f5b9cf8558d74324aa16dd7a34c83951e351c6abebbe9cc52fe480647457"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun2_roughness_2c9fe0b7e0.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "2f3f1fdb68c7aed6a96c2ad44b4347a70a2d7ecead8ad9db2de7aa29fc1d0e45",
+   "mtime_ns": 1795729089523914800,
+   "stored": "xz",
+   "stored_size": 2363424,
+   "stored_sha256": "f662604e63f92bf0d1e1726dd0183298c0316c094577d59d27fbfb427cbbf338"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun3_albedo_84c0e356ff.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "6a1bdaa9f4501e70a951b1346b95deb953d6b0905f4366d5551c81ab34a574d2",
+   "mtime_ns": 1795729089531969100,
+   "stored": "xz",
+   "stored_size": 4649392,
+   "stored_sha256": "143d0a83d1a7fc5a2d9934f921e45ff4956a4b878fcace001c0a19a2362ac476"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun3_emissive_b64cf44d4d.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5fccb6d8fa460adedf2f0c2252a2ff65d42bfe61f00e8da6151e341309dfdedf",
+   "mtime_ns": 1795729089540477800,
+   "stored": "xz",
+   "stored_size": 596000,
+   "stored_sha256": "bae5acc3ff515e3daef22908c88dba7e76a8eff76dbdb50432e4a3a4f1de814d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun3_metallic_d0b247adc4.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "811e70f3008e74a00b24946f5b173be258b9bcbd043021020211fb1b0fb5511e",
+   "mtime_ns": 1795729089546985300,
+   "stored": "xz",
+   "stored_size": 459300,
+   "stored_sha256": "61e2ff8b1aa6e0df6049aac8470c3de00d1c8f350fd381e34cdd2a97fcb876ab"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun3_normal_57097b1fc9.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5f96ce80dbba18ee8e7767c24611f47b1779d86501fd30e0206b4eb1243bc386",
+   "mtime_ns": 1795729089554495000,
+   "stored": "xz",
+   "stored_size": 5043408,
+   "stored_sha256": "12c2f0aafa563521e780b7047c543634d1c518a3be7e98f16568eb82fe85898a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun3_roughness_fbdedbd2ee.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "664a6fd65ac7a9887f7067f678498fb1e8f4622cb99febb1332cd2c6d4c63a4d",
+   "mtime_ns": 1795729089560910600,
+   "stored": "xz",
+   "stored_size": 2423440,
+   "stored_sha256": "cc469ed87423bf3d072e007871a813808dfe3a9a07b307b6cde09dff7294cc9a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun_albedo_f0d10af645.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "1493904760ae3ccba8d70ee988821f2d488f176189239f9bef293382d147843a",
+   "mtime_ns": 1795729089567908300,
+   "stored": "xz",
+   "stored_size": 3472592,
+   "stored_sha256": "33c4e8274d824637cbb562e722021b7eefb5a0d3c2358d118358498a4fb88c43"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun_metallic_f38370832e.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "fe834d3289b0b51419b2d7c45a5eef9cdb7b25b74152c025a02117883f488525",
+   "mtime_ns": 1795729089574938000,
+   "stored": "xz",
+   "stored_size": 13004,
+   "stored_sha256": "f9c1f72c7f07e3eea20232a58f2a42ba2e702a07e65e2eb434dabb49e1db5d2f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun_normal_01e1054871.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "5f4d4e05cb879445088cf264589ac137bc58849458446b26155bb4939811a715",
+   "mtime_ns": 1795729089583449000,
+   "stored": "xz",
+   "stored_size": 4010032,
+   "stored_sha256": "1b9574c14f6a8a91e8c162d9bea34b1043bb6c893d9eefde08bcf6f57e5d4595"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__v_toolgun__toolgun_roughness_d196134999.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "04a3a0fd01a42995b6dc49db0c95d398e9eca4eae21449822b5577bc41a636b5",
+   "mtime_ns": 1795729089589954500,
+   "stored": "xz",
+   "stored_size": 1947948,
+   "stored_sha256": "6df467cb7df63d4f730731ddc95f047a3d3ee58752a71598cadaaacf70a6b184"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_357__w_357_albedo_abffa66ecf.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "91f1cf224f22f3cc766657a9e38bbfa5aa15a108afb9a86b8ea36c1c19bad400",
+   "mtime_ns": 1795678794055232300,
+   "stored": "xz",
+   "stored_size": 2061240,
+   "stored_sha256": "cdf530382cd1d8d9d4f6180a1db97cc90b9ee6d169b2d44fe32a1d986d0004c9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_357__w_357_metallic_47e8bb8274.m.rtex.dds": {
+   "size": 1398268,
+   "sha256": "4f38203690b539a64bc63719caf7948cb5a34e4ef3d9da1631d697efc8bd0dc4",
+   "mtime_ns": 1795678794411093800,
+   "stored": "xz",
+   "stored_size": 420512,
+   "stored_sha256": "2c0471385d14e95cd14678d08f4ee5fbf02f34f759e4bf7d13ffa490c1a491c4"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_357__w_357_normal_52c4091f95.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "19c3fc9f9c7df0ca1bba44ec7195c0f224c1309d84b79a9dc4863e1cd94ed410",
+   "mtime_ns": 1795677863316651100,
+   "stored": "xz",
+   "stored_size": 2446064,
+   "stored_sha256": "a1bb7ac7dd70786247fc22e0b490cfcec26b77750fab7ca7694a36b669d46afa"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_357__w_357_roughness_e58775fd1d.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "e7c18dc484b69259d79b932c99f8347d3a5842d7d4822d81e8d511394e0a7ae5",
+   "mtime_ns": 1795677863575263200,
+   "stored": "xz",
+   "stored_size": 1114780,
+   "stored_sha256": "11e76af57f6953bc0f136ce4e8a0136f028e967586635d187edab7cbef6082d9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_alyx_gun_xsi__alexgun_albedo_87c1f3ade0.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "7599699c5401029b15267cd3e902ca0b48956640472544cdec6e6ba1381e9ff1",
+   "mtime_ns": 1795678795749312800,
+   "stored": "xz",
+   "stored_size": 2782860,
+   "stored_sha256": "249db30fa58d3640553668b5b4d658a26ce3535c16cae8c53812e434f867c8c3"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_alyx_gun_xsi__alexgun_metallic_c1b6c8fa9c.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "0a10eedceab369faab68337c54a552575a167f42b12091be0bdeff7d95ed0c6e",
+   "mtime_ns": 1795678796123992200,
+   "stored": "xz",
+   "stored_size": 862416,
+   "stored_sha256": "b401a1955197ed5b323639ca7ec0481ba2155979534e9f299b729e559018c206"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_alyx_gun_xsi__alexgun_normal_8d1ec9d8d5.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "f9b0bc3a08a8ff4e9dacbd89030110544671321db59c3e3c3c36fed562d9459e",
+   "mtime_ns": 1795677864065412800,
+   "stored": "xz",
+   "stored_size": 3342100,
+   "stored_sha256": "bbd5f01395b10e285f3c73f8a718ba949733c312ce0058cd4b271719fb5d8742"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_alyx_gun_xsi__alexgun_roughness_ecbf48a69f.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "66a1ad34afcc8a745fe456d7395ceed694f6483e33583d8ebad39e093b5db751",
+   "mtime_ns": 1795677864059339200,
+   "stored": "xz",
+   "stored_size": 1470640,
+   "stored_sha256": "3bea487cff91c9fe4e4b7b079d34a72027b0d34d240fbc7efa5b3f80d7894b22"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_annabelle__gun_albedo_f12d40e718.a.rtex.dds": {
+   "size": 1398308,
+   "sha256": "3f38df7cf65a12e9f9f1caca9cdd623e263b1375cd40adf476cea0b030496d16",
+   "mtime_ns": 1795677864852788700,
+   "stored": "xz",
+   "stored_size": 732472,
+   "stored_sha256": "3dc895f5f90f6893eb4507dc0fb677e926fb26f14dcc64110f0bc1afbf5c52a0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_annabelle__gun_metallic_f8fec1408d.m.rtex.dds": {
+   "size": 699228,
+   "sha256": "1588b9823ba920baeebd03aa90b557388148abf5430a0359f0467b3424c16aff",
+   "mtime_ns": 1795678796410110600,
+   "stored": "xz",
+   "stored_size": 8824,
+   "stored_sha256": "6d7daa5c07a0bcb6cd3a475105a7818664371d1754260da635a66f45d5d98876"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_annabelle__gun_normal_80d9552625.n.rtex.dds": {
+   "size": 1398308,
+   "sha256": "8e9476816e62f673b7fef61a208b57eb291e5b12c206f0ec7cec35861d7999ab",
+   "mtime_ns": 1795677864430915800,
+   "stored": "xz",
+   "stored_size": 469768,
+   "stored_sha256": "99ce5a9f926cd9bd025d34c5589354e9d4087e2ce14a2739e68132a34db5897b"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_annabelle__gun_roughness_8b3b259b49.r.rtex.dds": {
+   "size": 699228,
+   "sha256": "3e1251b2de49f2b093f88bfd8c746f7bb81c2ae1a6029663622b486ec101c0e5",
+   "mtime_ns": 1795677864433915900,
+   "stored": "xz",
+   "stored_size": 341368,
+   "stored_sha256": "0e6418831456a38895a366bafe9bee91ce2b2105a99ed86ae0bb67164bb14a94"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_bugbait__wbugbait_sheet_albedo_366b3e33b6.a.rtex.dds": {
+   "size": 1398276,
+   "sha256": "2b59b8d3562fc1c931f5a9e9ace6a4284f03bba767cf5ab1fa3ac742506acc9f",
+   "mtime_ns": 1795677865023446100,
+   "stored": "xz",
+   "stored_size": 1204316,
+   "stored_sha256": "0cfd5f20fe134eb3ee3a6254dbcfb0a1888fea60d5228c6659a9cad0df0e82c2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_bugbait__wbugbait_sheet_emissive_6bbfe72910.e.rtex.dds": {
+   "size": 1398276,
+   "sha256": "30519cdba9e4db8e6482906f0f7cf7c74283edf2c8a5269a75a60b6bddd80c8b",
+   "mtime_ns": 1795677865261368600,
+   "stored": "xz",
+   "stored_size": 9152,
+   "stored_sha256": "0806b4ff2d64dfc59631dc96110d63d47e6278864bded63c3ebb2f57e99f78a7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_bugbait__wbugbait_sheet_normal_238e87ec9a.n.rtex.dds": {
+   "size": 1398276,
+   "sha256": "ef0c4fa990b6af6a536db5be0c570eaf76a36d0b7b69ed1ffd319d7ccae1bfb6",
+   "mtime_ns": 1795677865014445100,
+   "stored": "xz",
+   "stored_size": 1334848,
+   "stored_sha256": "b1fe93927f69f9f24db5362c8f47fa9e50fb40d03e3d8334b45a0e9f622ebad2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_bugbait__wbugbait_sheet_roughness_bc12d80c82.r.rtex.dds": {
+   "size": 699212,
+   "sha256": "e556c39550c760abc3aa9015dc3fd25fb819430bac1b95785b29882120295d41",
+   "mtime_ns": 1795677865094112600,
+   "stored": "xz",
+   "stored_size": 658104,
+   "stored_sha256": "c7ba50dc1472ae15f2f3840ae2c4e4ddcbcf749dc8abb7d213a426a05a0ddd6c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_irifle__w_irifle_albedo_0b1bbe187e.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "0278451ec795fe8940a1ea951cd6b4924ab59a474b97d24af4173b67e2132f4e",
+   "mtime_ns": 1795678798123761800,
+   "stored": "xz",
+   "stored_size": 3113576,
+   "stored_sha256": "83c1af4ff44892962e5d5388f4a0b6b312a0407d7b60d6c5b3f7aa137ba0cc03"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_irifle__w_irifle_metallic_ecb1633dd0.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "483d2b7f1d899f3720c78d55d479194fdbff52c2ebb254070d8abed0f5da75ae",
+   "mtime_ns": 1795678798529293300,
+   "stored": "xz",
+   "stored_size": 367040,
+   "stored_sha256": "862de2dee73bea1e7bca953637dd25331cd1902e67605eb9d2a10ffec1409a9a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_irifle__w_irifle_normal_74d052f1c9.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "b7649ab433127187598209ffe8967aaa77a2c6ce282fc5dffa7ee4a81240f84b",
+   "mtime_ns": 1795677865477132500,
+   "stored": "xz",
+   "stored_size": 3690820,
+   "stored_sha256": "3bb9a44b9b60d9dde4b8aebf0c8a8dbeb1f8186ba7e315476c969af50ac64d92"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_irifle__w_irifle_roughness_cdb9a2e367.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "dfcef778e8d0aa16f363928135edf0de1f28e098d3c49103f4191a53b0d5cea4",
+   "mtime_ns": 1795677865562657900,
+   "stored": "xz",
+   "stored_size": 1566508,
+   "stored_sha256": "61a48f7363f52d48bba173603ac64b18156b3705e2ff516120a79e55b0ecd33c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet2_albedo_efef4795b3.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "cdc7c5b972a751f089b37b3cd5edf480f823f2d9c507c48756fb603ce7aff374",
+   "mtime_ns": 1795678800613256500,
+   "stored": "xz",
+   "stored_size": 3938300,
+   "stored_sha256": "b7ed060f01c634d70a603ffb279ae0589d10012ab4793d4e22e4dfef80ff5651"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet2_emissive_b6605b07ce.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e42e484ddc55ec4ac52872f6c43583eb584e0d0c5342270f81d4955455779577",
+   "mtime_ns": 1795680053503906900,
+   "stored": "xz",
+   "stored_size": 1118328,
+   "stored_sha256": "3eed3e0c9928a2cf236c534c2ebee5587fa179c01523f2153779fb41b73c3ca7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet2_metallic_e4fa73eeb1.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "ec6daad0dc7495b32d123d242578842506379f7430c3f3970d38638cd9de4a43",
+   "mtime_ns": 1795678799183147800,
+   "stored": "xz",
+   "stored_size": 1605172,
+   "stored_sha256": "c19ce5ea86d5f9833a54567b5a6f58b000e96f88886a1c13bea58facf5aad5c9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet2_normal_bb58a85bed.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "16338189ddc994ede6e2ed102416d89fa2a1a8fed3e833e9428711137d3e0c77",
+   "mtime_ns": 1795677866360653400,
+   "stored": "xz",
+   "stored_size": 4551656,
+   "stored_sha256": "a624fef4cf2a26b4cfb66834f2986dc248128d9c4d4a2a8e3f4503e5f7eda3eb"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet2_roughness_748c977a20.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "5be5acd03ebcded5048b4858e6da4b5c987c6c2b2718cca33ec661187d520e65",
+   "mtime_ns": 1795677866374167400,
+   "stored": "xz",
+   "stored_size": 2057424,
+   "stored_sha256": "7bdfda528992081e126458c11a7f584da462f826f847fa2a90c426809fa4accc"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_albedo_c9d7af2c1b.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "bc315c78d77ee1d783cf4057350fa26b3ba49a6bae3af0624c49cec0c9c800dd",
+   "mtime_ns": 1795678800230769400,
+   "stored": "xz",
+   "stored_size": 3887976,
+   "stored_sha256": "877761472ae3f1564f7e760f6373525e6d60e96358bde959ff6ec5fef578ad7d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_emissive_44b23a2625.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "e73dee1d0c7a83af615bb4a95541ad21580a3632677e2a0556b73b4afcc439b2",
+   "mtime_ns": 1795680051931817600,
+   "stored": "xz",
+   "stored_size": 996712,
+   "stored_sha256": "876c4b6d20c25f43c15cb274997ef13c2b52ee8c7f10b6c5d56391a8d61ec7fd"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_metallic_dfef3d18ef.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "dd6a555ad8e4fb4247de6756780bf504cc811863490214e6ae44162cd8c726bb",
+   "mtime_ns": 1795678798593912900,
+   "stored": "xz",
+   "stored_size": 1400268,
+   "stored_sha256": "ecf3a129e5ff409211a574bf949151ff650d0052ad6c7ef313d110960278008a"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_normal_c2a8de44d4.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "85e94121548a3beda6730065f450c95cb7675e7be474dbb955f7166e03d72c85",
+   "mtime_ns": 1795677865764912700,
+   "stored": "xz",
+   "stored_size": 4458376,
+   "stored_sha256": "74b7d6f3f1cc61eef00228d079822a9628925184908820baf2a1601e5195300e"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_roughness_973d4e6a9c.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "f8ebd75466e7a78c9328203d24aad3e9a57e59ff6c9759e3eeb368292046ef1e",
+   "mtime_ns": 1795677865951792600,
+   "stored": "xz",
+   "stored_size": 2018592,
+   "stored_sha256": "962a649e7fdefda16b27b39efe46ad41463fb66edaf0d16342dea4b0d810c983"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_super_albedo_a338f4dd48.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "f53dce51be153a8fa3f0381dc8d3208c2acb33fa0425d6d6d0d04c6bba2a51bb",
+   "mtime_ns": 1795678800744009400,
+   "stored": "xz",
+   "stored_size": 4026816,
+   "stored_sha256": "ee44a94ad95caeeb175a8f201eede8c6985c2a56b2901aa20bb0d429ba2d0143"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_super_emissive_dd40f160b3.e.rtex.dds": {
+   "size": 5592580,
+   "sha256": "24ffde011933643b665dbd2e19d2c8bdc80fe15f6316cb02479ec6b1cab18d15",
+   "mtime_ns": 1795680054945356200,
+   "stored": "xz",
+   "stored_size": 1196432,
+   "stored_sha256": "6d9ea26f6d24c91977073fc9f807151f95493916c213fd76ab997c36e32e24d8"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_super_metallic_5e927d8e7a.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "0b77360a4a749f5ac7ea63d5214ac9ca5e591b461e37b2aaa32fe350995e3d94",
+   "mtime_ns": 1795678799745381000,
+   "stored": "xz",
+   "stored_size": 1374716,
+   "stored_sha256": "3c004ac1a32cc438998626734f4957c33f56d3861260d485f724d00cdda12db3"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_super_normal_149e7561b1.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "d44ed019730d4f3c5249769dd3ccce71a8947eaa9a5584defde6a792bc8781ba",
+   "mtime_ns": 1795677866881413000,
+   "stored": "xz",
+   "stored_size": 4573584,
+   "stored_sha256": "e9507a0b9b519847006e96622b34bd7b1f892ee28398c894a2b08f91ee1ea728"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_physics__w_physics_sheet_super_roughness_dccf8dbd32.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "29674a7e116a23895555545ad6d8f4539941d2b610af99c4b2569ea00ec227dd",
+   "mtime_ns": 1795677866865903400,
+   "stored": "xz",
+   "stored_size": 2083104,
+   "stored_sha256": "73de42e44b515c3b1d1c3d6775b3688e4f442b6f315b284a0d442bb4b3d460bb"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_pistol__pistol_albedo_71f6a803cf.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "d387839174a6ce7a378cda925a9ac7110d297f4acf3b1949e3b06e874f85d018",
+   "mtime_ns": 1795678801944145100,
+   "stored": "xz",
+   "stored_size": 3728536,
+   "stored_sha256": "12573e48385c666282bdb019ff8801bdf4972ea741966e87ccfe78f9f6322ac3"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_pistol__pistol_metallic_e17b2af116.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "afff09e1f87b06a714fa4905065ee142c28825841591a1ba2987f60b6c0036f7",
+   "mtime_ns": 1795678800715995600,
+   "stored": "xz",
+   "stored_size": 622884,
+   "stored_sha256": "634dbc846da26c2c46e5a4d93c66413ade73c2dafddb5175177aa8be929aa577"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_pistol__pistol_normal_d4024ec568.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "a69927abb68c58cb8fcf0f8f99d07ca161ada65fa1658407b53d24dae07df982",
+   "mtime_ns": 1795677867376185500,
+   "stored": "xz",
+   "stored_size": 3611792,
+   "stored_sha256": "f942269e4db0b795d157169564da947f5df4bc355470da2ea222d523ff87f40f"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_pistol__pistol_roughness_b09b94a030.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "c64d06264963d19ec2cc5c28fb8106b99531794668997d59195721ee251ec6d4",
+   "mtime_ns": 1795677867340163800,
+   "stored": "xz",
+   "stored_size": 1948128,
+   "stored_sha256": "cd0c88644236f9166b750243c1ec9143547ac97282af3bdd632a1103269e7746"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_rocket_launcher__w_rpg_sheet_albedo_6a8afb241b.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "c30e81d3d6a6ad56700bd9cbeb412ab61ef04cefcb38ae00c6a8e7095f0e4491",
+   "mtime_ns": 1795678802096015600,
+   "stored": "xz",
+   "stored_size": 2176148,
+   "stored_sha256": "3173fafa1c8e62c6df326a3712246687d0ed0a7c0087817419eb3ee45677077c"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_rocket_launcher__w_rpg_sheet_metallic_d8172f07a3.m.rtex.dds": {
+   "size": 1398268,
+   "sha256": "bdab3c9cf9c42ecea6ec65026a391df3b52e4069f06b2d215083845f1cb36619",
+   "mtime_ns": 1795678801106978200,
+   "stored": "xz",
+   "stored_size": 400060,
+   "stored_sha256": "22c6fdfe587c8f4eef03d81ff9c57f2685ba457fa52ae372b83533d58256d6fb"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_rocket_launcher__w_rpg_sheet_normal_12b91656c1.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "47e582ad276f46be2e6718f81b522ab4c4967d4f59cb232873f9b58d9861264d",
+   "mtime_ns": 1795677867781711800,
+   "stored": "xz",
+   "stored_size": 2363020,
+   "stored_sha256": "1e5e49113c5b8a406ed84aebc6c44308c320c97b9b080ba4c7a464b4ee69ce19"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_rocket_launcher__w_rpg_sheet_roughness_af1f8e2ca1.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "c34eb7169677e55a39c603d5a502ce4e0f9d152449dbcfbd69d6c2bc8e894ef2",
+   "mtime_ns": 1795677867781711800,
+   "stored": "xz",
+   "stored_size": 1159292,
+   "stored_sha256": "a1ab0c3caef2e1793d6ba69366e560b22391c60d2e771810ef820bb1752b34a9"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_shotgun__w_shotgun_albedo_0806ca2b9f.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "9dd75897d5ef7a257d0f5592c517ce2beeed271526aebc3b915f2f6cbbeb70b9",
+   "mtime_ns": 1795678802246236600,
+   "stored": "xz",
+   "stored_size": 2058304,
+   "stored_sha256": "4b8f18d0c47cc1188c4b8a4e99f1b4c03e5f4a3b5131e41fae6adc06bb079e24"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_shotgun__w_shotgun_metallic_ee86d2234e.m.rtex.dds": {
+   "size": 1398268,
+   "sha256": "10e2874cac7ad3114ce3c9ac810896c30973cfb6c9267fcb829719586f6a58d5",
+   "mtime_ns": 1795678801152604400,
+   "stored": "xz",
+   "stored_size": 290492,
+   "stored_sha256": "ddc438d04ab53282d015827b979054a477c33880dd6a60b5844db92f1e22fac3"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_shotgun__w_shotgun_normal_ce8cb0e016.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "0f11fc1068068fd1c0cd7105dc0ed1de765d89d379d10f3ba7494c91a444f976",
+   "mtime_ns": 1795677868153670700,
+   "stored": "xz",
+   "stored_size": 2604876,
+   "stored_sha256": "5d02a5f26dd808597de80ff38e00723ec8ed6c8b584608718c0cf97ec9e268c0"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_shotgun__w_shotgun_roughness_b1dae1ecdd.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "ff4fc96aa76886f61fd4ca20394de96f70abdfab189cfd54ccd6150ddbecfd5a",
+   "mtime_ns": 1795677868168178600,
+   "stored": "xz",
+   "stored_size": 1222224,
+   "stored_sha256": "d7242392802a87685df1f121522a200a020018e12499271c9ee8fa37b36424a1"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_smg1__w_smg2_albedo_a4ac85c67d.a.rtex.dds": {
+   "size": 5592580,
+   "sha256": "c573c99bb8bd0f54773d45374febe6afc0c9de1aaeec7326b303c22a73e1e2f4",
+   "mtime_ns": 1795678802609860200,
+   "stored": "xz",
+   "stored_size": 3833172,
+   "stored_sha256": "1b162dbb61382194c1007b493441effe16e72834e60935f19372e2f210bd59e2"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_smg1__w_smg2_metallic_35e5e3cb00.m.rtex.dds": {
+   "size": 2796364,
+   "sha256": "9d3415dc09459675c9226be2fb86dfd0f31b4d3275c1e63e85ea4824c649b92e",
+   "mtime_ns": 1795678801649193500,
+   "stored": "xz",
+   "stored_size": 135916,
+   "stored_sha256": "c534a9db8d42d033f71b388fb1e0641e841d8d2e29d5b68e9cc5849e786e35d7"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_smg1__w_smg2_normal_49f091f29f.n.rtex.dds": {
+   "size": 5592580,
+   "sha256": "1308c1e00070d2ffad9d8696cde9adaee576ce3abc82a376f7118a6bb835fbcb",
+   "mtime_ns": 1795677868408195500,
+   "stored": "xz",
+   "stored_size": 5275348,
+   "stored_sha256": "36327bbced951a77e30a12cc02dbb5b6b0a5b2ba43a1246b2fdb46362b42c524"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_smg1__w_smg2_roughness_874bc56fb6.r.rtex.dds": {
+   "size": 2796364,
+   "sha256": "5b45ef668edce6ad8135613bb1d58a05155ad1d787a1d44e6b72a80e9fd2a187",
+   "mtime_ns": 1795677868631992600,
+   "stored": "xz",
+   "stored_size": 2604452,
+   "stored_sha256": "dd7178a4675259be105d706e4689784a5c717ba2fdb2278510e067bcc0e53e3d"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_stunbaton__stunbaton_albedo_ea623d5a1a.a.rtex.dds": {
+   "size": 2796388,
+   "sha256": "60da51f5b4701a541a214ee34f2b83849107ec5b03e0cd726edf6c038defe8ec",
+   "mtime_ns": 1795678802609860200,
+   "stored": "xz",
+   "stored_size": 2062556,
+   "stored_sha256": "7e9d4ae14fc14b147175a3b3a11a607e28a4900de592c427c9b9ce75c000ba22"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_stunbaton__stunbaton_metallic_ddf961c612.m.rtex.dds": {
+   "size": 1398268,
+   "sha256": "816d7be7066255e49316046381283817e16a0faecd0870b82c5cf934a4edfbba",
+   "mtime_ns": 1795678802057965800,
+   "stored": "xz",
+   "stored_size": 545612,
+   "stored_sha256": "8f731350d0ca04d32d57a14df7bdb941fa2ff51f8d489361233d03c129fbf712"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_stunbaton__stunbaton_normal_6ae167603e.n.rtex.dds": {
+   "size": 2796388,
+   "sha256": "650460bc933822991723e165f9cd16a6beb1514e317d291f070c2038fd5db05f",
+   "mtime_ns": 1795677868630992800,
+   "stored": "xz",
+   "stored_size": 2593300,
+   "stored_sha256": "64a93c2d00630eb8141dc2752f3ecd790e075b2a8dbec1fd3e846d16f86559bc"
+  },
+  "!hl2_pbr_rtx_shipped_2k/textures/models__weapons__w_stunbaton__stunbaton_roughness_ca9f1c7591.r.rtex.dds": {
+   "size": 1398268,
+   "sha256": "ce81f431de799c5a66eeb593e807a0e707c3d890fb28a4719be97423fca7918d",
+   "mtime_ns": 1795677868778920800,
+   "stored": "xz",
+   "stored_size": 1300472,
+   "stored_sha256": "0b97307d1731f89b20237e32a6aa884d8158b5ef03671e845851dea9b6b2e719"
+  }
+ }
+}

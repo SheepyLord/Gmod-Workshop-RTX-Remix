@@ -319,6 +319,19 @@
         "--lua-bin",
         "out/inputs/vr/bin/openvr_api.dll"
       ]
+    },
+    {
+      "name": "hl2-pbr-rtx",
+      "build": "package_content",
+      "args": [
+        "--id",
+        "hl2-pbr-rtx",
+        "--name",
+        "Half-Life 2 PBR RTX",
+        "--requires-remix",
+        "--mod",
+        "out/inputs/hl2-pbr-rtx/!hl2_pbr_rtx_shipped_2k"
+      ]
     }
   ],
   "gmpublish": "H:\\SteamLibrary\\steamapps\\common\\GarrysMod_PoC\\bin\\win64\\gmpublish.exe"

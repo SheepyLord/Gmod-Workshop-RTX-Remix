@@ -6,13 +6,33 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Half-Life 2's weapons and items in PBR, in the RTX package (2026-11-26)
+
+- **The weapons and spawnable items of Half-Life 2 and Garry's Mod have PBR materials in every RTX session**, in every
+  map:
+  - the weapons, first-person and in the world: the crowbar, the gravity gun and the physics gun, the pistol, .357,
+    SMG, AR2, shotgun, crossbow, RPG, grenades, SLAM, stunstick, bugbait, the tool gun and the camera;
+  - the items: the health kits and vials, suit batteries, ammunition, the health and suit chargers, mines, the
+    thumper, the HEV suit, the helicopter bomb and the editors' cube.
+
+  Steel, paint, polymer and rubber each look like themselves, and glowing parts light their surroundings in the
+  colours the game gave them. The physics gun's glow keeps your weapon colour. Every texture is at most 2048 (the
+  user's request of 2026-11-26), which at 4K looks the same as the 4096 version. The player models' hands, the NPCs and
+  the maps' own textures are unchanged.
+- The new part `packages/hl2-pbr-rtx` ([ADR 0269](docs/decisions/0269-half-life-2-pbr-rtx-at-2k-ships-with-the-rtx-package.md))
+  deploys the mod as `rtx-remix/mods/!hl2_pbr_rtx_shipped_2k`. No standalone copy shares that folder name, and it sorts
+  after theirs, so a game that also has the full version shows its textures.
+- The package grows by about 1.03 GB, and Git LFS keeps 644 MB more. The textures derive from Valve's and Facepunch's
+  and stay outside the MIT licence (the user's exception to rule 7).
+
 ### Skills: Half-Life 2's weapons and items in PBR (2026-11-26)
 
 - **`remix-map-pbr` learns the game's own weapons, hands and spawnable items** (the user's request of 2026-11-26: PBR
   for all vanilla Half-Life 2 weapons, such as the crowbar and the physics gun, and entities, the base colour allowed to
   be re-rendered by OpenAI's models, then limited to the spawnable entities, no NPCs). Half-Life 2 PBR RTX lives on a
   local branch of the user's fork (`claude/hl2-pbr-rtx`, its doc `docs/HL2_PBR_RTX.md`) and in the user's game; its
-  textures derive from Valve's and Facepunch's and stay local. 67 textures of the weapons' view and world models and
+  textures derive from Valve's and Facepunch's, and only its 2K version leaves this machine, in the RTX package
+  (above). 67 textures of the weapons' view and world models and
   the spawn menu's items have PBR materials in every map: steel, paint, polymer and rubber each their own (metal per
   texel from Source's specular masks and the colour), glowing parts emitting light in the colours the game gave them,
   the physics gun's glow still taking the player's weapon colour. OpenAI re-rendered 50 of their colour sheets ($8.79
@@ -28,7 +48,7 @@ Versions follow the loader's CMake project version once it ships; until then eve
   Half-Life 2 PBR RTX with every texture at most 2048: 1.03 GB against the full version's 2.33 GB, in
   `out/packages/hl2-pbr-rtx-2k`. Its mod folder sorts after the full version's, so a game with both shows the full
   textures. On the PoC at 3840x2160 it looked the same as the full version (0.7-1.6 of 255 apart under the same sky,
-  within the noise between sessions). Not uploaded and not in the RTX package yet.
+  within the noise between sessions). The RTX package ships it (above); the standalone packages are not uploaded.
 - **What the skill records** (`references/game-assets.md`): the inventory from the game's spawn lists and the VMTs'
   DirectX-level blocks; metal by mask and colour, white paint and labels never metal; glows in the original's colours
   under the whole mask; a replacement with an emission map of its own turns off the runtime's legacy emissive path,

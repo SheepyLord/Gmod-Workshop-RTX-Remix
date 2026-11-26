@@ -10624,3 +10624,7 @@ Found while making Half-Life 2 PBR RTX (`skills/remix-map-pbr/references/game-as
   `nativeloader_sky_hour` and the `nativeloader_sky_look_*` values carry from one session to the next. After another
   session's sky work left `partlyCloudy` with the enhanced sky, the same showroom shots differed from the morning's
   hazy-sky ones by 14-24 of 255.
+- **xz on block-compressed DDS.** `inputs.py import` (LZMA2, preset 6) stored the 2K mod's 281 DDS maps (BC7 albedo
+  and emission, BC5 normal, BC4 roughness and metallic) and its two layers, 1,034.4 MB, in 644.0 MB: 62 %, where the
+  runtime's DLLs go to about 30 %. The combined RTX package with this part: 2,219 files, 3,390,555,677 bytes (from
+  2,356,069,196); its manifest passed the combine's 1 MiB check (the loader's limit) and `nlctl manifest`.

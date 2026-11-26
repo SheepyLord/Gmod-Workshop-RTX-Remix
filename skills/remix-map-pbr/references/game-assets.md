@@ -14,13 +14,21 @@ their hands and the spawnable entities are in; the NPCs (their bodies, faces and
 asked. `inventory_models.py`'s `NPCS = False` keeps them out; the NPCs' own weapons' world models stay (they are
 weapons).
 
+The player models' hands came out too, for the package's size (the user, the same day: "Reduce the size by Removing
+the enhancement for the hands of every player model"): `HANDS = False`. Six hands models draw 13 textures, made at
+4096 like the view models (28-56 MB each): 542 MB of the first build's 2.87 GB, a fifth of the package, for the one
+hands model on screen at a time. Weigh them before including them. The Half-Life 2 `v_*` view models' own gloves
+(`v_hand_sheet`) are drawn whatever the player model and belong to those weapons: they stay. A scope change needs no new
+encode or answer: `compose.py` drops what `textures.json` no longer lists, `build_mod.py` prunes the files no layer
+names, `deploy.py` removes them from the game's copy, and the rest of the mod stays byte-identical.
+
 ## Inventory from the game's spawn lists
 
 - There is no BSP to read. The game says what it spawns: `spawn_inventory.py` (server realm, the game running a map)
   creates every entry of `list.Get("Weapon")`, `list.Get("SpawnableEntities")` and `list.Get("NPC")` once and records
   its models: a weapon's world model and `GetWeaponViewModel()`, an entity's model, the NPCs' weapons, and
   `player_manager.TranslatePlayerHands` for every player model (six hands models: citizen, refugee, Combine, Chell,
-  Counter-Strike, Day of Defeat). Vanilla means the "Half-Life 2" and "Other" categories; add-ons' entries (the
+  Counter-Strike, Day of Defeat; `inventory_models.py` takes them only with `HANDS`). Vanilla means the "Half-Life 2" and "Other" categories; add-ons' entries (the
   Model Hotloader's gun, Seamless Portals, the glass panes, Remix lights) are left out by category and class.
 - GMod's engine weapons draw `c_*` view models; many SWEPs use the Half-Life 2 `v_*` ones: take both (same textures
   mostly, plus the `v_` hands).
@@ -91,14 +99,16 @@ the RTX fixes' `RemixCategoryManager.ForceTrackTexture` draws a material off scr
   maps. List them in `work/oai_blocked.json` so they are not sent again.
 - The pilot and the run cost $8.41 for the 80 textures in scope (63 answers kept, 15 of them by eye: sleeves, gloves
   and hands whose parts moved 2-5 px on a 1024 px sheet, the Combine gloves dark and low in contrast), and $0.38 more
-  for the two sheets sent again from their plain sources. The first run, sent before the user narrowed the scope, had
+  for the two sheets sent again from their plain sources. When the hands came out, 13 of those answers went unused with
+  them: the 67 textures that remain use $6.62 of the answers. The first run, sent before the user narrowed the scope, had
   already answered 131 NPC textures ($9.98, kept in `work/oai`, unused): send the core of a request first (here the
   weapons and items, which every reading of it includes) and its broader parts last.
 
 ## The mod's folder sorts first
 
 Several map remasters and content packs replace a few of these assets as props of their maps (BigCity's pack the
-physics gun's sheets and the Combine hands, Country Estate's the camera, gm_boreas an ammunition box, base_mod the
+physics gun's sheets and the Combine hands, which are its own again since this pack's hands came out, Country Estate's
+the camera, gm_boreas an ammunition box, base_mod the
 chargers' glass). The folder that sorts first owns a shared hash, so the asset pack's folder is `!hl2_pbr_rtx` (and
 its packed copy `!hl2_pbr_rtx_pack`): it sorts before them, as `!advanced_material_editor` already does. The path
 rules allow `!`. What another mod does deliberately stays its own: the chargers' glass is classed `skip`.

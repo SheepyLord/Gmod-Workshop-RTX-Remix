@@ -56,9 +56,10 @@ an atlas (`selfillum_rects`), no fixed glow on distant views under the player's 
 (`times_tour.py`), the base material refined as the user allowed, local AI results reused by hash (`seed_ai.py`),
 and a tileable step that keeps a texture's bands (`banded_axes`, checked by `band_audit.py`) ($12.23 and $8.32 in
 realtime for 134 and 103 kept). Half-Life 2 PBR RTX (`source/hl2_pbr_rtx/tools`, branch `claude/hl2-pbr-rtx`) is
-gm_boreas's with no map at all: the weapons, the hands of their view models and the spawnable items Half-Life 2 and
-GMod ship, in every map, the inventory taken from the game's spawn lists, metal per texel from Source's specular
-masks and the colour, and a showroom for the before and after (`references/game-assets.md`).
+gm_boreas's with no map at all: the weapons and the spawnable items Half-Life 2 and GMod ship, in every map (the
+player models' hands left out for the package's size), the inventory taken from the game's spawn lists, metal per
+texel from Source's specular masks and the colour, and a showroom for the before and after
+(`references/game-assets.md`).
 
 A map that already has a finished Remix mod (the user's maps made for the classic RTXLauncher install, in
 `E:\RTX_c_backup\GarrysMod_RTX_c\rtx-remix\mods`: Poolday, SafeHouse) is not remastered again. Port it
@@ -77,8 +78,8 @@ Read the references when you reach their stage:
   checks, load timelines, what evidence to present.
 - `references/lessons.md`: pitfalls with symptom, cause, fix, map and date (R3-016 among them).
 - `references/game-assets.md`: the game's own weapons, hands and spawnable items without a map: the inventory
-  from the spawn lists, VMTs' DirectX-level blocks, metal per texel, OpenAI's moderation of firearms, the mod's
-  folder name, the showroom.
+  from the spawn lists, what the hands cost, VMTs' DirectX-level blocks, metal per texel, OpenAI's moderation of
+  firearms, the mod's folder name, the showroom.
 
 ## Ground rules from this user
 

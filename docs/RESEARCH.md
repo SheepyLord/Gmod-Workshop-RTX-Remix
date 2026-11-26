@@ -10607,3 +10607,7 @@ Found while making Half-Life 2 PBR RTX (`skills/remix-map-pbr/references/game-as
 - **OpenAI's image edit endpoint** refused 10 of 80 weapon and item textures as `moderation_blocked` ("illicit"): the
   tool gun's sheet, an ammunition box's art, the .357's, the pistol's and the AR2's view sheets and five world models'
   sheets; with the prompt's detail reworded to materials only, the SMG's sheet went through and the pistol's did not.
+- **What the hands weigh.** The six hands models GMod's player models use (`c_arms_citizen`, `_refugee`, `_combine`,
+  `_chell`, `_cstrike`, `_dod`) draw 13 colour textures; made at 4096 like the view models (albedo, normal and
+  roughness, the Combine's also metallic) they took 542.5 MB of the first build's 2,868.6 MB mod, 28-56 MB each. Without
+  them the mod is 2,326.2 MB for 67 textures (69 replacements, 283 files), the package 2,326,337,642 bytes.

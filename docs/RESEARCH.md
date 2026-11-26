@@ -10611,3 +10611,16 @@ Found while making Half-Life 2 PBR RTX (`skills/remix-map-pbr/references/game-as
   `_chell`, `_cstrike`, `_dod`) draw 13 colour textures; made at 4096 like the view models (albedo, normal and
   roughness, the Combine's also metallic) they took 542.5 MB of the first build's 2,868.6 MB mod, 28-56 MB each. Without
   them the mod is 2,326.2 MB for 67 textures (69 replacements, 283 files), the package 2,326,337,642 bytes.
+- **What the resolution weighs.** The same mod by map kind: albedo 692 MB, normal 692, roughness 346, metallic 307,
+  emission 288 (BC7 albedo and emission, BC5 normal, BC4 roughness and metallic, full mip chains). With every texture at
+  most 2048 (the 25 sets made at 4096 leaving out their top mip): 1,034.4 MB, the package 1,034,493,761 bytes (albedo
+  and normal 311 MB each, roughness 155, metallic 137, emission 121). With roughness, metallic and emission at 1024 as
+  well: 729 MB. Everything at 1024: 270 MB.
+- **What 4096 buys on a view model: nothing visible at 4K.** PoC, gm_construct, 3840x2160, default field of view,
+  the 2K version and the full one in back-to-back sessions under the same sky: 11 weapon views and 4 items 0.68-1.64 of
+  255 apart (the medkit 5.88, its view model swaying), against 1-3.4 between two sessions of one build earlier.
+- **The sky's settings outlast a session.** Lua client convars are archived in `garrysmod/cfg/client.vdf`, not
+  `config.cfg`: `nativeloader_weather`, `nativeloader_sky_enhanced`, `nativeloader_sky_time_passes`,
+  `nativeloader_sky_hour` and the `nativeloader_sky_look_*` values carry from one session to the next. After another
+  session's sky work left `partlyCloudy` with the enhanced sky, the same showroom shots differed from the morning's
+  hazy-sky ones by 14-24 of 255.

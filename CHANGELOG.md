@@ -23,6 +23,12 @@ Versions follow the loader's CMake project version once it ships; until then eve
   enhancement for the hands of every player model"). The first build also remastered the six hands models GMod's player
   models use; their 13 textures were 542 MB of its 2.87 GB package. The Half-Life 2 view models' own gloves are part of
   those weapons and stay remastered.
+- **A 2K version for bundling** (the user's request of 2026-11-26: "a separate version where the maximum resolution of
+  the texture is 2048x2048", to bundle with the RTX package where space counts). `pack_mod.py --max-side 2048` packs
+  Half-Life 2 PBR RTX with every texture at most 2048: 1.03 GB against the full version's 2.33 GB, in
+  `out/packages/hl2-pbr-rtx-2k`. Its mod folder sorts after the full version's, so a game with both shows the full
+  textures. On the PoC at 3840x2160 it looked the same as the full version (0.7-1.6 of 255 apart under the same sky,
+  within the noise between sessions). Not uploaded and not in the RTX package yet.
 - **What the skill records** (`references/game-assets.md`): the inventory from the game's spawn lists and the VMTs'
   DirectX-level blocks; metal by mask and colour, white paint and labels never metal; glows in the original's colours
   under the whole mask; a replacement with an emission map of its own turns off the runtime's legacy emissive path,

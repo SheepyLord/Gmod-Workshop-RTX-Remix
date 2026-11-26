@@ -113,6 +113,23 @@ chargers' glass). The folder that sorts first owns a shared hash, so the asset p
 its packed copy `!hl2_pbr_rtx_pack`): it sorts before them, as `!advanced_material_editor` already does. The path
 rules allow `!`. What another mod does deliberately stays its own: the chargers' glass is classed `skip`.
 
+## A smaller version beside the full one
+
+To bundle with the RTX package the user asked for "a separate version where the maximum resolution of the texture is
+2048x2048" (2026-11-26). `pack_mod.py --max-side 2048` packs the same mod with every texture at most 2048 on its longer
+edge: the DDS files leave out their top mip levels (no second encode), in a package and mod folder of their own
+(`hl2-pbr-rtx-2k`, `!hl2_pbr_rtx_pack_2k`). The folder name sorts after the full version's (`!hl2_pbr_rtx`,
+`!hl2_pbr_rtx_pack`), so a game with both shows the full textures, and before every map pack. Half-Life 2 PBR RTX went
+from 2.33 GB to 1.03 GB: the 25 view-model sets made at 4096 were more than half the bytes. With the roughness,
+metallic and emission maps at 1024 too it would be 0.73 GB, and everything at 1024 0.27 GB. Only the Half-Life 2
+project's `pack_mod.py` has the option; a map project's copy has the byte budget alone (copy `configure` and
+`capped`).
+
+The 4096 view-model sheets bought nothing visible: on the PoC at 3840x2160, under the same sky in back-to-back
+sessions, the 2K version's views and items differed from the full version's by 0.7-1.6 of 255, within the noise
+between sessions, and 1:1 crops look alike. A view model at the default field of view does not draw more than about
+2048 texels across. Make weapon sheets at 2048 unless a closer view needs more.
+
 ## Before and after: the showroom
 
 `showroom.py` shoots every weapon from the player's eyes (view model, HUD hidden, five seconds after the draw), and
@@ -123,7 +140,10 @@ Every pass holds the sky at the references' hour, 14:00, which `showroom.py` set
 starts at the player's clock: a pass at 18.64 differed from its 14:00 references by 28-44 of 255, where the same hour
 gave 1.5-2.5. A comparison across days can also meet a change in the test install: on 2026-11-26 the tool gun's view
 model drew raster-shaded in its draw pose in a stock session too. Check a doubtful view against a stock session of the
-same day before blaming the mod.
+same day before blaming the mod. The sky's settings also outlast a session: the PoC's `garrysmod/cfg/client.vdf` keeps
+`nativeloader_weather`, `nativeloader_sky_enhanced` and the clock. Another session's sky work left `partlyCloudy` with
+the enhanced sky, and shots under it differed from the hazy morning references by 14-24 of 255. For a comparison
+across sessions, shoot the reference again in the same sky.
 Small items need the camera close (12 units at least); an NPC needs `DropToFloor` and its idle sequence
 (`SelectWeightedSequence(ACT_IDLE)`), or with `ai_disabled 1` it floats in its reference pose.
 

@@ -119,6 +119,11 @@ rules allow `!`. What another mod does deliberately stays its own: the chargers'
 every world model and item as a `prop_dynamic` in front of a camera framed on its bounding box, one at a time, the
 same framing in every session (the spot in `work/showroom_spot.json`). A stock session (the mod's folder not in the
 game) and a remaster session then compare view for view (`showroom.py compare stock after` writes the docs' pairs).
+Every pass holds the sky at the references' hour, 14:00, which `showroom.py` sets itself since 2026-11-26. A session
+starts at the player's clock: a pass at 18.64 differed from its 14:00 references by 28-44 of 255, where the same hour
+gave 1.5-2.5. A comparison across days can also meet a change in the test install: on 2026-11-26 the tool gun's view
+model drew raster-shaded in its draw pose in a stock session too. Check a doubtful view against a stock session of the
+same day before blaming the mod.
 Small items need the camera close (12 units at least); an NPC needs `DropToFloor` and its idle sequence
 (`SelectWeightedSequence(ACT_IDLE)`), or with `ai_disabled 1` it floats in its reference pose.
 

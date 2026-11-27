@@ -1,7 +1,8 @@
 # Roadmap
 
 The Enhanced sky (the user's request of 2026-11-25: an improved sky, cloud and sun-ray system to switch to, today's
-sky kept as the default) was **merged on 2026-11-26** on the user's "Merge and publish", after two rounds: the NUMOS
+sky kept as the default) was **merged and published on 2026-11-26** (`main` `5ebe20c7`, the Workshop item as
+`0.0.0-dev.20261127020943+3057e537`) on the user's "Merge and publish", after two rounds: the NUMOS
 library as a second sky, made the default at the merge (the user: "as the default choice, on by default, with
 Standard unchanged"), with sun rays across the sky, an editor with looks kept by name, mist choices, a rainbow, the
 library's own Remix menu translated and its credit line

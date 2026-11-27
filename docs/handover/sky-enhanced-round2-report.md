@@ -256,9 +256,13 @@ and `out/sky2/judged/M`):
 
 ## State of the branch
 
-- `main` gets the round as one commit with the branch's final tree, so that only the runtime that ships goes into
-  Git LFS: `d3d9.dll` 536,982,528 bytes, SHA-256 `36a44370...`, built from the fork's `ef15c09d4` with patches
-  0001-0114. The branch `sky-enhanced` keeps the history locally, with round 1's and round 2's earlier runtimes.
+- `main` got the round as one commit with the branch's final tree, `5ebe20c7`, so that only the runtime that ships
+  went into Git LFS (46 objects, 90 MB): `d3d9.dll` 536,982,528 bytes, SHA-256 `36a44370...`, built from the fork's
+  `ef15c09d4` with patches 0001-0114. The branch `sky-enhanced` keeps the history locally, with round 1's and round
+  2's earlier runtimes.
+- The push's hook uploaded the RTX package to the Workshop item as `0.0.0-dev.20261127020943+3057e537`
+  (3,441,183,982 bytes, 502 MB of new chunks); its change note is the changelog's entry. The field game was not
+  checked: it is on Steam's main branch, where the loader does not start.
 - The fork branch `claude/sky-enhanced` in the live runtime worktree holds patches 0107-0114 as commits.
 - Release gate: `tools\test.ps1 -Config Release` passed at `d75109c4`, the round with `main` and task M merged: the
   repository's conventions, the Release build, CTest 35 of 35, the Python suites (2,259, 29 and 26 tests; 4

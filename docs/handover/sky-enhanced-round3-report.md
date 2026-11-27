@@ -77,4 +77,9 @@ On gm_construct a view steeply up shows the map's 3D skybox models as dark outli
 ## State
 
 - Branch `sky-enhanced-3`: the plan, the night design, tasks S and H merged, the runtime stored
-  (`d3d9.dll` `0362625c`, built from fork `48e9ae0b4` with patches 0001-0115).
+  (`d3d9.dll` `0362625c`, built from fork `48e9ae0b4` with patches 0001-0115). The Release gate passed on it
+  (C++ 35 of 35, Python 2,264 tests).
+- `main` `758d6fb1`: one commit with the branch's tree on `65d3f219` (another session's skill change, merged into
+  the branch first). Published as **0.0.0-dev.20261127051609+9e9d07b8**, its change note the changelog's entry. The
+  push's hook found no checkout of the pushed commit and did not publish; `tools/publish_workshop.py --commit` from
+  the worktree switched to it did.

@@ -1,0 +1,543 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Fri, 27 Nov 2026 04:59:18 -0700
+Subject: [PATCH] Shade the Enhanced ground at the horizon and on PSR misses
+
+---
+ docs/fork-touchpoints.md                      |  8 +++-
+ documentation/NumosSky.md                     | 21 +++++++---
+ src/dxvk/rtx_render/rtx_numos.cpp             | 17 ++------
+ .../rtx_render/rtx_pathtracer_gbuffer.cpp     |  4 +-
+ src/dxvk/rtx_render/rtx_resources.cpp         |  1 -
+ src/dxvk/rtx_render/rtx_resources.h           |  1 -
+ .../rtx/algorithm/geometry_resolver.slangh    | 34 ++++-----------
+ .../shaders/rtx/pass/common_binding_indices.h |  2 +
+ .../rtx/pass/composite/composite.comp.slang   |  2 -
+ .../composite/composite_binding_indices.h     |  2 -
+ .../pass/composite/composite_bindings.slangh  |  2 -
+ .../rtx/pass/composite/composite_sky.slangh   | 40 +-----------------
+ .../pass/gbuffer/gbuffer_binding_indices.h    |  1 -
+ .../rtx/pass/gbuffer/gbuffer_bindings.slangh  |  6 ++-
+ .../rtx/pass/numos/numos_ground.slangh        | 40 ++++++++++++++----
+ src/dxvk/shaders/rtx/pass/numos/numos_night.h |  1 -
+ .../rtx/pass/numos/numos_psr_sky.slangh       | 42 +++++++++++++++++++
+ 17 files changed, 114 insertions(+), 110 deletions(-)
+ create mode 100644 src/dxvk/shaders/rtx/pass/numos/numos_psr_sky.slangh
+
+diff --git a/docs/fork-touchpoints.md b/docs/fork-touchpoints.md
+index 490e2cf29..55e159129 100644
+--- a/docs/fork-touchpoints.md
++++ b/docs/fork-touchpoints.md
+@@ -4255,8 +4255,12 @@ The emitted lights and the standalone library shaders keep their physical illumi
+ 
+ - `pass/numos/numos_ground.slangh` owns the sphere intersection and the pinned ground
+   lighting without camera extinction. The composite, rainbow and PSR resolver use this
+-  surface for hazed misses. The G-buffer and composite binding indices, resource
+-  manager and `rtx_numos.cpp` carry both reflected-ground records to the post-depth air.
++  surface for hazed misses. The ground's key shadow follows the physical hit into the
++  cloud frame and filters distant gaps when seen edge-on from the floor.
++- `pass/numos/numos_psr_sky.slangh` shades the outgoing PSR leg against the existing
++  far-air volumes. `rtx_numos.cpp` binds their sampled views for the G-buffer. Both
++  reflection and transmission use their usual path radiance. The resource manager
++  and composite no longer allocate, clear or read reflected-ground records.
+ 
+ ### Enhanced No Horizon
+ 
+diff --git a/documentation/NumosSky.md b/documentation/NumosSky.md
+index 3b275f2a2..8f7a1ec29 100644
+--- a/documentation/NumosSky.md
++++ b/documentation/NumosSky.md
+@@ -191,12 +191,21 @@ that distance using its own units per kilometre, so changing Haze World Scale ch
+ the air traversed without moving the ground. Both sides of a partially covered pixel
+ are shaded before blending across one traced pixel.
+ 
+-The camera samples the regular finite-surface haze and screen clouds. For a reflected
+-or transmitted sky miss, the G-buffer saves its final segment's origin, direction,
+-distance and coloured throughput separately for each compacted path. After depth the
+-composite integrates that segment through the current air cache, adds the lit ground
+-and the cloud dome, and applies the camera-to-mirror air. With haze off the ordinary
+-NUMOS sky is used. Indirect sky lighting keeps the library's own ground.
++The cloud shadow map is sampled at the sky's actual ground hit translated into the
++cloud frame. From within two fine shadow texels of ground level, a grazing pixel can
++span many shadow texels. As its footprint grows from half a texel to one and a half,
++the foreground ground shadow limits the direct key light. The diffuse sky light,
++finite path length and one-pixel limb coverage keep their ordinary values.
++
++The camera samples the regular finite-surface haze and screen clouds. A reflected or
++transmitted sky miss shades its final segment in PSR. It samples the existing far-air
++tables for its direction and ground distance, integrates height fog from the ray's
++own altitude, and composites the main premultiplied cloud dome. The ordinary PSR
++throughput carries this light back to the first surface. The composite applies the
++camera-to-surface air there. The outgoing segment uses the atmosphere table baked
++at camera height and omits the post-depth near field's local lamps and scene shadows.
++This path needs no per-pixel ground storage. With haze off the ordinary NUMOS sky
++is used. Indirect sky lighting keeps the library's own ground.
+ 
+ With **No Horizon** selected, the eye-level lower hemisphere uses a 512 × 128
+ RGBA16F table. Its texels are the lower rows of NUMOS's 512 × 256 sky view.
+diff --git a/src/dxvk/rtx_render/rtx_numos.cpp b/src/dxvk/rtx_render/rtx_numos.cpp
+index 81c09dda1..e3c015d69 100644
+--- a/src/dxvk/rtx_render/rtx_numos.cpp
++++ b/src/dxvk/rtx_render/rtx_numos.cpp
+@@ -110,11 +110,9 @@ namespace dxvk {
+         SAMPLER2D(COMPOSITE_SKY_LIGHT_TEXTURE)
+         SAMPLERCUBE(COMPOSITE_SKY_PROBE_TEXTURE)
+         TEXTURE2D(COMPOSITE_SKY_FOREGROUND_INPUT)
+-        TEXTURE2DARRAY(COMPOSITE_SKY_GROUND_PATHS)
+         TEXTURE2D(COMPOSITE_SKY_LOWER_AIR)
+         TEXTURE2D(COMPOSITE_SKY_ANTIPODE_CLOUD)
+         TEXTURE2D(COMPOSITE_SKY_ANTIPODE_DEPTH)
+-        TEXTURE3D(COMPOSITE_SKY_FROXEL_LIGHTING)
+         TEXTURE2D(COMPOSITE_SKY_SECONDARY_HIT_DISTANCE_INPUT)
+         CONSTANT_BUFFER(COMPOSITE_SKY_ARGS_INPUT)
+         CONSTANT_BUFFER(COMPOSITE_SKY_NIGHT_CONTROLS)
+@@ -691,18 +689,8 @@ namespace dxvk {
+       ui.ready = true;
+     }
+     auto night = prepareNumosNight(ctx, imageNight, out, eclipse);
+-    auto& groundPaths = resources.getRaytracingOutput().m_skyGroundPaths;
+-    const auto& extent = resources.getCompactedStorageExtent();
+     if (noHorizon) night.flags |= kNumosNoHorizon;
+     else if (m_hazeActive && out.args.apFroxelSizeX > 0u) night.flags |= kNumosFiniteGround;
+-    if ((night.flags & kNumosFiniteGround) && (RtxOptions::enablePSRR() || RtxOptions::enablePSTR())) {
+-      night.flags |= kNumosGroundRecords;
+-      if (!groundPaths.isValid() || groundPaths.image->info().extent != extent)
+-        groundPaths = Resources::createImageResource(dxvkCtx, "NUMOS reflected ground", extent, VK_FORMAT_R32G32B32A32_UINT,
+-                                                    2, VK_IMAGE_TYPE_2D, VK_IMAGE_VIEW_TYPE_2D_ARRAY);
+-    } else {
+-      groundPaths.reset();
+-    }
+     ctx.writeToBuffer(m_argsBuffer, kNightArgsOffset, sizeof(night), &night);
+     ctx.writeToBuffer(m_argsBuffer, 0, sizeof(numos::AtmosphereArgs), &out.args);
+ 
+@@ -759,6 +747,9 @@ namespace dxvk {
+     binder.bindView(BINDING_SKY_MULTISCATTERING_LUT, out.multiscatteringLut);
+     binder.bindView(BINDING_SKY_VIEW_LUT, out.skyViewLut);
+     ctx.bindResourceView(BINDING_SKY_LOWER_AIR, m_rendering ? m_impl->lowerAir.view : nullptr, nullptr);
++    // The far field is already baked before PSR. Bind the same pair the composite reads.
++    binder.bindView(BINDING_SKY_FAR_SCATTER, out.apFarScatter);
++    binder.bindView(BINDING_SKY_FAR_TRANSMITTANCE, out.apFarTransmittance);
+     binder.bindSampler(BINDING_SKY_VIEW_SAMPLER, out.skyViewSampler);
+     binder.bindView(BINDING_SKY_CLOUD_TRANSMITTANCE_LUT, out.cloudSkyTransmittanceLut);
+     binder.bindView(BINDING_SKY_CLOUD_SHADOW_MAP, out.cloudShadowMap);
+@@ -809,7 +800,6 @@ namespace dxvk {
+       RtxOptions::isDLSSEnabled() && ctx.getCommonObjects()->metaDLSS().isBiasCurrentColorEnabled();
+ 
+     ctx.bindResourceView(COMPOSITE_SKY_FOREGROUND_INPUT, rtOutput.m_skyForeground.view, nullptr);
+-    ctx.bindResourceView(COMPOSITE_SKY_GROUND_PATHS, rtOutput.m_skyGroundPaths.view, nullptr);
+     ctx.bindResourceView(COMPOSITE_SKY_SECONDARY_HIT_DISTANCE_INPUT, rtOutput.m_secondaryHitDistance.view, nullptr);
+     ctx.bindResourceView(COMPOSITE_SKY_BIAS_MASK_INPUT_OUTPUT, args.skyWriteBiasMask
+       ? rtOutput.m_sharedBiasCurrentColorMask.view(Resources::AccessType::ReadWrite)
+@@ -831,7 +821,6 @@ namespace dxvk {
+     binder.bindView(COMPOSITE_SKY_HAZE_FAR_SCATTER_INPUT, out.apFarScatter);
+     binder.bindView(COMPOSITE_SKY_HAZE_FAR_TRANSMITTANCE_INPUT, out.apFarTransmittance);
+     binder.bindView(COMPOSITE_SKY_HAZE_FROXEL_AUX_INPUT, out.apFroxelAux);
+-    binder.bindView(COMPOSITE_SKY_FROXEL_LIGHTING, out.apFroxelLighting);
+     binder.bindBuffer(COMPOSITE_SKY_HAZE_LIGHTS_INPUT, out.apLights);
+     binder.bindBuffer(COMPOSITE_SKY_HAZE_LIGHT_CLUSTERS_INPUT, out.apLightClusters);
+     binder.bindSampler(COMPOSITE_SKY_HAZE_SAMPLER_INPUT, out.linearClampSampler);
+diff --git a/src/dxvk/rtx_render/rtx_pathtracer_gbuffer.cpp b/src/dxvk/rtx_render/rtx_pathtracer_gbuffer.cpp
+index 09d9ecf4c..950518ed5 100644
+--- a/src/dxvk/rtx_render/rtx_pathtracer_gbuffer.cpp
++++ b/src/dxvk/rtx_render/rtx_pathtracer_gbuffer.cpp
+@@ -133,7 +133,8 @@ namespace dxvk {
+         RW_TEXTURE2D(GBUFFER_BINDING_SHARED_RADIANCE_RG_OUTPUT)
+         RW_TEXTURE2D(GBUFFER_BINDING_SHARED_RADIANCE_B_OUTPUT)
+         RW_TEXTURE2D(GBUFFER_BINDING_SKY_FOREGROUND_OUTPUT)
+-        RW_TEXTURE2DARRAY(GBUFFER_BINDING_SKY_GROUND_PATHS_OUTPUT)
++        TEXTURE3D(BINDING_SKY_FAR_SCATTER)
++        TEXTURE3D(BINDING_SKY_FAR_TRANSMITTANCE)
+         RW_TEXTURE2D(GBUFFER_BINDING_SHARED_INTEGRATION_SURFACE_PDF_OUTPUT)
+         RW_TEXTURE2D(GBUFFER_BINDING_SHARED_MATERIAL_DATA0_OUTPUT)
+         RW_TEXTURE2D(GBUFFER_BINDING_SHARED_MATERIAL_DATA1_OUTPUT)
+@@ -817,7 +818,6 @@ namespace dxvk {
+     ctx->bindResourceView(GBUFFER_BINDING_SHARED_RADIANCE_RG_OUTPUT, rtOutput.m_sharedRadianceRG.view, nullptr);
+     ctx->bindResourceView(GBUFFER_BINDING_SHARED_RADIANCE_B_OUTPUT, rtOutput.m_sharedRadianceB.view, nullptr);
+     ctx->bindResourceView(GBUFFER_BINDING_SKY_FOREGROUND_OUTPUT, rtOutput.m_skyForeground.view, nullptr);
+-    ctx->bindResourceView(GBUFFER_BINDING_SKY_GROUND_PATHS_OUTPUT, rtOutput.m_skyGroundPaths.view, nullptr);
+     ctx->bindResourceView(GBUFFER_BINDING_SHARED_INTEGRATION_SURFACE_PDF_OUTPUT, rtOutput.m_sharedIntegrationSurfacePdf.view(Resources::AccessType::Write), nullptr);
+     ctx->bindResourceView(GBUFFER_BINDING_SHARED_MATERIAL_DATA0_OUTPUT, rtOutput.m_sharedMaterialData0.view, nullptr);
+     ctx->bindResourceView(GBUFFER_BINDING_SHARED_MATERIAL_DATA1_OUTPUT, rtOutput.m_sharedMaterialData1.view, nullptr);
+diff --git a/src/dxvk/rtx_render/rtx_resources.cpp b/src/dxvk/rtx_render/rtx_resources.cpp
+index a9cbf9a24..3eeaacf50 100644
+--- a/src/dxvk/rtx_render/rtx_resources.cpp
++++ b/src/dxvk/rtx_render/rtx_resources.cpp
+@@ -740,7 +740,6 @@ namespace dxvk {
+       }
+     } else {
+       m_raytracingOutput.m_skyForeground.reset();
+-      m_raytracingOutput.m_skyGroundPaths.reset();
+     }
+ 
+     // Alloc / free images based on RtxOption
+diff --git a/src/dxvk/rtx_render/rtx_resources.h b/src/dxvk/rtx_render/rtx_resources.h
+index e1fbdb28a..3645c6cdf 100644
+--- a/src/dxvk/rtx_render/rtx_resources.h
++++ b/src/dxvk/rtx_render/rtx_resources.h
+@@ -291,7 +291,6 @@ namespace dxvk
+       Resource m_sharedRadianceB;
+       // Holds a packed SkyForeground per pixel, and exists only while the sky provider is selected.
+       Resource m_skyForeground;
+-      Resource m_skyGroundPaths;
+       AliasedResource m_sharedIntegrationSurfacePdf;
+       Resource m_sharedMaterialData0;
+       Resource m_sharedMaterialData1;
+diff --git a/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh b/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh
+index 96de6994c..661778ff2 100644
+--- a/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh
++++ b/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh
+@@ -87,8 +87,8 @@
+ #define RESOLVE_SKY_LIT_PARTICLES 1
+ #include "rtx/algorithm/resolve.slangh"
+ #include "rtx/algorithm/sky_provider.slangh"
+-#include "rtx/pass/numos/numos_ground.slangh"
+ #include "rtx/algorithm/volume_lighting.slangh"
++#include "rtx/pass/numos/numos_psr_sky.slangh"
+ #include "rtx/pass/post_fx/post_fx_motion_blur_geometry_flags.slangh"
+ #include "rtx/algorithm/nee_cache_light.slangh"
+ #include "rtx/utility/gpu_printing.slangh"
+@@ -224,13 +224,6 @@ void geometryResolverStoreSkyPsrSurface(uvec2 pixelCoordinate, float hitDistance
+   }
+ 
+   SkyForeground foreground = skyForegroundUnpack(SkyForegroundOutput[pixelCoordinate]);
+-  if ((numosNight.flags & kNumosGroundRecords) != 0u) {
+-    const uint2 slot = loadGBufferStoreCoordinate(pixelCoordinate);
+-    if (hasGBufferSlot(slot)) {
+-      SkyGroundPathsOutput[uint3(slot, 0)] = uint4(0);
+-      SkyGroundPathsOutput[uint3(slot, 1)] = uint4(0);
+-    }
+-  }
+   foreground.depthKm = -max(numosWorldToKm(hitDistance, skyArgs), 1e-5f);
+   SkyForegroundOutput[pixelCoordinate] = skyForegroundPack(foreground);
+ }
+@@ -3108,14 +3101,15 @@ void geometryPSRResolverVertex(
+   }
+   else
+   {
++    const bool enhancedSky = skyProviderActive() && !cb.domeLightArgs.active;
+     if (cb.domeLightArgs.active)
+     {
+       skyRadiance = cb.domeLightArgs.radiance * sampleDomeLightTexture(LinearWrapSampler, ray.direction, cb.domeLightArgs.textureIndex, cb.domeLightArgs.worldToLightTransform);
+     }
+-    else if (skyProviderActive())
++    else if (enhancedSky)
+     {
+       // A PSR path is specular from the camera on, so no light sample follows it and it carries the disks.
+-      skyRadiance = cb.skyRadianceUnscale * numosVisibleSky(ray.direction, skyArgs, cb.isZUp, true, numosNight);
++      skyRadiance = numosPsrSky(ray);
+     }
+ #ifdef ATMOSPHERE_AVAILABLE
+     else if (cb.skyMode == 1)
+@@ -3130,23 +3124,9 @@ void geometryPSRResolverVertex(
+       // Output radiance from sky probe
+       skyRadiance = cb.skyBrightness * SkyProbe.SampleLevel(ray.direction, 0);
+     }
+-    skyRadiance *= calcVolumetricAttenuation(cb.volumeArgs, none, true, 0.0f, ray.origin, ray.direction);
+-    float skyShare = 1.f;
+-    if (skyProviderActive() && (numosNight.flags & kNumosGroundRecords) != 0u && hasGBufferSlot(geometryPSRResolverState.compactedCoordinate)) {
+-      const float3 view = enhanced_worldToAtmosphereYUp(ray.direction, skyArgs.isZUp != 0u, skyArgs.flipUpAxis != 0u);
+-      const float3 origin = numosWorldToKmYUp(ray.origin - skyArgs.cameraPosition, skyArgs);
+-      const NumosGroundHit hit = numosSkyGround(origin, view, skyArgs);
+-      if (hit.coverage > 0.f) {
+-        const float3 volumeT = calcVolumetricAttenuation(cb.volumeArgs, none, false, numosKmToWorld(hit.km, skyArgs), ray.origin, ray.direction);
+-        const float3 weight = geometryPSRResolverState.attenuation * radianceAttenuation * volumeT * hit.coverage;
+-        const uint path = geometryPSRResolverState.primarySurface ? 0u : 1u;
+-        SkyGroundPathsOutput[uint3(geometryPSRResolverState.compactedCoordinate, path)] = uint4(
+-          packFloat2x16(origin.xy), packFloat2x16(float2(origin.z, hit.km)),
+-          pack32(u16vec2(round(sphereDirectionToUnsignedOctahedral(ray.direction) * 65535.f))), packAttenuation(weight));
+-        skyShare -= hit.coverage;
+-      }
+-    }
+-    emissiveRadiance += skyRadiance * (radianceAttenuation * skyShare);
++    if (!enhancedSky)
++      skyRadiance *= calcVolumetricAttenuation(cb.volumeArgs, none, true, 0.0f, ray.origin, ray.direction);
++    emissiveRadiance += skyRadiance * radianceAttenuation;
+   }
+ 
+   // Note: Emissive radiance handled first so objects with opacity do not attenuate themselves.
+diff --git a/src/dxvk/shaders/rtx/pass/common_binding_indices.h b/src/dxvk/shaders/rtx/pass/common_binding_indices.h
+index ef7b16d4d..dcde1ca8d 100644
+--- a/src/dxvk/shaders/rtx/pass/common_binding_indices.h
++++ b/src/dxvk/shaders/rtx/pass/common_binding_indices.h
+@@ -172,6 +172,8 @@
+ #define BINDING_SKY_MOON                         413
+ #define BINDING_SKY_NIGHT_CONTROLS               414
+ #define BINDING_SKY_LOWER_AIR                    415
++#define BINDING_SKY_FAR_SCATTER                  416
++#define BINDING_SKY_FAR_TRANSMITTANCE            417
+ 
+ // Note: Used to represent a non-existent buffer
+ #define BINDING_INDEX_INVALID uint16_t(0xFFFF)
+diff --git a/src/dxvk/shaders/rtx/pass/composite/composite.comp.slang b/src/dxvk/shaders/rtx/pass/composite/composite.comp.slang
+index cc96b0e5c..9b05e1d07 100644
+--- a/src/dxvk/shaders/rtx/pass/composite/composite.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/composite/composite.comp.slang
+@@ -991,8 +991,6 @@ vec4 compositeResult(
+     }
+     else if (foreground.hasPsrSurface() && pixelIsActive)
+     {
+-      if ((numosNight.flags & kNumosGroundRecords) != 0u)
+-        numosReflectedGround(compactedCoordinate, skyInput);
+       // The flags and attenuation of the paths are compacted, so only active pixels can separate them.
+       if (primaryLinearViewZ != cb.primaryDirectMissLinearViewZ)
+       {
+diff --git a/src/dxvk/shaders/rtx/pass/composite/composite_binding_indices.h b/src/dxvk/shaders/rtx/pass/composite/composite_binding_indices.h
+index 08f21b136..62611eced 100644
+--- a/src/dxvk/shaders/rtx/pass/composite/composite_binding_indices.h
++++ b/src/dxvk/shaders/rtx/pass/composite/composite_binding_indices.h
+@@ -110,8 +110,6 @@
+ #define COMPOSITE_SKY_NIGHT_NEBULA                                 100
+ #define COMPOSITE_SKY_NIGHT_CONSTELLATIONS                         101
+ #define COMPOSITE_SKY_NIGHT_SAMPLER                                102
+-#define COMPOSITE_SKY_GROUND_PATHS                                 103
+-#define COMPOSITE_SKY_FROXEL_LIGHTING                              104
+ #define COMPOSITE_SKY_LOWER_AIR                                    105
+ #define COMPOSITE_SKY_ANTIPODE_CLOUD                               106
+ #define COMPOSITE_SKY_ANTIPODE_DEPTH                               107
+diff --git a/src/dxvk/shaders/rtx/pass/composite/composite_bindings.slangh b/src/dxvk/shaders/rtx/pass/composite/composite_bindings.slangh
+index 3d7aa7a02..20e3c0027 100644
+--- a/src/dxvk/shaders/rtx/pass/composite/composite_bindings.slangh
++++ b/src/dxvk/shaders/rtx/pass/composite/composite_bindings.slangh
+@@ -137,8 +137,6 @@ Texture2D<uint2> SkyForegroundInput;
+ layout(binding = COMPOSITE_SKY_LOWER_AIR) Texture2D<float4> NumosLowerAir;
+ layout(binding = COMPOSITE_SKY_ANTIPODE_CLOUD) Texture2D<float4> SkyAntipodeCloud;
+ layout(binding = COMPOSITE_SKY_ANTIPODE_DEPTH) Texture2D<float2> SkyAntipodeDepth;
+-layout(binding = COMPOSITE_SKY_GROUND_PATHS) Texture2DArray<uint4> SkyGroundPaths;
+-layout(binding = COMPOSITE_SKY_FROXEL_LIGHTING) Texture3D<float4> SkyHazeFroxelLighting;
+ 
+ layout(binding = COMPOSITE_SKY_SECONDARY_HIT_DISTANCE_INPUT)
+ Texture2D<float> SecondaryHitDistance;
+diff --git a/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh b/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh
+index ed9c7a31e..74a07d914 100644
+--- a/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh
++++ b/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh
+@@ -37,7 +37,6 @@ struct SkyCompositeInput
+ {
+   // The scene without the parts below and without volumetric in-scatter.
+   vec3 radiance;
+-  vec3 reflectedGroundLayer;
+   // The PSR paths, which are each hazed at their own virtual distance.
+   vec3 primaryPathRadiance;
+   vec3 secondaryPathRadiance;
+@@ -171,41 +170,6 @@ void applySkyHaze(
+     pixelCoordinate, primaryMiss, distanceWorld, noVolumeAttenuation, throughput, cloudOverPixel, radiance);
+ }
+ 
+-// Reflection and transmission can leave the scene on different rays. Read the
+-// current post-depth air along each final segment, then haze the common camera leg.
+-void numosReflectedGround(uint2 slot, inout SkyCompositeInput input) {
+-  [unroll] for (uint path = 0; path < 2; ++path) {
+-    const uint4 record = SkyGroundPaths.Load(int4(slot, path, 0));
+-    if (record.w == 0u) continue;
+-    const float3 weight = unpackAttenuation(record.w) / cb.skyRadianceScale;
+-    const float2 first = unpackFloat2x16(record.x);
+-    const float2 second = unpackFloat2x16(record.y);
+-    const float3 originKm = float3(first, second.x);
+-    const float3 dir = unsignedOctahedralToSphereDirection(float2(unpack16(record.z)) / 65535.f);
+-    const float3 view = enhanced_worldToAtmosphereYUp(dir, skyArgs.isZUp != 0u, skyArgs.flipUpAxis != 0u);
+-    NumosGroundHit hit = numosSkyGround(originKm, view, skyArgs);
+-    hit.km = second.y;
+-    hit.ground = originKm + view * hit.km;
+-    float3 origin = skyArgs.cameraPosition + numosKmYUpToWorld(originKm, skyArgs);
+-    const float distance = numosKmToWorld(hit.km, skyArgs);
+-    const float nearLength = min(skyArgs.apFroxelRange, distance);
+-    float3 nearT, farT;
+-    const float3 nearS = numosAirSegment(cb.camera, skyArgs, origin, dir, nearLength, 8u, .5f,
+-      SkyHazeFroxelLighting, SkyHazeFroxelAux, SkyHazeSampler, enhanced_AtmosphereTransmittanceLut,
+-      enhanced_AtmosphereMultiscatteringLut, enhanced_AtmosphereCloudShadowMap, enhanced_AtmosphereCloudNoise3DSampler, nearT);
+-    const float3 farS = numosAirSegment(cb.camera, skyArgs, origin + dir * nearLength, dir, distance - nearLength, 16u, .5f,
+-      SkyHazeFroxelLighting, SkyHazeFroxelAux, SkyHazeSampler, enhanced_AtmosphereTransmittanceLut,
+-      enhanced_AtmosphereMultiscatteringLut, enhanced_AtmosphereCloudShadowMap, enhanced_AtmosphereCloudNoise3DSampler, farT);
+-    float4 cloud = float4(0.xxx, 1.f);
+-    if (skyArgs.cloudSecondaryLutEnable != 0u)
+-      cloud = enhanced_sampleCloudDomeLutSmooth(enhanced_AtmosphereCloudSecondaryLut, enhanced_AtmosphereSkyViewSampler,
+-                                               enhanced_cloudDomeDirToUv(view), 0.f);
+-    const float3 layer = weight * (cloud.rgb + cloud.a * (nearS + nearT * farS));
+-    input.reflectedGroundLayer += layer;
+-    input.radiance += layer + weight * cloud.a * nearT * farT * numosBareGround(originKm, view, hit, skyArgs);
+-  }
+-}
+-
+ // Composites the clouds and haze over a hit pixel, whose inputs and outputs are in NUMOS's scale.
+ SkyCompositeResult compositeSkyOverSurfaceInternal(uvec2 pixelCoordinate, SkyCompositeInput input)
+ {
+@@ -307,7 +271,7 @@ SkyCompositeResult compositeSkyOverSurface(uvec2 pixelCoordinate, SkyCompositeIn
+ SkyCompositeResult compositeSkyLayerOverSurface(uvec2 pixelCoordinate, SkyCompositeInput input)
+ {
+   SkyCompositeInput layerInput = input;
+-  layerInput.radiance = input.reflectedGroundLayer;
++  layerInput.radiance = vec3(0.0f);
+   layerInput.primaryPathRadiance = vec3(0.0f);
+   layerInput.secondaryPathRadiance = vec3(0.0f);
+   layerInput.foregroundRadiance = vec3(0.0f);
+@@ -390,7 +354,7 @@ float3 numosCompositeSkyPixel(uint2 pixel, float3 direction, float3 dome, bool l
+   coverage = upperCloud;
+   if (hit.coverage == 0.f) return upper;
+ 
+-  const float3 ground = layerOnly ? 0.xxx : numosBareGround(0.xxx, view, hit, skyArgs);
++  const float3 ground = layerOnly ? 0.xxx : numosBareGround(0.xxx, hit, skyArgs);
+   float lowerCloud;
+   const float3 lower = compositeOverSkyInternal(pixel, ground, false, numosKmToWorld(hit.km, skyArgs), lowerCloud);
+   coverage = lerp(upperCloud, lowerCloud, hit.coverage);
+diff --git a/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_binding_indices.h b/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_binding_indices.h
+index 726b6b557..3770662c5 100644
+--- a/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_binding_indices.h
++++ b/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_binding_indices.h
+@@ -147,7 +147,6 @@
+ 
+ #define GBUFFER_BINDING_WATER_SIM_HEIGHT                                        157
+ #define GBUFFER_BINDING_SKY_FOREGROUND_OUTPUT                                   158
+-#define GBUFFER_BINDING_SKY_GROUND_PATHS_OUTPUT                                 159
+ 
+ #define GBUFFER_MIN_BINDING                         GBUFFER_BINDING_LINEAR_WRAP_SAMPLER
+ 
+diff --git a/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_bindings.slangh b/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_bindings.slangh
+index 0ee1ffe85..7facd8e9a 100644
+--- a/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_bindings.slangh
++++ b/src/dxvk/shaders/rtx/pass/gbuffer/gbuffer_bindings.slangh
+@@ -89,8 +89,10 @@ RWTexture2D<float> SharedRadianceB;
+ // Holds a packed SkyForeground for every pixel, and exists only while the sky provider is selected.
+ layout(rg32ui, binding = GBUFFER_BINDING_SKY_FOREGROUND_OUTPUT)
+ RWTexture2D<uint2> SkyForegroundOutput;
+-layout(rgba32ui, binding = GBUFFER_BINDING_SKY_GROUND_PATHS_OUTPUT)
+-RWTexture2DArray<uint4> SkyGroundPathsOutput;
++layout(binding = BINDING_SKY_FAR_SCATTER)
++Texture3D<float4> NumosFarScatter;
++layout(binding = BINDING_SKY_FAR_TRANSMITTANCE)
++Texture3D<float4> NumosFarTransmittance;
+ 
+ layout(r16f, binding = GBUFFER_BINDING_SHARED_INTEGRATION_SURFACE_PDF_OUTPUT)
+ RWTexture2D<float> SharedIntegrationSurfacePdf;
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_ground.slangh b/src/dxvk/shaders/rtx/pass/numos/numos_ground.slangh
+index acfa787a6..89cb15c81 100644
+--- a/src/dxvk/shaders/rtx/pass/numos/numos_ground.slangh
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_ground.slangh
+@@ -7,6 +7,7 @@
+ struct NumosGroundHit {
+   float coverage;
+   float km;
++  float originHeightKm;
+   float3 ground;
+   float3 skyDir;
+ };
+@@ -20,6 +21,7 @@ NumosGroundHit numosGroundHit(float3 origin, float3 dir, float altitude, float r
+   const float mu = dot(up, dir);
+   const float width = max(1e-6f, pixelAngle * sqrt(saturate(1.f - limb * limb)));
+   NumosGroundHit hit;
++  hit.originHeightKm = h;
+   hit.coverage = saturate(.5f + (limb - mu) / width);
+   hit.skyDir = dir;
+   float3 groundDir = dir;
+@@ -40,20 +42,40 @@ NumosGroundHit numosSkyGround(float3 origin, float3 dir, enhanced_AtmosphereArgs
+   return numosGroundHit(origin, dir, max(args.cameraAltitudeKm, 0.f), args.planetRadius, args.skyPixelAngle);
+ }
+ 
++// This is the position lookup used for real geometry. The source may be the
++// Sun or the key moon. Cloud density and shadow strength are applied once.
++float numosGroundKeyTransmission(float3 ground, enhanced_AtmosphereArgs args) {
++  const float3 cloudPosition = args.cameraWorldPosYUpKm + ground;
++  const float opticalDepth = enhanced_cloudShadowMapSunOpticalDepth(enhanced_AtmosphereCloudShadowMap,
++    enhanced_AtmosphereCloudNoise3DSampler, cloudPosition, enhanced_getCloudPlanetCenterWorldKm(args), args);
++  return lerp(1.f, exp(-opticalDepth * args.cloudDensity), args.cloudShadowStrength);
++}
++
+ // Pinned evalSkyGroundRadiance's Lambertian surface, before view extinction.
+ // Ground shadow coordinates use the cloud datum, which can differ from the sky's.
+-float3 numosBareGround(float3 origin, float3 dir, NumosGroundHit hit, enhanced_AtmosphereArgs args) {
++float3 numosBareGround(float3 origin, NumosGroundHit hit, enhanced_AtmosphereArgs args) {
+   const float3 groundPos = hit.ground;
+-  const float3 groundUp = normalize(groundPos + float3(0.f, args.planetRadius + max(args.cameraAltitudeKm, 0.f), 0.f));
++  const float3 planetCenter = float3(0.f, -(args.planetRadius + max(args.cameraAltitudeKm, 0.f)), 0.f);
++  const float3 groundUp = normalize(groundPos - planetCenter);
+   float keyLightCloudT = 1.f;
+   if (args.cloudEnabled > .5f && args.cloudCoverageMean >= .01f && args.cloudShadowLive != 0u) {
+-    const NumosGroundHit cloudHit = numosGroundHit(origin, dir, max(args.cameraWorldPosYUpKm.y, 0.f),
+-                                                  args.planetRadius, args.skyPixelAngle);
+-    if (cloudHit.coverage > 0.f) {
+-      const float opticalDepth = enhanced_cloudShadowMapSunOpticalDepth(enhanced_AtmosphereCloudShadowMap,
+-        enhanced_AtmosphereCloudNoise3DSampler, args.cameraWorldPosYUpKm + cloudHit.ground,
+-        enhanced_getCloudPlanetCenterWorldKm(args), args);
+-      keyLightCloudT = lerp(1.f, exp(-opticalDepth * args.cloudDensity), args.cloudShadowStrength);
++    keyLightCloudT = numosGroundKeyTransmission(groundPos, args);
++    // From a low eye, sunlit gaps on the distant ground collapse into a bright
++    // stripe. Where a traced pixel spans several shadow texels, retain the
++    // shadow of the foreground datum. Resolved shadows and a sunlit foreground
++    // keep their full contrast. Only direct illumination needs this filter.
++    const float texelKm = 2.f * args.cloudShadowHalfU[0].x / float(enhanced_kCloudShadowMapSize);
++    if (texelKm > 0.f && hit.originHeightKm < 2.f * texelKm && hit.km > 0.f) {
++      const float3 ray = (groundPos - origin) / hit.km;
++      const float footprintKm = hit.km * args.skyPixelAngle / max(-dot(ray, groundUp), 1e-6f);
++      const float weight = (1.f - smoothstep(texelKm, 2.f * texelKm, hit.originHeightKm))
++                         * smoothstep(.5f * texelKm, 1.5f * texelKm, footprintKm);
++      if (weight > 0.f) {
++        const float3 eyeUp = normalize(origin - planetCenter);
++        const float3 foreground = origin - eyeUp * hit.originHeightKm;
++        const float foregroundT = numosGroundKeyTransmission(foreground, args);
++        keyLightCloudT = lerp(keyLightCloudT, min(keyLightCloudT, foregroundT), weight);
++      }
+     }
+   }
+ 
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_night.h b/src/dxvk/shaders/rtx/pass/numos/numos_night.h
+index 1dd3a874f..2d8f357aa 100644
+--- a/src/dxvk/shaders/rtx/pass/numos/numos_night.h
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_night.h
+@@ -9,7 +9,6 @@ static const uint kNumosNightGalaxy = 4u;
+ static const uint kNumosNightNebula = 8u;
+ static const uint kNumosNightImage = 16u;
+ static const uint kNumosFiniteGround = 32u;
+-static const uint kNumosGroundRecords = 64u;
+ static const uint kNumosNoHorizon = 128u;
+ 
+ // Solid-angle means in fractions of the reference sun's illuminance per steradian:
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_psr_sky.slangh b/src/dxvk/shaders/rtx/pass/numos/numos_psr_sky.slangh
+new file mode 100644
+index 000000000..f67c42e97
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_psr_sky.slangh
+@@ -0,0 +1,42 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include "rtx/pass/numos/numos_ground.slangh"
++
++// Shade the last reflected or transmitted segment while its actual ray is still
++// available. Both split paths then carry this radiance through their ordinary
++// PSR attenuation. The composite handles the shared camera-to-surface leg.
++float3 numosPsrSky(Ray ray) {
++  NumosGroundHit hit = {};
++  const float3 view = enhanced_worldToAtmosphereYUp(ray.direction, skyArgs.isZUp != 0u, skyArgs.flipUpAxis != 0u);
++  const float3 offset = ray.origin - skyArgs.cameraPosition;
++  const float3 originKm = numosWorldToKmYUp(offset, skyArgs);
++  if ((numosNight.flags & kNumosFiniteGround) != 0u)
++    hit = numosSkyGround(originKm, view, skyArgs);
++
++  float3 sky = 0.xxx;
++  if (hit.coverage < 1.f) {
++    const float3 skyDir = hit.coverage > 0.f ? normalize(numosKmYUpToWorld(hit.skyDir, skyArgs)) : ray.direction;
++    sky = cb.skyRadianceUnscale * numosVisibleSky(skyDir, skyArgs, cb.isZUp, true, numosNight);
++    sky *= calcVolumetricAttenuation(cb.volumeArgs, none, true, 0.f, ray.origin, skyDir);
++  }
++  if (hit.coverage == 0.f) return sky;
++
++  const float distance = numosKmToWorld(hit.km, skyArgs);
++  enhanced_AtmosphereArgs air = skyArgs;
++  // The atmospheric LUT is baked about the eye. The analytic height fog can
++  // start at the mirror's own altitude, in the independently scaled air frame.
++  air.apCameraAltitudeKm += numosWorldToAirKmYUp(offset, skyArgs).y;
++  float3 airT;
++  const float3 scatter = numosAerialPerspectiveAlongRay(air, ray.direction, distance, NumosFarScatter,
++    NumosFarTransmittance, enhanced_AtmosphereSkyViewSampler, airT);
++  float3 ground = scatter + airT * numosBareGround(originKm, hit, skyArgs);
++  if (skyArgs.cloudSecondaryLutEnable != 0u) {
++    const float4 cloud = enhanced_sampleCloudDomeLutSmooth(enhanced_AtmosphereCloudSecondaryLut,
++      enhanced_AtmosphereSkyViewSampler, enhanced_cloudDomeDirToUv(view), 0.f);
++    ground = cloud.rgb + cloud.a * ground;
++  }
++  ground *= cb.skyRadianceUnscale;
++  ground *= calcVolumetricAttenuation(cb.volumeArgs, none, false, distance, ray.origin, ray.direction);
++  return lerp(sky, ground, hit.coverage);
++}
+-- 
+2.56.0.windows.1
+

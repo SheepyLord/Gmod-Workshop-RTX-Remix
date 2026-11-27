@@ -833,7 +833,7 @@ end
 -- add-on is in charge it goes out only when on or changed, so with the setting at its default the
 -- companion still sends that map nothing.
 local function pushHorizon(changing)
-    if enhanced.active or not ready() then return end
+    if not ready() then return end
     if changing or noHorizon() or inCharge() then
         set("rtx.atmosphere.noHorizon", noHorizon() and "True" or "False")
     end
@@ -1495,7 +1495,7 @@ local function buildPanel(panel)
     local mistHelp = panel:ControlHelp(L(mist.help))
     mistRows = {mistSlider:GetParent(), mistHelp:GetParent()}
     panel:Help(L("Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."))
-    standardOnly[1] = panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
+    panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
     panel:ControlHelp(L("For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."))
     panel:CheckBox(L("Follow the map's sun"), "nativeloader_sky_follow_map")
     panel:ControlHelp(L("Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."))
@@ -1535,7 +1535,7 @@ local function buildPanel(panel)
     combo(panel, N("Eclipse"), "nativeloader_sky_eclipse", ECLIPSES)
     panel:NumSlider(L("Eclipse progress"), "nativeloader_sky_eclipse_amount", 0, 100, 0)
     panel:ControlHelp(L("At 0 the eclipse begins. Lunar totality starts at 70. At 90 a solar eclipse is total or leaves a ring if the Moon looks smaller than the Sun. At 100 the discs are centred. Choosing an eclipse sets the phase and moves the clock if needed."))
-    standardOnly[2] = combo(panel, N("Night sky"), "nativeloader_sky_stars", STARS)
+    standardOnly[1] = combo(panel, N("Night sky"), "nativeloader_sky_stars", STARS)
     panel:ControlHelp(L("This choice sets the stars in Standard. For Enhanced, use Stars in the Night sky editor."))
     panel:ControlHelp(L("The Night sky editor, next to this page, sets how each part of the night sky looks."))
     local box = panel:ComboBox(L("Weather"), "nativeloader_weather")

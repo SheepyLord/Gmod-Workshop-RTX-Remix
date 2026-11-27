@@ -494,9 +494,8 @@ if SCRIPT == "horizon" then
   print("horizon_off " .. (#calls - before) .. " " .. tostring(value("rtx.atmosphere.noHorizon")))
   cmd("nativeloader_sky_no_horizon", "1")
   cmd("nativeloader_sky_reset")
-  -- The reset gives the defaults: the Enhanced sky (the user, 2026-11-26), which has no horizon setting of its own;
-  -- Standard, chosen again, is sent the reset horizon.
-  report("horizon_reset_mode", "rtx.skyMode")
+  -- Reset restores the physical horizon in Enhanced and a subsequent switch to Standard.
+  report("horizon_reset_mode", "rtx.skyMode", "rtx.atmosphere.noHorizon")
   cmd("nativeloader_sky_enhanced", "0")
   report("horizon_reset", "rtx.atmosphere.noHorizon")
   return
@@ -605,8 +604,9 @@ if SCRIPT == "moonday" then
   report("moonday_reset", "rtx.atmosphere.daytimeMoonBrightness")
   return
 end
-if SCRIPT == "panel" then
+if SCRIPT == "panel" or SCRIPT == "horizon_panel" then
   -- ADR 0227: both pages of the tab built against a panel that records each control (DForm's methods).
+  local skyWidgets, byConvar = {}, {}
   local function recorder(tag)
     return setmetatable({}, { __index = function(_, kind)
       return function(_, ...)
@@ -614,18 +614,43 @@ if SCRIPT == "panel" then
         for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
         print("panel " .. table.concat(parts, "|"))
         -- A combo box's choices (ADR 0249's This map and Other maps) are recorded too.
-        return setmetatable({}, { __index = function(_, method)
+        local widget = setmetatable({ enabled = true }, { __index = function(_, method)
           if method == "AddChoice" then
             return function(_, label, data) print("panel " .. tag .. "|choice|" .. tostring(label) .. "|" .. tostring(data)) end
+          elseif method == "SetEnabled" then
+            return function(self, enabled) self.enabled = enabled end
           end
           return function() end
         end })
+        if SCRIPT == "horizon_panel" and tag == "sky" then
+          skyWidgets[#skyWidgets + 1] = widget
+          if parts[4] and (kind == "CheckBox" or kind == "ComboBox") then byConvar[parts[4]] = widget end
+        end
+        return widget
       end
     end })
   end
   vgui = { Create = function() return setmetatable({ GetChildren = function() return {} end },
     { __index = function() return function() end end }) end }
   NATIVELOADER_SKY.buildPanel(recorder("sky"))
+  if SCRIPT == "horizon_panel" then
+    local function check(key, toggle)
+      for i = 1, #skyWidgets do
+        local widget = skyWidgets[i]
+        if rawget(widget, "Think") then widget:Think() end
+      end
+      cmd("nativeloader_sky_no_horizon", toggle)
+      print(key .. " " .. tostring(byConvar.nativeloader_sky_no_horizon.enabled)
+        .. " " .. tostring(byConvar.nativeloader_sky_stars.enabled)
+        .. " " .. tostring(value("rtx.skyMode")) .. " " .. tostring(value("rtx.atmosphere.noHorizon")))
+    end
+    check("enhanced_on", "1")
+    cmd("nativeloader_sky_enhanced", "0") tick(1)
+    check("standard_off", "0")
+    cmd("nativeloader_sky_enhanced", "1") tick(1)
+    check("enhanced_again", "1")
+    return
+  end
   NATIVELOADER_SKY.buildNightPanel(recorder("night"))
   return
 end
@@ -957,7 +982,7 @@ assert(#calls == writes)
 POSTER_STATE = "done" tick(1)
 assert(math.abs(tonumber(numos("timeOfDayHours")) - 18.61) < 0.001)
 cmd("nativeloader_sky_no_horizon", "1") cmd("nativeloader_sky_stars", "procedural")
-assert(value("rtx.atmosphere.noHorizon") == nil and value("rtx.atmosphere.starMapEnable") == "False")
+assert(value("rtx.atmosphere.noHorizon") == "True" and value("rtx.atmosphere.starMapEnable") == "False")
 assert(numos("nightSkyImage") == "True")
 ''', POSTER_SIM=True)
 
@@ -1205,6 +1230,13 @@ RemixConfig.SetConfigVariable = writer
 tick(1) tick(1)
 assert(convars.nativeloader_sky_volumetrics_saved.value == "" and volumeWrites() == 1 and value(volume) == "True")
 ''')
+
+    def test_no_horizon_checkbox_works_in_enhanced_and_standard(self):
+        out = self.run_lua(SESSION, MAP='gm_construct', BSP=self.sky_map(), SKY_DEFAULT=True, SCRIPT='horizon_panel')
+        self.assertEqual(self.settings(out['start'])['rtx.atmosphere.noHorizon'], 'False')
+        self.assertEqual(out['enhanced_on'], 'true false 2 True')
+        self.assertEqual(out['standard_off'], 'true true 1 False')
+        self.assertEqual(out['enhanced_again'], 'true false 2 True')
 
     def test_enhanced_panel_offers_saved_choices_and_explains_vr(self):
         lines = self.run_lines('NativeLoaderVR={state="running"}\nPRESET={nativeloader_sky_enhanced="1"}\n' + SESSION,
@@ -2217,12 +2249,15 @@ print("resolve " .. r({ choice = "auto", single = true }) .. " " .. r({ choice =
         self.assertEqual(out['horizon_off'].split(), ['1', 'False'])
         # The reset lands on the default sky, Enhanced; Standard, chosen again, has the horizon back.
         self.assertEqual(self.settings(out['horizon_reset_mode'])['rtx.skyMode'], '2')
+        self.assertEqual(self.settings(out['horizon_reset_mode'])['rtx.atmosphere.noHorizon'], 'False')
         self.assertEqual(self.settings(out['horizon_reset'])['rtx.atmosphere.noHorizon'], 'False')
-        # Saved ticked (client.vdf), it is on from the map's start.
-        out = self.run_lua('PRESET = { nativeloader_sky_no_horizon = "1" }\n' + SESSION, MAP='gm_construct',
-                           BSP=bsp(CONSTRUCT), SCRIPT='skybox')
-        start = self.settings(out['start'])
-        self.assertEqual((start['rtx.skyMode'], start['rtx.atmosphere.noHorizon']), ('1', 'True'))
+        # A saved check takes effect at map start with either physical sky.
+        for enhanced, mode in (('0', '1'), ('1', '2')):
+            with self.subTest(mode=mode):
+                preset = f'PRESET = {{ nativeloader_sky_enhanced = "{enhanced}", nativeloader_sky_no_horizon = "1" }}\n'
+                out = self.run_lua(preset + SESSION, MAP='gm_construct', BSP=bsp(CONSTRUCT), SCRIPT='skybox')
+                start = self.settings(out['start'])
+                self.assertEqual((start['rtx.skyMode'], start['rtx.atmosphere.noHorizon']), (mode, 'True'))
 
     def test_no_horizon_reaches_a_maps_own_sky_without_taking_it_over(self):
         # The horizon is how the player sees whichever physical sky is shown: on a map whose add-on

@@ -7,6 +7,11 @@ Sun or the Moon with DLSS (runtime patch 0115), less mist in the default weather
 approved it ("Yes, as recommended"): the night sky image with the Night sky editor by default, real stars one choice
 away, shooting stars, the Moon's glow and a solar eclipse that darkens the sky (runtime patches 0116, 0117;
 [ADR 0271](decisions/0271-our-night-sky-on-the-enhanced-sky.md), [the night](handover/sky-enhanced-night-report.md)).
+**The Enhanced sky below the horizon** (the user's report of 2026-11-27, "the horizon looks a bit off") is done: the
+library's lit ground under the haze instead of a wall of fog past a map's edge, and No horizon in Enhanced, with the
+clouds of the opposite side, the night and the moons below (runtime patches 0118-0120;
+[ADR 0272](decisions/0272-the-enhanced-sky-below-the-horizon.md),
+[the horizon](handover/sky-enhanced-horizon-report.md)).
 
 The Enhanced sky (the user's request of 2026-11-25: an improved sky, cloud and sun-ray system to switch to, today's
 sky kept as the default) was **merged and published on 2026-11-26** (`main` `5ebe20c7`, the Workshop item as
@@ -31,7 +36,8 @@ package need.
 | Enhanced sky, rounds 1 and 2 | Merged on 2026-11-26 (the user), the default sky. Known problems for a later round: [round 2 report](handover/sky-enhanced-round2-report.md) |
 | Enhanced sky, round 3: no black circle round the Sun, less mist, a Mist setting with Off | Done 2026-11-26 (the user's report after the merge; runtime patch 0115, ADR 0270). [Round 3 report](handover/sky-enhanced-round3-report.md) |
 | Our night sky on the Enhanced sky: the Night sky editor's layers, shooting stars, the Moon's glow, the eclipse's corona | Done 2026-11-27 as the user approved the design ("Yes, as recommended"; runtime patches 0116, 0117, ADR 0271). [The night](handover/sky-enhanced-night-report.md), [design](handover/sky-enhanced-night-plan.md) |
-| Sun dogs and the other ice halos, and the sky without a horizon, in the Enhanced sky | Open. The halos: a separate study later (the user's answer to the night design, 2026-11-26); the sky without a horizon: not yet planned |
+| The Enhanced sky below the horizon: the ground under the haze, and No horizon in Enhanced | Done 2026-11-27 (the user's report; runtime patches 0118-0120, ADR 0272). [The horizon](handover/sky-enhanced-horizon-report.md), [plan](handover/sky-enhanced-horizon-plan.md) |
+| Sun dogs and the other ice halos in the Enhanced sky | Open: a separate study later (the user's answer to the night design, 2026-11-26) |
 
 VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing with one-hand
 turning, a freeze key, frame generation in the headset, the desktop's resolution) was **approved by the user on

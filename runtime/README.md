@@ -1,5 +1,26 @@
 # runtime/
 
+## Enhanced floor horizon and reflected ground (0120)
+
+The virtual ground now samples cloud shadows at the actual hit and filters distant shadow gaps
+when seen edge-on from the floor. PSR shades a reflected ground miss with the existing far air
+and height fog. The two-layer ground array from 0118 has been removed. The Release install is
+staged in the runtime worktree for review. [HR2 measurements and build](../docs/handover/sky-enhanced-HR-report.md#hr2)
+
+## Enhanced No horizon (0119)
+
+The shared No Horizon option gives Enhanced a lower sky with mirrored air, full-resolution
+clouds from the opposite direction, and its existing night sources. The extra renderer and
+lower sky-view table live only while the option is active. The Release install in the fork
+worktree’s `_output/` is ready for review.
+[Build, measurements and reviewer views](../docs/handover/sky-enhanced-HR-report.md#no-horizon-in-enhanced-0119)
+
+## Ground below the Enhanced horizon (0118)
+
+With haze active, camera and specular misses into the NUMOS planet now end on lit ground. The
+composite integrates the air up to the ground and blends the limb across one traced pixel.
+[Ground checks and reviewer views](../docs/handover/sky-enhanced-HR-report.md)
+
 ## Enhanced night after the first PoC test (0117)
 
 The night image and meteors add six stops to the measured Gaia conversion. Real stars retain their

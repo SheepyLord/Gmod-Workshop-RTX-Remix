@@ -1,5 +1,11 @@
 # Handovers
 
+The Enhanced sky below the horizon (2026-11-27), the user's report "the horizon looks a bit off":
+[sky-enhanced-horizon-report.md](sky-enhanced-horizon-report.md) (the library's lit ground under the haze instead of a
+wall of fog past a map's edge; No horizon in Enhanced with the clouds of the opposite side; runtime patches 0118-0120),
+plan and briefs [sky-enhanced-horizon-plan.md](sky-enhanced-horizon-plan.md), task report
+[runtime and companion](sky-enhanced-HR-report.md) (with HR2).
+
 Our night sky on the Enhanced sky (2026-11-27), as the user approved the design:
 [sky-enhanced-night-report.md](sky-enhanced-night-report.md) (the night sky image and its editor in Enhanced, real
 stars one choice away, shooting stars, the Moon's glow, a solar eclipse that darkens the sky; runtime patches 0116 and

@@ -212,21 +212,22 @@ every player's, so only in a single-player game; elsewhere such a file is skippe
 
 ### The horizon
 
-`rtx.atmosphere.noHorizon`: `True` with No horizon ticked (`nativeloader_sky_no_horizon 1`), else
-`False`. The runtime's option (patch 0041,
-[ADR 0139](../../../../docs/decisions/0139-the-sky-without-a-horizon.md)) is for maps that float in
-the sky or in space, where the camera sees below the horizon. Off, a direction below it shows the
-ground-level air of a planet the map does not have: an even haze under a sharp horizon line, without
-clouds or stars, and a moon there is a black disc. On, the sky goes on below the horizon:
+The Sky and weather checkbox writes `rtx.atmosphere.noHorizon` in both Enhanced and Standard.
+It sends `True` with `nativeloader_sky_no_horizon 1` and `False` when cleared. With it off,
+Enhanced shows the lit planetary ground through the air between it and the camera. With it on,
+the sky continues below eye level wherever a map leaves the void visible. Standard gained this
+option in patch 0041 and Enhanced in 0119. [Standard design](../../../../docs/decisions/0139-the-sky-without-a-horizon.md)
+and [Enhanced runtime checks](../../../../docs/handover/sky-enhanced-HR-report.md)
 
-- its colours are the mirror image of the sky above, so the haze band at eye level is the sky's own;
+- its colours are the mirror image of the sky above, so the haze band at eye level is the sky's own.
 - its clouds and high clouds are those of the opposite side above (the antipode's), so they are no
-  reflection of the clouds above it;
-- everything is lit for the true angle to the sun, so the sun's glow, silver linings and halos stay
-  around the sun, and no mirror sun appears below;
+  reflection of the clouds above it.
+- the air uses the actual angle to the sun and each moon, so their glows stay with them. Standard
+  also uses the true solar angle for its silver linings and halos.
 - the stars, the galaxy and the moon show where they are, in every direction.
 
-The sun still sets: below the horizon it is night. Reflections and indirect light see the same sky.
+The sun still sets at the normal time. Reflections and indirect light see the lower sky with the
+cloud dome in Enhanced.
 
 It is how the player sees whichever physical sky is shown, not whose sky it is, so it is not part of
 the sky a map's add-on can own:

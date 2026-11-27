@@ -4466,3 +4466,14 @@ The Release build and all 81 runtime tests passed. A compute-only comparison of 
 measured the diagonal residual with a still camera and an 8°/s turn. A strength-2 horizon fixture confirmed
 zero ray subtraction on the virtual-ground strip. The base composite SPIR-V matched 0108 byte for byte.
 [Measurements, build hash and PoC checks](handover/sky-enhanced-R2-report.md#r3)
+
+### Enhanced horizon
+
+The headless checks for 0118 and 0119 compare the planetary limb against double precision, the
+host atmosphere against the pinned Vulkan bake, and the opposite camera, cloud depth and night
+sources against their reference cases. Whole-frame timing and the view over gm_flatgrass's edge
+are the reviewer's PoC tests. [Measurements and camera positions](handover/sky-enhanced-HR-report.md)
+
+The HR2 check compares the floor and 510 m ground with aligned and displaced cloud datums.
+The PSR fixture compares the finite reflected segment against its separate transport terms
+and repeats it before the library's post-depth work. [Floor rows, memory and Release verification](handover/sky-enhanced-HR-report.md#hr2)

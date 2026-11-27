@@ -24,6 +24,11 @@ settings, wetness and drying, tier-specific mode defaults, and the two mist mode
 legacy restore and counts global volumetrics writes through desktop, VR, map ownership and shutdown.
 The [editor widget harness](enhanced_editor_harness.lua.md) drives the actual page and the saved-look operations.
 
+The horizon panel case runs the open page's update while switching Enhanced → Standard → Enhanced.
+It checks that No horizon stays enabled, writes the shared Remix option in both modes, and that the
+Standard Night sky selector is enabled only in Standard. The reset case also checks the horizon in
+the default Enhanced mode.
+
 The Enhanced sky cases run the real companion Lua offline on both sides of the mode switch. They compare all
 Standard Remix option writes against a recording from `98b5450c`, including repeats. Calls are grouped by
 action and by key because Lua does not order a table traversal. They also exercise all twelve Enhanced weather

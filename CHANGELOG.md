@@ -6,6 +6,27 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The Enhanced sky below the horizon: a real horizon, and No horizon (2026-11-27)
+
+- **A real horizon instead of a wall of fog.** Wherever you could see past a map's edge below the horizon, from a
+  height, over a cliff or on a map whose floor ends, the Enhanced sky showed one flat sheet of fog under a straight
+  line: grey at noon, orange at sunset, black at night. It now shows the ground the sky draws there, lit by the Sun or
+  the Moon with the clouds' shadows on it, fading into the haze toward the horizon. Mirrors and glass that look past
+  the edge show the same ground. With the mist off nothing changes there.
+- **No horizon works in the Enhanced sky.** The No horizon checkbox on the Sky and weather page, for maps that float
+  in the sky or in space, was greyed out with the Enhanced sky. Ticked, the Enhanced sky now goes on below the map:
+  clouds as detailed as those above, the sky's colours with the Sun's glow only round the Sun, the stars, the night
+  sky image and the Moon in every direction, with no line at the horizon. The Sun still sets. While it is on it costs
+  about 2 ms a frame at 4K and up to 0.5 GB of video memory; off, nothing.
+- Behind it ([ADR 0272](docs/decisions/0272-the-enhanced-sky-below-the-horizon.md),
+  [the horizon](docs/handover/sky-enhanced-horizon-report.md)): the sky library's haze for a ray that left the map
+  counted the height fog for 2000 km, and below the fog's base that column never ends. Runtime patch 0118 ends a ray
+  below the horizon at the library's lit ground and the haze there; patch 0120 keeps that ground under the clouds'
+  shadow out to the horizon and shades a mirror's ray without extra memory. Patch 0119 draws No horizon in Enhanced
+  as the Standard sky does: the air below mirrored with the true angle to the Sun and the Moons, the clouds of the
+  opposite side from a second copy of the sky library looking the other way, the night in every direction. The
+  companion sends No horizon in both skies.
+
 ### Our night sky in the Enhanced sky (2026-11-27)
 
 - **The Enhanced sky's nights show our night sky:** the night sky image's stars, constellations, Milky Way and

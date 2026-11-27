@@ -10787,3 +10787,51 @@ worktrees under `out/worktrees`. Times are local.
   and by whether its source had a detail bake (a `src_detail` path). A second pass's `done.json` names
   `oai/full/<name>/final.png` and has `albedo_from`, which it does not read. `oai_tex.py --plan --reuse` copies a
   donor's kept `albedo.png` with `shutil.copyfile`.
+
+### Enhanced sky at the map edge (HR, 2026-11-27)
+
+- The planetary ground distance belongs to the sky's `worldUnitsPerKm`. Converting that distance
+  to world units before applying NUMOS's independent `apWorldUnitsPerKm` ends the air column on
+  the same surface at every pair of scales.
+- A specular sky miss writes shared emissive radiance, clears the virtual surface distance, and
+  can have separate reflection and transmission endpoints. The composite needs each final ray to
+  query the current post-depth air. [Measurements](handover/sky-enhanced-HR-report.md)
+
+- NUMOS reconstructs cloud rays with matrices and accepts a point-reflected camera. A zero
+  miss threshold also works for its cirrus composite. At 4K output with quality level 2, the
+  second renderer's live Vulkan allocations measured 488.25 MiB at DLSS Quality and 356.05 MiB
+  at Performance. The mirrored atmospheric bake matched every upper-half FP16 channel in four
+  lighting cases. [No-horizon fixtures and dispatches](handover/sky-enhanced-HR-report.md#headless-checks-and-cost)
+- The companion had two independent gates for No horizon. The page disabled the checkbox,
+  and `pushHorizon` returned early whenever Enhanced was active. The LuaJIT panel test now
+  checks both the enabled state and the value sent to Remix after each mode switch.
+
+### Ground shadows at the Enhanced floor horizon (HR2, 2026-11-27)
+
+- NUMOS sets the cloud-frame eye height from the sky datum less its vertical cloud offset
+  (`submodules/numos/src/renderer.cpp`, `cloudFrameCameraKm`). A virtual ground receiver maps
+  to `cameraWorldPosYUpKm + hit.ground`, just as `numosWorldToCloudKm` maps a scene surface.
+  A second sphere intersection can miss the shadow on a fully covered ground pixel.
+- The archived HZ3 floor camera reported a fallback near spawn. The eye was 72.92 units above
+  the platform and 584.92 above the broad grass plane. At the corresponding 11.14 m height
+  and equal datums, unresolved shadow gaps raised the headless overcast ground peak to 0.693
+  beside a 0.523 sky. The filtered peak was 0.468 at the DLSS Quality footprint.
+- NUMOS bakes the far-air tables during `Renderer::beginFrame`. The G-buffer can use them
+  when reflection and transmission miss the scene, without extending the compacted storage.
+  [Measurements and limitations](handover/sky-enhanced-HR-report.md#hr2)
+
+### The Enhanced sky below the horizon in the PoC (2026-11-27, Claude)
+
+- **The fog wall's cause:** the library's miss composite (`numosEvaluateAirImpl`, `numos_host.slangh`) takes the
+  height fog from the near range to `1e30`, which `apFogOpticalDepth` clamps to 2000 km; `apFogExtinctionAt`
+  (`aerial_perspective.slangh`) lets the density grow below the fog base down to ten scale heights, so for a ray going
+  down the column has no end and `fogT` is 0. gm_flatgrass from (12500, 0, 14000), 510 m above the floor, published
+  package: below the horizon one flat colour, grey at noon, orange-brown at sun 8 degrees, black at night.
+- **Frame time,** 3840x2160 with DLSS, patches 0118-0120, one launch (`out/sky2/HZ4-ft`, medians in ms, level / 15
+  degrees down / 50 degrees down): Enhanced 8.28-9.67 / 7.96-8.79 / 4.70-4.83; Enhanced with No horizon
+  10.51-10.63 / 10.51-10.53 / 7.10-7.40; Standard 8.77 / 8.61 / 5.42; Standard with No horizon 10.30 / 10.28 / 6.81.
+- **A session at 30 frames a second:** the first view of one launch (`HZ3-edge`, `e1_enh_level`) held 33.2-34.6 ms
+  for its whole four seconds and the next views ran at 9 ms; a later launch measured the same view at 9.95 ms. A
+  steady 33.8 ms is a frame cap in that session, not the scene: measure the first view again before reading a cost.
+- **The capture harness's floor place** `(15500, 0)` on gm_flatgrass finds no floor under it (`placed=false`); the
+  camera falls back to the spawn, about 11 m above the broad grass plane, looking over its far edge.

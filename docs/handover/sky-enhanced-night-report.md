@@ -61,4 +61,6 @@ gm_construct from the spawn, 4K, DLSS, the branch's package (`out/sky2/NIGHT1` w
 ## State
 
 - Branch `sky-enhanced-3`: NC, NR and NR2 merged; the runtime stored (`d3d9.dll` `e533151a`, built from fork
-  `d3a4cea74` with patches 0001-0117).
+  `d3a4cea74` with patches 0001-0117). The Release gate passed on it (C++ 35 of 35, Python 2,268 tests).
+- `main` `68fe7a13`: one commit with the branch's tree on `b846a699`, published as
+  **0.0.0-dev.20261127071934+c733de9f**, its change note the changelog's entry.

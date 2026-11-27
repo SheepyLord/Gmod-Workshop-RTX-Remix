@@ -208,6 +208,45 @@ the weights come from `%USERPROFILE%\.rpai\models\pbrify`. Per job:
 (Modern House), 1132 in 5548 s (Backrooms). poolrooms' `ai_maps.py` does the same for one texture at a time
 (plaster, gate, ladder) and leaves the composing to the per-material generator.
 
+### OpenAI colour (`oai_tex.py`, `keep_dat.py`, `seed_ai.py`, `band_audit.py`; gm_csgoagency onwards)
+
+`oai_tex.py` re-renders an albedo with OpenAI's image edit model before PBRify makes the maps, and keeps the answer
+only when it scores true to its source (`lessons.md`, "AI albedo with OpenAI's image model"). Each answer is a
+folder `work/oai/full/<name>/` (`request.json`, `albedo.png` as the model drew it, `meta.json` with its score and
+`accept`). A run, in this order:
+
+1. `oai_tex.py --plan [--reuse <another remaster's work> ...]` and the requests (`<names> --gen full|half`
+   in realtime, or a batch). `--reuse` copies another remaster's kept `albedo.png`, never its final, so an answer
+   from any remaster is safe. Meanwhile the first local pass, `ai_tex.py ..\work\jobs_ai.json`, for every tiling
+   job at least (props whose colour OpenAI gives may wait).
+2. `keep_dat.py`: the first pass's colour into `work/ai_dat/<name>/albedo.png`. The script hard-links, and the
+   second pass writes through a link (`lessons.md`): make it copy.
+3. `oai_tex.py --prepare`: each kept answer at its target size, made tileable when its job tiles, as `final.png`,
+   and `work/jobs_oai.json` with each job's `src` pointing at it. A tiling answer that kept its layout (luminance
+   correlation at least 0.85, edge correlation at least 0.6) keeps the answer inside and takes the first pass
+   from `work/ai_dat` along a thin band at every edge (`band_blend`, 6 % of the side), which meets itself across
+   the wrap. Any other tiling answer, a redrawn random surface or a kept layout without its first pass, is
+   blended with a copy of itself shifted half a tile (`offset_blend`) only along the axes where the source has no
+   bands (`banded_axes`: a row or column mean profile that swings by more than 1.5 standard deviations), and the
+   wrap step is spread along the banded ones (`seamless`). The last line counts each way (`band`, `offset`,
+   `offset across`, `offset down`, `seamless`): a kept layout outside `band` means its first pass is missing.
+4. `ai_tex.py ..\work\jobs_oai.json`: the second pass, the maps made again from the finals into `work/ai`. A job
+   whose `done.json` still matches is skipped, and a new final does not change the job: after a re-prepare, hash
+   the finals before and after and delete the `done.json` of those that changed.
+5. `compose.py`, then `band_audit.py <work dir> [--all]`: for each tiling answer whose source has a banded axis,
+   how closely the composed albedo's profile still follows the source's, listed under 0.7. What may remain is a
+   tone change (black window panes) or a near-flat panel; look at each beside its source on a 2x2 sheet.
+
+`seed_ai.py <work> <jobs file> <donor work> ...` hard-links another remaster's finished `work/ai/<name>` for the
+same Remix hash and the same job (size, tiling, upscaler, maps, detail bake) and writes this map's `done.json`.
+It does not ask where the donor's colour came from: skip a donor folder whose `done.json` has `albedo_from` (the
+donor's second pass), and copy instead of linking, or this map's second pass writes into the donor's folder.
+
+The band-safe step, `keep_dat.py` and `band_audit.py` are in gm_fork's, gm_boreas's and Half-Life 2 PBR RTX's
+tools. gm_csgoagency's, cmdr_office_summer's, gm_stelliferous's and gm_mallparking's `oai_tex.py` shift every
+tiling answer they do not band-blend half a tile both ways, a kept layout without its first pass included; their
+builds keep those moved bands (the user's choice, 2026-11-26).
+
 ### Composition (`compose.py`)
 
 Per texture, from `work/ai/<name>/` and the originals in `work/src/`, writes `work/tex/<name>/*.png`,
@@ -581,7 +620,9 @@ fixes); poolrooms' generators, written for that map's few surfaces.
    folder and addon folder (lestnicha3's for an outdoor map: sky, CC0 scans, night lights by the sun);
    rename `mh_paths.py`, the `MHRTX_` prefix, the `MHRTX` Lua table, the
    `mhrtx_` console names, the data folder name, the mod name in `build_mod.py`, the light hash base, and
-   the `.gitignore` lines.
+   the `.gitignore` lines. With OpenAI's colours, copy the newest pipeline instead (gm_boreas's, or Half-Life 2
+   PBR RTX's for the game's own assets), whose `oai_tex.py --prepare` keeps bands, and make its `keep_dat.py` and
+   `seed_ai.py` copy rather than hard-link and `seed_ai.py` skip a donor's second pass ("OpenAI colour", above).
 3. Clear the copied map data: `cameras_*.json`, `gallery.json`, `overrides.json` entries, `FIXTURES`,
    `lights_style.json` regions and extras, the addon's generated files and map fixes.
 4. Extract, inventory, read the contact sheets, write the classifier rules for this map's names.

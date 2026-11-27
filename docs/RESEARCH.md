@@ -10733,3 +10733,28 @@ Found while making Half-Life 2 PBR RTX (`skills/remix-map-pbr/references/game-as
   and emission, BC5 normal, BC4 roughness and metallic) and its two layers, 1,034.4 MB, in 644.0 MB: 62 %, where the
   runtime's DLLs go to about 30 %. The combined RTX package with this part: 2,219 files, 3,390,555,677 bytes (from
   2,356,069,196); its manifest passed the combine's 1 MiB check (the loader's limit) and `nlctl manifest`.
+
+## Hard links between the map pipelines' AI passes (2026-11-26, Claude)
+
+Found while updating `skills/remix-map-pbr` for the bands that `oai_tex.py --prepare` moved (its `lessons.md`, "The
+kept first pass and other remasters' results written over through hard links"), by read-only checks of the fork's map
+worktrees under `out/worktrees`. Times are local.
+
+- **A save over one name of a hard link changes the other.** Pillow 12.3.0's `Image.save(path)` and numpy 2.5.2's
+  `np.save(path)` (Python 3.12.10, the system Python and the rpai venv alike) open an existing file and write into it:
+  on NTFS, after a save over one name of a two-name link, the other name read back the new data, the link count still
+  2. `ai_tex.py` writes all its maps with these two; `keep_dat.py` and `seed_ai.py` (gm_fork, gm_boreas, Half-Life 2
+  PBR RTX) hard-link with `os.link`.
+- **gm_fork and gm_boreas hold no first pass.** For every tiling job of `jobs_oai.json`, `work/ai_dat/<name>/albedo.png`
+  is byte-identical to `work/ai/<name>/albedo.png`, the second pass: 84 of 84 and 53 of 53. Their link counts are 1
+  today, as is every file under the three pipelines' `work/ai`.
+- **Other remasters' folders written by a later map's second pass.** Folders of `work/ai` whose maps are newer than
+  their `done.json` by more than 2 minutes: gm_mallparking 2 of 267, cmdr_office_summer 1 of 289, gm_stelliferous 1 of
+  390, gm_fork 14 of 468, gm_csgoagency and gm_boreas none, all written on 2026-11-22 between 02:51 and 05:59, while
+  the second passes of gm_fork (maps written 01:44-05:59) and gm_boreas (02:50-05:59) ran. Each of the six compared is
+  byte for byte gm_fork's or gm_boreas's second pass of the same texture (`albedo.png`); gm_stelliferous's
+  `metal__metalhull010b`, a first-pass job there, holds gm_boreas's OpenAI colour.
+- **What `seed_ai.py` compares.** A donor's result matches by the size, tiling, upscaler and maps in its `done.json`
+  and by whether its source had a detail bake (a `src_detail` path). A second pass's `done.json` names
+  `oai/full/<name>/final.png` and has `albedo_from`, which it does not read. `oai_tex.py --plan --reuse` copies a
+  donor's kept `albedo.png` with `shutil.copyfile`.

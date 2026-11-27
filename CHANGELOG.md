@@ -6,6 +6,21 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Skills: tiling textures keep their bands (2026-11-26)
+
+- **`remix-map-pbr` runs the OpenAI colour stage in an order that keeps a tiling texture's bands.** The user chose
+  on 2026-11-26 to have the skill updated rather than rebuild the four remasters whose stripes, verges and wall
+  edges `oai_tex.py --prepare` had moved half a tile (gm_mallparking, gm_csgoagency, cmdr_office_summer,
+  gm_stelliferous; their builds stay as they are). The workflow now gives the stage's order: the requests and
+  the first local pass, that pass kept as copies, `--prepare` with every kept layout blended with it, the second
+  pass, then the band audit. It also names the pipelines to copy (gm_fork's, gm_boreas's and Half-Life 2 PBR
+  RTX's, with the band-safe `banded_axes`). A clean band audit is now one of a map's done criteria, and the skill
+  says how to mend one of the four when it is next rebuilt.
+- **No hard links between the AI passes.** `keep_dat.py` and `seed_ai.py` hard-link, and `ai_tex.py` writes into
+  the existing file, so its second pass wrote over the kept first pass (gm_fork 84 of 84, gm_boreas 53 of 53) and
+  into 18 result folders of other remasters on 2026-11-22. The skill has new pipelines copy those files, seed only
+  from a donor's first pass and check link counts before a second pass; `docs/RESEARCH.md` has the measurements.
+
 ### A new sky by default: the Enhanced sky, with its own editor (2026-11-26)
 
 - **Sky quality is Enhanced by default.** The RTX sky is now drawn with the NUMOS sky library: dense, well-lit clouds

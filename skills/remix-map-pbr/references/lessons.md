@@ -597,7 +597,9 @@ request "avoid wasting usage", 2026-11-20)
   reused 100 (86 of them FK's), $8.32. Realtime throughout.
 - Local results reused too: `seed_ai.py` (FK's tools) hard-links another remaster's `work/ai/<name>` for a
   texture with the same Remix hash and the same job (size, tiling, upscaler, maps, detail bake) and writes this
-  map's `done.json`, so `ai_tex.py` skips it (FK 36 of 386 jobs, BO 131 of 422).
+  map's `done.json`, so `ai_tex.py` skips it (FK 36 of 386 jobs, BO 131 of 422). Seed from a donor's first pass
+  only, as copies: its links let this map's second pass write into the donor's folder ("The kept first pass and
+  other remasters' results written over through hard links", below).
 
 **Bands moved by the tileable step** (FK, BO, 2026-11-22; found on FK's cliffs)
 - Symptom: cave and cliff walls in wormy rock with grass patches halfway down; a wall's rusty top edge or
@@ -610,13 +612,46 @@ request "avoid wasting usage", 2026-11-20)
 - Fix: `oai_tex.py`'s `banded_axes` marks an axis whose row or column mean profile (512 px, lightly smoothed)
   swings by more than 1.5 standard deviations of luminance or a colour difference (the bands measured 2.3-3.9;
   gravel, grass, sand and dirt 0.4-0.9). The copy is shifted only along the other axes; a banded axis gets its
-  wrap step spread (`seamless`). Run `keep_dat.py` before `--prepare`. A variance share missed thin strips (the
-  verges, a rusty top edge): measure the profile's range.
+  wrap step spread (`seamless`). Run `keep_dat.py` before `--prepare`, made to copy (below). A variance share
+  missed thin strips (the verges, a rusty top edge): measure the profile's range.
 - Re-preparing changed 66 of FK's 166 answers and 41 of BO's 202. `ai_tex.py` skips a job whose `done.json`
   still matches, so delete those of the changed ones, run them (`--only`), then compose and build.
 - `band_audit.py <work dir>` (FK's tools) lists the tiling answers whose composed albedo lost its source's
   bands. On the earlier remasters' builds of 2026-11-22: gm_mallparking 9 of 44, gm_csgoagency 17 of 42,
   cmdr_office_summer 9 of 41, gm_stelliferous 4 of 21 (two of them near-flat panels kept by eye).
+- Those four builds keep their moved bands. Asked to re-prepare them, the user chose on 2026-11-26 to have this
+  skill updated instead ("Do not rebuild"). Their pipelines still have the old step and neither `keep_dat.py` nor
+  `band_audit.py`: take a new map's `oai_tex.py` from gm_fork, gm_boreas or Half-Life 2 PBR RTX, never from them.
+  Their raw answers are safe to reuse (`--plan --reuse` copies a kept answer's `albedo.png` and this map's
+  `--prepare` makes the final); their `work/ai` is not (the next entry). To mend one of them when it is next
+  rebuilt: port `banded_axes`, `offset_blend(img, roll=...)`, `seamless(..., axes=...)` and their use in
+  `prepare()`; re-run stage 1 for its tiling jobs, since its `work/ai` holds the second pass; keep that colour in
+  `work/ai_dat` as copies; hash every `work/oai/full/*/final.png`, run `--prepare` and list the finals that changed;
+  delete their `done.json`, run them (`ai_tex.py ..\work\jobs_oai.json --only <names>`), then `compose.py --force
+  --only` and `build_mod.py`; audit, tour, and pack again.
+
+**The kept first pass and other remasters' results written over through hard links** (FK, BO; found 2026-11-26)
+- Symptom: on gm_fork and gm_boreas every tiling answer's kept first pass, `work/ai_dat/<name>/albedo.png`, is byte
+  for byte its second pass (84 of 84 and 53 of 53), so a re-prepare there would blend each answer's edges with its
+  own earlier result, not with the local upscale. And 18 folders of other remasters' `work/ai` hold maps written
+  after their own `done.json`, during FK's and BO's second passes on 2026-11-22: gm_mallparking 2,
+  cmdr_office_summer 1, gm_stelliferous 1 and gm_fork 14 (by BO). The six compared are byte for byte FK's or BO's
+  second pass; gm_stelliferous's `metalhull010b`, a first-pass job there, holds BO's OpenAI colour.
+- Cause: `keep_dat.py` and `seed_ai.py` hard-link, and a hard link is one file under two names. `ai_tex.py` writes
+  its maps with Pillow's `Image.save` and numpy's `np.save`, which open the existing file and write into it, so
+  every name of it changes (tested 2026-11-26: a save over one name changed the other). So the second pass wrote
+  over the kept first pass, and the second pass of a seeded job wrote into the donor's folder.
+- And `seed_ai.py` matches a donor's result by size, tiling, upscaler, maps and detail bake, not by where its colour
+  came from: a donor folder that the donor's second pass wrote (its `done.json` names an `oai/.../final.png` and has
+  `albedo_from`) seeds a first-pass job with the donor's OpenAI colour, moved bands included when the donor is one
+  of the four above. `band_audit.py` reads only this map's own answers and does not see it.
+- Fix, when you copy the pipeline: make `keep_dat.py` and `seed_ai.py` copy their files (`shutil.copyfile`), or have
+  `ai_tex.py` delete a file before writing it; make `seed_ai.py` skip a donor folder whose `done.json` has
+  `albedo_from`. Before a second pass, no file under `work/ai` or `work/ai_dat` may have a link count over 1
+  (`os.stat(path).st_nlink`; on 2026-11-26 every count in FK's, BO's and Half-Life 2 PBR RTX's `work/ai` was 1).
+  Before gm_fork or gm_boreas is re-prepared, re-run stage 1 for its tiling jobs. Before one of the four remasters
+  with written folders is rebuilt, find the folders whose maps are newer than their `done.json` and delete that
+  `done.json`, so `ai_tex.py` makes them again from the map's own input.
 
 ## Lights and sky
 

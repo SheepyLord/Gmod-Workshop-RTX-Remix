@@ -7,6 +7,7 @@ The user decides changes to a standard from measured evidence. Pick the level th
 | A build or a fix, quick look | `tour.py <map> <label>` | the contact sheet of every region |
 | What the remaster changes | `stock.py on/off`, `tour.py`, `compare.py` | stacked stock / remaster pairs and the gallery |
 | A material, light or grade choice | an A/B from fixed cameras with repeats (below) | difference against the repeat noise and the drift |
+| Tiling textures after the OpenAI stage, before the tour | `band_audit.py <work dir>` and a 2x2 sheet of each texture it lists, beside its source | no moved bands: what it still lists is a tone change (black window panes) or a near-flat panel, each looked at (`lessons.md`, "Bands moved by the tileable step") |
 | Frame time | `perf.py`, `abtest.py`; on the PoC `poc_session.py --fps` | median and 99th percentile per camera, stock in the same session, the run-to-run noise |
 | What reaches the ray tracer | `cullcheck.py` / `vischeck.py` | entity counts per room, locked-PVS views from above |
 | Loading | a launch with the timeline (`restart.py`), `loadprof.py` | seconds from `map` to the addon's `created` line, the longest silences |

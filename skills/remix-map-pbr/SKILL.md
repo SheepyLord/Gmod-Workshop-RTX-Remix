@@ -165,7 +165,11 @@ other two maps' equivalents are in `references/pipeline.md`.
    `source/modern_house_rtx/tools` as `source/<map>_rtx/tools`, and a renamed paths module (`mh_paths.py`:
    `MAP`/`MAPS`, `WORKSHOP_ID`, addon and mod folder names), environment-variable prefix, Lua table names,
    mod name and light hash base. Add `.gitignore` lines for `map_extract/`, `work/` and the mod's
-   `textures/`. The checklist is in `references/pipeline.md`, "Starting a new map".
+   `textures/`. The checklist is in `references/pipeline.md`, "Starting a new map". For OpenAI's colours
+   (step 7) copy the newest pipeline instead, gm_boreas's or Half-Life 2 PBR RTX's: only theirs and gm_fork's
+   `oai_tex.py --prepare` keeps a tiling texture's bands (`banded_axes`). In the copy, make `keep_dat.py` and
+   `seed_ai.py` copy their files instead of hard-linking them, and `seed_ai.py` skip a donor's second pass
+   (`references/lessons.md`, "The kept first pass and other remasters' results written over through hard links").
 3. **Extract.** `python extract_map.py [path to .gma]` unpacks the Workshop addon to `map_extract/gma`,
    each BSP's pakfile to `map_extract/<map>/pak`, its entities and static props to JSON, and the parsed
    faces to `work/<map>/faces.pkl`. Without a path it reads Steam's copy under the game's library.
@@ -201,6 +205,18 @@ other two maps' equivalents are in `references/pipeline.md`.
    14 in 316 s (lestnicha3). A material's `$detail` is invisible under gmRTX: bake it into the AI input,
    except a strong grain, which the upscaler turns into blobs (upscale the plain base, add the grain from a
    scan in step 8). Crop one spot from source, input, AI output and final to check.
+   **With OpenAI's colours** (`oai_tex.py`, gm_csgoagency onwards; `references/pipeline.md`, "OpenAI colour"),
+   keep this order, or tiling textures lose their bands:
+   1. the requests (`oai_tex.py --plan`, then `<names> --gen full|half`) and, meanwhile, this first local pass
+      for every tiling job at least;
+   2. `python keep_dat.py`: that pass's colour kept in `work/ai_dat`, as copies;
+   3. `python oai_tex.py --prepare`: its last line must count every kept tiling layout as `band`; an `offset` for
+      a kept layout means its first pass is missing from `work/ai_dat`;
+   4. `<rpai python> ai_tex.py ..\work\jobs_oai.json`, the second pass, once no file in `work/ai` or `work/ai_dat`
+      has a link count over 1; after a re-prepare, first delete the `done.json` of the finals that changed (a new
+      final does not change the job, so the job would be skipped);
+   5. after composing (step 8), `python band_audit.py ..\work`: what it still lists must be a tone change or a
+      near-flat panel, each looked at against its source on a 2x2 sheet.
 8. **Compose.** `python compose.py [--only ...] [--force]` turns the AI outputs and the originals into
    `work/tex/<name>/{albedo,normal,roughness,metallic,height,emissive}.png` and `work/composed.json`, from
    the class recipe (`RECIPES` in `compose.py`) and per-texture changes in `overrides.json` "textures".
@@ -383,11 +399,12 @@ calling them standards for a new map):
 | `python tex_jobs.py` | predicted hashes, sources, AI job list (merges `live_hashes.json`) |
 | `python live_hashes.py` | live hashes from the running game |
 | `python oai_tex.py --plan [--reuse <another remaster's work>]` / `--estimate` | cmdr_office_summer: reuse, skip or send each texture (full or half size) and what it will cost, before any request (`OPENAI_API_KEY` from the environment only) |
-| `python oai_tex.py --batch-submit` / `--batch-poll [--wait]` / `--prepare` | the planned requests as one Batch API job at half price, the answers scored, the kept ones into `jobs_oai.json` |
+| `python oai_tex.py --batch-submit` / `--batch-poll [--wait]` | the planned requests as one Batch API job at half price, the answers scored |
+| `python oai_tex.py --prepare` | the kept answers at their size and, when tiling, made tileable, as `work/oai/full/<name>/final.png`, listed in `jobs_oai.json` for the second `ai_tex.py` pass; from gm_fork on it keeps a tiling texture's bands (`banded_axes`), and the four pipelines before it move them |
 | `python oai_tex.py <name> ... --gen full\|half [--force]` | gm_mallparking: the same requests in realtime, several at a time, scored as they come; this user's choice since 2026-11-21 (no Batch API, "even at more cost") |
-| `python seed_ai.py <work> <jobs file> <donor work> ...` | gm_fork: another remaster's finished local results for the same hash and job, hard-linked, so `ai_tex.py` skips them |
-| `python keep_dat.py` | gm_fork: the first local pass's colour kept in `work/ai_dat`, before `oai_tex.py --prepare` (which blends a kept layout's edges with it) |
-| `python band_audit.py <work dir> [--all]` | gm_fork: the tiling answers whose composed albedo lost its source's bands |
+| `python seed_ai.py <work> <jobs file> <donor work> ...` | gm_fork: another remaster's finished local results for the same hash and job, hard-linked, so `ai_tex.py` skips them; make it copy, and skip a donor folder whose `done.json` has `albedo_from` (the donor's second pass) |
+| `python keep_dat.py` | gm_fork: the first local pass's colour kept in `work/ai_dat`, before `oai_tex.py --prepare` (which blends a kept layout's edges with it); it hard-links, and the second pass then writes over the kept colour: make it copy |
+| `python band_audit.py <work dir> [--all]` | gm_fork: the tiling answers whose composed albedo lost its source's bands (this map's answers in `work/oai/full`, not seeded results); after `compose.py`, before the tour |
 | `<rpai python> ai_tex.py ..\work\jobs_ai.json [--only ...]` | upscale, normal, roughness, height |
 | `python compose.py [--only ...] [--force]` | PBR maps per recipe |
 | `python plant_atlas.py [--cc0 DIR] [--preview]` | lestnicha3: CC0 photoscanned plants and a drawn dandelion clock into the grass atlas (after `compose.py`) |
@@ -455,6 +472,9 @@ calling them standards for a new map):
 | The game ends seconds after a screenshot (vphysics.dll access violation, or "CUtlStack::EnsureCapacity ran out of memory!") | The map underflows the material system's stacks ("PopMatrix: Underflow!" in the console) and the `jpeg` command's push then fails: capture the window (gm_stelliferous's `game.screenshot`); with that map's add-on running there was no underflow (lessons, ST) |
 | A space station under a blue daytime sky | The companion's physical sky: draw the map's skybox and an API sun from the add-on, and answer `NativeLoaderSkyFixed` from its load so the companion keeps out also under the player's own sky (ADR 0248; lessons, ST); without an API sun, a sky file (`"sky": "map"`, ADR 0249) does it with no Lua. The player's chat line at the map's start names the sky and how to switch; `nativeloader_sky_status` says why |
 | Station windows an opaque blue sheet | Refract-shader glass has no colour texture: a clear glass material on the windows' live hash (`extra_hashes`) |
+| A tiling texture's stripe, rusty top edge or grass repeated halfway down at the tile's edges; a road's verge in the middle of the lane | `oai_tex.py --prepare` blended in a copy shifted half a tile across the bands: the band-safe step (gm_fork's `banded_axes`), the first pass kept in `work/ai_dat`, the finals prepared again and their jobs run again (`band_audit.py` lists them; lessons, FK) |
+| A re-prepared texture unchanged in the build | `ai_tex.py` skips a job whose `done.json` still matches, and a new `final.png` does not change the job: delete the `done.json` of the finals that changed |
+| Another remaster's results changed though nobody ran it; `work/ai_dat` the same as the second pass | A hard link written through: `keep_dat.py` and `seed_ai.py` link, and `ai_tex.py` saves into the existing file. Copy instead, and check link counts before a second pass (lessons) |
 | A green "180 FPS" in the top-right corner of every window capture | An overlay's FPS counter (Steam's or NVIDIA's, both loaded into the game; the user's setting, leave it) drawn into the frame that `PrintWindow` captures: `workshop_shots.py export` paints it out; evidence shots keep it (lessons, MP) |
 
 ## Done criteria for a map
@@ -464,6 +484,8 @@ calling them standards for a new map):
   the night lights' cost measured, and under the user's own sky setting (the companion's time passing).
 - Hash coverage reported: predictions matched live, textures with live hashes added, textures left to Remix
   and why.
+- With OpenAI's colours: `oai_tex.py --prepare` counted every kept tiling layout as `band`, and `band_audit.py`
+  on the last build lists nothing but tone changes or near-flat panels, each looked at against its source.
 - A frame-time table, stock against remaster in one session, median and slowest region, with the noise.
 - Load time from the `map` command, and that the addon's `created` line appears with no Lua errors.
 - Unloading the map puts back every Remix option and engine setting it changed; nothing forced that R3-016

@@ -1229,6 +1229,106 @@ cmd("nativeloader_sky_style_volumetrics","0")
 assert(value(p.."transmittanceMeasurementDistanceMeters")=="777" and volumeWrites()==0)
 ''', 'CONF["rtx.sceneScale"]="2"\nCONF["rtx.volumetrics.transmittanceMeasurementDistanceMeters"]="777"', MENU=True)
 
+    def test_mist_scales_the_weather_and_personal_look_without_changing_their_values(self):
+        self.enhanced_session(r'''
+local strength = "nativeloader_sky_style_mist_strength"
+assert(convars[strength].archived and convars[strength].default=="1")
+assert(numos("aerosolDensity")=="2" and numos("mieAbsorption")=="0.0044, 0.0044, 0.0044")
+assert(numos("fogVisibilityMeters")=="20000")
+for _, case in ipairs({{"0","1.1","0"},{"1","2","20000"},{"2","2.9","10000"}}) do
+  cmd(strength,case[1]) tick(1) tick(1)
+  assert(numos("aerosolDensity")==case[2] and numos("fogVisibilityMeters")==case[3])
+  assert(numos("aerialPerspective")==(case[1]=="0" and "False" or "True"))
+end
+assert(not convars.nativeloader_sky_own_look:GetBool())
+cmd("nativeloader_sky_look_aerosol_density","7.1")
+cmd("nativeloader_sky_look_fog_visibility_meters","6400") tick(2)
+for _, case in ipairs({{"2","13.1","3200"},{"0","1.1","0"},{"1","7.1","6400"}}) do
+  cmd(strength,case[1]) tick(1)
+  assert(numos("aerosolDensity")==case[2] and numos("fogVisibilityMeters")==case[3])
+  assert(convars.nativeloader_sky_look_aerosol_density.value=="7.1")
+  assert(convars.nativeloader_sky_look_fog_visibility_meters.value=="6400")
+end
+cmd("nativeloader_sky_look_aerosol_density","0.5") cmd("nativeloader_sky_look_fog_visibility_meters","0")
+for _, s in ipairs({"0","1","2"}) do
+  cmd(strength,s)
+  assert(numos("aerosolDensity")=="0.5" and numos("fogVisibilityMeters")=="0")
+end
+assert(numos("mistStrength")==nil and volumeWrites()==0)
+''')
+
+    def test_mist_scales_each_step_after_blending_across_the_clean_air_density(self):
+        self.enhanced_session(r'''
+local strength = "nativeloader_sky_style_mist_strength"
+cmd("nativeloader_weather_seconds","0") cmd("nativeloader_weather","clear")
+cmd("nativeloader_weather_seconds","20") cmd("nativeloader_weather","hazy") tick(10)
+local a, b = looks.clear, looks.hazy
+local density = (a.aerosolDensity+b.aerosolDensity)/2
+local visibility = 1/(0.5/a.fogVisibilityMeters+0.5/b.fogVisibilityMeters)
+for _, s in ipairs({0,1,2,0.5}) do
+  cmd(strength,tostring(s))
+  assert(math.abs(tonumber(numos("aerosolDensity"))-(1.1+(density-1.1)*s))<0.0001)
+  local expected = s>0 and visibility/s or 0
+  assert(math.abs(tonumber(numos("fogVisibilityMeters"))-expected)<0.1)
+end
+cmd(strength,"1") tick(10)
+assert(tonumber(numos("aerosolDensity"))==b.aerosolDensity and tonumber(numos("fogVisibilityMeters"))==b.fogVisibilityMeters)
+''')
+
+    def test_map_mist_saved_choices_off_and_zero_select_the_right_runtime_policy(self):
+        for choice in ('0', '1', '2'):
+            with self.subTest(saved_choice=choice):
+                self.enhanced_session(r'''
+local strength, mode = "nativeloader_sky_style_mist_strength", "nativeloader_sky_style_volumetrics"
+local distance = "rtx.volumetrics.transmittanceMeasurementDistanceMeters"
+assert(convars[mode].value==CHOICE)
+assert(numos("volumetrics")==(CHOICE=="1" and "1" or "0"))
+assert(numos("aerialPerspective")==(CHOICE=="2" and "False" or "True"))
+cmd(mode,"1") cmd(strength,"2")
+local expected = (looks.partlyCloudy.fogVisibilityMeters/2)/1.905
+assert(math.abs(tonumber(value(distance))-expected)<0.01)
+local skyHaze, skyVisibility = numos("aerosolDensity"), numos("fogVisibilityMeters")
+cmd(mode,"2")
+assert(numos("volumetrics")=="0" and numos("aerialPerspective")=="False" and value(distance)=="777")
+assert(numos("aerosolDensity")==skyHaze and numos("fogVisibilityMeters")==skyVisibility)
+local before = #calls
+cmd("nativeloader_sky_style_rays_strength","1.5")
+for i=before+1,#calls do assert(calls[i][1]~="rtx.atmosphere.numos.aerialPerspective") end
+cmd(mode,"1") cmd(strength,"0")
+assert(numos("volumetrics")=="0" and numos("aerialPerspective")=="False" and value(distance)=="777")
+assert(convars[mode].value=="1")
+cmd(strength,"2")
+assert(numos("volumetrics")=="1" and numos("aerialPerspective")=="True")
+assert(math.abs(tonumber(value(distance))-expected)<0.01)
+cmd(mode,"0") assert(numos("volumetrics")=="0" and numos("aerialPerspective")=="True")
+cmd("nativeloader_weather","") cmd(strength,"0")
+assert(numos("aerialPerspective")=="False" and numos("volumetrics")=="0")
+for _, c in ipairs(calls) do assert(c[1]~="rtx.atmosphere.numos.volumetrics" or c[2]~="2") end
+assert(volumeWrites()==0)
+''', 'PRESET.nativeloader_sky_style_volumetrics=CHOICE\nCONF["rtx.volumetrics.transmittanceMeasurementDistanceMeters"]="777"',
+                                      CHOICE=choice)
+
+    def test_explicit_fog_preset_preserves_its_strength_until_cleared(self):
+        self.enhanced_session(r'''
+local strength, mode = "nativeloader_sky_style_mist_strength", "nativeloader_sky_style_volumetrics"
+cmd(mode,"1") cmd("nativeloader_remix_fog","heavyFog")
+local distance = numos("fogVisibilityMeters")
+for _, s in ipairs({"0","1","2"}) do
+  cmd(strength,s) tick(1)
+  assert(numos("fogVisibilityMeters")==distance and numos("fogAlbedo")=="0.9" and numos("fogAnisotropy")=="-0.2")
+  assert(value("rtx.volumetrics.transmittanceMeasurementDistanceMeters")=="5")
+  assert(value("rtx.volumetrics.transmittanceColor")=="0.85, 0.85, 0.85")
+end
+cmd(mode,"2") assert(numos("aerialPerspective")=="False" and numos("fogVisibilityMeters")==distance)
+cmd(mode,"1") cmd("nativeloader_remix_fog","")
+assert(tonumber(numos("fogVisibilityMeters"))==looks.partlyCloudy.fogVisibilityMeters/2)
+assert(volumeWrites()==0)
+''', MENU=True)
+
+    def test_sky_page_and_editor_share_one_mist_setting(self):
+        self.enhanced_session(Path(__file__).with_name('enhanced_editor_harness.lua').read_text(encoding='utf-8'),
+                              MIST_PAGES=True)
+
     def test_rainbow_tracks_only_rain_and_drains_for_five_minutes_in_any_look(self):
         self.enhanced_session(r'''
 cmd("nativeloader_weather_seconds","0")

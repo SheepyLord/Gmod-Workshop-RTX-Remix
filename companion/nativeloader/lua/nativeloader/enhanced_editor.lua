@@ -75,6 +75,7 @@ local groups = {
 }
 
 local style = {
+    field("mistStrength", 0, 2, 2, N("Mist"), N("0 clears added haze and map mist. 1 uses the look's mist. 2 doubles the added haze and fog density. A fog preset chosen in Remix settings keeps its own strength.")),
     field("rays.strength", 0, 2, 2, N("Sun rays"), N("Darkens air in cloud shadows to reveal shafts of sunlight. 1 is natural, 0 turns rays off.")),
     field("rainbow.strength", 0, 2, 2, N("Rainbow"), N("Scales the bow in sunlit rain. It fades as the air dries.")),
     field("nightGainStops", 0, 16, 1, N("Night brightness"), N("Each extra stop doubles natural night light. The default is 10 stops.")),
@@ -82,7 +83,7 @@ local style = {
     field("starGainStops", -8, 8, 1, N("Starlight"), N("Adds or removes stops of light from the stars and the Milky Way.")),
     field("starScintillation", 0, 4, 2, N("Star twinkle"), N("Stars near the horizon twinkle most. At 0 they stay steady.")),
     field("cloudShadowStrength", 0, 1, 2, N("Cloud shadows"), N("At 1 clouds shade the ground and air fully. At 0 their shadows disappear.")),
-    field("volumetrics", 0, 1, 0, N("Mist on the map"), N("Use Enhanced mist everywhere, or let Remix light nearby fog while Enhanced handles the distance."), "mist"),
+    field("volumetrics", 0, 2, 0, N("Mist on the map"), N("Choose Enhanced mist, Remix fog near you, or Off to clear mist from the map while keeping haze in the sky."), "mist"),
     field("aerialPerspectiveLocalLights", 0, 1, 0, N("Lamp glow in mist"), N("Lets lamps light Enhanced mist. Expect longer frame times near many lamps or with the flashlight on."), "bool"),
 }
 
@@ -165,7 +166,7 @@ return function(weather)
             ed.fields[f.key] = f
         end
     end
-    local styleDefaults = {["rays.strength"] = 1, ["rainbow.strength"] = 1, nightGainStops = weather.mode.common.nightGainStops,
+    local styleDefaults = {mistStrength = 1, ["rays.strength"] = 1, ["rainbow.strength"] = 1, nightGainStops = weather.mode.common.nightGainStops,
         moonlightGainStops = 0, starGainStops = 0, starScintillation = 1, cloudShadowStrength = 1, volumetrics = 0,
         aerialPerspectiveLocalLights = false}
     for _, f in ipairs(style) do register(f, styleDefaults[f.key], true) ed.styles[f.key] = f end

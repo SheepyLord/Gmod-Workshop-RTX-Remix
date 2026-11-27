@@ -67,6 +67,7 @@ local function widget(label)
     function w:GetParent() return self.parent end
     function w:SetTall(height) self.height=height end
     function w:SetText(v) self.text=v end
+    function w:GetText() return self.text end
     function w:SetVisible(v) self.visible=v end
     function w:SetEnabled(v) self.enabled=v end
     function w:SetValue(v) self.val=v if self.OnValueChanged then self:OnValueChanged(v) end end
@@ -86,7 +87,7 @@ local function form()
     -- DForm docks its padded wrapper. Hiding the child alone leaves a row above the next control.
     function f:AddItem(child)
         local row=widget()
-        child.parent,row.parent=row,self
+        child.parent,row.parent,row.child=row,self,child
         self.rows[#self.rows+1]=row
         return child
     end
@@ -105,13 +106,19 @@ local function form()
         if not stateLabel then stateLabel=w end
         return self:AddItem(w)
     end
-    function f:ControlHelp(text) assert(#text>4) return widget() end
+    function f:ControlHelp(text) assert(#text>4) local w=widget() w.text=text return self:AddItem(w) end
     function f:ComboBox(label) local w=widget(label=="" and lastLabel or label) w:Clear() return self:AddItem(w) end
     function f:CheckBox(label) return self:AddItem(widget(label)) end
-    function f:NumSlider(label,_,lo,hi)
+    function f:NumSlider(label,binding,lo,hi)
         local w=widget(label=="" and lastLabel or label)
         w.Scratch={GetFloatValue=function() return w.val end}
         w.min,w.max=lo,hi
+        if binding then
+            w.binding=binding
+            w.Think=function(self) self.val=convars[binding]:GetFloat() end
+            w.OnValueChanged=function(_,v) cmd(binding,tostring(v)) end
+            w:Think()
+        end
         return self:AddItem(w)
     end
     function f:Button(label) return self:AddItem(widget(label)) end
@@ -119,6 +126,7 @@ local function form()
 end
 vgui = {Create=function(kind, parent)
     if kind=="DForm" then return form() end
+    if kind=="DPanel" or kind=="DButton" then local w=widget() w.SetPaintBackground=noop return w end
     if kind=="DTextEntry" then return widget(lastColour.." RGB") end
     assert(kind=="DColorMixer")
     lastColour=lastLabel
@@ -131,6 +139,37 @@ assert(groups.Clouds.expanded and not groups.Wind.expanded and not groups["Light
 for _,g in pairs(groups) do g:OnToggle(true) end
 assert(#calls==writes and not convars.nativeloader_sky_own_look:GetBool()) -- opening and expanding only read
 local ctrl=widgets["My own look"]
+if MIST_PAGES then
+    local editorMist=widgets.Mist
+    local styleGroup=groups["Light and mist"]
+    assert(editorMist:GetParent()==styleGroup.rows[1] and editorMist.min==0 and editorMist.max==2)
+    local mapMist=widgets["Mist on the map"]
+    assert(table.concat(mapMist.order,"|")=="Enhanced mist|Remix fog near you|Off")
+    mapMist:pick("Off")
+    assert(numos("volumetrics")=="0" and numos("aerialPerspective")=="False")
+    mapMist:pick("Enhanced mist")
+    local sky=form()
+    NATIVELOADER_SKY.buildPanel(sky)
+    local slider=widgets.Mist
+    local row=slider:GetParent()
+    local help=sky.rows[row.top+2]
+    local status=sky.rows[1].child
+    assert(slider~=editorMist and slider.binding=="nativeloader_sky_style_mist_strength")
+    assert(row.visible and help.visible and help.child.text==styleGroup.rows[2].child.text)
+    assert(help.child.text:find("fog preset",1,true))
+    slider:SetValue(0.5) ctrl:Think()
+    assert(editorMist:GetValue()==0.5 and numos("fogVisibilityMeters")=="40000")
+    editorMist:SetValue(1.5) slider:Think()
+    assert(slider:GetValue()==1.5 and not convars.nativeloader_sky_own_look:GetBool())
+    widgets["Copy look as text"]:DoClick()
+    local look=parsed[clipboard].look
+    assert(look.mistStrength==nil and look.aerosolDensity==2 and look.fogVisibilityMeters==20000)
+    cmd("nativeloader_sky_enhanced","0") status:Think() assert(not row.visible and not help.visible)
+    cmd("nativeloader_sky_enhanced","1") status:Think() assert(row.visible and help.visible)
+    NativeLoaderVR={state="running"} tick(1) status:Think() assert(not row.visible and not help.visible)
+    assert(volumeWrites()==0)
+    return
+end
 local function header(notice,button)
     assert(stateLabel:GetParent().visible==notice and widgets["Switch to Enhanced"]:GetParent().visible==button)
     assert(ctrl:GetParent().top==(notice and 1 or 0)+(button and 1 or 0) and panel.parentLaidOut)
@@ -172,7 +211,7 @@ for _,density in ipairs({0,1,10,50,100}) do
 end
 haze:SetValue(79.25) assert(numos("aerosolDensity")=="79.25")
 local darkness=widgets["Haze darkness"]
-assert(darkness:GetParent().top==haze:GetParent().top+1 and darkness.min==0 and darkness.max==3)
+assert(darkness:GetParent().top==haze:GetParent().top+2 and darkness.min==0 and darkness.max==3)
 local tint=widgets["Haze colour RGB"]
 tint.val="1,0.8,0.6" tint:OnEnter()
 for _,case in ipairs({{0,"0, 0, 0"}, {1,"0.0044, 0.0044, 0.0044"}, {3,"0.0132, 0.0132, 0.0132"},

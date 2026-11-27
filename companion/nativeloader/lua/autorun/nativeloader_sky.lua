@@ -1424,6 +1424,15 @@ local function buildPanel(panel)
     local stateLabel = panel:Help(stateText())
     local stateThink = stateLabel.Think
     local standardOnly, wasEnhanced = {}, nil
+    local mistRows, mistShown = {}, nil
+    local function syncMistRows()
+        local show = cv.nativeloader_sky_enhanced:GetBool() and not enhanced.inVR()
+        if show == mistShown then return end
+        mistShown = show
+        for _, row in ipairs(mistRows) do row:SetVisible(show) end
+        panel:InvalidateLayout(true)
+        panel:InvalidateParent(true)
+    end
     stateLabel.Think = function(self)
         local text = stateText()
         if self:GetText() ~= text then self:SetText(text) end
@@ -1431,6 +1440,7 @@ local function buildPanel(panel)
             for _, control in ipairs(standardOnly) do control:SetEnabled(not enhanced.active) end
             wasEnhanced = enhanced.active
         end
+        syncMistRows()
         if stateThink then stateThink(self) end
     end
     local here = panel:ComboBox(L("This map"), "nativeloader_sky_here")
@@ -1451,6 +1461,10 @@ local function buildPanel(panel)
         {{N("Automatic"), "auto"}, {N("High"), "high"}, {N("Medium"), "medium"}, {N("Low"), "low"}})
     panel:ControlHelp(L("Automatic uses the loader's performance tier for clouds and mist."))
     panel:ControlHelp(L("Shape clouds, air and light in the Enhanced sky editor. Both skies use Moon size and Moon brightness from the Night sky editor."))
+    local mist = enhanced.editor.styles.mistStrength
+    local mistSlider = panel:NumSlider(L(mist.label), mist.setting, mist.min, mist.max, mist.decimals)
+    local mistHelp = panel:ControlHelp(L(mist.help))
+    mistRows = {mistSlider:GetParent(), mistHelp:GetParent()}
     panel:Help(L("Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."))
     standardOnly[1] = panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
     panel:ControlHelp(L("For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."))
@@ -1502,6 +1516,7 @@ local function buildPanel(panel)
     panel:NumSlider(L("Weather change (s)"), "nativeloader_weather_seconds", 0, 300, 0)
     panel:ControlHelp(L("How long a change of weather takes."))
     panel:Button(L("Reset the sky and weather"), "nativeloader_sky_reset")
+    syncMistRows()
 end
 
 -- The night sky editor (ADR 0227): each element of the night sky on its own. The image's four layers, the

@@ -8,6 +8,12 @@ Haze density to 0–100 and adds **Lamp glow in mist** (`nativeloader_sky_style_
 This archived style switch defaults off and controls `aerialPerspectiveLocalLights` across all detail levels.
 Each detail level still supplies its lamp limits.
 
+**Mist** is the first Light and mist control. The archived `nativeloader_sky_style_mist_strength` ranges
+from 0 to 2 and defaults to 1. The Sky page uses the same setting. It scales the active weather or personal
+look on output. Saved looks keep their original aerosol and visibility values. **Mist on the map**
+(`nativeloader_sky_style_volumetrics`) stores 0 for Enhanced mist, 1 for Remix fog near you and 2 for Off.
+The [controller](enhanced_sky.lua.md) maps these choices onto the runtime.
+
 **Haze darkness** (`nativeloader_sky_look_mie_absorption`) sits after Haze density in Air. The slider runs from
 0 to 3 in multiples of NUMOS's absorption. The convar and look hold the three equal coefficients per kilometre.
 At 0.1 the coefficients are each 0.00044, at 1 they are 0.0044, and at 3 they are 0.0132.

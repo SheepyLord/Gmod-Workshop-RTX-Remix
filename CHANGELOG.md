@@ -6,6 +6,23 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The Enhanced sky after its first day: no black ring round the Sun, less mist (2026-11-26)
+
+- **No black circle round the Sun.** With DLSS, a broken black ring lined the Sun's disc wherever no cloud covered it,
+  and a few dark specks lined the full Moon's edge. The Enhanced sky now draws both discs with softer edges and the
+  Sun's centre at a brightness the screen can show, as the Standard sky does. Mirrors and water show the same discs.
+- **Less mist by default, and a way to turn it off.** Partly cloudy, the default weather, had a thick milky haze: a
+  white horizon, a grey glow round the Sun and a veil over the map. It now has a fifth of that haze, and the sky is
+  bluer. A new **Mist** slider, on the Sky and weather page and in the Enhanced sky editor, sets the mist of every
+  weather: 0 turns it off (clean air, no fog, nothing drawn over the map), 2 doubles it. **Mist on the map** has a
+  third choice, **Off**: the map is clear and the sky keeps its haze. A fog preset you choose in the Remix settings
+  keeps its own strength.
+- Behind it ([ADR 0270](docs/decisions/0270-the-enhanced-sky-draws-its-own-discs-and-has-a-mist-setting.md),
+  [round 3](docs/handover/sky-enhanced-round3-report.md)): runtime patch 0115 draws the Sun's and the Moons' discs
+  for camera rays and reflections in the runtime instead of the library, with edges two traced pixels wide, the Sun's
+  centre at most 48 times the daylight and each Moon's held against its own light; the library stays unmodified. The
+  companion scales the haze above clean air and the fog's density by the Mist setting before it sends them.
+
 ### Skills: tiling textures keep their bands (2026-11-26)
 
 - **`remix-map-pbr` runs the OpenAI colour stage in an order that keeps a tiling texture's bands.** The user chose

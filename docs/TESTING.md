@@ -1,5 +1,10 @@
 # Testing
 
+For the Enhanced disc fix, repeat the MR2 4K, 10° field-of-view shots of the 60° Sun and midnight
+full Moon with DLSS and at native resolution. Check the crescent at dusk, the same light in a mirror,
+and clouds passing in front. The offline fixture checks the pre-upscaling HDR values.
+[Task S handover](handover/sky-enhanced-S-report.md)
+
 For the Alt+X Enhanced sky menu, the offline checks cover all 221 registered library settings, the
 companion and menu edit order, catalog completeness, font coverage and printf formats. In the PoC, open a
 menu from the start with `RTX_GUI_DISPLAY_UI=1` (or `2`), set its language with an extra rtx.conf layer

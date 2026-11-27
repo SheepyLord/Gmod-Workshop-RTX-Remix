@@ -136,12 +136,12 @@ msgid "Solar eclipse"
 msgstr "Éclipse de Soleil"
 
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1394
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1526
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1541
 msgid "Night sky image"
 msgstr "Image du ciel nocturne"
 
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1394
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1539
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1554
 msgid "Simulated stars"
 msgstr "Étoiles simulées"
 
@@ -166,7 +166,7 @@ msgid "Night"
 msgstr "Nuit"
 
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1407
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1518
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1533
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:276
 msgid "The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."
 msgstr "L'API Remix n'est pas disponible dans cette session : ces paramètres ne peuvent donc pas être appliqués. Exécutez nativeloader_status pour plus de détails."
@@ -186,69 +186,69 @@ msgstr "Sur cette carte, le ciel est aussi réglé par %s. Ce ciel est conservé
 msgid "Enhanced sky is unavailable in VR. The RTX sky uses Standard."
 msgstr "Le mode Amélioré est indisponible en VR. Le ciel RTX utilise le mode Classique."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1436
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1446
 msgid "This map"
 msgstr "Cette carte"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1440
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1450
 msgid "Remembered for this map. Automatic shows the sky of the map's RTX version where it has one, else the choice under Other maps."
 msgstr "Mémorisé pour cette carte. Automatique affiche le ciel de la version RTX de la carte s'il y en a une, sinon le choix sous Autres cartes."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1441
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
 msgid "This map has no sky of its own to switch to."
 msgstr "Cette carte n'a pas de ciel propre vers lequel basculer."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1442
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1452
 msgid "Other maps"
 msgstr "Autres cartes"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1443
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1453
 #: nativeloader/lua/nativeloader/map_sky.lua:222
 msgid "RTX sky"
 msgstr "Ciel RTX"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1444
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1454
 msgid "Their own sky"
 msgstr "Leur propre ciel"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1445
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1455
 msgid "The RTX sky has a sun, clouds, stars and a moon, and lights the map from them. A map's own sky shows its sky textures and, where it has one, its 3D skybox."
 msgstr "Le ciel RTX a un soleil, des nuages, des étoiles et une lune, qui éclairent la carte. Le ciel propre à une carte affiche ses textures de ciel et, si elle en a une, sa skybox 3D."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1446
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1456
 msgid "Say which sky shows"
 msgstr "Indiquer le ciel affiché"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1447
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1457
 msgid "A chat line at each map's start says which sky shows and how to switch."
 msgstr "Au début de chaque carte, une ligne dans le chat indique le ciel affiché et comment en changer."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1448
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
 msgid "Sky quality"
 msgstr "Qualité du ciel"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1448
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
 msgid "Standard"
 msgstr "Classique"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1448
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
 msgid "Enhanced"
 msgstr "Amélioré"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1449
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1459
 msgid "Enhanced, the default, adds denser clouds, sun rays and lit mist when the RTX sky is showing. Choose Standard for the Night sky editor's layers and shooting stars."
 msgstr "Amélioré, le réglage par défaut, ajoute des nuages plus denses, des rayons du soleil et une brume éclairée quand le ciel RTX est affiché. Choisissez Classique pour les couches de l'éditeur du ciel nocturne et les étoiles filantes."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1450
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1460
 msgid "Enhanced detail"
 msgstr "Détail du ciel"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/nativeloader/map_sky.lua:222
 msgid "Automatic"
 msgstr "Automatique"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:221
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:244
@@ -257,13 +257,13 @@ msgstr "Automatique"
 msgid "High"
 msgstr "Élevé"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:221
 msgid "Medium"
 msgstr "Moyen"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:221
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
@@ -271,277 +271,277 @@ msgstr "Moyen"
 msgid "Low"
 msgstr "Faible"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1452
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1462
 msgid "Automatic uses the loader's performance tier for clouds and mist."
 msgstr "En mode Automatique, la qualité des nuages et de la brume suit le niveau de performance du chargeur."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1453
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1463
 msgid "Shape clouds, air and light in the Enhanced sky editor. Both skies use Moon size and Moon brightness from the Night sky editor."
 msgstr "Réglez les nuages, l’atmosphère et la lumière dans l’éditeur du ciel amélioré. La taille et la luminosité de la lune se règlent pour les deux ciels dans l’éditeur du ciel nocturne."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1454
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1468
 msgid "Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."
 msgstr "L'heure, la météo et le ciel nocturne sont ceux du ciel RTX. Sur une carte qui affiche un autre ciel, modifier l'un d'eux affiche le ciel RTX jusqu'au début de la carte suivante."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1455
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1469
 msgid "No horizon"
 msgstr "Sans horizon"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1456
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1470
 msgid "For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."
 msgstr "Pour les cartes qui flottent dans le ciel ou dans l'espace : sous l'horizon, le ciel continue, avec des nuages, les étoiles et la lune, au lieu de la brume d'un sol."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1457
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1471
 msgid "Follow the map's sun"
 msgstr "Suivre le soleil de la carte"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1472
 msgid "Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."
 msgstr "Place le soleil à la position du soleil de la carte ; si un addon de la carte, comme Modern House RTX, règle son propre ciel, ce ciel est conservé. Modifier « Heure » ou « Azimut solaire » désactive cette option."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1459
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1473
 msgid "Time of day"
 msgstr "Heure"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1463
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1477
 #, c-format
 msgid "Now %s"
 msgstr "Il est %s"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1481
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1495
 msgid "Sun direction"
 msgstr "Azimut solaire"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1482
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1496
 msgid "Turns the sun's path around the sky."
 msgstr "Fait tourner la course du soleil dans le ciel."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1483
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1522
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1497
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1537
 msgid "Time passes"
 msgstr "Faire avancer le temps"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1484
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1498
 msgid "Day length (min)"
 msgstr "Durée jour (min)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1485
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1499
 msgid "Time passes is on by default. A whole day takes 20 real minutes; untick Time passes to stop the clock."
 msgstr "L’option « Faire avancer le temps » est activée par défaut. Une journée dure 20 minutes réelles ; décochez-la pour arrêter l’horloge."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1486
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1500
 msgid "Sky update interval (s)"
 msgstr "Intervalle ciel (s)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1487
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1501
 msgid "How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."
 msgstr "Intervalle de mise à jour du soleil, de la lune, des étoiles et de la météo, en secondes : 0.02 correspond à 50 fois par seconde, 0 à chaque image. Un intervalle plus long réduit légèrement le temps de calcul par image, mais le ciel évolue par à-coups."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1488
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1502
 msgid "Season"
 msgstr "Saison"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1489
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1545
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1503
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1560
 msgid "Moon"
 msgstr "Lune"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1490
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1504
 msgid "Moon by day"
 msgstr "Lune de jour"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1491
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1505
 msgid "How bright the moon is while the sun is up. At 1 it is as bright as the real Moon: a pale disc over the blue sky, a quarter clear in the afternoon, a crescent faint near the sun. Higher makes it stand out; 0 hides it by day."
 msgstr "Luminosité de la lune tant que le soleil est levé. À 1, elle est aussi lumineuse que la vraie Lune : un disque pâle sur le ciel bleu, un premier quartier bien visible l'après-midi, un croissant à peine visible près du soleil. Au-dessus, elle ressort davantage ; 0 la masque le jour."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1492
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1506
 msgid "Eclipse"
 msgstr "Éclipse"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1493
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1507
 msgid "Eclipse progress"
 msgstr "Progression de l'éclipse"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1494
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1508
 msgid "From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."
 msgstr "Du premier contact (0) au maximum (100) : une éclipse de Lune est totale à partir de 70, une éclipse de Soleil à partir de 90. Une éclipse fixe la phase de la Lune, et l'heure si le soleil n'est pas du bon côté de l'horizon."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1495
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1524
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1509
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1539
 msgid "Night sky"
 msgstr "Ciel nocturne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1496
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1510
 msgid "Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."
 msgstr "Image du ciel nocturne : étoiles nettes, une galaxie et des nébuleuses, qui tournent avec l'heure et la saison."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1497
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1511
 msgid "The Night sky editor, next to this page, sets how each part of the night sky looks."
 msgstr "L'Éditeur du ciel nocturne, à côté de cette page, règle l'apparence de chaque élément du ciel nocturne."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1498
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1512
 msgid "Weather"
 msgstr "Météo"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1499
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1513
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:285
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:289
 msgid "(leave to Remix)"
 msgstr "(laisser à Remix)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1501
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1515
 msgid "Clouds, haze, fog, rain and snow, from Remix's own weather presets."
 msgstr "Nuages, brume sèche, brouillard, pluie et neige, issus des préréglages météo de Remix."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1502
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1516
 msgid "Weather change (s)"
 msgstr "Transition (s)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1503
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1517
 msgid "How long a change of weather takes."
 msgstr "Durée d'un changement de temps."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1504
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1518
 msgid "Reset the sky and weather"
 msgstr "Réinitialiser le ciel et la météo"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1516
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1531
 msgid "Enhanced uses Moon size and Moon brightness from this page. Brightness changes the lunar disc. Adjust moonlight on the ground in the Enhanced sky editor."
 msgstr "Le ciel amélioré reprend ici la taille et la luminosité du disque lunaire. Pour régler le clair de lune au sol, ouvrez l’éditeur du ciel amélioré."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1520
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1535
 msgid "How each part of the night sky looks. Brightness: 1 is as drawn, 0 hides it. Colour: 0 is grey, 1 as drawn, 2 stronger. Look up at the night sky while you drag."
 msgstr "L'apparence de chaque élément du ciel nocturne. Luminosité : 1 tel quel, 0 le masque. Couleur : 0 gris, 1 telle quelle, 2 plus intense. Levez les yeux vers le ciel pendant que vous faites glisser les curseurs."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1521
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1536
 msgid "Go to night"
 msgstr "Passer à la nuit"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1523
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1538
 msgid "Untick Time passes to keep the night while you edit."
 msgstr "Décochez « Faire avancer le temps » pour garder la nuit pendant vos réglages."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1527
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1542
 msgid "All layers"
 msgstr "Toutes les couches"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1528
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1543
 msgid "Stars"
 msgstr "Étoiles"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1529
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1544
 msgid "Star colour"
 msgstr "Couleur des étoiles"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1530
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1545
 msgid "Constellations"
 msgstr "Constellations"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1531
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1546
 msgid "Constellation colour"
 msgstr "Couleur des constellations"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1532
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1547
 msgid "The constellations' bright blue and violet stars. They come out with the first stars at dusk; the Milky Way and the nebulae wait for full darkness."
 msgstr "Les étoiles brillantes, bleues et violettes, des constellations. Elles apparaissent avec les premières étoiles au crépuscule ; la Voie lactée et les nébuleuses attendent la nuit noire."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1533
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1548
 msgid "Milky Way"
 msgstr "Voie lactée"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1534
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1549
 msgid "Milky Way colour"
 msgstr "Couleur de la Voie lactée"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1535
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1550
 msgid "Nebulae"
 msgstr "Nébuleuses"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1536
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1551
 msgid "Nebula colour"
 msgstr "Couleur des nébuleuses"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1537
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1552
 msgid "A part at 0 is hidden, and its texture leaves video memory."
 msgstr "Un élément à 0 est masqué, et sa texture quitte la mémoire vidéo."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1540
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1555
 msgid "Used when Night sky is set to Simulated stars."
 msgstr "Utilisé quand Ciel nocturne est réglé sur Étoiles simulées."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1541
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1546
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1556
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1559
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1561
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1571
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1574
 msgid "Brightness"
 msgstr "Luminosité"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1542
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1557
 msgid "Density"
 msgstr "Densité"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1543
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1558
 msgid "Twinkle"
 msgstr "Scintillement"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1547
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1562
 msgid "The moon's disc and its light on the map."
 msgstr "Le disque de la lune et sa lumière sur la carte."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1548
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1563
 msgid "Size (degrees)"
 msgstr "Taille (degrés)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1549
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1564
 msgid "How wide the moon looks: the real Moon is about 0.5 degrees. Its light on the map stays the same. A larger moon passes further from Earth's shadow, so it moves a little in the sky; eclipses follow its size."
 msgstr "La taille apparente de la lune : la vraie Lune mesure environ 0,5 degré. Sa lumière sur la carte reste la même. Une lune plus grande passe plus loin de l'ombre de la Terre, elle se déplace donc un peu dans le ciel ; les éclipses suivent sa taille."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1550
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1565
 msgid "Glow"
 msgstr "Halo"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1551
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1566
 msgid "Earthshine"
 msgstr "Lumière cendrée"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1552
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1567
 msgid "Glow: the halo around the moon. Earthshine: the faint light on its dark side, clearest at a crescent."
 msgstr "Halo : l’auréole autour de la lune. Lumière cendrée : la faible lumière sur sa face sombre, la plus nette en croissant."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1554
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1569
 msgid "Shooting stars"
 msgstr "Étoiles filantes"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1555
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1570
 msgid "Per minute"
 msgstr "Par minute"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1558
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1573
 msgid "Night glow"
 msgstr "Lueur nocturne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1560
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1575
 msgid "The faint glow of the night air between the stars, from the weather. At 0 the space between the stars is black."
 msgstr "La faible lueur de l'air nocturne entre les étoiles, donnée par la météo. À 0, l'espace entre les étoiles est noir."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1561
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1576
 msgid "Reset the night sky"
 msgstr "Réinitialiser le ciel nocturne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1573
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1573
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1574
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1576
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1588
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1588
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1589
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1591
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:108
 msgid "Sky and weather"
 msgstr "Ciel et météo"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1574
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1589
 msgid "Night sky editor"
 msgstr "Éditeur du ciel nocturne"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1576
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1591
 msgid "Enhanced sky editor"
 msgstr "Éditeur du ciel amélioré"
 
@@ -617,7 +617,7 @@ msgid "Synthetic white"
 msgstr "Blanc synthétique"
 
 #: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:15
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
 msgid "Rainbow"
 msgstr "Arc-en-ciel"
 
@@ -991,6 +991,7 @@ msgstr "Génération d'images"
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:89
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:291
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
+#: nativeloader/lua/nativeloader/enhanced_editor_panel.lua:46
 msgid "Off"
 msgstr "Désactivé"
 
@@ -1040,6 +1041,7 @@ msgid "Light fog"
 msgstr "Brouillard léger"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:100
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:78
 msgid "Mist"
 msgstr "Brume"
 
@@ -2404,86 +2406,90 @@ msgid "Average lightning flashes each minute. Zero turns automatic lightning off
 msgstr "Nombre moyen d’éclairs par minute. Zéro désactive les éclairs automatiques."
 
 #: nativeloader/lua/nativeloader/enhanced_editor.lua:78
+msgid "0 clears added haze and map mist. 1 uses the look's mist. 2 doubles the added haze and fog density. A fog preset chosen in Remix settings keeps its own strength."
+msgstr "À 0, la brume ajoutée dans le ciel et celle sur la carte disparaissent. À 1, la brume suit l’apparence choisie. À 2, la brume ajoutée et la densité du brouillard doublent. Un préréglage de brouillard choisi dans les paramètres Remix conserve sa propre intensité."
+
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
 msgid "Sun rays"
 msgstr "Rayons du soleil"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:78
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
 msgid "Darkens air in cloud shadows to reveal shafts of sunlight. 1 is natural, 0 turns rays off."
 msgstr "Assombrit l’air à l’ombre des nuages pour faire apparaître les rais de soleil. 1 est naturel, 0 les désactive."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
 msgid "Scales the bow in sunlit rain. It fades as the air dries."
 msgstr "Règle l’intensité de l’arc dans la pluie éclairée par le soleil. Il s’estompe quand l’air sèche."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
 msgid "Night brightness"
 msgstr "Luminosité nocturne"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
 msgid "Each extra stop doubles natural night light. The default is 10 stops."
 msgstr "Chaque cran supplémentaire double la lumière nocturne naturelle. La valeur par défaut est de 10 crans."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
 msgid "Moonlight"
 msgstr "Clair de lune"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
 msgid "Adds or removes stops of moonlight on clouds and the ground."
 msgstr "Ajoute ou retire des crans de clair de lune sur les nuages et le sol."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
 msgid "Starlight"
 msgstr "Lumière des étoiles"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
 msgid "Adds or removes stops of light from the stars and the Milky Way."
 msgstr "Ajoute ou retire des crans de lumière des étoiles et de la Voie lactée."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
 msgid "Star twinkle"
 msgstr "Scintillement des étoiles"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
 msgid "Stars near the horizon twinkle most. At 0 they stay steady."
 msgstr "Les étoiles près de l’horizon scintillent le plus. À 0, leur éclat reste fixe."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
 msgid "Cloud shadows"
 msgstr "Ombres des nuages"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
 msgid "At 1 clouds shade the ground and air fully. At 0 their shadows disappear."
 msgstr "À 1, les nuages ombragent pleinement le sol et l’air. À 0, leurs ombres disparaissent."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:86
 msgid "Mist on the map"
 msgstr "Brume sur la carte"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
-msgid "Use Enhanced mist everywhere, or let Remix light nearby fog while Enhanced handles the distance."
-msgstr "Utilisez la brume améliorée partout, ou laissez Remix éclairer le brouillard proche et le ciel amélioré gérer le lointain."
-
 #: nativeloader/lua/nativeloader/enhanced_editor.lua:86
+msgid "Choose Enhanced mist, Remix fog near you, or Off to clear mist from the map while keeping haze in the sky."
+msgstr "Choisissez la brume améliorée ou le brouillard Remix à proximité. Avec « Désactivé », la brume quitte la carte mais reste dans le ciel."
+
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:87
 msgid "Lamp glow in mist"
 msgstr "Lueur des lampes dans la brume"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:86
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:87
 msgid "Lets lamps light Enhanced mist. Expect longer frame times near many lamps or with the flashlight on."
 msgstr "Les lampes éclairent la brume améliorée. Chaque image prend plus de temps à rendre près de nombreuses lampes ou lorsque la lampe torche est allumée."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:238
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:239
 msgid "Invalid look. Check the file version, setting names and ranges."
 msgstr "Apparence invalide. Vérifiez la version du fichier, les noms des paramètres et leurs plages."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:260
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:261
 msgid "Use 1 to 32 letters, digits, hyphens or underscores. Choose a name that Windows can use for a file."
 msgstr "Utilisez 1 à 32 lettres latines, chiffres, tirets ou traits de soulignement. Choisissez un nom de fichier accepté par Windows."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:261
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:262
 msgid "The look file could not be written or removed."
 msgstr "Impossible d’écrire ou de supprimer le fichier d’apparence."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:301
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:302
 msgid "A look with that name already exists."
 msgstr "Une apparence porte déjà ce nom."
 

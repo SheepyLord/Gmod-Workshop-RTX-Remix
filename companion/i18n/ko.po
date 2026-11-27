@@ -136,12 +136,12 @@ msgid "Solar eclipse"
 msgstr "일식"
 
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1394
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1526
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1541
 msgid "Night sky image"
 msgstr "밤하늘 이미지"
 
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1394
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1539
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1554
 msgid "Simulated stars"
 msgstr "절차적으로 생성한 별"
 
@@ -166,7 +166,7 @@ msgid "Night"
 msgstr "밤"
 
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1407
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1518
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1533
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:276
 msgid "The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."
 msgstr "이번 세션에서는 Remix API를 사용할 수 없어 이 설정들을 적용할 수 없습니다. 자세한 내용은 nativeloader_status를 실행하세요."
@@ -186,69 +186,69 @@ msgstr "이 맵의 하늘도 %s이(가) 설정합니다. '맵의 태양 따르�
 msgid "Enhanced sky is unavailable in VR. The RTX sky uses Standard."
 msgstr "VR에서는 향상 모드를 사용할 수 없습니다. RTX 하늘은 표준 모드로 표시됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1436
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1446
 msgid "This map"
 msgstr "이 맵"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1440
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1450
 msgid "Remembered for this map. Automatic shows the sky of the map's RTX version where it has one, else the choice under Other maps."
 msgstr "이 맵에 대해 기억됩니다. '자동'은 맵의 RTX 버전에 고유한 하늘이 있으면 그 하늘을, 없으면 '다른 맵'의 선택을 표시합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1441
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
 msgid "This map has no sky of its own to switch to."
 msgstr "이 맵에는 전환할 고유한 하늘이 없습니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1442
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1452
 msgid "Other maps"
 msgstr "다른 맵"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1443
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1453
 #: nativeloader/lua/nativeloader/map_sky.lua:222
 msgid "RTX sky"
 msgstr "RTX 하늘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1444
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1454
 msgid "Their own sky"
 msgstr "맵 고유의 하늘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1445
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1455
 msgid "The RTX sky has a sun, clouds, stars and a moon, and lights the map from them. A map's own sky shows its sky textures and, where it has one, its 3D skybox."
 msgstr "RTX 하늘에는 태양, 구름, 별, 달이 있고, 이것들이 맵을 비춥니다. 맵 고유의 하늘은 하늘 텍스처와, 있다면 3D 스카이박스를 표시합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1446
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1456
 msgid "Say which sky shows"
 msgstr "표시되는 하늘 알리기"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1447
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1457
 msgid "A chat line at each map's start says which sky shows and how to switch."
 msgstr "각 맵이 시작될 때 채팅에 어떤 하늘이 표시되는지와 전환 방법을 한 줄로 알립니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1448
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
 msgid "Sky quality"
 msgstr "하늘 품질"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1448
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
 msgid "Standard"
 msgstr "표준"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1448
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
 msgid "Enhanced"
 msgstr "향상"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1449
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1459
 msgid "Enhanced, the default, adds denser clouds, sun rays and lit mist when the RTX sky is showing. Choose Standard for the Night sky editor's layers and shooting stars."
 msgstr "향상(기본값)은 RTX 하늘이 표시될 때 더 짙은 구름과 햇살 기둥, 빛을 받은 옅은 안개를 더합니다. 밤하늘 편집기의 레이어와 별똥별을 쓰려면 표준을 선택하세요."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1450
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1460
 msgid "Enhanced detail"
 msgstr "향상 모드 품질"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/nativeloader/map_sky.lua:222
 msgid "Automatic"
 msgstr "자동"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:221
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:244
@@ -257,13 +257,13 @@ msgstr "자동"
 msgid "High"
 msgstr "높음"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:221
 msgid "Medium"
 msgstr "중간"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1451
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1461
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:81
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:221
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:314
@@ -271,277 +271,277 @@ msgstr "중간"
 msgid "Low"
 msgstr "낮음"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1452
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1462
 msgid "Automatic uses the loader's performance tier for clouds and mist."
 msgstr "자동으로 설정하면 로더의 성능 등급에 따라 구름과 안개의 품질이 결정됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1453
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1463
 msgid "Shape clouds, air and light in the Enhanced sky editor. Both skies use Moon size and Moon brightness from the Night sky editor."
 msgstr "향상 하늘 편집기에서 구름과 대기, 빛을 조절하세요. 달의 크기와 밝기는 두 하늘 모두 밤하늘 편집기의 설정을 따릅니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1454
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1468
 msgid "Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."
 msgstr "시각, 날씨, 밤하늘은 RTX 하늘의 설정입니다. 다른 하늘을 표시하는 맵에서 이 중 하나를 변경하면 다음 맵이 시작될 때까지 RTX 하늘이 표시됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1455
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1469
 msgid "No horizon"
 msgstr "지평선 없음"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1456
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1470
 msgid "For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."
 msgstr "하늘이나 우주에 떠 있는 맵용입니다. 지평선 아래에는 지면의 연무 대신 하늘이 이어지고, 구름과 별과 달이 보입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1457
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1471
 msgid "Follow the map's sun"
 msgstr "맵의 태양 따르기"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1458
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1472
 msgid "Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."
 msgstr "태양을 맵 자체의 태양 위치에 맞춥니다. Modern House RTX처럼 애드온이 자체 하늘을 설정하는 맵에서는 해당 하늘을 유지합니다. 시각이나 태양 방향을 변경하면 이 옵션이 꺼집니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1459
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1473
 msgid "Time of day"
 msgstr "시각"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1463
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1477
 #, c-format
 msgid "Now %s"
 msgstr "현재 %s"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1481
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1495
 msgid "Sun direction"
 msgstr "태양 방향"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1482
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1496
 msgid "Turns the sun's path around the sky."
 msgstr "태양의 이동 경로를 수평으로 회전합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1483
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1522
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1497
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1537
 msgid "Time passes"
 msgstr "시간 흐름"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1484
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1498
 msgid "Day length (min)"
 msgstr "하루 길이(분)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1485
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1499
 msgid "Time passes is on by default. A whole day takes 20 real minutes; untick Time passes to stop the clock."
 msgstr "시간 흐름은 기본으로 켜져 있습니다. 하루는 실제 시간으로 20분입니다. 시간 흐름을 끄면 시계가 멈춥니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1486
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1500
 msgid "Sky update interval (s)"
 msgstr "하늘 갱신 간격(초)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1487
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1501
 msgid "How often the sun, moon, stars and weather move, in seconds: 0.02 is 50 times a second, 0 is every frame. A longer interval costs a little less frame time, but the sky moves in steps."
 msgstr "해, 달, 별, 날씨를 갱신하는 간격(초)입니다. 0.02는 초당 50번, 0은 매 프레임입니다. 간격을 늘리면 프레임 시간이 조금 줄지만 하늘이 끊기듯 움직입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1488
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1502
 msgid "Season"
 msgstr "계절"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1489
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1545
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1503
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1560
 msgid "Moon"
 msgstr "달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1490
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1504
 msgid "Moon by day"
 msgstr "낮의 달"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1491
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1505
 msgid "How bright the moon is while the sun is up. At 1 it is as bright as the real Moon: a pale disc over the blue sky, a quarter clear in the afternoon, a crescent faint near the sun. Higher makes it stand out; 0 hides it by day."
 msgstr "해가 떠 있는 동안 달의 밝기입니다. 1이면 실제 달과 같은 밝기로, 파란 하늘 위에 연한 원반으로 보입니다. 상현달은 오후에 또렷이 보이고, 초승달은 해 가까이에서 희미하게 보입니다. 값을 높이면 더 눈에 띄고, 0이면 낮에는 달을 숨깁니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1492
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1506
 msgid "Eclipse"
 msgstr "일식·월식"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1493
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1507
 msgid "Eclipse progress"
 msgstr "식 진행"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1494
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1508
 msgid "From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."
 msgstr "첫 접촉(0)부터 식의 최대(100)까지입니다. 월식은 70부터, 일식은 90부터 개기식입니다. 식을 고르면 달의 위상이 정해지고, 태양이 지평선 반대쪽에 있으면 시각도 바뀝니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1495
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1524
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1509
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1539
 msgid "Night sky"
 msgstr "밤하늘"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1496
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1510
 msgid "Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."
 msgstr "밤하늘 이미지: 선명한 별, 은하, 성운이 시각과 계절에 따라 회전합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1497
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1511
 msgid "The Night sky editor, next to this page, sets how each part of the night sky looks."
 msgstr "이 페이지 옆의 ‘밤하늘 편집기’에서 밤하늘의 각 요소가 어떻게 보일지 설정합니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1498
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1512
 msgid "Weather"
 msgstr "날씨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1499
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1513
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:285
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:289
 msgid "(leave to Remix)"
 msgstr "(Remix에 맡김)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1501
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1515
 msgid "Clouds, haze, fog, rain and snow, from Remix's own weather presets."
 msgstr "Remix 자체의 날씨 프리셋으로 표현하는 구름, 연무, 안개, 비, 눈입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1502
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1516
 msgid "Weather change (s)"
 msgstr "날씨 전환(초)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1503
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1517
 msgid "How long a change of weather takes."
 msgstr "날씨가 바뀌는 데 걸리는 시간."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1504
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1518
 msgid "Reset the sky and weather"
 msgstr "하늘과 날씨 초기화"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1516
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1531
 msgid "Enhanced uses Moon size and Moon brightness from this page. Brightness changes the lunar disc. Adjust moonlight on the ground in the Enhanced sky editor."
 msgstr "향상 모드에서도 이 페이지의 달 크기와 밝기를 사용합니다. 밝기는 달 표면에 적용됩니다. 땅을 비추는 달빛은 향상 하늘 편집기에서 조절하세요."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1520
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1535
 msgid "How each part of the night sky looks. Brightness: 1 is as drawn, 0 hides it. Colour: 0 is grey, 1 as drawn, 2 stronger. Look up at the night sky while you drag."
 msgstr "밤하늘 각 요소의 모습입니다. 밝기: 1은 원래대로, 0은 숨김. 색: 0은 회색, 1은 원래대로, 2는 더 진하게. 슬라이더를 움직이면서 밤하늘을 올려다보세요."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1521
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1536
 msgid "Go to night"
 msgstr "밤으로 이동"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1523
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1538
 msgid "Untick Time passes to keep the night while you edit."
 msgstr "‘시간 흐름’을 해제하면 편집하는 동안 밤이 유지됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1527
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1542
 msgid "All layers"
 msgstr "모든 레이어"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1528
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1543
 msgid "Stars"
 msgstr "별"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1529
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1544
 msgid "Star colour"
 msgstr "별 색"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1530
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1545
 msgid "Constellations"
 msgstr "별자리"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1531
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1546
 msgid "Constellation colour"
 msgstr "별자리 색"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1532
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1547
 msgid "The constellations' bright blue and violet stars. They come out with the first stars at dusk; the Milky Way and the nebulae wait for full darkness."
 msgstr "별자리를 이루는 밝은 파란색과 보라색 별입니다. 해 질 녘 첫 별들과 함께 나타나며, 은하수와 성운은 완전히 어두워진 뒤에 나타납니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1533
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1548
 msgid "Milky Way"
 msgstr "은하수"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1534
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1549
 msgid "Milky Way colour"
 msgstr "은하수 색"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1535
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1550
 msgid "Nebulae"
 msgstr "성운"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1536
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1551
 msgid "Nebula colour"
 msgstr "성운 색"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1537
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1552
 msgid "A part at 0 is hidden, and its texture leaves video memory."
 msgstr "0으로 설정한 요소는 숨겨지고, 그 텍스처도 비디오 메모리에서 해제됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1540
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1555
 msgid "Used when Night sky is set to Simulated stars."
 msgstr "‘밤하늘’이 ‘절차적으로 생성한 별’로 설정되어 있을 때 사용됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1541
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1546
 #: nativeloader/lua/autorun/nativeloader_sky.lua:1556
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1559
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1561
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1571
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1574
 msgid "Brightness"
 msgstr "밝기"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1542
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1557
 msgid "Density"
 msgstr "밀도"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1543
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1558
 msgid "Twinkle"
 msgstr "반짝임"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1547
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1562
 msgid "The moon's disc and its light on the map."
 msgstr "달의 원반과, 맵을 비추는 달빛입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1548
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1563
 msgid "Size (degrees)"
 msgstr "크기(도)"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1549
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1564
 msgid "How wide the moon looks: the real Moon is about 0.5 degrees. Its light on the map stays the same. A larger moon passes further from Earth's shadow, so it moves a little in the sky; eclipses follow its size."
 msgstr "달이 보이는 크기입니다. 실제 달은 약 0.5도입니다. 맵을 비추는 빛은 그대로입니다. 큰 달은 지구 그림자에서 더 멀리 지나가므로 하늘에서 위치가 조금 움직입니다. 일식·월식은 크기에 맞춰 바뀝니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1550
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1565
 msgid "Glow"
 msgstr "빛무리"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1551
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1566
 msgid "Earthshine"
 msgstr "지구조"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1552
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1567
 msgid "Glow: the halo around the moon. Earthshine: the faint light on its dark side, clearest at a crescent."
 msgstr "빛무리: 달 주위의 빛 고리. 지구조: 달의 어두운 쪽에 비치는 희미한 빛으로, 초승달일 때 가장 잘 보입니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1554
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1569
 msgid "Shooting stars"
 msgstr "별똥별"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1555
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1570
 msgid "Per minute"
 msgstr "분당"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1558
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1573
 msgid "Night glow"
 msgstr "대기광"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1560
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1575
 msgid "The faint glow of the night air between the stars, from the weather. At 0 the space between the stars is black."
 msgstr "별과 별 사이에 보이는 밤 대기의 희미한 빛으로, 날씨에 따라 정해집니다. 0이면 별 사이가 검게 됩니다."
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1561
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1576
 msgid "Reset the night sky"
 msgstr "밤하늘 초기화"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1573
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1573
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1574
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1576
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1588
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1588
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1589
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1591
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:25
 #: nativeloader/lua/nativeloader/guide_pages.lua:108
 msgid "Sky and weather"
 msgstr "하늘과 날씨"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1574
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1589
 msgid "Night sky editor"
 msgstr "밤하늘 편집기"
 
-#: nativeloader/lua/autorun/nativeloader_sky.lua:1576
+#: nativeloader/lua/autorun/nativeloader_sky.lua:1591
 msgid "Enhanced sky editor"
 msgstr "향상 하늘 편집기"
 
@@ -617,7 +617,7 @@ msgid "Synthetic white"
 msgstr "인공 흰색"
 
 #: nativeloader/lua/autorun/client/nativeloader_blood_menu.lua:15
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
 msgid "Rainbow"
 msgstr "무지개"
 
@@ -991,6 +991,7 @@ msgstr "프레임 생성"
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:89
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:291
 #: nativeloader/lua/autorun/client/nativeloader_vr.lua:326
+#: nativeloader/lua/nativeloader/enhanced_editor_panel.lua:46
 msgid "Off"
 msgstr "끄기"
 
@@ -1040,6 +1041,7 @@ msgid "Light fog"
 msgstr "옅은 안개"
 
 #: nativeloader/lua/autorun/client/nativeloader_menu.lua:100
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:78
 msgid "Mist"
 msgstr "박무"
 
@@ -2404,86 +2406,90 @@ msgid "Average lightning flashes each minute. Zero turns automatic lightning off
 msgstr "1분 동안 번개가 치는 평균 횟수입니다. 0이면 자동 번개가 꺼집니다."
 
 #: nativeloader/lua/nativeloader/enhanced_editor.lua:78
+msgid "0 clears added haze and map mist. 1 uses the look's mist. 2 doubles the added haze and fog density. A fog preset chosen in Remix settings keeps its own strength."
+msgstr "0이면 추가 연무와 맵의 안개가 사라집니다. 1은 하늘 설정의 값을 쓰고, 2는 추가 연무와 안개 밀도를 두 배로 높입니다. Remix 설정에서 선택한 안개 프리셋은 원래 강도를 유지합니다."
+
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
 msgid "Sun rays"
 msgstr "햇살 기둥"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:78
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
 msgid "Darkens air in cloud shadows to reveal shafts of sunlight. 1 is natural, 0 turns rays off."
 msgstr "구름 그늘의 공기를 어둡게 해 햇살 줄기를 드러냅니다. 1은 자연스러운 세기이고 0이면 꺼집니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:79
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
 msgid "Scales the bow in sunlit rain. It fades as the air dries."
 msgstr "햇빛을 받는 빗속 무지개의 세기입니다. 공기가 마르면 점차 옅어집니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
 msgid "Night brightness"
 msgstr "밤 밝기"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:80
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
 msgid "Each extra stop doubles natural night light. The default is 10 stops."
 msgstr "한 스톱 올릴 때마다 자연 야간광이 두 배가 됩니다. 기본값은 10스톱입니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
 msgid "Moonlight"
 msgstr "달빛"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:81
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
 msgid "Adds or removes stops of moonlight on clouds and the ground."
 msgstr "구름과 지면을 비추는 달빛을 스톱 단위로 조절합니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
 msgid "Starlight"
 msgstr "별빛"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:82
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
 msgid "Adds or removes stops of light from the stars and the Milky Way."
 msgstr "별과 은하수에서 오는 빛을 스톱 단위로 조절합니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
 msgid "Star twinkle"
 msgstr "별의 반짝임"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:83
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
 msgid "Stars near the horizon twinkle most. At 0 they stay steady."
 msgstr "지평선 가까이의 별이 가장 많이 반짝입니다. 0이면 별빛이 일정합니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
 msgid "Cloud shadows"
 msgstr "구름 그림자"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:84
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
 msgid "At 1 clouds shade the ground and air fully. At 0 their shadows disappear."
 msgstr "1이면 구름이 지면과 공기에 온전한 그림자를 드리우고 0이면 그림자가 사라집니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:86
 msgid "Mist on the map"
 msgstr "맵 안개"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:85
-msgid "Use Enhanced mist everywhere, or let Remix light nearby fog while Enhanced handles the distance."
-msgstr "맵 전체에 향상 안개를 쓰거나, 가까운 안개는 Remix로 밝히고 먼 곳은 향상 안개로 처리합니다."
-
 #: nativeloader/lua/nativeloader/enhanced_editor.lua:86
+msgid "Choose Enhanced mist, Remix fog near you, or Off to clear mist from the map while keeping haze in the sky."
+msgstr "향상 안개나 가까운 곳의 Remix 안개를 선택하세요. 끄기를 선택하면 하늘의 연무는 유지되고 맵의 안개가 사라집니다."
+
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:87
 msgid "Lamp glow in mist"
 msgstr "안갯속 조명"
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:86
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:87
 msgid "Lets lamps light Enhanced mist. Expect longer frame times near many lamps or with the flashlight on."
 msgstr "조명이 향상 안개를 비춥니다. 가까이에 조명이 많거나 손전등을 켜면 프레임 렌더링 시간이 길어집니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:238
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:239
 msgid "Invalid look. Check the file version, setting names and ranges."
 msgstr "유효하지 않은 하늘 설정입니다. 파일 버전과 설정 이름, 값의 범위를 확인하세요."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:260
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:261
 msgid "Use 1 to 32 letters, digits, hyphens or underscores. Choose a name that Windows can use for a file."
 msgstr "영문자, 숫자, 하이픈, 밑줄로 1~32자를 입력하세요. Windows 파일에 쓸 수 있는 이름이어야 합니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:261
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:262
 msgid "The look file could not be written or removed."
 msgstr "하늘 설정 파일을 쓰거나 삭제할 수 없습니다."
 
-#: nativeloader/lua/nativeloader/enhanced_editor.lua:301
+#: nativeloader/lua/nativeloader/enhanced_editor.lua:302
 msgid "A look with that name already exists."
 msgstr "같은 이름의 하늘 설정이 이미 있습니다."
 

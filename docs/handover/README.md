@@ -1,5 +1,12 @@
 # Handovers
 
+The Enhanced sky's round 3, the user's report after the merge (2026-11-26):
+[sky-enhanced-round3-report.md](sky-enhanced-round3-report.md) (no black circle round the Sun or the Moon with DLSS,
+runtime patch 0115; less mist by default and a Mist setting with Off), plan
+[sky-enhanced-round3-plan.md](sky-enhanced-round3-plan.md), task reports [runtime](sky-enhanced-S-report.md) and
+[companion](sky-enhanced-H-report.md). Next, approved by the user: our night sky on the Enhanced sky,
+[sky-enhanced-night-plan.md](sky-enhanced-night-plan.md) (the design, the user's decisions, tasks NR and NC).
+
 The Enhanced sky (the user's request of 2026-11-25), merged on 2026-11-26 after two rounds on the user's "Merge and
 publish": [sky-enhanced-round2-report.md](sky-enhanced-round2-report.md) (round 2: sun rays, the editor, mist
 choices, a rainbow, the weathers retuned; the user's decisions at the merge; what is still wrong), after

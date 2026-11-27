@@ -95,13 +95,13 @@ local base = {
 return { defaults = defaults, mode = mode, presets = {
     clear = with(base.Clear, {fogVisibilityMeters = 30000}),
     -- Round 2 (2026-11-26): the nearest cumulus was a smooth mass. Deeper erosion, finer billows and more curl give it
-    -- crisp cauliflower edges (PoC trial pc3). The library's air is far cleaner than a real fair day's (an aerosol
-    -- optical depth of about 0.01 at density 1, where a fair day has 0.05 to 0.2); density 10 with a fifth of the
-    -- library's absorption keeps the sky blue, gives a low sun its glow and lets its rays show.
+    -- crisp cauliflower edges (PoC trial pc3). The user found the default mist too strong. At noon on gm_construct
+    -- the milky density-10 sky gave mean colour saturation 0.11–0.13. With the library's absorption it reached
+    -- 0.16–0.21 at density 3 and 0.18–0.26 at 2 (0.27–0.36 with mist off). Density 2 keeps the low sun's warm glow.
     partlyCloudy = with(base.PartlyCloudy, {fogVisibilityMeters = 20000,
         cloudCirrusEnable = true, cloudCirrusCoverageMean = 0.45, cloudCirrusOpticalDepth = 0.33,
         cloudCirrusStreakDirection = 110, nubis3ErosionStrength = 0.9, cloudBodyBillowGain = 0.78,
-        cloudCurlStrengthKm = 0.2, aerosolDensity = 10, mieAbsorption = {0.00088, 0.00088, 0.00088}}),
+        cloudCurlStrengthKm = 0.2, aerosolDensity = 2}),
     overcast = with(base.Overcast, {fogVisibilityMeters = 12000}),
     -- Round 2: a hazy day is the aerosol's, not dense height fog's. Fog over the map hid the sky in a grey wall while a
     -- blue sky lit the ground. Density 40 with a tenth of the library's absorption gives a milky, bright haze, a wide

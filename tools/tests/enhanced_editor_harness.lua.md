@@ -1,5 +1,9 @@
 # enhanced_editor_harness.lua
 
+The shared Mist control case opens both production pages, drags each slider and checks the other and the
+runtime output. It also checks the map Off choice, unscaled look sharing and the Sky slider's row visibility
+in Enhanced, Standard and VR.
+
 Runs in [test_companion_sky.py](test_companion_sky.py.md) inside its existing LuaJIT sky session. It builds
 the production editor with Derma widget doubles, exercises callbacks, expands every group, uses the visibility
 slider and exact colour input, and checks all four library looks. It also checks all five E2 looks in menu order,

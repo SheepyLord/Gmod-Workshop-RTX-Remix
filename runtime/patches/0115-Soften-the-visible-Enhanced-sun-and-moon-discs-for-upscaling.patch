@@ -1,0 +1,309 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Thu, 26 Nov 2026 21:12:48 -0700
+Subject: [PATCH] Soften the visible Enhanced sun and moon discs for upscaling
+
+---
+ docs/fork-touchpoints.md                      |   8 ++
+ documentation/NumosSky.md                     |   7 ++
+ .../rtx/algorithm/geometry_resolver.slangh    |   4 +-
+ .../rtx/pass/composite/composite_sky.slangh   |   9 +-
+ src/dxvk/shaders/rtx/pass/numos/numos_disc.h  |  44 +++++++
+ .../rtx/pass/numos/numos_visible_discs.slangh | 107 ++++++++++++++++++
+ tests/rtx/unit/test_enhanced_sky.cpp          |  24 ++++
+ 7 files changed, 194 insertions(+), 9 deletions(-)
+ create mode 100644 src/dxvk/shaders/rtx/pass/numos/numos_disc.h
+ create mode 100644 src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh
+
+diff --git a/docs/fork-touchpoints.md b/docs/fork-touchpoints.md
+index f91440805..217e21b7f 100644
+--- a/docs/fork-touchpoints.md
++++ b/docs/fork-touchpoints.md
+@@ -4216,3 +4216,11 @@ channel, zero radiance channels and the horizon of an elevated camera.
+   `rtx_gui_widgets.h` and `rtx_imgui.*` let a widget supply translated help while retaining the option
+   key, layer and reset menu. The sky unit case checks library coverage and option-layer selection.
+ - `i18n/tools/update_strings.py` extracts menu text and the per-field table into the six catalogs.
++
++## Enhanced solar and lunar disc edges
++
++`src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh` assembles the visible sky with the pinned
++NUMOS air, moon surface, stars and cloud LUTs. The camera composite and the PSR miss in
++`algorithm/geometry_resolver.slangh` use it. Diffuse and glossy gathers use the ordinary disk-free sky.
++`pass/numos/numos_disc.h` holds the rim and peak equations also checked by `test_enhanced_sky.cpp`.
++The emitted lights and the standalone library shaders keep their physical illuminance.
+diff --git a/documentation/NumosSky.md b/documentation/NumosSky.md
+index 250e5e012..1b72964e7 100644
+--- a/documentation/NumosSky.md
++++ b/documentation/NumosSky.md
+@@ -72,6 +72,13 @@ A miss skips the depth-based fog. In the paused policy, surface consumers see em
+ 
+ The sun and moons are distant lights, so their disks appear only on paths that no light sample follows.
+ 
++The visible Sun and Moon use the same disc evaluator in the camera and a perfect mirror. Its rim spans
++two traced pixels, with NUMOS's two-percent angular floor at high magnification. The solar centre
++reaches at most 48 times the solar illuminance before atmospheric attenuation. Each moon has its own
++limit relative to its phase-dependent illuminance. The pinned lunar shader still samples the lunar
++surface at the real pixel footprint. Both the translucent lunar limb and the solid disc mask the
++Sun and stars behind them. The screen clouds cover the camera sky and the cloud dome covers a PSR miss.
++
+ | Path | Disks | Indirect scale |
+ |---|---|---|
+ | Primary ray, drawn in the composite | Yes | No |
+diff --git a/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh b/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh
+index 623807bdc..dea74488a 100644
+--- a/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh
++++ b/src/dxvk/shaders/rtx/algorithm/geometry_resolver.slangh
+@@ -87,6 +87,7 @@
+ #define RESOLVE_SKY_LIT_PARTICLES 1
+ #include "rtx/algorithm/resolve.slangh"
+ #include "rtx/algorithm/sky_provider.slangh"
++#include "rtx/pass/numos/numos_visible_discs.slangh"
+ #include "rtx/algorithm/volume_lighting.slangh"
+ #include "rtx/pass/post_fx/post_fx_motion_blur_geometry_flags.slangh"
+ #include "rtx/algorithm/nee_cache_light.slangh"
+@@ -3107,8 +3108,7 @@ void geometryPSRResolverVertex(
+     else if (skyProviderActive())
+     {
+       // A PSR path is specular from the camera on, so no light sample follows it and it carries the disks.
+-      skyRadiance = skyProviderRadiance(
+-        ray.direction, geometryPSRResolverState.pixelCoordinate, false, NUMOS_SKY_DISKS_ALL);
++      skyRadiance = cb.skyRadianceUnscale * numosVisibleSky(ray.direction, skyArgs, cb.isZUp, true);
+     }
+ #ifdef ATMOSPHERE_AVAILABLE
+     else if (cb.skyMode == 1)
+diff --git a/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh b/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh
+index 8f48acc8f..c02c60adb 100644
+--- a/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh
++++ b/src/dxvk/shaders/rtx/pass/composite/composite_sky.slangh
+@@ -24,7 +24,7 @@
+ // The composite of the NUMOS sky, clouds and haze, see "Composite" in documentation/NumosSky.md.
+ // NUMOS works in its pre-exposed scale, cb.skyRadianceScale, which these functions convert to and from.
+ 
+-#include "numos/host/numos_host.slangh"
++#include "rtx/pass/numos/numos_visible_discs.slangh"
+ #include "rtx/utility/sky_foreground.slangh"
+ #include "rtx/pass/numos/numos_rainbow.slangh"
+ 
+@@ -267,13 +267,8 @@ vec3 compositePrimarySky(uvec2 pixelCoordinate, vec3 direction, vec3 domeLightRa
+   }
+   else
+   {
+-    const bool isPrimaryRay = true;
+-    const bool applySkyIndirectScale = false;
+-    background = enhanced_evalSkyRadiance(
+-      direction, skyArgs, pixelCoordinate, cb.frameIdx, skyArgs.isZUp, isPrimaryRay, applySkyIndirectScale,
+-      NUMOS_SKY_DISKS_NONE);
+     // The clouds cover the disks by their own transmittance, so the disks go in before them.
+-    background += numosSkyDisks(direction, skyArgs, skyArgs.isZUp);
++    background = numosVisibleSky(direction, skyArgs, skyArgs.isZUp, false);
+   }
+ 
+   float3 sky = compositeOverSkyInternal(pixelCoordinate, background, cloudCoverage);
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_disc.h b/src/dxvk/shaders/rtx/pass/numos/numos_disc.h
+new file mode 100644
+index 000000000..ab5763753
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_disc.h
+@@ -0,0 +1,44 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include "rtx/utility/shader_types.h"
++
++// R17's Standard disc stays white on screen at 48 times the brightest daylight channel.
++// Keep the unit-area limb law for large discs. 4*pi*sin^2(r/2) also works for subpixel moons.
++static const float kNumosDiscPeak = 48.f;
++inline float numosDiscSolidAngle(float radius) {
++  const float s = sin(.5f * radius);
++  return 12.566370614359172f * s * s;
++}
++
++inline float numosDiscRimWidth(float pixelAngle, float sinRadius) {
++  const float twoPixels = 2.f * pixelAngle;
++  return twoPixels > .02f * sinRadius ? twoPixels : .02f * sinRadius;
++}
++
++inline float numosDiscCoverage(float distanceInsideRim, float width) {
++  const float coverage = .5f + distanceInsideRim / width;
++  return coverage < 0.f ? 0.f : (coverage > 1.f ? 1.f : coverage);
++}
++
++// Centroid of the covered interval, in projected angular coordinates.
++inline float numosMoonSampleOffset(float offset, float sinRadius, float width, float coverage) {
++  if (coverage >= 1.f) return offset;
++  const float sample = sinRadius - .5f * coverage * width;
++  return sample > 0.f ? sample : 0.f;
++}
++
++inline float numosSunDiscCentre(float radius) {
++  const float area = .8f * numosDiscSolidAngle(radius); // mean of the u=0.6 limb law
++  return 1.f / (area > 1.f / kNumosDiscPeak ? area : 1.f / kNumosDiscPeak);
++}
++
++// A full moon of mean albedo uses at most 48 times its own illuminance before surface shading.
++// Keep dim markings linear and roll bright relief, crescents and authored gains toward the limit.
++// Multiplying RGB by one factor preserves their colour and the slope is continuous at the knee.
++inline float numosMoonDiscGain(float peak, float illuminance) {
++  const float knee = .5f * kNumosDiscPeak * illuminance;
++  if (peak <= knee || peak <= 0.f) return 1.f;
++  const float ratio = knee / peak;
++  return ratio * (2.f - ratio);
++}
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh b/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh
+new file mode 100644
+index 000000000..67e4c3b5c
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh
+@@ -0,0 +1,107 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include "numos/host/numos_host.slangh"
++#include "rtx/pass/numos/numos_disc.h"
++
++// Keep NUMOS's lunar material, phase, earthshine, texture footprint and disc gain.
++// Coverage belongs to the real silhouette; surface shading belongs to its covered part.
++float3 numosVisibleMoon(float3 view, uint index, enhanced_AtmosphereArgs args, float3 sunDir, out float coverage) {
++  coverage = 0.f;
++  const enhanced_MoonParams moon = args.moons[index];
++  if (moon.enabled < .5f) return 0.xxx;
++
++  const float3 dir = normalize(moon.direction);
++  const float radius = moon.angularRadius;
++  const float sinRadius = sin(radius);
++  const float width = numosDiscRimWidth(args.skyPixelAngle, sinRadius);
++  const float3 chord = view - dir;
++  if (dot(chord, chord) > (radius + width) * (radius + width) || sinRadius <= 0.f) return 0.xxx;
++
++  const float3 tangent = cross(cross(dir, view), dir);
++  const float offset = length(tangent);
++  coverage = numosDiscCoverage(sinRadius - offset, width);
++  if (coverage <= 0.f) return 0.xxx;
++
++  // In a partial pixel, sample halfway across the covered interval. The exact sphere
++  // tangent has no projected area and can have zero sunlight even at full Moon.
++  // Below .001 rad the library's 1-cos(radius) loses precision. Its material depends
++  // only on unit-disc coordinates, so use a larger reference disc with the same footprint.
++  const float evalRadius = radius < .001f ? .01f : radius;
++  if (coverage < 1.f || evalRadius != radius) {
++    const float sampleOffset = numosMoonSampleOffset(offset, sinRadius, width, coverage);
++    const float ratio = sin(evalRadius) / sinRadius;
++    const float3 t = tangent * (ratio * sampleOffset / max(offset, 1e-12f));
++    view = normalize(t + dir * sqrt(max(0.f, 1.f - dot(t, t))));
++    args.moons[index].angularRadius = evalRadius;
++    args.skyPixelAngle *= ratio;
++  }
++  const float libraryArea = 2.f * enhanced_kPi * (1.f - cos(evalRadius));
++  const float displayArea = max(numosDiscSolidAngle(radius), 1.f / kNumosDiscPeak);
++  args.moons[index].illuminance *= libraryArea / displayArea;
++  float unusedCoverage;
++  const float3 surface = enhanced_evalMoonDisk(view, index, args, sunDir, unusedCoverage);
++  const float peak = max(surface.r, max(surface.g, surface.b));
++  const float illuminance = max(moon.illuminance.r, max(moon.illuminance.g, moon.illuminance.b));
++  return surface * numosMoonDiscGain(peak, illuminance);
++}
++
++float numosVisibleSun(float3 view, float3 sunDir, enhanced_AtmosphereArgs args) {
++  const float radius = max(args.sunAngularRadius, 1e-4f);
++  const float width = numosDiscRimWidth(args.skyPixelAngle, sin(radius));
++  const float3 chord = view - sunDir;
++  const float outer = radius + .5f * width;
++  if (dot(chord, chord) > outer * outer) return 0.f;
++  // As in Standard, atan2 retains the angle at zoom levels where acos(dot) loses the rim.
++  const float angle = atan2(length(cross(view, sunDir)), dot(view, sunDir));
++  const float coverage = numosDiscCoverage(radius - angle, width);
++  const float r = saturate(angle / radius);
++  const float limb = .4f + .6f * sqrt(max(0.f, 1.f - r * r));
++  return numosSunDiscCentre(radius) * limb * coverage;
++}
++
++float3 numosVisibleDiscs(float3 view, enhanced_AtmosphereArgs args, float3 airT, out float throughMoons) {
++  const float3 sunDir = normalize(args.sunDirection);
++  throughMoons = 1.f;
++  float3 light = 0.xxx;
++  [unroll] for (uint i = 0; i < enhanced_MAX_MOONS; ++i) {
++    float coverage;
++    const float3 moon = numosVisibleMoon(view, i, args, sunDir, coverage);
++    light += moon * coverage;
++    throughMoons *= 1.f - coverage;
++  }
++  light += args.sunIlluminance * (numosVisibleSun(view, sunDir, args) * throughMoons);
++  light *= airT;
++  const float peak = max(light.r, max(light.g, light.b));
++  if (peak > 6e4f) light *= 6e4f / peak; // respect NUMOS's FP16 ceiling in the same hue
++  return light;
++}
++
++// Same layers as NUMOS evalSkyRadiance, with one visible-disc evaluation for both
++// camera and PSR. The real atmosphere and stellar footprint also apply inside a disc.
++float3 numosVisibleSky(float3 directionWorld, enhanced_AtmosphereArgs args, bool isZUp, bool reflected) {
++  const bool flat = (args.debugSkyBisectFlags & 2u) != 0u;
++  if (flat && reflected) return .5f.xxx;
++  const float3 view = normalize(enhanced_worldToAtmosphereYUp(directionWorld, isZUp, args.flipUpAxis != 0));
++  float3 sky = flat ? .5f.xxx : enhanced_sampleSkyViewLutForRay(view, enhanced_AtmosphereSkyViewLut,
++                                enhanced_AtmosphereSkyViewSampler) + enhanced_evalSkyGroundRadiance(view, args);
++  float3 airT;
++  if (enhanced_skyAboveHorizon(view, args, airT)) {
++    float throughMoons;
++    const float3 discs = numosVisibleDiscs(view, args, airT, throughMoons);
++#ifdef enhanced_NIGHT_SKY_AVAILABLE
++    if (!flat && (args.nightSkyFlags & 11u) == 11u)
++      sky += airT * enhanced_evalNightSkyBeyondAir(view, args, enhanced_AtmosphereSkyViewSampler) * throughMoons;
++#endif
++    sky = (reflected ? sky : max(sky, 0.xxx)) + discs;
++  }
++  // The composite covers the camera sky with its screen clouds. A PSR miss sees
++  // the cloud dome's premultiplied light and transmittance, sampled once.
++  if (reflected && args.cloudSecondaryLutEnable != 0u) {
++    const float2 uv = enhanced_cloudDomeDirToUv(view);
++    const float4 cloud = enhanced_sampleCloudDomeLutSmooth(enhanced_AtmosphereCloudSecondaryLut,
++                                                            enhanced_AtmosphereSkyViewSampler, uv, 0.f);
++    sky = sky * cloud.a + cloud.rgb;
++  }
++  return max(sky, 0.xxx);
++}
+diff --git a/tests/rtx/unit/test_enhanced_sky.cpp b/tests/rtx/unit/test_enhanced_sky.cpp
+index a1065f8c0..55848dd1e 100644
+--- a/tests/rtx/unit/test_enhanced_sky.cpp
++++ b/tests/rtx/unit/test_enhanced_sky.cpp
+@@ -6,6 +6,7 @@
+ #include "../../../src/dxvk/rtx_render/rtx_fork_numos_rainbow.h"
+ #include "../../../src/dxvk/rtx_render/rtx_global_volumetrics.h"
+ #include "../../../src/dxvk/rtx_render/rtx_fork_numos_rays.h"
++#include "../../../src/dxvk/shaders/rtx/pass/numos/numos_disc.h"
+ 
+ #include "../../../src/dxvk/rtx_render/rtx_numos_policy.h"
+ #include "../../../src/dxvk/rtx_render/rtx_numos_settings.h"
+@@ -27,6 +28,29 @@ static void check(bool condition, const std::string& message) {
+ int main() {
+   using namespace dxvk;
+   using namespace enhancedSky;
++  const float sunRadius = .545f * .5f * 3.14159265f / 180.f;
++  const float pixelAngle = .0003f;
++  check(numosSunDiscCentre(sunRadius) == 48.f && numosSunDiscCentre(.0001f) == 48.f,
++        "A normal or subpixel sun peaks at 48 times daylight");
++  check(std::abs(numosSunDiscCentre(.3f) * .8f * numosDiscSolidAngle(.3f) - 1.f) < 1.e-6f,
++        "A large, dimmer disc retains its physical radiance");
++  const float rimWidth = numosDiscRimWidth(pixelAngle, std::sin(sunRadius));
++  for (int i = -2; i <= 2; ++i)
++    check(std::abs(numosDiscCoverage(.5f * i * pixelAngle, rimWidth)
++                   - (.5f + i * .25f)) < 1.e-6f, "Two traced pixels across the rim");
++  check(numosDiscRimWidth(.00001f, 1.f) == .02f,
++        "Resolved discs retain the library's two-percent rim floor");
++  check(std::abs(numosMoonSampleOffset(sunRadius, sunRadius, rimWidth, .5f) - (sunRadius - .5f * pixelAngle)) < 1.e-7f &&
++        numosMoonSampleOffset(0.f, .000087f, .00024f, .86f) == 0.f,
++        "A partially covered pixel shades the visible lunar surface, even on a subpixel moon");
++  check(numosMoonDiscGain(20.f, 1.f) == 1.f && numosMoonDiscGain(1.f, 0.f) == 0.f,
++        "Dim lunar detail stays linear and an unlit moon stays dark");
++  float previous = 0.f;
++  for (float peak : {24.f, 48.f, 120.f, 1200.f, 12000.f}) {
++    const float visible = peak * numosMoonDiscGain(peak, 1.f);
++    check(visible > previous && visible <= 48.f, "Lunar highlights retain contrast below the cap");
++    previous = visible;
++  }
+   for (bool vr : { false, true }) {
+     check(effectiveSkyMode(SkyMode::SkyboxRasterization, vr) == SkyMode::SkyboxRasterization, "Raster sky");
+     check(effectiveSkyMode(SkyMode::Numos, vr) == SkyMode::Numos, "Standard sky");
+-- 
+2.56.0.windows.1
+

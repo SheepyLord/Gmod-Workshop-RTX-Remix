@@ -43,7 +43,7 @@ local function addControl(form, ed, f, readers)
         end
     elseif f.kind == "mist" then
         local box = form:ComboBox(label)
-        local labels = {L("Enhanced mist"), L("Remix fog near you")}
+        local labels = {L("Enhanced mist"), L("Remix fog near you"), L("Off")}
         box:SetSortItems(false)
         for i, title in ipairs(labels) do box:AddChoice(title, i - 1) end
         box.OnSelect = function(_, _, _, data) if not sync then ed.write(f, data) end end

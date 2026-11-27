@@ -1,5 +1,9 @@
 # test_companion_sky.py
 
+Task H covers Mist strength on the default Partly cloudy weather, a saved look, and an in-progress blend
+across the clean-air density. It checks the explicit Fog preset, clear air, the near Remix fog conversion
+and release, the three map choices including saved values from round 2, and the shared slider on both pages.
+
 Task E3 passes each complete weather row and every built-in over the library baseline through the production
 editor's `check` function. A failure includes the look name and the validation reason. A session also gives one
 weather a different absorption in memory, verifies the midpoint of its blend and returns to the library default.

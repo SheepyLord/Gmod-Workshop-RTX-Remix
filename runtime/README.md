@@ -1,5 +1,13 @@
 # runtime/
 
+## Enhanced Sun and Moon edges (0115)
+
+Patch 0115 limits the visible discs' brightness and filters their rims across two traced pixels.
+The camera and perfect reflections share the calculation. The atmosphere, clouds and emitted
+lights use the original illuminance. The packaged runtime includes 0114. The 0115 Release DLL
+is staged in the runtime worktree's `_output/` for the reviewer's DLSS comparison.
+[Measurements and first PoC checks](../docs/handover/sky-enhanced-S-report.md)
+
 ## Enhanced sky in the Remix menu (0114)
 
 The Alt+X developer menu adds six NUMOS tabs under Game Setup → Step 2 → Sky Tuning. Graphics Settings

@@ -1,5 +1,17 @@
 # Research notes
 
+The reviewer's noon `gm_construct` captures in `out/sky2/MR2-mist-ring` measured mean sky colour
+saturation of 0.11–0.13 at the published Partly cloudy settings. With library absorption, density 3
+gave 0.16–0.21 and density 2 gave 0.18–0.26. With mist off the range was 0.27–0.36. Density 2 also
+kept a warm glow around the low sun. [Round 3 plan](handover/sky-enhanced-round3-plan.md#the-new-default)
+
+In the 4K MR2 captures, the solar annulus 74–84 output pixels from the image centre contains
+138 pixels with every channel at or below 6/255 under Enhanced DLSS. The same annulus has zero
+in Enhanced at native resolution and in Standard with DLSS. At NUMOS pin `41842c6`,
+`shaders/numos/lib/atmosphere_sky.slangh:275` divides solar illuminance by the disc's solid angle
+and caps each channel at 60,000. Standard's `rtx/pass/atmosphere/atmosphere_sky.slangh:1160` limits
+the centre to 48 times daylight before its two-pixel edge. [Task S measurements](handover/sky-enhanced-S-report.md)
+
 The companion writes sky settings to the runtime API's user layer (`rtx_remix_api.cpp:2257` in
 fork commit `ef15c09d4`). A native menu edit must reach that same layer to take effect after a companion
 write (`rtx_option.cpp:992`). The Enhanced sky test resolves both orders at frame boundaries.

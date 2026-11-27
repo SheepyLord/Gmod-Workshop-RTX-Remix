@@ -6,6 +6,8 @@ The lamps start off at all three levels. Night brightness starts at the ten stop
 The 6 km mist range stays in the sheet weathers and is editable as part of a look.
 Every row inherits `mieAbsorption = {0.0044, 0.0044, 0.0044}` per kilometre unless it supplies its own
 neutral absorption triplet. The sky suite runs the editor's validator on every weather and built-in look.
+Partly cloudy uses aerosol density 2 and the inherited library absorption. Its height-fog visibility remains
+20,000 m. The player's Mist strength is applied after the weather blend by the controller.
 
 Holds the Enhanced sky's twelve weather tables. Edit the table for a particular weather at the end of
 [the Lua file](enhanced_weather.lua). Each starts from a named NUMOS built-in preset. The shared values come from

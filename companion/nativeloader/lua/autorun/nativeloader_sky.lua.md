@@ -6,6 +6,11 @@ user's word of 2026-11-26) or Standard. `nativeloader_sky_enhanced` saves that c
 companion's RTX sky under ADR 0249. A fixed add-on, a sky file and the map's own sky retain their priority.
 VR uses Standard for the session and the desktop preference resumes afterwards.
 
+Under the Enhanced detail controls, **Mist** adjusts the same archived style setting as the first slider in
+the Enhanced sky editor's Light and mist group (`nativeloader_sky_style_mist_strength`, 0–2, default 1).
+The slider and its help appear when Enhanced is selected on desktop. Adjusting it preserves the map's sky
+ownership and the player's selected weather or look.
+
 [The Enhanced controller](../nativeloader/enhanced_sky.lua.md) translates the clock, Moon and weather controls.
 [The weather tables](../nativeloader/enhanced_weather.lua.md) are the tuning surface for the twelve looks.
 Round 2 adds the [Enhanced sky editor](../nativeloader/enhanced_editor_panel.lua.md) beside the Night sky

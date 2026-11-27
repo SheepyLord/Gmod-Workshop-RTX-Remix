@@ -76,6 +76,10 @@ same generated Lua file. Long RTX slider and combo labels receive a full-width l
 
 ## Enhanced sky
 
+Task H adds the shared Mist slider's help and updates the help for the map Off choice. Both use the existing
+Mist and Off labels. The six catalogs were written in UTF-8 and checked for question marks absent from the
+English. The two new translations per language await human review.
+
 Task E3 adds **Haze darkness** and its help line with the 0.1, 1 and 3 examples. The six translations
 use the terms from the adjacent haze controls and await human review.
 

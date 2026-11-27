@@ -53,7 +53,7 @@ return function(model, set, configured, remixDefaults, forget)
     local previous, fog, fogValues = {}, nil, nil
     local nearFog, scale = {}, nil
     local rainFrom, rainTo, rainAt, rainSeconds = 0, 0, 0, 0
-    local rainbow, mist = 1, 0
+    local rainbow, mistStrength, remixNear = 1, 1, false
     -- None matches no built-in preset. An empty string passed to RemixConfig is a successful no-op.
     local defaults = {["weather.followGame"] = "True", ["weather.preset"] = "None", ["weather.transitionSeconds"] = "10"}
     for key, value in pairs(weather.defaults) do defaults[key] = model.optionText(value) end
@@ -165,7 +165,7 @@ return function(model, set, configured, remixDefaults, forget)
         set(key, text)
     end
     local function pushNear(values)
-        if mist ~= 1 or fog or not values then releaseNear() return end
+        if not remixNear or fog or not values then releaseNear() return end
         -- At the NUMOS visibility, 2% of contrast survives. Remix takes sRGB transmittance
         -- at a measuring distance in its own metres. A white medium at any distance is clear.
         local vis, albedo = values.fogVisibilityMeters, values.fogAlbedo
@@ -189,6 +189,12 @@ return function(model, set, configured, remixDefaults, forget)
             weatherOption("weather.preset", "None")
             values = current(t)
             wander(values, t, name or "partlyCloudy")
+            -- Work on this frame's copy. A preset from the Fog page takes precedence below.
+            if mistStrength ~= 1 then
+                local clean, aerosol = weather.defaults.aerosolDensity, values.aerosolDensity
+                values.aerosolDensity = math.min(aerosol, clean) + math.max(aerosol - clean, 0) * mistStrength
+                values.fogVisibilityMeters = mistStrength > 0 and values.fogVisibilityMeters / mistStrength or 0
+            end
             for key, value in pairs(values) do
                 weatherOption(key, model.optionText(fog and fog[key] or value))
             end
@@ -242,6 +248,12 @@ return function(model, set, configured, remixDefaults, forget)
         return (earth - sun) * (1 - amount) / 0.3
     end
 
+    local function sendMode(settings)
+        for key, value in pairs(settings) do
+            if key ~= "aerialPerspective" and not editor.styles[key] then send(key, value) end
+        end
+    end
+
     function E.pushSky(quality, moonSize, moonBrightness)
         if not tier and not weather.mode[quality] then
             local body = file.Read("native-loader/status.json", "DATA")
@@ -259,14 +271,23 @@ return function(model, set, configured, remixDefaults, forget)
         set("rtx.ignoreGameDirectionalLights", "True")
         local detail = weather.mode[quality] or weather.mode[tier]
         if not detail or not detail.qualityLevel then detail = weather.mode.medium end
-        for key, value in pairs(weather.mode.common) do if not editor.styles[key] then send(key, value) end end
-        for key, value in pairs(detail) do if not editor.styles[key] then send(key, value) end end
+        sendMode(weather.mode.common)
+        sendMode(detail)
+        local mapMist
         for _, f in ipairs(editor.style) do
             local value = editor.value(f)
-            if f.key == "rainbow.strength" then rainbow = value else send(f.key, value) end
+            if f.key == "mistStrength" then mistStrength = value
+            elseif f.key == "volumetrics" then mapMist = value
+            elseif f.key == "rainbow.strength" then rainbow = value
+            else send(f.key, value) end
             if f.key == "rays.strength" then send("rays.enable", value > 0) end
-            if f.key == "volumetrics" then mist = value end
         end
+        -- The saved third choice means Off. Runtime policy 0 pauses Remix fog while the
+        -- aerialPerspective switch independently controls NUMOS mist on surfaces.
+        local drawMapMist = mistStrength > 0 and mapMist ~= 2
+        remixNear = drawMapMist and mapMist == 1
+        send("volumetrics", remixNear and 1 or 0)
+        send("aerialPerspective", drawMapMist)
         send("latitudeDegrees", model.LATITUDE)
         send("moon0.angularDiameter", moonSize)
         send("moonDiscGainStops", moonBrightness > 0 and math.max(-16, math.log(moonBrightness) / math.log(2)) or -16)

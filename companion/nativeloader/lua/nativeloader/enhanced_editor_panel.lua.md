@@ -2,7 +2,9 @@
 
 Builds the third page in the RTX Remix tab's Sky and weather category from the [editor schema](enhanced_editor.lua.md).
 The page follows the current sky and VR state and offers the desktop Enhanced switch. The native **Light and mist**
-group holds nine style controls. Eight collapsible groups hold 46 look controls, each with a label and wrapped help.
+group holds ten style controls. **Mist** comes first and shares its setting with the Sky page. **Mist on the map**
+offers Enhanced mist, nearby Remix fog and Off. Off leaves the sky's haze visible at the chosen strength.
+Eight collapsible groups hold 46 look controls, each with a label and wrapped help.
 Groups build on first expansion. The inline colour mixers are four native font lines tall, and the companion's panel
 helper moves long translated labels above controls. The page hides the padded rows around the Standard notice and
 switch, then lays out the form and its parent. The spawn menu supplies the width and scrolling.

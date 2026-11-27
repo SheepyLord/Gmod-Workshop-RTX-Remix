@@ -164,4 +164,6 @@ handover index.
 
 - Merged to `main` on the user's "Merge and publish" (2026-11-27) as one commit with the branch's tree, ADR 0273
   accepted, `AGENTS.md` and `docs/ROADMAP.md` brought up to date; the Release gate passed on it in the main session's
-  worktree before the push.
+  worktree before the push (35 of 35 CTests, 2,283 Python tests of `tools`, one skipped).
+- Pushed as `a55817a8` and uploaded to the Workshop item as **0.0.0-dev.20261127202857+80dac6f3**, its change note the
+  changelog's entry.

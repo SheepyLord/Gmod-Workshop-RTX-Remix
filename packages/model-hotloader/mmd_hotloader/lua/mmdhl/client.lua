@@ -32,6 +32,14 @@ end
 -- Lua around each native draw and still switch to single-threaded rendering
 -- while they draw; 1 also switches for every character model (old behaviour).
 local forceImmediate=CreateClientConVar('mmdhl_force_immediate_rendering','0',true,false,'Switch Source to single-threaded rendering (mat_queue_mode 0) while character models exist')
+-- Legacy mmdhl_ragdoll entities, looked for in every frame only while one exists
+-- (carrier.lua keeps whether one does, ADR 0273): the search went through every
+-- entity of the map three times a frame.
+local noLegacy={}
+local function legacyRagdolls()
+ if mmdhl.HasLegacyRagdolls and not mmdhl.HasLegacyRagdolls() then return noLegacy end
+ return ents.FindByClass('mmdhl_ragdoll')
+end
 -- One owner for the render mode: previews and legacy entities need it too.
 -- The carrier-only restoration used to undo their request every frame.
 hook.Add('Think','MMDHL.RenderMode',function()
@@ -40,7 +48,7 @@ hook.Add('Think','MMDHL.RenderMode',function()
   native.ClearPreview() preview.previewHandle=nil preview.previewAsset=nil mmdhl.previewOwner=nil preview=nil
  end
  local needed=(mmdhl.editorPreviews and next(mmdhl.editorPreviews)~=nil) or (IsValid(preview) and mmdhl.PanelVisible(preview))
- if not needed then needed=#ents.FindByClass('mmdhl_ragdoll')>0 end
+ if not needed then needed=#legacyRagdolls()>0 end
  if not needed and forceImmediate:GetBool() and mmdhl.Entities then needed=#mmdhl.Entities()>0 end
  if needed then mmdhl.ImmediateRendering() else restoreRendering() end
 end)
@@ -128,6 +136,8 @@ function mmdhl.WantFrameProfile() return mmdhl.frameProfileForced==true or RealT
 hook.Add('PreRender','MMDHL.Shadows',function()
  if drawingShadow or mmdhl.suspendNative then return end
  if mmdhl.UpdateClientInstances then mmdhl.UpdateClientInstances() end
+ -- No model, instance, preview or legacy entity (native_render.lua, ADR 0273): nothing to prepare or shade.
+ if mmdhl.NativeIdle and mmdhl.NativeIdle() then shadow.valid=false shadowSignature=nil return end
  if mmdhl.PrepareNativePresentation then mmdhl.PrepareNativePresentation() end
  if native.PrepareFrame then
   local want=mmdhl.WantFrameProfile() local ms,profile=native.PrepareFrame(want) mmdhl.deformMs=ms
@@ -136,8 +146,10 @@ hook.Add('PreRender','MMDHL.Shadows',function()
  -- Bounds/proxies must exist after deformation, before this frame's draw list.
  if mmdhl.UpdateNativeVisuals then mmdhl.UpdateNativeVisuals() end
  if native.PruneRenderCache then native.PruneRenderCache(false) end
+ local legacy=legacyRagdolls()
+ if #legacy==0 then shadow.valid=false shadowSignature=nil return end
  local entries={} local minimum,maximum local signature={}
- for _,ent in ipairs(ents.FindByClass('mmdhl_ragdoll')) do
+ for _,ent in ipairs(legacy) do
   local info=ready(ent) local b=mmdhl.Decode(native.GetBounds(ent:GetInstance()))
   if info and b then
    signature[#signature+1]=ent:GetInstance()..':'..ent:GetAsset()..':'..b.sequence
@@ -162,7 +174,8 @@ hook.Add('PreRender','MMDHL.Shadows',function()
 end)
 hook.Add('PostDrawTranslucentRenderables','MMDHL.Models',function(depth,sky)
  if depth or sky or drawingShadow then return end
- local entries=ents.FindByClass('mmdhl_ragdoll')
+ local entries=legacyRagdolls()
+ if #entries==0 then return end
  table.sort(entries,function(a,b)return a:GetPos():DistToSqr(EyePos())>b:GetPos():DistToSqr(EyePos()) end)
  for _,ent in ipairs(entries) do
   local info=ready(ent)

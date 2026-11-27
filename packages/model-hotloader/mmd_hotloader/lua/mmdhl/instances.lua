@@ -34,6 +34,8 @@ local function release(ent)
  attached[ent]=nil
 end
 mmdhl.ReleasePresentation=release
+-- Whether this client holds the world of any model (native_render.lua's idle check, ADR 0273).
+function mmdhl.HasClientInstances() return next(attached)~=nil end
 local function mount(path)
  if mounted[path] then return true end
  if not mmdhl.MountPackage(path) then return false end mounted[path]=true return true

@@ -448,6 +448,24 @@ local function poseInterval(ent,eye,tanHalf,mode)
  if size>=.35 then return 0 elseif size>=.15 then return 1/30 else return 1/20 end
 end
 mmdhl.PoseInterval=poseInterval
+-- Whether this frame has nothing for the natives to pose, deform, bound or draw (ADR 0273): no model in the entity
+-- list, no instance of one, no preview (the library's, an editor's), no legacy entity and no reader of the frame
+-- profile, for IdleGrace seconds. The frame step and the render-cache sweep each queued a call for Source's render
+-- thread every frame; the grace lets them release what the last character used. The frame-time average of the
+-- update-rate LOD keeps running, so a character spawned later starts from the value it had before.
+local IdleGrace=2
+local activeAt=-math.huge
+function mmdhl.NativeIdle()
+ local now=RealTime()
+ if #mmdhl.Entities()>0 or (mmdhl.HasClientInstances and mmdhl.HasClientInstances()) or (mmdhl.editorPreviews and next(mmdhl.editorPreviews)~=nil)
+  or IsValid(mmdhl.previewOwner) or (mmdhl.HasLegacyRagdolls and mmdhl.HasLegacyRagdolls()) or (mmdhl.WantFrameProfile and mmdhl.WantFrameProfile()) then
+  activeAt=now return false
+ end
+ if now-activeAt<IdleGrace then return false end
+ if updateLod:GetInt()>0 then smoothFrame=smoothFrame+(math.Clamp(RealFrameTime(),1/300,1/10)-smoothFrame)*.1 end
+ mmdhl.poseSkipped=0 mmdhl.poseCaptureMs=0 mmdhl.deformMs=0
+ return true
+end
 -- The main view's origin and FOV as rendered (after CalcView overrides such as
 -- third-person cameras); EyePos() in PreRender still reports the player's eye.
 hook.Add('RenderScene','MMDHL.UpdateLodView',function(origin,angles,fov) mmdhl.viewOrigin=origin mmdhl.viewFov=fov end)

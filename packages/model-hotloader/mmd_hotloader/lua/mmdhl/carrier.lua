@@ -108,40 +108,131 @@ local function carrierCandidate(e)
  return carrierClasses[class] or class:sub(1,4)=='npc_' or (mmdhl.IsCarrierModel and mmdhl.IsCarrierModel(e:GetModel())) or false
 end
 local candidates,pendingCandidates,candidateOrder,fullScanAt={},{},0,-math.huge
-local function addCandidate(e) if not candidates[e] then candidateOrder=candidateOrder+1 candidates[e]=candidateOrder end end
-hook.Add('OnEntityCreated','MMDHL.CarrierCandidates',function(e) if carrierClasses[e:GetClass()] or e:GetClass():sub(1,4)=='npc_' then addCandidate(e) else pendingCandidates[e]=true end end)
+-- The client also keeps which candidates carry a model (ADR 0273). Checking every
+-- candidate's networked asset at each frame's list (the render boundary builds it
+-- afresh) cost the frame time in proportion to the map's props, ragdolls and NPCs,
+-- with no character anywhere. Now the entities known to carry a model are
+-- checked at every list, as before; any other candidate when something may have
+-- given it one: its creation, its return into view, a networked asset arriving, the
+-- addon noting it (each for a short while: a value can arrive frames later), and
+-- in turn, one or a few a frame, so that whatever these miss is found within
+-- seconds. known: carries a model at its last check; fresh: checked at every list
+-- until the time it holds; legacy: mmdhl_ragdoll entities (client.lua's fallback).
+local known,fresh,legacy={},{},{}
+local FreshSeconds=2
+local function freshen(e,seconds) local untilTime=RealTime()+(seconds or FreshSeconds) if (fresh[e] or -math.huge)<untilTime then fresh[e]=untilTime end end
+local function addCandidate(e)
+ if candidates[e] then return end
+ candidateOrder=candidateOrder+1 candidates[e]=candidateOrder
+ if CLIENT then freshen(e) entityListFrame=nil end
+end
+hook.Add('OnEntityCreated','MMDHL.CarrierCandidates',function(e)
+ local class=e:GetClass()
+ if carrierClasses[class] or class:sub(1,4)=='npc_' then addCandidate(e) else pendingCandidates[e]=true end
+ if CLIENT and class=='mmdhl_ragdoll' then legacy[e]=true end
+end)
 -- A client full update removes every entity and recreates it, possibly as a new
 -- object without OnEntityCreated: rescan at the next list.
-hook.Add('EntityRemoved','MMDHL.CarrierCandidates',function(e,fullUpdate) candidates[e]=nil pendingCandidates[e]=nil if fullUpdate then fullScanAt=-math.huge end end)
+hook.Add('EntityRemoved','MMDHL.CarrierCandidates',function(e,fullUpdate) candidates[e]=nil pendingCandidates[e]=nil known[e]=nil fresh[e]=nil legacy[e]=nil if fullUpdate then fullScanAt=-math.huge end end)
+if CLIENT then
+ -- A model given to an entity already in view (a player choosing a character model,
+ -- a saved character loaded after the map) arrives as this networked string. The
+ -- hook runs before the value changes, and the value may be read (and kept for the
+ -- frame) before it arrives: the entity is looked at for half a second.
+ hook.Add('EntityNetworkedVarChanged','MMDHL.CarrierCandidates',function(e,name)
+  if name~='MMDHLAsset' or not IsValid(e) then return end
+  if candidates[e] then freshen(e,.5) else pendingCandidates[e]=true end
+  entityListFrame=nil
+ end)
+ -- Back in view: whatever changed meanwhile arrives with it.
+ hook.Add('NotifyShouldTransmit','MMDHL.CarrierCandidates',function(e,transmitting)
+  if transmitting and candidates[e] then freshen(e) entityListFrame=nil end
+ end)
+end
 -- The addon gave e a model locally (an editor preview): include it in the next list.
-function mmdhl.NoteCarrier(e) if IsValid(e) then addCandidate(e) mmdhl.InvalidateEntityList() end end
-function mmdhl.Entities()
- local frame=CLIENT and FrameNumber() or engine.TickCount()
- -- The client asks for the list many times per frame; reuse it while every entry is still valid.
- if CLIENT and entityListFrame==frame then
-  local valid=true for _,e in ipairs(entityList) do if not IsValid(e) then valid=false break end end
-  if valid then return entityList end
+function mmdhl.NoteCarrier(e) if IsValid(e) then addCandidate(e) if CLIENT then freshen(e) end mmdhl.InvalidateEntityList() end end
+-- Whether a legacy mmdhl_ragdoll entity exists (client): client.lua looks for
+-- them every frame, now only while one does.
+function mmdhl.HasLegacyRagdolls()
+ if fullScanAt==-math.huge then mmdhl.Entities() end
+ for e in pairs(legacy) do if IsValid(e) then return true end legacy[e]=nil end
+ return false
+end
+local function byIndex(a,b) local x,y=a:EntIndex(),b:EntIndex() if x~=y then return x<y end return (candidates[a] or 0)<(candidates[b] or 0) end
+local clientCandidates,seen,sweep,sweepAt,sweepFrame,none={},{},{},0,nil,{}
+local function check(e)
+ if not IsValid(e) then candidates[e]=nil known[e]=nil fresh[e]=nil return end
+ if mmdhl.IsMMD(e) then known[e]=true else known[e]=nil end
+end
+local function clientEntities(frame)
+ local now=RealTime()
+ if frame~=entityFrame then
+  entityFrame=frame
+  if now-fullScanAt>=5 then
+   fullScanAt=now
+   for _,e in ipairs(ents.GetAll()) do if carrierCandidate(e) then addCandidate(e) if e:GetClass()=='mmdhl_ragdoll' then legacy[e]=true end end end
+  end
+  for e in pairs(pendingCandidates) do if IsValid(e) and carrierCandidate(e) then addCandidate(e) end pendingCandidates[e]=nil end
  end
+ -- The safety net: the other candidates in turn, once a frame, each within about
+ -- ten seconds at sixty frames a second (at least one a frame).
+ if sweepFrame~=frame then
+  sweepFrame=frame
+  if sweepAt>=#sweep then
+   for i=#sweep,1,-1 do sweep[i]=nil end sweepAt=0
+   for e in pairs(candidates) do if not known[e] then sweep[#sweep+1]=e end end
+  end
+  local last=math.min(#sweep,sweepAt+math.max(1,math.ceil(#sweep/600)))
+  for i=sweepAt+1,last do local e=sweep[i] sweep[i]=false if candidates[e] and not known[e] then check(e) end end
+  sweepAt=last
+ end
+ for e,untilTime in pairs(fresh) do
+  if untilTime<now or not candidates[e] then fresh[e]=nil end
+  if candidates[e] then check(e) end
+ end
+ for i=#clientCandidates,1,-1 do clientCandidates[i]=nil end
+ for e in pairs(known) do
+  if not candidates[e] or not IsValid(e) then candidates[e]=nil known[e]=nil fresh[e]=nil
+  elseif mmdhl.IsMMD(e) then clientCandidates[#clientCandidates+1]=e
+  else known[e]=nil end
+ end
+ if #clientCandidates>1 then table.sort(clientCandidates,byIndex) end
+ local list={}
+ for i=1,#clientCandidates do local e=clientCandidates[i] list[i]=e seen[e]=true end
+ -- Client ragdolls have no network entity index and are not guaranteed to be
+ -- included in ents.GetAll(). Keep the engine-created bodies in a weak registry.
+ for e in pairs(mmdhl.clientRagdolls or none) do
+  if mmdhl.IsMMD(e) then if not seen[e] then list[#list+1]=e seen[e]=true end else mmdhl.clientRagdolls[e]=nil end
+ end
+ -- So are other addons' copies of player models (player_copies.lua).
+ for e in pairs(mmdhl.playerCopies or none) do
+  if IsValid(e) and mmdhl.IsMMD(e) then if not seen[e] then list[#list+1]=e seen[e]=true end else mmdhl.playerCopies[e]=nil end
+ end
+ for e in pairs(seen) do seen[e]=nil end
+ entityList=list entityListFrame=frame
+ return list
+end
+function mmdhl.Entities()
+ if CLIENT then
+  local frame=FrameNumber()
+  -- The client asks for the list many times per frame; reuse it while every entry is still valid.
+  if entityListFrame==frame then
+   local valid=true for _,e in ipairs(entityList) do if not IsValid(e) then valid=false break end end
+   if valid then return entityList end
+  end
+  return clientEntities(frame)
+ end
+ local frame=engine.TickCount()
  if frame~=entityFrame then
   entityFrame=frame entityCandidates={}
   if RealTime()-fullScanAt>=5 then fullScanAt=RealTime() for _,e in ipairs(ents.GetAll()) do if carrierCandidate(e) then addCandidate(e) end end end
   for e in pairs(pendingCandidates) do if IsValid(e) and carrierCandidate(e) then addCandidate(e) end pendingCandidates[e]=nil end
   -- Most candidates are props, not actors; NW2 lookups stay limited to them.
   for e in pairs(candidates) do if not IsValid(e) then candidates[e]=nil elseif mmdhl.IsMMD(e) then entityCandidates[#entityCandidates+1]=e end end
-  table.sort(entityCandidates,function(a,b) local x,y=a:EntIndex(),b:EntIndex() if x~=y then return x<y end return candidates[a]<candidates[b] end)
+  table.sort(entityCandidates,byIndex)
  end
- local list,seen={},{}
- for _,e in ipairs(entityCandidates) do if mmdhl.IsMMD(e) then list[#list+1]=e seen[e]=true end end
- -- Client ragdolls have no network entity index and are not guaranteed to be
- -- included in ents.GetAll(). Keep the engine-created bodies in a weak registry.
- if CLIENT then for e in pairs(mmdhl.clientRagdolls or {}) do
-  if mmdhl.IsMMD(e) then if not seen[e] then list[#list+1]=e seen[e]=true end else mmdhl.clientRagdolls[e]=nil end
- end end
- -- So are other addons' copies of player models (player_copies.lua).
- if CLIENT then for e in pairs(mmdhl.playerCopies or {}) do
-  if IsValid(e) and mmdhl.IsMMD(e) then if not seen[e] then list[#list+1]=e seen[e]=true end else mmdhl.playerCopies[e]=nil end
- end end
- if CLIENT then entityList=list entityListFrame=frame end
+ local list={}
+ for _,e in ipairs(entityCandidates) do if mmdhl.IsMMD(e) then list[#list+1]=e end end
  return list
 end
 function mmdhl.GetRig(ent)
@@ -453,7 +544,20 @@ if SERVER then
   if ent.MMDStopped then return end ent.MMDStopped=err ErrorNoHalt('[Model Hotloader native] '..tostring(err)..'\n')
   file.CreateDir('mmd_hotloader/failures') file.Write('mmd_hotloader/failures/'..os.time()..'-'..ent:EntIndex()..'.json',util.TableToJSON({error=err,asset=mmdhl.GetAsset(ent),rig=mmdhl.GetRig(ent),diagnostics=mmdhl.GetDiagnostics(ent),engine=VERSIONSTR,map=game.GetMap()},true))
  end
+ -- Only a ragdoll with a server-side world (MMDHLInstance) has morphs to send here, and
+ -- nothing in the add-on gives one that any more: the presentation's world is the
+ -- client's. The search through every entity of the map each tick waits for the
+ -- first such value (ADR 0273): setting it runs the change hook on the server too,
+ -- and one search every five seconds finds one set any other way.
+ local poseOwners,poseCheckAt=false,0
+ hook.Add('EntityNetworkedVarChanged','MMDHL.NativePose',function(_,name,_,value) if name=='MMDHLInstance' and value and value~=0 then poseOwners=true end end)
  hook.Add('Tick','MMDHL.NativePose',function()
+  if not poseOwners then
+   if CurTime()<poseCheckAt then return end
+   poseCheckAt=CurTime()+5
+   for _,ent in ipairs(ents.FindByClass('prop_ragdoll')) do if ent:GetNW2Int('MMDHLInstance',0)~=0 then poseOwners=true break end end
+   if not poseOwners then return end
+  end
   for _,ent in ipairs(ents.FindByClass('prop_ragdoll')) do
    local h=ent:GetNW2Int('MMDHLInstance',0) if h==0 or ent.MMDStopped then continue end local rig=mmdhl.GetRig(ent) if not rig then continue end
    local scale=ent:GetFlexScale()

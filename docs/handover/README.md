@@ -1,5 +1,12 @@
 # Handovers
 
+The Model Hotloader's frames without a character (2026-11-27), Codex's finding relayed by the user (the pre-render
+callback used 0.46 ms a frame with no imported character): [hotloader-idle-report.md](hotloader-idle-report.md) (the
+client's entity list checks only what may have changed instead of every prop, ragdoll and NPC each frame; legacy
+searches only while a legacy entity exists; the natives rest when nothing needs them; the server's tick no longer
+searches for server-side worlds nothing makes; measured A B A B in the PoC; package only, ADR 0273; merged on the
+user's "Merge and publish").
+
 The Enhanced sky below the horizon (2026-11-27), the user's report "the horizon looks a bit off":
 [sky-enhanced-horizon-report.md](sky-enhanced-horizon-report.md) (the library's lit ground under the haze instead of a
 wall of fog past a map's edge; No horizon in Enhanced with the clouds of the opposite side; runtime patches 0118-0120),

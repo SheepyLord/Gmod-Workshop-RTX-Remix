@@ -6,6 +6,23 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### The Model Hotloader costs nothing on a map without its characters (2026-11-27)
+
+- **Frame time back on busy maps without imported characters.** The Model Hotloader looked for its characters in
+  every frame, among every prop, ragdoll and NPC of the map, and searched the whole map three more times for an old
+  kind of entity, whether a character was there or not; its natives also prepared a frame for nobody. The busier the
+  map, the more it cost: in the PoC a map with 600 more props lost 0.33 ms of every frame to it with no character
+  anywhere. Now that costs about 0.05 ms in all, whatever the map holds. With characters, the Hotloader no longer pays
+  for the map's props either: with three of them on that map it takes about 0.4 ms less a frame. Characters spawn,
+  move, collide and look as before.
+- Behind it ([ADR 0273](docs/decisions/0273-the-hotloaders-frames-cost-nothing-without-a-character.md),
+  [report](docs/handover/hotloader-idle-report.md)): the client's entity list checks the entities known to carry a model
+  at every list and any other candidate only when something may have given it one (its creation, its return into view,
+  the networked asset arriving, the add-on noting it), with the others in turn as a safety net; legacy `mmdhl_ragdoll`
+  entities are searched for only while one exists; the natives' frame step and cache sweep rest two seconds after
+  nothing needs them; the server's tick no longer searches every entity for ragdolls with a server-side world, which
+  nothing makes any more. Package only: the Model Hotloader's Lua.
+
 ### The Enhanced sky below the horizon: a real horizon, and No horizon (2026-11-27)
 
 - **A real horizon instead of a wall of fog.** Wherever you could see past a map's edge below the horizon, from a

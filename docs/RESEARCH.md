@@ -10835,3 +10835,47 @@ worktrees under `out/worktrees`. Times are local.
   steady 33.8 ms is a frame cap in that session, not the scene: measure the first view again before reading a cost.
 - **The capture harness's floor place** `(15500, 0)` on gm_flatgrass finds no floor under it (`placed=false`); the
   camera falls back to the spawn, about 11 m above the broad grass plane, looking over its far edge.
+
+## The Model Hotloader's frame with no character (2026-11-27, Claude; [ADR 0273](decisions/0273-the-hotloaders-frames-cost-nothing-without-a-character.md))
+
+- **Where the pre-render callback's time went.** PoC, RTX on, 1600x900, the published package of 2026-11-27, no
+  character, the probe timing every hook and the render boundary's calls through the `mmdhl` table: of a frame's
+  `mmdhl.Entities()` calls (about ten), only the one in `UpdateClientInstances` (`PreRender` `MMDHL.Shadows`, after
+  `InvalidateEntityList`) builds the list; the others reuse it (235 µs for all of them, 234 µs of it in that one, on
+  gm_construct with 600 more props). Every candidate was checked once a frame, all of it billed to the pre-render
+  callback.
+- **What a check costs.** `mmdhl.IsMMD` on a candidate (its class, three fields of the entity's table, the per-frame
+  read of `GetNW2String('MMDHLAsset')`) is about 0.5 to 1 µs in the game; `ents.FindByClass('mmdhl_ragdoll')` about
+  60 ns per entity of the map (13 µs with 212 client entities on gm_construct, three of them a frame). A hook that
+  returns at once costs about 0.5 to 1 µs under the probe's timer, so the Hotloader's 40-odd per-frame hooks cost about
+  0.05 ms together whatever they do.
+- **Before and after**, A B A B in one launch (the shipped files, then the branch's, compiled under their shipped chunk
+  names so that the render guard treats both alike; medians in ms, hook times in ms a frame; `out/hlidle/evidence`):
+
+  | gm_construct | frames | median | `MMDHL.Shadows` | all Hotloader hooks | all hooks |
+  |---|---|---|---|---|---|
+  | as it is, old | 2677, 2698 | 5.49, 5.46 | 0.035, 0.035 | 0.085, 0.092 | 1.72, 1.73 |
+  | as it is, new | 2609, 2680 | 5.65, 5.49 | 0.015, 0.014 | 0.048, 0.046 | 1.75, 1.74 |
+  | 600 props, old | 2315, 2227 | 6.23, 6.41 | 0.264, 0.292 | 0.330, 0.365 | 2.02, 2.14 |
+  | 600 props, new | 2271, 2392 | 6.43, 6.02 | 0.019, 0.018 | 0.059, 0.053 | 1.80, 1.76 |
+  | 600 props, three characters, old | 1309, 1281 | 11.04, 11.40 | 1.749, 1.788 | 1.887, 1.927 | 4.06, 4.09 |
+  | 600 props, three characters, new | 1322, 1315 | 11.01, 11.10 | 1.421, 1.424 | 1.510, 1.510 | 3.70, 3.73 |
+  | as it is, three characters, old | 1151, 1174 | 12.88, 12.61 | 1.450, 1.440 | 1.575, 1.570 | 3.86, 3.86 |
+  | as it is, three characters, new | 1179, 1144 | 12.67, 12.92 | 1.413, 1.455 | 1.499, 1.545 | 3.78, 3.88 |
+
+  The props made 452 client entities of 212. With three characters on the busy map the render boundary's
+  `UpdateClientInstances` took 349 and 357 µs before, 49 µs after; the characters' presentation
+  (`PrepareNativePresentation`, 443 to 454 µs) and bounds (`UpdateNativeVisuals`, 62 to 64 µs) were the same.
+- **Frame medians are not the measure here:** between phases of one launch they moved by up to 0.4 ms (6.02 to 6.43 ms
+  for the same code), more than the 0.3 ms saved; the hook timers are steady to a few microseconds.
+- **The server's tick.** `MMDHL.NativePose` walked `ents.FindByClass('prop_ragdoll')` every tick for ragdolls with
+  `MMDHLInstance`, a value no code of the add-on sets: 0.011 ms a tick on gm_construct, 0.041 ms with 600 props, 0.048
+  with three characters, of the server's 0.025 and 0.054 to 0.059 ms for all its Hotloader hooks with no character.
+  With the branch's package deployed: 0.0016 to 0.0022 ms a tick, the server's Hotloader hooks 0.016 to 0.019 ms.
+- **The branch's package deployed** (600 props, 590 client entities in that launch): with no character
+  `MMDHL.Shadows` 0.018 ms and all Hotloader hooks 0.059 ms, as with its files loaded over the shipped ones (0.017 to
+  0.019, 0.056 to 0.060); the shipped files in the same launch 0.354 and 0.428 ms; with three characters 1.49 against
+  2.00 ms in `MMDHL.Shadows`, medians 12.79 and 12.81 against 13.02 and 13.03 ms.
+- **The game's frame order:** the probe's per-frame counters show `PreRender` building the list and the `Think` hooks
+  of the same `FrameNumber()` reusing it, so a list built in `Think` is not paid twice; an entity that arrives between
+  the two is listed at the render boundary.

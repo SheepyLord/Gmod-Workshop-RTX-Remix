@@ -4477,3 +4477,23 @@ are the reviewer's PoC tests. [Measurements and camera positions](handover/sky-e
 The HR2 check compares the floor and 510 m ground with aligned and displaced cloud datums.
 The PSR fixture compares the finite reflected segment against its separate transport terms
 and repeats it before the library's post-depth work. [Floor rows, memory and Release verification](handover/sky-enhanced-HR-report.md#hr2)
+
+## The Hotloader's frames without a character (ADR 0273)
+
+- **LuaJIT**: [`test_hotloader_idle_frames.py`](../tools/tests/test_hotloader_idle_frames.py.md) (new) loads the shipped
+  `client.lua` and `carrier.lua` (with `native_render.lua`) whole under LuaJIT, GMod's `continue` turned into `goto`,
+  and runs frames of the hooks that run on every map: on a map of 661 candidates and no character a frame reads at most
+  two assets, never searches for legacy entities and never calls the natives' frame step or cache sweep; a new
+  character is listed at once, an announced model in the next frame (also when its asset was read for the frame
+  before), an unannounced one within a turn, an entity back in view in the next frame; removal, order, the client
+  ragdoll and copy registries, a noted preview, a full update, legacy entities and the natives' rest and grace. Its
+  `measure` scenario also runs against the files before the change (661 asset reads, three searches and both native
+  calls a frame, with no character).
+- **PoC** (probes in the worktree's `out/hlidle`, not tracked; runs in the [report](handover/hotloader-idle-report.md)):
+  timing launches A B A B on gm_construct as it is and with 600 more props, with no character and with three, the
+  shipped and the branch's `client.lua`, `carrier.lua`, `native_render.lua` and `instances.lua` compiled in turn under
+  their shipped chunk names, every hook and the render boundary's calls timed, the server's hooks per tick; one
+  launch with the branch's package deployed; behaviour launches with the published and the branch's package (a
+  ragdoll, an NPC, a clean up, a ragdoll again and the player's model on gm_flatgrass after a map change, each
+  listed, its world, physics, draws and bounds, screenshots).
+- Not covered: the field install, multiplayer, the legacy backend (`mmdhl_native_carrier 0`).

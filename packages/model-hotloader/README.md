@@ -138,3 +138,13 @@ and import the changed sources, a patch of them and `Source.md` with the four na
   put it at the map's origin and its joints dragged the chains it links across the map
   (`source/boneless-bodies.patch`: `native/secondary.hpp`, `secondary.cpp`, `secondary_quality.cpp`, the C++ test and
   its fixture).
+- **2026-11-27, the frames cost nothing without a character** (Codex's finding, relayed by the user: the pre-render
+  callback used 0.46 ms a frame with no imported character; [report](../../docs/handover/hotloader-idle-report.md),
+  [ADR 0273](../../docs/decisions/0273-the-hotloaders-frames-cost-nothing-without-a-character.md)): the client's entity
+  list (`mmd_hotloader/lua/mmdhl/carrier.lua`) checks the entities known to carry a model at every list and any other
+  candidate only when something may have given it one (its creation, its return into view, `EntityNetworkedVarChanged`
+  for `MMDHLAsset`, `mmdhl.NoteCarrier`), with the others in turn as a safety net, instead of every prop, ragdoll and
+  NPC at every list; legacy `mmdhl_ragdoll` entities are searched for only while one exists (`mmdhl.HasLegacyRagdolls`,
+  `client.lua`); the render boundary leaves out the presentation and the natives' frame step and cache sweep two
+  seconds after nothing needs them (`native_render.lua` `mmdhl.NativeIdle`, `instances.lua` `mmdhl.HasClientInstances`);
+  the server's `MMDHL.NativePose` tick searches for ragdolls with a server-side world only once one exists.

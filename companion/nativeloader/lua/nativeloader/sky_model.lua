@@ -97,12 +97,14 @@ local function sunDeclination(day) return select(2, equatorial(sunLongitude(day)
 --          1 is centred.
 local LUNAR_STAGES = { { 0, "penumbra", 1 }, { 0.3, "umbra", 1 }, { 0.7, "umbra", -1 }, { 1, nil, 0 } }
 local SOLAR_STAGES = { { 0, "sun", 1 }, { 0.9, "sun", -1 }, { 1, nil, 0 } }
-function M.eclipseSeparation(kind, amount, radius)
+-- Enhanced supplies an independent Sun radius in degrees. Standard sizes its Sun in Moon radii.
+function M.eclipseSeparation(kind, amount, radius, sunRadius)
     local stages = kind == "solar" and SOLAR_STAGES or LUNAR_STAGES
     amount = clamp(amount, 0, 1)
     -- Each stage is a contact: a shadow (or sun) radius plus (1) or minus (-1) the moon's.
     local function at(stage)
         if not stage[2] then return 0 end
+        if stage[2] == "sun" and sunRadius then return abs(sunRadius + stage[3] * radius) end
         return abs(M.ECLIPSE[stage[2]] + stage[3]) * radius
     end
     for i = 1, #stages - 1 do

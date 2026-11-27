@@ -1,5 +1,22 @@
 # Research notes
 
+In NIGHT2, the Enhanced image bracketed Standard at +5 and +7 Starlight stops. Patch 0117 applies
+the midpoint to the artwork. At NUMOS pin `41842c6`, `src/renderer.cpp:1020` opens the catalogue
+by solar elevation. At 40° the gate stayed closed even with 0.060% of the daylight left. The host
+now opens the visible catalogue by transmitted daylight at an eclipse. [Measurements](handover/sky-enhanced-NR-report.md#nr2)
+
+NUMOS `41842c6` computes earthshine from lunar phase and distance in `src/renderer.cpp:501`. Its
+`sunSize` is a diameter in degrees, default 0.545 (`include/numos/settings_fields.inl:18`). The companion's
+Enhanced solar eclipse uses that independent radius for the contacts of the two discs. The simulated star
+controls, manual earthshine and weather Night glow keep their Standard option mappings.
+[Enhanced night control reference](handover/sky-enhanced-NC-report.md)
+
+At NUMOS pin `41842c6`, `src/renderer.cpp:1053` assigns half of 80 S10 of starlight to light
+scattered by the air and removes it when the catalogue is off. Restoring only this term in the sky-view
+bake gave identical RGB in-scatter for both star sources at 0 and +2 star stops. The packaged night
+image's galaxy band and the Gaia background have solid-angle mean luminances of 0.0004082768735
+and 1.131903911×10⁻⁹ respectively before conversion. [Method and GPU check](handover/sky-enhanced-NR-report.md)
+
 The reviewer's noon `gm_construct` captures in `out/sky2/MR2-mist-ring` measured mean sky colour
 saturation of 0.11–0.13 at the published Partly cloudy settings. With library absorption, density 3
 gave 0.16–0.21 and density 2 gave 0.18–0.26. With mist off the range was 0.27–0.36. Density 2 also

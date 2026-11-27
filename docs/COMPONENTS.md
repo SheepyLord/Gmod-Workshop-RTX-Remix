@@ -1,5 +1,9 @@
 # Components
 
+The night-sky [calibration tool](../tools/sky/calibrate_enhanced_night.py.md) measures the packaged
+galaxy band and NUMOS's Gaia background in the same linear-light units. The Enhanced runtime shares
+Standard's cached image textures and uses that calibration for the editor. [Task NR report](handover/sky-enhanced-NR-report.md)
+
 The runtime's Alt+X developer and graphics menus edit the live Enhanced sky options used by the companion.
 The developer Weather presets window selects a built-in weather in memory. [Runtime menu](handover/sky-enhanced-M-report.md)
 

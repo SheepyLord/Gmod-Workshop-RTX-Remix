@@ -6,6 +6,26 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Our night sky in the Enhanced sky (2026-11-27)
+
+- **The Enhanced sky's nights show our night sky:** the night sky image's stars, constellations, Milky Way and
+  nebulae, as bright and coloured as in the Standard sky, over the Enhanced sky's moonlit clouds and twilight. The
+  Night sky editor's sliders for each layer work in both skies. **Stars: Real stars**, on the Night sky editor page,
+  brings back the catalogue stars and Milky Way the Enhanced sky had until now.
+- **Shooting stars** and the **glow round the Moon** from the Night sky editor show in the Enhanced sky too, and water
+  and mirrors show the same night.
+- **A total solar eclipse darkens the Enhanced sky:** as the Moon covers the Sun, the daylight fades on the sky, the
+  clouds and the map, and at totality the stars and the Sun's corona show round the black Moon. The eclipse control
+  on the Sky and weather page now places the Enhanced Moon over the Sun.
+- The editor's Night glow, simulated stars and earthshine stay the Standard sky's; the Enhanced sky keeps its own
+  airglow and moonlight. VR keeps the Standard sky.
+- Behind it ([ADR 0271](docs/decisions/0271-our-night-sky-on-the-enhanced-sky.md),
+  [the night](docs/handover/sky-enhanced-night-report.md)): runtime patches 0116 and 0117 draw the image, the
+  shooting stars, the Moon's glow and the eclipse's corona in the Enhanced composite and in reflections, the library
+  unmodified. The image is the library's Milky Way matched in light units, then raised six stops so it looks as it
+  does in Standard. While it shows, the library's own stars are off and the starlight they scatter into the night air
+  is put back. A solar eclipse dims the sunlight the library gets by the uncovered share of the Sun's disc.
+
 ### The Enhanced sky after its first day: no black ring round the Sun, less mist (2026-11-26)
 
 - **No black circle round the Sun.** With DLSS, a broken black ring lined the Sun's disc wherever no cloud covered it,

@@ -13,11 +13,15 @@ ownership and the player's selected weather or look.
 
 [The Enhanced controller](../nativeloader/enhanced_sky.lua.md) translates the clock, Moon and weather controls.
 [The weather tables](../nativeloader/enhanced_weather.lua.md) are the tuning surface for the twelve looks.
-Round 2 adds the [Enhanced sky editor](../nativeloader/enhanced_editor_panel.lua.md) beside the Night sky
-editor. Both skies follow the Night sky editor's Moon size and brightness. Enhanced maps brightness to disc
-gain in stops and supplies a separate moonlight control for the ground. The horizon switch, solar eclipse
-and the remaining night editor layers are Standard features. `nativeloader_sky_status` reports the NUMOS
-quality level while Enhanced is active.
+The [Enhanced sky editor](../nativeloader/enhanced_editor_panel.lua.md) sits beside the shared Night sky
+editor. In Enhanced, **Stars** saves `nativeloader_sky_enhanced_stars` as `map` (the four-layer night
+sky image, default) or `real` (the catalogue stars and Milky Way). The companion sends
+`rtx.atmosphere.numos.nightSkyImage` only while it owns the Enhanced sky. The existing Standard
+image/simulated choice remains independent. Both skies take the layer weights and colours, shooting-star
+settings and Moon glow. Enhanced keeps its physical Moon and airglow. Its disc brightness uses stops,
+with a separate moonlight control for the ground. The Night sky editor identifies the Standard-only effects.
+`nativeloader_sky_status` reports the active Enhanced star source and quality level.
+[Per-control reference](../../../../docs/handover/sky-enhanced-NC-report.md)
 
 ADR 0249: **which sky a map shows** (the user's request of 2026-11-20). The RTX sky by default on every map; the
 map's own sky (its sky textures and, at scale 16, its 3D skybox) chosen and remembered per map (`nativeloader_sky_here`,
@@ -100,7 +104,8 @@ Saved client settings, shown in the RTX Remix tab under "Sky and weather":
 | `nativeloader_sky_moon_day` | `1` | The moon by day, 0-4: 1 is as bright as the real Moon at its phase, 0 hides it while the sun is up (ADR 0207) |
 | `nativeloader_sky_eclipse` | (empty) | `lunar` or `solar`; empty for none. An eclipse sets the moon's phase (full, new) |
 | `nativeloader_sky_eclipse_amount` | `100` | How far through the eclipse, 0-100: first contact to the middle; lunar total from 70, solar from 90 |
-| `nativeloader_sky_stars` | `map` | Night sky: `map` (the night sky image: stars, galaxy and nebulae) or `procedural` |
+| `nativeloader_sky_stars` | `map` | Standard night sky image (`map`) or simulated stars (`procedural`) |
+| `nativeloader_sky_enhanced_stars` | `map` | Enhanced night sky image (`map`) or real stars and the Milky Way (`real`), kept independently of Standard |
 | `nativeloader_weather` | `partlyCloudy` | One of the twelve presets (`clear`, `partlyCloudy`, `overcast`, `hazy`, `foggy`, `drizzle`, `rainstorm`, `thunderstorm`, `snow`, `blizzard`, `sandstorm`, `smoggy`); empty leaves clouds, fog and rain to Remix's files (see "Weather left to Remix") |
 | `nativeloader_weather_seconds` | `30` | How long a change of weather takes |
 | `nativeloader_sky_interval` | `0.02` | Seconds between updates of the sun, moon, stars and weather, 0-1: 0.02 is 50 a second, 0 every frame. Changing it does not take a map's sky over (R3-015) |
@@ -275,10 +280,10 @@ moon below the horizon now (it showed through the ground's haze), except with No
 
 The Night sky editor's page (ADR 0227) is built by `buildNightPanel` beside the Sky and weather panel, in the same
 category. From the top: Go to night (`nativeloader_sky_time night`), Time passes (to hold the night while editing),
-the Night sky choice, then the night sky image's layers (all of them, then each layer's brightness and colour), the
+the Enhanced Stars and Standard Night sky choices, then the night sky image's layers (all of them, then each layer's brightness and colour), the
 simulated stars, the moon, the shooting stars, the night glow, and Reset the night sky. Its help lines say what 1 and
 0 mean, that the constellations come out with the first stars while the Milky Way and the nebulae wait for full
-darkness, and that a layer at 0 leaves video memory.
+darkness, and that a layer at 0 leaves video memory in Standard.
 
 What goes to Remix (the table under "Settings"): each setting times the option's value at 1. With the companion in
 charge of a physical sky every one goes out with the sky, at a map's start and with everything again; on a map whose

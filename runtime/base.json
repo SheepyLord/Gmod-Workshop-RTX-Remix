@@ -33,8 +33,8 @@
   }
  },
  "packaged": {
-  "d3d9.dll": "0362625c8170add66fa144727144661b57f6c9bf79bbb01f112384bd8483e2de",
-  "built_from": "HEAD -> claude/sky-enhanced 48e9ae0b4 (with what the rest of this record names)",
+  "d3d9.dll": "e533151a152d2eb26f3801fd117026e0035fc0d0414c9302438b53976cf6fe9c",
+  "built_from": "HEAD -> claude/sky-enhanced d3a4cea74 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -175,6 +175,8 @@
    "patches/0113-Preserve-sky-colour-and-smooth-Enhanced-sun-rays-at-the-horizon.patch": "14f3da28949fb3f59d9fdc635d6bd4c1be04950a00c5f0547ba0c5f5571b92da",
    "patches/0114-Add-the-translated-NUMOS-controls-to-the-Remix-menus.patch": "a63c2e48ef75658521a547beed220d4c4ed3ee9f7fdce69f204c514a430b4bef",
    "patches/0115-Soften-the-visible-Enhanced-sun-and-moon-discs-for-upscaling.patch": "9faf9d82f3383cdecd8186fee4439423c828e5c3c867422f087d9a940d975f20",
+   "patches/0116-Draw-the-Night-sky-editor-layers-in-Enhanced-skies-and-reflections.patch": "477003ab05d92d8b01410ef0f0f0544a300681d13af2877dfa17441061e7714c",
+   "patches/0117-Brighten-the-authored-night-and-eclipse-the-Enhanced-daylight.patch": "6bade23a8824bbf92f3b6e72cce591a5e733f91e74e8f3ae1f58b5e0a1bdfeab",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

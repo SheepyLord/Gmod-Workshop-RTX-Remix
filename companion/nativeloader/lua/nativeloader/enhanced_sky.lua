@@ -48,7 +48,7 @@ return function(model, set, configured, remixDefaults, forget)
         "A remaining round 1 volumetrics snapshot, restored once")
     local mapCount = CreateClientConVar("nativeloader_sky_numos_world", "0", false, false,
         "Last map for which the Enhanced sky measured ground, for this process only")
-    local world
+    local world, sunRadius
     local tier, from, to, target, began, duration, releaseAt, selected
     local previous, fog, fogValues = {}, nil, nil
     local nearFog, scale = {}, nil
@@ -234,11 +234,19 @@ return function(model, set, configured, remixDefaults, forget)
 
     function E.hasSavedVolume() return saved:GetString() ~= "" end
     function E.newMap()
-        world, scale = nil, nil
+        world, scale, sunRadius = nil, nil, nil
         rainFrom, rainTo, rainAt, rainSeconds = 0, 0, 0, 0
     end
 
     function E.moonLatitude(kind, amount, radius)
+        if kind == "solar" then
+            if not sunRadius then
+                -- NUMOS sunSize is the visible diameter in degrees, independent of the Moon's size.
+                local size = tonumber(configured(prefix .. "sunSize"))
+                sunRadius = (size and size >= 0 and size < math.huge and size or 0.545) / 2
+            end
+            return model.eclipseSeparation(kind, amount, radius, sunRadius)
+        end
         if kind ~= "lunar" then return model.moonLatitude(nil, amount, radius) end
         -- NUMOS sunVisibleFromMoon uses the Sun and Earth's radii as seen from the Moon.
         -- First contact at 0%, complete shadow at 70%, centre at 100% on the existing slider.
@@ -293,7 +301,7 @@ return function(model, set, configured, remixDefaults, forget)
         send("moonDiscGainStops", moonBrightness > 0 and math.max(-16, math.log(moonBrightness) / math.log(2)) or -16)
     end
 
-    function E.celestial(sky, hours, day, north, lunar, daytime)
+    function E.celestial(sky, hours, day, north, eclipseKind, daytime)
         send("timeOfDayHours", hours)
         send("dayOfYear", day)
         send("northOffsetDegrees", north)
@@ -302,9 +310,10 @@ return function(model, set, configured, remixDefaults, forget)
         send("moon0.elevation", sky.moon.elevation)
         send("moon0.rotation", sky.moon.bearing)
         -- NUMOS computes the Earth's shadow only for a moon lit by the actual sun (negative phase).
-        send("moon0.phase", lunar and -1 or sky.moon.phase)
+        send("moon0.phase", eclipseKind == "lunar" and -1 or sky.moon.phase)
         local brightness = sky.sun.elevation > 0 and daytime or 1
-        send("moon0.enabled", brightness > 0)
+        -- At a solar eclipse the Moon still covers the Sun if its daylight radiance is set to zero.
+        send("moon0.enabled", brightness > 0 or eclipseKind == "solar")
         send("moon0.color", {brightness, brightness, brightness})
     end
 

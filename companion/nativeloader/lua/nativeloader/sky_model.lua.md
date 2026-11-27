@@ -15,7 +15,7 @@ Angles are in degrees.
 | Function | What |
 |---|---|
 | `sky(hours, day, phase, north [, latitude [, moonLatitude]])` | The sky at a time of day (0-24) on a day of the year, returned as `{ sun = { elevation, bearing }, moon = { elevation, bearing, phase }, stars = { rotation, poleElevation, poleBearing } }`. `north` is the bearing of the map's north; `moonLatitude` puts the moon that many degrees north of the ecliptic (0 when left out). |
-| `eclipseSeparation(kind, amount, radius)` | How far the moon's centre is from the centre of Earth's shadow (`lunar`) or from the sun's (`solar`), in degrees, `amount` (0-1) of the way through an eclipse of a moon of `radius` degrees, by stages (below). |
+| `eclipseSeparation(kind, amount, radius [, sunRadius])` | Angular distance in degrees from the centre of Earth's shadow (lunar) or the Sun (solar) to the Moon's centre at progress 0–1. Enhanced supplies the Sun's independent radius for solar contacts. With three arguments it uses the original Standard geometry below. |
 | `eclipsePhase(kind)` | The phase an eclipse needs: 0.5 (full) for `lunar`, 0 (new) for `solar`, nil for none. |
 | `moonLatitude(kind, amount, radius)` | The moon's ecliptic latitude: in an eclipse its `eclipseSeparation`; otherwise just clear of the penumbra, `(ECLIPSE.penumbra + 1) * radius + 1`. |
 | `horizontal(hourAngle, declination, latitude)` | Elevation and azimuth (from north, clockwise) of a body. The model is the one the runtime's own day cycle uses (`RtxAtmosphere::computeTimeCycleSunAngles`). |

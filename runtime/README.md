@@ -1,5 +1,21 @@
 # runtime/
 
+## Enhanced night after the first PoC test (0117)
+
+The night image and meteors add six stops to the measured Gaia conversion. Real stars retain their
+physical scale. The host applies lunar occultation to the sunlight entering NUMOS before it bakes
+the sky and clouds and emits the map's Sun. The camera and reflections keep the exposed photosphere
+and corona behind the Moon. The 0117 Release is staged in the runtime worktree's `_output/`.
+[NR2 measurements and first checks](../docs/handover/sky-enhanced-NR-report.md#nr2)
+
+## The Night sky editor in Enhanced (0116)
+
+The Enhanced camera sky and mirror reflections draw the four existing night-image textures in NUMOS's
+celestial frame. `rtx.atmosphere.numos.nightSkyImage` defaults to True. False selects the library's
+real stars and Gaia Milky Way. The library lights the air, the clouds and the ground. Both visible
+sources include the editor's shooting stars and Moon glow, and the chromosphere and corona during a
+solar occultation. [Task NR calibration, build and first checks](../docs/handover/sky-enhanced-NR-report.md)
+
 ## Enhanced Sun and Moon edges (0115)
 
 Patch 0115 limits the visible discs' brightness and filters their rims across two traced pixels.

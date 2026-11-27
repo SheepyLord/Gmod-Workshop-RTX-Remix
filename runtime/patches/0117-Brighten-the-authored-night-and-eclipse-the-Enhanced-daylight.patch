@@ -1,0 +1,715 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Thu, 26 Nov 2026 23:39:58 -0700
+Subject: [PATCH] Brighten the authored night and eclipse the Enhanced daylight
+
+---
+ docs/RemixNumosAPI.md                         |   3 +
+ docs/fork-touchpoints.md                      |  12 ++
+ documentation/NumosSky.md                     |  11 +-
+ src/dxvk/meson.build                          |   2 +
+ src/dxvk/rtx_render/rtx_atmosphere.cpp        |   5 -
+ src/dxvk/rtx_render/rtx_atmosphere.h          |   1 -
+ .../rtx_render/rtx_fork_numos_eclipse.cpp     | 183 ++++++++++++++++++
+ src/dxvk/rtx_render/rtx_fork_numos_eclipse.h  |  19 ++
+ src/dxvk/rtx_render/rtx_fork_numos_night.cpp  |  24 +--
+ src/dxvk/rtx_render/rtx_fork_numos_night.h    |   5 +-
+ src/dxvk/rtx_render/rtx_numos.cpp             |  18 +-
+ src/dxvk/shaders/rtx/pass/numos/numos_night.h |  17 +-
+ .../shaders/rtx/pass/numos/numos_night.slangh |  11 +-
+ .../rtx/pass/numos/numos_visible_discs.slangh |  22 ++-
+ tests/rtx/unit/test_enhanced_sky.cpp          |  79 +++++++-
+ 15 files changed, 373 insertions(+), 39 deletions(-)
+ create mode 100644 src/dxvk/rtx_render/rtx_fork_numos_eclipse.cpp
+ create mode 100644 src/dxvk/rtx_render/rtx_fork_numos_eclipse.h
+
+diff --git a/docs/RemixNumosAPI.md b/docs/RemixNumosAPI.md
+index 373cf3225..8ffb66c4b 100644
+--- a/docs/RemixNumosAPI.md
++++ b/docs/RemixNumosAPI.md
+@@ -58,6 +58,9 @@ Cloud and near-haze visibility are sampled along the part of the curtain in fron
+ 
+ The host applies `rtx.atmosphere.numos.nightSkyImage` to NUMOS's effective `nightSkyStars` setting
+ at frame start. The existing Stars and Milky Way checkbox in Alt+X edits that same source choice.
++The image and shooting stars get six stops above the physical Milky Way calibration. The real stars
++use its original light units. `rtx.atmosphere.eclipseEnable` and `rtx.atmosphere.eclipseTotalityLight`
++also govern the Enhanced sky's sunlight and its light on clouds and surfaces.
+ 
+ In the Alt+X developer menu, Game Setup → Step 2: Parameter Tuning → Sky Tuning uses the same `rtx.skyMode` option as the API.
+ Enhanced adds six tabs and a built-in weather selector. Graphics Settings exposes the night, haze and
+diff --git a/docs/fork-touchpoints.md b/docs/fork-touchpoints.md
+index 06cf6aaec..74722eb73 100644
+--- a/docs/fork-touchpoints.md
++++ b/docs/fork-touchpoints.md
+@@ -4238,3 +4238,15 @@ The emitted lights and the standalone library shaders keep their physical illumi
+   and solar corona. `numos_visible_discs.slangh`, the composite bindings and the PSR miss in
+   `algorithm/geometry_resolver.slangh` compose them behind air, lunar coverage and clouds.
+   `test_enhanced_sky.cpp` checks calibration, twilight, totality, star-air flags and block layout.
++
++## Enhanced night brightness and solar illumination after the first PoC test
++
++- `rtx_fork_numos_eclipse.*` resolves this frame's discs from the configured clock and the pinned
++  celestial functions. It integrates the union of lunar silhouettes against the visible Sun's
++  limb law. `rtx_numos.cpp` supplies the attenuated Sun to NUMOS before its bakes, clears stale
++  history on abrupt changes and keeps the authored value in Sky Tuning.
++- `rtx_fork_numos_night.*` passes the full solar colour and eclipse star controls to the camera
++  and PSR. The obsolete geometric-only host helper was removed from `rtx_atmosphere.*`.
++  `numos_night.h`, `numos_night.slangh` and `numos_visible_discs.slangh` apply the measured
++  image gain to the artwork and meteors and reveal the catalogue during a daytime eclipse.
++  The enhanced-sky unit covers partial, annular and total eclipses, overlapping moons and the clock.
+diff --git a/documentation/NumosSky.md b/documentation/NumosSky.md
+index f7a120f01..2dea074c0 100644
+--- a/documentation/NumosSky.md
++++ b/documentation/NumosSky.md
+@@ -97,7 +97,7 @@ use the Night sky editor's weights, colours and master brightness. Choosing the
+ restores the library's ordinary visible night. Shooting stars and the Moon's Gaussian glow work with
+ either source. A solar occultation adds the chromosphere and corona around the existing disc.
+ 
+-The 80-byte `NumosNightArgs` slice is ready before the G-buffer. The camera binds it at 97, its four DDS
++The 96-byte `NumosNightArgs` slice is ready before the G-buffer. The camera binds it at 97, its four DDS
+ views at 98–101 and its wrap-U sampler at 102. The PSR miss uses 414 and the existing night-image
+ slots. The two modes share the texture cache, including zero-weight release and tier-specific filenames.
+ 
+@@ -108,6 +108,15 @@ stellar gain and pre-exposed reference illuminance. The physical airglow, zodiac
+ lighting keep their library settings. The full-sphere Milky Way calibration uses the two shipped
+ assets before atmospheric extinction, exposure or tone mapping.
+ 
++The NightSky HD image and shooting stars get another six stops (64×) after this conversion. The
++catalogue and Gaia retain their physical scale. The Night brightness and Starlight controls still
++apply to both sources. At solar contact the host integrates the uncovered limb-darkened photosphere
++and applies the totality floor to the sunlight entering NUMOS. Its sky and cloud bakes and emitted
++distant Sun therefore share one eclipse. The visible part of the Sun and its corona keep their
++unocculted surface radiance behind the lunar mask. At high-Sun totality the host reveals real stars
++using the transmitted daylight and draws their full field, since the daytime LUT contains no blurred
++starlight to subtract.
++
+ ### Lights
+ 
+ The sun, moons and lightning are externally tracked lights, one frame behind the renderer. Distant lights with `lightFlagCloudShadowed` get the cloud shadow in direct and indirect next event estimation, and in the volume integration. Resampling ignores the shadow.
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index 62e6057bd..c35515800 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -339,6 +339,8 @@ dxvk_src = files([
+   'rtx_render/rtx_nsight_capture.cpp',
+   'rtx_render/rtx_nsight_capture.h',
+   'rtx_render/rtx_numos.cpp',
++  'rtx_render/rtx_fork_numos_eclipse.cpp',
++  'rtx_render/rtx_fork_numos_eclipse.h',
+   'rtx_render/rtx_fork_numos_night.cpp',
+   'rtx_render/rtx_fork_numos_night.h',
+   'rtx_render/rtx_fork_numos_rays.cpp',
+diff --git a/src/dxvk/rtx_render/rtx_atmosphere.cpp b/src/dxvk/rtx_render/rtx_atmosphere.cpp
+index af7552196..2bf735bb6 100644
+--- a/src/dxvk/rtx_render/rtx_atmosphere.cpp
++++ b/src/dxvk/rtx_render/rtx_atmosphere.cpp
+@@ -936,11 +936,6 @@ uint32_t RtxAtmosphere::loadNightImage(Rc<DxvkContext> ctx, bool starMap) {
+        | (m_starMapNebula.view != nullptr ? kNumosNightNebula : 0u);
+ }
+ 
+-float RtxAtmosphere::solarDiscCoverage(const Vector3& sun, float sunRadius, const Vector3& moon, float moonRadius) {
+-  const float area = discOverlapArea(sunRadius, moonRadius, angleBetween(sun, moon));
+-  return std::clamp(area / (dxvk::kPi * sunRadius * sunRadius), 0.f, 1.f);
+-}
+-
+ void RtxAtmosphere::bindNightImage(RtxContext& ctx, uint32_t stars, uint32_t galaxy, uint32_t nebula,
+                                    uint32_t constellations, uint32_t sampler) const {
+   ctx.bindResourceView(stars, m_starMap.view != nullptr ? m_starMap.view : m_skyTextureStandInView, nullptr);
+diff --git a/src/dxvk/rtx_render/rtx_atmosphere.h b/src/dxvk/rtx_render/rtx_atmosphere.h
+index 20efe9e38..10bf69951 100644
+--- a/src/dxvk/rtx_render/rtx_atmosphere.h
++++ b/src/dxvk/rtx_render/rtx_atmosphere.h
+@@ -1256,7 +1256,6 @@ public:
+   uint32_t loadNightImage(Rc<DxvkContext> ctx, bool enabled);
+   void bindNightImage(RtxContext& ctx, uint32_t stars, uint32_t galaxy, uint32_t nebula,
+                       uint32_t constellations, uint32_t sampler) const;
+-  static float solarDiscCoverage(const Vector3& sun, float sunRadius, const Vector3& moon, float moonRadius);
+ 
+ private:
+   struct ChromaticityUiState {
+diff --git a/src/dxvk/rtx_render/rtx_fork_numos_eclipse.cpp b/src/dxvk/rtx_render/rtx_fork_numos_eclipse.cpp
+new file mode 100644
+index 000000000..24f4b9f92
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_fork_numos_eclipse.cpp
+@@ -0,0 +1,183 @@
++// Solar clock and topocentric conventions adapted from NUMOS.
++// Copyright 2026 Kim2091 (Sparkles)
++// Portions Copyright (c) 2025-2026 CattaRappa (sambow23), softsoundd
++// SPDX-License-Identifier: Apache-2.0 AND MIT
++// See the pinned library's LICENSE, licenses/LICENSE-MIT-contributors.txt and THIRD_PARTY_NOTICES.md.
++#include "rtx_fork_numos_eclipse.h"
++#include "numos/renderer.h"
++#include "../../../submodules/numos/src/celestial.h"
++
++#include <algorithm>
++#include <array>
++#include <cmath>
++
++namespace dxvk {
++  namespace {
++    constexpr double pi = 3.14159265358979323846;
++    constexpr float rad = numos::kDegreesToRadians;
++
++    numos::Vector3 direction(float elevation, float azimuth) {
++      const float e = elevation * rad, a = azimuth * rad;
++      return {std::cos(e) * std::sin(a), std::sin(e), std::cos(e) * std::cos(a)};
++    }
++
++    // beginFrame advances NUMOS's clock before it resolves the sun. Read its current
++    // clock, including an explicit scrub, rather than accumulating another one.
++    float frameHours(const numos::Settings& s, const numos::Renderer& renderer, float dt) {
++      if (!s.timeCycleEnable) return s.timeOfDayHours;
++      const float start = renderer.settings().timeOfDayHours == s.timeOfDayHours
++        ? renderer.simulationState().timeOfDayHours : s.timeOfDayHours;
++      const float daySeconds = 60.f * std::max(s.dayLengthMinutes, .01f);
++      const float next = start + (std::max(dt, 0.f) / daySeconds) * 24.f;
++      return std::fmod(std::fmod(next, 24.f) + 24.f, 24.f);
++    }
++
++    numos::Vector3 sunDirection(const numos::Settings& s, float hours) {
++      if (!s.timeCycleEnable) return direction(s.sunElevation, s.sunRotation);
++      // Cooper declination and local hour angle, with the pin's pole/zenith convention.
++      const float lat = s.latitudeDegrees * rad;
++      const float dec = 23.44f * rad * std::sin(2.f * numos::kPi * (284.f + float(s.dayOfYear)) / 365.f);
++      const float hour = (hours - 12.f) * 15.f * rad;
++      const float sinEl = std::clamp(std::sin(lat) * std::sin(dec) +
++        std::cos(lat) * std::cos(dec) * std::cos(hour), -1.f, 1.f);
++      const float el = std::asin(sinEl);
++      const float denom = std::cos(el) * std::cos(lat);
++      float az = 0.f;
++      if (std::abs(denom) >= 1e-6f) {
++        az = std::acos(std::clamp((std::sin(dec) - sinEl * std::sin(lat)) / denom, -1.f, 1.f));
++        if (hour > 0.f) az = 2.f * numos::kPi - az;
++      }
++      return direction(el / rad, az / rad + s.northOffsetDegrees);
++    }
++
++    numos::Vector3 realMoonDirection(const numos::Settings& s, float hours, numos::Vector3 sun) {
++      using namespace numos::celestial;
++      const double days = daysSinceJ2000(s.calendarYear, s.dayOfYear, hours);
++      double sunLon, obliquity, moonLon, moonLat, distance;
++      sunEcliptic(days, sunLon, obliquity);
++      moonEcliptic(days, moonLon, moonLat, distance);
++      const auto frame = alignedFrame(eclipticToEquatorial(sunLon, 0., obliquity), sun,
++                                      celestialPoleLocal(s.latitudeDegrees * rad, s.northOffsetDegrees * rad));
++      const auto geocentric = frame.toLocal(eclipticToEquatorial(moonLon, moonLat, obliquity));
++      return numos::normalize(geocentric * float(distance) - numos::Vector3(0.f, 1.f, 0.f));
++    }
++
++    struct Disc { double distance, radius, angle; }; // Solar radii in the tangent plane.
++    struct Arc { double begin, end; };
++    using Discs = std::array<Disc, numos::kMaxMoons>;
++
++    // Exactly union the covered arcs of one solar ring. Coincident moons cast one shadow.
++    double coveredRing(const Discs& discs, size_t count, double r) {
++      std::array<Arc, 2 * numos::kMaxMoons> arcs;
++      size_t n = 0;
++      for (size_t i = 0; i < count; ++i) {
++        const auto& m = discs[i];
++        if (m.distance + r <= m.radius) return 1.;
++        if (std::abs(m.distance - r) >= m.radius) continue;
++        const double c = (r*r + m.distance*m.distance - m.radius*m.radius) / (2. * r * m.distance);
++        const double half = std::acos(std::clamp(c, -1., 1.));
++        if (count == 1) return half / pi;
++        double lo = m.angle - half, hi = m.angle + half;
++        if (lo < 0.) { arcs[n++] = {lo + 2.*pi, 2.*pi}; lo = 0.; }
++        if (hi > 2.*pi) { arcs[n++] = {0., hi - 2.*pi}; hi = 2.*pi; }
++        arcs[n++] = {lo, hi};
++      }
++      std::sort(arcs.begin(), arcs.begin() + n, [](Arc a, Arc b) { return a.begin < b.begin; });
++      double covered = 0., end = 0.;
++      for (size_t i = 0; i < n; ++i) {
++        covered += std::max(0., arcs[i].end - std::max(end, arcs[i].begin));
++        end = std::max(end, arcs[i].end);
++      }
++      return std::clamp(covered / (2.*pi), 0., 1.);
++    }
++
++    // Normalized flux inside r for 0115's I(mu) = 0.4 + 0.6*mu (disc mean 0.8).
++    double enclosedFlux(double r) {
++      const double r2 = r*r, mu2 = std::max(0., 1.-r2);
++      return .5 * (r2 + 1. - mu2 * std::sqrt(mu2));
++    }
++
++    void integrate(const Discs& discs, size_t count, float floor, NumosSolarEclipse& eclipse) {
++      std::array<double, 2 + 2 * numos::kMaxMoons> stops {0., 1.};
++      size_t n = 2;
++      for (size_t i = 0; i < count; ++i) {
++        const auto& m = discs[i];
++        stops[n++] = std::clamp(std::abs(m.distance - m.radius), 0., 1.);
++        stops[n++] = std::min(m.distance + m.radius, 1.);
++      }
++      std::sort(stops.begin(), stops.begin() + n);
++      double area = 0., visible = 0.;
++      for (size_t band = 1; band < n; ++band) {
++        const double lo = stops[band-1], hi = stops[band];
++        if (lo == hi) continue;
++        // Split at tangencies; concentrate samples at each end. The annular area
++        // and limb-darkened flux weights are analytic, including for annular eclipses.
++        double a = lo, fa = enclosedFlux(a);
++        for (int j = 1; j <= 32; ++j) {
++          const double t = j / 32.;
++          const double b = lo + (hi-lo) * t*t*(3.-2.*t), fb = enclosedFlux(b);
++          const double cover = coveredRing(discs, count, .5*(a+b));
++          area += cover * (b*b-a*a);
++          visible += (1.-cover) * (fb-fa);
++          a = b; fa = fb;
++        }
++      }
++      eclipse.coverage = float(std::clamp(area, 0., 1.));
++      eclipse.daylight = floor + (1.f-floor) * float(std::clamp(visible, 0., 1.));
++    }
++  }
++
++  NumosSolarEclipse applyNumosSolarEclipse(numos::Settings& s, const numos::Renderer& renderer,
++                                           float dt, bool enabled, float totalityFloor) {
++    NumosSolarEclipse eclipse;
++    eclipse.fullSun = s.sunIlluminance * s.sunIntensity;
++    eclipse.totalityStarGain = std::exp2(std::clamp(std::clamp(s.nightGainStops, 0.f, 16.f) + s.starGainStops, -16.f, 16.f));
++    if (!enabled || s.sunSize <= 0.f) return eclipse;
++    const float hours = frameHours(s, renderer, dt);
++    const numos::Vector3 sun = sunDirection(s, hours);
++    const double radius = std::max(.5f * s.sunSize * rad, 1e-4f);
++    const float horizonWidth = float(std::sin(std::min(radius, .5 * pi)));
++    if (sun.y <= -horizonWidth) return eclipse;
++    const float floor = std::clamp(totalityFloor, 0.f, 1.f);
++
++    Discs discs {};
++    size_t count = 0;
++    auto add = [&](numos::Vector3 moon, float diameter) {
++      const double mr = .5f * std::max(.01f, diameter) * rad;
++      const auto normal = numos::cross(sun, moon);
++      const double d = std::atan2(double(numos::length(normal)), double(numos::dot(sun, moon)));
++      if (d >= radius + mr) return;
++      if (d + radius <= mr) {
++        eclipse.coverage = 1.f;
++        eclipse.daylight = floor;
++        return;
++      }
++      const auto east = numos::normalize(numos::cross(std::abs(sun.y) < .9f ? numos::Vector3(0,1,0) : numos::Vector3(1,0,0), sun));
++      const auto north = numos::cross(sun, east);
++      double phi = std::atan2(double(numos::dot(moon, north)), double(numos::dot(moon, east)));
++      if (phi < 0.) phi += 2.*pi;
++      discs[count++] = {d / radius, mr / radius, phi};
++    };
++    size_t slots = 0;
++    if (s.realMoonEnabled) {
++      add(realMoonDirection(s, hours, sun), s.realMoonAngularDiameter);
++      ++slots;
++    }
++    for (const auto& m : s.moons) {
++      if (slots == numos::kMaxMoons || eclipse.coverage == 1.f) break;
++      if (!m.enabled) continue;
++      add(direction(m.elevation, m.rotation), m.angularDiameter);
++      ++slots;
++    }
++    if (count && eclipse.coverage != 1.f) integrate(discs, count, floor, eclipse);
++    if (sun.y < 0.f) {
++      // Ease back to the ordinary twilight as the last of the solar limb sets.
++      const float t = 1.f + sun.y / horizonWidth;
++      const float visible = t*t * (3.f - 2.f*t);
++      eclipse.coverage *= visible;
++      eclipse.daylight += (1.f - eclipse.daylight) * (1.f - visible);
++    }
++    s.sunIntensity *= eclipse.daylight;
++    return eclipse;
++  }
++}
+diff --git a/src/dxvk/rtx_render/rtx_fork_numos_eclipse.h b/src/dxvk/rtx_render/rtx_fork_numos_eclipse.h
+new file mode 100644
+index 000000000..6c7f01007
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_fork_numos_eclipse.h
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include "numos/settings.h"
++
++namespace numos { class Renderer; }
++
++namespace dxvk {
++  struct NumosSolarEclipse {
++    float coverage = 0.f;      // Fraction of the visible solar disc's area hidden by moons.
++    float daylight = 1.f;      // Remaining limb-darkened flux, including the configured totality floor.
++    numos::Vector3 fullSun;    // Authored irradiance before occultation or NUMOS pre-exposure.
++    float totalityStarGain = 1.f;
++  };
++
++  // Apply to this frame's resolved copy before NUMOS bakes or emits its lights.
++  NumosSolarEclipse applyNumosSolarEclipse(numos::Settings& sky, const numos::Renderer& renderer,
++                                           float deltaSeconds, bool enabled, float totalityFloor);
++}
+diff --git a/src/dxvk/rtx_render/rtx_fork_numos_night.cpp b/src/dxvk/rtx_render/rtx_fork_numos_night.cpp
+index db01dda61..9c373d035 100644
+--- a/src/dxvk/rtx_render/rtx_fork_numos_night.cpp
++++ b/src/dxvk/rtx_render/rtx_fork_numos_night.cpp
+@@ -1,6 +1,6 @@
+ // SPDX-License-Identifier: MIT
+ #include "rtx_fork_numos_night.h"
+-#include "numos/lib/atmosphere_args.h"
++#include "numos/renderer.h"
+ #include "rtx_atmosphere.h"
+ #include "rtx_context.h"
+ #include "rtx_night_sky_layers.h"
+@@ -8,7 +8,7 @@
+ namespace dxvk {
+   // Enhanced uses the same cached DDS views and editor weights as Standard, independently
+   // of Standard's image/procedural choice. None of Standard's atmosphere passes run here.
+-  NumosNightArgs prepareNumosNight(RtxContext& ctx, bool image, const numos::AtmosphereArgs& sky) {
++  NumosNightArgs prepareNumosNight(RtxContext& ctx, bool image, const numos::FrameOutputs& out, const NumosSolarEclipse& eclipse) {
+     NumosNightArgs n {};
+     n.flags = ctx.getCommonObjects()->metaAtmosphere().loadNightImage(&ctx, image);
+     if (image) n.flags |= kNumosNightImage;
+@@ -30,20 +30,16 @@ namespace dxvk {
+       * RtxAtmosphere::moonHaloGlowStrength());
+     n.coronaBrightness = std::max(0.f, RtxAtmosphere::eclipseCoronaBrightness());
+ 
+-    const Vector3 sun(sky.sunDirection.x, sky.sunDirection.y, sky.sunDirection.z);
+-    if (RtxAtmosphere::eclipseEnable() && sun.y > 0.f && sky.sunAngularRadius > 0.f) {
+-      for (const auto& m : sky.moons) {
+-        if (m.enabled < .5f || m.angularRadius <= 0.f) continue;
+-        const Vector3 moon(m.direction.x, m.direction.y, m.direction.z);
+-        n.eclipseCoverage = std::max(n.eclipseCoverage, RtxAtmosphere::solarDiscCoverage(
+-          sun, sky.sunAngularRadius, moon, m.angularRadius));
+-      }
+-    }
+-    const float daylight = 1.f - n.eclipseCoverage * (1.f - std::clamp(RtxAtmosphere::eclipseTotalityLight(), 0.f, 1.f));
+-    const vec2 twilight = numosNightTwilight(sun.y, daylight);
++    n.eclipseCoverage = eclipse.coverage;
++    n.eclipseStarFade = numosEclipseStarFade(eclipse.daylight);
++    n.totalityStarGain = eclipse.totalityStarGain;
++    const auto full = eclipse.fullSun * out.radianceScale;
++    n.fullSun = vec3(full.x, full.y, full.z);
++    const float sunY = out.args.sunDirection.y;
++    const vec2 twilight = numosNightTwilight(sunY, eclipse.daylight);
+     n.starFade = twilight.x;
+     n.deepFade = twilight.y;
+-    n.moonFade = numosNightFade(0.f, .09f, -sun.y);
++    n.moonFade = numosNightFade(0.f, .09f, -sunY);
+     return n;
+   }
+ }
+diff --git a/src/dxvk/rtx_render/rtx_fork_numos_night.h b/src/dxvk/rtx_render/rtx_fork_numos_night.h
+index 7536aa145..9ece3d621 100644
+--- a/src/dxvk/rtx_render/rtx_fork_numos_night.h
++++ b/src/dxvk/rtx_render/rtx_fork_numos_night.h
+@@ -6,6 +6,9 @@
+ #include "numos/shaders.h"
+ #include "numos/lib/atmosphere_args.h"
+ #include "rtx/pass/numos/numos_night.h"
++#include "rtx_fork_numos_eclipse.h"
++
++namespace numos { struct FrameOutputs; }
+ 
+ namespace dxvk {
+   // IGpu receives opaque uniform bytes before the pass is identified. Remember only
+@@ -47,5 +50,5 @@ namespace dxvk {
+   };
+ 
+   class RtxContext;
+-  NumosNightArgs prepareNumosNight(RtxContext& ctx, bool image, const numos::AtmosphereArgs& sky);
++  NumosNightArgs prepareNumosNight(RtxContext& ctx, bool image, const numos::FrameOutputs& out, const NumosSolarEclipse& eclipse);
+ }
+diff --git a/src/dxvk/rtx_render/rtx_numos.cpp b/src/dxvk/rtx_render/rtx_numos.cpp
+index 226bce81e..4936156dd 100644
+--- a/src/dxvk/rtx_render/rtx_numos.cpp
++++ b/src/dxvk/rtx_render/rtx_numos.cpp
+@@ -60,7 +60,7 @@ namespace dxvk {
+ 
+   namespace {
+     constexpr size_t kNightArgsOffset = align(sizeof(numos::AtmosphereArgs), 256);
+-    static_assert(sizeof(NumosNightArgs) == 80);
++    static_assert(sizeof(NumosNightArgs) == 96);
+ 
+     numos::Vector3 toNumos(const Vector3& v) {
+       return numos::Vector3(v.x, v.y, v.z);
+@@ -225,6 +225,7 @@ namespace dxvk {
+     numos::EmittedLight emittedLights[numos::kMaxMoons + 2];
+     RtLight* lights[numos::kMaxMoons + 2] = {};
+     float emittedRadianceScale = 1.0f;
++    float previousDaylight = 1.0f;
+ 
+     explicit Impl(DxvkDevice* pDevice)
+       : gpu(pDevice, env::getDllDirectory() + "/numos/spirv") { }
+@@ -498,7 +499,8 @@ namespace dxvk {
+ 
+     // The weather reaches NUMOS inside the settings, so FrameInputs::weather stays null.
+     const numos::Settings base = NumosSettings::resolved();
+-    numos::Settings settings = impl.weather.update(base, GlobalTime::get().deltaTime());
++    const float dt = GlobalTime::get().deltaTime();
++    numos::Settings settings = impl.weather.update(base, dt);
+     const bool imageNight = nightSkyImage();
+     // The source choice owns the effective catalogue flag, including on the first
+     // frame with an older config. NUMOS also uses it for the blurred sky-LUT image.
+@@ -518,6 +520,9 @@ namespace dxvk {
+     // The haze assumes air between the camera and the surfaces, so a camera inside a medium gets none.
+     m_hazeActive = settings.aerialPerspective && !m_hostSkyOverride &&
+                    constants.startInMediumMaterialIndex == SURFACE_INDEX_INVALID;
++    const float authoredSunIntensity = settings.sunIntensity;
++    const auto eclipse = applyNumosSolarEclipse(settings, impl.renderer, dt, RtxAtmosphere::eclipseEnable(),
++                                                RtxAtmosphere::eclipseTotalityLight());
+     impl.renderer.setSettings(settings);
+ 
+     impl.gpu.beginFrame(dxvkCtx, !settings.nightSkyStars);
+@@ -529,8 +534,10 @@ namespace dxvk {
+ 
+     numos::FrameInputs inputs;
+     inputs.frameIndex = m_frameIndex;
+-    inputs.deltaSeconds = GlobalTime::get().deltaTime();
+-    inputs.cameraCut = firstFrame || remixFog.numosPolicyChanged() || cameraManager.getLastCameraCutFrameId() + 1u >= deviceFrame;
++    inputs.deltaSeconds = dt;
++    const bool eclipseCut = std::min(eclipse.daylight, impl.previousDaylight) * 2.f < std::max(eclipse.daylight, impl.previousDaylight);
++    impl.previousDaylight = eclipse.daylight;
++    inputs.cameraCut = firstFrame || eclipseCut || remixFog.numosPolicyChanged() || cameraManager.getLastCameraCutFrameId() + 1u >= deviceFrame;
+     if (inputs.cameraCut) {
+       m_lastCameraCutFrame = m_frameIndex;
+     }
+@@ -592,6 +599,7 @@ namespace dxvk {
+       auto& ui = *m_uiStatus;
+       ui.base = base;
+       ui.shown = settings;
++      ui.shown.sunIntensity = authoredSunIntensity; // eclipse attenuation is not a weather override
+       ui.shown.fogVisibilityMeters = weatherVisibility;
+       ui.shown.aerialPerspective = weatherHaze;
+       ui.preset = impl.weather.target();
+@@ -607,7 +615,7 @@ namespace dxvk {
+       ui.shaderFailure = false;
+       ui.ready = true;
+     }
+-    const auto night = prepareNumosNight(ctx, imageNight, out.args);
++    const auto night = prepareNumosNight(ctx, imageNight, out, eclipse);
+     ctx.writeToBuffer(m_argsBuffer, kNightArgsOffset, sizeof(night), &night);
+     ctx.writeToBuffer(m_argsBuffer, 0, sizeof(numos::AtmosphereArgs), &out.args);
+ 
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_night.h b/src/dxvk/shaders/rtx/pass/numos/numos_night.h
+index 7f753f8f4..7da63e46c 100644
+--- a/src/dxvk/shaders/rtx/pass/numos/numos_night.h
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_night.h
+@@ -12,6 +12,9 @@ static const uint kNumosNightImage = 16u;
+ // Solid-angle means in fractions of the reference sun's illuminance per steradian:
+ // Gaia 1.1319039114e-9 / the default NightSky HD band 4.0827687348e-4.
+ static const float kNumosNightImageScale = 2.772392915e-6f;
++// The NIGHT2 PoC bracket matched Standard's look between +5 and +7 stops.
++// Apply the selected +6 stops to the authored image and its meteors in both star modes.
++static const float kNumosNightLookGain = 64.f;
+ 
+ struct NumosNightArgs {
+   vec4 weight;       // stars, constellations, galaxy, nebula
+@@ -27,7 +30,9 @@ struct NumosNightArgs {
+   float starFade;
+   float deepFade;
+   float moonFade;
+-  float padding;
++  float eclipseStarFade;
++  vec3 fullSun;          // Uneclipsed Sun in NUMOS's current pre-exposure, including at zero daylight.
++  float totalityStarGain;
+ };
+ 
+ inline float numosNightFade(float start, float full, float depth) {
+@@ -43,6 +48,16 @@ inline vec2 numosNightTwilight(float sunY, float daylight) {
+   return vec2(early > totality ? early : totality, deep > totality ? deep : totality);
+ }
+ 
++// NUMOS uses 3% of daylight for its ordinary celestial-source gate. Its CPU gate
++// only knows elevation; an eclipsed Sun can cross the same threshold overhead.
++inline float numosEclipseStarFade(float daylight) {
++  return 1.f - numosNightFade(.001f, .03f, daylight);
++}
++
++inline vec3 numosImageAndMeteor(vec3 image, vec3 meteor, float fade, float starGain) {
++  return (image + meteor) * (kNumosNightImageScale * kNumosNightLookGain * fade * starGain);
++}
++
+ // NUMOS includes half of 80 S10 in the hemispherical light scattered by the air.
+ // Its celestial assets, night gate, reference illuminance and star gain apply as in the pin.
+ inline float numosMissingStarInScatter(uint nightFlags, float starGain) {
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_night.slangh b/src/dxvk/shaders/rtx/pass/numos/numos_night.slangh
+index 300cec93d..205297c59 100644
+--- a/src/dxvk/shaders/rtx/pass/numos/numos_night.slangh
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_night.slangh
+@@ -202,19 +202,20 @@ vec3 numosSolarCorona(vec3 view, enhanced_AtmosphereArgs sky, NumosNightArgs nig
+   float mu = saturate(rho);
+   float disc = numosSunDiscCentre(radius) * (.4f + .6f * sqrt(max(1.f - mu * mu, 0.f))) * coverage;
+   float peak = max(emission.r, max(emission.g, emission.b));
+-  return sky.sunIlluminance * emission * min(1.f, max(0.f, kNumosDiscPeak - disc) / max(peak, 1e-12f));
++  return night.fullSun * emission * min(1.f, max(0.f, kNumosDiscPeak - disc) / max(peak, 1e-12f));
+ }
+ 
+ vec3 numosHostNight(vec3 view, enhanced_AtmosphereArgs sky, NumosNightArgs night) {
+   vec3 light = numosMoonGlow(view, sky, night) + numosSolarCorona(view, sky, night);
+   if (night.starFade > 0.f) {
+-    vec3 stars = numosShootingStar(view, sky.timeSeconds, night);
++    const vec3 meteor = numosShootingStar(view, sky.timeSeconds, night);
++    vec3 image = 0.xxx;
+     if ((night.flags & kNumosNightImage) != 0u && night.brightness > 0.f && (night.flags & 15u) != 0u) {
+       const vec3 equatorial = enhanced_nightSkyLocalToEquatorial(view, sky);
+-      stars += numosNightImage(equatorial, max(sky.skyPixelAngle, 1e-6f), night);
++      image = numosNightImage(equatorial, max(sky.skyPixelAngle, 1e-6f), night);
+     }
+-    // nightSkyIlluminance already carries R. nightSkyGain already combines night and star gains.
+-    light += stars * sky.nightSkyIlluminance * (kNumosNightImageScale * night.starFade * sky.nightSkyGain);
++    const float gain = lerp(sky.nightSkyGain, night.totalityStarGain, night.eclipseStarFade);
++    light += sky.nightSkyIlluminance * numosImageAndMeteor(image, meteor, night.starFade, gain);
+   }
+   return light;
+ }
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh b/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh
+index e597040a9..a09d2bad6 100644
+--- a/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_visible_discs.slangh
+@@ -61,7 +61,7 @@ float numosVisibleSun(float3 view, float3 sunDir, enhanced_AtmosphereArgs args)
+   return numosSunDiscCentre(radius) * limb * coverage;
+ }
+ 
+-float3 numosVisibleDiscs(float3 view, enhanced_AtmosphereArgs args, float3 airT, out float throughMoons) {
++float3 numosVisibleDiscs(float3 view, enhanced_AtmosphereArgs args, float3 airT, float3 fullSun, out float throughMoons) {
+   const float3 sunDir = normalize(args.sunDirection);
+   throughMoons = 1.f;
+   float3 light = 0.xxx;
+@@ -71,7 +71,7 @@ float3 numosVisibleDiscs(float3 view, enhanced_AtmosphereArgs args, float3 airT,
+     light += moon * coverage;
+     throughMoons *= 1.f - coverage;
+   }
+-  light += args.sunIlluminance * (numosVisibleSun(view, sunDir, args) * throughMoons);
++  light += fullSun * (numosVisibleSun(view, sunDir, args) * throughMoons);
+   light *= airT;
+   const float peak = max(light.r, max(light.g, light.b));
+   if (peak > 6e4f) light *= 6e4f / peak; // respect NUMOS's FP16 ceiling in the same hue
+@@ -89,10 +89,22 @@ float3 numosVisibleSky(float3 directionWorld, enhanced_AtmosphereArgs args, bool
+   float3 airT;
+   if (enhanced_skyAboveHorizon(view, args, airT)) {
+     float throughMoons;
+-    const float3 discs = numosVisibleDiscs(view, args, airT, throughMoons);
++    // The exposed photosphere keeps its surface brightness. The lunar silhouette
++    // hides it here; only the illumination of the air, clouds and scene was reduced.
++    const float3 discs = numosVisibleDiscs(view, args, airT, night.fullSun, throughMoons);
+ #ifdef enhanced_NIGHT_SKY_AVAILABLE
+-    if (!flat && (night.flags & kNumosNightImage) == 0u && (args.nightSkyFlags & 11u) == 11u)
+-      sky += airT * enhanced_evalNightSkyBeyondAir(view, args, enhanced_AtmosphereSkyViewSampler) * throughMoons;
++    if (!flat && throughMoons > 0.f && (night.flags & kNumosNightImage) == 0u && (args.nightSkyFlags & 3u) == 3u) {
++      if ((args.nightSkyFlags & 8u) != 0u) {
++        sky += airT * enhanced_evalNightSkyBeyondAir(view, args, enhanced_AtmosphereSkyViewSampler) * throughMoons;
++      } else if (night.eclipseStarFade > 0.f) {
++        // High Sun: the baked sky has no low-resolution stellar field to subtract.
++        const float3 eq = enhanced_nightSkyLocalToEquatorial(view, args);
++        const float3 catalogue = enhanced_evalNightSkyStars(view, args) + enhanced_sampleNightSkyMilkyWay(eq, args);
++        const float gain = lerp(args.nightSkyGain, night.totalityStarGain, night.eclipseStarFade);
++        sky += airT * throughMoons * catalogue * args.nightSkyIlluminance
++             * (night.eclipseStarFade * gain / enhanced_kNightSkyAssetScale);
++      }
++    }
+ #endif
+     if (!flat && throughMoons > 0.f)
+       sky += airT * numosHostNight(view, args, night) * throughMoons;
+diff --git a/tests/rtx/unit/test_enhanced_sky.cpp b/tests/rtx/unit/test_enhanced_sky.cpp
+index 477e77eb7..15788a2f9 100644
+--- a/tests/rtx/unit/test_enhanced_sky.cpp
++++ b/tests/rtx/unit/test_enhanced_sky.cpp
+@@ -3,6 +3,7 @@
+ #include <cstdlib>
+ #include <set>
+ #include <string>
++#include "numos/renderer.h"
+ #include "../../../src/dxvk/rtx_render/rtx_fork_numos_rainbow.h"
+ #include "../../../src/dxvk/rtx_render/rtx_global_volumetrics.h"
+ #include "../../../src/dxvk/rtx_render/rtx_fork_numos_rays.h"
+@@ -27,10 +28,80 @@ static void check(bool condition, const std::string& message) {
+   }
+ }
+ 
++static void checkSolarEclipse() {
++  numos::Renderer renderer;
++  numos::Settings sky;
++  sky.timeCycleEnable = false;
++  sky.realMoonEnabled = false;
++  for (auto& moon : sky.moons) moon.enabled = false;
++  sky.sunElevation = 40.f;
++  sky.sunRotation = 0.f;
++  sky.sunSize = 1.f;
++  auto& moon = sky.moons[0];
++  moon.enabled = true;
++  moon.elevation = 40.f;
++  moon.rotation = 0.f;
++  moon.angularDiameter = 1.6f;
++  moon.color = numos::Vector3(0.f); // a dark game moon still occults the Sun
++  auto sample = [&](float floor = 0.f, bool enabled = true) {
++    auto frame = sky;
++    const auto e = dxvk::applyNumosSolarEclipse(frame, renderer, 0.f, enabled, floor);
++    check(frame.sunIntensity == sky.sunIntensity * e.daylight && e.fullSun == sky.sunIlluminance * sky.sunIntensity,
++          "Scale incident sunlight and retain the full source for visible discs");
++    return e;
++  };
++  check(sample(.0006f).daylight == .0006f && sample().daylight == 0.f && sample().coverage == 1.f, "Totality floor");
++  check(sample(0.f, false).daylight == 1.f && sample(1.f).daylight == 1.f, "Disabled eclipse and full daylight floor");
++  moon.angularDiameter = .5f;
++  const auto annular = sample();
++  const double innerFlux = .5 * (1.25 - std::pow(.75, 1.5));
++  check(std::abs(annular.coverage - .25f) < 1e-5f && std::abs(annular.daylight - (1. - innerFlux)) < 1e-5,
++        "An annular eclipse removes more light than area from the bright centre");
++  moon.angularDiameter = sky.sunSize;
++  float previous = 0.f;
++  for (int step = 0; step <= 100; ++step) {
++    moon.elevation = sky.sunElevation + .01f * step;
++    const auto e = sample();
++    check(e.daylight >= previous && e.daylight - previous < .025f, "Continuous partial eclipse and egress");
++    previous = e.daylight;
++  }
++  moon.elevation = 45.f;
++  check(sample().daylight == 1.f && sample().coverage == 0.f, "Clear of contact");
++  moon.elevation = 40.2f;
++  moon.angularDiameter = .15f;
++  const auto single = sample();
++  sky.moons[1] = moon;
++  check(std::abs(sample().daylight - single.daylight) < 1e-6f, "Coincident moons cast one shadow");
++  sky.moons[1].elevation = 39.8f;
++  check(std::abs(sample().daylight - (2.f * single.daylight - 1.f)) < 1e-4f, "Disjoint silhouettes add");
++  sky.moons[1].enabled = false;
++  moon.angularDiameter = 2.f;
++  moon.elevation = sky.sunElevation = -.25f;
++  check(std::abs(sample().daylight - .5f) < 1e-4f, "Eclipse fades through the setting solar limb");
++  moon.elevation = sky.sunElevation = -2.f;
++  check(sample().daylight == 1.f, "An eclipse below the horizon leaves the night alone");
++
++  // Independent 601x601 integration of the real renderer's exported discs at this
++  // April 2024 clock step, including the observer's parallax and a sized-up lunar disc.
++  moon.enabled = false;
++  sky.realMoonEnabled = sky.timeCycleEnable = true;
++  sky.latitudeDegrees = 32.77f; sky.calendarYear = 2024; sky.dayOfYear = 99;
++  sky.realMoonAngularDiameter = 3.6f; sky.sunSize = .545f;
++  sky.timeOfDayHours = 13.6f; sky.dayLengthMinutes = 1.f;
++  renderer.setSettings(sky);
++  auto clock = renderer.simulationState();
++  clock.timeOfDayHours = 16.048027f;
++  renderer.setSimulationState(clock);
++  const auto real = dxvk::applyNumosSolarEclipse(sky, renderer, .17f, true, 0.f);
++  check(std::abs(real.coverage - .04767f) < .0003f && std::abs(real.daylight - .96342f) < .0003f,
++        "The advancing clock and actual topocentric Moon shade this frame");
++}
++
+ int main() {
+   using namespace dxvk;
+   using namespace enhancedSky;
+-  static_assert(sizeof(NumosNightArgs) == 80 && offsetof(NumosNightArgs, flags) == 60);
++  static_assert(sizeof(NumosNightArgs) == 96 && offsetof(NumosNightArgs, flags) == 60 && offsetof(NumosNightArgs, fullSun) == 80);
++  checkSolarEclipse();
+   check(RtxNumos::nightSkyImage.getFullName() == "rtx.atmosphere.numos.nightSkyImage" &&
+         RtxNumos::nightSkyImage.getDefaultValue(), "Enhanced selects the night image by default");
+   const vec2 civil = numosNightTwilight(-.085f, 1.f), nautical = numosNightTwilight(-.22f, 1.f);
+@@ -40,6 +111,12 @@ int main() {
+   check(numosNightTwilight(.5f, .0006f).y == 1.f, "Totality reveals the stellar layers");
+   check(std::abs(4.0827687348e-4 * kNumosNightImageScale / 1.1319039114e-9 - 1.) < 1e-6,
+         "Default image band matches Gaia's solid-angle mean in reference-sun units");
++  const auto image = numosImageAndMeteor(vec3(.12f,.12f,.12f), vec3 {}, 1.f, 1.f);
++  const auto meteor = numosImageAndMeteor(vec3 {}, vec3(2.f,1.9f,1.7f), 1.f, 1.f);
++  check(std::abs(image.x / (.12f * kNumosNightImageScale) - 64.f) < 1e-4f &&
++        std::abs(meteor.x / image.x - 2.f/.12f) < 1e-5f, "Six stops for the image and Standard's default meteor/image radiance ratio");
++  check(numosEclipseStarFade(1.f) == 0.f && numosEclipseStarFade(.03f) == 0.f &&
++        numosEclipseStarFade(.01f) > 0.f && numosEclipseStarFade(.0006f) == 1.f, "High-Sun catalogue gate follows transmitted daylight");
+   check(numosMissingStarInScatter(11u, 4.f) == 0.f && numosMissingStarInScatter(1u, 4.f) == 0.f &&
+         numosMissingStarInScatter(8u, 4.f) == 0.f &&
+         std::abs(numosMissingStarInScatter(9u, 4.f) - 4.f * 40.f * 6.61e-12f) < 1e-15f,
+-- 
+2.56.0.windows.1
+

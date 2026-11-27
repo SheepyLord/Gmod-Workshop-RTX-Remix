@@ -1,5 +1,8 @@
 # guide_pages.lua
 
+The Sky and weather legend distinguishes the shared night sky image, Enhanced's real stars and Standard's
+simulated stars. Both source choices are on the Night sky editor page.
+
 R26 adds the Sky and weather picture's legend entry for No horizon, the panel's new checkbox under
 Sky: badge 2 of `sky_weather.jpg`, recaptured with it, between Sky (1) and the eight entries after it
 (now 3 to 10). No page ids or links change.

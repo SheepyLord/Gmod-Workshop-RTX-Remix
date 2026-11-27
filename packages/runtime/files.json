@@ -27,10 +27,10 @@
    "git": {
     "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "48e9ae0b446ba494a0a949948ee9ec2aa1baf4e0",
+    "commit": "d3a4cea741dc516c107e6a1cb2d2076179e688d1",
     "dirty": false
    },
-   "imported": "2026-11-27T04:53:57+00:00"
+   "imported": "2026-11-27T07:10:19+00:00"
   },
   "layers/classic_remix_defaults.conf": {
    "source": "<repo>/out/worktrees/fx/out/layers/classic_remix_defaults.conf",
@@ -863,12 +863,12 @@
    "stored_sha256": "9abbc646f44e7dd8345bb6d33949bd7f8ecbb97b96de9b0e50d785e1b31b6837"
   },
   "files/d3d9.dll": {
-   "size": 539393024,
-   "sha256": "0362625c8170add66fa144727144661b57f6c9bf79bbb01f112384bd8483e2de",
-   "mtime_ns": 1795754271545448900,
+   "size": 545485824,
+   "sha256": "e533151a152d2eb26f3801fd117026e0035fc0d0414c9302438b53976cf6fe9c",
+   "mtime_ns": 1795761822603768500,
    "stored": "xz",
-   "stored_size": 79681720,
-   "stored_sha256": "427e7a7eeaf6344362a48c7fa381b0f0281af767fa33e2283e7c61ba5d5d4262"
+   "stored_size": 80254480,
+   "stored_sha256": "9f969b408149c0663a0b733ff4bfe952c58f2f55fe577c900f2a2ec3d4587264"
   },
   "files/GFSDK_Aftermath_Lib.x64.dll": {
    "size": 9240728,

@@ -76,6 +76,10 @@ same generated Lua file. Long RTX slider and combo labels receive a full-width l
 
 ## Enhanced sky
 
+Task NC revises the Sky page, Night sky editor and guide for the shared image, lunar glow, shooting stars,
+solar eclipse and the **Real stars** choice. Codex translated the fourteen new or revised messages for all
+six languages using the catalogs' existing star, moonlight and airglow terminology. Human review is pending.
+
 Task H adds the shared Mist slider's help and updates the help for the map Off choice. Both use the existing
 Mist and Off labels. The six catalogs were written in UTF-8 and checked for question marks absent from the
 English. The two new translations per language await human review.

@@ -944,7 +944,7 @@ local contact = numos("moon0.elevation")
 cmd("nativeloader_sky_eclipse_amount", "100")
 assert(numos("moon0.elevation") ~= contact)
 cmd("nativeloader_sky_eclipse", "solar")
-assert(numos("moon0.phase") ~= "-1" and tonumber(numos("sunElevation")) < 0)
+assert(numos("moon0.phase") == "0" and tonumber(numos("sunElevation")) > 15)
 cmd("nativeloader_sky_time", "18:00")
 tick(0.02) tick(60)
 assert(numos("timeOfDayHours") == "18")
@@ -957,8 +957,116 @@ assert(#calls == writes)
 POSTER_STATE = "done" tick(1)
 assert(math.abs(tonumber(numos("timeOfDayHours")) - 18.61) < 0.001)
 cmd("nativeloader_sky_no_horizon", "1") cmd("nativeloader_sky_stars", "procedural")
-assert(value("rtx.atmosphere.noHorizon") == nil and value("rtx.atmosphere.starMapEnable") == nil)
+assert(value("rtx.atmosphere.noHorizon") == nil and value("rtx.atmosphere.starMapEnable") == "False")
+assert(numos("nightSkyImage") == "True")
 ''', POSTER_SIM=True)
+
+    def test_enhanced_star_choice_is_saved_independently_and_only_sent_in_enhanced(self):
+        self.enhanced_session(r'''
+local choice = "nativeloader_sky_enhanced_stars"
+local option = "rtx.atmosphere.numos.nightSkyImage"
+assert(convars[choice].archived and convars[choice].default=="map" and value(option)=="True")
+local count = #calls
+cmd(choice,"real")
+assert(#calls==count+1 and calls[#calls][1]==option and value(option)=="False")
+assert(value("rtx.atmosphere.starMapEnable")=="True" and not NATIVELOADER_SKY.takenOver())
+cmd("nativeloader_sky_stars","procedural")
+assert(value("rtx.atmosphere.starMapEnable")=="False" and value(option)=="False")
+cmd("nativeloader_sky_night_reset")
+assert(convars[choice].value=="map" and value(option)=="True" and value("rtx.atmosphere.starMapEnable")=="False")
+cmd("nativeloader_sky_enhanced","0")
+count=#calls
+cmd(choice,"real") tick(0)
+for i=count+1,#calls do assert(calls[i][1]~=option) end
+assert(value("rtx.skyMode")=="1" and value("rtx.atmosphere.starMapEnable")=="False")
+cmd("nativeloader_sky_enhanced","1")
+assert(value(option)=="False" and value("rtx.atmosphere.starMapEnable")=="False")
+''')
+        for setup in ('PRESET.nativeloader_sky_enhanced="0"', 'NativeLoaderVR={state="running"}',
+                      'SAVED_CHOICES="gm_construct map"', 'FIXED_SKY_ADDON=true'):
+            with self.subTest(setup=setup):
+                self.enhanced_session(r'''
+assert(numos("nightSkyImage")==nil)
+local count=#calls
+cmd("nativeloader_sky_enhanced_stars","real")
+assert(#calls==count and numos("nightSkyImage")==nil)
+''', setup)
+        self.enhanced_session(r'''
+assert(numos("nightSkyImage")=="False" and numos("nightSkyStars")=="True")
+assert(value("rtx.atmosphere.starMapBrightness")=="0.24" and value("rtx.atmosphere.shootingStarsPerMinute")=="4")
+assert(value("rtx.atmosphere.haloMoonBrightness")=="7.5" and not NATIVELOADER_SKY.takenOver())
+''', r'''
+PRESET.nativeloader_sky_enhanced_stars="real"
+PRESET.nativeloader_weather=""
+PRESET.nativeloader_sky_night_image="2"
+PRESET.nativeloader_sky_shooting_stars="4"
+PRESET.nativeloader_sky_moon_glow="0.5"
+''')
+
+    def test_enhanced_forwards_the_night_editor_values_at_start_on_edit_and_on_reset(self):
+        keys = ', '.join(json.dumps(key) for key in self.EDITOR_DEFAULTS)
+        out = self.enhanced_session(f'report("night_start", {keys})\n' + r'''
+local function opt(key) return value("rtx.atmosphere."..key) end
+cmd("nativeloader_sky_enhanced_stars","real")
+cmd("nativeloader_sky_style_night_gain_stops","7")
+cmd("nativeloader_sky_style_star_gain_stops","-2")
+cmd("nativeloader_sky_style_star_scintillation","3")
+for _,field in ipairs({
+  {"night_image",2,"starMapBrightness",0.24}, {"stars_brightness",3,"starMapStarBrightness",3},
+  {"stars_colour",0.5,"starMapStarSaturation",0.5}, {"constellations_brightness",4,"starMapConstellationBrightness",4},
+  {"constellations_colour",0.6,"starMapConstellationSaturation",0.6}, {"milky_way_brightness",2.5,"starMapGalaxyBrightness",2.5},
+  {"milky_way_colour",1.4,"starMapGalaxySaturation",1.4}, {"nebulae_brightness",0,"starMapNebulaBrightness",0},
+  {"nebulae_colour",0.35,"starMapNebulaSaturation",0.35}, {"simulated_brightness",2.5,"starBrightness",1.25},
+  {"simulated_density",0.8,"starDensity",0.8}, {"simulated_twinkle",0,"starTwinkleSpeed",0},
+  {"moon_size",3,"moon0.angularRadius",3}, {"moon_brightness",0.5,"moon0.brightness",0.5},
+  {"moon_glow",0.4,"haloMoonBrightness",6}, {"earthshine",2,"moon0.darkSideBrightness",0.01},
+  {"shooting_stars",7.5,"shootingStarsPerMinute",7.5}, {"shooting_star_brightness",2.25,"shootingStarBrightness",2.25},
+}) do
+  cmd("nativeloader_sky_"..field[1],tostring(field[2]))
+  assert(tonumber(opt(field[3]))==field[4],field[1])
+end
+assert(numos("moon0.angularDiameter")=="3" and numos("moonDiscGainStops")=="-1")
+assert(numos("nightSkyImage")=="False" and numos("nightSkyStars")=="True")
+local glow=tonumber(opt("nightSkyBrightness"))
+local count=#calls
+cmd("nativeloader_sky_night_glow","2")
+assert(glow>0 and math.abs(tonumber(opt("nightSkyBrightness"))-2*glow)<1e-9)
+assert(#calls==count+1 and calls[#calls][1]=="rtx.atmosphere.nightSkyBrightness")
+assert(numos("nightGainStops")=="7" and numos("starGainStops")=="-2" and numos("starScintillation")=="3")
+cmd("nativeloader_sky_enhanced_stars","map")
+assert(numos("nightSkyImage")=="True" and opt("starMapConstellationBrightness")=="4" and opt("haloMoonBrightness")=="6")
+assert(not NATIVELOADER_SKY.takenOver() and convars.nativeloader_sky_follow_map:GetBool())
+cmd("nativeloader_sky_night_reset")
+assert(tonumber(opt("nightSkyBrightness"))==glow)
+''' + f'\nreport("night_reset", {keys})')
+        self.assertEqual(self.settings(out['night_start']), self.EDITOR_DEFAULTS)
+        self.assertEqual(self.settings(out['night_reset']), self.EDITOR_DEFAULTS)
+
+    def test_enhanced_solar_eclipse_places_the_library_moon_at_the_discs_contacts(self):
+        for configured in ('', '0.9'):
+            with self.subTest(configured=configured):
+                self.enhanced_session(r'''
+local function separation()
+  local s, m = math.rad(tonumber(numos("sunElevation"))), math.rad(tonumber(numos("moon0.elevation")))
+  local delta=math.rad(tonumber(numos("sunRotation"))-tonumber(numos("moon0.rotation")))
+  return math.deg(math.acos(math.Clamp(math.sin(s)*math.sin(m)+math.cos(s)*math.cos(m)*math.cos(delta),-1,1)))
+end
+cmd("nativeloader_sky_time","midnight")
+cmd("nativeloader_sky_moon_day","0")
+cmd("nativeloader_sky_eclipse","solar")
+assert(convars.nativeloader_sky_hour.value=="12.00" and numos("moon0.phase")=="0" and numos("moon0.enabled")=="True")
+local sunRadius=(tonumber(DIAMETER) or 0.545)/2
+for _,size in ipairs({1.6,0.5}) do
+  cmd("nativeloader_sky_moon_size",tostring(size))
+  local first,inner=sunRadius+size/2,math.abs(sunRadius-size/2)
+  for _,c in ipairs({{0,first},{45,(first+inner)/2},{90,inner},{100,0}}) do
+    cmd("nativeloader_sky_eclipse_amount",tostring(c[1]))
+    assert(math.abs(separation()-c[2])<0.001,tostring(c[1]))
+  end
+end
+cmd("nativeloader_sky_eclipse","")
+assert(numos("moon0.enabled")=="False" and numos("moon0.phase")=="0.5")
+''', 'CONF["rtx.atmosphere.numos.sunSize"]=DIAMETER', DIAMETER=configured)
 
     def test_tuned_weather_bearings_cross_zero_and_unlimited_visibility_blends_as_clear_air(self):
         # Edit only the weather data in memory. Remove the independent slow wind drift to measure the blend.
@@ -2040,6 +2148,25 @@ print("resolve " .. r({ choice = "auto", single = true }) .. " " .. r({ choice =
         self.assertIn(['ControlHelp', 'The Night sky editor, next to this page, sets how each part of the night sky looks.'],
                       sky)
         self.assertIn(['Button', 'Reset the sky and weather', 'nativeloader_sky_reset'], sky)
+
+    def test_night_page_shows_both_star_sources_and_labels_standard_only_controls(self):
+        for quality, vr in [('0', False), ('1', False), ('1', True)]:
+            with self.subTest(quality=quality, vr=vr):
+                setup = f'PRESET={{nativeloader_sky_enhanced="{quality}"}}\n'
+                if vr:
+                    setup += 'NativeLoaderVR={state="running"}\n'
+                lines = self.run_lines(setup + SESSION, MAP='gm_construct', BSP=self.sky_map(), SCRIPT='panel')
+                night = [line.removeprefix('panel night|').split('|') for line in lines if line.startswith('panel night|')]
+                at = night.index(['ComboBox', 'Stars', 'nativeloader_sky_enhanced_stars'])
+                self.assertEqual(night[at + 1:at + 3], [['choice', 'Night sky image', 'map'], ['choice', 'Real stars', 'real']])
+                self.assertIn('For Enhanced', night[at + 3][1])
+                self.assertIn(['ComboBox', 'Night sky', 'nativeloader_sky_stars'], night)
+                sliders = {row[2] for row in night if row[0] == 'NumSlider'}
+                for name in ('simulated_density', 'simulated_twinkle', 'earthshine', 'night_glow', 'moon_glow', 'shooting_stars'):
+                    self.assertIn('nativeloader_sky_' + name, sliders)
+                help_text = ' '.join(row[1] for row in night if row[0] == 'ControlHelp')
+                for fragment in ("Standard's simulated stars", 'dark side in Standard', "Standard's airglow"):
+                    self.assertIn(fragment, help_text)
 
     def test_the_night_sky_editor_reaches_a_maps_own_sky_without_taking_it_over(self):
         # On a map whose add-on owns the sky: nothing at the start while every element is at its default; a

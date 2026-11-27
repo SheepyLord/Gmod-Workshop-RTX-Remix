@@ -11,6 +11,11 @@ The companion translates its Off choice to runtime policy 0 and `aerialPerspecti
 strength of zero selects the same map policy for every saved map-mist choice.
 It drives a single library Moon with the companion's positions and the library's lunar surface. The clock also
 supplies the date and time for the star catalogue. A lunar eclipse uses the geometric phase.
+A solar eclipse places the new Moon against the Sun, with outer contact at 0%, inner contact at 90% and
+centres aligned at 100%. Contact angles use the drawn Moon radius and half the configured NUMOS sun diameter
+(library default 0.545° across). The daytime Moon can occult the Sun even at zero daylight brightness.
+The [Night sky editor](../../../../docs/handover/sky-enhanced-NC-report.md) selects the visible stars.
+The runtime owns catalogue visibility and the contribution of starlight to the Enhanced air.
 On first use per map it sends `worldChangeCount` so NUMOS measures the ground of the new world.
 
 The [weather data](enhanced_weather.lua.md) supplies the endpoints. A change blends from the current weather,

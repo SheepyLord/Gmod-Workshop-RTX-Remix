@@ -1,5 +1,12 @@
 # test_companion_sky.py
 
+Task NC checks the archived Enhanced star-source choice through startup, live edits, reset, provider changes,
+VR and map ownership. It exercises every night editor option at its native key, the image layer scales, Moon
+size, disc gain and glow, shooting stars, and the isolation of physical night lighting from Standard's
+Night glow. The solar eclipse tests measure the angle between the sent Sun and Moon directions at four
+contact positions with two Moon sizes and two Sun sizes. Both providers' pages and the recorded Standard
+option-call comparison run in the same suite.
+
 Task H covers Mist strength on the default Partly cloudy weather, a saved look, and an in-progress blend
 across the clean-air density. It checks the explicit Fog preset, clear air, the near Remix fog conversion
 and release, the three map choices including saved values from round 2, and the shared slider on both pages.

@@ -116,7 +116,7 @@ local PAGES = {
             N("Sun direction: turns the sun's path around the map."),
             N("Time passes is on by default; a whole day takes 20 real minutes."),
             N("Season, moon phase and eclipse."),
-            N("Night sky: the detailed image of the stars, or simulated stars."),
+            N("The Night sky editor offers the night sky image in both skies, real stars in Enhanced and simulated stars in Standard."),
             N("Weather, and how long a change of weather takes.") },
         { "p", N("Every map shows the RTX sky by default. This map switches one map to its own sky, with its 3D skybox where it has one, and back; the choice is remembered for that map. A map whose RTX version brings a sky of its own shows that sky first. A chat line at each map's start says which sky shows and how to switch. Time of day and weather belong to the RTX sky: changing one on a map that shows another sky shows the RTX sky until the next map starts.") },
         { "p", N("The physical sky lights the map with a real sun, clouds, the moon and the stars. By default the day starts at the map's own sun, then time passes with a whole day taking 20 real minutes. Move Time of day or Sun direction to choose your own. Untick Time passes to stop the clock; Day length (min) changes its speed. A map's sky add-on keeps control while Follow the map's sun is ticked, until you change a sky or weather setting.") },

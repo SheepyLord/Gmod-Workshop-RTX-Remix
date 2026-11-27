@@ -3,9 +3,10 @@
 The Enhanced sky's **round 3** (the user's report of 2026-11-26 after the merge) is done: no black circle round the
 Sun or the Moon with DLSS (runtime patch 0115), less mist in the default weather and a Mist setting that goes to Off
 ([ADR 0270](decisions/0270-the-enhanced-sky-draws-its-own-discs-and-has-a-mist-setting.md),
-[round 3 report](handover/sky-enhanced-round3-report.md)). **Our night sky on the Enhanced sky** is approved as
-designed ([the design](handover/sky-enhanced-night-plan.md), the user: "Yes, as recommended") and in progress: tasks
-NR (runtime) and NC (companion).
+[round 3 report](handover/sky-enhanced-round3-report.md)). **Our night sky on the Enhanced sky** is done as the user
+approved it ("Yes, as recommended"): the night sky image with the Night sky editor by default, real stars one choice
+away, shooting stars, the Moon's glow and a solar eclipse that darkens the sky (runtime patches 0116, 0117;
+[ADR 0271](decisions/0271-our-night-sky-on-the-enhanced-sky.md), [the night](handover/sky-enhanced-night-report.md)).
 
 The Enhanced sky (the user's request of 2026-11-25: an improved sky, cloud and sun-ray system to switch to, today's
 sky kept as the default) was **merged and published on 2026-11-26** (`main` `5ebe20c7`, the Workshop item as
@@ -29,7 +30,7 @@ package need.
 | Next loader release: the main and prerelease branches | Postponed (the user, 2026-11-25) |
 | Enhanced sky, rounds 1 and 2 | Merged on 2026-11-26 (the user), the default sky. Known problems for a later round: [round 2 report](handover/sky-enhanced-round2-report.md) |
 | Enhanced sky, round 3: no black circle round the Sun, less mist, a Mist setting with Off | Done 2026-11-26 (the user's report after the merge; runtime patch 0115, ADR 0270). [Round 3 report](handover/sky-enhanced-round3-report.md) |
-| Our night sky on the Enhanced sky: the Night sky editor's layers, shooting stars, the Moon's glow, the eclipse's corona | Approved 2026-11-26 as designed (the user: "Yes, as recommended"), in progress: tasks NR and NC. [Design](handover/sky-enhanced-night-plan.md) |
+| Our night sky on the Enhanced sky: the Night sky editor's layers, shooting stars, the Moon's glow, the eclipse's corona | Done 2026-11-27 as the user approved the design ("Yes, as recommended"; runtime patches 0116, 0117, ADR 0271). [The night](handover/sky-enhanced-night-report.md), [design](handover/sky-enhanced-night-plan.md) |
 | Sun dogs and the other ice halos, and the sky without a horizon, in the Enhanced sky | Open. The halos: a separate study later (the user's answer to the night design, 2026-11-26); the sky without a horizon: not yet planned |
 
 VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing with one-hand

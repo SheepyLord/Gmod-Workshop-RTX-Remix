@@ -1,5 +1,14 @@
 # Testing
 
+For patch 0117, repeat NIGHT2's fixed-exposure midnight shots at the editor defaults, then NIGHT1's
+40° solar eclipse from first contact through totality and back. Use debug view 200 to compare the
+sky away from the Sun, a cloud and a sunlit wall. Check both star sources and the exposed solar limb
+in a mirror. [NR2 checks](handover/sky-enhanced-NR-report.md#nr2)
+
+For the Enhanced night, use debug view **200, Final Output (Pre Tonemap)** at fixed exposure. Compare
+a clear midnight sky between the image and Real stars, then check twilight, the Moon's limb, an eclipse,
+shooting stars and water or a mirror under passing cloud. [Task NR checks](handover/sky-enhanced-NR-report.md)
+
 For the Enhanced disc fix, repeat the MR2 4K, 10° field-of-view shots of the 60° Sun and midnight
 full Moon with DLSS and at native resolution. Check the crescent at dusk, the same light in a mirror,
 and clouds passing in front. The offline fixture checks the pre-upscaling HDR values.

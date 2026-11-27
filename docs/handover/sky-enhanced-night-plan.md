@@ -151,6 +151,33 @@ After task H, on the same branch line.
 **Deliver:** commits and `docs/handover/sky-enhanced-NC-report.md`: each control with its setting and what it does in
 each sky, the tests and their output, what Claude must check in the game.
 
+## Task NR2: after the first PoC test
+
+Claude tested NR (patch 0116) and NC together in the PoC (`out/sky2/NIGHT1`, `out/sky2/NIGHT2-gain`, gm_construct, 4K,
+DLSS). What works: both star choices switch; the image turns with the sky; clouds cover it; the Moon's glow shows round
+a full moon; no error; the frame time of the image equals the real stars' (6.7-9.5 against 7.0-9.6 ms; Standard
+11.4-14.0 ms, one launch). What does not:
+
+1. **The image is far too dark.** At the editor's defaults it reads almost black in Enhanced where Standard shows
+   bright nebulae (`n1_image_*` against `n7_standard_*`). The physical match to Gaia's Milky Way is right as physics
+   but not the look the user approved ("our night sky image by default"). The Starlight setting, which the image
+   follows, matches Standard between +5 and +7 stops: mean sky-region value at clear moonless midnight 0.017/0.018 at
+   0, 0.050/0.068 at +5, 0.066/0.094 at +7, Standard 0.067/0.075 (two views each). **Give the image +6 stops (64
+   times) over the Gaia match**, a named constant with the reason, so the editor's defaults show it as Standard does;
+   Night brightness and Starlight still move it on top. The library's real stars stay physical.
+2. **No shooting star** showed in four frames at 15 a minute and brightness 8. Give them the same gain as the image,
+   and make sure at the defaults they show as Standard's do (a unit check of their radiance against the image's is
+   enough; Claude looks in the game).
+3. **A total solar eclipse keeps a day sky** in Enhanced: a grey Moon on blue with a faint corona (`n9_eclipse_*`),
+   where Standard's sky goes dark with stars and a bright corona (`n10_eclipse_standard_sun`). The library dims the
+   Sun only for its real Moon. Scale the sunlight the library gets by the uncovered share of the Sun's disc
+   (limb-darkened, as Standard's `applyEclipses` does), so the sky, the light on the map and the clouds darken, the
+   stars and the image come out (check that the library's night gating follows the dimmed Sun) and the corona shows
+   against a dark sky. Partial phases dim smoothly.
+
+Same branch line (`claude/sky-enhanced`, patch 0117 on 0116, or a new version of 0116 if that is cleaner; say which),
+same rules; deliver an "NR2" section in `docs/handover/sky-enhanced-NR-report.md`.
+
 ## What Claude does
 
 - Reviews S and H, tests them in the PoC, merges and publishes them first: they fix the default sky every player has

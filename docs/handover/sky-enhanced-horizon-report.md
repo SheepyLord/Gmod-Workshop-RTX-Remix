@@ -78,4 +78,6 @@ and `horizon-ft.json` (frame times). Runs in `<repo>/out/sky2`: `HZ1-*` the publ
 ## State
 
 - Branch `sky-enhanced-4`: the plan, HR and HR2 merged; the runtime stored (`d3d9.dll` `cf41a48e`, built from fork
-  `1b6b6ea99` with patches 0001-0120).
+  `1b6b6ea99` with patches 0001-0120). The Release gate passed on it (C++ 35 of 35, Python 2,269 tests).
+- `main` `7817bcab`: one commit with the branch's tree on `94b114f5`, published as
+  **0.0.0-dev.20261127124158+e90984c6**, its change note the changelog's entry.

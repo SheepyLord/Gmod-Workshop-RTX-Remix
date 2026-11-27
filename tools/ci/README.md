@@ -38,12 +38,14 @@ the add-on, real on-disk input JSON and both DLLs without a loader or workflow c
 
 ## How the workflow uses them
 
-1. Job `runtime` (cached by `cache_key.py runtime`): clones the fork, runs
-   `runtime\build_runtime.ps1 -NoImport -Install -Jobs 2` on the runner's larger drive, then
-   `collect_runtime.py`.
+1. Job `runtime` checks the NUMOS repository and commit in `pins.json` against the clone in
+   `runtime/base.json` before looking up its cache. On a miss it clones the fork and runs
+   `runtime\build_runtime.ps1 -NoImport -Install -Jobs 2`. The wrapper fetches NUMOS into
+   `submodules/numos` at that commit. `collect_runtime.py` takes the DLL and the full tagged
+   `numos/` tree, including the 41 shaders, night data, credits and licences.
 2. Job `modules` (cached by `cache_key.py modules`): `build_modules.ps1`. Job `hotloader` (cached by
    `cache_key.py hotloader`): `build_hotloader.ps1` in a short folder on the runner.
-3. Job `package`: Git LFS content except the binaries the run makes, the three jobs' caches,
+3. Job `package`: Git LFS content except the native binaries and NUMOS supplied by the run, the three jobs' caches,
    `tools\build.ps1 -Config Release`, `collect_repo_build.py`, `fetch_prebuilt.py`, then
    [`tools/build_package.py`](../build_package.py.md) `--built out/ci/built` and
    [`tools/package_report.py`](../package_report.py.md) into the run's summary. `rtx-package-report`

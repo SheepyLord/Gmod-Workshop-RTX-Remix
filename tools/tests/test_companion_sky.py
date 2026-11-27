@@ -2,6 +2,7 @@
 and the session logic (autorun/nativeloader_sky.lua) with the GMod functions it uses mocked: what it
 gives Remix at the start of a map, a change of weather blending over time, the clock, a map whose
 add-on sets the sky, the map's own skybox and a night map. Skipped when LuaJIT is not installed."""
+import hashlib
 import json
 import math
 import os
@@ -102,7 +103,7 @@ end
 
 # GMod as far as nativeloader_sky.lua (and nativeloader/i18n.lua, which it includes) uses it. The
 # console runs commands at once here; GMod runs them on the next frame, which the module allows for.
-SESSION = r'''
+GMOD_MOCKS = r'''
 CLIENT, SERVER = true, false
 local calls = {}
 RemixConfig = {
@@ -114,9 +115,9 @@ istable = function(v) return type(v) == "table" end
 isfunction = function(v) return type(v) == "function" end
 isstring = function(v) return type(v) == "string" end
 local convars, callbacks, commands, hooks, timers = {}, {}, {}, {}, {}
-function CreateClientConVar(name, default)
+function CreateClientConVar(name, default, archived)
   -- PRESET: saved settings the session starts with, as GMod's client.vdf gives them.
-  local c = { value = PRESET and PRESET[name] or default }
+  local c = { value = PRESET and PRESET[name] or default, archived = archived, default = default }
   -- Most scenarios inspect a fixed sky/weather in isolation. Freeze the clock explicitly; the
   -- defaults scenarios below exercise the real moving default and its migration instead.
   if name == "nativeloader_sky_time_passes" and not RUNNING_DEFAULTS then c.value = "0" end
@@ -126,11 +127,18 @@ function CreateClientConVar(name, default)
   if name == "nativeloader_sky_message" and not LINE_DEFAULT and not LINE_MIGRATION and not (PRESET and PRESET[name]) then
     c.value = "1"
   end
+  -- The Enhanced sky is the default (the user, 2026-11-26). The scenarios written for the Standard sky keep it unless
+  -- PRESET chooses; SKY_DEFAULT starts a new player's game with the real default.
+  if name == "nativeloader_sky_enhanced" and not SKY_DEFAULT and not (PRESET and PRESET[name]) then c.value = "0" end
   function c:GetString() return self.value end
   function c:GetBool() return (tonumber(self.value) or 0) ~= 0 end
   function c:GetFloat() return tonumber(self.value) or 0 end
   function c:GetInt() return math.floor(tonumber(self.value) or 0) end
-  function c:SetString(value) self.value = value end
+  function c:SetString(value)
+    local old = self.value
+    self.value = tostring(value)
+    if old ~= self.value then for _, fn in ipairs(callbacks[name] or {}) do fn(name, old, self.value) end end
+  end
   convars[name] = c
   return c
 end
@@ -230,6 +238,7 @@ file = {
   end,
   Read = function(path, where)
     if where == "GAME" then return skyFile(path) end
+    if path == "native-loader/status.json" and where == "DATA" then return LOADER_STATUS end
     if path == "nativeloader_companion/sky_maps.txt" then return data[path] or SAVED_CHOICES end
     return nil
   end,
@@ -274,7 +283,9 @@ function AddCSLuaFile() end
 print = print
 SortedPairs = pairs
 MsgN = function() end
+'''
 
+SESSION_SETUP = GMOD_MOCKS + r'''
 -- The engine guard's read-only poster status (ADR 0226), as the client realm of an RTX start has it.
 if POSTER_SIM then nlengineguard = { PosterStatus = function() return POSTER_STATE and { state = POSTER_STATE } or nil end } end
 local M = dofile(LUA .. "/nativeloader/sky_model.lua")
@@ -297,7 +308,9 @@ local function tick(seconds)
   for _, fn in pairs(timers) do fn() end
 end
 local function cmd(name, ...) RunConsoleCommand(name, ...) end
+'''
 
+SESSION = SESSION_SETUP + r'''
 for _, fn in pairs(hooks.InitPostEntity or {}) do fn() end
 for _, fn in ipairs(simple) do fn() end
 report("start", "rtx.skyMode", "rtx.ignoreGameDirectionalLights", "rtx.atmosphere.timeCycleEnable",
@@ -481,6 +494,10 @@ if SCRIPT == "horizon" then
   print("horizon_off " .. (#calls - before) .. " " .. tostring(value("rtx.atmosphere.noHorizon")))
   cmd("nativeloader_sky_no_horizon", "1")
   cmd("nativeloader_sky_reset")
+  -- The reset gives the defaults: the Enhanced sky (the user, 2026-11-26), which has no horizon setting of its own;
+  -- Standard, chosen again, is sent the reset horizon.
+  report("horizon_reset_mode", "rtx.skyMode")
+  cmd("nativeloader_sky_enhanced", "0")
   report("horizon_reset", "rtx.atmosphere.noHorizon")
   return
 end
@@ -581,6 +598,10 @@ if SCRIPT == "moonday" then
     if line:find("moon by day", 1, true) then print("moonday_status " .. line) end
   end
   cmd("nativeloader_sky_reset")
+  -- The reset gives the defaults: the Enhanced sky (the user, 2026-11-26), which takes the moon by day itself, so the
+  -- Standard sky's option is sent again when Standard is chosen.
+  report("moonday_reset_mode", "rtx.skyMode")
+  cmd("nativeloader_sky_enhanced", "0")
   report("moonday_reset", "rtx.atmosphere.daytimeMoonBrightness")
   return
 end
@@ -744,8 +765,492 @@ class SkyTests(unittest.TestCase):
     def numbers(text):
         return [float(v) for v in text.split()]
 
+    def test_standard_remix_writes_match_the_pre_enhanced_companion(self):
+        # Lua pairs() has no traversal order. Keep the sequence for EACH key in each action,
+        # including repeated writes, and fingerprint the complete key/value strings.
+        body = SESSION_SETUP + r'''
+local last = 0
+local function capture(stage)
+  print("stage " .. stage)
+  for i = last + 1, #calls do print(calls[i][1] .. "=" .. calls[i][2]) end
+  last = #calls
+end
+hook.Run("InitPostEntity") capture("map_start")
+for _, fn in ipairs(simple) do fn() end capture("late_refresh")
+tick(0.02) capture("tick")
+cmd("nativeloader_weather", "rainstorm") tick(15) capture("blend")
+tick(16) capture("rain")
+cmd("nativeloader_sky_time", "night") capture("night")
+cmd("nativeloader_sky_moon", "lastQuarter") capture("moon")
+cmd("nativeloader_weather", "") capture("leave_weather")
+cmd("nativeloader_sky_here", "map") capture("map_sky")
+hook.Run("ShutDown") capture("exit")
+'''
+        writes = {}
+        for line in self.run_lines(body, MAP='gm_construct', BSP=self.sky_map(), LINE_DEFAULT=True):
+            if line.startswith('stage '):
+                stage = writes[line[6:]] = []
+            elif line.startswith('rtx.'):
+                stage.append(line)
+        actual = {stage: (len(lines), hashlib.sha256('\n'.join(sorted(lines, key=lambda s: s.partition('=')[0]))
+                                                    .encode()).hexdigest()[:24]) for stage, lines in writes.items()}
+        # Captured from the sky at 98b5450c with the same LuaJIT harness.
+        self.assertEqual(actual, {
+            'map_start': (101, 'd59b1f11fcd2a6c0fd271bda'), 'late_refresh': (101, 'd59b1f11fcd2a6c0fd271bda'),
+            'tick': (3, '5d807e8a42072cc16ca1b4e4'), 'blend': (42, '36c16111eadab3331e12d64c'),
+            'rain': (37, '297a2f34353f0e80bc8582ea'), 'night': (7, '842b8cb7add522118964b181'),
+            'moon': (3, '7ff92c3b53db3736e3dca1a6'), 'leave_weather': (48, '7c9f432192e046b41bc92dbe'),
+            'map_sky': (3, '061edb7fa0b63b74831ef606'), 'exit': (0, 'e3b0c44298fc1c149afbf4c8'),
+        })
+        self.enhanced_session(r'''
+local standard = {}
+for _, pair in ipairs(calls) do standard[pair[1]] = pair[2] end
+cmd("nativeloader_sky_enhanced", "1") cmd("nativeloader_sky_enhanced", "0")
+for key, expected in pairs(standard) do assert(value(key) == expected, key) end
+''', 'PRESET.nativeloader_sky_enhanced="0"')
+
     def settings(self, text):
         return dict(part.split('=', 1) for part in text.split()[1:])
+
+    def enhanced_session(self, steps, setup='', **globals_):
+        body = ('PRESET = {nativeloader_sky_enhanced="1"}\n' + setup + '\n' + SESSION_SETUP + r'''
+local function numos(key) return value("rtx.atmosphere.numos." .. key) end
+local volume = "rtx.volumetrics.enable"
+local function volumeWrites()
+  local n = 0
+  for _, call in ipairs(calls) do if call[1] == volume then n = n + 1 end end
+  return n
+end
+local looks = include("nativeloader/enhanced_weather.lua").presets
+hook.Run("InitPostEntity")
+for _, fn in ipairs(simple) do fn() end
+''' + steps)
+        return self.run_lua(body, MAP='gm_construct', BSP=self.sky_map(), LINE_DEFAULT=True, **globals_)
+
+    def test_enhanced_weather_uses_each_look_and_keeps_the_host_precipitation(self):
+        self.enhanced_session(r'''
+assert(value("rtx.skyMode") == "2" and volumeWrites() == 0)
+assert(numos("unitsPerMeter") == "52.4934" and numos("aerialPerspective") == "True")
+assert(numos("weather.preset") == "None" and numos("weather.followGame") == "False")
+cmd("nativeloader_weather_seconds", "0")
+local presets = NATIVELOADER_SKY.presets
+assert(#presets.order == 12)
+for _, name in ipairs(presets.order) do
+  cmd("nativeloader_weather", name)
+  for key, setting in pairs(looks[name]) do
+    if key ~= "cloudCoverageMean" and key ~= "cloudWindSpeed" and key ~= "cloudWindDirection" then
+      assert(numos(key) == M.optionText(setting), name .. "." .. key)
+    end
+  end
+  assert(tonumber(value("rtx.weather.precipitation.intensity")) == presets.presets[name].precipitationIntensity, name)
+end
+cmd("nativeloader_weather", "thunderstorm")
+local windy = tonumber(numos("cloudWindSpeed"))
+local bearing = numos("cloudWindDirection")
+tick(9)
+assert(tonumber(numos("cloudWindSpeed")) ~= windy and numos("cloudWindDirection") ~= bearing)
+COVERED = true tick(1)
+assert(value("rtx.weather.precipitation.intensity") == "0")
+assert(value("rtx.atmosphere.cloudDensity") == nil and value("rtx.volumetrics.transmittanceColor") == nil)
+''')
+
+    def test_every_weather_and_built_in_look_passes_the_editors_own_check(self):
+        self.run_lua(GMOD_MOCKS + r'''
+local weather = include("nativeloader/enhanced_weather.lua")
+local editor = include("nativeloader/enhanced_editor.lua")(weather)
+local function check(name, look)
+  local ok, why = editor.check(look)
+  assert(ok, name .. ": " .. tostring(why))
+end
+for name, look in pairs(weather.presets) do check(name, look) end
+for _, builtin in ipairs(editor.builtins) do check(builtin.name, editor.builtin(builtin)) end
+''')
+
+    def test_weather_blends_its_haze_absorption_and_returns_to_the_library_default(self):
+        # Give one weather its own absorption in memory. The reviewer tunes the shipped weather rows.
+        self.enhanced_session(r'''
+local default = "0.0044, 0.0044, 0.0044"
+cmd("nativeloader_weather_seconds", "0") cmd("nativeloader_weather", "clear")
+assert(numos("mieAbsorption") == default)
+cmd("nativeloader_weather_seconds", "2") cmd("nativeloader_weather", "hazy")
+tick(1) assert(numos("mieAbsorption") == "0.00242, 0.00242, 0.00242")
+tick(1) assert(numos("mieAbsorption") == "0.00044, 0.00044, 0.00044")
+cmd("nativeloader_weather", "clear") tick(2) assert(numos("mieAbsorption") == default)
+assert(not convars.nativeloader_sky_own_look:GetBool())
+''', r'''
+local readLua = dofile
+function dofile(path)
+  local data = readLua(path)
+  if path:match("/enhanced_weather%.lua$") then data.presets.hazy.mieAbsorption = {0.00044, 0.00044, 0.00044} end
+  return data
+end
+''')
+
+    def test_enhanced_weather_blends_and_can_be_interrupted_or_left_to_remix(self):
+        self.enhanced_session(r'''
+-- The native SetConfigVariable accepts an empty string without applying it. Check the effective preset.
+local function manualPreset()
+  local key = "rtx.atmosphere.numos.weather.preset"
+  local current = CONF[key]
+  for _, pair in ipairs(calls) do if pair[1] == key and pair[2] ~= "" then current = pair[2] end end
+  return current
+end
+assert(manualPreset() == "None" and numos("weather.transitionSeconds") == "0")
+cmd("nativeloader_weather_seconds", "20")
+cmd("nativeloader_weather", "foggy")
+tick(10)
+local halfway = 1 / (0.5 / looks.partlyCloudy.fogVisibilityMeters + 0.5 / looks.foggy.fogVisibilityMeters)
+assert(math.abs(tonumber(numos("fogVisibilityMeters")) - halfway) < 0.01)
+if not looks.partlyCloudy.cloudLayer2Enable and looks.foggy.cloudLayer2Enable then
+  assert(tonumber(numos("cloudLayer2BaseHeightMeters")) == looks.foggy.cloudLayer2BaseHeightMeters)
+end
+for _, key in ipairs({"cloudLayer2Enable", "cloudCirrusEnable"}) do
+  assert(numos(key) == M.optionText(looks.partlyCloudy[key] or looks.foggy[key]))
+end
+cmd("nativeloader_weather", "thunderstorm")
+assert(math.abs(tonumber(numos("fogVisibilityMeters")) - halfway) < 0.01)
+tick(20)
+assert(tonumber(numos("fogVisibilityMeters")) == looks.thunderstorm.fogVisibilityMeters)
+assert(tonumber(numos("cloudLayer2BaseHeightMeters")) == looks.thunderstorm.cloudLayer2BaseHeightMeters)
+cmd("nativeloader_weather", "")
+assert(numos("fogVisibilityMeters") == "1600" and numos("cloudDensity") == "20")
+assert(manualPreset() == "Fair" and numos("weather.followGame") == "True" and numos("weather.transitionSeconds") == "10")
+assert(volumeWrites() == 0)
+''', 'CONF["rtx.atmosphere.numos.fogVisibilityMeters"]="1600"\nCONF["rtx.atmosphere.numos.weather.preset"]="Fair"')
+
+    def test_enhanced_celestial_controls_use_one_clock_and_one_library_moon(self):
+        self.enhanced_session(r'''
+assert(numos("timeCycleEnable") == "False" and numos("nightSkyStars") == "True")
+assert(numos("realMoonEnabled") == "False" and numos("moon0.enabled") == "True")
+cmd("nativeloader_sky_time", "noon")
+cmd("nativeloader_sky_season", "winter")
+cmd("nativeloader_sky_direction", "115")
+for name, phase in pairs(M.MOON_PHASES) do
+  cmd("nativeloader_sky_moon", name)
+  local sky = M.sky(12, M.SEASONS.winter, phase, 115, nil, M.moonLatitude(nil, 1, 0.8))
+  assert(tonumber(numos("moon0.phase")) == phase)
+  assert(math.abs(tonumber(numos("moon0.rotation")) - sky.moon.bearing) < 0.001)
+  assert(math.abs(tonumber(numos("sunElevation")) - sky.sun.elevation) < 0.001)
+end
+assert(numos("dayOfYear") == tostring(M.SEASONS.winter) and numos("northOffsetDegrees") == "115")
+cmd("nativeloader_sky_moon_day", "0")
+assert(numos("moon0.enabled") == "False")
+cmd("nativeloader_sky_moon_day", "2")
+assert(numos("moon0.color") == "2, 2, 2")
+cmd("nativeloader_sky_eclipse", "lunar")
+assert(numos("moon0.phase") == "-1" and numos("moon0.color") == "1, 1, 1")
+cmd("nativeloader_sky_eclipse_amount", "0")
+local contact = numos("moon0.elevation")
+cmd("nativeloader_sky_eclipse_amount", "100")
+assert(numos("moon0.elevation") ~= contact)
+cmd("nativeloader_sky_eclipse", "solar")
+assert(numos("moon0.phase") ~= "-1" and tonumber(numos("sunElevation")) < 0)
+cmd("nativeloader_sky_time", "18:00")
+tick(0.02) tick(60)
+assert(numos("timeOfDayHours") == "18")
+cmd("nativeloader_sky_day_minutes", "40") cmd("nativeloader_sky_time_passes", "1")
+tick(60)
+assert(numos("timeOfDayHours") == "18.6")
+local writes = #calls
+POSTER_STATE = "rendering" tick(36)
+assert(#calls == writes)
+POSTER_STATE = "done" tick(1)
+assert(math.abs(tonumber(numos("timeOfDayHours")) - 18.61) < 0.001)
+cmd("nativeloader_sky_no_horizon", "1") cmd("nativeloader_sky_stars", "procedural")
+assert(value("rtx.atmosphere.noHorizon") == nil and value("rtx.atmosphere.starMapEnable") == nil)
+''', POSTER_SIM=True)
+
+    def test_tuned_weather_bearings_cross_zero_and_unlimited_visibility_blends_as_clear_air(self):
+        # Edit only the weather data in memory. Remove the independent slow wind drift to measure the blend.
+        self.enhanced_session(r'''
+cmd("nativeloader_weather_seconds", "20")
+cmd("nativeloader_weather", "clear") tick(10)
+assert(tonumber(numos("cloudWindDirection")) == 0 and tonumber(numos("fogVisibilityMeters")) == 2000)
+tick(10)
+assert(tonumber(numos("cloudWindDirection")) == 10 and tonumber(numos("fogVisibilityMeters")) == 1000)
+''', r'''
+local readLua = dofile
+function dofile(path)
+  local result = readLua(path)
+  if path:match("/enhanced_weather%.lua$") then
+    result.presets.partlyCloudy.cloudWindDirection, result.presets.clear.cloudWindDirection = 350, 10
+    result.presets.partlyCloudy.fogVisibilityMeters, result.presets.clear.fogVisibilityMeters = 0, 1000
+  elseif path:match("/sky_model%.lua$") then
+    result.drift = function() return 0 end
+  end
+  return result
+end
+''')
+
+    def test_enhanced_tier_and_explicit_detail(self):
+        for tier, level in [('high', 0), ('medium', 1), ('low', 2), ('unknown', 1)]:
+            with self.subTest(tier=tier):
+                self.enhanced_session(r'''
+assert(numos("qualityLevel") == EXPECT)
+for name, level in pairs({high="0", medium="1", low="2", auto=EXPECT}) do
+  cmd("nativeloader_sky_enhanced_quality", name)
+  assert(numos("qualityLevel") == level)
+end
+cmd("nativeloader_sky_enhanced_quality", "invalid") assert(numos("qualityLevel") == EXPECT)
+''', 'JSON={status={schema=1,activation={performance_tier={tier=TIER}}}}', LOADER_STATUS='status',
+                                      TIER=tier, EXPECT=str(level))
+
+    def test_enhanced_never_writes_the_players_volumetrics_switch_across_vr_map_and_shutdown(self):
+        for initial in ('True', 'False'):
+            with self.subTest(initial=initial):
+                self.enhanced_session(r'''
+assert(convars.nativeloader_sky_volumetrics_saved.value == "" and volumeWrites() == 0)
+cmd("nativeloader_sky_enhanced_quality", "low")
+NativeLoaderVR = {state="running"} tick(0.02)
+assert(value("rtx.skyMode") == "1" and volumeWrites() == 0 and numos("qualityLevel") == "2")
+assert(convars.nativeloader_sky_enhanced.value == "1" and convars.nativeloader_sky_volumetrics_saved.value == "")
+cmd("nativeloader_sky_enhanced_quality", "high")
+NativeLoaderVR.state = "off" tick(0.02)
+assert(value("rtx.skyMode") == "2" and volumeWrites() == 0 and numos("qualityLevel") == "0")
+cmd("nativeloader_sky_here", "map")
+assert(value("rtx.skyMode") == "0" and volumeWrites() == 0)
+local n = #calls
+cmd("nativeloader_sky_enhanced", "0") cmd("nativeloader_sky_enhanced", "1") tick(1)
+assert(n == #calls and NATIVELOADER_SKY.mapSky().shown == "own")
+cmd("nativeloader_sky_here", "rtx")
+assert(value("rtx.skyMode") == "2" and volumeWrites() == 0)
+cmd("nativeloader_sky_enhanced", "0") assert(volumeWrites() == 0 and value("rtx.skyMode") == "1")
+cmd("nativeloader_sky_enhanced", "1") hook.Run("ShutDown")
+assert(volumeWrites() == 0 and convars.nativeloader_sky_volumetrics_saved.value == "")
+''', 'CONF["rtx.volumetrics.enable"]=INITIAL', INITIAL=initial)
+
+    def test_enhanced_preference_under_fixed_sky_and_when_a_sky_owner_arrives_late(self):
+        self.enhanced_session(r'''
+assert(#calls == 0)
+cmd("nativeloader_sky_enhanced", "0") cmd("nativeloader_sky_enhanced_quality", "low")
+cmd("nativeloader_sky_enhanced", "1") tick(1)
+assert(#calls == 0 and not NATIVELOADER_SKY.takenOver())
+''', FIXED_SKY_ADDON=True)
+        self.enhanced_session(r'''
+assert(NATIVELOADER_SKY.mapSky().shown == "own" and value("rtx.skyMode") == "0")
+local before = #calls
+cmd("nativeloader_sky_enhanced", "0") cmd("nativeloader_sky_enhanced", "1") tick(1)
+assert(#calls == before and value(volume) == nil and numos("qualityLevel") == nil)
+''', r'''
+SKY_FILES={["data_static/nativeloader/sky/gm_construct/fixed.json"]="decl"}
+JSON={decl={version=1,sky="map",title="Construct HD"}}
+''')
+        self.enhanced_session(r'''
+hook.Add("NativeLoaderSkyOwner", "late", function() return "Station" end)
+hook.Add("NativeLoaderSkyFixed", "late", function() return true end)
+RemixConfig.SetConfigVariable("rtx.skyMode", "0")
+hook.Run("NativeLoaderSkySet") tick(0.02)
+assert(not NATIVELOADER_SKY.enhanced() and volumeWrites() == 0 and value("rtx.skyMode") == "0")
+''')
+
+    def test_enhanced_fog_menu_uses_visibility_and_returns_to_the_weather(self):
+        self.enhanced_session(r'''
+assert(tonumber(numos("fogVisibilityMeters")) == looks.partlyCloudy.fogVisibilityMeters)
+cmd("nativeloader_remix_fog", "heavyFog")
+local linear = ((0.85 + 0.055) / 1.055) ^ 2.4
+local visibility = math.log(0.02) * 5 * 1.905 / math.log(linear)
+assert(math.abs(tonumber(numos("fogVisibilityMeters")) - visibility) < 0.001)
+assert(numos("fogAlbedo") == "0.9" and numos("fogAnisotropy") == "-0.2" and volumeWrites() == 0)
+cmd("nativeloader_weather", "clear") tick(31)
+assert(math.abs(tonumber(numos("fogVisibilityMeters")) - visibility) < 0.001)
+cmd("nativeloader_remix_fog", "")
+assert(tonumber(numos("fogVisibilityMeters")) == looks.clear.fogVisibilityMeters)
+cmd("nativeloader_weather", "") cmd("nativeloader_remix_fog", "mist")
+assert(tonumber(numos("fogVisibilityMeters")) > visibility)
+cmd("nativeloader_remix_fog", "") assert(numos("fogVisibilityMeters") == "0")
+''', MENU=True)
+
+    def test_enhanced_leaves_an_applied_fog_preset_enable_value_alone(self):
+        self.enhanced_session(r'''
+cmd("nativeloader_remix_fog", "heavyFog")
+assert(value(volume) == "True" and volumeWrites() == 1)
+cmd("nativeloader_sky_enhanced", "1") cmd("nativeloader_sky_enhanced_quality", "low")
+assert(convars.nativeloader_sky_volumetrics_saved.value == "" and volumeWrites() == 1)
+cmd("nativeloader_sky_enhanced", "0")
+tick(1)
+assert(volumeWrites() == 1 and convars.nativeloader_sky_volumetrics_saved.value == "")
+''', 'PRESET.nativeloader_sky_enhanced="0"\nCONF["rtx.volumetrics.enable"]="False"', MENU=True)
+
+    def test_enhanced_signals_one_new_world_per_map_and_recovers_an_unfinished_restore(self):
+        self.enhanced_session(r'''
+assert(numos("worldChangeCount") == "8" and convars.nativeloader_sky_volumetrics_saved.value == "")
+cmd("nativeloader_sky_enhanced", "0") assert(volumeWrites() == 0)
+cmd("nativeloader_sky_enhanced", "1") assert(numos("worldChangeCount") == "8")
+hook.Run("ShutDown") tick(1)
+assert(volumeWrites() == 0 and not NATIVELOADER_SKY.enhanced())
+hook.Run("InitPostEntity")
+assert(numos("worldChangeCount") == "9" and NATIVELOADER_SKY.enhanced())
+''', 'PRESET.nativeloader_sky_numos_world="7"\nCONF["rtx.volumetrics.enable"]="False"')
+        self.enhanced_session(r'''
+assert(not NATIVELOADER_SKY.enhanced() and value(volume) == "False")
+assert(convars.nativeloader_sky_volumetrics_saved.value == "" and numos("worldChangeCount") == nil)
+cmd("nativeloader_sky_enhanced","1") cmd("nativeloader_sky_enhanced","0") hook.Run("ShutDown")
+assert(volumeWrites() == 1)
+''', 'PRESET.nativeloader_sky_enhanced="0"\nPRESET.nativeloader_sky_volumetrics_saved="False"')
+        self.enhanced_session(r'''
+local writer = RemixConfig.SetConfigVariable
+convars.nativeloader_sky_volumetrics_saved:SetString("True")
+RemixConfig.SetConfigVariable = function(k,v) if k == volume then return false end return writer(k,v) end
+tick(1)
+assert(convars.nativeloader_sky_volumetrics_saved.value == "True" and volumeWrites() == 0)
+RemixConfig.SetConfigVariable = writer
+tick(1) tick(1)
+assert(convars.nativeloader_sky_volumetrics_saved.value == "" and volumeWrites() == 1 and value(volume) == "True")
+''')
+
+    def test_enhanced_panel_offers_saved_choices_and_explains_vr(self):
+        lines = self.run_lines('NativeLoaderVR={state="running"}\nPRESET={nativeloader_sky_enhanced="1"}\n' + SESSION,
+                               MAP='gm_construct', BSP=self.sky_map(), SCRIPT='panel')
+        for row in ['ComboBox|Sky quality|nativeloader_sky_enhanced', 'choice|Standard|0', 'choice|Enhanced|1',
+                    'ComboBox|Enhanced detail|nativeloader_sky_enhanced_quality', 'choice|Automatic|auto',
+                    'choice|High|high', 'choice|Medium|medium', 'choice|Low|low']:
+            self.assertIn('panel sky|' + row, lines)
+        self.assertTrue(any('Enhanced, the default' in line for line in lines))
+        self.assertTrue(any('Enhanced sky is unavailable in VR' in line for line in lines))
+        self.assertIn('rtx.skyMode=1', next(line for line in lines if line.startswith('start ')))
+
+    def test_a_new_players_game_starts_in_enhanced_and_vr_in_standard(self):
+        # The user, 2026-11-26: the Enhanced sky is the default; Standard stays a choice, and VR shows Standard.
+        for vr, mode in (('', '2'), ('NativeLoaderVR={state="running"}\n', '1')):
+            with self.subTest(vr=bool(vr)):
+                lines = self.run_lines(vr + SESSION, MAP='gm_construct', BSP=self.sky_map(), SKY_DEFAULT=True)
+                self.assertIn(f'rtx.skyMode={mode}', next(line for line in lines if line.startswith('start ')))
+
+    def test_editor_settings_blend_from_the_current_sky_and_leave_the_weather_particles_alone(self):
+        self.enhanced_session(r'''
+cmd("nativeloader_weather_seconds","0") cmd("nativeloader_weather","thunderstorm")
+local rain = value("rtx.weather.precipitation.intensity")
+local top = tonumber(numos("cloudDepthMeters"))
+local light = numos("sunElevation")
+cmd("nativeloader_sky_look_cloud_density","12")
+assert(convars.nativeloader_sky_own_look:GetBool() and numos("cloudDensity") == "12")
+assert(tonumber(numos("cloudDepthMeters")) == top)
+tick(1)
+assert(tonumber(numos("cloudDepthMeters")) == (top + looks.partlyCloudy.cloudDepthMeters)/2)
+cmd("nativeloader_sky_look_cloud_color","0.2,0.4,0.6")
+assert(numos("cloudColor") == "0.2, 0.4, 0.6")
+tick(1)
+assert(tonumber(numos("cloudDepthMeters")) == looks.partlyCloudy.cloudDepthMeters)
+assert(value("rtx.weather.precipitation.intensity") == rain and numos("sunElevation") == light)
+cmd("nativeloader_weather","snow")
+assert(numos("cloudDensity") == "12" and tonumber(value("rtx.weather.precipitation.intensity")) == 0.45)
+cmd("nativeloader_sky_own_look","0") tick(1)
+assert(tonumber(numos("cloudDensity")) == (12 + looks.snow.cloudDensity)/2)
+tick(1) assert(tonumber(numos("cloudDensity")) == looks.snow.cloudDensity)
+cmd("nativeloader_weather","") cmd("nativeloader_sky_own_look","1") tick(2)
+local wind = numos("cloudWindDirection") tick(5)
+assert(numos("cloudDensity") == "12" and wind ~= numos("cloudWindDirection"))
+cmd("nativeloader_sky_own_look","0") tick(1) assert(numos("cloudDensity") == "16")
+tick(1) assert(numos("cloudDensity") == "20" and numos("weather.followGame") == "True")
+''')
+
+    def test_mode_each_tier_and_styles_including_when_weather_is_left_to_remix(self):
+        self.enhanced_session(r'''
+local data = include("nativeloader/enhanced_weather.lua")
+cmd("nativeloader_weather","")
+for _, tier in ipairs({"high","medium","low"}) do
+  cmd("nativeloader_sky_enhanced_quality",tier)
+  for key, setting in pairs(data.mode[tier]) do
+    if key ~= "aerialPerspectiveLocalLights" then assert(numos(key)==M.optionText(setting), key) end
+  end
+  assert(numos("nightGainStops")=="10" and numos("aerialPerspectiveLocalLights")=="False")
+end
+cmd("nativeloader_sky_style_night_gain_stops","13") cmd("nativeloader_sky_style_rays_strength","0")
+assert(numos("nightGainStops")=="13" and numos("rays.enable")=="False" and numos("rays.strength")=="0")
+cmd("nativeloader_sky_style_rays_strength","1.5")
+assert(numos("rays.enable")=="True" and numos("rays.strength")=="1.5")
+for _, spec in ipairs({{"moonlight_gain_stops","moonlightGainStops",-3},{"star_gain_stops","starGainStops",4},
+    {"star_scintillation","starScintillation",0},{"cloud_shadow_strength","cloudShadowStrength",0.25}}) do
+  cmd("nativeloader_sky_style_"..spec[1],tostring(spec[3])) assert(tonumber(numos(spec[2]))==spec[3])
+end
+assert(not convars.nativeloader_sky_own_look:GetBool())
+cmd("nativeloader_sky_moon_size","3") cmd("nativeloader_sky_moon_brightness","0.5")
+assert(numos("moon0.angularDiameter")=="3" and numos("moonDiscGainStops")=="-1")
+cmd("nativeloader_sky_moon_brightness","0") assert(numos("moonDiscGainStops")=="-16")
+cmd("nativeloader_weather","clear") tick(31) assert(numos("nightGainStops")=="13")
+cmd("nativeloader_sky_enhanced","0")
+local writes = #calls
+cmd("nativeloader_sky_style_star_gain_stops","2") cmd("nativeloader_sky_look_cloud_density","5")
+assert(#calls==writes and volumeWrites()==0)
+''')
+
+    def test_lamp_glow_is_a_saved_style_that_overrides_every_tier_and_preserves_its_limits(self):
+        # Exercise both directions of the override, even if every shipped tier starts with lamps off.
+        self.enhanced_session(r'''
+local data = include("nativeloader/enhanced_weather.lua")
+local lamp = "nativeloader_sky_style_aerial_perspective_local_lights"
+assert(convars[lamp].archived and convars[lamp].default=="0")
+cmd("nativeloader_weather","")
+for _, enabled in ipairs({"0","1","0"}) do
+  cmd(lamp,enabled)
+  for _, tier in ipairs({"low","medium","high"}) do
+    cmd("nativeloader_sky_enhanced_quality",tier)
+    assert(numos("aerialPerspectiveLocalLights") == (enabled=="1" and "True" or "False"))
+    for key,v in pairs(data.mode[tier]) do
+      if key~="aerialPerspectiveLocalLights" then assert(numos(key)==M.optionText(v),key) end
+    end
+  end
+end
+assert(not convars.nativeloader_sky_own_look:GetBool() and volumeWrites()==0)
+cmd("nativeloader_sky_enhanced","0")
+local writes = #calls
+cmd(lamp,"1") assert(#calls==writes)
+cmd("nativeloader_sky_enhanced","1") assert(numos("aerialPerspectiveLocalLights")=="True")
+''', r'''
+local readLua = dofile
+function dofile(path)
+  local data = readLua(path)
+  if path:match("/enhanced_weather%.lua$") then data.mode.high.aerialPerspectiveLocalLights = true end
+  return data
+end
+''')
+
+    def test_near_mist_matches_numos_contrast_and_honours_an_explicit_remix_fog(self):
+        self.enhanced_session(r'''
+local p="rtx.volumetrics."
+cmd("nativeloader_sky_style_volumetrics","1")
+cmd("nativeloader_sky_look_fog_visibility_meters","850") tick(2)
+cmd("nativeloader_sky_look_fog_albedo","0.67") cmd("nativeloader_sky_look_fog_anisotropy","-0.25")
+assert(numos("volumetrics")=="1" and value(p.."singleScatteringAlbedo")=="0.67, 0.67, 0.67")
+assert(value(p.."anisotropy")=="-0.25" and value(p.."enableFogRemap")=="False")
+local srgb=tonumber(value(p.."transmittanceColor"):match("^[^,]+"))
+local linear=((srgb+0.055)/1.055)^2.4
+local distance=tonumber(value(p.."transmittanceMeasurementDistanceMeters"))
+assert(math.abs(math.log(0.02)*distance*1.905*2/math.log(linear)-850)<0.01)
+cmd("nativeloader_sky_look_fog_visibility_meters","0")
+assert(value(p.."transmittanceColor")=="1, 1, 1")
+cmd("nativeloader_remix_fog","heavyFog")
+assert(value(p.."transmittanceMeasurementDistanceMeters")=="5")
+cmd("nativeloader_sky_look_fog_visibility_meters","1200") tick(2)
+assert(value(p.."transmittanceMeasurementDistanceMeters")=="5" and numos("fogVisibilityMeters")~="1200")
+cmd("nativeloader_remix_fog","") assert(numos("fogVisibilityMeters")=="1200")
+assert(math.abs(tonumber(value(p.."transmittanceMeasurementDistanceMeters"))-1200/(1.905*2))<0.001)
+cmd("nativeloader_sky_style_volumetrics","0")
+assert(value(p.."transmittanceMeasurementDistanceMeters")=="777" and volumeWrites()==0)
+''', 'CONF["rtx.sceneScale"]="2"\nCONF["rtx.volumetrics.transmittanceMeasurementDistanceMeters"]="777"', MENU=True)
+
+    def test_rainbow_tracks_only_rain_and_drains_for_five_minutes_in_any_look(self):
+        self.enhanced_session(r'''
+cmd("nativeloader_weather_seconds","0")
+local levels=NATIVELOADER_SKY.presets.presets
+for _, name in ipairs({"drizzle","rainstorm","thunderstorm"}) do
+  cmd("nativeloader_weather",name)
+  assert(tonumber(numos("rainbow.strength"))==levels[name].precipitationIntensity)
+end
+cmd("nativeloader_sky_style_rainbow_strength","1.6")
+cmd("nativeloader_sky_own_look","1") cmd("nativeloader_weather","snow")
+tick(150) assert(math.abs(tonumber(numos("rainbow.strength"))-0.8)<0.0001)
+cmd("nativeloader_weather","sandstorm") tick(150) assert(numos("rainbow.strength")=="0")
+cmd("nativeloader_weather","rainstorm") cmd("nativeloader_weather","") tick(300)
+assert(numos("rainbow.strength")=="0")
+''')
+
+    def test_editor_page_loads_saves_shares_and_refuses_a_whole_invalid_look(self):
+        self.enhanced_session(Path(__file__).with_name('enhanced_editor_harness.lua').read_text(encoding='utf-8'), MENU=True)
+
+    def test_editor_page_offers_the_switch_in_standard_and_tracks_vr(self):
+        self.enhanced_session(Path(__file__).with_name('enhanced_editor_harness.lua').read_text(encoding='utf-8'),
+                              'PRESET.nativeloader_sky_enhanced="0"', PAGE_STANDARD=True)
 
     def test_new_and_migrated_defaults_move_the_clock_without_taking_over_a_maps_sky(self):
         for preset, marker in [('', 'kept player settings'),
@@ -1340,6 +1845,8 @@ print("resolve " .. r({ choice = "auto", single = true }) .. " " .. r({ choice =
         self.assertEqual(self.settings(out['moonday_high'])['rtx.atmosphere.daytimeMoonBrightness'], '4')
         self.assertEqual(self.settings(out['moonday_off'])['rtx.atmosphere.daytimeMoonBrightness'], '0')
         self.assertIn('moon by day 0.00', out['moonday_status'])
+        # The reset lands on the default sky, Enhanced; Standard, chosen again, has the moon by day back at 1.
+        self.assertEqual(self.settings(out['moonday_reset_mode'])['rtx.skyMode'], '2')
         self.assertEqual(self.settings(out['moonday_reset'])['rtx.atmosphere.daytimeMoonBrightness'], '1')
 
     # The night sky editor's options at their defaults: Remix's own values (the image's 0.12, the runtime's star,
@@ -1481,6 +1988,8 @@ print("resolve " .. r({ choice = "auto", single = true }) .. " " .. r({ choice =
         self.assertEqual(out['horizon_calls'].split(), ['1', '1'])
         self.assertIn('no horizon (the sky in every direction)', out['status_night'])
         self.assertEqual(out['horizon_off'].split(), ['1', 'False'])
+        # The reset lands on the default sky, Enhanced; Standard, chosen again, has the horizon back.
+        self.assertEqual(self.settings(out['horizon_reset_mode'])['rtx.skyMode'], '2')
         self.assertEqual(self.settings(out['horizon_reset'])['rtx.atmosphere.noHorizon'], 'False')
         # Saved ticked (client.vdf), it is on from the map's start.
         out = self.run_lua('PRESET = { nativeloader_sky_no_horizon = "1" }\n' + SESSION, MAP='gm_construct',

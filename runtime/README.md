@@ -1,5 +1,48 @@
 # runtime/
 
+## Enhanced sky in the Remix menu (0114)
+
+The Alt+X developer menu adds six NUMOS tabs under Game Setup → Step 2 → Sky Tuning. Graphics Settings
+offers Night, Haze and Cloud controls. Both use the active Enhanced sky and the live options also set by
+the companion. The Weather presets window applies the eleven built-in weathers in memory. The menu
+and its help are available in English and all six runtime translations.
+
+Patch 0114 is pending review in the game. The staged DLL is in the runtime worktree's `_output/`.
+The packaged record covers patches through 0113. [Build and first checks](../docs/handover/sky-enhanced-M-report.md)
+
+## Enhanced sun rays after the first PoC review (0113)
+
+The ray pass uses the renderer's blue noise and filters history at the reprojected position. Stronger rays
+keep at least a quarter of each sky channel, and the correction ends at the virtual planet's horizon.
+The staged Release DLL is in the runtime tree's `_output/`. The [R3 handover](../docs/handover/sky-enhanced-R2-report.md#r3)
+records the timing, DLL hash and the reviewer's first checks.
+
+## Enhanced sky round 2 review build (0109–0112)
+
+The four patches add camera-sky sun rays and four diagnostic views, a choice of Enhanced mist or
+near-camera Remix fog, a double rainbow in sunlit rain, and disposal of the sky adapter at D3D9 shutdown.
+The staged DLL is in the runtime worktree's `_output/` with the round 1 NUMOS assets. The new options
+and their defaults, patch commits, build hash, and first PoC checks are in the
+[Task R2 handover](../docs/handover/sky-enhanced-R2-report.md). [base.json](base.json) records all
+four as pending while the packaged DLL remains at 0108.
+
+## Enhanced sky package on the review branch (0107–0108)
+
+The review branch adds the NUMOS library at `41842c6` as optional sky mode 2. Mode 0 uses the game's sky,
+mode 1 the Standard atmosphere, and VR renders a request for mode 2 as Standard. The companion can set the
+221 library settings and nine adapter controls under `rtx.atmosphere.numos.`.
+
+Patch 0107 repairs tagged installs in checkout paths containing `!`. Patch 0108 integrates the renderer and its
+offline tests. The tagged install stages `numos/` beside `d3d9.dll` in `_output/`. The review package
+preserves that layout, including 41 standalone shaders, four night-sky data files, credits and licences.
+The packaged DLL, patch hashes and clone pins are recorded together. [Build record](base.json),
+[package handover](../docs/handover/sky-enhanced-P-report.md)
+
+The option inventory, patch resolutions and reviewer’s scene checks are in the
+[Task R report](../docs/handover/sky-enhanced-R-report.md).
+
+## Upstream merge (0106)
+
 Patch `0106-Merge-upstream-dxvk-remix-main-of-2026-11-23-2b46bed.patch`
 ([ADR 0265](../docs/decisions/0265-the-runtime-merges-upstream-main-of-2026-11-23.md),
 [report](../docs/handover/upstream-1123-report.md), fork branch `claude/upstream-main-1123`, on 0105's `0165da89b`):

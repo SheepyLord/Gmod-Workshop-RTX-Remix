@@ -1,5 +1,24 @@
 # test_companion_sky.py
 
+Task E3 passes each complete weather row and every built-in over the library baseline through the production
+editor's `check` function. A failure includes the look name and the validation reason. A session also gives one
+weather a different absorption in memory, verifies the midpoint of its blend and returns to the library default.
+
+Task E2 exercises the saved lamp-glow switch in both states at every detail level, including a conflicting
+mode-table value, weather left to Remix and a Standard round trip. The editor harness covers the new haze
+scale and range, the compact mixers, notice-row layout, and all five additional starting looks.
+
+Round 2 exercises editor overrides independently of host precipitation, interrupted transitions, both Moon
+settings, wetness and drying, tier-specific mode defaults, and the two mist modes. It checks the single
+legacy restore and counts global volumetrics writes through desktop, VR, map ownership and shutdown.
+The [editor widget harness](enhanced_editor_harness.lua.md) drives the actual page and the saved-look operations.
+
+The Enhanced sky cases run the real companion Lua offline on both sides of the mode switch. They compare all
+Standard Remix option writes against a recording from `98b5450c`, including repeats. Calls are grouped by
+action and by key because Lua does not order a table traversal. They also exercise all twelve Enhanced weather
+tables, wind and precipitation, interrupted changes and release, Moon phases and eclipses, stopping and starting
+the clock, a poster, loader tiers, detail overrides, fog presets, map ownership, VR and shutdown.
+
 R20-B also loads the real defaults autorun before the sky. The new defaults scenario checks both
 fresh `1`/`20` and migrated `0`/`30` profiles: one real minute advances the clock by 1.2 game hours,
 while Modern House's sky remains under its add-on with zero companion writes until a player edit.

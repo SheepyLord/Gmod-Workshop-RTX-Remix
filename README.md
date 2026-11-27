@@ -297,6 +297,8 @@ published.
   [RTXLauncher](https://github.com/Xenthio/RTXLauncher), the setup that this project replaces
 - Crunchy's [2022 Blood Overhaul](https://steamcommunity.com/sharedfiles/filedetails/?id=2683396098),
   whose textures and the PBR made from them ship in the package with the author's permission
+- Sky and clouds: [NUMOS](https://github.com/Kim2091/numos-sky) by Kim2091 (Sparkles), the library the Enhanced
+  sky draws with, under the Apache License 2.0
 - [Jolt Physics](https://github.com/jrouwe/JoltPhysics) by Jorrit Rouwe,
   [ReShade](https://reshade.me) by crosire, the LZMA SDK by Igor Pavlov, and the Garry's Mod headers
   from [garrysmod_common](https://github.com/danielga/garrysmod_common)

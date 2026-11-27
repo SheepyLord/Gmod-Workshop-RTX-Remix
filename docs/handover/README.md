@@ -1,5 +1,14 @@
 # Handovers
 
+The Enhanced sky (the user's request of 2026-11-25), merged on 2026-11-26 after two rounds on the user's "Merge and
+publish": [sky-enhanced-round2-report.md](sky-enhanced-round2-report.md) (round 2: sun rays, the editor, mist
+choices, a rainbow, the weathers retuned; the user's decisions at the merge; what is still wrong), after
+[sky-enhanced-report.md](sky-enhanced-report.md) (round 1: the NUMOS library as a second sky). Plans and briefs:
+[round 1](sky-enhanced-plan.md), [round 2](sky-enhanced-round2-plan.md). Task reports: [runtime](sky-enhanced-R-report.md),
+[companion](sky-enhanced-C-report.md) and [package](sky-enhanced-P-report.md) in round 1;
+[runtime](sky-enhanced-R2-report.md) and [companion](sky-enhanced-E-report.md) in round 2; the library's Remix menu in
+seven languages, runtime patch 0114, after the user's answers: [sky-enhanced-M-report.md](sky-enhanced-M-report.md).
+
 For the next loader release: [main-branch-plan.md](main-branch-plan.md). It covers Garry's Mod's main and prerelease
 branches, where the 64-bit game is `gmod_win64.exe` in the game folder and RTX does not load. The user postponed it on
 2026-11-25, to ship with other loader changes. Nothing is built yet.

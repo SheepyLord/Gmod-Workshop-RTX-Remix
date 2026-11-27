@@ -31,7 +31,9 @@ def write_package(folder: Path, manifest: dict, files: dict) -> Path:
 
 RUNTIME = ({'schema': 1, 'id': 'rt', 'version': '1.0.0', 'kinds': ['remix-runtime'], 'requires_loader': '>=0.1.0',
             'remix': {'entry': 'runtime/d3d9.dll', 'rtx_conf_layers': [], 'dxvk_conf_layers': [], 'env': {}, 'launch_args': []}},
-           {'native/payload/runtime/d3d9.dll': b'MZ runtime', 'native/payload/config/rtx/01_rtx.conf': b'rtx.a = 1\n'})
+           {'native/payload/runtime/d3d9.dll': b'MZ runtime', 'native/payload/config/rtx/01_rtx.conf': b'rtx.a = 1\n',
+            'native/payload/runtime/numos/spirv/cloud_render.comp.spv': b'compiled pass',
+            'native/payload/runtime/numos/nightsky/CREDITS.md': b'night sky credits'})
 FIXES = ({'schema': 1, 'id': 'fx', 'version': '2.0.0', 'kinds': ['root-files', 'patch-set'], 'requires_loader': '>=0.2.0',
           'requires_remix': True, 'root_files': [{'path': 'rtx-remix/mods/fx'}],
           'patch_sets': [{'module': 'engine.dll', 'patches': [{'name': 'p', 'find': 'aa', 'replace': 'bb'}]}],
@@ -88,7 +90,7 @@ class CombineTests(unittest.TestCase):
         for rel, data in {**RUNTIME[1], **FIXES[1]}.items():
             self.assertEqual((self.root / 'out' / rel).read_bytes(), data)
         self.assertEqual(json.loads((self.root / 'out' / 'addon.json').read_text(encoding='utf-8')), ADDON)
-        self.assertEqual(summary['files'], 3)
+        self.assertEqual(summary['files'], len(RUNTIME[1]) + len(FIXES[1]))
         with pw.gmapack.read_gma(str(self.root / 'out.gma')) as g:
             names = {e['name'].replace('\\', '/').lower() for e in g.files}
         self.assertEqual(names, {n.lower() for n in m['files']} | {'native/manifest.json'})

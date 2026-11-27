@@ -1,5 +1,9 @@
 {
   "about": "What the RTX package's GitHub workflow builds its native binaries from (R16, ADR 0106): sources, commits and tools, all reachable from a GitHub runner, and the files it fetches because no workflow can compile them. tools/ci/README.md explains each.",
+  "numos": {
+    "repository": "https://github.com/Kim2091/numos-sky.git",
+    "commit": "41842c69e9281f197acff95263260a0149876007"
+  },
   "garrysmod_common": {
     "repository": "https://github.com/danielga/garrysmod_common.git",
     "commit": "a854f237b79087826aa9a98a05de5e0d2b4502b6",

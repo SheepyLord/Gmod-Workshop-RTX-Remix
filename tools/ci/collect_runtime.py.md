@@ -6,6 +6,10 @@ Lays out the Remix runtime a workflow built as the runtime part's files (R16,
 indexes under `files/` ([`packages/runtime/files.json`](../../packages/runtime/files.json)), except this
 repository's own `files/atmosphere/`, to `<out>\runtime\files\`.
 
+The collector requires every indexed `files/numos/` path from the tagged install and reports an
+unindexed file there as an error. This keeps the DLL with its own compiled passes, four night-sky
+data files, credits and licences.
+
 ```powershell
 python tools\ci\collect_runtime.py <tree>\_output [--out out\ci\built] [--run-url URL]
 ```
@@ -18,7 +22,5 @@ for every `.dll`/`.exe` (by its SHA-256) its part, path, the fork's repository a
 `fetched by the same build` for the vendor binaries packman, the submodules and the clones bring. The build's
 `usdg-converter.exe`, a packaging tool, is reported as built and not shipped.
 
-**Exit:** 0 collected; 1 when a binary the part ships is missing from the build, or the folder has no
-`d3d9.dll`. The package never takes a local copy in its place. Tested by
-[test_ci_tools.py](../tests/test_ci_tools.py.md); checked on the fork's local `_output` (189 files, 41
-binaries: 3 compiled, 38 fetched by the build, nothing missing or extra).
+Exit 0 means collection succeeded. Exit 1 means the install lacks a shipped binary or the NUMOS paths
+differ from the index. [Collector tests](../tests/test_ci_tools.py.md)

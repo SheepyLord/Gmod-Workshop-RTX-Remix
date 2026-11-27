@@ -1,5 +1,14 @@
 # Roadmap
 
+The Enhanced sky (the user's request of 2026-11-25: an improved sky, cloud and sun-ray system to switch to, today's
+sky kept as the default) was **merged on 2026-11-26** on the user's "Merge and publish", after two rounds: the NUMOS
+library as a second sky, made the default at the merge (the user: "as the default choice, on by default, with
+Standard unchanged"), with sun rays across the sky, an editor with looks kept by name, mist choices, a rainbow, the
+library's own Remix menu translated and its credit line
+([ADR 0267](decisions/0267-the-enhanced-sky-is-the-numos-library-as-a-second-sky.md),
+[ADR 0268](decisions/0268-the-enhanced-sky-gets-sun-rays-an-editor-and-mist-choices.md)). What is still wrong:
+[round 2 report](handover/sky-enhanced-round2-report.md), after the [round 1 report](handover/sky-enhanced-report.md).
+
 Garry's Mod's main branch (the user's report of 2026-11-25: RTX does not load there) is **postponed to the next
 loader release**. That release collects the loader changes the user postpones. The main branch's 64-bit game,
 `gmod_win64.exe` in the game folder, never loads `bin\win64\winmm.dll`. A second loader file, `bin\win64\wsock32.dll`,
@@ -8,7 +17,10 @@ package need.
 
 | Item | State |
 |---|---|
+| Enhanced sky in the Remix menu | Merged with the sky on 2026-11-26 (runtime patch 0114, seven languages); Graphics Settings' sky sections checked in the PoC in English. [Task M report](handover/sky-enhanced-M-report.md) |
 | Next loader release: the main and prerelease branches | Postponed (the user, 2026-11-25) |
+| Enhanced sky, rounds 1 and 2 | Merged on 2026-11-26 (the user), the default sky. Known problems for a later round: [round 2 report](handover/sky-enhanced-round2-report.md) |
+| Our night sky on the Enhanced sky: the Night sky editor's layers, sun dogs and halos, the eclipse's corona, shooting stars, the sky without a horizon | Open, for later (the user, 2026-11-26: "we should adapt our own night sky with the enhanced night") |
 
 VR V8 (the user's requests of 2026-11-13: the V4 neutral-yaw fixture, precise and two-handed grabbing with one-hand
 turning, a freeze key, frame generation in the headset, the desktop's resolution) was **approved by the user on

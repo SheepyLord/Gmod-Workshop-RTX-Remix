@@ -25,11 +25,16 @@
    "url": "https://github.com/NVIDIAGameWorks/Spatial-Hash-Radiance-Cache.git",
    "commit": "4e21b585c33c83d723ca9a1e11bbb1090d145793",
    "why": "SHARC v1.8.3, beside it in the fork's checkout and likewise not in its tree"
+  },
+  "submodules/numos": {
+   "url": "https://github.com/Kim2091/numos-sky.git",
+   "commit": "41842c69e9281f197acff95263260a0149876007",
+   "why": "The unmodified Enhanced sky renderer, its standalone shaders, night sky and licence notices (sky mode 2)."
   }
  },
  "packaged": {
-  "d3d9.dll": "74115025eaa60ab65fcde74b2c90b7c3c22690c8fc8b5603f39c264d60770b33",
-  "built_from": "HEAD -> claude/upstream-main-1123 51dde2c63 (with what the rest of this record names)",
+  "d3d9.dll": "36a443703351a9d1ec9cfa7946ecdd8bc6e9dd71a649e0a3ff158467d19cfb7a",
+  "built_from": "HEAD -> claude/sky-enhanced ef15c09d4 (with what the rest of this record names)",
   "commit": "c6b48ed1a40f3451546137766d759dc13815f3a6",
   "submodules": {
    "submodules/nvapi": {
@@ -51,6 +56,11 @@
     "url": "https://github.com/NVIDIAGameWorks/Spatial-Hash-Radiance-Cache.git",
     "commit": "4e21b585c33c83d723ca9a1e11bbb1090d145793",
     "why": "SHARC v1.8.3, beside it in the fork's checkout and likewise not in its tree"
+   },
+   "submodules/numos": {
+    "url": "https://github.com/Kim2091/numos-sky.git",
+    "commit": "41842c69e9281f197acff95263260a0149876007",
+    "why": "The unmodified Enhanced sky renderer, its standalone shaders, night sky and licence notices (sky mode 2)."
    }
   },
   "files": {
@@ -156,6 +166,14 @@
    "patches/0104-The-Remix-API-an-empty-value-changes-nothing-and-suc.patch": "d982178c59d004f257798309bff317780c95bdb641d9ed58db4589184ffbee8a",
    "patches/0105-The-geometry-workers-sleep-when-idle-instead-of-poll.patch": "4290048fe33d9b0ee5dad8550b68d379d1de8a9e87c14919eeac987a3c29cb63",
    "patches/0106-Merge-upstream-dxvk-remix-main-of-2026-11-23-2b46bed.patch": "f1df6b42df973dcb01b1545faa7ef6df403ca3ad26d7e7a9439ddd24c73b2abd",
+   "patches/0107-Preserve-literal-paths-in-tagged-runtime-installs.patch": "e9cb3db54c463434fa7edcc0340c02c84e19f3dbbab725c76628525d05c7555a",
+   "patches/0108-Port-the-pinned-NUMOS-renderer-as-Enhanced-sky-mode-2.patch": "1ef213942c4a7151bbbc6133455bcf789c60d1afb70bd271acbd3b1b7f6a239a",
+   "patches/0109-Integrate-cloud-shadowed-sunlight-across-the-Enhanced-camera-sky.patch": "602873711e6c0696828e07688654819ae5c19a6935771eb207eaa05b732f38a6",
+   "patches/0110-Share-the-camera-fog-range-with-Enhanced-haze.patch": "dc2339b402c70a057452948c9c0fd6f429f1ecb8b9a03bc6c1534092ec32a52c",
+   "patches/0111-Draw-both-rainbows-in-sunlit-rain-in-the-Enhanced-composite.patch": "b8f6b06b12dee87896011773bc45bec39266d1b4215747a2ac9ff703e80b9013",
+   "patches/0112-Release-the-Enhanced-sky-adapter-at-D3D9-shutdown.patch": "97d525e42e84cd9f762a0982e6b7a703079beb4164658f714495f9ba939ad321",
+   "patches/0113-Preserve-sky-colour-and-smooth-Enhanced-sun-rays-at-the-horizon.patch": "14f3da28949fb3f59d9fdc635d6bd4c1be04950a00c5f0547ba0c5f5571b92da",
+   "patches/0114-Add-the-translated-NUMOS-controls-to-the-Remix-menus.patch": "a63c2e48ef75658521a547beed220d4c4ed3ee9f7fdce69f204c514a430b4bef",
    "submodules/rtxdi.patch": "07964d2fd3b6eac11d8f85ff1ec00494a6f58816eecc86f5d6f50fd5acac3732"
   }
  }

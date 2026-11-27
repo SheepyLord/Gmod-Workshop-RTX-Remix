@@ -1,5 +1,19 @@
 # nativeloader_sky.lua
 
+**Enhanced sky.** Under RTX Remix → Sky and weather, **Sky quality** selects Enhanced (the default since the
+user's word of 2026-11-26) or Standard. `nativeloader_sky_enhanced` saves that choice as 1 or 0. **Enhanced detail** saves
+`nativeloader_sky_enhanced_quality` as `auto`, `high`, `medium` or `low`. Both choices apply to the
+companion's RTX sky under ADR 0249. A fixed add-on, a sky file and the map's own sky retain their priority.
+VR uses Standard for the session and the desktop preference resumes afterwards.
+
+[The Enhanced controller](../nativeloader/enhanced_sky.lua.md) translates the clock, Moon and weather controls.
+[The weather tables](../nativeloader/enhanced_weather.lua.md) are the tuning surface for the twelve looks.
+Round 2 adds the [Enhanced sky editor](../nativeloader/enhanced_editor_panel.lua.md) beside the Night sky
+editor. Both skies follow the Night sky editor's Moon size and brightness. Enhanced maps brightness to disc
+gain in stops and supplies a separate moonlight control for the ground. The horizon switch, solar eclipse
+and the remaining night editor layers are Standard features. `nativeloader_sky_status` reports the NUMOS
+quality level while Enhanced is active.
+
 ADR 0249: **which sky a map shows** (the user's request of 2026-11-20). The RTX sky by default on every map; the
 map's own sky (its sky textures and, at scale 16, its 3D skybox) chosen and remembered per map (`nativeloader_sky_here`,
 "This map"); `nativeloader_sky` the default for other maps ("Other maps"); above the RTX sky the sky a map's RTX version

@@ -11,6 +11,10 @@ file, `d3d9.dll` recorded as compiled from `runtime/base.json`'s commit, a missi
 without `d3d9.dll` refused), this repository's modules collected with their source, and the cache keys
 (stable, different per build, line-ending independent, exit 2 for an unknown build).
 
+The runtime fixture checks all 41 NUMOS compute passes and the complete list of night data and notices
+against the package index. It checks the collected bytes and exercises missing passes, data and notices,
+an extra tagged pass and a mismatch in either the CI repository or the commit for NUMOS.
+
 **The RTX fixes' recorded trees (R19).** `pins.json`'s `fixes` section records object ids, not a
 commit: `patched_tree` (`source`, `public`, `premake5.lua`) and `rtxwater_tree` (`source/rtx_water`),
 40 hex digits each; every patch it lists is a file under `packages/fixes/licenses`, the water patches

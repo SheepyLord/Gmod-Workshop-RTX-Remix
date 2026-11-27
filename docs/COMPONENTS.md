@@ -1,5 +1,21 @@
 # Components
 
+The runtime's Alt+X developer and graphics menus edit the live Enhanced sky options used by the companion.
+The developer Weather presets window selects a built-in weather in memory. [Runtime menu](handover/sky-enhanced-M-report.md)
+
+The [Enhanced sky editor](../companion/nativeloader/lua/nativeloader/enhanced_editor.lua.md) owns the look schema,
+archived controls and named JSON files. Its [Derma page](../companion/nativeloader/lua/nativeloader/enhanced_editor_panel.lua.md)
+uses the [four extra library looks](../companion/nativeloader/lua/nativeloader/enhanced_builtin_looks.lua.md).
+The same file holds the five E2 looks after those four. The editor's lamp-glow switch overrides the mode table's
+enable flag while the table supplies each level's limits.
+
+For the Enhanced RTX sky the companion's [controller](../companion/nativeloader/lua/nativeloader/enhanced_sky.lua.md)
+maps the Sky page to NUMOS. Its [weather tables](../companion/nativeloader/lua/nativeloader/enhanced_weather.lua.md)
+hold the twelve GMod looks and their library starting values.
+
+The [runtime part](../packages/runtime/README.md) owns the Enhanced sky shaders, night data and notices.
+The release collector takes them from the same tagged install as the DLL. [Collector](../tools/ci/collect_runtime.py.md)
+
 Q3b private fixtures add [acknowledged controller typing](../companion/tests/vr_fixture_typing.lua.md) and actual RenderScene temporal observers. They neither set tested values nor mutate camera ownership. Their offline cases cover omitted key acknowledgement, opaque CalcView dispatch, frame de-duplication and observer restoration; none ships in the package.
 
 Q3b adds the private [combined functional clock](../companion/tests/vr_combined_clock.lua.md): Source-time pose/action replay for the complete functional sequence, raw native timestamps retained, deliberate menu pauses handled separately, and exact API restoration. Full-rate temporal probes never use it. Its injected-stall regression is in `tools/tests/vr_combined_clock_cases.lua`. No helper code ships.

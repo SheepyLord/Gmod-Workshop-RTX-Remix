@@ -3,11 +3,11 @@
 Copies from the runtime build's install folder (runtime/build_runtime.ps1 -Install: <tree>/_output) every
 file the runtime part indexes under files/ (packages/runtime/files.json), except this repository's own
 content (files/atmosphere/), into <out>/runtime/files/, and records where each native binary came from.
-A binary the part ships that the build did not produce stops it: the package never takes a local copy.
+The full tagged numos/ folder must match the indexed paths so the DLL ships with its own shaders and data.
 
   python tools/ci/collect_runtime.py <tree>/_output --out out/ci/built [--run-url URL]
 
-Exit codes: 0 collected; 1 a shipped binary is missing from the build, or the folder is not a build."""
+Exit codes: 0 collected; 1 a shipped binary is missing, the NUMOS file sets differ, or the folder is not a build."""
 import argparse
 import hashlib
 import json
@@ -65,12 +65,15 @@ def collect(output: Path, out: Path, run_url: str | None = None) -> dict:
     extra = sorted(p.relative_to(output).as_posix() for p in output.rglob('*')
                    if p.is_file() and not p.name.lower().endswith(('.pdb', '.lib', '.exp'))
                    and ('files/' + p.relative_to(output).as_posix()).lower() not in shipped)
-    missing_binaries = [r for r in missing if r.lower().endswith(BINARY)]
     record = {'part': 'runtime', 'copied': len(copied), 'missing': missing, 'built_not_shipped': extra,
               'binaries': binaries}
     (out / 'provenance-runtime.json').write_text(json.dumps(record, indent=1), encoding='utf-8')
-    if missing_binaries:
-        raise SystemExit('collect_runtime: the build did not produce ' + ', '.join(missing_binaries))
+    required = [r for r in missing if r.lower().endswith(BINARY) or r.startswith('files/numos/')]
+    if required:
+        raise SystemExit('collect_runtime: the build did not produce ' + ', '.join(required))
+    unindexed = [r for r in extra if r.startswith('numos/')]
+    if unindexed:
+        raise SystemExit('collect_runtime: the package index is missing ' + ', '.join(unindexed))
     return record
 
 

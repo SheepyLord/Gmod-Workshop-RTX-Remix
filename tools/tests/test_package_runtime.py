@@ -41,6 +41,13 @@ class PackageRuntimeTests(unittest.TestCase):
             'NRD.dll': b'nrd',
             'usd_usdGeom.dll': b'usd',
             'crashpad_handler.exe': b'MZ helper',
+            'numos/spirv/cloud_render.comp.spv': b'compiled pass',
+            'numos/nightsky/moon.bin': b'moon data',
+            'numos/nightsky/CREDITS.md': b'night sky credits',
+            'numos/LICENSE': b'library licence',
+            'numos/NOTICE': b'library attribution',
+            'numos/THIRD_PARTY_NOTICES.md': b'third-party notices',
+            'numos/licenses/LICENSE-DXVK-zlib.txt': b'zlib licence',
             'usd/hd/resources/plugInfo.json': b'{}',
             'usd/hdx/resources/shaders/renderPass.glslfx': b'shader',
         }.items():
@@ -80,7 +87,9 @@ class PackageRuntimeTests(unittest.TestCase):
         self.assertEqual(m['kinds'], ['remix-runtime'])
         self.assertEqual(m['requires_loader'], '>=0.1.0')
         expected = ['NRD.dll', 'crashpad_handler.exe', 'd3d9.dll', 'usd/hd/resources/plugInfo.json',
-                    'usd/hdx/resources/shaders/renderPass.glslfx', 'usd_usdGeom.dll']
+                    'usd/hdx/resources/shaders/renderPass.glslfx', 'usd_usdGeom.dll',
+                    'numos/spirv/cloud_render.comp.spv', 'numos/nightsky/moon.bin', 'numos/nightsky/CREDITS.md',
+                    'numos/LICENSE', 'numos/NOTICE', 'numos/THIRD_PARTY_NOTICES.md', 'numos/licenses/LICENSE-DXVK-zlib.txt']
         self.assertEqual(sorted(m['files'], key=str.lower), ['native/payload/runtime/' + p for p in sorted(expected, key=str.lower)])
         for rel in expected:
             data = (self.runtime / rel).read_bytes()

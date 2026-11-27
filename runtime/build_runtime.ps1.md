@@ -5,7 +5,7 @@ and stores it in `packages\runtime` ([runtime/README.md](README.md), [ADR 0033](
 [ADR 0034](../docs/decisions/0034-the-runtimes-build-inputs-recorded.md)).
 
 ```powershell
-runtime\build_runtime.ps1 -Fork H:\BACKUP_20260815\Modding\dxvk-remix-gmod
+runtime\build_runtime.ps1 -Fork <fork clone>
 runtime\build_runtime.ps1 -Fork <clone> -Worktree <existing patched tree> -NoImport
 runtime\build_runtime.ps1 -Fork <clone> -Worktree <existing patched tree> -Verify
 ```
@@ -17,7 +17,7 @@ runtime\build_runtime.ps1 -Fork <clone> -Worktree <existing patched tree> -Verif
 | `-NoImport` | Build only; `packages\runtime` and `base.json` stay as they are |
 | `-Jobs` | Maximum concurrent Ninja jobs (default 4), to bound C++ compiler memory use; the fork's shader helper retains its separate internal parallelism |
 | `-Verify` | Only the checks of step 3, then the built `d3d9.dll`'s size and SHA-256; builds and writes nothing |
-| `-Install` | R16: after compiling, `meson install --tags output` into `<Worktree>\_output` (`d3d9.dll`, the vendor DLLs, the USD plugins and their files), which the RTX package's workflow collects ([`tools/ci/collect_runtime.py`](../tools/ci/collect_runtime.py.md)) |
+| `-Install` | Runs `meson install --tags output` into `<Worktree>\_output` after compilation. The package workflow collects the DLLs, USD plugins and resources, and the Enhanced sky's `numos/` shaders, night data and notices. [Collector](../tools/ci/collect_runtime.py.md) |
 
 ## What it does
 

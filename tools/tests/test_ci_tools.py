@@ -137,6 +137,34 @@ class CiToolTests(unittest.TestCase):
         base = json.loads((REPO / 'runtime' / 'base.json').read_text(encoding='utf-8'))
         self.assertEqual((d3d9['repository'], d3d9['commit']), (base['repository'], base['commit']))
         self.assertEqual((self.root / 'built' / 'runtime' / 'files' / 'd3d9.dll').read_bytes(), b'files/d3d9.dll')
+        numos = {rel.removeprefix('files/numos/') for rel in shipped if rel.startswith('files/numos/')}
+        passes = {rel for rel in numos if rel.startswith('spirv/') and rel.endswith('.comp.spv')}
+        self.assertEqual(len(passes), 41)
+        self.assertEqual(numos - passes, {
+            'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md',
+            'licenses/LICENSE-DXVK-zlib.txt', 'licenses/LICENSE-GLFW-zlib.txt',
+            'licenses/LICENSE-MIT-Blender-sky.txt', 'licenses/LICENSE-MIT-contributors.txt',
+            'licenses/LICENSE-MIT-Dear-ImGui.txt', 'licenses/LICENSE-MIT-NVIDIA.txt',
+            'nightsky/CREDITS.md', 'nightsky/milkyway.bin', 'nightsky/moon.bin',
+            'nightsky/starlight_low.bin', 'nightsky/stars.bin',
+        })
+        for rel in numos:
+            self.assertEqual((self.root / 'built/runtime/files/numos' / rel).read_bytes(), ('files/numos/' + rel).encode())
+
+        # A new tagged file needs an index entry. Every indexed shader, data file and notice must come from this build.
+        extra = output / 'numos/spirv/new.comp.spv'
+        extra.write_bytes(b'new pass')
+        with self.assertRaisesRegex(SystemExit, 'package index is missing numos/spirv/new'):
+            collect_runtime.collect(output, self.root / 'built-extra')
+        extra.unlink()
+        for rel in ('spirv/cloud_render.comp.spv', 'nightsky/moon.bin', 'nightsky/CREDITS.md', 'NOTICE'):
+            with self.subTest(rel=rel):
+                path = output / 'numos' / rel
+                original = path.read_bytes()
+                path.unlink()
+                with self.assertRaisesRegex(SystemExit, 'did not produce files/numos/' + rel):
+                    collect_runtime.collect(output, self.root / 'built-incomplete')
+                path.write_bytes(original)
         # A binary the part ships that the build lacks stops it; a folder without d3d9.dll is no build.
         vendor = next(rel for rel in binaries if rel != 'files/d3d9.dll')
         (output / vendor[len('files/'):]).unlink()
@@ -177,6 +205,14 @@ class CiToolTests(unittest.TestCase):
         self.assertEqual(cache_key.digest([one]), cache_key.digest([one]))
         self.assertNotEqual(cache_key.digest([one]), cache_key.digest([one], extra=['x']))
         self.assertEqual(cache_key.main(['nothing']), 2)
+
+    def test_runtime_cache_refuses_a_different_numos_pin(self):
+        pins = self.root / 'pins.json'
+        for field in ('repository', 'commit'):
+            with self.subTest(field=field), mock.patch.object(cache_key, 'PINS', pins):
+                pins.write_text(json.dumps({'numos': {**PINS['numos'], field: 'different'}}), encoding='utf-8')
+                with self.assertRaisesRegex(SystemExit, 'NUMOS pin'):
+                    cache_key.runtime()
 
     def test_the_fixes_pins_record_their_native_trees(self):
         """R19: build_modules.ps1 checks the patched fixes, and RTX Water after its own patches, against

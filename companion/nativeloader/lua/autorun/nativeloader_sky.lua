@@ -19,6 +19,11 @@ if SERVER then
     AddCSLuaFile("nativeloader/sky_model.lua")
     AddCSLuaFile("nativeloader/weather_presets.lua")
     AddCSLuaFile("nativeloader/map_sky.lua")
+    AddCSLuaFile("nativeloader/enhanced_sky.lua")
+    AddCSLuaFile("nativeloader/enhanced_weather.lua")
+    AddCSLuaFile("nativeloader/enhanced_builtin_looks.lua")
+    AddCSLuaFile("nativeloader/enhanced_editor.lua")
+    AddCSLuaFile("nativeloader/enhanced_editor_panel.lua")
     return
 end
 
@@ -30,6 +35,8 @@ local L, N = i18n.L, i18n.N
 
 local DEFAULTS = {
     nativeloader_sky = "1", nativeloader_sky_no_horizon = "0", nativeloader_sky_follow_map = "1",
+    -- The Enhanced sky is the default (the user, 2026-11-26); Standard stays a choice and VR's sky.
+    nativeloader_sky_enhanced = "1", nativeloader_sky_enhanced_quality = "auto",
     nativeloader_sky_hour = "14.5", nativeloader_sky_direction = "0", nativeloader_sky_time_passes = "1",
     nativeloader_sky_day_minutes = "20", nativeloader_sky_season = "summer", nativeloader_sky_moon = "full",
     nativeloader_sky_moon_day = "1",
@@ -71,6 +78,8 @@ for _, entry in ipairs(NIGHT) do NIGHT_SETTINGS[entry[1]] = entry end
 NIGHT_SETTINGS[NIGHT_GLOW[1]] = NIGHT_GLOW
 for name, entry in pairs(NIGHT_SETTINGS) do DEFAULTS[name] = tostring(entry[2]) end
 local HELP = {
+    nativeloader_sky_enhanced = "RTX sky quality, 0 Standard, 1 Enhanced (the default, desktop only: VR shows Standard)",
+    nativeloader_sky_enhanced_quality = "Enhanced sky detail, auto (the loader's performance tier), high, medium or low",
     nativeloader_sky = "Sky on maps without a choice of their own (nativeloader_sky_here): 1 the RTX sky (sun, clouds, stars, "
         .. "moon), 0 the map's own sky and its 3D skybox. A map's RTX version's own sky comes first",
     nativeloader_sky_message = "1: one chat line at a map's start says which sky shows and how to switch (off by default)",
@@ -237,10 +246,18 @@ end
 -- Option -> text last given to Remix, so an unchanged value is not sent again.
 local sent = {}
 local function set(option, text)
-    if sent[option] == text then return end
+    if sent[option] == text then return true end
     local ok, result = pcall(RemixConfig.SetConfigVariable, option, text)
-    if ok and result ~= false then sent[option] = text end
+    if ok and result ~= false then sent[option] = text return true end
+    return false
 end
+
+local function configured(option)
+    local ok, value = pcall(RemixConfig.GetConfigVariable, option)
+    if ok and isstring(value) and value ~= "" then return value end
+    return nil
+end
+local enhanced = include("nativeloader/enhanced_sky.lua")(model, set, configured, presets.defaults, function(key) sent[key] = nil end)
 
 ---------------------------------------------------------------- the map's sun
 
@@ -324,6 +341,7 @@ end
 
 local function eclipse()
     local kind = cv.nativeloader_sky_eclipse:GetString()
+    if enhanced.active and kind == "solar" then return nil end
     return (kind == "lunar" or kind == "solar") and kind or nil
 end
 
@@ -334,6 +352,7 @@ local function moonPhase()
     local phase = model.eclipsePhase(kind)
     if not phase then phase = model.MOON_PHASES[cv.nativeloader_sky_moon:GetString()] or model.MOON_PHASES.full end
     local amount = math.Clamp(cv.nativeloader_sky_eclipse_amount:GetFloat() / 100, 0, 1)
+    if enhanced.active then return phase, enhanced.moonLatitude(kind, amount, moonRadius()) end
     return phase, model.moonLatitude(kind, amount, moonRadius())
 end
 
@@ -476,6 +495,11 @@ end
 
 -- The options this session's weather has set, which leaving the weather to Remix puts back.
 local weatherSet = {}
+-- Precipitation is rendered by Remix in both skies. NUMOS has its own clouds, wind, lightning and fog.
+local precipitation = {}
+for _, field in ipairs(presets.fields) do
+    if field.option:find("rtx.weather.precipitation.", 1, true) == 1 then precipitation[#precipitation + 1] = field end
+end
 
 local function pushWeather(values)
     for option, text in pairs(WEATHER_LOOK) do
@@ -483,7 +507,7 @@ local function pushWeather(values)
         weatherSet[option] = true
     end
     local ownFog = fogPresetChosen()
-    for _, field in ipairs(presets.fields) do
+    for _, field in ipairs(enhanced.active and precipitation or presets.fields) do
         local v = values[field.name]
         if field.name == "precipitationIntensity" and v then v = v * outdoors end
         if field.name == "nightSkyBrightness" and v then
@@ -505,9 +529,7 @@ end
 -- package's classic layer, else the runtime's default). The RTX fixes' per-map settings are not
 -- known here and are not put back.
 local function remixValue(option)
-    local ok, configured = pcall(RemixConfig.GetConfigVariable or function() end, option)
-    if ok and isstring(configured) and configured ~= "" then return configured end
-    return presets.defaults[option]
+    return configured(option) or presets.defaults[option]
 end
 
 local function releaseWeather()
@@ -523,6 +545,17 @@ local function releaseWeather()
     weatherSet = {}
 end
 
+local function wander(values, t, name)
+    local variation = VARIATION[name]
+    if variation then
+        local phase = t * variation[1]
+        for _, w in ipairs(WANDER) do
+            local v, swing = values[w[1]], model.drift(phase, w[2]) * w[3] * variation[2]
+            if w[4] then values[w[1]] = math.Clamp(v + swing * v, w[4], w[5]) else values[w[1]] = model.wrap360(v + swing) end
+        end
+    end
+end
+
 -- The values now: the blend between two presets, plus the slow variation of the cover and the wind.
 local function weatherNow(t)
     local values = {}
@@ -531,19 +564,15 @@ local function weatherNow(t)
         local a, b = weather.from[field.name], weather.to[field.name]
         values[field.name] = (progress >= 1 or a == nil) and b or model.blend(field.kind, a, b, progress)
     end
-    local variation = VARIATION[weather.name]
-    if variation then
-        local phase = t * variation[1]
-        for _, w in ipairs(WANDER) do
-            local v, swing = values[w[1]], model.drift(phase, w[2]) * w[3] * variation[2]
-            if w[4] then values[w[1]] = math.Clamp(v + swing * v, w[4], w[5]) else values[w[1]] = model.wrap360(v + swing) end
-        end
-    end
+    wander(values, t, weather.name)
     return values, progress
 end
 
 local function setWeather(instantly)
     local name = weatherName()
+    local seconds = instantly and 0 or math.max(cv.nativeloader_weather_seconds:GetFloat(), 0)
+    enhanced.rain(name, name and presets.presets[name].precipitationIntensity or 0, CurTime(), seconds)
+    if enhanced.active then enhanced.selectWeather(name, CurTime(), seconds) end
     if not name then
         -- Left to Remix: what the weather set goes back to Remix's own values, not the last preset's.
         if weather.name then releaseWeather() end
@@ -554,7 +583,7 @@ local function setWeather(instantly)
     local t = CurTime()
     weather.from = (not instantly and weather.values) or target
     weather.to, weather.name, weather.began = target, name, t
-    weather.seconds = instantly and 0 or math.max(cv.nativeloader_weather_seconds:GetFloat(), 0)
+    weather.seconds = seconds
 end
 
 ---------------------------------------------------------------- whose sky it is
@@ -714,6 +743,11 @@ local function physicalWanted()
     return (shownSky()) == "rtx"
 end
 
+local leaving = false
+local function wantEnhanced()
+    return cv.nativeloader_sky_enhanced:GetBool() and not leaving and not enhanced.inVR() and inCharge() and physicalWanted()
+end
+
 -- What shows now, for the chat line, the panel and nativeloader_sky_status (map_sky.state's `e`).
 local function describe()
     local r = resolution()
@@ -738,7 +772,10 @@ end
 local physical -- what the sky is now: true physical, false the map's own sky, nil not set yet
 local function pushSky()
     local want = physicalWanted()
-    if want then
+    if enhanced.active then
+        enhanced.pushSky(cv.nativeloader_sky_enhanced_quality:GetString(), nightValue("nativeloader_sky_moon_size"),
+            nightValue("nativeloader_sky_moon_brightness"))
+    elseif want then
         set("rtx.skyMode", "1")
         -- The map's own sun reaches Remix as a fixed-function light; the atmosphere makes the sun.
         set("rtx.ignoreGameDirectionalLights", "True")
@@ -758,6 +795,10 @@ end
 
 local function pushCelestial()
     local sky = now()
+    if enhanced.active then
+        enhanced.celestial(sky, clock or 12, season(), north(), eclipse() == "lunar", moonByDay())
+        return
+    end
     set("rtx.atmosphere.sunElevation", string.format("%.3f", sky.sun.elevation))
     set("rtx.atmosphere.sunRotation", string.format("%.3f", sky.sun.bearing))
     set("rtx.atmosphere.moon0.elevation", string.format("%.3f", sky.moon.elevation))
@@ -775,7 +816,7 @@ end
 -- add-on is in charge it goes out only when on or changed, so with the setting at its default the
 -- companion still sends that map nothing.
 local function pushHorizon(changing)
-    if not ready() then return end
+    if enhanced.active or not ready() then return end
     if changing or noHorizon() or inCharge() then
         set("rtx.atmosphere.noHorizon", noHorizon() and "True" or "False")
     end
@@ -787,7 +828,7 @@ end
 -- where an add-on is in charge only the settings off their defaults (and the one changing), so a player who
 -- changed nothing still sends that map nothing.
 local function pushNightSky(changing)
-    if not ready() then return end
+    if enhanced.active or not ready() then return end
     local all = inCharge() and physicalWanted()
     for _, entry in ipairs(NIGHT) do
         local v = nightValue(entry[1])
@@ -797,13 +838,41 @@ local function pushNightSky(changing)
     end
 end
 
+local function selectProvider()
+    if ready() and enhanced.hasSavedVolume() then enhanced.restoreLegacyVolume() end
+    local want = wantEnhanced()
+    if want ~= enhanced.active then
+        sent = {}
+        if want then
+            if next(weatherSet) then releaseWeather() end
+            enhanced.enter()
+            enhanced.selectWeather(weather.name, CurTime(), 0)
+        elseif ready() then
+            enhanced.leave()
+            -- A late map add-on can claim the sky between ticks. Give back the host precipitation too.
+            if not inCharge() then releaseWeather() end
+        end
+        if clock and followNorth and mapInfo.mood == "night" then
+            -- The bearing that puts this provider's Moon at the map light, without restarting a running clock.
+            followHours, followNorth = followed()
+            write("nativeloader_sky_direction", string.format("%.1f", followNorth))
+        end
+    end
+end
+
 local function apply()
+    if leaving then return end
+    selectProvider()
     pushHorizon(false)
     pushNightSky(nil)
     if not inCharge() then return end
     pushSky()
     if physical then
         pushCelestial()
+        if enhanced.active then
+            enhanced.updateFog()
+            enhanced.pushWeather(CurTime(), weather.name, wander)
+        end
         if weather.name then
             local values = weatherNow(CurTime())
             weather.values = values
@@ -981,7 +1050,9 @@ timer.Create("nativeloader_sky", interval(), 0, function()
     -- A map's add-on that loads after the map started (Modern House RTX does) is followed from its
     -- first sky on, not only once the 10 s timer below finds it.
     followMapAddon()
-    if not clock or not inCharge() then return end
+    if not clock or leaving then return end
+    if wantEnhanced() ~= enhanced.active or enhanced.hasSavedVolume() then apply() end
+    if not inCharge() then return end
     local t = RealTime()
     local dt = lastTick and math.max(t - lastTick, 0) or 0
     lastTick = t
@@ -1002,10 +1073,29 @@ timer.Create("nativeloader_sky", interval(), 0, function()
         end
         pushWeather(values)
     end
+    if enhanced.active then enhanced.pushWeather(CurTime(), weather.name, wander) end
 end)
+
+enhanced.editor.changed = function(action, key)
+    if not enhanced.active or not wantEnhanced() then return end
+    if action == "style" then
+        pushSky()
+    else
+        enhanced.editLook(action, key, CurTime())
+    end
+    enhanced.pushWeather(CurTime(), weather.name, wander)
+end
 
 hook.Add("NativeLoaderSkySet", "nativeloader_sky", function()
     if overruled() and owner() and ready() then applyAll() end
+    if enhanced.active and not wantEnhanced() then apply() end
+end)
+
+hook.Add("NativeLoaderRemixFogChanged", "nativeloader_sky", function()
+    if enhanced.active then
+        enhanced.updateFog()
+        enhanced.pushWeather(CurTime(), weather.name, wander)
+    end
 end)
 
 -- On a map whose add-on set the sky, once the player took it over: put it back every 10 s.
@@ -1017,6 +1107,11 @@ end)
 ---------------------------------------------------------------- settings changing
 
 local function changed(name, _, value)
+    if name == "nativeloader_sky_enhanced" or name == "nativeloader_sky_enhanced_quality" then
+        -- A preference for the companion's RTX sky never takes a map's own or fixed sky over.
+        if clock and (enhanced.active or wantEnhanced()) then apply() end
+        return
+    end
     if name == "nativeloader_sky_interval" then
         -- How often, not what: it does not take a map's sky over.
         timer.Adjust("nativeloader_sky", interval())
@@ -1028,6 +1123,12 @@ local function changed(name, _, value)
         return
     end
     if name == "nativeloader_sky_message" then return end
+    if enhanced.active and (NIGHT_SETTINGS[name] or name == "nativeloader_sky_stars") then
+        if name == "nativeloader_sky_moon_size" or name == "nativeloader_sky_moon_brightness" then
+            if wantEnhanced() then pushSky() pushCelestial() end
+        end
+        return
+    end
     if name == "nativeloader_sky" then
         -- ADR 0249: the sky of maps without a choice of their own, not a setting of the RTX sky's; a map's RTX version's
         -- sky stays above it, and it takes no sky over.
@@ -1060,7 +1161,7 @@ local function changed(name, _, value)
     elseif name == "nativeloader_sky_time_passes" and value == "0" then
         -- Stopping the clock keeps the time it shows.
         write("nativeloader_sky_hour", string.format("%.2f", clock))
-    elseif name == "nativeloader_sky_eclipse" and value ~= "" then
+    elseif name == "nativeloader_sky_eclipse" and value ~= "" and not (enhanced.active and value == "solar") then
         -- An eclipse needs the right side of the horizon: a lunar one the night, a solar one the day.
         -- Choosing one moves the time there if it is not (and so off the map's sun).
         local elevation = now().sun.elevation
@@ -1121,7 +1222,7 @@ local function start()
     -- start, also where the map's add-on sets a sky (ADR 0105, the user's item 44 of R16), but not
     -- over a fixed sky such as space (ADR 0248). Following the map keeps such an add-on's sky until a
     -- setting here changes (ADR 0031).
-    takenOver = false
+    takenOver, leaving = false, false
     ownFromStart = not cv.nativeloader_sky_follow_map:GetBool()
     followMapAddon()
     mapInfo = readMap()
@@ -1131,6 +1232,8 @@ local function start()
     choiceNow = loadChoices()[string.lower(game.GetMap())] or mapSky.AUTO
     write("nativeloader_sky_here", choiceNow)
     resolvedKey = nil
+    enhanced.newMap()
+    selectProvider()
     startClock()
     setWeather(true)
     refresh()
@@ -1150,6 +1253,13 @@ end)
 -- 3D skybox changed go back, and the map's own sky name. The record stays until the next map's start has checked
 -- them (syncEngine): a command sent while the map unloads may not run.
 hook.Add("ShutDown", "nativeloader_sky", function()
+    leaving = enhanced.active or enhanced.hasSavedVolume()
+    if ready() and (enhanced.active or enhanced.hasSavedVolume()) then
+        if enhanced.active and inCharge() then set("rtx.skyMode", "1") end
+        enhanced.restoreLegacyVolume()
+        enhanced.leave()
+        releaseWeather()
+    end
     for name, value in string.gmatch(engineSaved:GetString(), "([%w_]+)=([%w%.%-]*)") do
         for _, e in ipairs(ENGINE) do
             if e[1] == name then setEngine(name, value) end
@@ -1205,6 +1315,10 @@ concommand.Add("nativeloader_sky_status", function()
     local e, ids = describe(), {}
     for _, d in ipairs(files) do ids[#ids + 1] = d.id .. "(" .. d.kind .. (d.skyname and (" " .. d.skyname) or "") .. ")" end
     print(string.format("[nativeloader] this map: %s", message(false)))
+    if enhanced.active then
+        print(string.format("[nativeloader] Enhanced sky, NUMOS qualityLevel %s (0 high, 1 medium, 2 low)",
+            sent["rtx.atmosphere.numos.qualityLevel"] or "unknown"))
+    end
     print(string.format("[nativeloader] map sky: choice %s; shows %s (%s, %s)%s; own sky %s; 3D skybox %s; sky files %s; engine %s",
         choiceNow, e.shown, e.sky, e.reason, takenOver and ", taken over" or "", facts.own and "yes" or (facts.open and "no" or "no open sky"),
         facts.own3D and (string.format("scale %s", tostring(facts.scale)) .. (want3D() and ", shown" or "")) or "none",
@@ -1215,17 +1329,21 @@ concommand.Add("nativeloader_sky_status", function()
         sky.sun.elevation, sky.sun.bearing, sky.moon.elevation,
         eclipse() and string.format("%s eclipse %d %%", eclipse(), cv.nativeloader_sky_eclipse_amount:GetInt())
             or cv.nativeloader_sky_moon:GetString()))
-    print(string.format("[nativeloader] night sky %s; %s; moon by day %.2f", nightSkyImage() and "image" or "procedural",
-        noHorizon() and "no horizon (the sky in every direction)" or "horizon", moonByDay()))
-    local function v(name) return nightValue("nativeloader_sky_" .. name) end
-    print(string.format("[nativeloader] night sky editor: image %.2f; stars %.2f (colour %.2f), constellations %.2f (%.2f), "
-        .. "milky way %.2f (%.2f), nebulae %.2f (%.2f); simulated stars %.2f, density %.2f, twinkle %.2f",
-        v("night_image"), v("stars_brightness"), v("stars_colour"), v("constellations_brightness"),
-        v("constellations_colour"), v("milky_way_brightness"), v("milky_way_colour"), v("nebulae_brightness"),
-        v("nebulae_colour"), v("simulated_brightness"), v("simulated_density"), v("simulated_twinkle")))
-    print(string.format("[nativeloader] night sky editor: moon %.2f, %.2f deg, glow %.2f, earthshine %.2f; "
-        .. "shooting stars %.1f a minute at %.2f; night glow %.2f", v("moon_brightness"), v("moon_size"), v("moon_glow"),
-        v("earthshine"), v("shooting_stars"), v("shooting_star_brightness"), v("night_glow")))
+    if enhanced.active then
+        print(string.format("[nativeloader] NUMOS catalogue stars and Moon, daytime brightness %.2f", moonByDay()))
+    else
+        print(string.format("[nativeloader] night sky %s; %s; moon by day %.2f", nightSkyImage() and "image" or "procedural",
+            noHorizon() and "no horizon (the sky in every direction)" or "horizon", moonByDay()))
+        local function v(name) return nightValue("nativeloader_sky_" .. name) end
+        print(string.format("[nativeloader] night sky editor: image %.2f; stars %.2f (colour %.2f), constellations %.2f (%.2f), "
+            .. "milky way %.2f (%.2f), nebulae %.2f (%.2f); simulated stars %.2f, density %.2f, twinkle %.2f",
+            v("night_image"), v("stars_brightness"), v("stars_colour"), v("constellations_brightness"),
+            v("constellations_colour"), v("milky_way_brightness"), v("milky_way_colour"), v("nebulae_brightness"),
+            v("nebulae_colour"), v("simulated_brightness"), v("simulated_density"), v("simulated_twinkle")))
+        print(string.format("[nativeloader] night sky editor: moon %.2f, %.2f deg, glow %.2f, earthshine %.2f; "
+            .. "shooting stars %.1f a minute at %.2f; night glow %.2f", v("moon_brightness"), v("moon_size"), v("moon_glow"),
+            v("earthshine"), v("shooting_stars"), v("shooting_star_brightness"), v("night_glow")))
+    end
     local info = mapInfo or {}
     print(string.format("[nativeloader] map sky %q%s; map sun %s", info.skyname or "", info.mood and (" (" .. info.mood .. ")") or "",
         info.sun and string.format("%.1f deg high at bearing %.1f", info.sun.elevation, info.sun.bearing) or "none"))
@@ -1236,6 +1354,7 @@ end)
 
 NATIVELOADER_SKY = {
     clock = function() return clock end,
+    enhanced = function() return enhanced.active end,
     -- The sun, moon and stars as given to Remix now (sky_model.sky's table). RemixConfig's
     -- GetConfigVariable reads rtx.conf from disk, not these live values.
     sky = function() return now() end,
@@ -1298,13 +1417,20 @@ local function buildPanel(panel)
         local e = describe()
         local text = sentence(mapSky.state(e, facts), true)
         local limit = sentence(mapSky.limit(e, facts), true)
-        return limit and (text .. " " .. limit) or text
+        if limit then text = text .. " " .. limit end
+        if enhanced.inVR() then text = text .. " " .. L("Enhanced sky is unavailable in VR. The RTX sky uses Standard.") end
+        return text
     end
     local stateLabel = panel:Help(stateText())
     local stateThink = stateLabel.Think
+    local standardOnly, wasEnhanced = {}, nil
     stateLabel.Think = function(self)
         local text = stateText()
         if self:GetText() ~= text then self:SetText(text) end
+        if wasEnhanced ~= enhanced.active then
+            for _, control in ipairs(standardOnly) do control:SetEnabled(not enhanced.active) end
+            wasEnhanced = enhanced.active
+        end
         if stateThink then stateThink(self) end
     end
     local here = panel:ComboBox(L("This map"), "nativeloader_sky_here")
@@ -1319,8 +1445,14 @@ local function buildPanel(panel)
     panel:ControlHelp(L("The RTX sky has a sun, clouds, stars and a moon, and lights the map from them. A map's own sky shows its sky textures and, where it has one, its 3D skybox."))
     panel:CheckBox(L("Say which sky shows"), "nativeloader_sky_message")
     panel:ControlHelp(L("A chat line at each map's start says which sky shows and how to switch."))
+    combo(panel, N("Sky quality"), "nativeloader_sky_enhanced", {{N("Standard"), "0"}, {N("Enhanced"), "1"}})
+    panel:ControlHelp(L("Enhanced, the default, adds denser clouds, sun rays and lit mist when the RTX sky is showing. Choose Standard for the Night sky editor's layers and shooting stars."))
+    combo(panel, N("Enhanced detail"), "nativeloader_sky_enhanced_quality",
+        {{N("Automatic"), "auto"}, {N("High"), "high"}, {N("Medium"), "medium"}, {N("Low"), "low"}})
+    panel:ControlHelp(L("Automatic uses the loader's performance tier for clouds and mist."))
+    panel:ControlHelp(L("Shape clouds, air and light in the Enhanced sky editor. Both skies use Moon size and Moon brightness from the Night sky editor."))
     panel:Help(L("Time of day, weather and the night sky are the RTX sky's. On a map that shows another sky, changing one of them shows the RTX sky until the next map starts."))
-    panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
+    standardOnly[1] = panel:CheckBox(L("No horizon"), "nativeloader_sky_no_horizon")
     panel:ControlHelp(L("For maps that float in the sky or in space: below the horizon the sky goes on, with clouds, the stars and the moon, instead of the haze of a ground."))
     panel:CheckBox(L("Follow the map's sun"), "nativeloader_sky_follow_map")
     panel:ControlHelp(L("Puts the sun where the map's own sun is; on a map whose add-on sets its own sky, such as Modern House RTX, keeps that sky. Moving Time of day or Sun direction turns this off."))
@@ -1360,7 +1492,7 @@ local function buildPanel(panel)
     combo(panel, N("Eclipse"), "nativeloader_sky_eclipse", ECLIPSES)
     panel:NumSlider(L("Eclipse progress"), "nativeloader_sky_eclipse_amount", 0, 100, 0)
     panel:ControlHelp(L("From first contact (0) to the middle (100): a lunar eclipse is total from 70, a solar one from 90. An eclipse sets the moon's phase, and the time if the sun is on the wrong side of the horizon for it."))
-    combo(panel, N("Night sky"), "nativeloader_sky_stars", STARS)
+    standardOnly[2] = combo(panel, N("Night sky"), "nativeloader_sky_stars", STARS)
     panel:ControlHelp(L("Night sky image: sharp stars, a galaxy and nebulae, turning with the time and the season."))
     panel:ControlHelp(L("The Night sky editor, next to this page, sets how each part of the night sky looks."))
     local box = panel:ComboBox(L("Weather"), "nativeloader_weather")
@@ -1381,6 +1513,7 @@ local function slider(panel, label, name, decimals)
 end
 
 local function buildNightPanel(panel)
+    panel:Help(L("Enhanced uses Moon size and Moon brightness from this page. Brightness changes the lunar disc. Adjust moonlight on the ground in the Enhanced sky editor."))
     if not ready() then
         panel:Help(L("The Remix API is not available in this session, so these settings cannot be applied. Run nativeloader_status for details."))
     end
@@ -1430,9 +1563,16 @@ end
 
 NATIVELOADER_SKY.buildPanel = buildPanel
 NATIVELOADER_SKY.buildNightPanel = buildNightPanel
+local editorPanel = include("nativeloader/enhanced_editor_panel.lua")
+local function buildEnhancedPanel(panel)
+    editorPanel(panel, enhanced.editor, WEATHERS, weatherName, enhanced.inVR, cv.nativeloader_sky_enhanced)
+end
+NATIVELOADER_SKY.buildEnhancedPanel = buildEnhancedPanel
 
 hook.Add("PopulateToolMenu", "nativeloader_sky", function()
     spawnmenu.AddToolMenuOption("RTX Remix", N("Sky and weather"), "nativeloader_sky", L("Sky and weather"), "", "", buildPanel)
     spawnmenu.AddToolMenuOption("RTX Remix", N("Sky and weather"), "nativeloader_sky_night", L("Night sky editor"), "", "",
         buildNightPanel)
+    spawnmenu.AddToolMenuOption("RTX Remix", N("Sky and weather"), "nativeloader_sky_editor", L("Enhanced sky editor"), "", "",
+        buildEnhancedPanel)
 end)

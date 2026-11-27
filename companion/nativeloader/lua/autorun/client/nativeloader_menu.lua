@@ -57,15 +57,19 @@ local FOG = {
     dust = { "0.87, 0.73, 0.5", "60", "0.85, 0.75, 0.65", "0.4" },
     smoke = { "0.87, 0.73, 0.5", "20", "0.85, 0.75, 0.65", "0.6" },
 }
-local fog_active = false
-hook.Add("NativeLoaderRemixFogOverride", "nativeloader_menu", function() return fog_active end)
+local fog_active
+hook.Add("NativeLoaderRemixFogOverride", "nativeloader_menu", function() return fog_active ~= nil end)
+hook.Add("NativeLoaderRemixFogValues", "nativeloader_menu", function() return FOG[fog_active] end)
 local function apply_fog(name)
     local values = FOG[name]
     if not values then return end
-    RemixConfig.SetConfigVariable("rtx.volumetrics.enable", "True")
+    if not (NATIVELOADER_SKY and NATIVELOADER_SKY.enhanced and NATIVELOADER_SKY.enhanced()) then
+        RemixConfig.SetConfigVariable("rtx.volumetrics.enable", "True")
+    end
     RemixConfig.SetConfigVariable("rtx.volumetrics.enableFogRemap", "False")
     for i, option in ipairs(FOG_OPTIONS) do RemixConfig.SetConfigVariable(option, values[i]) end
-    fog_active = true
+    fog_active = name
+    hook.Run("NativeLoaderRemixFogChanged")
 end
 
 -- Remix options with a short name, a label and the control kind, and for a choice that sets several
@@ -139,7 +143,10 @@ end
 
 for _, option in ipairs(OPTIONS) do
     cvars.AddChangeCallback("nativeloader_remix_" .. option[1], function()
-        if option[1] == "fog" and convars.fog:GetString() == "" then fog_active = false end
+        if option[1] == "fog" and convars.fog:GetString() == "" then
+            fog_active = nil
+            hook.Run("NativeLoaderRemixFogChanged")
+        end
         push(option)
     end, "nativeloader_menu")
     if enabled[option[1]] then

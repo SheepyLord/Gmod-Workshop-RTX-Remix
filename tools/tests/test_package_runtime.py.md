@@ -1,7 +1,8 @@
 # test_package_runtime.py
 
 Unit tests for [`package_runtime.py`](../package_runtime.py.md). Each test builds a small fake
-runtime (a few named files, a `usd\` tree, PDB/EXP/LIB/BAK by-products) in a temporary folder under
+runtime (a few named files, a `usd\` tree, an Enhanced sky shader, night data, credits and licences
+under `numos\`, and PDB/EXP/LIB/BAK by-products) in a temporary folder under
 `out\tmp` and packages it; the real fork build is never read.
 
 ```powershell

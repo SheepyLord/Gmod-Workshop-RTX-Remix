@@ -1,5 +1,39 @@
 # Research notes
 
+The companion writes sky settings to the runtime API's user layer (`rtx_remix_api.cpp:2257` in
+fork commit `ef15c09d4`). A native menu edit must reach that same layer to take effect after a companion
+write (`rtx_option.cpp:992`). The Enhanced sky test resolves both orders at frame boundaries.
+[Task M report](handover/sky-enhanced-M-report.md)
+
+In the reviewer's second haze trials at aerosol densities 20–80, one tenth of the default absorption produced
+a brighter, milkier sky at the same density. NUMOS `41842c6` has scattering of 0.003996 per kilometre and
+absorption of 0.0044 per kilometre in each channel (`include/numos/settings_fields.inl:194` and line 196).
+[E3 haze comparison](handover/sky-enhanced-E-report.md#e3)
+
+In the first Enhanced editor PoC captures, the Standard notice and button disappeared but their band remained
+above My own look until a later layout. GMod's `vgui/dform.lua`, in `AddItem`, docks a separate padded
+`DSizeToContents` row for each control. Those are the two rows E2 hides when the editor switches to Enhanced.
+[E2 handover](handover/sky-enhanced-E-report.md#e2)
+
+Round 2 uses the inverse of the companion's fog-preset conversion. At the Enhanced visibility distance 2% of
+contrast survives. Remix gamma-decodes transmittance only (`rtx_global_volumetrics.cpp:627`, `getVolumeArgs`).
+A neutral sRGB transmittance of about 0.1517 at visibility divided by `1.905 × rtx.sceneScale` recovers the
+same base extinction. NUMOS height falloff and local lighting can still differ across the handoff.
+[Enhanced sky editor report](handover/sky-enhanced-E-report.md)
+
+At NUMOS `41842c6`, the tagged install's 55 files occupy 23,744,503 bytes. The pass hashes compiled
+into the DLL are checked when NUMOS loads the 41 SPIR-V files. The release workflow collects both
+from the same build. [Package handover](handover/sky-enhanced-P-report.md)
+
+At NUMOS `41842c6`, `src/renderer.cpp:431` uses explicit sun angles with the time cycle off, and
+`src/renderer.cpp:472` still uses the date and clock for the catalogue sky. `src/renderer.cpp:549` disables
+the Earth's shadow when a game moon gets an explicit phase. A lunar eclipse therefore needs geometric phase
+(`moon0.phase = -1`). Game moon 0 inherits the NASA lunar map at `src/renderer.cpp:765`.
+
+The native fixes' `ConfigManager::GetConfigVariable` reads the game's `rtx.conf` and returns an empty string
+for an absent key. A fog preset the companion applied is observable in Lua. A separate Alt+X edit to the live
+volumetrics switch is outside this getter's view. [Enhanced sky handover](handover/sky-enhanced-C-report.md)
+
 VR round5 correction: Source LadderMove treats direction buttons as full-speed
 inputs. Nonzero side components are not proportional strafing;8-way22.5degree sectors
 are necessary for thumbsticks. Noclip must bypass water movement adaptation at every
@@ -10576,6 +10610,77 @@ Linux with GCC and then on Windows with MSVC (the harness and its numbers: [repo
     in `d3d9_options.cpp`.
 
   A conf's per-application sections match the same name (`config.cpp`). On main, that name is `gmod_win64.exe`.
+
+## The Enhanced sky host interface (2026-11-26)
+
+- At `41842c6`, `numos::settingInfos()` expands four moon records. The built adapter registers 221 library
+  settings and nine integration options. Comparing the DLL-generated option reference against patch 0106 kept
+  all 2,411 existing `rtx.` keys and changed only the description of `rtx.skyMode`.
+- The reachable host interface comprises ten headers. The private copies prefix 229 identifiers. This build
+  contains 699 Remix SPIR-V files and 41 external NUMOS programs. The optimized Enhanced composite uses
+  27 descriptors from its 30 reserved slots. The base composite uses none of those slots.
+- Delayed expansion in both Windows install helpers lost literal exclamation marks in paths. With the helpers
+  fixed, Meson's `unit` tag stages the local DLL and USD plugins together. All 81 runtime tests then pass,
+  including the API version and category tests. [Task R report](handover/sky-enhanced-R-report.md)
+
+## Enhanced sky round 2 runtime findings (2026-11-26)
+
+- NUMOS `aerial_perspective_froxel_integrate.comp.slang` starts its near-air segments at `apStartDistance`.
+  `cloudAirLightKeep` in `cloud_march_common.slangh` already shadows the air carried by screen clouds. The
+  camera ray correction begins beyond the near field and uses the uncovered full-resolution sky share.
+- RTXDI's `volume_composite_helpers.slangh` appends attenuation beyond the froxel range. A hybrid needs
+  both a NUMOS handoff and a bound on the Remix medium. Its near in-scatter stays in front of the far haze.
+- At 0108 the shutdown warning also increased in Standard. The D3D9 destructor drained the render thread
+  and GPU and invoked the common shutdown callback. Its by-value `RtxNumos` member survived with the device.
+  Destroying that member in the callback reduced the standalone device probe's count from 48 to 47.
+  [Task R2 evidence](handover/sky-enhanced-R2-report.md)
+
+## The Enhanced ray pattern and flatgrass horizon (2026-11-26)
+
+In 0109 the jitter repeated across a ray's strata. The third spatial harmonic matches the high-frequency
+peak in the reviewer's humid and noon shadow-share captures. The narrow horizon line occupies pixels where
+the game still reports a sky miss below the NUMOS planet limb. The normal subtraction and debug view 1
+both multiply the filled loss by cloud transmission there. [Capture measurements and R3 fix](handover/sky-enhanced-R2-report.md#r3)
+
+## The Enhanced sky in the PoC, round 2 (2026-11-26)
+
+Measured at 3840x2160, DLSS Performance, RTX 5090; sheets and logs are scratch in the main checkout's `out/sky2`.
+[Round 2 report](handover/sky-enhanced-round2-report.md)
+
+- **Lamps in the library's haze cost by the lights a tile draws.** `gm_construct`, dense fog at night, no flashlight:
+  11.8 ms without lamps, 31.2 at the library's 64 lights a 64-pixel tile, 14.9 at 8, 13.3 at 4, 12.6 at 2 (about
+  0.38 ms a light a tile). A cutoff of 0.2 is nearly free but ends each glow at a hard edge. Shadows cost nothing.
+- **The library's air is very clean:** at aerosol density 1 its haze has an optical depth of about 0.01 straight up
+  (scattering 0.004 and absorption 0.0044 per km, scale height 1.2 km). A real fair day has 0.05 to 0.2, a hazy day
+  more; densities 20 to 80 with a tenth of the absorption look like a hazy day. Height fog over the map is not in the
+  sky's light on surfaces: a dense fog under a blue sky draws a grey wall over a blue-lit map.
+- **Sun rays need haze:** with clouds held still, the physical ray term darkened 10-25 % of the sky beside a sun 8-10
+  degrees up at densities 8-20, nothing visible at density 1.
+- **The rainbow fails when the near haze reaches 6 km** (`aerialPerspectiveFroxelRangeMeters` 6000), it seems:
+  every forced bow drew at 1 km and none at 6 km; not yet traced in the shader.
+- **Costs, Standard and Enhanced in one launch** (judged scenes, `gm_flatgrass`): Enhanced 0.6 ms less on average,
+  1.0 ms less at the median, 2 ms more only in rain and thunderstorms. Remix volumetrics with the flashlight cost
+  Standard 2.4-5.5 ms on `gm_construct`, which the Enhanced sky's default mist avoids.
+- **Frame times drift with the afternoon's load:** one runtime measured 1.5 ms slower at 16:00 than at 02:00. Compare
+  runtimes only within one launch or against a control taken the same hour.
+- **The PoC's client settings persist in `garrysmod/cfg/client.vdf`,** outside what `poc_session.py --package` moves
+  aside; a probe that stalls leaves its convars there for the next session.
+- **A package built in a worktree can fail on one long path.** `nlctl`'s folder check
+  (`loader/core/src/package.cpp:81`) takes a path `GetFileAttributesW` cannot read for a reparse point, and without
+  long-path support that is any path over 259 characters. Built in `out/worktrees/sky2`, Half-Life 2 PBR RTX's
+  longest texture reached 263 characters under `out/tmp/package-work` and was refused ("is a link or reparse point").
+  The publish builds in the main checkout's `out/workshop/work`, 22 characters shorter. A drive alias (`subst`) does
+  not help: Python resolves it back to the long path.
+- **The Remix menus in a test, now that Lua may not open them** (the RTX fixes refuse `rtx.showUI`,
+  `rtx.gui.language` and `rtx.gui.logUntranslatedText` from Lua, ADR 0234): `RTX_GUI_DISPLAY_UI=1` (or `2`) opens a
+  menu from the start, `RTX_GUI_LOG_UNTRANSLATED_TEXT=1` logs what shows untranslated, and
+  `DXVK_RTX_CONFIG_FILE=<the game's rtx.conf>,<extra.conf>` adds an rtx.conf layer (comma-separated, the last the
+  strongest of them) that can set `rtx.gui.language` without `user.conf`. Graphics Settings opens on its General tab.
+- **Posted window messages do not drive the fork's menus.** The window hook passes them to ImGui
+  (`d3d9_swapchain.cpp:308`), but the fork's Win32 backend takes the mouse from the real cursor (`GetCursorPos`, raw
+  input; `imgui_impl_win32.cpp:311-327, 596-626`): posted clicks and wheel turns changed nothing. Real input
+  (`SendInput` with the cursor on the target for a few frames) opens tabs and scrolls; it acts on the desktop's
+  foreground window, so a test must check that the game is in front before each step and put the cursor back.
 
 ## Half-Life 2's weapons and items under Remix: glows, LOD clamps, frame times (2026-11-26, Claude)
 

@@ -98,7 +98,7 @@ jobs:
           git clone --quiet --filter=blob:none --no-checkout $base.repository "$env:NL_BUILD\fork"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-      - name: Build (runtime/build_runtime.ps1 -Install, two Ninja jobs)
+      - name: Fetch the pinned runtime clones and build (runtime/build_runtime.ps1 -Install, two Ninja jobs)
         if: steps.cache.outputs.cache-hit != 'true'
         shell: pwsh
         env:
@@ -240,10 +240,10 @@ jobs:
         with:
           lfs: false
 
-      - name: Git LFS objects the package reads (none of the binaries this workflow makes)
+      - name: Git LFS objects the package reads (native binaries and NUMOS come from the build)
         shell: pwsh
         run: |
-          git lfs ls-files --long | Where-Object { $_ -notmatch '\.(dll|exe)\.xz$' } | Sort-Object | Set-Content -Encoding utf8 .lfs-objects.txt
+          git lfs ls-files --long | Where-Object { $_ -notmatch '\.(dll|exe)\.xz$| packages/runtime/files/numos/' } | Sort-Object | Set-Content -Encoding utf8 .lfs-objects.txt
           "$((Get-Content .lfs-objects.txt).Count) Git LFS objects"
 
       - name: Cached Git LFS objects
@@ -254,7 +254,7 @@ jobs:
           restore-keys: lfs2-
 
       - name: Git LFS content (only objects the cache lacks are downloaded)
-        run: git lfs pull --exclude="*.dll.xz,*.exe.xz"
+        run: git lfs pull --exclude="*.dll.xz,*.exe.xz,packages/runtime/files/numos/**"
 
       - uses: actions/setup-python@v6
         with:

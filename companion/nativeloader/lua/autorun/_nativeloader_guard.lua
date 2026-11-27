@@ -669,6 +669,9 @@ lua/mmdhl/workshop.lua
 lua/mmdhl/workshop_export.lua
 lua/nativeloader/classic_defaults.lua
 lua/nativeloader/engine_guard_words.lua
+lua/nativeloader/enhanced_builtin_looks.lua
+lua/nativeloader/enhanced_editor.lua
+lua/nativeloader/enhanced_editor_panel.lua
 lua/nativeloader/eye_white_names.lua
 lua/nativeloader/eye_white_vtf.lua
 lua/nativeloader/guide_pages.lua

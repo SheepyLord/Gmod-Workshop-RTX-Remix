@@ -1,5 +1,8 @@
 # _nativeloader_guard.lua
 
+The round 2 Enhanced sky editor, its Derma page and the four built-in looks are named in the bundled
+Lua path list. The guard's rendering checks otherwise follow the existing policy.
+
 R24 adds the round's four new shipped Lua paths to the exact bundled-source inventory, as the repository's
 completeness check requires: the RTX fixes' `lua/patcher/addons/cl_arc9.lua` and
 `lua/remixlua/cl/cl_viewmodel_materials.lua` ([ADR 0135](../../../../docs/decisions/0135-view-model-materials-and-arc9.md)),

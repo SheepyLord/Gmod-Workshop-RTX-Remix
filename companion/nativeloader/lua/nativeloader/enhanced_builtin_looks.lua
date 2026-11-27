@@ -1,0 +1,40 @@
+-- NUMOS preset data: Copyright 2026 Kim2091 (Sparkles)
+-- SPDX-License-Identifier: Apache-2.0
+-- The first four come from weatherPreset() at 41842c6. The next five are the reviewer's
+-- E2 looks. All use the same library baseline, with clear upper layers unless specified.
+local N = include("nativeloader/i18n.lua").N
+return {
+    {name = N("Fair-weather cumulus"), values = {cloudCoverageMean = 0.3, cloudTypeMean = 0.8,
+        cloudBaseHeightMeters = 1200, cloudDepthMeters = 1200, aerosolDensity = 0.9}},
+    {name = N("Broken cloud"), values = {cloudCoverageMean = 0.62, cloudTypeMean = 0.5,
+        cloudBaseHeightMeters = 1200, cloudDepthMeters = 2500, aerosolDensity = 1.2}},
+    {name = N("Altostratus sheet"), values = {cloudCoverageMean = 0.15, cloudTypeMean = 0.5,
+        cloudLayer2Enable = true, cloudLayer2CoverageMean = 0.97, cloudLayer2BaseHeightMeters = 4000,
+        cloudLayer2DepthMeters = 800, cloudLayer2TypeMean = 0, cloudLayer2DensityScale = 0.35}},
+    {name = N("Cirrus streaks"), values = {cloudCoverageMean = 0.12, cloudCirrusEnable = true,
+        cloudCirrusCoverageMean = 0.7, cloudCirrusBaseHeightMeters = 9500, cloudCirrusOpticalDepth = 0.3}},
+    {name = N("Mackerel sky"), values = {cloudCoverageMean = 0.08, cloudTypeMean = 0.7, cloudLayer2Enable = true,
+        cloudLayer2CoverageMean = 0.62, cloudLayer2BaseHeightMeters = 4500, cloudLayer2DepthMeters = 450,
+        cloudLayer2TypeMean = 0.9, cloudLayer2DensityScale = 0.4, cloudCirrusEnable = true,
+        cloudCirrusCoverageMean = 0.25, cloudCirrusOpticalDepth = 0.33, cloudCirrusStreakDirection = 110,
+        fogVisibilityMeters = 20000}},
+    {name = N("Towering cumulus"), values = {cloudCoverageMean = 0.33, cloudTypeMean = 1, cloudTypeSpread = 0.2,
+        cloudDensity = 30, cloudBaseHeightMeters = 1000, cloudDepthMeters = 5000, cloudCellSizeKm = 4.8,
+        nubis3ErosionStrength = 0.8, cloudColumnTopVariation = 0.85, cloudCirrusEnable = true,
+        cloudCirrusCoverageMean = 0.15, cloudCirrusOpticalDepth = 0.33, cloudCirrusStreakDirection = 110,
+        fogVisibilityMeters = 20000}},
+    {name = N("Humid summer"), values = {cloudCoverageMean = 0.55, cloudTypeMean = 0.85, cloudCirrusEnable = true,
+        cloudCirrusCoverageMean = 0.1, cloudCirrusOpticalDepth = 0.33, cloudCirrusStreakDirection = 110,
+        aerosolDensity = 15, mieAbsorption = {0.00066, 0.00066, 0.00066}, fogVisibilityMeters = 30000,
+        fogHeightFalloffMeters = 900, fogAlbedo = 0.97, fogAnisotropy = 0.7}},
+    {name = N("High cirrus"), values = {cloudCoverageMean = 0.06, cloudTypeMean = 0.7, cloudLayer2Enable = true,
+        cloudLayer2CoverageMean = 0.3, cloudLayer2BaseHeightMeters = 6000, cloudLayer2DepthMeters = 400,
+        cloudLayer2TypeMean = 0.8, cloudLayer2DensityScale = 0.3, cloudCirrusEnable = true,
+        cloudCirrusCoverageMean = 0.85, cloudCirrusOpticalDepth = 0.55, cloudCirrusStreakDirection = 70,
+        fogVisibilityMeters = 20000}},
+    {name = N("After the rain"), values = {cloudCoverageMean = 0.58, cloudTypeMean = 1, cloudTypeSpread = 0.3,
+        cloudDensity = 36, cloudBaseHeightMeters = 900, cloudDepthMeters = 4500, cloudCellSizeKm = 4.5,
+        nubis3ErosionStrength = 0.9, cloudBodyBillowGain = 0.75, cloudDiffuseSunStrength = 0.25,
+        aerosolDensity = 6, mieAbsorption = {0.00066, 0.00066, 0.00066}, fogVisibilityMeters = 25000,
+        fogHeightFalloffMeters = 700, fogAnisotropy = 0.7, aerialPerspectiveFroxelRangeMeters = 6000}},
+}

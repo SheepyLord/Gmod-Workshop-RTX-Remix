@@ -8,7 +8,7 @@ in the package.
 
 ```powershell
 # The fork's complete runtime, as a package folder and an archive:
-python tools\package_runtime.py --runtime H:\BACKUP_20260815\Modding\dxvk-remix-gmod\_output `
+python tools\package_runtime.py --runtime <fork>\_output `
   --out out\packages\rtx-remix-runtime --gma out\packages\rtx-remix-runtime.gma
 
 # The same runtime with a newer d3d9.dll and a base rtx.conf layer:
@@ -20,7 +20,7 @@ python tools\package_runtime.py --runtime ...\_output --d3d9-from ...\built-A8E3
 
 | Package path | From |
 |---|---|
-| `native/payload/runtime/**` | every file under `--runtime`, keeping its folders (`usd\` must stay beside `d3d9.dll`); `.exp .lib .ilk .bak` never, `.pdb` only with `--with-pdbs` |
+| `native/payload/runtime/**` | files under `--runtime` keep their paths, including `usd/` and the Enhanced sky's `numos/` beside `d3d9.dll`. The packager skips `.exp`, `.lib`, `.ilk` and `.bak`. PDBs require `--with-pdbs`. |
 | `native/payload/runtime/d3d9.dll` | `--runtime`, or `--d3d9-from` (which also supplies `d3d9.pdb` with `--with-pdbs`) |
 | `native/payload/config/rtx/NN_<name>.conf` | each `--rtx-conf`, in the order given (lowest layer first) |
 | `native/payload/config/dxvk/NN_<name>.conf` | each `--dxvk-conf`, likewise |

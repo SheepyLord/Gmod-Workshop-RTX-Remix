@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Thu, 26 Nov 2026 12:13:35 -0700
+Subject: [PATCH] Release the Enhanced sky adapter at D3D9 shutdown
+
+---
+ docs/fork-touchpoints.md          | 8 ++++++++
+ src/dxvk/dxvk_device.cpp          | 5 ++++-
+ src/dxvk/dxvk_objects.h           | 6 ++++--
+ src/dxvk/rtx_render/rtx_numos.cpp | 4 ++++
+ 4 files changed, 20 insertions(+), 3 deletions(-)
+
+diff --git a/docs/fork-touchpoints.md b/docs/fork-touchpoints.md
+index 44419b92d..e77232465 100644
+--- a/docs/fork-touchpoints.md
++++ b/docs/fork-touchpoints.md
+@@ -4186,3 +4186,11 @@ The Enhanced composite bindings read the rain controls beside the ray controls.
+ passes the real camera distance and alpha-layer visibility to `numos_rainbow.slangh`. The prepared sky
+ effects uniform is filled in `rtx_fork_numos_rays.cpp` even when the ray dispatch is skipped.
+ `src/dxvk/meson.build` lists the options. The offline sky test covers both spectral orders.
++
++## Enhanced adapter lifetime (2026-11-26)
++
++`dxvk_objects.h` keeps the adapter in in-place optional storage. `DxvkObjects::onDestroy` in
++`dxvk_device.cpp` releases it after the D3D9 device has drained GPU work and the initializer has joined
++its workers, while the scene light manager still owns the emitted lights. `rtx_numos.cpp` retires
++those lights, drops the recording context and releases the library resources. The common-object leak
++counter continues to count the actual constructor and destructor.
+diff --git a/src/dxvk/dxvk_device.cpp b/src/dxvk/dxvk_device.cpp
+index 6cb1b8a98..042593b6a 100644
+--- a/src/dxvk/dxvk_device.cpp
++++ b/src/dxvk/dxvk_device.cpp
+@@ -581,7 +581,7 @@ namespace dxvk {
+     // NV-DXVK end
+     m_globalVolumetrics(device),
+     // NV-DXVK start: NUMOS sky
+-    m_numos(device),
++    m_numos(std::in_place, device),
+     // NV-DXVK end
+     m_sparseRendering(device),
+     m_pathtracerGbuffer(device),
+@@ -670,6 +670,9 @@ namespace dxvk {
+     metaPoster().onDestroy();
+     // NV-DXVK end
+     getRtxInitializer().onDestroy();
++    // NV-DXVK start: the D3D9 device has drained its render work; common objects may outlive it.
++    m_numos.reset();
++    // NV-DXVK end
+ 
+     metaGeometryUtils().onDestroy();
+     getSceneManager().onDestroy();
+diff --git a/src/dxvk/dxvk_objects.h b/src/dxvk/dxvk_objects.h
+index caa268cf4..6a281dbee 100644
+--- a/src/dxvk/dxvk_objects.h
++++ b/src/dxvk/dxvk_objects.h
+@@ -21,6 +21,8 @@
+ */
+ #pragma once
+ 
++#include <optional>
++
+ // NV-DXVK start: On-demand VR output
+ #include "rtx_render/rtx_vr.h"
+ #include "rtx_render/rtx_vr_eye.h"
+@@ -197,7 +199,7 @@ namespace dxvk {
+ 
+     // NV-DXVK start: NUMOS sky
+     SkyMode skyMode();
+-    RtxNumos& metaNumos() { return m_numos; }
++    RtxNumos& metaNumos() { return *m_numos; }
+     // NV-DXVK end
+ 
+     SparseRendering& metaSparseRendering() {
+@@ -474,7 +476,7 @@ namespace dxvk {
+     // NV-DXVK end
+     Active<RtxGlobalVolumetrics>            m_globalVolumetrics;
+     // NV-DXVK start: NUMOS sky
+-    RtxNumos                                m_numos;
++    std::optional<RtxNumos>                  m_numos;
+     // NV-DXVK end
+     Active<SparseRendering>                 m_sparseRendering;
+     Active<DxvkPathtracerGbuffer>           m_pathtracerGbuffer;
+diff --git a/src/dxvk/rtx_render/rtx_numos.cpp b/src/dxvk/rtx_render/rtx_numos.cpp
+index bfbf52d19..54271035b 100644
+--- a/src/dxvk/rtx_render/rtx_numos.cpp
++++ b/src/dxvk/rtx_render/rtx_numos.cpp
+@@ -223,6 +223,10 @@ namespace dxvk {
+ 
+   RtxNumos::~RtxNumos() {
+     if (m_impl != nullptr) {
++      for (RtLight* light : m_impl->lights) {
++        if (light != nullptr) { light->markForGarbageCollection(); }
++      }
++      m_impl->gpu.endFrame();
+       m_impl->renderer.releaseGpuResources(m_impl->gpu);
+     }
+   }
+-- 
+2.56.0.windows.1
+

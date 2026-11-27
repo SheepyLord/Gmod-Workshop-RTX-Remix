@@ -1,5 +1,25 @@
 # Testing
 
+For the Alt+X Enhanced sky menu, the offline checks cover all 221 registered library settings, the
+companion and menu edit order, catalog completeness, font coverage and printf formats. In the PoC, open a
+menu from the start with `RTX_GUI_DISPLAY_UI=1` (or `2`), set its language with an extra rtx.conf layer
+(`DXVK_RTX_CONFIG_FILE=<the game's rtx.conf>,<extra.conf>`) and log untranslated text with
+`RTX_GUI_LOG_UNTRANSLATED_TEXT=1`; Lua may not set those options (ADR 0234). Tabs and scrolling need real mouse
+input: posted window messages do not reach the fork's menu. [Task M checks](handover/sky-enhanced-M-report.md),
+[the round's PoC pass](handover/sky-enhanced-round2-report.md)
+
+The [Enhanced editor harness](../tools/tests/enhanced_editor_harness.lua.md) exercises the production page
+offline. Reviewer QA at 3840×2160 covers native label wrapping, dragging and typing, saved and pasted looks,
+both fog modes in a room with lamps, lunar brightness, and a rainbow after rain.
+
+The [companion sky suite](../tools/tests/test_companion_sky.py.md) covers Standard option-call parity, the
+Enhanced controls and transitions between desktop, VR and map-owned skies under LuaJIT. The four scenes and
+GPU timing comparisons for the [Enhanced sky round](handover/sky-enhanced-plan.md) belong to reviewer QA.
+
+The package tests cover NUMOS in the runtime and combined manifests. The workflow collector checks
+the complete tagged file set against the package index, including the night-sky credits.
+[Collector tests](../tools/tests/test_ci_tools.py.md), [local package verification](handover/sky-enhanced-P-report.md)
+
 Current VR round5 uses rebuilt PoC261112 and installed field manifests: do not pass
 old261104 --depot-manifest pins. The preceding round's frozen package/commands and
 measurements below are historical261104 instructions, superseded by the current
@@ -4409,3 +4429,26 @@ before its probe ran.
   and an NPC's Reset physics; with this change 7 units on average (10 at most) at every one of them, in three
   sessions. A fourth session crashed in the Hotloader's drawing (`mmd::executeItem`, `shaderapidx9.dll+0x94fe`), in
   code the change does not touch ([report](handover/boneless-bodies-report.md)).
+
+## Enhanced sky Task R (2026-11-26)
+
+The Release wrapper verified the tree for patches 0001–0108 and the pinned clones, built twice with
+`-NoImport -Install` and staged the DLL plus 55 NUMOS files. All 81 runtime unit tests passed after staging
+the `unit` tag. The shader and install checks cover binding isolation and the bytes of the installed shaders,
+data and notices. In-game comparisons and frame times await the reviewer.
+[Commands, DLL hash and results](handover/sky-enhanced-R-report.md#verification)
+
+## Enhanced sky round 2 runtime (2026-11-26)
+
+All four parts passed the 81-test Release runtime suite. The final `-NoImport -Install` build replayed
+the recorded patches and passed the same suite. Individual Slang compiles checked the ray pass, composites,
+G-buffer and volume integrator. The base composite's SPIR-V matched 0108 byte for byte. A standalone
+device creation/release probe drew no frames and confirmed one fewer live object at exit.
+[Build hash, commands, diagnostics and remaining PoC checks](handover/sky-enhanced-R2-report.md)
+
+## Enhanced ray follow-up, patch 0113 (2026-11-26)
+
+The Release build and all 81 runtime tests passed. A compute-only comparison of the old and new ray shaders
+measured the diagonal residual with a still camera and an 8°/s turn. A strength-2 horizon fixture confirmed
+zero ray subtraction on the virtual-ground strip. The base composite SPIR-V matched 0108 byte for byte.
+[Measurements, build hash and PoC checks](handover/sky-enhanced-R2-report.md#r3)

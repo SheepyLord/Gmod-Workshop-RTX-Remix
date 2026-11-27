@@ -3,9 +3,9 @@
  "part": "runtime",
  "origins": {
   "files": {
-   "source": "H:\\BACKUP_20260815\\Modding\\dxvk-remix-gmod\\.claude\\worktrees\\remix-i18n\\_CompRelease_x64\\src\\d3d9",
+   "source": "<modding>/dxvk-remix-gmod/.claude/worktrees/remix-i18n/_CompRelease_x64/src/d3d9",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/dxvk-remix-gmod/.claude/worktrees/remix-i18n",
+    "repository": "<modding>/dxvk-remix-gmod/.claude/worktrees/remix-i18n",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "f9937026238d6f6c2999b6f8dcdd7706791a351b",
     "dirty": false
@@ -13,9 +13,9 @@
    "imported": "2026-10-30T00:42:29+00:00"
   },
   "layers": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\packages\\sky\\layers",
+   "source": "<repo>/out/packages/sky/layers",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix",
+    "repository": "<repo>/.",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "bbab69e83f237a1a1387c58a3169f90680cc7a15",
     "dirty": false
@@ -27,15 +27,15 @@
    "git": {
     "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
-    "commit": "51dde2c63ebc59da7919495fae96044f69d5184d",
+    "commit": "ef15c09d484a9a5b8778c01a58c426dbe5e0e2c9",
     "dirty": false
    },
-   "imported": "2026-11-24T09:57:06+00:00"
+   "imported": "2026-11-27T01:18:36+00:00"
   },
   "layers/classic_remix_defaults.conf": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\fx\\out\\layers\\classic_remix_defaults.conf",
+   "source": "<repo>/out/worktrees/fx/out/layers/classic_remix_defaults.conf",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/fx",
+    "repository": "<repo>/out/worktrees/fx",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "a8c4c8b68c1554364c1fb675a857a5f75bacab26",
     "dirty": false
@@ -43,9 +43,9 @@
    "imported": "2026-11-14T21:16:43+00:00"
   },
   "files/usd/plugins/RemixCategories/RemixCategories.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\RemixCategories.dll",
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_CompRelease_x64/src/usd-plugins/RemixCategories/RemixCategories.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
@@ -53,9 +53,9 @@
    "imported": "2026-11-14T20:04:03+00:00"
   },
   "files/usd/plugins/RemixParticleSystem/RemixParticleSystem.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixParticleSystem\\RemixParticleSystem.dll",
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_CompRelease_x64/src/usd-plugins/RemixParticleSystem/RemixParticleSystem.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
@@ -63,9 +63,9 @@
    "imported": "2026-11-14T20:04:03+00:00"
   },
   "layers/medium.conf": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t6-tiers\\out\\t6-fix-stage\\layers\\medium.conf",
+   "source": "<repo>/out/worktrees/r6-t6-tiers/out/t6-fix-stage/layers/medium.conf",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r6-t6-tiers",
+    "repository": "<repo>/out/worktrees/r6-t6-tiers",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "84e0f1a809454d30b436baf47727c6353ba306f8",
     "dirty": false
@@ -73,9 +73,9 @@
    "imported": "2026-10-31T23:44:37+00:00"
   },
   "layers/low.conf": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6\\out\\r6-tune\\layers\\low.conf",
+   "source": "<repo>/out/worktrees/r6/out/r6-tune/layers/low.conf",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r6",
+    "repository": "<repo>/out/worktrees/r6",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "8436180b5f92c58617637356bc9749161501c879",
     "dirty": false
@@ -83,9 +83,9 @@
    "imported": "2026-11-01T03:05:18+00:00"
   },
   "files/atmosphere/stars_4096.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t6-tiers\\out\\t6-stage\\atmosphere\\stars_4096.dds",
+   "source": "<repo>/out/worktrees/r6-t6-tiers/out/t6-stage/atmosphere/stars_4096.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r6-t6-tiers",
+    "repository": "<repo>/out/worktrees/r6-t6-tiers",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "7759c433e4c96d5a284d2fcc7c9d55755d2b2a65",
     "dirty": false
@@ -93,9 +93,9 @@
    "imported": "2026-10-31T22:25:32+00:00"
   },
   "files/atmosphere/galaxy_4096.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r6-t6-tiers\\out\\t6-stage\\atmosphere\\galaxy_4096.dds",
+   "source": "<repo>/out/worktrees/r6-t6-tiers/out/t6-stage/atmosphere/galaxy_4096.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r6-t6-tiers",
+    "repository": "<repo>/out/worktrees/r6-t6-tiers",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "7759c433e4c96d5a284d2fcc7c9d55755d2b2a65",
     "dirty": false
@@ -103,9 +103,9 @@
    "imported": "2026-10-31T22:25:32+00:00"
   },
   "files/atmosphere/nebula_4096.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula_4096.dds",
+   "source": "<repo>/out/worktrees/nsky/out/stage/atmosphere/nebula_4096.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "repository": "<repo>/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
@@ -113,9 +113,9 @@
    "imported": "2026-11-15T17:58:23+00:00"
   },
   "files/atmosphere/CREDITS.txt": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\CREDITS.txt",
+   "source": "<repo>/out/worktrees/nsky/out/stage/atmosphere/CREDITS.txt",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "repository": "<repo>/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
@@ -123,9 +123,9 @@
    "imported": "2026-11-15T18:08:04+00:00"
   },
   "files/usd/plugins/RemixCategories/generatedSchema.usda": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixCategories\\generatedSchema.usda",
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_CompRelease_x64/src/usd-plugins/RemixCategories/generatedSchema.usda",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
@@ -133,9 +133,9 @@
    "imported": "2026-11-14T20:04:03+00:00"
   },
   "files/usdg.dll": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\usdg\\usdg.dll",
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_CompRelease_x64/src/usd-plugins/usdg/usdg.dll",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
@@ -143,9 +143,9 @@
    "imported": "2026-11-14T20:04:03+00:00"
   },
   "files/usd/plugins/usdg/resources/plugInfo.json": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\src\\usd-plugins\\usdg\\plugInfo.json",
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/src/usd-plugins/usdg/plugInfo.json",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "20e3553ebfb5ba4ced7dfafbac4f2a68bf1761e5",
     "dirty": false
@@ -153,9 +153,9 @@
    "imported": "2026-11-14T20:04:03+00:00"
   },
   "files/usd/plugins/RemixParticleSystem/generatedSchema.usda": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\r17\\out\\runtime-src\\_CompRelease_x64\\src\\usd-plugins\\RemixParticleSystem\\generatedSchema.usda",
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_CompRelease_x64/src/usd-plugins/RemixParticleSystem/generatedSchema.usda",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/r17/out/runtime-src",
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
     "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
     "commit": "21dedfd9556315c53651a0df9b73f33a84e85b89",
     "dirty": false
@@ -163,9 +163,9 @@
    "imported": "2026-11-24T09:32:39+00:00"
   },
   "files/atmosphere/nebula.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula.dds",
+   "source": "<repo>/out/worktrees/nsky/out/stage/atmosphere/nebula.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "repository": "<repo>/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
@@ -173,9 +173,9 @@
    "imported": "2026-11-15T17:58:23+00:00"
   },
   "files/atmosphere/nebula_constellations.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula_constellations.dds",
+   "source": "<repo>/out/worktrees/nsky/out/stage/atmosphere/nebula_constellations.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "repository": "<repo>/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
@@ -183,14 +183,564 @@
    "imported": "2026-11-15T17:58:23+00:00"
   },
   "files/atmosphere/nebula_4096_constellations.dds": {
-   "source": "H:\\BACKUP_20260815\\Modding\\!NVIDIA-RTX-Remix\\out\\worktrees\\nsky\\out\\stage\\atmosphere\\nebula_4096_constellations.dds",
+   "source": "<repo>/out/worktrees/nsky/out/stage/atmosphere/nebula_4096_constellations.dds",
    "git": {
-    "repository": "H:/BACKUP_20260815/Modding/!NVIDIA-RTX-Remix/out/worktrees/nsky",
+    "repository": "<repo>/out/worktrees/nsky",
     "remote": "https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix.git",
     "commit": "9780980e9beb5eb0859daa741abf2cb65d5ca37a",
     "dirty": false
    },
    "imported": "2026-11-15T17:58:23+00:00"
+  },
+  "files/numos/LICENSE": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/LICENSE",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:31+00:00"
+  },
+  "files/numos/licenses/LICENSE-DXVK-zlib.txt": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/licenses/LICENSE-DXVK-zlib.txt",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:32+00:00"
+  },
+  "files/numos/licenses/LICENSE-GLFW-zlib.txt": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/licenses/LICENSE-GLFW-zlib.txt",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:32+00:00"
+  },
+  "files/numos/licenses/LICENSE-MIT-Blender-sky.txt": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/licenses/LICENSE-MIT-Blender-sky.txt",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:32+00:00"
+  },
+  "files/numos/licenses/LICENSE-MIT-contributors.txt": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/licenses/LICENSE-MIT-contributors.txt",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:32+00:00"
+  },
+  "files/numos/licenses/LICENSE-MIT-Dear-ImGui.txt": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/licenses/LICENSE-MIT-Dear-ImGui.txt",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:32+00:00"
+  },
+  "files/numos/licenses/LICENSE-MIT-NVIDIA.txt": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/licenses/LICENSE-MIT-NVIDIA.txt",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:33+00:00"
+  },
+  "files/numos/nightsky/CREDITS.md": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/nightsky/CREDITS.md",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:33+00:00"
+  },
+  "files/numos/nightsky/milkyway.bin": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/nightsky/milkyway.bin",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:35+00:00"
+  },
+  "files/numos/nightsky/moon.bin": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/nightsky/moon.bin",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:36+00:00"
+  },
+  "files/numos/nightsky/starlight_low.bin": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/nightsky/starlight_low.bin",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:36+00:00"
+  },
+  "files/numos/nightsky/stars.bin": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/nightsky/stars.bin",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:36+00:00"
+  },
+  "files/numos/NOTICE": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/NOTICE",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:37+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_far.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_far.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:37+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_filter.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_froxel_filter.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:37+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_integrate.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_froxel_integrate.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:37+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_lighting.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_froxel_lighting.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:38+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_lighting_traced.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_froxel_lighting_traced.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:38+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_light_cull.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_light_cull.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:38+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_tile_depth.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_tile_depth.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:38+00:00"
+  },
+  "files/numos/spirv/aerial_perspective_tile_depth_dilate.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/aerial_perspective_tile_depth_dilate.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:39+00:00"
+  },
+  "files/numos/spirv/cloud_cirrus_composite.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_cirrus_composite.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:39+00:00"
+  },
+  "files/numos/spirv/cloud_cirrus_map.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_cirrus_map.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:39+00:00"
+  },
+  "files/numos/spirv/cloud_cirrus_map_mip.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_cirrus_map_mip.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:39+00:00"
+  },
+  "files/numos/spirv/cloud_cirrus_shadow.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_cirrus_shadow.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:40+00:00"
+  },
+  "files/numos/spirv/cloud_cumulus_noise_baker.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_cumulus_noise_baker.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:40+00:00"
+  },
+  "files/numos/spirv/cloud_denoise.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_denoise.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:40+00:00"
+  },
+  "files/numos/spirv/cloud_detail_noise_mip.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_detail_noise_mip.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:40+00:00"
+  },
+  "files/numos/spirv/cloud_layer2_map.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_layer2_map.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:41+00:00"
+  },
+  "files/numos/spirv/cloud_nvdf_jfa.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_nvdf_jfa.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:41+00:00"
+  },
+  "files/numos/spirv/cloud_nvdf_occupancy.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_nvdf_occupancy.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:41+00:00"
+  },
+  "files/numos/spirv/cloud_nvdf_resolve.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_nvdf_resolve.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:41+00:00"
+  },
+  "files/numos/spirv/cloud_placement_map_baker.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_placement_map_baker.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:42+00:00"
+  },
+  "files/numos/spirv/cloud_render.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:42+00:00"
+  },
+  "files/numos/spirv/cloud_render_fallback.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_fallback.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:43+00:00"
+  },
+  "files/numos/spirv/cloud_render_fallback_fast.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_fallback_fast.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:43+00:00"
+  },
+  "files/numos/spirv/cloud_render_fast.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_fast.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:43+00:00"
+  },
+  "files/numos/spirv/cloud_render_march.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_march.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:44+00:00"
+  },
+  "files/numos/spirv/cloud_render_march_fast.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_march_fast.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:44+00:00"
+  },
+  "files/numos/spirv/cloud_render_march_full.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_march_full.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:45+00:00"
+  },
+  "files/numos/spirv/cloud_render_march_full_fast.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_march_full_fast.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:45+00:00"
+  },
+  "files/numos/spirv/cloud_render_rebuild.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_rebuild.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:45+00:00"
+  },
+  "files/numos/spirv/cloud_render_rebuild_full.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_rebuild_full.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:45+00:00"
+  },
+  "files/numos/spirv/cloud_render_reference.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_render_reference.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:46+00:00"
+  },
+  "files/numos/spirv/cloud_sample_statistics.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_sample_statistics.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:46+00:00"
+  },
+  "files/numos/spirv/cloud_secondary_lut.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_secondary_lut.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:46+00:00"
+  },
+  "files/numos/spirv/cloud_shadow_map.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_shadow_map.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:47+00:00"
+  },
+  "files/numos/spirv/cloud_sky_transmittance_lut.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_sky_transmittance_lut.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:47+00:00"
+  },
+  "files/numos/spirv/cloud_vertical_od.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/cloud_vertical_od.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:47+00:00"
+  },
+  "files/numos/spirv/generate_mipmap.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/generate_mipmap.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:47+00:00"
+  },
+  "files/numos/spirv/ground_probe.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/ground_probe.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:47+00:00"
+  },
+  "files/numos/spirv/multiscattering_lut.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/multiscattering_lut.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:48+00:00"
+  },
+  "files/numos/spirv/sky_view_lut.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/sky_view_lut.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:48+00:00"
+  },
+  "files/numos/spirv/transmittance_lut.comp.spv": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/spirv/transmittance_lut.comp.spv",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:48+00:00"
+  },
+  "files/numos/THIRD_PARTY_NOTICES.md": {
+   "source": "<repo>/out/worktrees/r17/out/runtime-src/_output/numos/THIRD_PARTY_NOTICES.md",
+   "git": {
+    "repository": "<repo>/out/worktrees/r17/out/runtime-src",
+    "remote": "https://github.com/sambow23/dxvk-remix-gmod.git",
+    "commit": "1370af0d2785e07e454769cf2ddac6a291ce7eb1",
+    "dirty": false
+   },
+   "imported": "2026-11-26T08:40:48+00:00"
   }
  },
  "files": {
@@ -313,12 +863,12 @@
    "stored_sha256": "9abbc646f44e7dd8345bb6d33949bd7f8ecbb97b96de9b0e50d785e1b31b6837"
   },
   "files/d3d9.dll": {
-   "size": 510292480,
-   "sha256": "74115025eaa60ab65fcde74b2c90b7c3c22690c8fc8b5603f39c264d60770b33",
-   "mtime_ns": 1795514072597770200,
+   "size": 536982528,
+   "sha256": "36a443703351a9d1ec9cfa7946ecdd8bc6e9dd71a649e0a3ff158467d19cfb7a",
+   "mtime_ns": 1795741192551856500,
    "stored": "xz",
-   "stored_size": 74876380,
-   "stored_sha256": "2c3175f4c648b5cc33b240f4e7356e7ad3b258a55039ab3d3a6d29c7f1bb31e2"
+   "stored_size": 79537936,
+   "stored_sha256": "781ee0bd78e535be8cce674d736f62c4feeb917eeb241823843f2b5a8ef2728f"
   },
   "files/GFSDK_Aftermath_Lib.x64.dll": {
    "size": 9240728,
@@ -351,6 +901,426 @@
    "stored": "xz",
    "stored_size": 2667928,
    "stored_sha256": "1ba50c14f40c22aa81a9a23ad75df55b95ef3200d929e63cfe2a83c1110b083c"
+  },
+  "files/numos/LICENSE": {
+   "size": 11551,
+   "sha256": "44db0d3e69025a5fce60412023f7425f11d17ac629df90bd7b4778336e75905e",
+   "mtime_ns": 1795678643097093400,
+   "stored": "plain"
+  },
+  "files/numos/licenses/LICENSE-DXVK-zlib.txt": {
+   "size": 1002,
+   "sha256": "bedafe551ea8c147cc3a9865aaa9ee3c1aa5a62f594a6d3dc28017ac9d6c1427",
+   "mtime_ns": 1795678643143564400,
+   "stored": "plain"
+  },
+  "files/numos/licenses/LICENSE-GLFW-zlib.txt": {
+   "size": 927,
+   "sha256": "7593ce7c7be05f3a0589ebc78091ba3db70f82c7a4acaea15a0b70230247df2c",
+   "mtime_ns": 1795678643143564400,
+   "stored": "plain"
+  },
+  "files/numos/licenses/LICENSE-MIT-Blender-sky.txt": {
+   "size": 1410,
+   "sha256": "025dc43513c60e630767e2c58c62464c7d319a19d31bc2e49d15c5287e335fde",
+   "mtime_ns": 1795678643143564400,
+   "stored": "plain"
+  },
+  "files/numos/licenses/LICENSE-MIT-contributors.txt": {
+   "size": 1356,
+   "sha256": "84f1328ce97f377685b1e04e9d86dfb505a5ee986ab91ed329dccaaea02f4aee",
+   "mtime_ns": 1795678643143564400,
+   "stored": "plain"
+  },
+  "files/numos/licenses/LICENSE-MIT-Dear-ImGui.txt": {
+   "size": 1104,
+   "sha256": "f20418b409e53c8c9f4e90917ff395554a60320d4dfbf833da89b339cad8628a",
+   "mtime_ns": 1795678643143564400,
+   "stored": "plain"
+  },
+  "files/numos/licenses/LICENSE-MIT-NVIDIA.txt": {
+   "size": 1166,
+   "sha256": "c1b44cd709e728558d71ac4f54f3eae4d08d93313bec44f670839b88bc65db85",
+   "mtime_ns": 1795678643143564400,
+   "stored": "plain"
+  },
+  "files/numos/nightsky/CREDITS.md": {
+   "size": 1465,
+   "sha256": "4eb7c4c4e92d8a656c0ce70ed9b8ac0c6db87f92ed34b586fc2154b6d36a0c5c",
+   "mtime_ns": 1795678643097093400,
+   "stored": "plain"
+  },
+  "files/numos/nightsky/milkyway.bin": {
+   "size": 8388624,
+   "sha256": "8158e0b8871173fa52620ddbb17db22478ce80a1828e115e86a0db0e30ed9e15",
+   "mtime_ns": 1795678643126535600,
+   "stored": "xz",
+   "stored_size": 7130488,
+   "stored_sha256": "9743489ea2dd3a58f09678f45543c9de3c5e61e13bd617781fe2cd71cb85581b"
+  },
+  "files/numos/nightsky/moon.bin": {
+   "size": 2097168,
+   "sha256": "71a69ff3704c2c797acb4dd2ac95912a6a28f2a84f02ce5639f146e183cb3d5b",
+   "mtime_ns": 1795678643134566100,
+   "stored": "xz",
+   "stored_size": 1041672,
+   "stored_sha256": "96eaf0b6db813db37b3a713f5f52ee1e8d9b6d16e2b019349e1c137a4ab69fad"
+  },
+  "files/numos/nightsky/starlight_low.bin": {
+   "size": 65552,
+   "sha256": "49216848632dcec9fda15a08edd86bfe18c5d8ddfc3f5661f1fd767f316dea40",
+   "mtime_ns": 1795678643135567100,
+   "stored": "xz",
+   "stored_size": 34680,
+   "stored_sha256": "d1456f70a0d1d8927e9fb5a6679a428c1721007c26154829c8809046bbba2b39"
+  },
+  "files/numos/nightsky/stars.bin": {
+   "size": 1615160,
+   "sha256": "74d1d298e813a9348e5bcf0ceaf2ee53f71a083e21ab59d0fda83a56421ada9c",
+   "mtime_ns": 1795678643139565000,
+   "stored": "xz",
+   "stored_size": 716232,
+   "stored_sha256": "e3e52721b46c0f15ff18ccfd8c14ebcae800c4e4c6a39288352beb3767a4b00f"
+  },
+  "files/numos/NOTICE": {
+   "size": 596,
+   "sha256": "d295b31ac6fe2e82b89f4dcfdd939ed7e10a8ffff523e6858390c9d7551ad3c9",
+   "mtime_ns": 1795678643097093400,
+   "stored": "plain"
+  },
+  "files/numos/spirv/aerial_perspective_far.comp.spv": {
+   "size": 53252,
+   "sha256": "019bc5a5e81af6ecc436d1e27ac6820c66fc702e4f407180f20ec6dd3368f072",
+   "mtime_ns": 1795680716522311800,
+   "stored": "xz",
+   "stored_size": 11196,
+   "stored_sha256": "e67fed583a66bcc736e716777ee3b71864377e22efeac43a589d6945ccb2516d"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_filter.comp.spv": {
+   "size": 4268,
+   "sha256": "06bac82220e499abdf9a5d739709af9a5827591d8058f68e72dbd347683ced9b",
+   "mtime_ns": 1795680716315506800,
+   "stored": "xz",
+   "stored_size": 1192,
+   "stored_sha256": "1693a9914a620590b0a44a4377f771a8bb57d7ae223adee679266895ec45e9df"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_integrate.comp.spv": {
+   "size": 56580,
+   "sha256": "d430056ad1e1ab9f24754671ffbbc0d0adf76d8a6483b76905e488fce97d736a",
+   "mtime_ns": 1795680716519799600,
+   "stored": "xz",
+   "stored_size": 11844,
+   "stored_sha256": "180cbc21a4fdfff9b04d05cda5c2d762ad5f30de6b32059ca8f0659335e7eca8"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_lighting.comp.spv": {
+   "size": 57424,
+   "sha256": "e2317268efef5414e4a2c34436f125eb423890e460f4709ea262bd3f6962d81f",
+   "mtime_ns": 1795680716534827900,
+   "stored": "xz",
+   "stored_size": 11796,
+   "stored_sha256": "5008cc5c62307c9de7fb1ccb4dca7a3b59f89ae691f6da7e2d792ddbc5f866ae"
+  },
+  "files/numos/spirv/aerial_perspective_froxel_lighting_traced.comp.spv": {
+   "size": 79096,
+   "sha256": "445fcb78e076ed7ddaac08cb6cf503271c987319adc6ebbbaaea00e2c70ccddf",
+   "mtime_ns": 1795680717171628500,
+   "stored": "xz",
+   "stored_size": 15976,
+   "stored_sha256": "7bc993c1042f4aa2fa5490c0d29be7c67e1e47a2902768780dfec8edf7d4d4fb"
+  },
+  "files/numos/spirv/aerial_perspective_light_cull.comp.spv": {
+   "size": 36148,
+   "sha256": "87a1f58003160d56c511c7938849f8c1f4ac6b898a95f7787573339f82d6e1c6",
+   "mtime_ns": 1795680717308766200,
+   "stored": "xz",
+   "stored_size": 7288,
+   "stored_sha256": "e6a96f2966f48b3bb8c0d9b5d255bbfaa3b20187982382de6518ec7704ec1c67"
+  },
+  "files/numos/spirv/aerial_perspective_tile_depth.comp.spv": {
+   "size": 16168,
+   "sha256": "71b5464fc4203d18292b7b5474f2725a790350221de4502a81d3265a34053558",
+   "mtime_ns": 1795680717269616300,
+   "stored": "xz",
+   "stored_size": 3680,
+   "stored_sha256": "29179bce931e43a1dd553102e99d33ab55b6c4ba59c6e219970d430d0204134d"
+  },
+  "files/numos/spirv/aerial_perspective_tile_depth_dilate.comp.spv": {
+   "size": 15368,
+   "sha256": "0aa369aa089ff4740f94a4a9da53b820ee6446dddb25fb9b13a240626226a79d",
+   "mtime_ns": 1795680717270617100,
+   "stored": "xz",
+   "stored_size": 3480,
+   "stored_sha256": "b35e2606140413d534a802fc56dfb5d033f3bd8440cf204a6aa06c011e0b7b79"
+  },
+  "files/numos/spirv/cloud_cirrus_composite.comp.spv": {
+   "size": 57068,
+   "sha256": "41492aefb94d2d4b51ca2b73ac67b9bf1f8cd03c558786bf3a5a9261759399ba",
+   "mtime_ns": 1795680717988455800,
+   "stored": "xz",
+   "stored_size": 11680,
+   "stored_sha256": "c78e9a0ce41d73b7a033b564fd025d3ca406755beeefdbeb2fc77961e58566a5"
+  },
+  "files/numos/spirv/cloud_cirrus_map.comp.spv": {
+   "size": 32512,
+   "sha256": "4d4d169e1f935f9a9ce96ccad01078ba80a4ed6d0fc33df9d7c7d377ed9cbe13",
+   "mtime_ns": 1795680717891272800,
+   "stored": "xz",
+   "stored_size": 6608,
+   "stored_sha256": "440dc9e142a07a1e1c37bd9e963a07b6f49da3858777b079409e823a162d37d5"
+  },
+  "files/numos/spirv/cloud_cirrus_map_mip.comp.spv": {
+   "size": 1544,
+   "sha256": "a5dd01fa48474c517f6e20cf52bd0d791cc2116efc1053d2060afbda834f009d",
+   "mtime_ns": 1795680717837700600,
+   "stored": "xz",
+   "stored_size": 576,
+   "stored_sha256": "3fdd77a338dd5aeaef6c16a23c880016baa12d8fa69a68b9e2e1e119d151662f"
+  },
+  "files/numos/spirv/cloud_cirrus_shadow.comp.spv": {
+   "size": 16684,
+   "sha256": "69653569cfd718662622d30952b7c10876fbc6f0e9eba07cb7bb9da7d44ba160",
+   "mtime_ns": 1795680718047529100,
+   "stored": "xz",
+   "stored_size": 3760,
+   "stored_sha256": "c23f9dcfb94a0d969cca01f96589cb66b051372fe4308bae03b1da2c363e390a"
+  },
+  "files/numos/spirv/cloud_cumulus_noise_baker.comp.spv": {
+   "size": 375704,
+   "sha256": "b2981e4e0f6ff8a1e63c9015e56e319e42f1460a82b0649c3893b9e2873a8c8a",
+   "mtime_ns": 1795680718873904000,
+   "stored": "xz",
+   "stored_size": 46124,
+   "stored_sha256": "c0fcd935c644c8c3074c557d803ffef4d8f94238cf3ed74b21aaa0dd19a4f26d"
+  },
+  "files/numos/spirv/cloud_denoise.comp.spv": {
+   "size": 14012,
+   "sha256": "5ffe4c36e326b7ebe803c1fca8fd85e971df2a9aeae4a5d826bb758a2b00277b",
+   "mtime_ns": 1795680718461246200,
+   "stored": "xz",
+   "stored_size": 3420,
+   "stored_sha256": "6b9b9089349677892a03eab2cd67a6745310aba23ed2e06c62a2551461d9821a"
+  },
+  "files/numos/spirv/cloud_detail_noise_mip.comp.spv": {
+   "size": 1520,
+   "sha256": "4964ed44e1a8be74f2d482c91bf365e7b1408ff6bbf13c2be014e97aa04387b3",
+   "mtime_ns": 1795680718560647100,
+   "stored": "xz",
+   "stored_size": 580,
+   "stored_sha256": "60960514e115c38f41373d241e62626ae5140597e54d8c73f9c95c5b1a36934a"
+  },
+  "files/numos/spirv/cloud_layer2_map.comp.spv": {
+   "size": 17428,
+   "sha256": "33011d8cdfaca5f6f43187ae37cf4d68df9ac188f53e1f9903918f148caa2519",
+   "mtime_ns": 1795680718771273700,
+   "stored": "xz",
+   "stored_size": 4024,
+   "stored_sha256": "d2ae144de76b24f85655b293f905aec46b4c8f539d04cf87141f104ea0254303"
+  },
+  "files/numos/spirv/cloud_nvdf_jfa.comp.spv": {
+   "size": 21900,
+   "sha256": "7e96753501ec1d76fbf4835d2af8e73e081b31a95e4d0cde7589eac7720f6001",
+   "mtime_ns": 1795680719187168100,
+   "stored": "xz",
+   "stored_size": 4824,
+   "stored_sha256": "c6926fdf548351f1b5b513a2df30fe2ca4bcd38d1ee91887628c8f7bc433ae46"
+  },
+  "files/numos/spirv/cloud_nvdf_occupancy.comp.spv": {
+   "size": 29588,
+   "sha256": "83a4f7d33bc97e58aa83b26ad8a3c71593d224220d18352550bb403c2f1b99db",
+   "mtime_ns": 1795680719273678100,
+   "stored": "xz",
+   "stored_size": 6472,
+   "stored_sha256": "595b40d7992f90e9fb55b28a1409fd52e9c9dfc479c8c92168c709f927055916"
+  },
+  "files/numos/spirv/cloud_nvdf_resolve.comp.spv": {
+   "size": 15504,
+   "sha256": "2fc4c6b241c7f9209eb88f0700ebb323f7220207436015fb53e20ef08a807207",
+   "mtime_ns": 1795680719464862300,
+   "stored": "xz",
+   "stored_size": 3516,
+   "stored_sha256": "811d0f6e0a7d2cac745983ef5b09aa08a2fae8ef91ab92e4cc2dd4b470e342a7"
+  },
+  "files/numos/spirv/cloud_placement_map_baker.comp.spv": {
+   "size": 35976,
+   "sha256": "04671dcc46550a8b037906829edce9c4ab0ee01ee3886236c3ec3290aad35994",
+   "mtime_ns": 1795680719570819100,
+   "stored": "xz",
+   "stored_size": 7100,
+   "stored_sha256": "f2fe563c98b3b0478b49da2b5e344bc5219daedcf1250bd100875ecf3c1fe418"
+  },
+  "files/numos/spirv/cloud_render.comp.spv": {
+   "size": 1138544,
+   "sha256": "4e60ebac75c5dac22f7398717a7beacb2087f39ad4e71d36f1537c24effd12f9",
+   "mtime_ns": 1795680721306536800,
+   "stored": "xz",
+   "stored_size": 191820,
+   "stored_sha256": "d3c3a1f7e0107c5b03bc45ada5818e93b663f99f86de33e5553567cbae262a5c"
+  },
+  "files/numos/spirv/cloud_render_fallback.comp.spv": {
+   "size": 1112568,
+   "sha256": "2e358e24465bcb62688dcfe1b3d06300aca497f37f4105f08df22d8d3bec20c9",
+   "mtime_ns": 1795680724863423500,
+   "stored": "xz",
+   "stored_size": 187496,
+   "stored_sha256": "5b0e901db4ff0103325b5d0353b041ad9d8be5e5b0da994df4d7394c5d367f3c"
+  },
+  "files/numos/spirv/cloud_render_fallback_fast.comp.spv": {
+   "size": 1119948,
+   "sha256": "66d050c385fcd9ddcf01ac1704ab828d02ed22eb69aa2755f6e8a7e07ff41e6d",
+   "mtime_ns": 1795680725711427200,
+   "stored": "xz",
+   "stored_size": 182668,
+   "stored_sha256": "0db7c38c0df6cb10a4eb32538e1d7d2f798c968ce041a09eca017cbc30fe0620"
+  },
+  "files/numos/spirv/cloud_render_fast.comp.spv": {
+   "size": 1145924,
+   "sha256": "656ad135881cb175cb78f6dd3df53abbf3c68b8513d15b02c4ac57ff39e1af0a",
+   "mtime_ns": 1795680721408908700,
+   "stored": "xz",
+   "stored_size": 185832,
+   "stored_sha256": "aeb4a6639e3b04f8925434adfa11b0a18bd040568ccd37a6f467e2227e681c16"
+  },
+  "files/numos/spirv/cloud_render_march.comp.spv": {
+   "size": 1057736,
+   "sha256": "885766bd6f427cd244c1b3551b82026ce404345e5a088256481154b7471e0c65",
+   "mtime_ns": 1795680721561226300,
+   "stored": "xz",
+   "stored_size": 176760,
+   "stored_sha256": "1ce2b9d9f568b48df1059e93a86fc15313ed1edee4cd8e9da5dce58e8b9f4e31"
+  },
+  "files/numos/spirv/cloud_render_march_fast.comp.spv": {
+   "size": 1065136,
+   "sha256": "e1516694bf528c5fde9edb74a8c60672bdad5dcb78e5af93e36299c3cf012594",
+   "mtime_ns": 1795680722639078600,
+   "stored": "xz",
+   "stored_size": 169716,
+   "stored_sha256": "7b4067b5df5a319cf520ee7d47899386ac181157974bd4a242a97ae1cfccaede"
+  },
+  "files/numos/spirv/cloud_render_march_full.comp.spv": {
+   "size": 1057736,
+   "sha256": "5fb497067031ddd104f975ff307b97168f6d1be2663c21f602a7eaa6638d0f0f",
+   "mtime_ns": 1795680723361496400,
+   "stored": "xz",
+   "stored_size": 174912,
+   "stored_sha256": "30e4a0dba10dc067f3e6a53c265fb2efffdd3716e63fc445dec098a34c92ab42"
+  },
+  "files/numos/spirv/cloud_render_march_full_fast.comp.spv": {
+   "size": 1065136,
+   "sha256": "68c61de317d1e6d8f228c4eb60ac8b11f51c3c35a4ff01772632029a2b34985d",
+   "mtime_ns": 1795680723452053700,
+   "stored": "xz",
+   "stored_size": 171236,
+   "stored_sha256": "940b00f6196634de407e87bd23736cc519b930ee564bf184852c6c9704abf9e3"
+  },
+  "files/numos/spirv/cloud_render_rebuild.comp.spv": {
+   "size": 110376,
+   "sha256": "902de5df376fff8052e2db56ad8156bc012b698f520b51fcbc2e0a1737ad1f9b",
+   "mtime_ns": 1795680722567333400,
+   "stored": "xz",
+   "stored_size": 21932,
+   "stored_sha256": "45844a91963d4e56c64eb67f57068610e34dc2691a228ca687bbc85c4c2f0aa2"
+  },
+  "files/numos/spirv/cloud_render_rebuild_full.comp.spv": {
+   "size": 110376,
+   "sha256": "979a9176728105af7b97aa59729fe15377bc4892564df0922576e9c2fb514ecf",
+   "mtime_ns": 1795680723584534300,
+   "stored": "xz",
+   "stored_size": 21904,
+   "stored_sha256": "b29652030ce4c374de8854ae54c91317bb4aceb353c264d31e605e418ab4641e"
+  },
+  "files/numos/spirv/cloud_render_reference.comp.spv": {
+   "size": 319776,
+   "sha256": "569050215f53a44037fee9557082fb465b94394659e44fd85677a62fadf83c10",
+   "mtime_ns": 1795680720599988800,
+   "stored": "xz",
+   "stored_size": 55624,
+   "stored_sha256": "28bf44b2b544d09704f3520332e77cf2eab58e1fe3a2b93c48f0b014643b0015"
+  },
+  "files/numos/spirv/cloud_sample_statistics.comp.spv": {
+   "size": 3696,
+   "sha256": "58126a81a1629b6799a2ca511ff4bcf68ab32701e1f2b552ee85a8f6995eb76f",
+   "mtime_ns": 1795680724050043900,
+   "stored": "xz",
+   "stored_size": 1080,
+   "stored_sha256": "55dc8b73713d1a27c66eab81315fe02d13b5720252e4465fb6b293c1e2d1bb6a"
+  },
+  "files/numos/spirv/cloud_secondary_lut.comp.spv": {
+   "size": 1074748,
+   "sha256": "a57acbafeeab0f8934383b052afd6b863c71706ea959ec6fede555988dbc6aa8",
+   "mtime_ns": 1795680725689709800,
+   "stored": "xz",
+   "stored_size": 174708,
+   "stored_sha256": "414d4331fa338429ae7922a4023e6c20a52574ce919c78a0dd0164285155fb68"
+  },
+  "files/numos/spirv/cloud_shadow_map.comp.spv": {
+   "size": 40804,
+   "sha256": "91687e2fbd1527071d5fb5bc5564969098fa71edb3279d5be08cdb2c72306a31",
+   "mtime_ns": 1795680724967455800,
+   "stored": "xz",
+   "stored_size": 8532,
+   "stored_sha256": "c38973e2c31fb8ebee99b3a461e30aad8c668bf8d6e822fc9a72f38b4aaf0ea7"
+  },
+  "files/numos/spirv/cloud_sky_transmittance_lut.comp.spv": {
+   "size": 18096,
+   "sha256": "1d049f1a9f3203e9b88322bf3a0e6edbdaa0832beec039e072d2e0db303eda4a",
+   "mtime_ns": 1795680725539019500,
+   "stored": "xz",
+   "stored_size": 4100,
+   "stored_sha256": "92cc285520ff6c26acf7cedf202a4f90487689b66a59d3c8649ae7cc7695561f"
+  },
+  "files/numos/spirv/cloud_vertical_od.comp.spv": {
+   "size": 15476,
+   "sha256": "1535f551dc710a2d1f6f70f195b080fb5f3abb30d33468536d93543df2d43fa0",
+   "mtime_ns": 1795680725651665900,
+   "stored": "xz",
+   "stored_size": 3520,
+   "stored_sha256": "c2130d98ae9458f211ef902f551368b013da924352ee0a8a0666d7f5079cb733"
+  },
+  "files/numos/spirv/generate_mipmap.comp.spv": {
+   "size": 3008,
+   "sha256": "5ea0db1d921c743aab2e678e6f62645c0e770437eba1b9f22e5fbdeda2579e51",
+   "mtime_ns": 1795680726086475600,
+   "stored": "xz",
+   "stored_size": 876,
+   "stored_sha256": "d9d8d6024e327af334e6ce4917b31912a76de4ea93624534c6849f319273c13a"
+  },
+  "files/numos/spirv/ground_probe.comp.spv": {
+   "size": 3796,
+   "sha256": "52cfd679e2cd46f10d8b78a6ab14cd1d9665d579a12bb6bcb16482e70cb56f30",
+   "mtime_ns": 1795680726339457700,
+   "stored": "xz",
+   "stored_size": 1196,
+   "stored_sha256": "4c538b717b6f9e0f308b9b3f1bf94fda15917064f1fb71cc9692dc213a0125bd"
+  },
+  "files/numos/spirv/multiscattering_lut.comp.spv": {
+   "size": 69332,
+   "sha256": "3b2301ecae9ff5c0ffcf866e27e903587f2908d0046dd02f43c6940e5320ba33",
+   "mtime_ns": 1795680726429019400,
+   "stored": "xz",
+   "stored_size": 12088,
+   "stored_sha256": "ebfad7533048879835ba42250a5e74305e0a70cfeac7c30dfdce874bd71c0cec"
+  },
+  "files/numos/spirv/sky_view_lut.comp.spv": {
+   "size": 58796,
+   "sha256": "2272294bd3ec03799cb814eb7a5e10b1b09491dd72f2e82fdfc180eae8c37695",
+   "mtime_ns": 1795680726471181200,
+   "stored": "xz",
+   "stored_size": 12028,
+   "stored_sha256": "a588654c74855e1698bbe90a28b66e670dc6e3d9e51588f0f2917bb33e5da4d8"
+  },
+  "files/numos/spirv/transmittance_lut.comp.spv": {
+   "size": 19792,
+   "sha256": "feed8ddfc4717cd437e1565bfcf53454d30a2aacf81016667e1d2cf66443b634",
+   "mtime_ns": 1795680726748811100,
+   "stored": "xz",
+   "stored_size": 4424,
+   "stored_sha256": "3e107064f01d09c0c7801f0bac4be8b3432e2ef754f58179859bb3c17f3a5b66"
+  },
+  "files/numos/THIRD_PARTY_NOTICES.md": {
+   "size": 8878,
+   "sha256": "7e8ecf0d22e88985d4e82dd40d4f518fb41e6403e83ae8cc1f84bf5af80fa816",
+   "mtime_ns": 1795678643097093400,
+   "stored": "plain"
   },
   "files/NvLowLatencyVk.dll": {
    "size": 147496,

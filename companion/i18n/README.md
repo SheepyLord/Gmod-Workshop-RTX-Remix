@@ -74,6 +74,20 @@ unreviewed English entries fail. Use `--allow-incomplete` only for local transla
 The [bundled interface catalogs](addons/README.md) are a separate namespace and are embedded in the
 same generated Lua file. Long RTX slider and combo labels receive a full-width line above the control.
 
+## Enhanced sky
+
+Task E3 adds **Haze darkness** and its help line with the 0.1, 1 and 3 examples. The six translations
+use the terms from the adjacent haze controls and await human review.
+
+Task E2 replaces the haze-density help and adds the lamp-glow checkbox, its help and five look names.
+All eight new messages are translated in the six catalogs and await human review.
+
+Round 2 adds the Enhanced sky editor's control labels and help, look management, four built-in look names and
+the shared Moon controls. All six translations were written by Codex. Human review is pending.
+
+The Enhanced sky round adds eight messages to the companion catalogs. They use the existing terminology for
+the RTX sky, the night sky editor, eclipses and the horizon. Codex translated the six catalogs. Human review is pending.
+
 ## R6 T3 translation review
 
 The R6 messages for the performance-tier line/source placeholders, the **Memory and stability**

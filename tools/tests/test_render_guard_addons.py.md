@@ -1,5 +1,8 @@
 # test_render_guard_addons.py
 
+The Enhanced sky controller and its weather data use the ordinary rendering policy. The bundled-path
+test includes both among the companion modules that need no material or render-target exemption.
+
 VR-V1-E: the VR page is explicitly an ordinary companion path in the inventory assertion. It gains no render
 guard exemption; the wrist canvas is checked independently against the production guard by the VR harness.
 

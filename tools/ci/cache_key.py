@@ -1,13 +1,13 @@
 """R16 (ADR 0106): the cache key of a binary build in the RTX package's workflow, a SHA-256 of exactly the
 sources that build reads, so a cached build is reused only for the same sources.
 
-  python tools/ci/cache_key.py runtime     # runtime/ (patches, base.json, the build script), the collector,
+  python tools/ci/cache_key.py runtime     # runtime/ (patches, base.json, the build script), the NUMOS pin, the collector,
                                            # and which files the runtime part ships
   python tools/ci/cache_key.py modules     # tools/ci/build_modules.ps1, its pins, the fixes' and RTX Water's
                                            # patches, and the debug module's and the bridge's sources in packages/
   python tools/ci/cache_key.py hotloader   # the Model Hotloader's source copy, its build script and policy
 
-Prints the key (64 hex digits). Exit codes: 0 printed; 2 an unknown build name."""
+Prints the key (64 hex digits). Exit codes: 0 printed; 1 a NUMOS pin mismatch; 2 an unknown build name."""
 import hashlib
 import json
 import sys
@@ -39,12 +39,18 @@ def digest(paths: list[Path], extra: object = None) -> str:
 
 
 def runtime() -> str:
+    numos = json.loads(PINS.read_text(encoding='utf-8'))['numos']
+    base = json.loads((REPO / 'runtime' / 'base.json').read_text(encoding='utf-8'))
+    clone = base['clones']['submodules/numos']
+    if (numos['repository'], numos['commit']) != (clone['url'], clone['commit']):
+        raise SystemExit('cache_key: the NUMOS pin in tools/ci/pins.json differs from the clone in runtime/base.json')
     index = json.loads((REPO / 'packages' / 'runtime' / 'files.json').read_text(encoding='utf-8'))['files']
     # Which files the part ships decides what is collected, not their recorded hashes.
     shipped = sorted(rel for rel in index if rel.startswith('files/') and not rel.startswith('files/atmosphere/'))
     # runtime/'s Markdown documents the build; it is not read by it.
     sources = [p for p in files_under('runtime') if p.suffix.lower() != '.md']
-    return digest(sorted(sources + files_under('tools/ci/collect_runtime.py', 'tools/lib/VsDevEnv.psm1')), shipped)
+    return digest(sorted(sources + files_under('tools/ci/collect_runtime.py', 'tools/lib/VsDevEnv.psm1')),
+                  {'numos': numos, 'shipped': shipped})
 
 
 def modules() -> str:

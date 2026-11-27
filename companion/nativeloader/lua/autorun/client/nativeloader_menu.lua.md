@@ -1,5 +1,10 @@
 # nativeloader_menu.lua
 
+The fog preset also supplies the [Enhanced sky](../../nativeloader/enhanced_sky.lua.md) with its transmittance
+colour, measuring distance, scattering albedo and anisotropy. The sky converts these to height fog on selection
+or replay and brings the current look's fog back when cleared. In Enhanced the menu leaves the global volumetrics
+switch to the player. The runtime decides how to combine near Remix fog with Enhanced mist.
+
 R20-B adds **Show upscaling and frame generation hint at startup** immediately after the Frame
 generation choice. The archived setting `nativeloader_upscaling_hint` (default on) belongs to
 [`nativeloader_upscaling_hint.lua`](nativeloader_upscaling_hint.lua.md). Opening the panel does not

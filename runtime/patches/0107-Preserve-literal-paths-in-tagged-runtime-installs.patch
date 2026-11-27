@@ -1,0 +1,176 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: SheepyLord <37598021+SheepyLord@users.noreply.github.com>
+Date: Thu, 26 Nov 2026 01:03:37 -0700
+Subject: [PATCH] Preserve literal paths in tagged runtime installs
+
+---
+ docs/fork-touchpoints.md                  |  7 +++++
+ scripts-common/install_file_in_dir.bat    | 20 ++++++------
+ scripts-common/install_file_in_dir.bat.md |  5 +++
+ scripts-common/install_usd_plugins.bat    | 37 ++++++++++-------------
+ scripts-common/install_usd_plugins.bat.md |  6 ++++
+ 5 files changed, 44 insertions(+), 31 deletions(-)
+ create mode 100644 scripts-common/install_file_in_dir.bat.md
+ create mode 100644 scripts-common/install_usd_plugins.bat.md
+
+diff --git a/docs/fork-touchpoints.md b/docs/fork-touchpoints.md
+index acc08f790..525053867 100644
+--- a/docs/fork-touchpoints.md
++++ b/docs/fork-touchpoints.md
+@@ -4138,3 +4138,10 @@ when one sleeps. The high-latency mode and the other pools are unchanged.
+   *List the header and `test_worker_idle`.*
+ 
+ No RTX_OPTION, CB, or binding changes - `RtxOptions.md` regen not required.
++
++## Windows tagged installs in paths containing an exclamation mark (2026-11-26)
++
++- **Inline** in `scripts-common/install_file_in_dir.bat` and `scripts-common/install_usd_plugins.bat`.
++  Both helpers pass source and destination paths through cmd with delayed expansion disabled.
++  Meson's output and unit tags can stage the converter, runtime DLL and USD schemas under such a checkout.
++  The USD installer reports a failed copy.
+diff --git a/scripts-common/install_file_in_dir.bat b/scripts-common/install_file_in_dir.bat
+index d64e4716e..ffcbfaeab 100644
+--- a/scripts-common/install_file_in_dir.bat
++++ b/scripts-common/install_file_in_dir.bat
+@@ -1,5 +1,5 @@
+ @echo off
+-setlocal enabledelayedexpansion
++setlocal DisableDelayedExpansion
+ 
+ REM %1 = source file
+ REM %2 = destination directory
+@@ -7,23 +7,23 @@ REM %2 = destination directory
+ REM Normalize separators to backslashes
+ set "SRC=%~1"
+ set "DST_DIR=%~2"
+-set "SRC=!SRC:/=\!"
+-set "DST_DIR=!DST_DIR:/=\!"
++set "SRC=%SRC:/=\%"
++set "DST_DIR=%DST_DIR:/=\%"
+ 
+-REM echo SRC      = "!SRC!"
+-REM echo DST_DIR  = "!DST_DIR!"
++REM echo SRC      = "%SRC%"
++REM echo DST_DIR  = "%DST_DIR%"
+ 
+ REM Ensure target folder exists
+-if not exist "!DST_DIR!" (
+-  md "!DST_DIR!" || (
+-    echo ERROR: failed to create "!DST_DIR!" >&2
++if not exist "%DST_DIR%" (
++  md "%DST_DIR%" || (
++    echo ERROR: failed to create "%DST_DIR%" >&2
+     exit /b 1
+   )
+ )
+ 
+ REM Copy and check result
+-copy /y "!SRC!" "!DST_DIR!" >nul || (
+-  echo ERROR: failed to copy "!SRC!" to "!DST_DIR!" >&2
++copy /y "%SRC%" "%DST_DIR%" >nul || (
++  echo ERROR: failed to copy "%SRC%" to "%DST_DIR%" >&2
+   exit /b 1
+ )
+ 
+diff --git a/scripts-common/install_file_in_dir.bat.md b/scripts-common/install_file_in_dir.bat.md
+new file mode 100644
+index 000000000..00fab3656
+--- /dev/null
++++ b/scripts-common/install_file_in_dir.bat.md
+@@ -0,0 +1,5 @@
++# install_file_in_dir.bat
++
++Meson calls this Windows helper with a source filename or wildcard and a destination directory.
++It creates the directory when necessary and copies matching files there, overwriting earlier copies.
++Both arguments may contain a literal exclamation mark. It returns zero on success or one on a directory or copy error.
+diff --git a/scripts-common/install_usd_plugins.bat b/scripts-common/install_usd_plugins.bat
+index de3349a0b..95d325ebe 100644
+--- a/scripts-common/install_usd_plugins.bat
++++ b/scripts-common/install_usd_plugins.bat
+@@ -1,4 +1,5 @@
+ @echo off
++setlocal DisableDelayedExpansion
+ 
+ set "BUILD_ROOT=%MESON_BUILD_ROOT%"
+ set "INSTALL_ROOT=%~1"
+@@ -8,50 +9,44 @@ set "DST_BASE=%INSTALL_ROOT%\usd\plugins"
+ 
+ REM Make sure the top level plugins folder exists
+ if not exist "%DST_BASE%" (
+-    mkdir "%DST_BASE%"
++    mkdir "%DST_BASE%" || exit /b 1
+ )
+ 
+-REM Enable delayed expansion so we can use vars set inside the loop
+-setlocal enabledelayedexpansion
+-
+ for /D %%D in ("%SRC_BASE%\*") do (
+-    set "PLUGDIR=%%~fD"
+-    set "NAME=%%~nD" 
+-    set "DST=%DST_BASE%\!NAME!"
+-
+     REM Ensure plugin directory exists
+-    if not exist "!DST!" (
+-        mkdir "!DST!"
++    if not exist "%DST_BASE%\%%~nxD" (
++        mkdir "%DST_BASE%\%%~nxD" || exit /b 1
+     )
+ 
+     REM Ensure resources directory exists
+-    if not exist "!DST!\resources" (
+-        mkdir "!DST!\resources"
++    if not exist "%DST_BASE%\%%~nxD\resources" (
++        mkdir "%DST_BASE%\%%~nxD\resources" || exit /b 1
+     )
+ 
+     REM USDG is special since it does not have generated plugInfo.json and goes to Remix root
+-    if /I "!NAME!" == "usdg" (
++    if /I "%%~nxD" == "usdg" (
+         REM Copy plugInfo.json
+-        copy /y "%MESON_SOURCE_ROOT%\src\usd-plugins\usdg\plugInfo.json" "!DST!\resources\" >nul
++        copy /y "%MESON_SOURCE_ROOT%\src\usd-plugins\usdg\plugInfo.json" "%DST_BASE%\%%~nxD\resources\" >nul || exit /b 1
+ 
+         REM Copy USDG plugin binaries to Remix root
+-        for %%L in ("!PLUGDIR!\*.dll") do (
+-            copy /y "%%~L" "%INSTALL_ROOT%\" >nul
++        for %%L in ("%%~fD\*.dll") do (
++            copy /y "%%~L" "%INSTALL_ROOT%\" >nul || exit /b 1
+         )
+     ) else (
+         REM Copy plugInfo.json into resources - required
+-        copy /y "!PLUGDIR!\plugInfo.json" "!DST!\resources\" >nul
++        copy /y "%%~fD\plugInfo.json" "%DST_BASE%\%%~nxD\resources\" >nul || exit /b 1
+ 
+         REM Copy plugin binaries
+-        for %%L in ("!PLUGDIR!\*.dll") do (
+-            copy /y "%%~L" "!DST!\" >nul
++        for %%L in ("%%~fD\*.dll") do (
++            copy /y "%%~L" "%DST_BASE%\%%~nxD\" >nul || exit /b 1
+         )
+ 
+         REM generatedSchema.usda lives at the plugin root, ResourcePath is the dot.
+-        if exist "!PLUGDIR!\generatedSchema.usda" (
+-            copy /y "!PLUGDIR!\generatedSchema.usda" "!DST!\" >nul
++        if exist "%%~fD\generatedSchema.usda" (
++            copy /y "%%~fD\generatedSchema.usda" "%DST_BASE%\%%~nxD\" >nul || exit /b 1
+         )
+     )
+ )
+ 
+ endlocal
++exit /b 0
+diff --git a/scripts-common/install_usd_plugins.bat.md b/scripts-common/install_usd_plugins.bat.md
+new file mode 100644
+index 000000000..4517b27cc
+--- /dev/null
++++ b/scripts-common/install_usd_plugins.bat.md
+@@ -0,0 +1,6 @@
++# install_usd_plugins.bat
++
++Meson passes an install directory and sets `MESON_BUILD_ROOT` and `MESON_SOURCE_ROOT`.
++The script copies the built USD plugins, registration files and generated schemas into that directory.
++USDG's DLL goes beside the runtime. Every other plugin DLL goes inside its own USD plugin directory.
++Existing staged files are replaced. A failed directory creation or copy returns one, and success returns zero.
+-- 
+2.56.0.windows.1
+

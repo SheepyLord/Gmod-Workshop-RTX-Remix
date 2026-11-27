@@ -6,6 +6,38 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### A new sky by default: the Enhanced sky, with its own editor (2026-11-26)
+
+- **Sky quality is Enhanced by default.** The RTX sky is now drawn with the NUMOS sky library: dense, well-lit clouds
+  with grey bases, cirrus, cloud tops that keep the sun's colour at their height, and haze lit by the sun. Standard,
+  the sky until now, is one choice away on the RTX Remix tab's Sky and weather page, unchanged, and stays the sky in
+  VR. Enhanced has a detail setting that follows the computer's performance tier.
+- **Sun rays across the sky.** The clouds' shadows reach through the distant air, so a low sun shows rays through gaps
+  in the clouds, strongest in hazy air. A setting scales them.
+- **The Enhanced sky editor,** a new page beside the Night sky editor. Every setting that shapes the sky (clouds and
+  their shape, a second cloud layer, high ice clouds, wind, air, haze, fog, storm) is a control. Start from 21 looks
+  (the twelve weathers and nine more), save your own by name, or copy a look as one line of text and paste it in
+  another game. Your own look replaces the weather's; rain, snow and sand still follow the weather.
+- **Light and mist settings for every weather:** sun rays, a rainbow in sunlit rain, night brightness, moonlight,
+  starlight, star twinkle, cloud shadows, and the mist on the map (Enhanced mist, or Remix fog near you with Enhanced
+  beyond). Lamps can glow in the Enhanced mist: off by default, as it costs frame time near many lamps.
+- **The Remix menu (Alt+X) has the Enhanced sky's own settings,** in all seven of its languages: every setting of the
+  sky library and its eleven built-in weathers in the developer menu's Sky Tuning, and Night, Haze and Cloud settings
+  in Graphics Settings. The RTX Remix tab's sky pages set these again at the next change of weather or look.
+- **Both skies use** Moon size and brightness from the Night sky editor. Enhanced has its own Moon and stars; the
+  Night sky editor's layers, sun dogs and the sky without a horizon stay with Standard for now.
+- **Weathers in Enhanced:** hazy days are a bright haze, storms have breaks, smog comes from the air.
+- **Credits:** "Sky and clouds: NUMOS by Kim2091 (Sparkles)", in the repository's README and the Remix menu's About
+  panel.
+- Behind it ([ADR 0267](docs/decisions/0267-the-enhanced-sky-is-the-numos-library-as-a-second-sky.md),
+  [ADR 0268](docs/decisions/0268-the-enhanced-sky-gets-sun-rays-an-editor-and-mist-choices.md),
+  [round 1](docs/handover/sky-enhanced-report.md), [round 2](docs/handover/sky-enhanced-round2-report.md),
+  [the menu](docs/handover/sky-enhanced-M-report.md)): the
+  library pinned and unmodified as a second sky (`rtx.skyMode` 2), runtime patches 0107-0114; the package carries the
+  library's shaders, night sky data and notices beside the runtime; the runtime decides what Remix volumetrics do in
+  Enhanced, so the companion no longer writes the player's volumetrics switch; the adapter is released when the
+  device shuts down.
+
 ### Half-Life 2's weapons and items in PBR, in the RTX package (2026-11-26)
 
 - **The weapons and spawnable items of Half-Life 2 and Garry's Mod have PBR materials in every RTX session**, in every

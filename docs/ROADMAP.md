@@ -5,7 +5,7 @@ reach users efficiently, I have to resubscribe to refresh it", and Faelynn (Gym 
 are done, package only: an updated pack's model replaces its earlier version in the library and takes the player's
 choices with it, saves keep loading, and a same-size file change is detected by its hash. Coded by Codex (task WU),
 tested in the PoC in two launches ([ADR 0278](decisions/0278-workshop-character-updates-follow-the-pack-model.md);
-[report](handover/workshop-updates-report.md)).
+[report](handover/workshop-updates-report.md)). Published as `0.0.0-dev.20261128122050+ad5d946b` from `5935a2cb`.
 
 The Enhanced sky's **round 3** (the user's report of 2026-11-26 after the merge) is done: no black circle round the
 Sun or the Moon with DLSS (runtime patch 0115), less mist in the default weather and a Mist setting that goes to Off

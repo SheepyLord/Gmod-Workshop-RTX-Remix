@@ -175,3 +175,12 @@ version = f"0.0.0-dev.{build.stamp()}+{build.fingerprint(config)[:8]}"
 build.build(config, version, Path("out/w").resolve(), print, dest=Path("out/wsup/rtx").resolve())
 '@ | python -I -
 ```
+
+## State
+
+- Merged to `main` as one commit, `5935a2cb`, on top of the glass fix, with ADR 0278 accepted. The Release gate passed
+  on the merged tree first: 35 of 35 CTests, 2,288 Python tests of `tools`, one skipped.
+- Uploaded to the Workshop item as **0.0.0-dev.20261128122050+ad5d946b**, its change note the changelog's entry.
+- For the user's own game: the first start with this build moves the old Faelynn (Gym Uniform) entry and the choices
+  that name it to the corrected model. The read-only replay of the field records found that one replacement and no
+  other.

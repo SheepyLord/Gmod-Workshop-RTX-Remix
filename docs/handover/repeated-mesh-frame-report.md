@@ -59,3 +59,11 @@ The prior round’s 14 in-game cases passed on this DLL, including all eight sha
 `tools/test.ps1 -Config Release` passed with 35 native project tests and 2,338 Python tests, including 6 skips. The final build also passed the six fork regressions listed above. The logs are `project-release.log`, `supplement-native.log` and `supplement-gpu.log`. The Git LFS object for the compressed input was checked against its staged pointer.
 
 The combined changes were validated on `codex/sky-postfx-frame-time` from `823fc55e`. The user approved the normal local publisher for Workshop item 3829070317. The evidence covers a desktop RTX 5090. Other GPUs, headset presentation and multiplayer remain unmeasured.
+
+## Workshop publication
+
+The normal local publisher updated Workshop item 3829070317 to `0.0.0-dev.20261128044434+589c2535` from GitHub commit `d68b753e`. Steam reports the update at 2026-11-28 04:45:21 UTC. The public change note includes all three renderer changes. [GitHub source](https://github.com/SheepyLord/Gmod-Workshop-RTX-Remix/commit/d68b753efe8f2b0cacee8c424f6fda334743c8e8) · [Workshop change notes](https://steamcommunity.com/sharedfiles/filedetails/changelog/3829070317)
+
+A clean release checkout rebuilt the combined package and its validator. The new archive matched the play-tested content digest `506032df664e7d48ca5e8bc7edf6004667d41de02882bb00c889aede6447da7a`. All 2,279 payload files in the uploaded archive were checked against their manifest hashes. Its SHA-256 is `85b5c8fd592f185c229aaade8c6ce60b24b5d342ba36175fc1ffffa41bfed042` and its size is 3,497,013,777 bytes.
+
+The prepublication gate passed 35 native tests and ran 2,338 Python tests with 6 skips. All six renderer regressions and all four standard game checks passed. The PoC sessions verified the toolgun, spawn menu, Modern House window and spawned glass with the approved DLL loaded. The PoC and protected settings were restored. The release evidence and public receipt are under `out/ship-renderer-0124` in the main checkout.

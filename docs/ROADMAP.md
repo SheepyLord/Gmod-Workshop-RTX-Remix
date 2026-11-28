@@ -904,4 +904,4 @@ R11-A's assigned paths. See [the report](handover/R11-A-report.md) and
 
 ## Renderer frame time (2026-11-27)
 
-Approved for the local Workshop update. Repeated props can share their ray-tracing geometry, Enhanced No horizon skips covered lower-cloud work, and post effects pass color directly to the next filter. The PoC courtyard gained rendered FPS and the walking hallway sample was slower. [Combined runtime and measurements](handover/repeated-mesh-frame-report.md)
+Published to Workshop item 3829070317 from `d68b753e`. Repeated props can share their ray-tracing geometry, Enhanced No horizon skips covered lower-cloud work, and post effects pass color directly to the next filter. The PoC courtyard gained rendered FPS and the walking hallway sample was slower. [Combined runtime and measurements](handover/repeated-mesh-frame-report.md)

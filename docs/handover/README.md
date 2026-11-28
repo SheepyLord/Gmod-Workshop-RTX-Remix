@@ -2,7 +2,7 @@
 
 ## Claude and Codex handoffs
 
-- **2026-11-27 · Codex · Repeated props in Modern House** on `codex/sky-postfx-frame-time`. The user approved runtime patches 0121–0124 for the distribution item. The [combined handoff](repeated-mesh-frame-report.md) records the source, checks and game evidence.
+- **2026-11-27 · Codex · Repeated props in Modern House** on `codex/sky-postfx-frame-time`. Runtime patches 0121–0124 were published to Workshop item 3829070317 as `0.0.0-dev.20261128044434+589c2535` from `d68b753e`. The [combined handoff](repeated-mesh-frame-report.md) records the source, checks and game evidence.
 
 - **2026-11-27 · Codex · Lower clouds and post-processing** on `codex/sky-postfx-frame-time`. Runtime patches 0121–0123 established the comparison baseline for the combined update. The [report](renderer-frame-output-report.md) records the build, PoC checks and remaining verification limits.
 

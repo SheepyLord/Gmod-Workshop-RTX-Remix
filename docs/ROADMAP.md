@@ -909,5 +909,6 @@ Published to Workshop item 3829070317 from `d68b753e`. Repeated props can share 
 ## Broken glass on large maps (2026-11-28)
 
 Task GL imports only the BSP collision needed for broken glass. Agency and nine other Workshop
-maps above 256 MiB finished native world construction offline. Claude has the PoC check for
-mounted-map reads and visible debris. [GL handover](handover/glass-big-maps-report.md)
+maps above 256 MiB finished native world construction offline. In the PoC on gm_csgoagency the debris world was Jolt
+and one round left 290 pieces, with no error line ([ADR 0277](decisions/0277-read-only-bsp-collision-for-glass.md)).
+Published as `0.0.0-dev.20261128112110+264866ef` from `f19183d9`. [GL handover](handover/glass-big-maps-report.md)

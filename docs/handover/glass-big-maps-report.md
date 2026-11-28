@@ -79,3 +79,10 @@ intact.
 
 Not checked in the game: a second large map, shards settling on a static prop, and the new Lua with the previous DLL.
 The harness covers that last case.
+
+## State
+
+- Merged to `main` as one commit, `f19183d9`, with ADR 0277 accepted. The Release gate passed on it first: 35 of 35
+  CTests, 2,283 Python tests of `tools`, one skipped.
+- Uploaded to the Workshop item as **0.0.0-dev.20261128112110+264866ef**, the same content as the package tested in
+  the PoC, its change note the changelog's entry.

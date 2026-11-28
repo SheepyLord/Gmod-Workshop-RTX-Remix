@@ -10,9 +10,13 @@
 namespace nl::glass {
 namespace {
 using Bytes = std::span<const std::uint8_t>;
+using Buffer = std::vector<std::uint8_t>;
 void need(bool condition, const char* text) { if (!condition) throw Error(text); }
+void range(std::size_t size,std::size_t at,std::size_t length) {
+  need(at<=size && length<=size-at,"BSP range outside file/lump");
+}
 Bytes slice(Bytes b, std::size_t at, std::size_t size) {
-  need(at<=b.size() && size<=b.size()-at,"BSP range outside file/lump");
+  range(b.size(),at,size);
   return b.subspan(at,size);
 }
 std::uint32_t u32(Bytes b, std::size_t at) {
@@ -39,15 +43,42 @@ void live(const std::stop_token& stop) { if(stop.stop_requested())throw Error("B
 // visits at most that lump's 2,097,152 references once. Leaves sharing one crafted range could
 // multiply it to 2^36 visits on the import worker, which ShutDown and map changes wait for (R19).
 constexpr std::size_t kMaxLeafBrushVisits=4*2097152;
-std::vector<std::uint8_t> decompress(Bytes b, std::size_t expected, std::size_t budget) {
-  need(b.size()>=17 && u32(b,0)==0x414d5a4c,"invalid BSP LZMA header");
+constexpr std::array<unsigned,15> collision_lumps{1,3,5,7,10,12,13,14,17,18,19,26,33,35,48};
+constexpr unsigned game_lump=35;
+constexpr std::uint32_t sprp=0x73707270, lzma_magic=0x414d5a4c;
+struct Entry { std::uint32_t offset,length,version,expanded; };
+using Directory=std::array<Entry,64>;
+Directory directory(Bytes header,std::size_t file_size) {
+  need(header.size()>=kBspHeaderBytes && u32(header,0)==0x50534256,"invalid VBSP header");
+  const auto version=u32(header,4);need(version>=19 && version<=21,"unsupported BSP version (expected 19-21)");
+  const bool swapped=version==21 && u32(header,8)<kBspHeaderBytes && u32(header,12)>=kBspHeaderBytes;
+  Directory entries{};
+  for(unsigned i=0;i<entries.size();++i) {
+    const auto at=8+i*16;
+    auto& e=entries[i];
+    e={u32(header,at+(swapped?4:0)),u32(header,at+(swapped?8:4)),u32(header,at+(swapped?0:8)),u32(header,at+12)};
+    need(!e.length || e.offset>=kBspHeaderBytes,"BSP lump overlaps header");
+    range(file_size,e.offset,e.length);
+  }
+  return entries;
+}
+void charge(std::size_t& used,std::size_t bytes,const char* message) {
+  need(bytes<=kMaxMapBytes-used,message);used+=bytes;
+}
+std::size_t lzma_size(Bytes b,std::size_t length,std::size_t expected,std::size_t budget) {
+  need(b.size()>=17 && u32(b,0)==lzma_magic,"invalid BSP LZMA header");
   const auto size=u32(b,4), packed=u32(b,8);
-  need(size>0 && size<=128*1024*1024 && (!expected || expected==size) && packed==b.size()-17,
+  need(size>0 && size<=128*1024*1024 && (!expected || expected==size) && packed==length-17,
        "BSP LZMA size limit/mismatch");
   // GL-01 (R19): the declared size is checked against what is left of the map's expansion budget
   // before the output exists, so the cap bounds the allocation itself, not only the total after it.
   need(size<=budget,"expanded BSP collision data limit");
   need(b[12]<9*5*5 && u32(b,13)<=64*1024*1024,"BSP LZMA property/dictionary limit");
+  return size;
+}
+std::vector<std::uint8_t> decompress(Bytes b, std::size_t expected, std::size_t budget) {
+  const auto size=lzma_size(b,b.size(),expected,budget);
+  const auto packed=u32(b,8);
   std::vector<std::uint8_t> out(size);
   SizeT dst=out.size(), src=packed;
   ELzmaStatus status=LZMA_STATUS_NOT_SPECIFIED;
@@ -57,6 +88,88 @@ std::vector<std::uint8_t> decompress(Bytes b, std::size_t expected, std::size_t 
   return out;
 }
 struct Lump { Bytes bytes; unsigned version=0; std::vector<std::uint8_t> owned; };
+std::size_t game_directory_size(Bytes prefix,std::size_t length) {
+  const auto count=u32(prefix,0);
+  need(count<=128 && 4+std::size_t(count)*16<=length,"BSP game-lump directory");
+  return 4+std::size_t(count)*16;
+}
+void check_prop_entry(unsigned flags,unsigned version) {
+  need(version>=4 && version<=11 && !(flags&~1u),"unsupported static-prop game lump");
+}
+std::size_t prop_packed_size(Bytes header,std::size_t length) {
+  const auto packed=std::size_t(u32(header,8))+17;
+  // Source variants store either packed or original length in the directory.
+  need(length==packed || length==u32(header,4),"compressed static-prop directory size mismatch");
+  return packed;
+}
+void write_u32(Buffer& b,std::size_t at,std::uint32_t v) {
+  for(unsigned i=0;i<4;++i)b[at+i]=static_cast<std::uint8_t>(v>>(8*i));
+}
+// Plan the compact image before allocating it. The client reads the validated ranges, then the
+// usual import worker decodes and cooks them. Only a compressed game directory needs early decoding:
+// its sprp entries identify further ranges by absolute offsets in the original BSP.
+class CollisionFile {
+public:
+  std::size_t size;
+  const BspReadAt& read_at;
+  std::size_t stored=0,expanded=0;
+  struct PropRange { std::size_t field,offset,length; };
+  std::vector<PropRange> props;
+  Buffer prop_directory;
+
+  Buffer read(std::size_t offset,std::size_t length) const {
+    range(size,offset,length);
+    Buffer bytes(length);
+    if(length)read_at(offset,bytes);
+    return bytes;
+  }
+  void store(std::size_t length) { charge(stored,length,"BSP stored collision data exceeds 256 MiB"); }
+  void expand(std::size_t length) { charge(expanded,length,"expanded BSP collision data limit"); }
+  std::size_t decoded_size(const Entry& e,Bytes prefix) const {
+    if(prefix.size()>=4 && u32(prefix,0)==lzma_magic)
+      return lzma_size(prefix,e.length,e.expanded,kMaxMapBytes-expanded);
+    need(!e.expanded,"BSP collision lump has unsupported compression");
+    return e.length;
+  }
+  void plan_game(const Entry& e) {
+    auto prefix=read(e.offset,std::min(e.length,17u));
+    if(prefix.empty()) { need(!e.expanded,"BSP collision lump has unsupported compression");return; }
+    const auto decoded=decoded_size(e,prefix);
+    Buffer dir;
+    const bool compressed=prefix.size()>=4 && u32(prefix,0)==lzma_magic;
+    if(compressed) {
+      store(e.length);
+      const auto bytes=decompress(read(e.offset,e.length),decoded,kMaxMapBytes-expanded);
+      expand(bytes.size());
+      const auto n=game_directory_size(bytes,bytes.size());
+      dir.assign(bytes.begin(),bytes.begin()+n);
+    } else {
+      dir=read(e.offset,game_directory_size(prefix,e.length));
+    }
+    prop_directory.resize(4);
+    for(std::size_t at=4;at<dir.size();at+=16) {
+      if(u32(dir,at)!=sprp)continue;
+      const auto flags=u16(dir,at+4);
+      check_prop_entry(flags,u16(dir,at+6));
+      const auto offset=u32(dir,at+8),length=u32(dir,at+12);
+      std::size_t bytes=length;
+      if(flags&1) {
+        const auto header=read(offset,17);
+        bytes=prop_packed_size(header,length);
+        expand(lzma_size(header,bytes,0,kMaxMapBytes-expanded));
+      }
+      range(size,offset,bytes);
+      store(bytes);expand(bytes); // the compact, uncompressed game lump contains these stored bytes
+      props.push_back({prop_directory.size()+8,offset,bytes});
+      prop_directory.insert(prop_directory.end(),dir.begin()+at,dir.begin()+at+16);
+    }
+    write_u32(prop_directory,0,static_cast<std::uint32_t>(props.size()));
+    if(!compressed) {
+      store(prop_directory.size());
+      expand(prop_directory.size());
+    }
+  }
+};
 class Reader {
 public:
   Bytes file;
@@ -67,30 +180,19 @@ public:
   std::size_t charged=0;
   Reader(Bytes input,std::stop_token token):file(input),stop(std::move(token)) {
     live(stop);
-    need(file.size()>=1036 && file.size()<=kMaxMapBytes && u32(file,0)==0x50534256,"invalid VBSP header/size");
-    const auto version=u32(file,4); need(version>=19 && version<=21,"unsupported BSP version (expected 19-21)");
-    // L4D2 v21 places lump version before offset and length. Detect using the entity lump.
-    const bool swapped=version==21 && u32(file,8)<1036 && u32(file,12)>=1036;
-    for (unsigned i=0;i<64;++i) {
-      const auto at=8+i*16;
-      const auto offset=u32(file,at+(swapped?4:0)), length=u32(file,at+(swapped?8:4));
-      auto& l=lumps[i]; l.version=u32(file,at+(swapped?0:8));
-      need(!length || offset>=1036,"BSP lump overlaps header");
-      l.bytes=slice(file,offset,length);
-      // Only collision-related lumps are inflated: lighting/visibility can be enormous.
-      if (i!=1 && i!=3 && i!=5 && i!=7 && i!=10 && i!=12 && i!=13 && i!=14 && i!=17 &&
-          i!=18 && i!=19 && i!=26 && i!=33 && i!=35 && i!=48) continue;
+    need(file.size()<=kBspHeaderBytes+kMaxMapBytes,"BSP input size limit");
+    const auto entries=directory(file,file.size());
+    for (const unsigned i:collision_lumps) {
       live(stop);
-      if (length>=4 && u32(l.bytes,0)==0x414d5a4c) {
-        l.owned=inflate(l.bytes,u32(file,at+12)); l.bytes=l.owned;
+      const auto& e=entries[i];
+      auto& l=lumps[i];l.version=e.version;l.bytes=slice(file,e.offset,e.length);
+      if (e.length>=4 && u32(l.bytes,0)==lzma_magic) {
+        l.owned=inflate(l.bytes,e.expanded); l.bytes=l.owned;
       } else {
-        need(!u32(file,at+12),"BSP collision lump has unsupported compression");
-        charge(l.bytes.size());
+        need(!e.expanded,"BSP collision lump has unsupported compression");
+        charge(charged,l.bytes.size(),"expanded BSP collision data limit");
       }
     }
-  }
-  void charge(std::size_t bytes) {
-    need(bytes<=kMaxMapBytes-charged,"expanded BSP collision data limit");charged+=bytes;
   }
   // Inflates within what is left of the budget; the check precedes the allocation (decompress).
   std::vector<std::uint8_t> inflate(Bytes packed,std::size_t expected) {
@@ -211,22 +313,20 @@ void read_displacements(Reader& r,Map& out) {
 }
 void read_props(Reader& r,Map& out) {
   const auto game=r.get(35);if(game.empty())return;
-  const auto num=u32(game,0);need(num<=128 && 4+std::size_t(num)*16<=game.size(),"BSP game-lump directory");
+  const auto directory_end=game_directory_size(game,game.size());
   // Real maps carry one 'sprp' entry. Up to 128 entries may alias one payload, so the record cap
   // holds for all entries together, not for each (R19): at most 32,768 records reach Lua.
   std::size_t records=0;
-  for(unsigned i=0;i<num;++i) {
+  for(std::size_t at=4;at<directory_end;at+=16) {
     live(r.stop);
-    const auto at=4+i*16; if(u32(game,at)!=0x73707270)continue; // 'sprp', Source's numeric fourcc.
+    if(u32(game,at)!=sprp)continue;
     const auto flags=u16(game,at+4), version=u16(game,at+6);
-    need(version>=4 && version<=11 && !(flags&~1u),"unsupported static-prop game lump");
+    check_prop_entry(flags,version);
     const auto offset=u32(game,at+8), length=u32(game,at+12);
     Bytes data;std::vector<std::uint8_t> expanded;
     if(flags&1) {
       const auto header=slice(r.file,offset,17);
-      const auto packed=std::size_t(u32(header,8))+17;
-      // Source variants store either packed or original length in the directory.
-      need(length==packed || length==u32(header,4),"compressed static-prop directory size mismatch");
+      const auto packed=prop_packed_size(header,length);
       // Charged to the map's expansion budget like a collision lump (GL-01, R19).
       expanded=r.inflate(slice(r.file,offset,packed),0);data=expanded;
     } else data=slice(r.file,offset,length);
@@ -259,6 +359,51 @@ void read_props(Reader& r,Map& out) {
     }
   }
 }
+}
+std::vector<std::uint8_t> collect_bsp_collision(std::size_t file_size,const BspReadAt& read_at) {
+  CollisionFile file{file_size,read_at};
+  auto header=file.read(0,kBspHeaderBytes);
+  const auto entries=directory(header,file_size);
+  std::size_t length=kBspHeaderBytes;
+  for(const unsigned i:collision_lumps) {
+    if(i==game_lump)continue;
+    const auto& e=entries[i];
+    file.store(e.length);
+    file.expand(file.decoded_size(e,file.read(e.offset,std::min(e.length,17u))));
+    length+=e.length;
+  }
+  file.plan_game(entries[game_lump]);
+  const auto game_start=length;
+  length+=file.prop_directory.size();
+  for(const auto& prop:file.props)length+=prop.length;
+  need(length-kBspHeaderBytes<=kMaxMapBytes,"BSP stored collision data exceeds 256 MiB");
+
+  // Keep the version and map revision. Emit the ordinary directory order even for L4D2 v21.
+  std::fill(header.begin()+8,header.begin()+8+64*16,0);
+  header.resize(length);
+  auto output=std::span(header);
+  std::size_t cursor=kBspHeaderBytes;
+  auto entry=[&](unsigned i,std::size_t offset,std::size_t bytes,unsigned expanded) {
+    const auto at=8+16*i;
+    write_u32(header,at,static_cast<std::uint32_t>(offset));
+    write_u32(header,at+4,static_cast<std::uint32_t>(bytes));
+    write_u32(header,at+8,entries[i].version);write_u32(header,at+12,expanded);
+  };
+  for(const unsigned i:collision_lumps) {
+    if(i==game_lump)continue;
+    const auto& e=entries[i];entry(i,cursor,e.length,e.expanded);
+    if(e.length)read_at(e.offset,output.subspan(cursor,e.length));
+    cursor+=e.length;
+  }
+  entry(game_lump,game_start,length-game_start,0);
+  cursor+=file.prop_directory.size();
+  for(const auto& prop:file.props) {
+    write_u32(file.prop_directory,prop.field,static_cast<std::uint32_t>(cursor));
+    if(prop.length)read_at(prop.offset,output.subspan(cursor,prop.length));
+    cursor+=prop.length;
+  }
+  std::copy(file.prop_directory.begin(),file.prop_directory.end(),header.begin()+game_start);
+  return header;
 }
 bool valid_hull(const Hull& p) {
   if(p.size()<4 || p.size()>kMaxHullPoints)return false;

@@ -199,6 +199,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0274](0274-skip-covered-lower-cloud-tiles.md) | Skip covered tiles in the Enhanced sky's lower cloud renderer using primary camera misses and a filter margin. | Accepted 2026-11-27 (the user) |
 | [0275](0275-pass-color-between-post-effects.md) | Pass the current colour between sharpening, motion blur and lens effects, then resolve to the public image in the sRGB pass. | Accepted 2026-11-27 (the user) |
 | [0276](0276-share-frequently-rebuilt-repeated-meshes.md) | Share compatible repeated prop geometry after three frames of substantial merged BLAS rebuild work. | Accepted 2026-11-27 (the user) |
+| [0277](0277-read-only-bsp-collision-for-glass.md) | Read only the mounted BSP's collision ranges and rebase static-prop offsets for the glass worker. | Accepted 2026-11-28 (GL) |
 
 ## Template
 

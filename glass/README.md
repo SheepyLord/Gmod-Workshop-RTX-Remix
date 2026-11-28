@@ -25,6 +25,7 @@ The add-on draws glass with `models/props_combine/health_charger_glass`, the mat
 | `nlglass/protocol.lua` | Bounded snapshot and compact impact encoding |
 | `nlglass/server.lua` | Authoritative registry, remaining-cell collision, map adapters, break/late-join/blast events, admin settings |
 | `nlglass/client.lua` | Network replay, cached pane/frosted crack meshes, matching frozen prediction collision, debris API calls |
+| `nlglass/world.lua` | Reads collision ranges from the mounted map for the client Jolt world and resolves solid prop models |
 | `nlglass/menu.lua` | Spawn-menu settings and `glass_open_panel` compatibility command |
 | `nlglass/debris_scene.lua`, `debris_bullets.lua`, `debris_expiry.lua` | R7-C bounded one-way Source snapshots, final server pellet forwarding and inherited descendant expiry |
 | `nlglass/i18n.lua`, `i18n_data.lua` | Language selector and generated MIT translations |
@@ -210,6 +211,12 @@ than wrapped in arbitrary 3D geometry. The tool supports undo, normal sandbox li
 its explicit kind/strength override global defaults for that pane.
 
 ## G1-B integration
+
+On the first pane, the client opens the mounted BSP and reads the geometry and static-prop data needed
+by broken glass. Maps with large embedded asset packs or lightmaps can use Jolt at any BSP size that
+the game can address. The stored and expanded collision data each have a 256 MiB budget. When the
+world cannot be imported, one ordinary console line explains why the map uses simpler physics.
+The [offline measurements](../docs/handover/glass-big-maps-report.md) cover Agency and nine other large maps.
 
 The bootstrap serves all available `nlglass/debris*.lua` and `nlglass/world*.lua` files to remote
 clients, and includes `nlglass/debris.lua` on the client. G1-B owns its own client includes and

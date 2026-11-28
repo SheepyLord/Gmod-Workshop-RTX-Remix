@@ -1,5 +1,6 @@
 #pragma once
 #include "geometry.h"
+#include <functional>
 #include <span>
 #include <stop_token>
 #include <string>
@@ -24,6 +25,11 @@ struct Map {
   unsigned considered_brushes = 0; // solid world brushes looked at
   unsigned skipped_brushes = 0;    // of those, the ones that could not become a hull
 };
+constexpr std::size_t kBspHeaderBytes = 1036;
+// Copy only the collision ranges from a mounted BSP. The result is an ordinary VBSP with
+// rebased static-prop offsets. read_at must fill its entire destination or throw.
+using BspReadAt = std::function<void(std::size_t, std::span<std::uint8_t>)>;
+std::vector<std::uint8_t> collect_bsp_collision(std::size_t file_size, const BspReadAt& read_at);
 // Parses only little-endian Source VBSP 19-21; never reads a path or any engine memory.
 // A bad/unsupported file throws Error and callers discard the whole map. Single brushes that cannot
 // become a hull are skipped and counted; World::finish refuses maps with no usable collision.

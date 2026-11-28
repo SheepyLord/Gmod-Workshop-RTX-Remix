@@ -1,12 +1,14 @@
 -- MIT. Native-world bootstrap. Included by debris.lua; no autorun or server dependency.
 local W = { state = "new", api = nil, reason = nil, skipped = 0 }
-local logged = false
+local notices = NLGlass or {} -- persists across add-on refreshes in the same map realm
 local function fail(reason)
-    W.state, W.reason = "failed", tostring(reason or "unknown import failure")
+    if reason == "expanded BSP collision data limit" then reason = "expanded map collision exceeds 256 MiB" end
+    W.state, W.reason = "failed", tostring(reason or ""):match("[^\r\n]+") or "unknown import failure"
     if W.api then pcall(W.api.Shutdown) end
-    if not logged then
-        logged = true
-        ErrorNoHalt("[NLGlass] Jolt unavailable; using capped client physics: " .. W.reason .. "\n")
+    local map = tostring(game.GetMap())
+    if notices.fallbackMap ~= map then
+        notices.fallbackMap = map
+        MsgN("[NLGlass] Broken glass uses simpler physics on this map (" .. W.reason .. ").")
     end
 end
 W.Fail = fail
@@ -15,6 +17,29 @@ local function must(value, reason)
     return value
 end
 W.Must = must
+
+local function beginMap(api, path)
+    local bsp = file.Open(path, "rb", "GAME")
+    if not bsp then error("cannot open the map in GAME", 0) end
+    local ok, reason = pcall(function()
+        local size = bsp:Size()
+        if not size or size < 1036 then error("missing or incomplete BSP header", 0) end
+        if api.BeginLoadMapFile then
+            must(api.BeginLoadMapFile(size, function(offset, length)
+                bsp:Seek(offset)
+                if bsp:Tell() == offset then return bsp:Read(length) end
+            end))
+        else
+            -- The updated add-on can arrive one start before its DLL. Honour that DLL's input limit.
+            if size > 256 * 1024 * 1024 then error("the glass module for maps over 256 MiB will load when you restart the game", 0) end
+            local bytes = bsp:Read(size)
+            if type(bytes) ~= "string" or #bytes ~= size then error("cannot read the map in GAME", 0) end
+            must(api.BeginLoadMap(bytes))
+        end
+    end)
+    bsp:Close()
+    if not ok then error(reason, 0) end
+end
 
 local function collision(model)
     local ent = ClientsideModel(model, RENDERGROUP_OTHER)
@@ -56,12 +81,7 @@ function W.Begin(budget, gravity)
         must(W.api.Init(budget, gravity))
         local map = game.GetMap()
         if type(map) ~= "string" or not map:match("^[%w_/%-]+$") or map:find("..", 1, true) then error("invalid map name", 0) end
-        local path = "maps/" .. map .. ".bsp"
-        local size = file.Size(path, "GAME")
-        if not size or size < 1036 or size > 256 * 1024 * 1024 then error("map missing or larger than 256 MiB", 0) end
-        local bytes = file.Read(path, "GAME")
-        if type(bytes) ~= "string" or #bytes ~= size then error("cannot read map from GAME", 0) end
-        must(W.api.BeginLoadMap(bytes))
+        beginMap(W.api, "maps/" .. map .. ".bsp")
         W.task = coroutine.create(function()
             local props, err
             repeat

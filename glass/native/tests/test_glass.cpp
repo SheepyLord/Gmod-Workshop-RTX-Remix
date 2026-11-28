@@ -59,6 +59,51 @@ TEST_CASE("glass displacement fast index goes to corner three and ordinary tags 
   }
   CHECK(raised);CHECK(!mirrored);
 }
+TEST_CASE("glass imports a sparse BSP with collision beyond a 300 MiB pakfile") {
+  constexpr unsigned gap=300*1024*1024;
+  for(const auto [version,swapped]:{std::pair{19u,false},{20u,false},{21u,false},{21u,true}}) {
+    auto room=fixture::room(version,swapped,true);
+    // The virtual file has only a header and the original small room after the pak. Its hole
+    // has no backing storage; even a single read from the pak fails this test.
+    const auto off=8u+(swapped?4u:0u);
+    const auto dir=fixture::read_u32(room,off+35*16);
+    fixture::u32(room,dir+12,fixture::read_u32(room,dir+12)+gap);
+    for(unsigned i=0;i<64;++i)fixture::u32(room,off+i*16,fixture::read_u32(room,off+i*16)+gap);
+    fixture::u32(room,off+40*16,kBspHeaderBytes);fixture::u32(room,off+40*16+4,gap);
+    std::size_t read=0;
+    auto compact=collect_bsp_collision(room.size()+gap,[&](std::size_t at,std::span<std::uint8_t> out) {
+      if(at==0 && out.size()==kBspHeaderBytes)std::copy_n(room.data(),out.size(),out.data());
+      else {
+        if(at<kBspHeaderBytes+gap || at-gap>room.size() || out.size()>room.size()-(at-gap))
+          throw Error("read outside sparse collision ranges");
+        std::copy_n(room.data()+at-gap,out.size(),out.data());
+      }
+      read+=out.size();
+    });
+    CHECK(read<2*room.size());CHECK(compact.size()<=room.size());
+    const auto map=read_bsp(compact);
+    CHECK(map.brushes.size()==5);CHECK(map.triangles.size()==32);CHECK(map.water.size()==1);
+    REQUIRE(map.props.size()==1);CHECK(map.props.front().scale==1.5f);
+    World world(2);world.load_map(compact);world.finish();CHECK(world.stats().ready);
+  }
+}
+TEST_CASE("glass skips unused data inside a large game lump") {
+  auto room=fixture::room();
+  const auto dir=fixture::read_u32(room,8+35*16);
+  // A second, unrelated game entry covers a 300 MiB tail. The sprp payload is elsewhere.
+  const auto prop=fixture::read_u32(room,dir+12),length=fixture::read_u32(room,dir+16);
+  fixture::Buffer payload(room.begin()+prop,room.begin()+prop+length);
+  room.insert(room.end(),payload.begin(),payload.end());
+  fixture::u32(room,dir,2);fixture::u32(room,dir+12,static_cast<unsigned>(room.size()-length));
+  constexpr unsigned tail=300*1024*1024;
+  fixture::u32(room,dir+20,0x64707270);fixture::u32(room,dir+28,static_cast<unsigned>(room.size()));
+  fixture::u32(room,dir+32,tail);fixture::u32(room,12+35*16,static_cast<unsigned>(room.size())+tail-dir);
+  const auto bytes=collect_bsp_collision(room.size()+tail,[&](std::size_t at,std::span<std::uint8_t> out) {
+    if(at>room.size() || out.size()>room.size()-at)throw Error("read unused game-lump payload");
+    std::copy_n(room.data()+at,out.size(),out.data());
+  });
+  CHECK(read_bsp(bytes).props.size()==1);
+}
 TEST_CASE("glass BSP skips a brush that cannot become a hull, not the map") {
   auto file=fixture::room();const auto brushes=fixture::read_u32(file,8+18*16);
   fixture::u32(file,brushes+4,3); // brush 0 keeps a valid side range but has only three sides
@@ -90,7 +135,9 @@ TEST_CASE("glass BSP decodes Source LZMA collision lumps and refuses bad compres
   lump.insert(lump.end(),packed.begin(),packed.end());const auto offset=static_cast<unsigned>(file.size());
   fixture::u32(file,8+10*16,offset);fixture::u32(file,12+10*16,static_cast<unsigned>(lump.size()));fixture::u32(file,20+10*16,32);
   file.insert(file.end(),lump.begin(),lump.end());CHECK(read_bsp(file).brushes.size()==5);
+  CHECK(read_bsp(fixture::compact(file)).brushes.size()==5);
   fixture::u32(file,offset+13,128*1024*1024);CHECK_THROWS_AS(read_bsp(file),Error);
+  CHECK_THROWS_AS(fixture::compact(file),Error);
   fixture::u32(file,offset+13,65536);file.pop_back();CHECK_THROWS_AS(read_bsp(file),Error);
   // Same raw-encoder settings, generated from fixture::room's 300-byte sprp payload.
   const fixture::Buffer prop_packed{0x00,0x00,0x80,0x3c,0x8a,0x42,0xe3,0x86,0xa4,0xd3,0xcd,0x1a,0xc8,0x16,0x7a,0x8d,
@@ -105,7 +152,23 @@ TEST_CASE("glass BSP decodes Source LZMA collision lumps and refuses bad compres
     fixture::u16(file,directory+8,1);fixture::u32(file,directory+12,at);
     fixture::u32(file,directory+16,original_length?300:static_cast<unsigned>(compressed.size()));
     const auto map=read_bsp(file);REQUIRE(map.props.size()==1);CHECK(map.props[0].scale==1.5f);
+    const auto gathered=read_bsp(fixture::compact(file));REQUIRE(gathered.props.size()==1);CHECK(gathered.props[0].scale==1.5f);
   }
+}
+TEST_CASE("glass collects an LZMA game directory whose sprp offset is absolute") {
+  auto room=fixture::room();
+  const auto dir=fixture::read_u32(room,8+35*16),prop=fixture::read_u32(room,dir+12);
+  const fixture::Buffer payload(room.begin()+prop,room.begin()+prop+300);
+  // Raw LZMA1 of one v11 directory entry naming the 300 bytes at original BSP offset 8192.
+  const fixture::Buffer packed{0x00,0x00,0x80,0x3c,0x8a,0xb6,0x73,0xab,0x62,0xc7,0x07,0x16,0x3d,
+    0x39,0x60,0xf4,0xcf,0xe3,0xd4,0xec,0x6f,0xd7,0xff,0xfe,0xf6,0x8c,0x00};
+  fixture::u32(room,dir,0x414d5a4c);fixture::u32(room,dir+4,20);
+  fixture::u32(room,dir+8,static_cast<unsigned>(packed.size()));room[dir+12]=0x5d;fixture::u32(room,dir+13,65536);
+  std::copy(packed.begin(),packed.end(),room.begin()+dir+17);
+  fixture::u32(room,12+35*16,static_cast<unsigned>(packed.size())+17);fixture::u32(room,20+35*16,20);
+  room.resize(8192);room.insert(room.end(),payload.begin(),payload.end());
+  const auto map=read_bsp(fixture::compact(room));
+  REQUIRE(map.props.size()==1);CHECK(map.props[0].model=="models/fixture/block.mdl");
 }
 TEST_CASE("glass BSP deterministic damaged-fixture sweep remains bounded") {
   const auto seed=fixture::room();std::uint32_t rng=78394;

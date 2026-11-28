@@ -95,6 +95,37 @@ TEST_CASE("glass R19 GL-01 an inflated static-prop lump counts against the same 
   CHECK(refusal(prop_budget(41*MiB,16*MiB))=="expanded BSP collision data limit");
   CHECK(refusal(prop_budget(MiB,16*MiB))=="corrupt BSP LZMA"); // the same entry within budget
 }
+TEST_CASE("glass range collection rejects excessive stored and declared sizes before reading payloads") {
+  // No backing data at all for the proposed large ranges. The only permitted reads are the
+  // directory and LZMA prefixes, even when several separately legal ranges exceed the total.
+  auto header=fixture::Buffer(kBspHeaderBytes);
+  fixture::u32(header,0,0x50534256);fixture::u32(header,4,20);
+  const auto refuse=[&](const fixture::Buffer& prefix) -> std::string {
+    try {
+      (void)collect_bsp_collision(kBspHeaderBytes+300*MiB,[&](std::size_t at,std::span<std::uint8_t> out) {
+        if(!at && out.size()==header.size())std::copy(header.begin(),header.end(),out.begin());
+        else if(out.size()<=17 && out.size()<=prefix.size())std::copy_n(prefix.data(),out.size(),out.data());
+        else throw std::runtime_error("bulk read before budget check");
+      });
+    } catch(const Error& e) { return e.what(); }
+    return "";
+  };
+  for(unsigned i:{1u,3u}) {
+    fixture::u32(header,8+i*16,kBspHeaderBytes);fixture::u32(header,12+i*16,129*MiB);
+  }
+  CHECK(refuse(fixture::Buffer(17))=="BSP stored collision data exceeds 256 MiB");
+  auto packed=undecodable(128*MiB);
+  for(unsigned i:{1u,3u,5u}) {
+    fixture::u32(header,8+i*16,kBspHeaderBytes);fixture::u32(header,12+i*16,static_cast<unsigned>(packed.size()));
+  }
+  CHECK(refuse(packed)=="expanded BSP collision data limit");
+  fixture::u32(header,8+40*16,0xfffffff0u);fixture::u32(header,12+40*16,64);
+  CHECK(refuse(packed)=="BSP range outside file/lump"); // skipped lumps still need valid directory bounds
+
+  const auto large_prop=prop_budget(41*MiB,16*MiB);
+  try { (void)fixture::compact(large_prop);CHECK(false); }
+  catch(const Error& e) { CHECK(std::string(e.what())=="expanded BSP collision data limit"); }
+}
 TEST_CASE("glass R19 static props are capped across aliased sprp entries") {
   const auto one=read_bsp(aliased_props(1,32768));CHECK(one.props.size()==32768);
   const auto two=read_bsp(aliased_props(2,16384));CHECK(two.props.size()==32768);

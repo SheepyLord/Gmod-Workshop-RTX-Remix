@@ -2,6 +2,7 @@
 // A strict ILuaBase stack double. Unexpected engine/metamethod operations fail the test.
 #include <GarrysMod/Lua/Interface.h>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -28,6 +29,7 @@ public:
   std::vector<Value> stack;
   Value globals=Value::object();
   unsigned tables=0;
+  std::function<Value(unsigned,unsigned)> read_range;
   [[noreturn]] static void unexpected() { throw std::runtime_error("unexpected ILuaBase call"); }
   Value& at(int i) {
     const auto index=i<0?int(stack.size())+i:i-1;
@@ -50,7 +52,12 @@ public:
   void SetMetaTable(int) override { unexpected(); }
   bool GetMetaTable(int) override { unexpected(); }
   void Call(int,int) override { unexpected(); }
-  int PCall(int,int,int) override { unexpected(); }
+  int PCall(int args,int results,int handler) override {
+    if(!read_range || args!=2 || results!=1 || handler!=0 || at(-3).type!=Type::Function ||
+       at(-2).type!=Type::Number || at(-1).type!=Type::Number)unexpected();
+    auto result=read_range(static_cast<unsigned>(at(-2).n),static_cast<unsigned>(at(-1).n));
+    Pop(3);stack.push_back(std::move(result));return 0;
+  }
   int Equal(int,int) override { unexpected(); }
   int RawEqual(int,int) override { unexpected(); }
   void Insert(int i) override { const auto n=i<0?Top()+i:i-1;auto v=stack.back();stack.pop_back();stack.insert(stack.begin()+n,v); }

@@ -6,6 +6,12 @@
 
 namespace nl::glass::fixture {
 using Buffer=std::vector<std::uint8_t>;
+inline Buffer compact(const Buffer& file) {
+  return collect_bsp_collision(file.size(),[&](std::size_t off,std::span<std::uint8_t> out) {
+    if(off>file.size() || out.size()>file.size()-off)throw Error("fixture read outside BSP");
+    std::copy_n(file.data()+off,out.size(),out.data());
+  });
+}
 inline unsigned read_u32(const Buffer& b,std::size_t at) {
   return unsigned(b.at(at))|(unsigned(b.at(at+1))<<8)|(unsigned(b.at(at+2))<<16)|(unsigned(b.at(at+3))<<24);
 }

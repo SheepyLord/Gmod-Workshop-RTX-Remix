@@ -94,6 +94,23 @@ TEST_CASE("glass binding background operations return pending results and propag
     }
   };
   CHECK(poll("PollLoadMap")[0].type==Type::Table);
+  Value reader;reader.type=Type::Function;
+  const auto size=num(static_cast<double>(bsp.size()));
+  CHECK(failure(m.call("BeginLoadMapFile",{num(-1),reader})));
+  CHECK(failure(m.call("BeginLoadMapFile",{size,num(1)})));
+  m.lua.read_range=[](unsigned,unsigned) { return Value::text("short"); };
+  CHECK(failure(m.call("BeginLoadMapFile",{size,reader})));
+  m.lua.read_range=[&](unsigned offset,unsigned length) {
+    if(offset>bsp.size() || length>bsp.size()-offset)throw std::runtime_error("binding read outside fixture");
+    if(!offset) {
+      const int n=m.api.table->at("sShutdown").f(&m.state);
+      CHECK(n==2 && m.lua.at(-2).type==Type::Nil);m.lua.Pop(n);
+    }
+    return Value::text(std::string(bsp.begin()+offset,bsp.begin()+offset+length));
+  };
+  CHECK(m.call("BeginLoadMapFile",{size,reader})[0].b);
+  m.lua.read_range={}; // the worker must own everything after the call returns
+  CHECK(poll("PollLoadMap")[0].type==Type::Table);
   CHECK(m.call("BeginFinishWorld")[0].b);CHECK(poll("PollFinishWorld")[0].b);
   CHECK(m.call("BeginStep",{num(1.0/60)})[0].b);CHECK(failure(m.call("SetGravity",{num(600)})));
   CHECK(poll("PollStep")[0].b);

@@ -3,7 +3,6 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
-#include <iterator>
 #include <thread>
 
 int main(int argc,char** argv) {
@@ -11,8 +10,15 @@ int main(int argc,char** argv) {
   if(argc!=2 && (argc!=3 || std::string(argv[2])!="--water")) { std::cerr<<"usage: nl_glass_import_probe <map.bsp> [--water]\n";return 2; }
   try {
     std::ifstream file(argv[1],std::ios::binary|std::ios::ate);
-    if(!file || file.tellg()<0 || file.tellg()>static_cast<std::streamoff>(kMaxMapBytes))throw Error("map missing/too large");
-    file.seekg(0);std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(file)),{});
+    if(!file || file.tellg()<0)throw Error("cannot open BSP");
+    const auto file_size=static_cast<std::size_t>(file.tellg());
+    std::size_t read_bytes=0;
+    const auto bytes=collect_bsp_collision(file_size,[&](std::size_t offset,std::span<std::uint8_t> out) {
+      file.seekg(static_cast<std::streamoff>(offset));
+      if(!file.read(reinterpret_cast<char*>(out.data()),static_cast<std::streamsize>(out.size())))throw Error("short BSP read");
+      read_bytes+=out.size();
+    });
+    std::cout<<"bsp_bytes="<<file_size<<" read_bytes="<<read_bytes<<" compact_bytes="<<bytes.size()<<'\n';
     const auto start=std::chrono::steady_clock::now();const auto map=read_bsp(bytes);
     if(argc==3) {
       std::cout<<"water_volumes="<<map.water.size()<<'\n';

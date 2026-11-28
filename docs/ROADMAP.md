@@ -905,3 +905,9 @@ R11-A's assigned paths. See [the report](handover/R11-A-report.md) and
 ## Renderer frame time (2026-11-27)
 
 Published to Workshop item 3829070317 from `d68b753e`. Repeated props can share their ray-tracing geometry, Enhanced No horizon skips covered lower-cloud work, and post effects pass color directly to the next filter. The PoC courtyard gained rendered FPS and the walking hallway sample was slower. [Combined runtime and measurements](handover/repeated-mesh-frame-report.md)
+
+## Broken glass on large maps (2026-11-28)
+
+Task GL imports only the BSP collision needed for broken glass. Agency and nine other Workshop
+maps above 256 MiB finished native world construction offline. Claude has the PoC check for
+mounted-map reads and visible debris. [GL handover](handover/glass-big-maps-report.md)

@@ -6,12 +6,12 @@ Jolt 5.3.0 is statically linked from [the pinned source](../../third_party/jolt/
 | Source | Purpose |
 |---|---|
 | `geometry.h` | Source-unit geometry, input limits and hull validation |
-| `bsp.h`, `bsp.cpp` | Bounded little-endian VBSP reader, LZMA collision lumps, world brushes, displacement triangles and static-prop metadata |
+| `bsp.h`, `bsp.cpp` | Selective range reads, compact VBSP construction, LZMA collision lumps, world brushes, displacement triangles and static-prop metadata |
 | `world.h`, `world.cpp` | Separate Jolt world, worker pool, pieces, fixed stepping, interpolated poses, sleep/wake and budgets |
 | `fracture.h`, `fracture.cpp` | Convex XY outlines, seeded hit-centred convex clipping, centroids and extrusion for follow-up splits |
 | `module.cpp` | Client-only `ILuaBase` binding, raw table access, numeric/type validation and exception-to-result boundary |
 | `tests/fixture.h` | Generated synthetic room, displacement and static-prop BSP; no game files |
-| `tests/test_glass.cpp` | Parser, hull, boundary, lifecycle, interpolation and 4,000-piece benchmark tests |
+| `tests/test_glass.cpp` | Parser, sparse 300 MiB pakfile, static-prop offsets and LZMA, hull, boundary, lifecycle, interpolation and 4,000-piece benchmark tests |
 | `tests/test_interaction.cpp` | One-way kinematics, contact/bullet/blast/fall damage, convex area/minimum-size/capacity tests and bounded-cost benchmarks |
 | `tests/test_r9.cpp` | Irregular one-unit fracture, multi-child budgets, bounded sounds, BSP buoyancy, reverse-velocity reproductions and environment CPU costs |
 | `tests/test_r19.cpp` | R19 review: expansion charged before inflating (collision and static-prop lumps), the static-prop total across aliased entries, the leaf walk's work budget, and import cancellation when a world is destroyed |
@@ -27,7 +27,7 @@ poses without waiting. All Jolt jobs join before a result is published. Only cle
 wait for an in-flight operation; ordinary busy mutations return nil/reason. No worker calls an
 engine or Lua interface. `Stats` returns a pre-dispatch snapshot while busy.
 
-Body budget is 1-8192. Map bytes/expanded collision data cap at 256 MiB, each inflated lump at
+Body budget is 1-8192. Stored and expanded collision data each cap at 256 MiB, each inflated lump at
 128 MiB, LZMA dictionary at 64 MiB, static bodies at 32768, prop collision models at 2048,
 convexes/model at 128, points/hull at 256. R19: an LZMA lump's declared size is checked against what
 is left of the 256 MiB before its buffer exists, and an inflated `sprp` game lump is charged to the
@@ -48,7 +48,17 @@ is retained for interpolation. Completely sleeping worlds skip physics updates. 
 left behind by discarded time: each covers that share of its sampled motion as a pose correction, so it
 ends every dispatch on the latest snapshot ([RESEARCH.md](../../docs/RESEARCH.md#r8-ci-glass-mirrors-behind-dropped-catch-up-steps-2026-11-01-claude)).
 
-Import accepts VBSP 19, 20 and 21 (including the L4D2 reordered directory). It traverses model 0's
+Import accepts VBSP 19, 20 and 21 (including the L4D2 reordered directory). The client reads the
+1,036-byte header, checks all 64 file ranges against the original size and collects the collision
+lumps. For the game lump it reads the directory and the `sprp` payloads at their original absolute
+file offsets. The compact image has its own offsets, a standard-order directory and a separate
+1,036-byte header allowance. Pakfile, lighting and detail-prop payloads stay on disk. A compressed
+game directory is inflated on the calling thread to find the prop ranges. The worker decodes the
+geometry and compressed prop payloads, and validates and cooks the world. The offline import probe
+uses the same collector and reports the BSP, read and compact-image byte counts.
+[ADR 0277](../../docs/decisions/0277-read-only-bsp-collision-for-glass.md)
+
+The reader traverses model 0's
 node/leaf tree, imports only its referenced brushes, and clips their plane halfspaces to convex
 hulls in double precision, deduplicated before float conversion. Individual unusable/refused brush
 and prop convex shapes are skipped and counted; only an empty finished world falls back.
@@ -78,6 +88,7 @@ ignores piece-piece damage, rejects minimum-size pieces early and records only h
 | `Init` | `(budget, gravity)` -> true; replaces any prior world |
 | `LoadMap` | `(bspBytes)` -> array of `{model, position={x,y,z}, angles={pitch,yaw,roll}, solid, scale}` |
 | `BeginLoadMap`, `PollLoadMap` | `(bspBytes)` -> true after owned byte copy / `()` -> false while pending, then prop array; parse and cooking run on a worker |
+| `BeginLoadMapFile` | `(fileSize, readAt)` -> true when the worker owns the collision data. The client callback `readAt(offset, length)` returns exactly that many bytes, at most 1 MiB per call. Poll with `PollLoadMap`. Both older byte-string entry points retain their 256 MiB input limit. |
 | `AddModel` | `(name, convexes)` -> boolean; true if any convex survived cooking |
 | `AddProp` | `(name, position, angles, scale)` -> boolean; missing/refused model instance is skipped |
 | `FinishWorld` | `()` -> true; optimize the static broadphase, enable spawning |

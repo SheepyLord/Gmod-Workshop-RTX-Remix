@@ -6,6 +6,10 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Broken glass on large maps (2026-11-28)
+
+- Broken glass now uses Jolt physics on large maps such as `gm_csgoagency`. Embedded assets and lighting no longer count toward the 256 MiB collision limit. If a map needs simpler physics, the console gives the reason once.
+
 ### Repeated props, lower clouds and post-processing (2026-11-27)
 
 - Scenes that repeatedly rebuild many copies of the same prop can now share its ray-tracing geometry. Each copy keeps its own placement and appearance.

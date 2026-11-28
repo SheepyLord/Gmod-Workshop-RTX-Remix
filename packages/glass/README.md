@@ -11,9 +11,10 @@ python tools\ci\repo_builds.py refresh glass/bin/gmcl_nlglass_win64.dll
 ```
 
 `tools\check_repo.py` fails while its sources in `tools/ci/pins.json` `repository_builds` (`glass/native`,
-Jolt, LZMA, the GMod headers, the root CMake files) differ from that record. The stored module is R19-G's
-build (SHA-256 `10cefd57...`); a build of commit `a5a3ff1` in a folder of the same path length is the same
-image, so the first record (after R20) kept it.
+Jolt, LZMA, the GMod headers, the root CMake files) differ from that record. The GL module was built
+from `43daa914`. Its SHA-256 is `63ce9163d57f3bd99e6deb4208e11a8d0d342992792670c70d6e330df9f9ef24`.
+It accepts collision ranges from large maps and retains the byte-string API for older add-ons.
+[GL handover](../../docs/handover/glass-big-maps-report.md)
 
 The add-on itself is read from [`glass/addon`](../../glass/README.md) in this repository, as the companion
 is, and deployed as `garrysmod/addons/nlglass` with the module in `garrysmod/lua/bin`

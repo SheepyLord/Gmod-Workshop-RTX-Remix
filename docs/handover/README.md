@@ -2,6 +2,8 @@
 
 ## Claude and Codex handoffs
 
+- **2026-11-28 · Codex · GL, broken glass on large maps** on `glass-big-maps`. The offline Jolt import finished on Agency and nine other maps over 256 MiB. Claude has the mounted-map and debris checks in the [GL report](glass-big-maps-report.md).
+
 - **2026-11-27 · Codex · Repeated props in Modern House** on `codex/sky-postfx-frame-time`. Runtime patches 0121–0124 were published to Workshop item 3829070317 as `0.0.0-dev.20261128044434+589c2535` from `d68b753e`. The [combined handoff](repeated-mesh-frame-report.md) records the source, checks and game evidence.
 
 - **2026-11-27 · Codex · Lower clouds and post-processing** on `codex/sky-postfx-frame-time`. Runtime patches 0121–0123 established the comparison baseline for the combined update. The [report](renderer-frame-output-report.md) records the build, PoC checks and remaining verification limits.
@@ -255,6 +257,7 @@ and the native live-readback requirement that remains open.
 
 | Milestone | Brief | Prompt | Report | Assignee | Branch / worktree |
 |---|---|---|---|---|---|
+| GL · Broken glass on large maps | Task GL, 2026-11-28 | | [GL report](glass-big-maps-report.md) | Codex, PoC check by Claude | `glass-big-maps` in `out/worktrees/glbig` |
 | M1 inert bootstrap | [M1-handover.md](M1-handover.md) | [M1-codex-prompt.md](M1-codex-prompt.md) | [M1-report.md](M1-report.md), [review](M1-review.md) | Codex | `m1-bootstrap` in `H:\BACKUP_20260815\Modding\!NVIDIA-RTX-Remix\out\worktrees\m1-bootstrap` (user-selected output root); merged into `main` 2026-10-27 |
 | M2 core + CLI | (none: Claude, who wrote the plan) | | (none: evidence in the [roadmap](../ROADMAP.md) M2 row) | Claude | `m2-core` in the main checkout; merged into `main` 2026-10-27 |
 | M3 deployer | (none: Claude; design in [ADR 0007](../decisions/0007-transactional-deployment.md)) | | (none: evidence in the [roadmap](../ROADMAP.md) M3 row) | Claude | `m3-deployer` in the main checkout; merged into `main` 2026-10-27 |

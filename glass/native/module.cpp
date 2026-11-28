@@ -10,6 +10,11 @@ namespace Type=GarrysMod::Lua::Type;
 using namespace nl::glass;
 std::unique_ptr<World> world;
 ILuaBase* owner=nullptr;
+struct MapReadScope {
+  static inline bool reading=false;
+  MapReadScope() { reading=true; }
+  ~MapReadScope() { reading=false; }
+};
 void need(bool c,const char* message) { if(!c)throw Error(message); }
 int absolute(ILuaBase* l,int index) { return index>0?index:l->Top()+index+1; }
 void get(ILuaBase* l,int index,unsigned key) {
@@ -54,7 +59,11 @@ std::uint32_t id(ILuaBase* l,int index=1) { return integer(l,index,1,std::numeri
 World& active(ILuaBase* l) { need(l==owner && world!=nullptr,"nlglass is not initialized in this client realm");return *world; }
 template<class F> int guarded(ILuaBase* l,F&& f) noexcept {
   const int top=l->Top();
-  try { need(l==owner,"nlglass is client-only");return f(); }
+  try {
+    need(l==owner,"nlglass is client-only");
+    need(!MapReadScope::reading,"nlglass is reading BSP collision data");
+    return f();
+  }
   catch(const std::exception& e) {
     if(l->Top()>top)l->Pop(l->Top()-top);l->PushNil();l->PushString(e.what());return 2;
   } catch(...) {
@@ -88,6 +97,27 @@ LUA_FUNCTION_STATIC(LoadMap) { return guarded(LUA,[&] {
 }); }
 LUA_FUNCTION_STATIC(BeginLoadMap) { return guarded(LUA,[&] {
   auto& w=active(LUA);const auto bytes=map_bytes(LUA);w.begin_load({bytes.begin(),bytes.end()});return success(LUA);
+}); }
+LUA_FUNCTION_STATIC(BeginLoadMapFile) { return guarded(LUA,[&] {
+  need(!active(LUA).busy(),"world worker is busy; poll before access");
+  const auto size=number(LUA,1,0,9007199254740991.0);
+  need(size==std::floor(size) && LUA->IsType(2,Type::Function),"expected BSP size and range reader");
+  // The reader is a Lua function. Prevent it from opening a second import or replacing the world
+  // while the first import holds its collision budget.
+  MapReadScope reading;
+  auto bytes=collect_bsp_collision(static_cast<std::size_t>(size),[&](std::size_t offset,std::span<std::uint8_t> out) {
+    // Only this client-thread call touches Lua. Keep even a large lump's temporary Lua string small.
+    while(!out.empty()) {
+      const auto length=std::min<std::size_t>(out.size(),1024*1024);
+      LUA->Push(2);LUA->PushNumber(static_cast<double>(offset));LUA->PushNumber(static_cast<double>(length));
+      need(LUA->PCall(2,1,0)==0 && LUA->IsType(-1,Type::String),"cannot read BSP collision data from GAME");
+      unsigned received=0;const char* data=LUA->GetString(-1,&received);
+      need(data && received==length,"short BSP collision read from GAME");
+      std::memcpy(out.data(),data,length);LUA->Pop();
+      offset+=length;out=out.subspan(length);
+    }
+  });
+  active(LUA).begin_load(std::move(bytes));return success(LUA);
 }); }
 LUA_FUNCTION_STATIC(PollLoadMap) { return guarded(LUA,[&] {
   std::vector<StaticProp> props;
@@ -300,7 +330,7 @@ GMOD_MODULE_OPEN() {
     LUA->CreateTable();
     const std::pair<const char*,GarrysMod::Lua::CFunc> functions[]{
       {"Init",Init},{"LoadMap",LoadMap},{"AddModel",AddModel},{"AddProp",AddProp},{"FinishWorld",FinishWorld},
-      {"BeginLoadMap",BeginLoadMap},{"PollLoadMap",PollLoadMap},{"BeginFinishWorld",BeginFinishWorld},{"PollFinishWorld",PollFinishWorld},
+      {"BeginLoadMap",BeginLoadMap},{"BeginLoadMapFile",BeginLoadMapFile},{"PollLoadMap",PollLoadMap},{"BeginFinishWorld",BeginFinishWorld},{"PollFinishWorld",PollFinishWorld},
       {"BeginStep",BeginStep},{"PollStep",PollStep},
       {"SetInteraction",SetInteraction},{"SetCollisionFlags",SetCollisionFlags},{"SyncBodies",SyncBodies},{"ReadRegions",ReadRegions},
       {"ReadDamage",ReadDamage},{"Ray",Ray},{"Melee",MeleeCast},{"Split",Split},{"CanSplit",CanSplit},

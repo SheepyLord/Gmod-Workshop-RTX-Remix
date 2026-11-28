@@ -44,6 +44,7 @@ function WorldToLocal(p,a,o,b) return p-o,Angle(a.p-b.p,a.y-b.y,a.r-b.r) end
 SERVER,CLIENT=false,true
 SOLID_VPHYSICS,MOVETYPE_VPHYSICS,COLLISION_GROUP_WORLD,RENDERGROUP_OTHER=6,6,20,10
 local clock,dt,convars,events,meshes,entities,draws,logCount,reads,api,mode
+local lastNotice,closes
 local camera,workClock,costs=nil,0,{think=0,draw=0,upload=0}
 local mockFrame=0
 local failMesh = false
@@ -92,7 +93,12 @@ render={SetMaterial=function()calls.materials=calls.materials+1 end}
 render.GetViewSetup=function()return camera end
 function ScrW()return 1920 end
 function ScrH()return 1080 end
-function ErrorNoHalt() logCount=logCount+1 end
+function ErrorNoHalt(message) error("unexpected error-channel message: "..message) end
+function MsgN(message)
+    check(not message:find("[\r\n]") and message:find("Broken glass uses simpler physics on this map",1,true),
+        "one plain line explains the fallback")
+    lastNotice,logCount=message,logCount+1
+end
 function include(path) return dofile(base.."/"..path) end
 function CreateClientConVar(name,default)
     convars[name]=convars[name] or {value=tonumber(default),GetInt=function(self)return math.floor(self.value)end,
@@ -110,6 +116,16 @@ local function makeapi()
     function n.BeginLoadMap(bytes)
         check(#bytes==1036,"BSP bytes passed from GAME");n.imports=n.imports+1
         n.importWaits=1;return true
+    end
+    if mode~="legacy" and mode~="legacy_large" then
+        function n.BeginLoadMapFile(size,read)
+            check(read(0,1036)==string.rep("h",1036),"map header read through the open handle")
+            if size>1036 then
+                local bytes=read(size-4,4)
+                if bytes~="prop" then return nil,"short BSP collision read from GAME" end
+            end
+            n.imports=n.imports+1;n.importWaits=1;return true
+        end
     end
     function n.PollLoadMap()
         if n.importWaits>0 then n.importWaits=n.importWaits-1;return false end
@@ -222,6 +238,7 @@ end
 local function setup(which)
     if NLGlassDebris then NLGlassDebris.Shutdown() end
     clock,dt,convars,events,meshes,entities,draws,logCount,reads,mode=0,.01,{}, {}, {}, {},0,0,0,which
+    lastNotice,closes,NLGlass=nil,0,{}
     camera,workClock,costs=nil,0,{think=0,draw=0,upload=0}
     mockFrame=0
     local callbacks={}
@@ -234,6 +251,20 @@ local function setup(which)
     if which=="none" then ents.CreateClientProp=nil end
     file={Size=function(path,realm)check(path=="maps/gm_fixture.bsp" and realm=="GAME","map read only from GAME");return 1036 end,
         Read=function()reads=reads+1;return string.rep("x",1036)end}
+    function file.Open(path,access,realm)
+        check(path=="maps/gm_fixture.bsp" and access=="rb" and realm=="GAME","open mounted BSP in binary mode")
+        reads=reads+1
+        local large=which=="large" or which=="short" or which=="legacy_large"
+        local size=large and 300*1024*1024 or 1036
+        local pos,closed=0,false
+        return {Size=function()return size end,Tell=function()return pos end,Seek=function(_,offset)pos=offset end,
+            Read=function(_,length)
+                check(not closed,"handle is live inside the synchronous range callback")
+                if pos==0 and length==1036 then return string.rep("h",1036) end
+                check(pos==size-4 and length==4,"only the requested collision data after the hole is read")
+                return which=="short" and "p" or "prop"
+            end,Close=function()check(not closed,"close the BSP once");closed=true;closes=closes+1 end}
+    end
     game={GetMap=function()return "gm_fixture"end}
     api=makeapi()
     _G.require=function(name)check(name=="nlglass","only own client module required");if which=="missing" or which=="none" then error("missing module") end;return api end
@@ -627,6 +658,21 @@ for _,e in ipairs(entities)do check(not e.valid,"no fallback entity leaked") end
 
 D=setup("badmap");D.Spawn(frame,fragments(3));tick();tick();D.Spawn(frame,fragments(1))
 check(D.Backend()=="vphysics" and reads==1 and logCount==1,"failed map imports once and falls back")
+for _,which in ipairs({"large","legacy","short","legacy_large"}) do
+    D=setup(which);D.Prepare();tick();tick();tick()
+    check(reads==1 and closes==1,"BSP closes after success or refusal")
+    if which=="large" or which=="legacy" then
+        check(D.Backend()=="jolt" and api.imports==1 and logCount==0,"large map and small mixed-version imports use Jolt")
+    else
+        local reason=which=="short" and "short BSP collision read" or "restart the game"
+        check(D.Backend()=="vphysics" and logCount==1 and lastNotice:find(reason,1,true),"fallback retains its reason")
+        include("nlglass/world.lua").Fail("second failure\nstack detail")
+        check(logCount==1,"a Lua refresh on this map shares its fallback notice")
+        game.GetMap=function()return "gm_next_fixture" end
+        include("nlglass/world.lua").Fail("new reason\nstack detail")
+        check(logCount==2 and lastNotice:find("new reason",1,true),"a new map gets its own single-line reason")
+    end
+end
 D=setup("none");D.Spawn(frame,fragments(3));tick();check(D.Backend()=="none" and D.Count()==0,"no physics backend creates no pieces")
 D=setup("jolt");set("budget",0);D.Spawn(frame,fragments(3));check(D.Count()==0 and reads==0,"budget zero avoids native startup")
 set("budget",3)

@@ -10885,3 +10885,38 @@ worktrees under `out/worktrees`. Times are local.
 Modern House on runtime 0120 submitted the lower cloud march even in an indoor view where at most one of 2,073,600 primary-depth pixels could consume it. The GPU dispatch took a median of 0.24 ms. At 3840 × 2160 the three post-effect copy-backs transferred 189.84 MiB of image payload per rendered frame and took 0.115–0.118 ms. The change and its validation are in the [handover](handover/renderer-frame-output-report.md).
 
 The Modern House field trace repeated one 573-triangle geometry range 82 times in a merged build every rendered frame in the courtyard. The retained per-mesh policy counts copies submitted to actual merged GPU builds and checks the live instances before sharing. [Measurements and implementation](handover/repeated-mesh-frame-report.md)
+
+## Broken glass on large maps (2026-11-28)
+
+Workshop item 3842723143 is the 2,081,733,981-byte Agency RTX remaster package. Its GMA directory
+contains the add-on and Remix assets. Its description identifies item 1280291772 as the base map.
+That item's legacy archive contains `maps/gm_csgoagency.bsp`, a 317,698,728-byte VBSP 20. The
+extracted entry matched the GMA directory CRC32 `309dde10`. Lump 40 (pakfile) is 259,320,391 bytes.
+Lumps 8 and 53 (lighting and HDR lighting) are 26,161,276 bytes each. The 15 top-level lumps used
+by glass total 1,791,268 bytes, including the game lump. Its `sprp` entry is 110,696 bytes.
+
+The table uses MiB (1,048,576 bytes). The first three size columns come directly from each BSP
+directory and its GMA entry length. **Read** is every byte requested by the Release import probe,
+including the header and repeated compression or directory prefixes. **Bodies** counts the cooked
+world brushes and displacement mesh batches. **Solid props** counts the records that Lua can
+resolve with the game's model collision. Both synchronous and asynchronous Jolt world construction
+finished on all ten maps.
+
+| Map | Base Workshop item | BSP | Pakfile | Lighting (8 + 53) | Read | Bodies | Solid props |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| gm_csgoagency | 1280291772 | 302.98 | 247.31 | 49.90 | 1.71 | 1,688 | 774 |
+| gm_brmovie_complete | 3761466972 | 777.22 | 668.81 | 92.45 | 5.65 | 5,822 | 602 |
+| gm_stelliferous | 3450250071 | 489.27 | 351.09 | 116.30 | 6.56 | 7,152 | 5,127 |
+| gm_vvmall | 3624445216 | 434.45 | 344.54 | 58.03 | 6.22 | 5,320 | 1,079 |
+| gm_backrooms | 2732733089 | 348.98 | 319.05 | 22.24 | 2.51 | 3,506 | 151 |
+| gm_funkis | 3380651069 | 327.28 | 303.49 | 9.60 | 5.07 | 6,053 | 1,575 |
+| gm_abandoned_ascot_mall | 2951505190 | 317.33 | 288.63 | 26.44 | 0.79 | 955 | 998 |
+| atmospherichouse | 2842137749 | 311.95 | 297.98 | 13.05 | 0.40 | 249 | 180 |
+| sb_astria_beta01_d | 2477378914 | 294.38 | 209.87 | 69.74 | 3.70 | 1,476 | 668 |
+| gm_liminal_hotel | 2556466049 | 260.00 | 195.03 | 55.32 | 3.88 | 4,080 | 580 |
+
+Agency needed 1,792,496 bytes of VFS-equivalent reads. Its compact image was 1,792,276 bytes,
+including the 1,036-byte header. The largest BSP, `gm_brmovie_complete`, has 345,922 bytes in its
+game lump, of which the static-prop payload uses 93,572. Reading the directory and that payload
+also skips the detail props and their lighting. The probe used BSP copies under `out/glass-big-maps`.
+[Probe source](../glass/native/tests/import_probe.cpp) and [PoC handover](handover/glass-big-maps-report.md).

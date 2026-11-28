@@ -140,18 +140,18 @@
         "glass/native/tests"
       ],
       "packaged": {
-        "sha256": "8c0c8c3a413da5e2fe85fcb8aeff90516b40dcbe818f88dcd12c0e4973395afe",
+        "sha256": "63ce9163d57f3bd99e6deb4208e11a8d0d342992792670c70d6e330df9f9ef24",
         "sources": {
           "CMakeLists.txt": "0efaf851b5722791522c4895063af1b8aea184762382260e31f7040ee3e93ab0",
           "CMakePresets.json": "82165db433e55f118506bdc69634e2fb85dbf81b9e5de0f8a9955c23a7e7cdd6",
-          "glass/native": "5b89e738afe570d7adcdba1873538dd3468e5ccadead33b671028a6040ff8867",
+          "glass/native": "b6376f374c87f4b201c063c90b4c31ff3a553f1504c73383d72c0e7540dec423",
           "third_party/gmod": "cd84651c198ed3712a1c7905f9244ed266fd79ef90eaf6e2894b160fa776ac39",
           "third_party/jolt": "15e57329817888b6ded9b3b8d096550e5048e9eeef259c6c20689e9118ee861d",
           "third_party/lzma": "537d997a7ac049f8f1b7d3309e59b84ee745d6371dcea4d35be49df4ac8af693"
         },
-        "commit": "792075a453a5d7340aec04fbd4ba8e4228d945c1 (with uncommitted changes)",
+        "commit": "43daa914765093d3bb9df5c9de7eb3ce1c75e12b",
         "build": "out/build/win64-release (tools/build.ps1 -Config Release), MSVC 19.44.35228.0",
-        "how": "kept: a build of these sources is the same image"
+        "how": "imported: built from these sources"
       }
     },
     {

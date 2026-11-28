@@ -83,6 +83,7 @@ public:
   std::span<const Pose> poses(); // awake pieces + one final pose per sleep transition, reused storage
   bool sleeping(std::uint32_t id) const;
   Stats stats() const;
+  bool busy() const;
 private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
@@ -92,7 +93,6 @@ private:
   // Requested only by the destructor: an import still running stops at its next bounded unit, so
   // Shutdown, Init and module close never wait for the rest of a map (R19).
   std::stop_source stop_;
-  bool busy() const;
   Impl& idle() const;
   std::vector<StaticProp> load_impl(std::span<const std::uint8_t> bytes,std::stop_token stop);
   void finish_impl();

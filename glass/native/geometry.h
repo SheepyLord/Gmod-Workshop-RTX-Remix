@@ -9,6 +9,8 @@ namespace nl::glass {
 constexpr float kMetres = 0.0254f;
 constexpr std::uint32_t kMaxBudget = 8192;
 constexpr std::size_t kMaxHullPoints = 256;
+// Independent budgets for stored collision data and its expansion. The old Lua byte-string
+// interface also caps the size of the whole string here.
 constexpr std::size_t kMaxMapBytes = 256 * 1024 * 1024;
 constexpr std::size_t kMaxStaticBodies = 32768;
 constexpr std::size_t kMaxMapPoints = 2 * 1024 * 1024;

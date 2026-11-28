@@ -11,6 +11,11 @@ and on, empty Source interest and no damage. Existing `renderperf` keeps older-m
 Runs the actual G1-B `debris*.lua` and `world.lua` through mocked engine APIs. Called by
 `test_glass_debris.py`, or `luajit tools/tests/glass_debris_harness.lua glass/addon/lua`.
 
+The mounted-file double provides a header and four collision bytes at the end of a virtual 300 MiB
+map. The checks cover seek/read, handle closure after success and a short read, the older DLL's
+byte-string interface and its large-map restart notice. A fallback must write one ordinary line
+with its reason per map, including across a Lua refresh. The harness fails on the error channel.
+
 Checks pending map import, collision-model deduplication/skips, budgets, expiry/shrink, moving and
 settled draws, debounced batch rebuilding, explosions, cleanup, native failure migration and absent
 backends. An optional second argument executes the actual Jolt QA probe, including setting restore

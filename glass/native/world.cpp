@@ -463,7 +463,7 @@ std::vector<StaticProp> World::load_map(std::span<const std::uint8_t> bytes) {
   (void)idle();return load_impl(bytes,stop_.get_token());
 }
 void World::begin_load(std::vector<std::uint8_t> bytes) {
-  (void)idle();need(bytes.size()<=kMaxMapBytes,"BSP input size limit");snapshot_=stats();
+  (void)idle();need(bytes.size()<=kBspHeaderBytes+kMaxMapBytes,"BSP input size limit");snapshot_=stats();
   // The token is taken here, on the caller's thread: the worker never touches stop_ itself.
   loading_=std::async(std::launch::async,[this,stop=stop_.get_token(),bytes=std::move(bytes)]() mutable {
     // Release the large byte buffer on this worker, before publishing readiness to the client.

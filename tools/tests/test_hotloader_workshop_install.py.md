@@ -25,3 +25,8 @@ python -I -m unittest discover -s tools/tests -p test_hotloader_workshop_install
 
 No game or installed data is touched; nothing is written. Requires LuaJIT for the harness (otherwise one explicit
 skip). Exit 0 on pass, nonzero on an assertion, a Lua error or a timeout.
+
+WU also runs the shipped `workshop_updates.lua` through package reconciliation. The scenario list
+covers equal-size file revisions, a restart during installation, dedicated cache updates, changed
+asset IDs, legacy duplicate repair, saves and ownership collisions. Each scenario runs in a fresh
+LuaJIT process. [Scenario assertions](hotloader_workshop_install_harness.lua.md#pack-updates)

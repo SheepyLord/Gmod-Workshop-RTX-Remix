@@ -5,6 +5,10 @@ player-model characters are published from metadata and load at their first use;
 used stay ready. Runs [mmd_lazy_load_harness.lua](mmd_lazy_load_harness.lua.md) with LuaJIT through
 unittest discovery, once per scenario.
 
+WU adds server reconciliation and client player-selector scenarios. They cover the server's
+published rigs, recent history, save restoration, multiplayer approvals and the delayed
+registration of the revised player model. [Assertions](mmd_lazy_load_harness.lua.md)
+
 Builds one snippet of production code (the real `mmdhl.MountPackage` from `autorun/mmdhl.lua`,
 `RememberRig`/`ForgetAssetRigs` from `carrier.lua` and `GetRigForModel` from `materials.lua`) and lets
 the harness load `actors.lua` (with the ready set, `mmdhl.readiness`), `persistence.lua` and (server)

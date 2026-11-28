@@ -1,5 +1,12 @@
 # Roadmap
 
+**Workshop character updates** (the user's report of 2026-11-28: "Updates to workshop distributed PBR ... does not
+reach users efficiently, I have to resubscribe to refresh it", and Faelynn (Gym Uniform)'s head still forward in game)
+are done, package only: an updated pack's model replaces its earlier version in the library and takes the player's
+choices with it, saves keep loading, and a same-size file change is detected by its hash. Coded by Codex (task WU),
+tested in the PoC in two launches ([ADR 0278](decisions/0278-workshop-character-updates-follow-the-pack-model.md);
+[report](handover/workshop-updates-report.md)).
+
 The Enhanced sky's **round 3** (the user's report of 2026-11-26 after the merge) is done: no black circle round the
 Sun or the Moon with DLSS (runtime patch 0115), less mist in the default weather and a Mist setting that goes to Off
 ([ADR 0270](decisions/0270-the-enhanced-sky-draws-its-own-discs-and-has-a-mist-setting.md),

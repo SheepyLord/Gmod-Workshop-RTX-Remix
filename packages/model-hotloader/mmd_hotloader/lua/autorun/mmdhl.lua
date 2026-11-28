@@ -43,6 +43,7 @@ if SERVER then
     AddCSLuaFile('mmdhl/names.lua')
     AddCSLuaFile('mmdhl/terms.lua')
     AddCSLuaFile('mmdhl/workshop.lua')
+    AddCSLuaFile('mmdhl/workshop_updates.lua')
     AddCSLuaFile('mmdhl/workshop_export.lua')
     AddCSLuaFile('mmdhl/physics_editor.lua')
     AddCSLuaFile('mmdhl/physics_profile.lua')

@@ -14,7 +14,14 @@ NATIVE = REPO / 'packages/model-hotloader/source/mmdhl/native/module.cpp'
 LUAJIT = shutil.which('luajit') or next((str(p) for p in [
     Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs/LuaJIT/bin/luajit.exe'
 ] if p.is_file()), None)
-SCENARIOS = ('parallel', 'failures', 'replace', 'library_add')
+SCENARIOS = ('parallel', 'failures', 'replace', 'library_add',
+             # ADR 0278: updates that keep every file's size, older records, an interrupted update, a server.
+             'update_same_size', 'update_in_use', 'unchanged', 'legacy_same_package', 'legacy_other_package',
+             'legacy_other_stale', 'resume', 'server_update', 'pack_owners',
+             'supersede_key', 'supersede_legacy', 'supersede_save', 'supersede_owned', 'supersede_shared',
+             'supersede_ambiguous', 'supersede_legacy_collision', 'supersede_failure', 'supersede_private',
+             'supersede_field', 'supersede_settings', 'legacy_other_binary', 'journal_owners', 'supersede_previous',
+             'supersede_demo', 'supersede_rollback')
 
 
 @unittest.skipUnless(LUAJIT, 'LuaJIT is not installed')

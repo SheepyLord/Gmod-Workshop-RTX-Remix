@@ -29,4 +29,17 @@ Scenarios:
   once for the batch and not at all when nothing is new; `library.Prime` decodes a new character's manifest at once
   without changing the library, and the update that lists it decodes nothing again.
 
-Prints `PASS <scenario>` and exits 0; otherwise a Lua error names the failed check (exit 1). Writes nothing.
+## Pack updates
+
+- `update_same_size` and `update_in_use` replace only a changed binary whose size and recorded time match. The latter checks the restart notice for a loaded copy.
+- `unchanged` and `legacy_same_package` count zero hashes for intact files. `legacy_other_package` adopts hashes from a different build after checking its manifest. `legacy_other_stale` and `legacy_other_binary` repair mismatched manifests and binaries respectively.
+- `resume` resumes a persisted pending update. `server_update` installs a same-size revision in a dedicated server's cache.
+- `pack_owners` resolves a deployed directory and a directly mounted Workshop item, and refuses an ambiguous directory. `supersede_key` follows an author key through a source rename. `supersede_legacy` and `supersede_field` exercise previous records, including the reported case with both builds already installed.
+- `supersede_save` checks every library change for a duplicate and retains the old saved carrier. `supersede_settings` checks the player's folder, favourite and custom name. Other successful cases remove the old bytes when there is no rig.
+- `supersede_owned`, `supersede_private` and `supersede_shared` protect earlier imports, a local source record and a second provider. `supersede_ambiguous` and `supersede_legacy_collision` refuse ambiguous source names and pack titles. `supersede_failure` keeps the last usable entry through a failed check and retries the replacement.
+
+The actor and save paths run in the [readiness harness](mmd_lazy_load_harness.lua.md).
+`journal_owners` distinguishes two successive Workshop publishers using the same folder and
+outer ID. `supersede_previous` uses the previous generation when there is no surviving sibling.
+`supersede_demo` preserves an adopted character and `supersede_rollback` reinstates an earlier build.
+Prints `PASS <scenario>` and exits 0. A failed assertion or Lua error exits nonzero. Writes nothing.

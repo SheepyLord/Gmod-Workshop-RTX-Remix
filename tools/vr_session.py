@@ -164,9 +164,10 @@ def command(args, evidence, name, allowed=(0,)):
         raise RuntimeError(f'{name} failed with exit {done.returncode}; see {evidence / (name + ".log")}')
 
 
-def preserve(root, evidence):
+def preserve(root, evidence, *, include_saves=False):
     state = {'root': str(root), 'roots': {}, 'files': {}}
-    for rel in ROOTS:
+    roots = (*ROOTS, 'garrysmod/saves') if include_saves else ROOTS
+    for rel in roots:
         p = root / rel
         if linked(p):
             raise ValueError(f'refusing to move a linked install root: {p}')

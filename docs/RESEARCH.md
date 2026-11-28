@@ -1,5 +1,41 @@
 # Research notes
 
+## GF2 A reached the game before the old head was selected (2026-11-28)
+
+The WU game check uses Sandbox's `gamemodes/sandbox/gamemode/save_load.lua`: `gm_save` calls
+`gmsave.SaveMap` and the client names the save using the map and `util.DateStamp()`. The probe
+records the single new `.gms` and verifies its digest. Loading that save on the same map calls
+`gmsave.LoadMap`, which cleans the world and pastes its saved entities. A duplicator modifier
+on the v1 Citizen identifies the exact actor that came back. [Unattended check](handover/workshop-updates-report.md#claudes-two-launch-poc-check)
+
+Steam recorded manifest `7371887172403149732` for item `3847047590` at 07:23 UTC and fetched it at
+07:48. The installed GMA matched the author's build (SHA-256
+`573bee41376e509e7928990843d8e978c36e082f1bbebe6d2507c7da574c0143`). At 09:54 the loader
+deployed generation 100. At 09:57:01 the Hotloader installed the corrected Gym asset
+`a95c9a34a5ee…` from build `13de7761…`. Resubscribing later redeployed the same bytes. The
+10:20:28 recent-use record and the cached Citizen and player rigs still named `7c6d7e466389…`
+from build `1088486d…`. The recent record establishes actor use. It does not record ragdoll spawns.
+
+Both terms records identify the Workshop pack and `GirlsFrontline FaelynnSSR0101.pmx`. Of the
+81 mounted items, 71 unchanged assets still had install records naming that same earlier build.
+The Gym source appears once. Other filenames recur within part A, including three instances of
+`Weapon.pmx`. The inner package has a random export ID and carries the source filename in
+`items[].terms.file`. The author's working key `172` was absent from that exported item.
+
+The field journal was 16,740,538 bytes. Its current file row assigns the inner Gym package
+manifest to `gf2-a-rtx`, whose Workshop location identifies item `3847047590`.
+`loader/core/src/journal.cpp` writes each package and file on its own line. The Hotloader reads
+those rows across frames and caches only manifest IDs and owners under the journal generation.
+Earlier and later Workshop items using the same add-on folder therefore stay distinct.
+Running the branch matcher on these records in memory found one replacement across the
+mounted field packs, the old Gym asset to the corrected Gym asset.
+
+The loader compares the outer manifest digest. The former Hotloader compared file sizes and
+rechecked hashes on changed timestamps. Native `loadAsset` checks the raw model against the
+manifest's `sourceHash`. An old validated record from another build can therefore adopt the two
+new hashes after verifying the manifest and its declared model digest. These checks address
+in-place revisions separately from the two selectable Gym assets. [Decision](decisions/0278-workshop-character-updates-follow-the-pack-model.md)
+
 In NIGHT2, the Enhanced image bracketed Standard at +5 and +7 Starlight stops. Patch 0117 applies
 the midpoint to the artwork. At NUMOS pin `41842c6`, `src/renderer.cpp:1020` opens the catalogue
 by solar elevation. At 40° the gate stayed closed even with 0.060% of the daylight left. The host

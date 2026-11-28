@@ -2,7 +2,8 @@
 
 ## Claude and Codex handoffs
 
-- **2026-11-28 · Codex · GL, broken glass on large maps** on `glass-big-maps`. The offline Jolt import finished on Agency and nine other maps over 256 MiB. Claude has the mounted-map and debris checks in the [GL report](glass-big-maps-report.md).
+- **2026-11-28 · Codex · WU, Workshop character updates** on `workshop-updates`, merged to `main` after Claude's two-launch PoC check passed. The [WU report](workshop-updates-report.md) records the field evidence, the local fixtures and that check of the selected player, the Citizen's head and the v1 save.
+- **2026-11-28 · Codex · GL, broken glass on large maps** on `glass-big-maps`, merged as `f19183d9` and published as `0.0.0-dev.20261128112110+264866ef` after Claude's PoC check on gm_csgoagency. [GL report](glass-big-maps-report.md).
 
 - **2026-11-27 · Codex · Repeated props in Modern House** on `codex/sky-postfx-frame-time`. Runtime patches 0121–0124 were published to Workshop item 3829070317 as `0.0.0-dev.20261128044434+589c2535` from `d68b753e`. The [combined handoff](repeated-mesh-frame-report.md) records the source, checks and game evidence.
 

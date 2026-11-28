@@ -1,5 +1,10 @@
 # vr_session.py
 
+The shared PoC preservation helper accepts `include_saves=True` for the
+[WU character update check](qa/workshop_update_session.py.md). This adds `garrysmod/saves` to the
+same recorded directory moves and verified rollback as the character cache. VR callers use the
+existing default directory set.
+
 ## Simulated sessions and window size (V2-N)
 
 `--simulate` runs the module's launcher-authorised simulation: no OpenVR load/initialisation and

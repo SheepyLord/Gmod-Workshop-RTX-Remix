@@ -6,6 +6,10 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Workshop character updates (2026-11-28)
+
+- Updated Workshop characters replace the old library entry and keep your player model, NPC choices and recent history. Older saves still load. You can stay subscribed, including when an update changes a file without changing its size. If Steam finishes the download while you play, restart Garry's Mod and enter a map.
+
 ### Broken glass on large maps (2026-11-28)
 
 - Broken glass now uses Jolt physics on large maps such as `gm_csgoagency`. Embedded assets and lighting no longer count toward the 256 MiB collision limit. If a map needs simpler physics, the console gives the reason once.

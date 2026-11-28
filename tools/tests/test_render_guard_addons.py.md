@@ -1,5 +1,8 @@
 # test_render_guard_addons.py
 
+The Workshop character identity module only reads package and cache metadata. This check requires
+its virtual path to stay outside the render guard's bundled material exemptions.
+
 The Enhanced sky controller and its weather data use the ordinary rendering policy. The bundled-path
 test includes both among the companion modules that need no material or render-target exemption.
 

@@ -4,7 +4,14 @@ LuaJIT harness for R13-A's load-on-first-use regression, invoked by
 [test_mmd_lazy_load.py](test_mmd_lazy_load.py.md). Arguments: the generated production snippet, the
 packaged `lua/mmdhl` folder, and one scenario: `server_none`, `server_budget`, `server_convar`,
 `server_first_use`, `server_fallback`, `server_map_change`, `server_forget`, `server_dedicated`,
-`server_host_ready`, `client_host` or `client_remote`.
+`server_host_ready`, `client_host`, `client_remote`, `server_workshop_update` or `client_workshop_choice`.
+
+`server_workshop_update` reads the host's Workshop state and refits its saved Citizen, player and
+hands. It checks the registered NPC spawn, the previous player selector, exact recent timestamps
+and an unrelated rig. The duplicator loads the old model and materials in single player. After a
+server withdraws the old approval, a paste uses the approved revision. With both approvals gone
+it fails. `client_workshop_choice` waits for the new player model to register and respects a later
+manual selection.
 
 The fixture library has four characters (archives of 500, 700, 4000 and 300 MiB), one with a player
 model and its arms, saved approvals and a use record. Disk reads and writes, `game.MountGMA`,

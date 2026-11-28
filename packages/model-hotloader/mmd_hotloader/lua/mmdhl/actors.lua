@@ -120,6 +120,7 @@ function mmdhl.ActorMetadataReady(rig,arms)
 end
 -- lazy: published from metadata, not yet mounted or precached on this map.
 local function publish(rig,arms,lazy)
+ if mmdhl.workshop and mmdhl.workshop.Replacement(rig.asset) then return true end
  if CLIENT then
   if mmdhl.NewerActor(rig) then return true end
   for model,entry in pairs(mmdhl.actorRegistrations) do
@@ -245,6 +246,18 @@ if SERVER then
  end
  timer.Create('MMDHL.PlayerModelOwnership',.25,0,function()
   for _,p in ipairs(player.GetAll()) do
+   local update=p.MMDHLWorkshopChoice
+   if update then
+    local selected=p:GetInfo('cl_playermodel') local rig=update.rig
+    if selected~=update.from then
+     p.MMDHLWorkshopChoice=nil
+     local registration=mmdhl.actorRegistrations[rig.model]
+     if selected=='mmd_'..rig.key:sub(1,16) and registration and p:Alive() and mmdhl.CanUseAsset(p,rig.asset)
+      and hook.Run('MMDHLCanSetPlayerModel',p,rig.asset,rig)~=false and mmdhl.PrepareRegisteredActor(rig.model) then
+      mmdhl.ClearActorIdentity(p) FindMetaTable('Entity').SetModel(p,rig.model) mmdhl.AttachRegisteredPlayer(p)
+     end
+    end
+   end
    local choice=p.MMDHLPlayerSelection
    if p:Alive() then
     if choice and p:GetModel()~=choice.rig.model then mmdhl.ClearActorIdentity(p) end
@@ -371,6 +384,7 @@ if SERVER then
   net.Start('mmdhl_actor_registration') net.WriteString(rig.key) net.WriteString(arms and arms.key or '') if target then net.Send(target) else net.Broadcast() end
  end
  function mmdhl.PublishActor(rig,arms,target)
+  if mmdhl.workshop and mmdhl.workshop.Replacement(rig.asset) then return false end
   if not mmdhl.RegisterActor(rig,arms) then return false end
   if mmdhl.PublishRig then mmdhl.PublishRig(rig,arms) end
   mmdhl.SendActorRegistration(rig,arms,target)
@@ -496,14 +510,21 @@ if SERVER then
   end)
  end)
 else
- local pendingSelection
+ local pendingSelection,previousSelection
  net.Receive('mmdhl_player_clear',function() pendingSelection=nil RunConsoleCommand('cl_playermodel',net.ReadString()) end)
- net.Receive('mmdhl_player_selection',function() pendingSelection=net.ReadString() end)
+ net.Receive('mmdhl_player_selection',function() pendingSelection=net.ReadString() previousSelection=nil end)
+ net.Receive('mmdhl_workshop_selection',function()
+  local old,key=net.ReadString(),net.ReadString()
+  if GetConVar('cl_playermodel'):GetString()==old then previousSelection,pendingSelection=old,key end
+ end)
  hook.Add('Think','MMDHL.SelectRegisteredPlayer',function()
   if not pendingSelection then return end
+  if previousSelection and GetConVar('cl_playermodel'):GetString()~=previousSelection then
+   previousSelection,pendingSelection=nil,nil return
+  end
   local key='mmd_'..pendingSelection:sub(1,16)
   if player_manager.AllValidModels()[key] then
-   RunConsoleCommand('cl_playermodel',key) pendingSelection=nil
+   RunConsoleCommand('cl_playermodel',key) previousSelection,pendingSelection=nil,nil
    -- Enhanced PlayerModel Selector owns its own hands/bodygroup refresh.
    if util.NetworkStringToID('lf_playermodel_update')~=0 then timer.Simple(.2,function() net.Start('lf_playermodel_update') net.SendToServer() end) end
   end
@@ -690,14 +711,21 @@ R.SaveRecent=saveRecent
 -- A character was used: spawned (any role), given to an entity or a player, restored or pasted.
 function R.Use(id)
  if not validId(id) then return end
+ id=mmdhl.workshop and mmdhl.workshop.Replacement(id) or id
  local r=loadRecent() local now=os.time()
  if r[id]==now then return end
  r[id]=now
  timer.Create('MMDHL.RecentUse',2,1,saveRecent)
 end
+function R.ReplaceUse(old,id)
+ local r=loadRecent()
+ if r[old] then r[id]=math.max(r[id] or 0,r[old]) r[old]=nil saveRecent() end
+end
 function mmdhl.NoteActorUse(id) R.Use(id) end
 hook.Add('ShutDown','MMDHL.RecentUse',function() if timer.Exists('MMDHL.RecentUse') then timer.Remove('MMDHL.RecentUse') saveRecent() end end)
 hook.Add('MMDHL.AssetForgotten','MMDHL.RecentUse',function(id)
+ local w=mmdhl.workshop
+ if w and ((w.candidates and w.candidates[id]) or w.Replacement(id)) then return end
  local r=loadRecent() if r[id] then r[id]=nil timer.Create('MMDHL.RecentUse',2,1,saveRecent) end
 end)
 -- The last use of a character: its record, else (characters used before this record existed) the

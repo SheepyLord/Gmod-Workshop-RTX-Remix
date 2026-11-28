@@ -8,7 +8,11 @@ end
 mmdhl.IsCarrierModel=carrierPath
 local function available(rig)
  if not rig or not mmdhl.IsLoadableRig(rig) then return nil,L'persistence.error.carrier_outdated' end
- if SERVER and not mmdhl.CanUseAsset(nil,rig.asset) then return nil,L'persistence.error.asset_not_approved' end
+ if SERVER and not mmdhl.CanUseAsset(nil,rig.asset) then
+  if not mmdhl.RestoreWorkshopCarrier then return nil,L'persistence.error.asset_not_approved' end
+  local new,err=mmdhl.RestoreWorkshopCarrier(rig) if not new then return nil,err end
+  rig=new
+ end
  if rig.materialGma and not mmdhl.MountPackage(rig.materialGma) then return nil,L'persistence.error.mount_materials' end
  if not mmdhl.MountPackage('data/mmd_hotloader/rigs/'..rig.key..'/carrier.gma',rig.model) then return nil,L'persistence.error.mount_carrier' end
  return rig
@@ -197,7 +201,7 @@ function mmdhl.BindEntity(ent,state)
   for _,key in ipairs({'MMDHLAsset','MMDHLRig','MMDHLRole'}) do ent:SetNW2String(key,'') end
   return true -- Native c_arms rendering; no world renderer or secondary world.
  end
- if state and state.asset~=rig.asset then return false,L'persistence.error.appearance_mismatch' end
+ if state and state.asset~=rig.asset and not (mmdhl.WorkshopRestoreTarget and mmdhl.WorkshopRestoreTarget(state.asset)==rig.asset) then return false,L'persistence.error.appearance_mismatch' end
  if ent:GetNW2String('MMDHLRig','')~=rig.key then
   local result,error=mmdhl.AttachNative(ent,rig.asset,optionsFor(rig,state))
   if not result then return false,error end
@@ -262,7 +266,7 @@ if not mmdhl.PersistentModelChecks then
  for _,name in ipairs({'PrecacheModel','IsValidModel'}) do
   local check=util[name]
   util[name]=function(path,...)
-   if carrierPath(path) and mmdhl.EnsureModel then mmdhl.EnsureModel(path) end
+   if carrierPath(path) and mmdhl.EnsureModel then local rig=mmdhl.EnsureModel(path) if rig then path=rig.model end end
    return check(path,...)
   end
  end
@@ -290,6 +294,7 @@ if not mmdhl.PersistenceDuplicator then
    local rig,err=mmdhl.EnsureModel(data.Model)
    if not rig then error(mmdhl.Localize(err)) end
    if not mmdhl.CanUseAsset(p,rig.asset) then error(mmdhl.Localize(L'persistence.error.model_not_approved')) end
+   if rig.model~=data.Model:lower() then data=table.Copy(data) data.Model=rig.model end
   end
   return create(p,data,...)
  end
@@ -319,6 +324,6 @@ end
 duplicator.RegisterEntityModifier('MMDHLNative',function(p,ent,state)
  if not IsValid(ent) then return end
  local clean,why=mmdhl.CleanNativeState(state) if not clean then report(ent,why) return end
- if not mmdhl.CanUseAsset(p,clean.asset) then return end
+ if not mmdhl.CanUseAsset(p,clean.asset) and not (mmdhl.WorkshopRestoreTarget and mmdhl.WorkshopRestoreTarget(clean.asset)) then return end
  local ok,err=mmdhl.BindEntity(ent,clean) if not ok then report(ent,err) end
 end)

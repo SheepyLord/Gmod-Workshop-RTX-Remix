@@ -294,10 +294,16 @@ expected. Private test item.
    renaming (Robin's rename to `robin-rtx` was the user's request; the user kept `Guinaifen (桂乃芬)`).
 3. `& "$root\bin\win64\gmpublish.exe" update -id <id> -addon "$B\<n>-rtx.gma" [-icon "$B\icon.jpg"] -changes "<version>: <what changed>" *> "$B\gmpublish-update.log"`
    from `$root` as in step 9; expect `Success!`.
-4. Tell the user: `update` does not change the title (rename it on the page), the description or the
-   visibility; subscribers get the new build at the start after Steam fetched it; a model already
-   installed keeps its library name, presets, fit and terms (they rename in Model Hotloader, or you
-   edit the library entry at their request with GMod closed and a backup).
+4. Keep each character's model key or its unique source filename across builds. For repeated filenames
+   such as `Weapon.pmx`, give each character a permanent key with `mmdhl_pack.py --model-key <asset>=<key>`.
+   Keep the deployed add-on folder name. Subscribers can stay subscribed. The first start after Steam
+   downloads the archive deploys it. If Steam downloads it during play, restart once and enter a map.
+   The Model Hotloader installs the revised character under its existing library choice. A character
+   already in memory can show its earlier mesh until that restart.
+   To trace delivery, check the item's manifest and update time in `appworkshop_4000.acf`, the active
+   build in `nlctl plan <game root>` and `native-loader/logs/loader.log`, then the asset, hashes and
+   replacement ID in `garrysmod/data/mmd_hotloader/workshop/state.json`. Edit the Workshop page itself
+   when a title, description or visibility change is intended.
 
 ## A remastered map
 

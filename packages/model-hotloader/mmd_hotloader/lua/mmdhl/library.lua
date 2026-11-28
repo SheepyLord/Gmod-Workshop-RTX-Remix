@@ -185,6 +185,18 @@ function library.Update(id,changes)
  if not writeSettings(id,settings) then return false,L'library.error.save_failed' end
  library.Refresh() return true
 end
+-- These choices belong to the player's library. The new pack supplies its own spawn settings
+-- and material presets. A choice already made on the new entry takes precedence.
+function library.InheritWorkshopSettings(old,id,oldName,newName)
+ local function settings(asset) return util.JSONToTable(file.Read('mmd_hotloader/library/'..asset..'.json','DATA') or '') or {} end
+ local before,after=settings(old),settings(id)
+ local changed=false
+ for _,key in ipairs({'favorite','folder'}) do
+  if before[key]~=nil and after[key]==nil then after[key]=before[key] changed=true end
+ end
+ if before.name and before.name~=oldName and (not after.name or after.name==newName) then after.name=before.name changed=true end
+ return not changed or writeSettings(id,after)
+end
 -- The fit at import or spawn: {ok=false, missing={keys}} shows the "Needs bones" badge;
 -- {ok=true} clears it.
 function library.SetFitStatus(id,fit)
@@ -196,17 +208,20 @@ function library.SetFitStatus(id,fit)
  if not writeSettings(id,settings) then return false end
  library.Refresh() return true
 end
-function library.Delete(ids,done)
+function library.Delete(ids,done,orphans)
  done=done or function() end
  if library.job or mmdhl.pendingSpawn or library.deleting then done(false,L'library.delete.busy') return end
- local wanted={} for _,id in ipairs(ids) do if not validId(id) or not library.entries[id] then done(false,L'library.delete.not_in_library') return end wanted[id]=true end
+ local wanted={} for _,id in ipairs(ids) do
+  if not validId(id) or not (library.entries[id] or (orphans and mmdhl.workshop.Replacement(id))) then done(false,L'library.delete.not_in_library') return end
+  wanted[id]=true
+ end
  library.deleting=true
  local owner=mmdhl.previewOwner
  if IsValid(owner) and wanted[owner.selected] then native.ClearPreview() owner.previewHandle=nil owner.previewAsset=nil owner.selected=nil mmdhl.previewOwner=nil end
  for _,ent in pairs(mmdhl.editorPreviews or {}) do if IsValid(ent) and wanted[mmdhl.GetAsset(ent)] then ent:Remove() end end
  -- Client-only corpses have no server entity to remove; release them here.
  -- Another addon's copy of a player model only lets go of the model.
- for _,ent in ipairs(mmdhl.Entities()) do if wanted[mmdhl.GetAsset(ent)] then
+ for _,ent in ipairs(mmdhl.Entities()) do if not orphans and wanted[mmdhl.GetAsset(ent)] then
   if ent.MMDHLCopyOf then mmdhl.ForgetPlayerCopy(ent) elseif not mmdhl.RemoveClientRagdoll(ent) then mmdhl.Action('remove',nil,ent) end
  end end
  local started=RealTime()
@@ -216,6 +231,14 @@ function library.Delete(ids,done)
    return
   end end
   timer.Remove('MMDHL.DeleteModels')
+  if orphans then
+   if mmdhl.workshop.Busy() then library.deleting=nil done(false,L'library.delete.busy') return end
+   for _,id in ipairs(ids) do
+    if mmdhl.workshop.Provided('character',id) or not mmdhl.workshop.state.assets[mmdhl.workshop.Key('character',id)] then
+     library.deleting=nil done(false,L'library.delete.busy') return
+    end
+   end
+  end
   local result,err=mmdhl.Decode(native.DeleteAssets(util.TableToJSON(ids))) library.deleting=nil
   if not result then library.Refresh() done(false,err) return end
   -- The game's own server (single player, or the listen server this player

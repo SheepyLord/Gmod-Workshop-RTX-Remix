@@ -21,6 +21,11 @@ python -I scripts\mmdhl_pack.py <cache> cf3eec2f "$B\mmdhl_evernight_march7th" "
 
 ## Arguments
 
+Use `--model-key <asset prefix>=<key>` when a source filename is missing, shared by several
+characters or expected to change. Repeat it for each affected character. Keep the same key, for
+example `172`, when the character gets a new asset hash. Keys are unique within a pack ignoring
+case. The packer rejects duplicate keys and assets outside the package before writing the add-on.
+
 | Argument | Meaning |
 |---|---|
 | `cache` | `<game root>\garrysmod\data\mmd_hotloader` of the install that holds the import. Read only |

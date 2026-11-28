@@ -99,7 +99,9 @@ class BundledMaterialPathTests(unittest.TestCase):
                 expected.add(virtual)
                 # R20-C deliberately uses the ordinary rendering API, covered by R20-D's general
                 # compatibility work. Shipping a new part must not silently expand exemptions.
-                if index.parent.name in {"toolgun-screen", "blood-overhaul-rtx"}:
+                if index.parent.name in {"toolgun-screen", "blood-overhaul-rtx"} or (
+                    index.parent.name == "model-hotloader" and virtual == "lua/mmdhl/workshop_updates.lua"
+                ):
                     ordinary.add(virtual)
         for root in (repo / "companion/nativeloader/lua", repo / "glass/addon/lua"):
             for source in root.rglob("*.lua"):

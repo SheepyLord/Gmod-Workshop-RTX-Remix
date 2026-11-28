@@ -81,7 +81,9 @@ local received={}
 local reads={}
 net={Receive=function(name,fn) received[name]=fn end,Start=noop,WriteString=noop,WriteUInt=noop,WriteBool=noop,
  WriteData=noop,SendToServer=noop,Send=noop,Broadcast=noop,ReadString=function() return table.remove(reads,1) end}
-duplicator={CopyEntTable=noop,CreateEntityFromTable=noop,DoGeneric=noop,RegisterEntityModifier=noop,
+duplicator={CopyEntTable=noop,CreateEntityFromTable=function(_,data)
+ local ent=ents.Create(data.Class) ent:SetModel(data.Model) return ent
+end,DoGeneric=noop,RegisterEntityModifier=noop,
  StoreEntityModifier=noop,ClearEntityModifier=noop}
 undo={Create=noop,AddEntity=noop,SetPlayer=noop,Finish=noop}
 gamemode={Call=noop} player={GetAll=function() return {} end}
@@ -204,6 +206,85 @@ elseif scenario=='server_convar' then
  assert(entry(npcs[1]).lazy,'override readied too many')
  setConVar('mmdhl_warm_characters',-1) setConVar('mmdhl_warm_mib',100)
  eq(mmdhl.readiness.Budget().characters,0)
+elseif scenario=='server_workshop_update' then
+ local old,new=assets[2],hex('5',64)
+ local build=hex('1',32)
+ local function record(id) return {installed=true,owner='addon:fixture',modelKey='source:gym.pmx',package=id} end
+ local records={['character:'..old]=record(hex('0',32)),['character:'..new]=record(build)}
+ records['character:'..old].replacement=new -- the host has committed the new install on the shared disk
+ disk['mmd_hotloader/workshop/state.json']={version=1,assets=records}
+ disk['mmd_hotloader/assets/'..new..'/manifest.json']={name='Revised'}
+ disk['mmd_hotloader/assets/'..new..'/materials-v5.gma']=true
+ -- The generated carriers keep their role, size, voice and hands, built against the new asset.
+ local oldScale=1.15
+ for _,r in ipairs({npcs[2],player,arms}) do
+  local saved=disk['mmd_hotloader/rigs/'..r.key..'/rig.json']
+  saved.scaleMultiplier=oldScale
+  if r==arms then saved.armsParts={left=true} end
+ end
+ restore()
+ local built={}
+ mmdhl.SavedBoneMap=function() return {head=5} end
+ mmdhl.ActorOptions=function(opts) return opts end
+ mmdhl.LoadAsset=function(id,cb) eq(id,new) cb({}) end
+ local fitting={}
+ mmdhl.native.RequestCarrierFit=function(_,opts)
+  if fitting[opts.role] then return true end
+  fitting[opts.role]=true return false
+ end
+ mmdhl.native.PrepareCarrier=function(id,opts)
+  eq(id,new) eq(opts.scaleMultiplier,oldScale) eq(opts.gender,'female') eq(opts.boneMap.head,5)
+  if opts.role=='arms' then assert(opts.armsParts.left) end
+  local r=rig(id,({citizen='6',player='7',arms='8'})[opts.role],opts.role) built[opts.role]=r
+  return r
+ end
+ local choice='mmd_'..player.key:sub(1,16)
+ local who={GetInfo=function() return choice end,Alive=function() return false end}
+ _G.player.GetAll=function() return {who} end
+ local messages,current={},nil
+ net.Start=function(name) current={name=name} end
+ net.WriteString=function(s) current[#current+1]=s end
+ net.Send=function(to) messages[#messages+1]=current end
+ function include(path) return load(path:match('([^/]+)$')) end
+ load('workshop.lua') local W=mmdhl.workshop
+ W.packages[build]={title='Pack',install='workshop',id=build,items={{asset=new,kind='character',terms={file='Gym.pmx'}}}}
+ W.provided[W.Key('character',new)]={build} W.origins[build]={owner='addon:fixture'}
+ W.Reconcile() for i=1,12 do tick() end
+ local saved=disk['mmd_hotloader/approved.json']
+ eq(saved.rigs[npcs[2].key],nil) eq(saved.rigs[player.key],nil) eq(saved.rigs[arms.key],nil)
+ eq(saved.rigs[built.citizen.key].asset,new) eq(saved.rigs[built.player.key].arms,built.arms.key)
+ eq(npcEntry(npcs[2]),nil) eq(npcEntry(built.citizen).MMDHLAsset,new)
+ assert(saved.rigs[built.player.key].previousChoices[choice],'persisted player choice')
+ assert(npcEntry(npcs[1]) and saved.rigs[npcs[1].key],'unrelated rig changed')
+ local matched=false for _,msg in ipairs(messages) do
+  if msg.name=='mmdhl_workshop_selection' and msg[1]==choice and msg[2]==built.player.key then matched=true end
+ end
+ assert(matched,'selected player model not moved')
+ local uses={} for _,pair in ipairs(disk['mmd_hotloader/recent.json'].uses) do uses[pair[1]]=pair[2] end
+ eq(uses[new],now-20) eq(uses[old],nil) eq(uses[assets[1]],now-30)
+ -- The new NPC list entry spawns the revised model, but an actual duplicator load of the old
+ -- saved model takes the old carrier and its matching materials. Recording the use keeps one history.
+ local npc=ents.Create('npc_citizen') npc:SetModel(npcEntry(built.citizen).Model)
+ eq(mmdhl.EnsureModel(npc:GetModel()).asset,new)
+ local pasted=duplicator.CreateEntityFromTable(nil,{Class='npc_citizen',Model=npcs[2].model,EntityMods={MMDHLNative={asset=old,rigKey=npcs[2].key}}})
+ eq(mmdhl.EnsureModel(pasted:GetModel()).asset,old) assert(mounted(npcs[2].model) and mountedArchives[old])
+ tick() for _,pair in ipairs(disk['mmd_hotloader/recent.json'].uses) do assert(pair[1]~=old) end
+ -- A server that withdrew the old approval restores the save with the revised, approved NPC.
+ game.SinglePlayer=function() return false end
+ mmdhl.ForgetPublishedAssets({old})
+ local copy=duplicator.CreateEntityFromTable(nil,{Class='npc_citizen',Model=npcs[2].model})
+ eq(mmdhl.EnsureModel(copy:GetModel()).asset,new) eq(mmdhl.CanUseAsset(nil,old),false)
+ mmdhl.ForgetPublishedAssets({new}) eq(mmdhl.EnsureModel(npcs[2].model),nil,'restored an unapproved character')
+elseif scenario=='client_workshop_choice' then
+ local old='mmd_'..npcs[1].key:sub(1,16) local choice=old
+ function GetConVar() return {GetString=function() return choice end} end
+ function RunConsoleCommand(name,value) eq(name,'cl_playermodel') choice=value end
+ reads={old,player.key} received.mmdhl_workshop_selection()
+ hooks.Think['MMDHL.SelectRegisteredPlayer']() eq(choice,old,'selected before registration')
+ reads={player.key,arms.key} received.mmdhl_actor_registration()
+ hooks.Think['MMDHL.SelectRegisteredPlayer']() eq(choice,'mmd_'..player.key:sub(1,16))
+ choice=old reads={old,player.key} received.mmdhl_workshop_selection()
+ choice='kleiner' hooks.Think['MMDHL.SelectRegisteredPlayer']() eq(choice,'kleiner','overwrote a later choice')
 elseif scenario=='server_first_use' then
  restore()
  local r=npcs[2]

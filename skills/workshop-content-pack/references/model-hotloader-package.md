@@ -78,6 +78,7 @@ not matter.
 |---|---|
 | `kind` | `"character"` (or `"static"` for a prop, whose only file is `static/assets/<asset>.gmdl`) |
 | `asset` | the 64-hex asset id, the SHA-256 identity Model Hotloader gave the import; `rpai` keys end in its first 8 digits |
+| `key` | Optional stable character identifier within this pack. Set it with `mmdhl_pack.py --model-key ASSET=KEY` and reuse it on later exports. The RTX package can also use a unique source path or `terms.file`. |
 | `name` | the display name, clipped to 100 bytes; empty falls back to the id's first 12 digits. See "Display names" |
 | `files` | the cache paths of this model, each in `files`. A character must list its `manifest.json` and `model.bin` and otherwise only `textures/<sha256>.png` whose name matches its hash. These are the raw import: generated archives (`materials-v5.gma`, carrier models) are never shipped; every game rebuilds them |
 | `settings.spawn` | `{"scaleMultiplier": n}`, clamped to 0.1-4 on install |
@@ -137,8 +138,11 @@ For each model a mounted package provides (`W.Reconcile`, client):
 
 So a later version of the package never changes an installed model's **name, presets, default,
 spawn size, arm parts, fit or terms record**. That is what kept "Robin R18" in the user's library.
-Files are repaired, though: every scan compares sizes, and once per session files whose time changed
-are hashed again and reinstalled when they no longer match.
+The RTX package compares the build's character manifest and binary digests with the install record.
+A revision at the same byte count is installed too. When the asset ID changes, the matching pack
+key or unique source follows the model across builds. The library's folder, favourite and personal
+rename move with it, together with the NPC and player-model selections. An older carrier needed
+by a save remains available through that save. [WU decision](../../../docs/decisions/0278-workshop-character-updates-follow-the-pack-model.md)
 
 **A takeover (R5, the user's "even if user had imported it. Overwriting is okay").** A model already in
 the player's cache with no install record is the player's own import. A `workshop` package (not a demo

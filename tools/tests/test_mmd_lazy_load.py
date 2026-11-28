@@ -14,7 +14,8 @@ LUAJIT = shutil.which('luajit') or next((str(p) for p in [
 ] if p.is_file()), None)
 SCENARIOS = ('server_none', 'server_budget', 'server_convar', 'server_first_use', 'server_fallback', 'server_dedicated',
              'server_host_ready',
-             'server_map_change', 'server_forget', 'client_host', 'client_remote')
+             'server_map_change', 'server_forget', 'client_host', 'client_remote',
+             'server_workshop_update', 'client_workshop_choice')
 
 
 def production_slices() -> str:

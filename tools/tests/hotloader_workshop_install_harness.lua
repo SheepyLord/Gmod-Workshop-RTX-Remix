@@ -2,6 +2,7 @@
 -- scenario, library.lua) is loaded whole in the client realm under LuaJIT; the native transfer and asset check, the
 -- disk, timers, hooks and frames are instrumented. One scenario per run; prints PASS <scenario>.
 local source,scenario=unpack(arg)
+function include(path) return dofile(source..'/'..path:match('([^/]+)$')) end
 SERVER,CLIENT=false,true
 local function noop() end
 local function eq(a,b,why) assert(a==b,(why or '')..': '..tostring(a)..' ~= '..tostring(b)) end
@@ -169,13 +170,43 @@ local function load()
 end
 local function provide()
  local W=mmdhl.workshop
- W.packages={[package.id]=package} W.origins={[package.id]={pathId='GAME',title='Pack',wsid='1',workshop=true}}
+ W.packages={[package.id]=package} W.origins={[package.id]={pathId='GAME',title='Pack',wsid='1',workshop=true,owner='ws:1'}}
  W.provided={} for _,item in ipairs(package.items) do W.provided[W.Key(item.kind,item.asset)]={package.id} end
 end
 local function run(limit)
  for _=1,limit do tick() if not mmdhl.workshop.Busy() and next(named)==nil then return frame end end
  error('still installing after '..limit..' frames')
 end
+-- ADR 0278: a model installed from an earlier build of the package. Its files are on disk as that build had them
+-- (`old` maps a path to the hash it had there; the size stays), known good at time 1, and its record names the
+-- package it came from and, unless `legacy`, the hashes that build listed for its rewritten files.
+local function installedEarlier(asset,old,record)
+ local times,sums={}, {}
+ for _,path in ipairs(modelFiles[asset]) do
+  local f=package.files[path] local sha=old[path] or f.sha256
+  disk['mmd_hotloader/'..path]={size=f.size,sha=sha,time=1} times[path]=1
+  if path:match('^assets/') then sums[path]=sha end
+ end
+ local rec={installed=true,times=times,name='Model',package=record.package or hex(2,32)}
+ local manifest='mmd_hotloader/'..modelFiles[asset][1]
+ text[manifest]=text[manifest] or {}
+ text[manifest].sourceHash=sums[modelFiles[asset][2]]
+ if not record.legacy then rec.sums=sums end
+ if record.pending then rec.pending=true end
+ text[StatePath]=text[StatePath] or {version=1,assets={}}
+ text[StatePath].assets['character:'..asset]=rec
+end
+local function record(asset) return lastState and lastState.assets['character:'..asset] end
+local function sumsOf(asset)
+ local out={} for _,path in ipairs(modelFiles[asset]) do if path:match('^assets/') then out[path]=package.files[path].sha256 end end return out
+end
+local function sameSums(a,b)
+ if not istable(a) or not istable(b) then return false end
+ for k,v in pairs(a) do if b[k]~=v then return false end end
+ for k in pairs(b) do if a[k]==nil then return false end end
+ return true
+end
+local function noticed(text) for _,n in ipairs(notices) do if n==text then return true end end return false end
 if scenario=='parallel' then
  -- Eight models, three textures shared among them, checks of different lengths.
  for n=1,8 do addModel(n,{n%3+1,(n+1)%3+1,100+n,200+n},n%4+1) checkPolls[models[n]]=20+n*15 end
@@ -235,6 +266,255 @@ elseif scenario=='replace' then
  eq(stats.begins[changed],1,'the changed file replaced') eq(table.Count(stats.begins),1,'files moved')
  eq(#installedNames,1,'installed again') eq(disk['mmd_hotloader/'..changed].sha,package.files[changed].sha256,'replaced')
  eq(#errors,0,'errors: '..table.concat(errors,' | '))
+elseif scenario=='update_same_size' or scenario=='update_in_use' then
+ -- ADR 0278: the package's new build rewrote one model's model.bin in place at the same size (vertices moved), so
+ -- every file has the size the package lists and its time when last known good. Sizes and times alone say installed;
+ -- the record's hashes say the package changed it. The model is installed again: model.bin moves, the rest is found
+ -- in place. Loaded in this session already (update_in_use), it is shown as updated only after a restart, and the
+ -- closing notice says so.
+ local a=addModel(1,{1,2}) local b=addModel(2,{3})
+ local model=modelFiles[a][2]
+ installedEarlier(a,{[model]='old-model'},{package=hex(2,32)})
+ installedEarlier(b,{},{package=hex(2,32)})
+ local loaded={}
+ if scenario=='update_in_use' then loaded[a]=true end
+ native.AssetInfo=function(id) return loaded[id] and {name='loaded'} or nil end
+ load() provide()
+ mmdhl.workshop.Reconcile(true)
+ assert(mmdhl.workshop.Busy(),'the updated model was not queued')
+ eq(record(a).pending,true,'the update recorded before any file moved')
+ run(20000)
+ eq(stats.begins[model],1,'model.bin replaced') eq(table.Count(stats.begins),1,'files moved')
+ eq(disk['mmd_hotloader/'..model].sha,package.files[model].sha256,'the new model.bin')
+ eq(#installedNames,1,'models installed again') eq(installedNames[1],'Model 1','the updated model')
+ local rec=record(a)
+ assert(sameSums(rec.sums,sumsOf(a)),'the new build\'s hashes recorded') eq(rec.pending,nil,'pending after the update')
+ eq(rec.package,package.id,'the package recorded') eq(rec.installed,true,'installed')
+ assert(sameSums(record(b).sums,sumsOf(b)),'the unchanged model\'s hashes')
+ eq(stats.matches[modelFiles[b][1]],nil,'the unchanged model hashed')
+ eq(noticed('workshop.restart_to_update'),scenario=='update_in_use','the restart notice')
+ eq(#errors,0,'errors: '..table.concat(errors,' | '))
+elseif scenario=='unchanged' then
+ -- A model whose record holds the package's hashes and whose files kept their times: no file is read.
+ local a=addModel(1,{1,2})
+ installedEarlier(a,{},{package=package.id})
+ load() provide()
+ mmdhl.workshop.Reconcile(true)
+ assert(not mmdhl.workshop.Busy(),'an up-to-date model queued')
+ run(2000)
+ eq(table.Count(stats.matches),0,'files hashed') eq(table.Count(stats.begins),0,'files moved')
+elseif scenario=='legacy_same_package' then
+ -- A record from before ADR 0278 that this very package installed: its files are this package's, so the hashes are
+ -- recorded at once, without reading a file.
+ local a=addModel(1,{1})
+ installedEarlier(a,{},{package=package.id,legacy=true})
+ load() provide()
+ mmdhl.workshop.Reconcile(true)
+ assert(not mmdhl.workshop.Busy(),'queued')
+ run(2000)
+ eq(table.Count(stats.matches),0,'files hashed')
+ assert(sameSums(record(a).sums,sumsOf(a)),'hashes adopted')
+elseif scenario=='legacy_other_package' or scenario=='legacy_other_stale' or scenario=='legacy_other_binary' then
+ -- A record from before ADR 0278 that an earlier build installed (every update gives a package a new id): its
+ -- manifest.json, which names the source model's hash, is hashed once. If it matches, the package's hashes are the
+ -- model's (legacy_other_package); if not, the model is installed again from that file (legacy_other_stale).
+ local a=addModel(1,{1,2})
+ local manifest=modelFiles[a][1]
+ local old=scenario=='legacy_other_stale' and {[manifest]='old-manifest'} or scenario=='legacy_other_binary' and {[modelFiles[a][2]]='old-binary'} or {}
+ installedEarlier(a,old,{package=hex(2,32),legacy=true})
+ load() provide()
+ mmdhl.workshop.Reconcile(true)
+ run(20000)
+ eq(stats.matches[manifest],scenario=='legacy_other_binary' and 2 or 1,'manifest.json hashed')
+ eq(stats.matches[modelFiles[a][2]] or 0,scenario=='legacy_other_package' and 0 or 1,'model.bin hashed')
+ for _,path in ipairs(modelFiles[a]) do if path:match('^textures/') and scenario=='legacy_other_package' then eq(stats.matches[path],nil,'texture hashed') end end
+ assert(sameSums(record(a).sums,sumsOf(a)),'hashes recorded')
+ if scenario=='legacy_other_stale' then
+  eq(stats.begins[manifest],1,'manifest.json replaced') eq(table.Count(stats.begins),1,'files moved')
+  eq(record(a).pending,nil,'pending') eq(record(a).package,package.id,'package')
+ elseif scenario=='legacy_other_binary' then eq(stats.begins[modelFiles[a][2]],1,'model.bin replaced') eq(table.Count(stats.begins),1)
+ else eq(table.Count(stats.begins),0,'files moved') end
+ eq(#errors,0,'errors: '..table.concat(errors,' | '))
+elseif scenario=='resume' then
+ -- An update a closed game left part way: its record says so (pending), and the next scan installs it whatever the
+ -- hashes say; the update's files found in place are not moved again.
+ local a=addModel(1,{1})
+ installedEarlier(a,{},{package=package.id,pending=true})
+ load() provide()
+ mmdhl.workshop.Reconcile(true)
+ assert(mmdhl.workshop.Busy(),'the interrupted update was not resumed')
+ run(20000)
+ eq(table.Count(stats.begins),0,'files moved') eq(record(a).pending,nil,'pending') eq(#installedNames,1,'installed')
+elseif scenario=='server_update' then
+ -- A dedicated server installs into its own cache and keeps records of times and, now, the hashes: the same update
+ -- is installed again before the model is approved again.
+ local a=addModel(1,{1})
+ local model=modelFiles[a][2]
+ installedEarlier(a,{[model]='old-model'},{package=hex(2,32)})
+ text[StatePath].assets['character:'..a].installed=nil
+ SERVER,CLIENT=true,false
+ game={SinglePlayer=function() return false end,IsDedicated=function() return true end}
+ load() provide()
+ mmdhl.workshop.Reconcile()
+ assert(mmdhl.workshop.Busy(),'the server did not install the update')
+ run(20000)
+ eq(stats.begins[model],1,'model.bin replaced') eq(table.Count(stats.begins),1,'files moved')
+ assert(sameSums(record(a).sums,sumsOf(a)),'the server recorded the hashes') eq(record(a).pending,nil,'pending')
+ eq(#errors,0,'errors: '..table.concat(errors,' | '))
+elseif scenario:match('^supersede_') then
+ -- Two real reconciliation passes with different build ids and asset ids. Both models have the
+ -- same source and different library names; a second pack and a local import use that source too.
+ local old=addModel(1,{1}) local sibling=addModel(2,{2}) local other=addModel(3,{3}) local own=addModel(4,{4})
+ local oldBuild=package.id
+ local first,siblingItem,otherItem=unpack(package.items)
+ local function slot(item,name)
+  item.terms={file='Gym.pmx'} item.name=name
+  if scenario=='supersede_key' then item.key='characters/172' end
+ end
+ slot(first,'Old name') slot(otherItem,'Old name') siblingItem.terms={file='Other.pmx'}
+ package.items={first,siblingItem}
+ local legacy=scenario=='supersede_legacy' or scenario=='supersede_field'
+ local foreign={id=hex(8,32),title=legacy and 'Other pack' or 'Pack',install='workshop',items={otherItem},files=package.files}
+ local function mount()
+  provide() local W=mmdhl.workshop
+  W.packages[foreign.id]=foreign W.origins[foreign.id]={owner='addon:other',wsid='0',pathId='GAME'}
+  W.provided[W.Key('character',other)]={foreign.id}
+ end
+ local dirs={}
+ file.Find=function(pattern)
+  if pattern=='mmd_hotloader/assets/*' then
+   local ids={} for _,id in ipairs(models) do if file.Exists('mmd_hotloader/assets/'..id..'/manifest.json','DATA') then ids[#ids+1]=id end end
+   return {},ids
+  end
+  if pattern=='mmd_hotloader/rigs/*' then return {},dirs end
+  return {},{}
+ end
+ concommand={Add=noop} cvars={AddChangeCallback=noop}
+ CreateClientConVar=function() return {GetBool=function() return false end} end
+ native.GetSourcePaths=function() return {[own]={source='Gym.pmx'}} end
+ native.DeleteAssets=function(ids)
+  if istable(ids) then for _,id in ipairs(ids) do
+   for _,p in ipairs(modelFiles[id]) do if p:match('^assets/') then file.Delete('mmd_hotloader/'..p) end end
+  end end
+  return {pendingFiles=0}
+ end
+ mmdhl.terms={Forget=noop,SaveFromPackage=function(_,id,terms,title)
+  text['mmd_hotloader/terms/'..id..'.json']={file=terms.file,package=title,origin='workshop'}
+ end}
+ mmdhl.assets={} mmdhl.rigs={} mmdhl.UnregisterAsset=noop net.WriteString=noop
+ -- The native check has decoded the manifest. Supply its JSON alongside the instrumented bytes.
+ for _,id in ipairs(models) do text['mmd_hotloader/assets/'..id..'/manifest.json']={name='Old name'} end
+ local beforeOwn={name='Old name',favorite=true}
+ text['mmd_hotloader/library/'..own..'.json']=beforeOwn
+ mmdhl.library=nil dofile(source..'/library.lua')
+ load() mount() local W=mmdhl.workshop
+ W.Reconcile(true) run(20000)
+ assert(W.state.assets[W.Key('character',old)].installed,'old did not install')
+ local new=addModel(5,{5}) local updated=package.items[#package.items]
+ slot(updated,'New name')
+ if scenario=='supersede_key' then updated.terms.file='Renamed.pmx' end
+ text['mmd_hotloader/assets/'..new..'/manifest.json']={name='New name'}
+ local rk=hex(323,32)
+ if scenario=='supersede_save' then
+  dirs={rk} text['mmd_hotloader/rigs/'..rk..'/rig.json']={key=rk,asset=old}
+  text['mmd_hotloader/rigs/'..rk..'/carrier.gma']=true
+ end
+ if scenario=='supersede_owned' then W.state.assets[W.Key('character',old)].ownBefore=true end
+ if scenario=='supersede_demo' then W.state.assets[W.Key('character',old)].adopted=true end
+ if scenario=='supersede_settings' then text['mmd_hotloader/library/'..old..'.json']={name='My character',favorite=true,folder='Favourites'} end
+ if scenario=='supersede_failure' then checkMode[new]='invalid' end
+ if scenario=='supersede_private' then native.GetSourcePaths=function() return {[old]={source='Gym.pmx'},[own]={source='Gym.pmx'}} end end
+ if legacy or scenario=='supersede_legacy_collision' or scenario=='supersede_previous' then
+  for _,rec in pairs(W.state.assets) do rec.owner=nil rec.modelKey=nil rec.sums=nil end
+ end
+ package.id=hex(2,32) package.items={updated,siblingItem}
+ if scenario=='supersede_previous' then
+  -- No sibling or unique title. The loader recorded exactly which pack owned the old export.
+  W.previousOwners={[oldBuild]='ws:1'} package.items={updated}
+ end
+ if scenario=='supersede_field' then
+  -- The reported case: both builds finished under the old Hotloader before this code ever ran.
+  text[StatePath]=table.Copy(W.state)
+  installedEarlier(new,{},{package=package.id,legacy=true})
+  W.state=util.JSONToTable(text[StatePath])
+  text['mmd_hotloader/library/'..new..'.json']={name=updated.name}
+ end
+ if scenario=='supersede_ambiguous' then siblingItem.terms.file='Gym.pmx' end
+ if scenario=='supersede_shared' then foreign.items={otherItem,first} end
+ mount()
+ if scenario=='supersede_shared' then W.provided[W.Key('character',old)]={foreign.id} end
+ if scenario=='supersede_save' then hook.Add('MMDHL.LibraryChanged','noDuplicate',function()
+  assert(not (mmdhl.library.entries[old] and mmdhl.library.entries[new]),'both revisions were offered together')
+ end) end
+ W.Reconcile(true)
+ if scenario=='supersede_field' then eq(W.Replacement(old),new,'existing duplicate survived the first scan')
+ else eq(W.Replacement(old),nil,'retired before new asset check') end
+ run(20000) mmdhl.library.Refresh()
+ local lib=mmdhl.library.entries
+ assert(lib[other] and lib[own],'a different pack or personal import was lost')
+ eq(text['mmd_hotloader/library/'..own..'.json'],beforeOwn,'own settings rewritten')
+ if scenario=='supersede_owned' or scenario=='supersede_private' or scenario=='supersede_shared' or scenario=='supersede_demo' then
+  assert(lib[old] and lib[new],'a still-provided or personally owned model was retired') eq(W.Replacement(old),nil)
+ elseif scenario=='supersede_ambiguous' or scenario=='supersede_legacy_collision' then
+  eq(W.Replacement(old),nil,'ambiguous source or legacy owner matched')
+ elseif scenario=='supersede_failure' then
+  eq(W.Replacement(old),nil,'failed successor adopted') assert(lib[old],'failure removed last good character')
+  checkMode[new]=nil W.Reconcile(true) run(20000) eq(W.Replacement(old),new,'failed install could not retry')
+ else
+  eq(W.Replacement(old),new,'replacement') eq(lib[old],nil,'old library entry')
+  if scenario=='supersede_settings' then
+   eq(lib[new].name,'My character') eq(lib[new].settings.favorite,true) eq(lib[new].settings.folder,'Favourites')
+  else eq(lib[new].name,'New name') end
+  eq(W.InCache('character',old),scenario=='supersede_save','obsolete files retained only for the saved carrier')
+  if scenario=='supersede_save' then eq(W.state.assets[W.Key('character',old)].saveRig,rk,'save carrier') end
+  W.Reconcile(true) run(20000) eq(W.Replacement(old),new,'second reconciliation')
+  if scenario=='supersede_rollback' then
+   package.id=oldBuild package.items={first,siblingItem}
+   -- A later installation of the original build uses the same cached identity again.
+   text['mmd_hotloader/assets/'..old..'/manifest.json']={name='Old name'}
+   mount() W.Reconcile(true) run(20000)
+   eq(W.Replacement(old),nil,'rollback left a cycle') eq(W.Replacement(new),old,'rollback successor')
+   mmdhl.library.Refresh() assert(mmdhl.library.entries[old] and not mmdhl.library.entries[new],'rollback library')
+  end
+ end
+elseif scenario=='pack_owners' or scenario=='journal_owners' then
+ load() local W=mmdhl.workshop local id=package.id local id2=hex(2,32) local id3=hex(3,32)
+ file.Find=function(pattern,where)
+  eq(where,'MOD')
+  if pattern=='addons/*' then return {},{'mmdhl_test','another'} end
+  if pattern:find('mmdhl_test',1,true) then return {id..'.json',id3..'.json'},{} end
+  return {id3..'.json'},{}
+ end
+ local priorId=hex(4,32)
+ if scenario=='journal_owners' then
+  local journalPath='native-loader/state.json' local decoded={}
+  local function row(raw,values) decoded[raw]=values return '      '..raw end
+  local function pkg(owner)
+   local v={id='fixture',source='workshop',location='steamapps/workshop/content/4000/'..owner..'/test.gma'}
+   return row('{"id": "fixture", "source": "workshop", "location": "'..v.location..'"}',v)
+  end
+  local function entry(build)
+   local p='garrysmod/addons/mmdhl_test/data_static/mmdhl/packages/'..build..'.json'
+   return row('{"path": "'..p..'", "package": "fixture"}',{path=p,package='fixture'})
+  end
+  -- Different Workshop items successively deploy the same folder and outer package id.
+  local journal=table.concat({'{','  "schema": 1,','  "next": 7,','  "current": {','    "packages": [',pkg('234'),'    ],',
+   '    "files": [',entry(id),'    ]','  },','  "previous": {','    "packages": [',pkg('123'),'    ],',
+   '    "files": [',entry(priorId),'    ]','  },','  "previous_backup": "",','  "pending": null','}'},'\n')
+  local decode=util.JSONToTable
+  util.JSONToTable=function(raw) return decoded[raw] or decode(raw) end
+  local size=file.Size file.Size=function(p,where) if p==journalPath and where=='BASE_PATH' then return #journal end return size(p,where) end
+  file.Open=function(p,mode,where)
+   eq(p,journalPath) eq(where,'BASE_PATH') local at=1
+   return {Read=function(_,n) local part=journal:sub(at,at+n-1) at=at+#part return part end,Close=noop}
+  end
+ end
+ local origins={[id]={wsid='0'},[id2]={wsid='123'},[id3]={wsid='0'}}
+ local co=coroutine.create(function() W.FindPackOwners({[id]=true,[id2]=true,[id3]=true},origins) end)
+ repeat assert(coroutine.resume(co)) until coroutine.status(co)=='dead'
+ eq(origins[id].owner,scenario=='journal_owners' and 'ws:234/addon:mmdhl_test' or 'addon:mmdhl_test')
+ eq(origins[id2].owner,'ws:123') eq(origins[id3].owner,false,'ambiguous folder')
+ if scenario=='journal_owners' then eq(W.previousOwners[priorId],'ws:123/addon:mmdhl_test','previous owner') end
 elseif scenario=='library_add' then
  -- library.Add lists new characters as a rebuild would, reading only their files.
  local entries={}

@@ -12,6 +12,7 @@ local native=mmdhl.native
 local L=mmdhl.L
 local W=mmdhl.workshop or {}
 mmdhl.workshop=W
+include('mmdhl/workshop_updates.lua')
 local PackageDir,FileDir='data_static/mmdhl/packages/','data_static/mmdhl/files/'
 local StatePath='mmd_hotloader/workshop/state.json'
 local Chunk=48*1024
@@ -94,7 +95,7 @@ function W.ValidatePackage(id,raw)
    end
    for _,path in ipairs(files) do if path:match('^textures/') and package.files[path].sha256..'.png'~=path:match('([^/]+)$') then return nil,'texture does not match its hash' end end
    package.items[#package.items+1]={kind=item.kind,asset=item.asset,name=W.CleanText(item.name,100),files=files,settings=istable(item.settings) and item.settings or nil,
-    arms=istable(item.arms) and item.arms or nil,fit=istable(item.fit) and item.fit or nil,terms=istable(item.terms) and item.terms or nil}
+    key=item.key,source=item.source,arms=istable(item.arms) and item.arms or nil,fit=istable(item.fit) and item.fit or nil,terms=istable(item.terms) and item.terms or nil}
   end
  end
  return package
@@ -154,8 +155,24 @@ local function inCache(kind,id)
  return file.Exists('mmd_hotloader/assets/'..id..'/manifest.json','DATA') and file.Exists('mmd_hotloader/assets/'..id..'/model.bin','DATA')
 end
 W.InCache=inCache
+-- What a package says of a character's files that an update rewrites in place (ADR 0278): its manifest.json and
+-- model.bin keep their paths from one build to the next, often their sizes too (vertices, weights, UVs or morphs
+-- edited), while a texture is named by its own SHA-256 and a prop's bundle is its asset id, so a changed one of those
+-- is a new file. An install record keeps these hashes; a package that lists others installs the model again.
+local function sums(item,package)
+ if not item or item.kind~='character' then return nil end
+ local out={}
+ for _,path in ipairs(item.files) do if path:match('^assets/') then out[path]=package.files[path].sha256 end end
+ return out
+end
+local function sameSums(a,b)
+ if not istable(a) or not istable(b) then return false end
+ for path,sha in pairs(a) do if b[path]~=sha then return false end end
+ for path in pairs(b) do if a[path]==nil then return false end end
+ return true
+end
 local function loadState()
- local s=util.JSONToTable(file.Read(StatePath,'DATA') or '')
+ local s=util.JSONToTable(file.Read(StatePath,'DATA') or '',true,true)
  if not istable(s) or s.version~=1 or not istable(s.assets) then s={version=1,assets={}} end
  return s
 end
@@ -193,7 +210,10 @@ function W.Origin(kind,id)
  local origin=W.origins[package.id] or {}
  return {package=package.id,title=origin.title or package.title,packageTitle=package.title,author=package.author,wsid=origin.wsid or '0',workshop=origin.workshop}
 end
-function W.IsHidden(kind,id) local rec=W.state.assets[W.Key(kind,id)] return rec~=nil and rec.hidden==true end
+function W.IsHidden(kind,id)
+ local rec=W.state.assets[W.Key(kind,id)]
+ return (kind=='character' and W.waitingForInstall and W.waitingForInstall[id]) or (rec~=nil and (rec.hidden==true or rec.replacement~=nil))
+end
 -- Deleted models whose package is still mounted, for the Deleted Workshop models view.
 function W.Deleted(kind)
  local out={}
@@ -230,6 +250,7 @@ local MaxChecks=(function()
 end)()
 local MaxActive=MaxChecks+2
 W.installed=0
+W.inUse={}   -- names of models updated in this install batch that the session had loaded before (ADR 0278)
 local function progress(done)
  if SERVER then return end
  local total=W.installed+#queue+#active
@@ -239,34 +260,60 @@ local function progress(done)
 end
 function W.Busy() return #active>0 or #queue>0 end
 -- changed: the index of a file known to differ; the ones before it were just verified.
-local function enqueue(package,item,changed)
+local function enqueue(package,item,changed,checkAll)
  local key=W.Key(item.kind,item.asset)
  if queued[key] then return end
  local files={} for _,path in ipairs(item.files) do local f=package.files[path] files[#files+1]={path=path,size=f.size,sha256=f.sha256,packed=f.packed} end
- queued[key]=true queue[#queue+1]={key=key,package=package,item=item,files=files,origin=W.origins[package.id] or {},changed=changed}
+ queued[key]=true queue[#queue+1]={key=key,package=package,item=item,files=files,origin=W.origins[package.id] or {},changed=changed,checkAll=checkAll}
 end
 -- The modification time of each file of a model when it was last known good:
 -- installed, or hashed by verify. Only the realm that installs records them (a
--- dedicated server keeps records that hold nothing else).
+-- dedicated server keeps records that hold nothing else). With the package the
+-- files came from, also the hashes it lists for the files an update rewrites.
 local function stamps(item)
  local out={} for _,path in ipairs(item.files) do out[path]=file.Time('mmd_hotloader/'..path,'DATA') end return out
 end
-local function remember(key,item)
- local rec=W.state.assets[key] or {} rec.times=stamps(item) W.state.assets[key]=rec saveStateSoon()
+local function remember(key,item,package)
+ local rec=W.state.assets[key] or {} rec.times=stamps(item)
+ if package then rec.sums=sums(item,package) rec.pending=nil rec.package=package.id end
+ if package and SERVER then rec.installed=true W.RecordIdentity(rec,item) end
+ W.state.assets[key]=rec saveStateSoon()
 end
 -- Once per session, installed files whose modification time changed since then
 -- are hashed again, a few milliseconds of work per frame while nothing installs.
 -- An unchanged cache costs no reads. A file that no longer matches clears the
--- completion record and installs the model again from that file.
+-- completion record and installs the model again from that file. adopt: a record
+-- from before ADR 0278 that another package installed; its manifest.json is hashed
+-- too (it names the source model's hash), and if all match, the package's hashes
+-- are recorded as the model's.
 local checks,checked={},{}
-local function verify(package,item)
+local function verify(package,item,adopt)
  local key=W.Key(item.kind,item.asset)
- if checked[key] then return end
+ if checked[key]==package.id then return end
  local rec=W.state.assets[key] local times=rec and rec.times or {} local files={}
- for index,path in ipairs(item.files) do if times[path]~=file.Time('mmd_hotloader/'..path,'DATA') then files[#files+1]=index end end
- if #files==0 then checked[key]=true return end
- for _,check in ipairs(checks) do if check.key==key then if check.package~=package then check.package,check.item,check.files,check.at=package,item,files,1 end return end end
- checks[#checks+1]={key=key,package=package,item=item,files=files,at=1}
+ for index,path in ipairs(item.files) do
+  if times[path]~=file.Time('mmd_hotloader/'..path,'DATA') or (adopt and path:match('^assets/%x+/manifest%.json$')) then files[#files+1]=index end
+ end
+ if #files==0 then checked[key]=package.id return end
+ for _,check in ipairs(checks) do if check.key==key then if check.package~=package then check.package,check.item,check.files,check.at,check.adopt=package,item,files,1,adopt end return end end
+ checks[#checks+1]={key=key,package=package,item=item,files=files,at=1,adopt=adopt}
+end
+-- An installed model whose package lists other hashes for its rewritten files, or whose update or repair a closed game
+-- left part way (ADR 0278).
+local function outdated(rec,item,package)
+ if not rec then return false end
+ if rec.pending then return true end
+ return item.kind=='character' and rec.sums~=nil and not sameSums(rec.sums,sums(item,package))
+end
+-- An installed model that is up to date by its record: hashed again only where its files changed on disk. A record
+-- from before ADR 0278 gets its hashes: from the package that installed it, without reading anything; from another
+-- package, once its manifest.json matches this one's.
+local function track(rec,item,package)
+ if item.kind=='character' and rec.sums==nil then
+  if rec.package==package.id then rec.sums=sums(item,package) verify(package,item) return true end
+  verify(package,item,true) return false
+ end
+ verify(package,item) return false
 end
 hook.Add('Think','MMDHL.WorkshopVerify',function()
  if not checks[1] or W.Busy() then return end
@@ -275,15 +322,26 @@ hook.Add('Think','MMDHL.WorkshopVerify',function()
   local check=checks[1] local index=check.files[check.at] local path=index and check.item.files[index]
   -- A later scan that no longer lists the model (package gone, model deleted) drops it.
   if W.packages[check.package.id]~=check.package then table.remove(checks,1)
-  elseif not path then table.remove(checks,1) checked[check.key]=true remember(check.key,check.item)
+  elseif not path then table.remove(checks,1) checked[check.key]=check.package.id remember(check.key,check.item,check.adopt and check.package or nil)
   else
    local f=check.package.files[path]
-   if native.SharedFileMatches(path,f.size,f.sha256) then check.at=check.at+1
+   local matches=native.SharedFileMatches(path,f.size,f.sha256)
+   local changedIndex=index
+   if matches and check.adopt and path:match('^assets/%x+/manifest%.json$') then
+    -- loadAsset checked the installed model.bin against this sourceHash. An identical manifest
+    -- vouches for that binary only if the incoming package declares the same digest.
+    local manifest=util.JSONToTable(file.Read('mmd_hotloader/'..path,'DATA') or '')
+    local model='assets/'..check.item.asset..'/model.bin'
+    if not manifest or manifest.sourceHash~=check.package.files[model].sha256 then
+     matches=false changedIndex=nil
+    end
+   end
+   if matches then check.at=check.at+1
    else
-    -- The install replaces this file and checks the ones after it.
-    table.remove(checks,1) checked[check.key]=true
-    local rec=W.state.assets[check.key] if rec and rec.installed then rec.installed=nil saveState() end
-    enqueue(check.package,check.item,index) return
+    -- The install replaces this file and checks the ones after it; a game closed before it ends resumes it.
+    table.remove(checks,1) checked[check.key]=check.package.id
+    local rec=W.state.assets[check.key] if rec then rec.installed=nil rec.pending=true saveState() end
+    enqueue(check.package,check.item,changedIndex,check.adopt) return
    end
   end
  end
@@ -369,7 +427,12 @@ local function installed(job)
   if mmdhl.terms and item.terms then mmdhl.terms.SaveFromPackage(item.kind,item.asset,item.terms,package.title) end
   local rec=W.state.assets[job.key] or {}
   rec.installed=true rec.installing=nil rec.adopted=user or rec.adopted or nil rec.hidden=nil rec.name=item.name rec.package=package.id rec.times=stamps(item)
+  rec.sums=sums(item,package) rec.pending=nil
+  W.RecordIdentity(rec,item)
   W.state.assets[job.key]=rec saveStateSoon()
+  -- Loaded in this session before its new files were in place: what the session shows of it stays the old version
+  -- until the game starts again (both realms keep a loaded model; ADR 0278).
+  if job.loaded then W.inUse[#W.inUse+1]=item.name~='' and item.name or item.asset:sub(1,12) end
   listInstalled(item)
   -- A model deleted earlier this session can still be queued for disk cleanup,
   -- which hides it. Loading it (and building its Source materials) dequeues it.
@@ -385,7 +448,7 @@ local function installed(job)
  -- Only a dedicated server installs in the server realm; it also needs the
  -- package's saved collision and physics to use them for its spawns.
  else
-  remember(job.key,item)
+  remember(job.key,item,package)
   local fit=item.kind=='character' and game.IsDedicated() and W.ItemFit(item) if fit then writeIfMissing('mmd_hotloader/fit_overrides/'..item.asset..'.json',fit) end
  end
  for _,handler in ipairs(installedHandlers) do handler(item,package) end
@@ -421,7 +484,7 @@ end
 local function inPlace(f)
  local name='mmd_hotloader/'..f.path
  local w=written[f.path]
- if w and w.size==f.size and w.time==file.Time(name,'DATA') then return true end
+ if w and w.sha256==f.sha256 and w.size==f.size and w.time==file.Time(name,'DATA') then return true end
  if (file.Size(name,'DATA') or -1)~=f.size then return false end
  return native.SharedFileMatches(f.path,f.size,f.sha256)
 end
@@ -453,7 +516,7 @@ local function advance()
  end
  if not job then return false end
  -- The file verify found changed is replaced at once; any other may be in place already.
- local replace=job.replace job.replace=nil
+ local replace=job.index==job.changed
  if not replace then
   local matches,err=inPlace(f)
   if err then finish(job,err) return true end
@@ -506,9 +569,14 @@ hook.Add('Think','MMDHL.WorkshopInstall',function()
  local taken,recorded=false,false
  while #active<MaxActive and queue[1] do
   local job=table.remove(queue,1)
-  job.index,job.replace,job.moving=job.changed or 1,job.changed~=nil,0
+  job.index,job.moving=job.checkAll and 1 or job.changed or 1,0
   active[#active+1]=job taken=true
   if CLIENT and not W.state.assets[job.key] then W.state.assets[job.key]={installing=true} recorded=true end
+  -- Whether this session holds the model already, before any of its new files is written (an update, a repair, a
+  -- takeover of the player's own import). The natives' check loads a model on its own and keeps nothing.
+  if CLIENT and job.item.kind=='character' and native.AssetInfo then
+   local ok,info=pcall(native.AssetInfo,job.item.asset) job.loaded=ok and info~=nil
+  end
  end
  if recorded then saveState() end
  if taken then progress() end
@@ -521,7 +589,7 @@ hook.Add('Think','MMDHL.WorkshopInstall',function()
    if err then finish(c.job,err)
    elseif done then
     c.gone=true table.RemoveByValue(commits,c) moving[c.f.path]=nil c.job.moving=c.job.moving-1
-    written[c.f.path]={size=c.f.size,time=file.Time('mmd_hotloader/'..c.f.path,'DATA')}
+    written[c.f.path]={sha256=c.f.sha256,size=c.f.size,time=file.Time('mmd_hotloader/'..c.f.path,'DATA')}
    end
   end
  end
@@ -533,10 +601,15 @@ hook.Add('Think','MMDHL.WorkshopInstall',function()
  if not ended then return end
  if active[1] or queue[1] then progress() return end
  if CLIENT and W.installed>0 then notification.AddLegacy(L('workshop.installed',{count=W.installed}),NOTIFY_GENERIC,6) end
+ if CLIENT and #W.inUse>0 then
+  notification.AddLegacy(L('workshop.restart_to_update',{count=#W.inUse}),NOTIFY_HINT or 3,12)
+  MsgN('[Model Hotloader workshop] Updated while loaded in this session, shown as updated after a restart: '..table.concat(W.inUse,', '))
+  W.inUse={}
+ end
  W.installed=0 progress(true)
  if timer.Exists(SaveTimer) then saveState() end
  flushLibraries()
- if CLIENT and mmdhl.workshop.AfterInstalls then mmdhl.workshop.AfterInstalls() end
+ if W.AfterInstalls then W.AfterInstalls() end
 end)
 -- Discovery runs as a coroutine over a few frames: hundreds of addons may be mounted.
 local scanning,rescan
@@ -554,15 +627,19 @@ local function discover()
   local addons=engine.GetAddons and engine.GetAddons() or {}
   local function assign(id,a,pathId)
    local wsid=tostring(a.wsid or '0')
+   if origins[id] and origins[id].wsid~='0' and wsid~='0' and origins[id].wsid~=wsid then origins[id].ambiguous=true end
    if not origins[id] or (origins[id].wsid=='0' and wsid~='0') then origins[id]={pathId=pathId or a.title,title=a.title,wsid=wsid,workshop=wsid~='0'} end
   end
   -- An exported GMA carries the package title, and GMod mounts it under that
   -- title: an exact match unless the Workshop item was renamed since.
   local byTitle={}
   for _,a in ipairs(addons) do if a.mounted and isstring(a.title) and a.title~='' then byTitle[a.title]=byTitle[a.title] or {} table.insert(byTitle[a.title],a) end end
-  for id,package in pairs(found) do for _,a in ipairs(byTitle[package.title] or {}) do if file.Exists(PackageDir..id..'.json',a.title) then assign(id,a) end end end
-  local missing=false for id in pairs(found) do if not origins[id] then missing=true end end
-  if missing and native.StartAddonPackageScan then
+  for id,package in pairs(found) do
+   local candidates=byTitle[package.title] or {} local a=candidates[1]
+   if #candidates==1 and file.Exists(PackageDir..id..'.json',a.title) then assign(id,a) end
+  end
+  local missing={} for id in pairs(found) do if not origins[id] then missing[id]=true end end
+  if next(missing) and native.StartAddonPackageScan then
    -- Renamed items: the native module reads the archive indexes off the main thread.
    local list,files={},{}
    for _,a in ipairs(addons) do if a.mounted and isstring(a.file) and a.file:lower():sub(-4)=='.gma' then list[#list+1]=a files[#files+1]=a.file end end
@@ -571,14 +648,14 @@ local function discover()
    while handle and result==false do coroutine.yield() result=native.PollAddonPackageScan(handle) end
    for i,ids in ipairs(util.JSONToTable(result or '') or {}) do
     for _,id in ipairs(istable(ids) and ids or {}) do
-     if found[id] and not origins[id] then assign(id,list[i],file.Exists(PackageDir..id..'.json',found[id].title) and found[id].title or 'GAME') end
+     if missing[id] then assign(id,list[i],file.Exists(PackageDir..id..'.json',found[id].title) and found[id].title or 'GAME') end
     end
    end
-  elseif missing then
+  elseif next(missing) then
    -- Older native modules: search each addon, a couple of milliseconds per frame.
    local budget=SysTime()
    for _,a in ipairs(addons) do
-    if a.mounted and isstring(a.title) and a.title~='' then
+    if a.mounted and isstring(a.title) and byTitle[a.title] and #byTitle[a.title]==1 then
      for _,name in ipairs((file.Find(PackageDir..'*.json',a.title))) do local id=name:sub(1,32) if found[id] then assign(id,a) end end
     end
     if SysTime()-budget>.002 then coroutine.yield() budget=SysTime() end
@@ -587,6 +664,7 @@ local function discover()
   for id,package in pairs(found) do
    if not origins[id] then origins[id]={pathId='GAME',title=package.title,wsid='0',workshop=file.Exists(PackageDir..id..'.json','WORKSHOP')} end
   end
+  W.FindPackOwners(found,origins)
  end
  local provided={}
  for id,package in pairs(found) do for _,item in ipairs(package.items) do local key=W.Key(item.kind,item.asset) provided[key]=provided[key] or {} table.insert(provided[key],id) end end
@@ -597,11 +675,11 @@ end
 local function signature()
  local parts={}
  for key,list in pairs(W.provided) do parts[#parts+1]=key..'='..table.concat(list,',') end
- for id,o in pairs(W.origins) do parts[#parts+1]=id..'@'..tostring(o.title)..'#'..tostring(o.wsid) end
+ for id,o in pairs(W.origins) do parts[#parts+1]=id..'@'..tostring(o.title)..'#'..tostring(o.wsid)..'#'..tostring(o.owner) end
  table.sort(parts) return table.concat(parts,'\n')
 end
 function W.Scan()
- if scanning then rescan=true return end
+ if scanning or W.Busy() then rescan=true return end
  scanning=coroutine.create(function()
   discover()
   local sig=signature() local fresh=sig~=(W.signature or '') W.signature=sig
@@ -610,6 +688,7 @@ function W.Scan()
  end)
 end
 hook.Add('Think','MMDHL.WorkshopScan',function()
+ if rescan and not scanning and not W.Busy() then rescan=nil W.Scan() end
  if not scanning then return end
  local ok,err=coroutine.resume(scanning)
  if not ok then ErrorNoHalt('[Model Hotloader workshop] '..tostring(err)..'\n') scanning=nil return end
@@ -619,40 +698,77 @@ end)
 if CLIENT then hook.Add('GameContentChanged','MMDHL.Workshop',function() timer.Create('MMDHL.WorkshopRescan',2,1,W.Scan) end) end
 hook.Add('InitPostEntity','MMDHL.Workshop',function() timer.Simple(1,W.Scan) end)
 if CLIENT then
+ local function notifyHost()
+  if not (game.SinglePlayer() or (IsValid(LocalPlayer()) and LocalPlayer():IsListenServerHost())) then return end
+  timer.Create('MMDHL.WorkshopReady',1,1,function() net.Start('mmdhl_workshop_ready') net.SendToServer() end)
+ end
  -- Models from packages that are gone, unless the player owns them (own imports, demo models).
  local removing
+ local noRig={}
+ local liveRetired={}
  local function removeOrphans()
   if removing or W.Busy() then return end
-  local characters,props,used={},{},{}
-  for _,ent in ipairs(mmdhl.Entities()) do used[mmdhl.GetAsset(ent)]=true end
+  if W.ApplyReplacements() then saveState() refreshNow() notifyHost() end
+  local characters,props,used,checkRigs={},{},{},{}
+  liveRetired={}
+  for _,ent in ipairs(mmdhl.Entities()) do
+   local id=mmdhl.GetAsset(ent) used[id]=true
+   if W.Replacement(id) then liveRetired[ent]=true noRig[id]=nil end
+  end
   for _,ent in ipairs(ents.FindByClass('mmdhl_prop')) do if ent.GetAssetID then used[ent:GetAssetID()]=true end end
   for key,rec in pairs(W.state.assets) do
    local kind,id=split(key)
-   if not W.provided[key] and rec.installed and not rec.adopted then
+   -- A model this addon was updating or repairing when its package went is this addon's too (ADR 0278).
+   if not W.provided[key] and (rec.installed or rec.pending) and not rec.adopted then
     -- A model the player had imported before a package took it over stays: theirs again.
     if rec.ownBefore then restoreOwn(kind,id) W.state.assets[key]=nil
-    elseif not inCache(kind,id) then W.state.assets[key]=nil
-    elseif not used[id] then if kind=='static' then props[#props+1]=id else characters[#characters+1]=id end end
+    elseif not inCache(kind,id) then if not rec.replacement then W.state.assets[key]=nil end
+    elseif rec.replacement then
+     if not used[id] then
+      if noRig[id]==rec then characters[#characters+1]=id
+      elseif not rec.saveRig or not file.Exists('mmd_hotloader/rigs/'..rec.saveRig..'/carrier.gma','DATA') then checkRigs[id]=rec end
+     end
+    elseif not (W.candidates and W.candidates[id]) and not used[id] then
+     if kind=='static' then props[#props+1]=id else characters[#characters+1]=id end
+    end
    elseif not W.provided[key] and not rec.installed and not rec.hidden and (rec.installing or rec.ownBefore) then
     -- An install that never finished, for a package that went: nothing to keep.
     W.state.assets[key]=nil
    end
   end
   saveState()
-  local function forget(kind,ids) for _,id in ipairs(ids) do W.state.assets[W.Key(kind,id)]=nil end saveState() end
+  local function forget(kind,ids)
+   for _,id in ipairs(ids) do
+    local key=W.Key(kind,id) local rec=W.state.assets[key]
+    if rec and rec.replacement then rec.times,rec.sums=nil,nil else W.state.assets[key]=nil end
+    noRig[id]=nil
+   end
+   saveState()
+  end
   local function run(lib,kind,ids,nextStep)
    if #ids==0 or not lib then nextStep() return end
    removing=true
    lib.Delete(ids,function(ok,message)
     removing=nil
-    if ok then forget(kind,ids) else ErrorNoHalt('[Model Hotloader workshop] '..tostring(message)..'\n') end
+    if ok then forget(kind,ids)
+    elseif message==L'library.delete.busy' then timer.Create('MMDHL.WorkshopOrphans',1,1,removeOrphans)
+    else ErrorNoHalt('[Model Hotloader workshop] '..tostring(message)..'\n') end
     nextStep()
-   end)
+   end,true)
   end
-  run(mmdhl.library,'character',characters,function() run(mmdhl.props and mmdhl.props.library,'static',props,function() changed() end) end)
+  run(mmdhl.library,'character',characters,function() run(mmdhl.props and mmdhl.props.library,'static',props,function()
+   changed()
+   W.CheckSaveRigs(checkRigs,function(missing)
+    for id,rec in pairs(missing) do noRig[id]=rec end
+    saveState() if next(missing) then removeOrphans() end
+   end)
+  end) end)
  end
+ hook.Add('EntityRemoved','MMDHL.RetiredWorkshopCharacter',function(ent)
+  if liveRetired[ent] then timer.Create('MMDHL.WorkshopOrphans',.25,1,removeOrphans) end
+ end)
  function W.Reconcile(fresh)
-  local dirty=false
+  local dirty=W.IndexReplacements()
   for key,list in pairs(W.provided) do
    local kind,id=split(key) local rec=W.state.assets[key] local package=provider(key) local item=itemFor(package,kind,id)
    local user=false for _,pid in ipairs(list) do if W.packages[pid].install=='user' then user=true end end
@@ -665,12 +781,22 @@ if CLIENT then
     if not user and package.install=='workshop' and (not rec or (rec.ownBefore and not rec.installed)) and inCache(kind,id) then
      rec=rec or {} rec.ownBefore=true W.state.assets[key]=rec dirty=true
      enqueue(package,item)
+    elseif rec and (rec.pending or rec.installing) then
+     -- An update or repair that a closed game left part way: resumed (ADR 0278).
+     enqueue(package,item)
     elseif not complete(item,package,rec and rec.installed) then
      -- A missing or resized file: not installed until the package repairs it.
-     if rec and rec.installed then rec.installed=nil dirty=true end
+     if rec and rec.installed then rec.pending=true dirty=true end
      enqueue(package,item)
-    -- Only this addon's installs; a player's own import of the model is theirs.
-    elseif rec and rec.installed then verify(package,item) end
+    -- Only this addon's installs; a player's own import of the model is theirs. A demo model, once
+    -- installed, is the player's too: repaired, never updated.
+    elseif rec and rec.installed and rec.adopted then verify(package,item)
+    elseif rec and rec.installed then
+     -- A package that lists other hashes for the files an update rewrites in place (ADR 0278): the
+     -- model is installed again, its unchanged files found in place. Sizes alone miss such an update.
+     if outdated(rec,item,package) then rec.pending=true dirty=true enqueue(package,item)
+     elseif track(rec,item,package) then dirty=true end
+    end
    end
   end
   if dirty then saveState() end
@@ -708,26 +834,48 @@ if CLIENT then
  end
  -- Listen servers approve Workshop models once their host installed them.
  W.OnInstalled(function()
-  if not game.SinglePlayer() and IsValid(LocalPlayer()) and LocalPlayer():IsListenServerHost() then
-   timer.Create('MMDHL.WorkshopReady',1,1,function() net.Start('mmdhl_workshop_ready') net.SendToServer() end)
+  if not game.SinglePlayer() then notifyHost() end
+ end)
+ -- An explicit later import of a retired copy belongs to the player.
+ hook.Add('MMDHL.Imported','MMDHL.WorkshopOwn',function(id)
+  if not W.provided[W.Key('character',id)] and W.state.assets[W.Key('character',id)] then
+   W.state.assets[W.Key('character',id)]=nil noRig[id]=nil saveState() refreshLibraries() notifyHost()
   end
  end)
 else
  util.AddNetworkString('mmdhl_workshop_ready')
  -- A dedicated server keeps its own cache; a listen server shares its host's.
  local installs=game.IsDedicated()
+ local function migrateActors(approvedId)
+  if installs and not approvedId and W.ApplyReplacements() then saveState() end
+  for old,id in pairs(W.candidates or {}) do
+   if (not approvedId or approvedId==id) and W.Replacement(old)==id and mmdhl.CanUseAsset(nil,id) then mmdhl.MigrateWorkshopActors(old,id) end
+  end
+ end
  function W.Reconcile()
-  if game.SinglePlayer() then return end
+  if not installs then W.state=loadState() end
+  local dirty=W.IndexReplacements()
+  if game.SinglePlayer() then migrateActors() return end
   for key,list in pairs(W.provided) do
    local kind,id=split(key) local package=provider(key) local item=itemFor(package,kind,id)
-   if complete(item,package,installs) then W.Approve(item,package) if installs then verify(package,item) end
+   local rec=installs and W.state.assets[key] or nil
+   -- A package that lists other hashes for the files an update rewrites, or an update a closed server left part
+   -- way (ADR 0278): installed again before it is approved again.
+   if rec and outdated(rec,item,package) then rec.pending=true dirty=true enqueue(package,item)
+   elseif complete(item,package,installs) then
+    W.Approve(item,package)
+    if installs then if rec then dirty=track(rec,item,package) or dirty else verify(package,item) end end
    elseif installs then enqueue(package,item) end
   end
+  if installs and dirty then saveState() end
+  migrateActors()
   W.ForgetMissing()
  end
+ W.AfterInstalls=migrateActors
  local function approve(item,package)
   if item.kind=='static' then if mmdhl.props and mmdhl.props.ApproveWorkshop then mmdhl.props.ApproveWorkshop(item.asset,item.name,package.id) end
   elseif mmdhl.ApproveWorkshopAsset then mmdhl.ApproveWorkshopAsset(item.asset,item.name,package.id) end
+  if item.kind=='character' then migrateActors(item.asset) end
  end
  -- A model is approved once its assembled files passed the native check: in this server's own
  -- install (step), or here for one installed earlier or, on a listen server, by the host's game.
@@ -765,14 +913,17 @@ else
  -- Approvals granted because a package was mounted end with the package.
  function W.ForgetMissing()
   local approved=mmdhl.approved or {}
-  local characters,props={},{}
-  for id,entry in pairs(approved.assets or {}) do if entry.approvedBy=='workshop' and not W.provided[W.Key('character',id)] then characters[#characters+1]=id end end
+  local characters,props,updating={},{},{}
+  for id,entry in pairs(approved.assets or {}) do if entry.approvedBy=='workshop' and not W.provided[W.Key('character',id)] then
+   local ids=W.candidates[id] and updating or characters ids[#ids+1]=id
+  end end
   for id,entry in pairs(approved.props or {}) do if entry.approvedBy=='workshop' and not W.provided[W.Key('static',id)] then props[#props+1]=id end end
   if #characters>0 and mmdhl.ForgetPublishedAssets then mmdhl.ForgetPublishedAssets(characters) end
+  if #updating>0 then mmdhl.ForgetPublishedAssets(updating,true) end
   if #props>0 and mmdhl.props and mmdhl.props.ForgetApproved then mmdhl.props.ForgetApproved(props) end
  end
  net.Receive('mmdhl_workshop_ready',function(_,p)
-  if not IsValid(p) or not p:IsListenServerHost() or (p.MMDHLWorkshopReady or 0)>CurTime() then return end
-  p.MMDHLWorkshopReady=CurTime()+2 W.Scan()
+  if not IsValid(p) or not (game.SinglePlayer() or p:IsListenServerHost()) then return end
+  timer.Create('MMDHL.WorkshopReadyScan',.25,1,W.Scan)
  end)
 end

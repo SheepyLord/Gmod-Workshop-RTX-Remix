@@ -725,6 +725,7 @@ function PANEL:Refresh()
  self.Manage:SetTall(self.S(deletedView and 32 or listed and 108 or 32)) self.Manage:InvalidateLayout()
  if listed then self:RefreshFolders() end
  local selected,entity=self.selected,self.entity local rows={}
+ if self.mode=='library' and selected and mmdhl.workshop and mmdhl.workshop.Replacement then selected=mmdhl.workshop.Replacement(selected) or selected end
  local query=string.Trim(self.Search:GetText()):lower()
  if self.mode=='scene' then
   -- Other addons' copies of player models (a first-person body) are not characters of their own.

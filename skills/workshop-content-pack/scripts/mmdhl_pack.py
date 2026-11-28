@@ -460,6 +460,17 @@ def build(args) -> dict:
         if not sep or not asset or not name:
             raise PackError("--item %s: expected ASSET=NAME" % spec)
         requests.append((asset, name))
+    keys = {}
+    used_keys = set()
+    for spec in getattr(args, "model_key", ()):
+        given, sep, key = spec.partition("=")
+        if not sep or not re.fullmatch(r"[a-zA-Z0-9_-][a-zA-Z0-9_./-]{0,127}", key):
+            raise PackError("--model-key expects ASSET=KEY with a stable model identifier")
+        asset = resolve_asset(cache, given)
+        if asset in keys or key.lower() in used_keys:
+            raise PackError("--model-key repeats an asset or key: %s" % spec)
+        keys[asset] = key
+        used_keys.add(key.lower())
     items, files, notes, seen = [], {}, [], set()
     for given, name in requests:
         asset = resolve_asset(cache, given)
@@ -469,8 +480,12 @@ def build(args) -> dict:
         name = clean_text("item name", name, 100) or asset[:12]
         print("%s %s" % (asset[:12], name))
         item, item_files = collect(cache, asset, name, rename, notes)
+        if asset in keys:
+            item["key"] = keys.pop(asset)
         items.append(item)
         files.update(item_files)
+    if keys:
+        raise PackError("--model-key names an asset outside this package")
     for path, (size, _, _) in files.items():
         limit = file_limit(path)
         if not limit:
@@ -556,6 +571,8 @@ def main(argv=None) -> int:
     ap.add_argument("description_file", help="UTF-8 text file, at most 8000 bytes")
     ap.add_argument("release_json", nargs="?", help="JSON with release and build (default: the install's mmdhl-native-release.json)")
     ap.add_argument("--item", action="append", default=[], metavar="ASSET=NAME", help="another character (repeatable)")
+    ap.add_argument("--model-key", action="append", default=[], metavar="ASSET=KEY",
+                    help="stable identity within this pack across updates, for example an author's model number")
     ap.add_argument("--tag", action="append", choices=TAGS, help="addon.json tag, at most two (default cartoon)")
     ap.add_argument("--default-preset-name", metavar="NAME", help="rename the default bodygroup preset")
     ap.add_argument("--replace", action="store_true", help="replace an earlier package folder at the output")

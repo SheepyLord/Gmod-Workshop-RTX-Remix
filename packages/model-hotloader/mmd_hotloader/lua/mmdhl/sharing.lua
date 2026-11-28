@@ -199,10 +199,12 @@ if SERVER then
   return not IsValid(owner) or owner==p or p:IsAdmin()
  end
  local function save() file.CreateDir('mmd_hotloader') file.Write('mmd_hotloader/approved.json',util.TableToJSON(approved,true)) end
- function mmdhl.ForgetPublishedAssets(ids)
+ function mmdhl.ForgetPublishedAssets(ids,keepRigs)
   for _,id in ipairs(ids) do
    approved.assets[id]=nil
-   for key,entry in pairs(approved.rigs) do if entry.asset==id then approved.rigs[key]=nil end end
+   for key,entry in pairs(approved.rigs) do if entry.asset==id then
+    if keepRigs then entry.workshopUpdate=true else approved.rigs[key]=nil end
+   end end
    mmdhl.UnregisterAsset(id)
   end
   save() mmdhl.InvalidateSharedManifests() mmdhl.SendCatalogWithdrawal(false,ids)
@@ -217,9 +219,22 @@ if SERVER then
  end
  -- Sends what is approved; registers and saves nothing. An NPC or player model replaced
  -- by a newer generator's (mmdhl.NewerActor) stays on the server, out of clients' menus.
+ util.AddNetworkString('mmdhl_workshop_selection')
+ local function sendSelection(rig,p)
+  local saved=approved.rigs[rig.key]
+  if not saved or not saved.previousChoices then return end
+  for _,who in ipairs(p and {p} or player.GetAll()) do
+   local choice=who:GetInfo('cl_playermodel')
+   if saved.previousChoices[choice] then
+    who.MMDHLWorkshopChoice={from=choice,rig=rig}
+    net.Start('mmdhl_workshop_selection') net.WriteString(choice) net.WriteString(rig.key) net.Send(who)
+   end
+  end
+ end
+ local function retired(id) return mmdhl.workshop and mmdhl.workshop.Replacement(id) end
  local function catalog(p)
-  for id,entry in pairs(approved.assets) do net.Start('mmdhl_catalog') net.WriteString(id) net.WriteString(entry.name or id) if p then net.Send(p) else net.Broadcast() end end
-  for _,entry in pairs(mmdhl.actorRegistrations) do if not mmdhl.NewerActor(entry.rig) then mmdhl.SendActorRegistration(entry.rig,entry.arms,p) end end
+  for id,entry in pairs(approved.assets) do if not retired(id) then net.Start('mmdhl_catalog') net.WriteString(id) net.WriteString(entry.name or id) if p then net.Send(p) else net.Broadcast() end end end
+  for _,entry in pairs(mmdhl.actorRegistrations) do if not retired(entry.rig.asset) and not mmdhl.NewerActor(entry.rig) then mmdhl.SendActorRegistration(entry.rig,entry.arms,p) sendSelection(entry.rig,p) end end
   if mmdhl.props and mmdhl.props.Catalog then mmdhl.props.Catalog(p) end
  end
  function mmdhl.ApproveAsset(p,id,name)
@@ -236,9 +251,10 @@ if SERVER then
   save() mmdhl.InvalidateSharedManifests() catalog()
  end
  function mmdhl.PublishRig(rig,arms)
+  if retired(rig.asset) then return end
   if not approved.assets[rig.asset] then if not game.SinglePlayer() then return end approved.assets[rig.asset]={name=rig.name,approvedBy='singleplayer',approvedAt=os.time()} end
   local old=approved.rigs[rig.key]
-  approved.rigs[rig.key]={asset=rig.asset,role=rig.role,arms=arms and arms.key or (old and old.arms)}
+  approved.rigs[rig.key]={asset=rig.asset,role=rig.role,arms=arms and arms.key or (old and old.arms),previousChoices=old and old.previousChoices}
   if arms then approved.rigs[arms.key]={asset=arms.asset,role='arms'} end save()
  end
  mmdhl.SendSharedCatalog=catalog
@@ -272,10 +288,122 @@ if SERVER then
   if rig==nil then rig=util.JSONToTable(file.Read('mmd_hotloader/rigs/'..key..'/rig.json','DATA') or '') or false decoded[key]=rig end
   return rig or nil
  end
+ -- Rebuild the carrier for the new mesh. Its compiled model, material archive and rig key all
+ -- depend on the asset. The old sidecars still describe exactly what a save or dupe captured.
+ local pendingUpdates,updateQueue={},{}
+ local revisedRigs={}
+ local function carrierOptions(id,rig,role,parts)
+  local options,err=mmdhl.ActorOptions({role=role,gender=rig.animation and rig.animation.profile:find('_male$') and 'male' or 'female',
+   scaleMultiplier=rig.scaleMultiplier,mass=rig.mass,armsParts=parts,boneMap=mmdhl.SavedBoneMap(id)})
+  if not options then return nil,err end
+  if not options.scaleMultiplier then options.scale=rig.scale*.0254 end
+  return util.TableToJSON(options)
+ end
+ -- A multiplayer save may name a carrier whose Workshop approval ended. Restore the corresponding
+ -- approved mesh with those options, without granting access to the withdrawn asset.
+ function mmdhl.WorkshopRestoreTarget(old)
+  if mmdhl.CanUseAsset(nil,old) then return end
+  local w=mmdhl.workshop local id=w and w.Replacement(old)
+  if id and w.candidates and w.candidates[old]==id and w.provided[w.Key('character',id)] and mmdhl.CanUseAsset(nil,id) then return id end
+ end
+ function mmdhl.RestoreWorkshopCarrier(rig)
+  local id=mmdhl.WorkshopRestoreTarget(rig.asset)
+  if not id then return nil,L'persistence.error.asset_not_approved' end
+  local key=revisedRigs[rig.key] local kept=key and (mmdhl.rigs[key] or readRig(key))
+  if kept and kept.asset==id then return kept end
+  local json,err=carrierOptions(id,rig,rig.role,rig.armsParts)
+  if not json then return nil,err end
+  local new,why=mmdhl.Decode(native.PrepareCarrier(id,json))
+  if not new or new.asset~=id or not mmdhl.RememberRig(new) then return nil,why or L'persistence.error.carrier_outdated' end
+  revisedRigs[rig.key]=new.key return new
+ end
+ local function rebuildCarrier(id,rig,role,parts)
+  local json,err=carrierOptions(id,rig,role,parts)
+  if not json then return nil,err end
+  local deadline=SysTime()+30
+  while true do
+   local ready,why=native.RequestCarrierFit(id,json)
+   if ready then return mmdhl.Decode(native.PrepareCarrier(id,json)) end
+   if ready~=false or SysTime()>=deadline then return nil,why or 'carrier fit timed out' end
+   coroutine.yield()
+  end
+ end
+ local function replaceRig(old,id,key)
+  local entry=approved.rigs[key] local rig=entry and readRig(key)
+  if not rig or rig.asset~=old then return end
+  local new,err=rebuildCarrier(id,rig,entry.role)
+  local arms
+  if new and entry.arms then
+   local prior=readRig(entry.arms)
+   if prior then arms,err=rebuildCarrier(id,prior,'arms',prior.armsParts) end
+  end
+  -- The package or the player's choice can change while a native fit is running.
+  if retired(old)~=id or approved.rigs[key]~=entry or not mmdhl.CanUseAsset(nil,id) then return end
+  if not new or (entry.arms and not arms) or not mmdhl.PublishActorEntry(new,arms) then
+   ErrorNoHalt('[Model Hotloader workshop] Could not update '..entry.role..' '..key..': '..tostring(err or 'carrier unavailable')..'\n')
+   return
+  end
+  mmdhl.PublishRig(new,arms)
+  if entry.role=='player' then
+   local saved=approved.rigs[new.key]
+   saved.previousChoices=saved.previousChoices or {}
+   for choice in pairs(entry.previousChoices or {}) do saved.previousChoices[choice]=true end
+   saved.previousChoices['mmd_'..key:sub(1,16)]=true
+  end
+  approved.rigs[key]=nil
+  if entry.arms then
+   local used=false for _,other in pairs(approved.rigs) do if other.arms==entry.arms then used=true break end end
+   if not used then approved.rigs[entry.arms]=nil end
+  end
+  save()
+  revisedRigs[key]=new.key
+  if arms then revisedRigs[entry.arms]=arms.key end
+  mmdhl.UnregisterActor(rig.model)
+  mmdhl.SendActorRegistration(new,arms) sendSelection(new)
+ end
+ -- Refit one previously published character at a time, only its saved actor roles. A failed
+ -- fit leaves the original registration record on disk for the next scan.
+ local function runUpdate()
+  local job=updateQueue[1] if not job then return end
+  local function finish(err)
+   if err then ErrorNoHalt('[Model Hotloader workshop] '..tostring(err)..'\n') end
+   pendingUpdates[job.old]=nil table.remove(updateQueue,1)
+   if updateQueue[1] then timer.Simple(0,runUpdate) end
+  end
+  if retired(job.old)~=job.id or not mmdhl.CanUseAsset(nil,job.id) then finish() return end
+  mmdhl.LoadAsset(job.id,function(info,err)
+   if not info then finish(err) return end
+   local worker=coroutine.create(function()
+    for _,key in ipairs(job.keys) do
+     if retired(job.old)~=job.id or not mmdhl.CanUseAsset(nil,job.id) then return end
+     replaceRig(job.old,job.id,key) coroutine.yield()
+    end
+    mmdhl.SendCatalogWithdrawal(false,{job.old})
+   end)
+   local function step()
+    local ok,why=coroutine.resume(worker)
+    if not ok then finish(why)
+    elseif coroutine.status(worker)=='dead' then finish()
+    else timer.Simple(.05,step) end
+   end
+   step()
+  end)
+ end
+ function mmdhl.MigrateWorkshopActors(old,id)
+  mmdhl.readiness.ReplaceUse(old,id)
+  if pendingUpdates[old] then return end
+  local keys={}
+  for key,entry in pairs(approved.rigs) do
+   if entry.asset==old and (entry.role=='player' or entry.role=='citizen' or entry.role=='combine') then keys[#keys+1]=key end
+  end
+  if #keys==0 then return end
+  pendingUpdates[old]=true updateQueue[#updateQueue+1]={old=old,id=id,keys=keys}
+  if #updateQueue==1 then runUpdate() end
+ end
  function mmdhl.PruneRigs(decoded)
   local groups,used,changed={},{},false
   for key,entry in pairs(approved.rigs) do
-   if not istable(entry) or not isstring(entry.asset) or not approved.assets[entry.asset] then approved.rigs[key]=nil changed=true
+   if not istable(entry) or not isstring(entry.asset) or (not approved.assets[entry.asset] and not entry.workshopUpdate) then approved.rigs[key]=nil changed=true
    elseif entry.role~='arms' then
     local rig=readRig(key,decoded)
     if not istable(rig) then approved.rigs[key]=nil changed=true

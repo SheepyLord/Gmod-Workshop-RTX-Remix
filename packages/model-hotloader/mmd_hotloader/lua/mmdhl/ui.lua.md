@@ -1,5 +1,8 @@
 # ui.lua
 
+When a Workshop character changes asset ID, a library refresh selects the revised row if it is
+visible in the current folder and search. Scene rows continue to select their specific entities.
+
 The character and static-prop spawn controls expose the companion's optional RTX normal recalculation ConVar when present. It affects world-rendered imported models through transient texture tags; asset files and export data keep their authored normals. Standalone use without the companion omits the checkbox.
 
 The library window's list ([ADR 0258](../../../../../docs/decisions/0258-the-library-window-adds-rows-for-new-characters.md)): `PANEL:Refresh` builds every row of the chosen tab, folder and search (`FolderShows`, `RowItem`, `AddRow` with `DressRow`, sorted by `rowBefore`: favourites, then name, then id) and notes what it was built from in `self.built`. When the library's only changes since are characters `library.Add` listed (`library.added`), `PANEL:Think` calls `AddRows` instead: rows for new characters, made by the same `AddRow`, and the rows of characters listed again (a package's model over the player's own copy) dressed again, each placed in the list's display order (`DListView.Sorted`) where a rebuild would put it, with the folder tree, the total, the count line and the details brought up to date and the selection left as it is. A row that would have to go, and any other change, a column header sort included, builds the list again. `RefreshFolders` relabels the Workshop packages' nodes (`self.packageNodes`) when only their counts changed, and builds the folder tree again otherwise.

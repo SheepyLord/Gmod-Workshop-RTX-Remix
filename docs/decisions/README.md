@@ -200,6 +200,7 @@ someone reading the code later, or when [AGENTS.md](../../AGENTS.md) rules chang
 | [0275](0275-pass-color-between-post-effects.md) | Pass the current colour between sharpening, motion blur and lens effects, then resolve to the public image in the sRGB pass. | Accepted 2026-11-27 (the user) |
 | [0276](0276-share-frequently-rebuilt-repeated-meshes.md) | Share compatible repeated prop geometry after three frames of substantial merged BLAS rebuild work. | Accepted 2026-11-27 (the user) |
 | [0277](0277-read-only-bsp-collision-for-glass.md) | Read only the mounted BSP's collision ranges and rebase static-prop offsets for the glass worker. | Accepted 2026-11-28 (GL) |
+| [0278](0278-workshop-character-updates-follow-the-pack-model.md) | Workshop character updates carry library and actor choices to the revised asset and keep saved carriers loadable. | Accepted 2026-11-28 (WU) |
 
 ## Template
 

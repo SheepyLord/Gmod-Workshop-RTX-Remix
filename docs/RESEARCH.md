@@ -10879,3 +10879,9 @@ worktrees under `out/worktrees`. Times are local.
 - **The game's frame order:** the probe's per-frame counters show `PreRender` building the list and the `Think` hooks
   of the same `FrameNumber()` reusing it, so a list built in `Think` is not paid twice; an entity that arrives between
   the two is listed at the render boundary.
+
+## Covered lower sky and full-screen color copies (2026-11-27)
+
+Modern House on runtime 0120 submitted the lower cloud march even in an indoor view where at most one of 2,073,600 primary-depth pixels could consume it. The GPU dispatch took a median of 0.24 ms. At 3840 × 2160 the three post-effect copy-backs transferred 189.84 MiB of image payload per rendered frame and took 0.115–0.118 ms. The change and its validation are in the [handover](handover/renderer-frame-output-report.md).
+
+The Modern House field trace repeated one 573-triangle geometry range 82 times in a merged build every rendered frame in the courtyard. The retained per-mesh policy counts copies submitted to actual merged GPU builds and checks the live instances before sharing. [Measurements and implementation](handover/repeated-mesh-frame-report.md)

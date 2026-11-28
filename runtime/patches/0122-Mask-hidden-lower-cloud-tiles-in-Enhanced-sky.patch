@@ -1,0 +1,529 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Native Loader Contributors <noreply@localhost>
+Date: Fri, 27 Nov 2026 17:00:00 -0700
+Subject: [PATCH] Mask hidden lower cloud tiles in Enhanced sky
+
+---
+diff --git a/scripts-common/numos_lower_shaders.py b/scripts-common/numos_lower_shaders.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..25a9a5acce902bd04365b71bdc3ea1d2a5edd85f
+--- /dev/null
++++ b/scripts-common/numos_lower_shaders.py
+@@ -0,0 +1,75 @@
++# SPDX-License-Identifier: MIT
++"""Embed the host-masked lower cloud variants using the pinned NUMOS compiler recipe."""
++
++from concurrent.futures import ThreadPoolExecutor
++from pathlib import Path
++import re
++import struct
++import subprocess
++import sys
++
++
++def main(numos, compiler, wrapper, output, stock):
++    sys.path.insert(0, str(numos / 'tools'))
++    from build_shaders import FLAGS, variants
++    from gen_pass_table import reflect
++
++    source = numos / 'shaders' / 'numos' / 'passes'
++    binaries = output.parent / 'numos_lower_spirv'
++    binaries.mkdir(exist_ok=True)
++    jobs = []
++    # Insert the test at the entry, before any lane reaches a NUMOS workgroup barrier. The pinned
++    # compiler cannot call a [shader("compute")] entry from another compute entry.
++    entries = [
++        ('cloud_render', [], '(dispatchId - groupThreadId) / 8u, groupThreadId, dispatchId'),
++        ('cloud_denoise', ['LOWER_DENOISE'], 'groupId, groupThread, groupId * 8u + groupThread'),
++        ('cloud_cirrus_composite', ['LOWER_CIRRUS'], 'uint3(pixel / 8u, 0), uint3(pixel % 8u, 0), uint3(pixel, 0)'),
++    ]
++    for stem, mode, arguments in entries:
++        original = source / (stem + '.comp.slang')
++        code = original.read_text(encoding='utf-8')
++        entry = r'(\[shader\("compute"\)\]\s*\[numthreads\([^)]*\)\]\s*void main\([^)]*\)\s*\{)'
++        include = '#include "numos_lower/' + wrapper.name + '"\n'
++        code, count = re.subn(entry, lambda m: include + m.group(0) + '\n  if (skipLowerCloudGroup(' +
++                              arguments + ')) return;\n', code)
++        if count != 1:
++            raise ValueError(f'Expected one compute entry in {original.name}, found {count}')
++        wrapped = binaries / original.name
++        wrapped.write_text(code, encoding='utf-8', newline='\n')
++        for name, defines in variants(original):
++            jobs.append((name.split('.')[0], mode + defines, wrapped))
++
++    def compile_variant(job):
++        name, defines, wrapped = job
++        spv = binaries / (name + '.spv')
++        subprocess.run([str(compiler), str(wrapped), '-I', str(numos / 'shaders'),
++                        '-I', str(wrapper.parent.parent), *FLAGS, *('-D' + d for d in defines),
++                        '-o', str(spv)], check=True)
++        # NumosGpu binds the original pass descriptors, plus the tile map. Check the binary ABI
++        # rather than assuming a future library or compiler keeps the same live resources.
++        local, push, bindings = reflect(stock / (name + '.comp.spv'))
++        actual_local, actual_push, actual_bindings = reflect(spv)
++        expected = {b[:5] for b in bindings}
++        mask = (32, 0, 'SampledTexture', 'Tex2D', 33)  # R32ui, NUMOS_LOWER_TILE_INPUT
++        if (any(b[0] == mask[0] for b in bindings) or actual_local != local or actual_push != push
++                or {b[:5] for b in actual_bindings} != expected | {mask}):
++            raise ValueError(f'{name}: lower cloud shader differs from the pinned pass layout')
++        return name, spv.read_bytes()
++
++    with ThreadPoolExecutor(max_workers=4) as pool:
++        variants_built = list(pool.map(compile_variant, jobs))
++    with output.open('w', encoding='ascii', newline='\n') as header:
++        header.write('// Generated from the pinned NUMOS variants.\n')
++        header.write('struct LowerCloudCode { const uint32_t* data; size_t words; };\n')
++        header.write('static LowerCloudCode lowerCloudCode(numos::PassId pass) {\n  switch (pass) {\n')
++        for name, binary in variants_built:
++            header.write('  case numos::PassId::' + name + ': {\n    static const uint32_t data[] = {\n')
++            words = [f'0x{n:08x}' for (n,) in struct.iter_unpack('<I', binary)]
++            for i in range(0, len(words), 12):
++                header.write('      ' + ','.join(words[i:i+12]) + ',\n')
++            header.write('    };\n    return { data, sizeof(data) / sizeof(*data) };\n  }\n')
++        header.write('  default: return {};\n  }\n}\n')
++
++
++if __name__ == '__main__':
++    main(*(Path(arg).resolve() for arg in sys.argv[1:]))
+diff --git a/scripts-common/numos_lower_shaders.py.md b/scripts-common/numos_lower_shaders.py.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..2f4a602530832098fd6f108c2734495bc1a31e60
+--- /dev/null
++++ b/scripts-common/numos_lower_shaders.py.md
+@@ -0,0 +1,5 @@
++# numos_lower_shaders.py
++
++Meson passes the pinned NUMOS directory, Slang compiler, host wrapper, output header and stock SPIR-V directory.
++The script compiles the library's cloud-render, denoise and cirrus variants with the host visibility test.
++It writes SPIR-V in the build directory and embeds the words in the header. The build also checks the workgroup size, push constants and every descriptor against the stock shader. A compiler or layout error fails the build.
+diff --git a/src/dxvk/meson.build b/src/dxvk/meson.build
+index 2c5bf7c413401008aa779672d93f49c07c6200cb..16e1d760088797d6db061444c34966eaa4cc816f 100644
+--- a/src/dxvk/meson.build
++++ b/src/dxvk/meson.build
+@@ -648,6 +648,18 @@ numos_shaders = custom_target(
+   command: [ python_interpreter, numos_shader_script, 'build', numos_root, slang_compiler.full_path(), numos_spirv_dir, '@OUTPUT@' ]
+ )
+
++numos_lower_shaders = custom_target(
++  'numos_lower_shaders',
++  input: files('shaders/numos_lower/lower_cloud.slangh'),
++  output: 'numos_lower_shaders.h',
++  depends: numos_shaders,
++  depend_files: files('../../scripts-common/numos_lower_shaders.py', 'shaders/rtx/pass/numos/numos_lower_tiles.h',
++    '../../submodules/numos/src/generated/passes.inc', '../../submodules/numos/tools/gen_pass_table.py',
++    '../../submodules/numos/tools/build_shaders.py', '../../submodules/numos/shaders/numos/passes/cloud_render.comp.slang',
++    '../../submodules/numos/shaders/numos/passes/cloud_denoise.comp.slang', '../../submodules/numos/shaders/numos/passes/cloud_cirrus_composite.comp.slang'),
++  command: [python_interpreter, files('../../scripts-common/numos_lower_shaders.py'), numos_root,
++    slang_compiler.full_path(), '@INPUT@', '@OUTPUT@', numos_spirv_dir])
++
+ numos_lib = static_library('numos', files([
+     '../../submodules/numos/src/celestial.cpp',
+     '../../submodules/numos/src/ground_field.cpp',
+@@ -736,7 +748,7 @@ delayimp_dep = declare_dependency(
+ 	dependencies : [ lib_delayimp])
+ dxvk_deps += delayimp_dep
+
+-dxvk_lib = static_library('dxvk', dxvk_src, dxvk_version, [generated_dxvk_shaders, rtx_shaders, numos_shaders, dxvk_generated_embedded_files],
++dxvk_lib = static_library('dxvk', dxvk_src, dxvk_version, [generated_dxvk_shaders, rtx_shaders, numos_shaders, numos_lower_shaders, dxvk_generated_embedded_files],
+   link_with           : [ util_lib, spirv_lib, usd_plugins ], 
+   dependencies        : [ dxvk_deps ],
+   include_directories : [ dxvk_include_path, dxvk_shader_include_path, remix_api_include_path, rtxcr_include_path, submodules_include_path ],
+diff --git a/src/dxvk/rtx_render/rtx_numos.cpp b/src/dxvk/rtx_render/rtx_numos.cpp
+index e3c015d69067196b8d70e1b412f6c48cead0ce1c..8bdc877a84584a80f33accc9e370de7ca9e5d7b0 100644
+--- a/src/dxvk/rtx_render/rtx_numos.cpp
++++ b/src/dxvk/rtx_render/rtx_numos.cpp
+@@ -33,6 +33,8 @@
+ #include "rtx_fork_numos_horizon.h"
+ #include "rtx/pass/numos/numos_horizon_bindings.h"
+ #include <rtx_shaders/numos_horizon_air.h>
++#include <rtx_shaders/numos_lower_tiles.h>
++#include "rtx/pass/numos/numos_lower_tiles.h"
+ #include "rtx_numos_ui_state.h"
+ #include "dxvk_device.h"
+ #include "dxvk_scoped_annotation.h"
+@@ -189,6 +191,17 @@ namespace dxvk {
+       return settings.cloudPerformancePreset == 1 ? numos::PassId::cloud_render_fast : numos::PassId::cloud_render;
+     }
+
++    class LowerCloudTilesShader : public ManagedShader {
++      SHADER_SOURCE(LowerCloudTilesShader, VK_SHADER_STAGE_COMPUTE_BIT, numos_lower_tiles)
++      BEGIN_PARAMETER()
++        CONSTANT_BUFFER(NUMOS_LOWER_FRAME)
++        TEXTURE2D(NUMOS_LOWER_DEPTH)
++        RW_TEXTURE2D(NUMOS_LOWER_TILE_OUTPUT)
++        CONSTANT_BUFFER(NUMOS_LOWER_SKY)
++      END_PARAMETER()
++    };
++    PREWARM_SHADER_PIPELINE(LowerCloudTilesShader);
++
+     class HorizonAirShader : public ManagedShader {
+       SHADER_SOURCE(HorizonAirShader, VK_SHADER_STAGE_COMPUTE_BIT, numos_horizon_air)
+       BEGIN_PARAMETER()
+@@ -238,11 +251,34 @@ namespace dxvk {
+     float lastAuthoredTime = -1.f;
+     uint32_t antipodeCutFrame = 0;
+
++    Resources::Resource lowerTiles;
++
++    void classifyLowerClouds(RtxContext& ctx, const Resources::RaytracingOutput& scene, const Rc<DxvkBuffer>& skyBuffer) {
++      ScopedGpuProfileZone(&ctx, "Lower cloud visibility");
++      const auto& depth = scene.m_primaryLinearViewZ.view;
++      const VkExtent3D extent = util::computeBlockCount(depth->imageInfo().extent,
++        VkExtent3D { NUMOS_LOWER_TILE_PIXELS, NUMOS_LOWER_TILE_PIXELS, 1 });
++      if (!lowerTiles.isValid() || lowerTiles.image->info().extent != extent) {
++        Rc<DxvkContext> context = &ctx;
++        lowerTiles = Resources::createImageResource(context, "NUMOS lower cloud tiles", extent, VK_FORMAT_R32_UINT);
++      }
++      ctx.clearColorImage(lowerTiles.image, VkClearColorValue {}, lowerTiles.view->imageSubresources());
++      ctx.bindResourceBuffer(NUMOS_LOWER_FRAME, DxvkBufferSlice(ctx.getResourceManager().getConstantsBuffer()));
++      ctx.bindResourceBuffer(NUMOS_LOWER_SKY, DxvkBufferSlice(skyBuffer, 0, sizeof(numos::AtmosphereArgs)));
++      ctx.bindResourceView(NUMOS_LOWER_DEPTH, depth, nullptr);
++      ctx.bindResourceView(NUMOS_LOWER_TILE_OUTPUT, lowerTiles.view, nullptr);
++      ctx.bindShader(VK_SHADER_STAGE_COMPUTE_BIT, LowerCloudTilesShader::getShader());
++      ctx.dispatch(extent.width, extent.height, 1);
++      gpu.barrier();
++      gpu.setLowerCloudTiles(lowerTiles.view);
++    }
++
+     void releaseHorizon() {
+       if (!antipode) return;
+       antipode->releaseGpuResources(gpu);
+       antipode.reset();
+       lowerAir.reset();
++      lowerTiles.reset();
+     }
+
+     void bakeLowerAir(RtxContext& ctx, const numos::FrameOutputs& out, bool restoreStars) {
+@@ -337,7 +373,7 @@ namespace dxvk {
+     m_shadersPrewarmed = true;
+
+     Impl& impl = getImpl();
+-    impl.gpu.prewarmShaders(getCloudRenderPass(NumosSettings::resolved()));
++    impl.gpu.prewarmShaders(getCloudRenderPass(NumosSettings::resolved()), RtxAtmosphere::noHorizon());
+     m_shaderLoadFailed = !impl.gpu.areShadersValid();
+     if (!m_shaderLoadFailed) {
+       compositeShader();
+@@ -713,7 +749,15 @@ namespace dxvk {
+     const numos::GpuHandle linearViewZ = impl.gpu.setExternalView(kLinearViewZView, rtOutput.m_primaryLinearViewZ.view);
+     impl.renderer.dispatchPostDepth(impl.gpu, linearViewZ, rtOutput.m_raytraceArgs.primaryDirectMissLinearViewZ);
+     // Zero is a miss even for a pixel covered by real geometry in the main view.
+-    if (impl.antipode) impl.antipode->dispatchPostDepth(impl.gpu, linearViewZ, 0.f);
++    if (impl.antipode) {
++      const auto cloud = impl.gpu.getView(impl.antipode->outputs().cloudRender);
++      if (cloud != nullptr && cloud->imageInfo().extent == rtOutput.m_primaryLinearViewZ.image->info().extent &&
++          !rtOutput.m_raytraceArgs.debugView) {
++        impl.classifyLowerClouds(ctx, rtOutput, m_argsBuffer);
++      }
++      impl.antipode->dispatchPostDepth(impl.gpu, linearViewZ, 0.f);
++      impl.gpu.setLowerCloudTiles(nullptr);
++    }
+     m_postDepthDone = true;
+
+     // NUMOS updates its args after the cloud pass, and the composite reads those.
+diff --git a/src/dxvk/rtx_render/rtx_numos_gpu.cpp b/src/dxvk/rtx_render/rtx_numos_gpu.cpp
+index 67f25eb1cdb30195ff0af9b72c227265f1e68d71..625a6eb9a4b3a82fcb338313b6eb0fde1a14b876 100644
+--- a/src/dxvk/rtx_render/rtx_numos_gpu.cpp
++++ b/src/dxvk/rtx_render/rtx_numos_gpu.cpp
+@@ -23,6 +23,8 @@
+ #include <cstring>
+
+ #include "rtx_numos_gpu.h"
++#include "numos_lower_shaders.h"
++#include "rtx/pass/numos/numos_lower_tiles.h"
+ #include "../dxvk_device.h"
+ #include "../dxvk_shader.h"
+ #include "../../util/log/log.h"
+@@ -451,15 +453,19 @@ namespace dxvk {
+     return v;
+   }
+
+-  Rc<DxvkShader> NumosGpu::getShader(uint32_t pass) {
++  Rc<DxvkShader> NumosGpu::getShader(uint32_t pass, bool lower) {
+     Pass& p = m_passes[pass];
+-    if (p.loaded) {
+-      return p.shader;
++    Rc<DxvkShader>& shader = lower ? p.lowerShader : p.shader;
++    if (shader != nullptr || (!lower && p.loaded)) {
++      return shader;
++    }
++    if (!lower) {
++      p.loaded = true;
+     }
+-    p.loaded = true;
+     const numos::PassInfo& info = numos::passInfo(pass);
+-    const std::vector<uint32_t> words = numos::loadPassSpirv(numos::PassId(pass), m_spirvDirectory);
+-    if (words.empty()) {
++    const LowerCloudCode embedded = lower ? lowerCloudCode(numos::PassId(pass)) : LowerCloudCode {};
++    const auto words = lower ? std::vector<uint32_t>() : numos::loadPassSpirv(numos::PassId(pass), m_spirvDirectory);
++    if (embedded.data == nullptr && words.empty()) {
+       // loadPassSpirv logs the reason.
+       Logger::err(str::format("[NUMOS] pass ", info.name, " has no valid SPIR-V in ", m_spirvDirectory));
+       m_shaderLoadFailed = true;
+@@ -470,23 +476,29 @@ namespace dxvk {
+     for (uint32_t i = 0; i < info.bindingCount; ++i) {
+       slots.push_back(toSlot(info.bindings[i]));
+     }
+-    p.shader = new DxvkShader(VK_SHADER_STAGE_COMPUTE_BIT, uint32_t(slots.size()), slots.data(),
++    if (lower) {
++      slots.push_back({ NUMOS_LOWER_TILE_INPUT, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_IMAGE_VIEW_TYPE_2D });
++    }
++    shader = new DxvkShader(VK_SHADER_STAGE_COMPUTE_BIT, uint32_t(slots.size()), slots.data(),
+                               { 0u, 0u, 0u, info.pushConstantSize },
+-                              SpirvCodeBuffer(uint32_t(words.size()), words.data()),
++                              SpirvCodeBuffer(lower ? uint32_t(embedded.words) : uint32_t(words.size()), lower ? embedded.data : words.data()),
+                               DxvkShaderOptions(), DxvkShaderConstData());
+-    p.shader->setDebugName(info.name);
+-    p.shader->generateShaderKey();
+-    m_pDevice->registerShader(p.shader, true);
+-    return p.shader;
++    shader->setDebugName(info.name);
++    shader->generateShaderKey();
++    m_pDevice->registerShader(shader, true);
++    return shader;
+   }
+
+-  void NumosGpu::prewarmShaders(numos::PassId cloudRender) {
++  void NumosGpu::prewarmShaders(numos::PassId cloudRender, bool lowerClouds) {
+     for (uint32_t pass = 0; pass < numos::passCount(); ++pass) {
+       const numos::PassId id = numos::PassId(pass);
+       const bool cloudRenderVariant = id == numos::PassId::cloud_render || id == numos::PassId::cloud_render_fast ||
+                                       id == numos::PassId::cloud_render_reference;
+       if (!cloudRenderVariant || id == cloudRender) {
+         getShader(pass);
++        if (lowerClouds && lowerCloudCode(id).data != nullptr) {
++          getShader(pass, true);
++        }
+       }
+     }
+   }
+@@ -495,7 +507,8 @@ namespace dxvk {
+     if (desc.pass >= numos::passCount()) {
+       return;
+     }
+-    const Rc<DxvkShader> shader = getShader(desc.pass);
++    const bool lower = m_lowerCloudTiles != nullptr && lowerCloudCode(numos::PassId(desc.pass)).data != nullptr;
++    const Rc<DxvkShader> shader = getShader(desc.pass, lower);
+     if (shader == nullptr) {
+       return;
+     }
+@@ -587,6 +600,9 @@ namespace dxvk {
+       }
+     }
+
++    if (lower) {
++      m_ctx->bindResourceView(NUMOS_LOWER_TILE_INPUT, m_lowerCloudTiles, nullptr);
++    }
+     m_ctx->bindShader(VK_SHADER_STAGE_COMPUTE_BIT, shader);
+     if (info.pushConstantSize > 0) {
+       // The other push constant bank holds the render state of D3D9.
+diff --git a/src/dxvk/rtx_render/rtx_numos_gpu.h b/src/dxvk/rtx_render/rtx_numos_gpu.h
+index b943eb859e4d815aa31cb1cf7eeabf01b2daf959..3d1f8f9fe604b4e5fa63ecf133e7204be9e4afd4 100644
+--- a/src/dxvk/rtx_render/rtx_numos_gpu.h
++++ b/src/dxvk/rtx_render/rtx_numos_gpu.h
+@@ -41,10 +41,12 @@ namespace dxvk {
+
+     // Every IGpu call until endFrame records into this context.
+     void beginFrame(const Rc<DxvkContext>& ctx, bool restoreStarAir);
++    void setLowerCloudTiles(const Rc<DxvkImageView>& mask) { m_lowerCloudTiles = mask; }
+     bool bakedSkyView() const { return m_bakedSkyView; }
+
+     // The context holds the device that owns this object, so keeping it past the frame would keep the device alive.
+     void endFrame() {
++      m_lowerCloudTiles = nullptr;
+       m_ctx = nullptr;
+     }
+
+@@ -65,7 +67,7 @@ namespace dxvk {
+
+     // Registers the shader of every pass that the settings can dispatch, so their pipelines compile asynchronously.
+     // Only the selected variant of the cloud render passes is registered.
+-    void prewarmShaders(numos::PassId cloudRender);
++    void prewarmShaders(numos::PassId cloudRender, bool lowerClouds);
+
+     // numos::IGpu
+     numos::GpuHandle createTexture(const numos::TextureDesc& desc) override;
+@@ -111,9 +113,10 @@ namespace dxvk {
+     struct Pass {
+       bool loaded = false;
+       Rc<DxvkShader> shader;
++      Rc<DxvkShader> lowerShader;
+     };
+
+-    Rc<DxvkShader> getShader(uint32_t pass);
++    Rc<DxvkShader> getShader(uint32_t pass, bool lower = false);
+     Resource* find(numos::GpuHandle handle);
+     const Resource* find(numos::GpuHandle handle) const;
+     numos::GpuHandle add(Resource&& resource);
+@@ -123,6 +126,7 @@ namespace dxvk {
+     DxvkDevice* m_pDevice;
+     std::string m_spirvDirectory;
+     Rc<DxvkContext> m_ctx;
++    Rc<DxvkImageView> m_lowerCloudTiles;
+
+     std::unordered_map<numos::GpuHandle, Resource> m_resources;
+     numos::GpuHandle m_nextHandle = 1;
+diff --git a/src/dxvk/shaders/numos_lower/lower_cloud.slangh b/src/dxvk/shaders/numos_lower/lower_cloud.slangh
+new file mode 100644
+index 0000000000000000000000000000000000000000..184a245af636eadee2e7ce3a6ac7d6ff15e277d6
+--- /dev/null
++++ b/src/dxvk/shaders/numos_lower/lower_cloud.slangh
+@@ -0,0 +1,81 @@
++// SPDX-License-Identifier: MIT
++// Each entry point calls the pinned library shader for an entire visible workgroup.
++// The normal sky and the lower dome used by reflection rays keep their original shaders.
++#include "rtx/pass/numos/numos_lower_tiles.h"
++layout(binding = NUMOS_LOWER_TILE_INPUT) Texture2D<uint> lowerCloudTiles;
++
++bool needsCloudGroup(uint2 firstPixel)
++{
++  uint2 size;
++  lowerCloudTiles.GetDimensions(size.x, size.y);
++  // The shifted temporal grid can have an extra group at the right or bottom.
++  return lowerCloudTiles.Load(int3(min(firstPixel / NUMOS_LOWER_TILE_PIXELS, size - 1u), 0)) != 0;
++}
++
++bool skipLowerCloudGroup(uint3 group, uint3 lane, uint3 id)
++{
++#if defined(LOWER_DENOISE) || defined(LOWER_CIRRUS)
++  // Display-only outputs are sampled by the composite inside the active tiles.
++  return !needsCloudGroup(group.xy * 8u);
++#else
++  const AtmosphereArgs args = atmosphereArgs;
++  // Leave the library's explicit clears (and their unshifted grid) intact.
++  const float coverage = max(args.cloudCoverageMean, args.cloudLayer2Enable != 0 ? args.cloudLayer2CoverageMean : 0.f);
++  if (args.cloudEnabled < .5f || coverage < .01f || args.cloudViewSamples == 0u)
++  {
++    return false;
++  }
++
++#if CLOUD_SCREEN_MARCH_ONLY
++  const uint scale = (args.cloudScreenInterleave & 0x80000u) != 0 ? 4u : 2u;
++#elif CLOUD_SCREEN_REBUILD
++  const uint scale = uint(kCloudRebuildBlock);
++#elif CLOUD_SCREEN_FALLBACK || defined(CLOUD_REFERENCE_PATH_TRACE)
++  const uint scale = 1u;
++#else
++  const uint scale = (args.cloudScreenInterleave & 0x40000u) != 0 ? 2u : 1u;
++#endif
++  if (needsCloudGroup(group.xy * 8u * scale))
++  {
++    return false;
++  }
++
++#if CLOUD_SCREEN_MARCH_ONLY
++  // The rebuild pass gathers cells from adjacent groups. A skipped cell has no fresh sample.
++  uint2 cells;
++  cloudFreshDepth.GetDimensions(cells.x, cells.y);
++  if (all(id.xy < cells))
++  {
++    cloudFreshColor[id.xy] = float4(0, 0, 0, 1);
++    cloudFreshDepth[id.xy] = float4(-1, 0, -kNoSurfaceKm, -1);
++    cloudFreshAux[id.xy] = 0;
++  }
++#elif !CLOUD_SCREEN_FALLBACK
++  // A miss can become visible on the next frame. Invalidate the previous-depth tap that the
++  // library checks on reprojection, and reset its empty-skip and history-length state.
++  uint2 dim;
++  cloudRenderOutput.GetDimensions(dim.x, dim.y);
++  int2 first = int2(id.xy);
++#if !CLOUD_SCREEN_REBUILD && !defined(CLOUD_REFERENCE_PATH_TRACE)
++  first -= int2((args.cloudRenderFrameIdx * 5u) % 8u, (args.cloudRenderFrameIdx * 3u) % 8u);
++#endif
++  first *= int(scale);
++  for (uint y = 0; y < scale; ++y)
++    for (uint x = 0; x < scale; ++x)
++    {
++      const int2 p = first + int2(x, y);
++      if (all(p >= 0) && all(p < int2(dim)))
++      {
++        cloudRenderOutput[p] = float4(0, 0, 0, 1);
++        cloudDepthOutput[p] = float4(-1, 0, -kNoSurfaceKm, 0);
++        cloudStateOutput[p] = 0;
++      }
++    }
++#if CLOUD_SCREEN_REBUILD
++  if (all(lane.xy == 0))
++    cloudFallbackTiles[group.xy * 8u * scale / uint(kCloudFallbackTilePixels)] = 0;
++#endif
++#endif
++  return true;
++#endif
++}
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_lower_tiles.comp.slang b/src/dxvk/shaders/rtx/pass/numos/numos_lower_tiles.comp.slang
+new file mode 100644
+index 0000000000000000000000000000000000000000..05b697768d3fe5af05ac2e52ba28a10441f07c43
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_lower_tiles.comp.slang
+@@ -0,0 +1,56 @@
++// SPDX-License-Identifier: MIT
++#include "rtx/pass/numos/numos_lower_tiles.h"
++#include "rtx/pass/raytrace_args.h"
++#include "rtx/concept/camera/camera.slangh"
++#include "numos/lib/atmosphere_args.h"
++
++layout(binding = NUMOS_LOWER_FRAME) ConstantBuffer<RaytraceArgs> frame;
++layout(binding = NUMOS_LOWER_SKY) ConstantBuffer<enhanced_AtmosphereArgs> sky;
++layout(binding = NUMOS_LOWER_DEPTH) Texture2D<float> linearZ;
++layout(binding = NUMOS_LOWER_TILE_OUTPUT, r32ui) RWTexture2D<uint> tiles;
++
++groupshared uint visible;
++
++float elevation(float3 direction)
++{
++  const float up = sky.isZUp != 0 ? direction.z : direction.y;
++  return sky.flipUpAxis != 0 ? -up : up;
++}
++
++[shader("compute")]
++[numthreads(8, 8, 1)]
++void main(uint2 tile : SV_GroupID, uint2 lane : SV_GroupThreadID, uint index : SV_GroupIndex)
++{
++  if (index == 0) visible = 0;
++  GroupMemoryBarrierWithGroupSync();
++
++  uint2 size;
++  linearZ.GetDimensions(size.x, size.y);
++  const uint2 start = tile * NUMOS_LOWER_TILE_PIXELS;
++  bool hit = false;
++  for (uint y = lane.y; y < NUMOS_LOWER_TILE_PIXELS && !hit; y += 8)
++  {
++    for (uint x = lane.x; x < NUMOS_LOWER_TILE_PIXELS && !hit; x += 8)
++    {
++      const uint2 p = start + uint2(x, y);
++      if (all(p < size) && linearZ.Load(int3(p, 0)) == frame.primaryDirectMissLinearViewZ)
++      {
++        // The composite rejects PSR misses as well. Keeping those here is conservative, including sparse pixels.
++        // Colour and motion vectors use the jittered and unjittered directions respectively.
++        hit = elevation(cameraPixelCoordinateToDirection(frame.camera, int2(p)).worldDirection) <= 0.f ||
++              elevation(cameraPixelCoordinateToDirection(frame.camera, int2(p), false).worldDirection) <= 0.f;
++      }
++    }
++  }
++  if (hit) InterlockedOr(visible, 1u);
++  GroupMemoryBarrierWithGroupSync();
++
++  if (index == 0 && visible != 0)
++  {
++    const int2 last = int2((size - 1u) / NUMOS_LOWER_TILE_PIXELS);
++    // One tile covers the shifted quarter-rate grid, its neighbour samples and the denoiser's three-pixel apron.
++    for (int y = max(int(tile.y) - 1, 0); y <= min(int(tile.y) + 1, last.y); ++y)
++      for (int x = max(int(tile.x) - 1, 0); x <= min(int(tile.x) + 1, last.x); ++x)
++        InterlockedOr(tiles[int2(x, y)], 1u);
++  }
++}
+diff --git a/src/dxvk/shaders/rtx/pass/numos/numos_lower_tiles.h b/src/dxvk/shaders/rtx/pass/numos/numos_lower_tiles.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e001f48c4ca64648d020d5706404b5b90d58fcd6
+--- /dev/null
++++ b/src/dxvk/shaders/rtx/pass/numos/numos_lower_tiles.h
+@@ -0,0 +1,10 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#define NUMOS_LOWER_TILE_PIXELS 32
++#define NUMOS_LOWER_FRAME       0
++#define NUMOS_LOWER_DEPTH       1
++#define NUMOS_LOWER_TILE_OUTPUT 2
++#define NUMOS_LOWER_SKY         3
++// The pinned NUMOS screen-cloud shaders use slots 0 through 31.
++#define NUMOS_LOWER_TILE_INPUT 32

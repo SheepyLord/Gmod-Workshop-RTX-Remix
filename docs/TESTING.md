@@ -4497,3 +4497,11 @@ and repeats it before the library's post-depth work. [Floor rows, memory and Rel
   ragdoll, an NPC, a clean up, a ragdoll again and the player's model on gm_flatgrass after a map change, each
   listed, its world, physics, draws and bounds, screenshots).
 - Not covered: the field install, multiplayer, the legacy backend (`mmdhl_native_carrier 0`).
+
+## Lower sky and post-effect output (2026-11-27)
+
+Compare the published and candidate local packages with the [renderer frame probe](../tools/qa/renderer_frame_probe.lua.md). Match resolution, sky, camera and effects. Check the native GPU regression in the fork, the per-pass Vulkan trace, the eight effect combinations, the partly exposed lower sky and the return to Standard. The [handover](handover/renderer-frame-output-report.md) records the executed checks.
+
+## Repeated mesh geometry (ADR 0276)
+
+The native `test_repeated_mesh_blas` exercises the promotion and retention thresholds, frame gaps, two views, stale and incompatible inputs. The [PoC game probe](../tools/qa/repeated_mesh_probe.lua.md) measures the two Modern House routes. The [prop lifecycle probe](../tools/qa/repeated_mesh_lifecycle.lua.md) exercises 88 moving placements, partial visibility, manual routing and removal at a fixed camera. The [handoff](handover/repeated-mesh-frame-report.md) records the comparisons against runtime 0123.

@@ -1,0 +1,789 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Native Loader Contributors <noreply@localhost>
+Date: Fri, 27 Nov 2026 20:00:00 -0700
+Subject: [PATCH] Share frequently rebuilt repeated meshes
+
+---
+diff --git a/.gitignore b/.gitignore
+index b239f2af629b394ba100086ed85b5fb26c18d30b..c5f522c5a0024de1bb88f9fa46fe36c82ae73380 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -64,6 +64,7 @@ tests/rtx/unit/*
+ !tests/rtx/unit/test_translucent_material.cpp
+ !tests/rtx/unit/test_texture_upload_generation.cpp
+ !tests/rtx/unit/test_memory_stats_data.cpp
++!tests/rtx/unit/test_repeated_mesh_blas.cpp
+ !tests/rtx/unit/test_d3d9_texture_hash.cpp
+ !tests/rtx/unit/test_mmd_alpha.cpp
+
+diff --git a/src/dxvk/rtx_render/rtx_accel_manager.cpp b/src/dxvk/rtx_render/rtx_accel_manager.cpp
+index 695922e25bc9446891975c1c3dffe5440e812da8..aa27203062d89a091ae15dd8b1a11555898a48f7 100644
+--- a/src/dxvk/rtx_render/rtx_accel_manager.cpp
++++ b/src/dxvk/rtx_render/rtx_accel_manager.cpp
+@@ -22,6 +22,7 @@
+ #include <algorithm>
+ #include <assert.h>
+ #include <cstring>
++#include <utility>
+ #include <mutex>
+ #include <vector>
+
+@@ -69,6 +70,7 @@ namespace dxvk {
+     m_blasPool.clear();
+
+     // Invalidate incremental rebuild cache
++    m_repeatedBlases.clear();
+     m_cachedBuckets.clear();
+     m_instanceBucketIndex.clear();
+     m_cachedDynamicBlasEntries.clear();
+@@ -119,11 +121,15 @@ namespace dxvk {
+     }
+   }
+   
++  // The pool keeps a structure alive while a previous TLAS can still reference it.
++  static void returnDynamicBlasToPool(BlasEntry& mesh, std::vector<Rc<PooledBlas>>& pool) {
++    if (mesh.dynamicBlas != nullptr)
++      pool.push_back(std::move(mesh.dynamicBlas));
++  }
++
+   void AccelManager::retireDynamicBlas(BlasEntry& blasEntry) {
+-    if (blasEntry.dynamicBlas != nullptr) {
+-      m_blasPool.push_back(std::move(blasEntry.dynamicBlas));
+-      blasEntry.dynamicBlas = nullptr;
+-    }
++    m_repeatedBlases.erase(&blasEntry);
++    returnDynamicBlasToPool(blasEntry, m_blasPool);
+   }
+
+   PooledBlas::PooledBlas() {
+@@ -464,6 +470,74 @@ namespace dxvk {
+     }
+   }
+
++  bool AccelManager::usesRepeatedBlas(BlasEntry* mesh) const {
++    auto it = m_repeatedBlases.find(mesh);
++    return it != m_repeatedBlases.end() && it->second.history.shared();
++  }
++
++  bool AccelManager::selectRepeatedBlases(const InstanceManager& instanceManager, uint32_t frame,
++                                         uint32_t minimum, bool ommsActive) {
++    bool evaluate = false;
++    for (auto it = m_repeatedBlases.begin(); it != m_repeatedBlases.end(); ) {
++      auto& candidate = it->second;
++      if (!candidate.history.shared() && !candidate.history.recent(frame)) {
++        it = m_repeatedBlases.erase(it);
++      } else {
++        candidate.visible = {};
++        evaluate |= candidate.history.considered(frame);
++        ++it;
++      }
++    }
++    if (!evaluate)
++      return false;
++
++    // Count the live TLAS inputs, including renderer-created instances absent from the linked set.
++    // The micromap manager looks up an unsplit request by source hash and checks its format and triangle count.
++    // Every member here has the same BlasEntry and triangle count. Compare the actual requests for this pass.
++    for (const RtInstance* instance : instanceManager.getInstanceTable()) {
++      if (instance->isHidden() || instance->isMarkedForGC() || instance->getVkInstance().mask == 0)
++        continue;
++      auto it = m_repeatedBlases.find(instance->getBlas());
++      if (it == m_repeatedBlases.end() || !it->second.history.considered(frame))
++        continue;
++      const bool compatible = instance->surface.instancesToObject == nullptr && instance->getBillboardCount() == 0;
++      if (compatible && ommsActive && OpacityMicromapManager::usesOpacityMicromap(*instance) &&
++          instance->surface.alphaBlendDissolve == AlphaBlendDissolve::None) {
++        const OmmRequest request(*instance, instanceManager);
++        it->second.visible.add(instance->getGeometryFlags(), true, request.ommSrcHash, int32_t(request.ommFormat));
++      } else {
++        it->second.visible.add(instance->getGeometryFlags(), compatible);
++      }
++    }
++
++    bool newlyShared = false;
++    for (auto& item : m_repeatedBlases) {
++      auto& candidate = item.second;
++      if (!candidate.history.considered(frame))
++        continue;
++      if (!candidate.visible.count) {
++        // There is no visible placement to retire the shared BLAS in the merged-instance loop.
++        if (candidate.history.shared())
++          returnDynamicBlasToPool(*item.first, m_blasPool);
++        candidate.lastBuild.owner = nullptr;
++        candidate.history.select(frame, 0, minimum, candidate.visible, false);
++        continue;
++      }
++      const BlasEntry& mesh = *item.first;
++      const bool wasShared = candidate.history.shared();
++      const uint32_t triangles = mesh.modifiedGeometryData.calculatePrimitiveCount();
++      const bool rigid = mesh.input.getSkinningState().numBones == 0 && mesh.frameLastUpdated != frame;
++      candidate.history.select(frame, triangles, minimum, candidate.visible, rigid);
++      if (wasShared != candidate.history.shared()) {
++        candidate.lastBuild.owner = nullptr;
++        newlyShared |= candidate.history.shared();
++        Logger::debug(str::format("Repeated mesh BLAS ", candidate.history.shared() ? "shared" : "released",
++          ": ", triangles, " triangles, ", candidate.visible.count, " visible instances"));
++      }
++    }
++    return newlyShared;
++  }
++
+   void AccelManager::mergeInstancesIntoBlas(Rc<DxvkContext> ctx, 
+                                             DxvkBarrierSet& execBarriers, 
+                                             const std::vector<TextureRef>& textures,
+@@ -475,6 +549,16 @@ namespace dxvk {
+     auto& instances = instanceManager.getInstanceTable();
+     const uint32_t currentFrame = m_device->getCurrentFrameId();
+
++    const uint32_t minimum = std::max(RtxOptions::minPrimsInDynamicBLAS(), 100u);
++    const uint32_t maximum = RtxOptions::maxPrimsInMergedBLAS();
++    const bool forceMerge = RtxOptions::forceMergeAllMeshes();
++    const bool minimizeMerging = RtxOptions::minimizeBlasMerging();
++    const auto groupingOptions = std::make_tuple(minimum, maximum, forceMerge, minimizeMerging);
++    const bool groupingChanged = m_lastGroupingOptions != groupingOptions;
++    m_lastGroupingOptions = groupingOptions;
++    static const uint32_t defaultMinimum = RtxOptions::minPrimsInDynamicBLASObject().getDefaultValue();
++    const bool adaptive = !forceMerge && !minimizeMerging && minimum == defaultMinimum;
++
+     // --- Full-skip fast path ---
+     // If no scene changes occurred since the last build, we can reuse all cached
+     // BLAS/TLAS data and skip the expensive per-instance iteration, bucket merging,
+@@ -486,7 +570,7 @@ namespace dxvk {
+       const uint64_t currentGeneration = instanceManager.getSceneGeneration();
+       const bool sceneUnchanged = (currentGeneration == m_lastProcessedGeneration);
+
+-      if (sceneUnchanged && !m_ommBindPending && !m_reorderedSurfaces.empty()) {
++      if (sceneUnchanged && !groupingChanged && !m_ommBindPending && !m_reorderedSurfaces.empty()) {
+         m_sceneUnchangedThisFrame = true;
+         // Touch only the merged BLASes the cached scene uses.
+         // Replaced BLASes then age out of the pool, and release the micromaps they hold.
+@@ -547,6 +631,29 @@ namespace dxvk {
+       m_sceneUnchangedThisFrame = false;
+     }
+
++    const bool rebuildCachedBuckets = m_ommBindPending || groupingChanged;
++    m_ommBindPending = false;
++    if (opacityMicromapManager) {
++      opacityMicromapManager->onFrameStart(ctx);
++      // If OMM options changed in a way that requires BLAS rebuilds (e.g. binding
++      // toggled off/on), force all buckets dirty next iteration.
++      if (opacityMicromapManager->consumeNeedsBlasRebuild()) {
++        m_ommBindPending = true;
++      }
++
++      // usesOpacityMicromap() depends on candidate processing for the current
++      // OMM generation. Run it before BLAS routing so OMM binding decisions are
++      // made with current-frame eligibility.
++      if (opacityMicromapManager->isActive()) {
++        opacityMicromapManager->processOmmCandidates(instanceManager, textures);
++      }
++    }
++
++    if (!adaptive)
++      m_repeatedBlases.clear();
++    const bool newlyShared = adaptive && selectRepeatedBlases(instanceManager, currentFrame, minimum,
++      opacityMicromapManager && opacityMicromapManager->isActive());
++
+     // --- Per-bucket dirty detection ---
+     // Build a validity set of current instances for removal detection, then scan
+     // each cached bucket.  A bucket is dirty if any of its instances was removed,
+@@ -559,10 +666,9 @@ namespace dxvk {
+     if (hasValidBucketCache) {
+       // When newly built OMMs need binding, force all buckets dirty so that
+       // tryBindOpacityMicromap runs on every instance's BLAS rebuild.
+-      if (m_ommBindPending) {
++      if (rebuildCachedBuckets) {
+         bucketDirty.resize(m_cachedBuckets.size(), true);
+         anyBucketDirty = true;
+-        m_ommBindPending = false;
+       } else {
+         std::unordered_set<RtInstance*> currentInstanceSet(instances.begin(), instances.end());
+         bucketDirty.resize(m_cachedBuckets.size(), false);
+@@ -605,7 +711,8 @@ namespace dxvk {
+               inst->usesUnorderedApproximations() != cachedBucket.isUnordered ||
+               inst->isSubsurface() != cachedBucket.hasSssInstances;
+
+-            if (inst->isBlasDirty() ||
++            if (inst->isMarkedForGC() || inst->isHidden() || inst->isBlasDirty() ||
++                (newlyShared && usesRepeatedBlas(inst->getBlas())) ||
+                 inst->getBlas()->frameLastUpdated == currentFrame ||
+                 bucketKeyChanged) {
+               bucketDirty[bi] = true;
+@@ -615,10 +722,6 @@ namespace dxvk {
+           }
+         }
+       }
+-    } else {
+-      // With no cached buckets, every bucket is built from scratch below, so
+-      // pending OMM binding invalidation is naturally consumed by the full pass.
+-      m_ommBindPending = false;
+     }
+
+     // Allocate the transform buffer
+@@ -660,22 +763,6 @@ namespace dxvk {
+         "Surfaces beyond the limit will alias index 0.")));
+     }
+
+-    if (opacityMicromapManager) {
+-      opacityMicromapManager->onFrameStart(ctx);
+-      // If OMM options changed in a way that requires BLAS rebuilds (e.g. binding
+-      // toggled off/on), force all buckets dirty next iteration.
+-      if (opacityMicromapManager->consumeNeedsBlasRebuild()) {
+-        m_ommBindPending = true;
+-      }
+-
+-      // usesOpacityMicromap() depends on candidate processing for the current
+-      // OMM generation. Run it before BLAS routing so OMM binding decisions are
+-      // made with current-frame eligibility.
+-      if (opacityMicromapManager->isActive()) {
+-        opacityMicromapManager->processOmmCandidates(instanceManager, textures);
+-      }
+-    }
+-
+     std::vector<std::unique_ptr<BlasBucket>> blasBuckets;
+     blasBuckets.reserve(instances.size());
+
+@@ -767,21 +854,21 @@ namespace dxvk {
+         fillGeometryInfoFromBlasEntry(*blasEntry, *instance, opacityMicromapManager);
+       }
+
+-      const uint32_t minPrimsInDynamicBLAS = std::max(RtxOptions::minPrimsInDynamicBLAS(), 100u);
+-      const uint32_t maxPrimsForMergedBLAS = RtxOptions::maxPrimsInMergedBLAS();
+       const uint32_t blasPrims = blasEntry->modifiedGeometryData.calculatePrimitiveCount();
+
++      const bool shareRepeated = adaptive && blasPrims < minimum && usesRepeatedBlas(blasEntry);
++
+       // Figure out if this blas should be a dynamic one
+-      const bool requestDynamicBlas = instance->surface.instancesToObject != nullptr ||    // Point instancer geometry is replicated many times in a scene, we want to reuse the BLAS memory for these objects
++      const bool requestDynamicBlas = shareRepeated || instance->surface.instancesToObject != nullptr ||    // Point instancer geometry is replicated many times in a scene, we want to reuse the BLAS memory for these objects
+                                       blasEntry->input.getSkinningState().numBones != 0 || // Skinned meshes are always desirable to give a dynamic BLAS, since we'll want to make use of BVH update for performance reasons
+                                       blasEntry->getLinkedInstances().size() > 1  ||       // Meshes that are used in instances multiple times should benefit from BLAS reuse
+                                       blasEntry->dynamicBlas != nullptr ||                 // If we already have a dynamic BLAS, keep using it.
+-                                      blasPrims > maxPrimsForMergedBLAS ||                 // Avoid large meshes ending up in the merged BLAS which is built every frame.  # prims is proportional to build cost.
+-                                      RtxOptions::minimizeBlasMerging();                   // Option to attempt putting as many objects into dynamic BLAS as possible.
++                                      blasPrims > maximum ||                 // Avoid large meshes ending up in the merged BLAS which is built every frame.  # prims is proportional to build cost.
++                                      minimizeMerging;                   // Option to attempt putting as many objects into dynamic BLAS as possible.
+
+       const bool forceMergedBlas = (blasEntry->buildGeometries.size() > 1 ||                                       // Currently we use multiple build geometries for particle billboards, which we prefer to merge into large BLAS
+-                                    (!RtxOptions::minimizeBlasMerging() && blasPrims < minPrimsInDynamicBLAS) ||   // Avoid creating lots of small dynamic BLAS
+-                                    RtxOptions::forceMergeAllMeshes()) &&                                          // Setting to force all meshes into the merged BLAS
++                                    (!minimizeMerging && !shareRepeated && blasPrims < minimum) ||   // Avoid creating lots of small dynamic BLAS
++                                    forceMerge) &&                                          // Setting to force all meshes into the merged BLAS
+                                       instance->surface.instancesToObject == nullptr;                              // Never merge point instancer geometry
+
+       if (requestDynamicBlas && !forceMergedBlas) {
+@@ -804,12 +891,7 @@ namespace dxvk {
+         // TODO (REMIX-3996) will break the assumptions we make here about all instances in a BlasEntry having the same instancesToObject array
+         assert(m_uniqueDynamicBlasIndex.find(blasEntry) == m_uniqueDynamicBlasIndex.end());
+
+-        if (blasEntry->dynamicBlas != nullptr) {
+-          // Move the BLAS used by this geometry to the common pool.
+-          // This also ensures the dynamic blas resource that's still being used by previous TLAS is properly tracked for the next frame
+-          m_blasPool.push_back(std::move(blasEntry->dynamicBlas));
+-          blasEntry->dynamicBlas = nullptr;
+-        }
++        returnDynamicBlasToPool(*blasEntry, m_blasPool);
+
+         // Calculate the device address for the current instance's transform and write the transform data
+         // TODO: only do this for non-identity transforms
+@@ -856,6 +938,10 @@ namespace dxvk {
+       assert(blasEntry->buildGeometries.size() == 1); // dynamic BLAS should always have this
+       assert(blasEntry->buildRanges.size() == 1); // dynamic BLAS should always have this
+
++      auto repeatedIt = m_repeatedBlases.find(blasEntry);
++      RepeatedBlasCandidate* repeated = repeatedIt != m_repeatedBlases.end() && repeatedIt->second.history.shared()
++        ? &repeatedIt->second : nullptr;
++
+       // Shared geometry must run any-hit for every instance that needs alpha testing.
+       VkGeometryFlagsKHR combinedFlags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+       for (const RtInstance* instance : uniqueBlasEntry.instances) {
+@@ -871,19 +957,9 @@ namespace dxvk {
+       XXH64_hash_t boundOpacityMicromapHash = kEmptyHash;
+       Rc<DxvkOpacityMicromap> boundOmmBuffer;
+       if (opacityMicromapManager) {
+-        // Check validity of a built BLAS, only if:
+-        // We can only support OMM on dynamic BLAS whos surface is unique to that BLAS.  This is so we can benefit from instancing BLAS memory.  
+-        // In cases where there are multiple linked instances each with different surfaces OMM would break.
+-        bool ommsCompatible = uniqueBlasEntry.instances.size() == 1;
+-        const XXH64_hash_t firstOmmHash = OpacityMicromapManager::getOpacityMicromapHash(*uniqueBlasEntry.instances[0]);
+-        for (uint32_t i = 1; i < uniqueBlasEntry.instances.size(); i++) {
+-          const XXH64_hash_t thisOmmHash = OpacityMicromapManager::getOpacityMicromapHash(*uniqueBlasEntry.instances[i]);
+-          if (thisOmmHash != firstOmmHash) {
+-            ommsCompatible = false;
+-            break;
+-          }
+-        }
+-
++        // The adaptive path already compared every active instance's exact unsplit OMM request.
++        // Ordinary multi-instance dynamic meshes retain their existing unbound any-hit path.
++        const bool ommsCompatible = uniqueBlasEntry.instances.size() == 1 || repeated;
+         if (ommsCompatible) {
+           RtInstance* exemplarInstance = uniqueBlasEntry.instances[0];
+
+@@ -897,10 +973,9 @@ namespace dxvk {
+             // A previously built BLAS needs to be rebuild if a corresponding Opacity Micromap availability has changed
+             forceRebuild = boundOpacityMicromapHash != blasEntry->dynamicBlas->opacityMicromapSourceHash;
+           }
+-        } else if (blasEntry->dynamicBlas.ptr() && blasEntry->dynamicBlas->opacityMicromapSourceHash != kEmptyHash) {
+-          // If we had a OMM bound at some point, but now that OMM is invalid, force a rebuild
+-          forceRebuild = true;
+-          // Clear stale OMM binding from cached geometry data
++        } else {
++          forceRebuild = blasEntry->dynamicBlas.ptr() && blasEntry->dynamicBlas->opacityMicromapSourceHash != kEmptyHash;
++          // An incompatible group never inherits a cached geometry binding.
+           blasEntry->buildGeometries[0].geometry.triangles.pNext = nullptr;
+         }
+       } else {
+@@ -926,23 +1001,38 @@ namespace dxvk {
+       buildInfo.geometryCount = 1;
+       buildInfo.pGeometries = blasEntry->buildGeometries.data();
+
+-      // Calculate the build sizes for this bucket
++      Rc<PooledBlas>& selectedBlas = blasEntry->dynamicBlas;
++      std::optional<RepeatedMeshInputs> inputs;
++      if (repeated) {
++        const auto& mesh = blasEntry->modifiedGeometryData;
++        const auto& geometry = blasEntry->buildGeometries.front();
++        const auto& triangles = geometry.geometry.triangles;
++        // Only the native, pinned OMM descriptor is understood here. Fall back for any other extension.
++        if (!buildInfo.pNext && !geometry.pNext && geometry.geometryType == VK_GEOMETRY_TYPE_TRIANGLES_KHR &&
++            (!triangles.pNext || (boundOmmBuffer.ptr() && triangles.pNext == &boundOmmBuffer->blasDesc))) {
++          inputs = RepeatedMeshInputs {
++            blasEntry->frameLastUpdated, mesh.hashes[HashComponents::VertexPosition], mesh.hashes[HashComponents::Indices],
++            mesh.lastBoneHash, mesh.hashes[HashComponents::VertexShader], boundOpacityMicromapHash, boundOmmBuffer.ptr(),
++            buildInfo.flags, geometry.flags,
++            triangles, blasEntry->buildRanges.front()
++          };
++        }
++      }
++      // A retained structure issues no AS command. An OMM-bearing AS must still never receive an UPDATE.
++      const bool retainBuild = inputs && !forceRebuild && blasEntry->frameLastUpdated != currentFrame &&
++                               repeated->lastBuild.matches(selectedBlas.ptr(), *inputs);
+       VkAccelerationStructureBuildSizesInfoKHR sizeInfo {};
+       sizeInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+-      m_device->vkd()->vkGetAccelerationStructureBuildSizesKHR(m_device->handle(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
+-                                                               &buildInfo, &blasEntry->buildRanges[0].primitiveCount, &sizeInfo);
+-
+-      // Try to reuse our dynamic BLAS if it exists
+-      Rc<PooledBlas>& selectedBlas = blasEntry->dynamicBlas;
+-
+-      bool build = forceRebuild || !selectedBlas.ptr() || selectedBlas->accelStructure->info().size != sizeInfo.accelerationStructureSize;
+-
+-      // Validate that the selected blas is compatible with the current build info for update purposes
+-      bool update = blasEntry->frameLastUpdated == currentFrame;
+-      if (!build && !validateUpdateMode(selectedBlas->buildInfo, buildInfo)) {
+-        // If an update is requested but the BLAS is not compatible with the current build info then force a rebuild
+-        update = false;
+-        build = true;
++      bool build = false;
++      bool update = false;
++      if (!retainBuild) {
++        m_device->vkd()->vkGetAccelerationStructureBuildSizesKHR(m_device->handle(), VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR,
++                                                                 &buildInfo, &blasEntry->buildRanges[0].primitiveCount, &sizeInfo);
++        // A changed input to an adaptive mesh gets a full build, including a change to the pinned OMM object.
++        build = repeated || forceRebuild || !selectedBlas.ptr() || selectedBlas->accelStructure->info().size != sizeInfo.accelerationStructureSize;
++        if (!build && !validateUpdateMode(selectedBlas->buildInfo, buildInfo))
++          build = true;
++        update = !build && blasEntry->frameLastUpdated == currentFrame;
+       }
+
+       // There is no such BLAS - create one
+@@ -990,6 +1080,12 @@ namespace dxvk {
+
+         copyAccelerationStructureBuildGeometryInfo(buildInfo, selectedBlas->buildInfo);
+         selectedBlas->hasOmmAttachments = boundOpacityMicromapHash != kEmptyHash;
++        if (repeated) {
++          if (inputs)
++            repeated->lastBuild = { selectedBlas.ptr(), *inputs };
++          else
++            repeated->lastBuild.owner = nullptr;
++        }
+       }
+
+       for (RtInstance* rtInstance : uniqueBlasEntry.instances) {
+@@ -1148,6 +1244,7 @@ namespace dxvk {
+         }
+       }
+
++      std::vector<BlasEntry*> meshesInMergedBuild;
+       // Add newly-built dirty buckets from this frame.  The PooledBlas was
+       // recorded on each bucket by createBlasBuffersAndInstances.
+       for (const auto& bucket : blasBuckets) {
+@@ -1156,6 +1253,17 @@ namespace dxvk {
+         // Deduplicate instances list (billboard instances may repeat per build-geometry)
+         for (RtInstance* inst : bucket->originalInstances) {
+           if (cached.instances.empty() || cached.instances.back() != inst) {
++            if (adaptive && bucket->submittedBuild && inst->getBillboardCount() == 0) {
++              BlasEntry* mesh = inst->getBlas();
++              const uint32_t triangles = mesh->modifiedGeometryData.calculatePrimitiveCount();
++              // The instance table also contains unlinked clones. Count actual submitted geometry,
++              // keeping one pointer per distinct small mesh for this pass.
++              if (triangles >= 100 && triangles < minimum) {
++                if (mesh->mergedBuildCopies == 0)
++                  meshesInMergedBuild.push_back(mesh);
++                ++mesh->mergedBuildCopies;
++              }
++            }
+             cached.instances.push_back(inst);
+             cached.instanceCacheIdentities.push_back(inst->getCacheIdentity());
+           }
+@@ -1199,6 +1307,18 @@ namespace dxvk {
+         newCachedBuckets.push_back(std::move(cached));
+       }
+
++      for (BlasEntry* mesh : meshesInMergedBuild) {
++        const uint32_t copies = std::exchange(mesh->mergedBuildCopies, 0u);
++        const uint32_t triangles = mesh->modifiedGeometryData.calculatePrimitiveCount();
++        if (!RepeatedMeshBuilds::enoughCopies(triangles, copies, minimum))
++          continue;
++        auto& history = m_repeatedBlases[mesh].history;
++        const bool wasConsidered = history.considered(currentFrame);
++        history.recordBuild(currentFrame, triangles, copies, minimum);
++        if (!wasConsidered && history.considered(currentFrame))
++          Logger::debug(str::format("Repeated mesh BLAS qualified: ", triangles, " triangles, ", copies,
++            " copies in the merged build, bones=", mesh->input.getSkinningState().numBones, ", vertex update=", mesh->frameLastUpdated == currentFrame));
++      }
+       m_cachedBuckets = std::move(newCachedBuckets);
+
+       // Update the dynamic BlasEntry set for the full-skip path
+@@ -1381,6 +1501,7 @@ namespace dxvk {
+                                  (selectedBlas->contentHash == newContentHash) &&
+                                  (newContentHash != kEmptyHash);
+       selectedBlas->contentHash = newContentHash;
++      bucket->submittedBuild = !canSkipBuild;
+
+       if (!canSkipBuild) {
+         // Use the selected BLAS for the build
+diff --git a/src/dxvk/rtx_render/rtx_accel_manager.h b/src/dxvk/rtx_render/rtx_accel_manager.h
+index 6ba258f38eeb37557fa194ad3f942913c811b7f9..24f12a8a57f5df35b8cc5637e5cac619b24aa75e 100644
+--- a/src/dxvk/rtx_render/rtx_accel_manager.h
++++ b/src/dxvk/rtx_render/rtx_accel_manager.h
+@@ -31,6 +31,8 @@
+ #include "rtx_gpu_crash_recorder.h"
+ #include "rtx_staging.h"
+ #include "rtx_point_instancer_system.h"
++#include "rtx_repeated_mesh_blas.h"
++#include <tuple>
+ #include "../util/util_vector.h"
+ #include "../util/util_matrix.h"
+ #include "../util/util_struct_hash.h"
+@@ -60,6 +62,7 @@ class AccelManager : public CommonDeviceObject {
+     bool usesUnorderedApproximations = false;
+     uint32_t reorderedSurfacesOffset = UINT32_MAX;
+     bool hasOmmInstances = false;
++    bool submittedBuild = false;
+     bool hasSssInstances = false;
+
+     // OMM buffers bound into this bucket's geometries (see tryBindOpacityMicromap).
+@@ -244,6 +247,17 @@ private:
+   // the GPU culling shader fills them directly in the instance buffer.
+   uint32_t m_pointInstancerSlotsPerType[Tlas::Count] = {};
+
++  struct RepeatedBlasCandidate {
++    RepeatedMeshBuilds history;
++    RepeatedMeshCopies visible;
++    RepeatedMeshBuildRecord lastBuild;
++  };
++  std::unordered_map<BlasEntry*, RepeatedBlasCandidate> m_repeatedBlases;
++  // The two triangle cutoffs and both manual grouping switches invalidate any cached routing.
++  std::tuple<uint32_t, uint32_t, bool, bool> m_lastGroupingOptions {};
++  bool selectRepeatedBlases(const InstanceManager& instanceManager, uint32_t frame, uint32_t minimum, bool ommsActive);
++  bool usesRepeatedBlas(BlasEntry* mesh) const;
++
+   // --- Incremental BLAS build caching ---
+   // Scene generation from InstanceManager when the BLAS was last built.
+   uint64_t m_lastProcessedGeneration = UINT64_MAX;
+diff --git a/src/dxvk/rtx_render/rtx_repeated_mesh_blas.h b/src/dxvk/rtx_render/rtx_repeated_mesh_blas.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..d485ca40b7ffa3aa25c1eab1dedd6b83d07e7c1f
+--- /dev/null
++++ b/src/dxvk/rtx_render/rtx_repeated_mesh_blas.h
+@@ -0,0 +1,105 @@
++// SPDX-License-Identifier: MIT
++#pragma once
++
++#include <cstdint>
++#include <tuple>
++#include <vulkan/vulkan_core.h>
++
++namespace dxvk {
++
++  // A pass counts only distinct ray-visible instances. A second eye evaluates its own set.
++  struct RepeatedMeshCopies {
++    uint32_t count = 0;
++    uint32_t geometryFlags = 0;
++    uint64_t micromapSource = 0;
++    int32_t micromapFormat = -1; // No binding request.
++    bool compatible = true;
++
++    void add(uint32_t flags, bool eligible, uint64_t source = 0, int32_t format = -1) {
++      if (count == 0) {
++        geometryFlags = flags;
++        micromapSource = source;
++        micromapFormat = format;
++      }
++      compatible &= eligible && flags == geometryFlags && source == micromapSource && format == micromapFormat;
++      ++count;
++    }
++  };
++
++  // Object-space inputs of one unsplit triangle geometry. Transforms of individual placements live in the TLAS.
++  struct RepeatedMeshInputs {
++    uint32_t vertexRevision = 0;
++    uint64_t positions = 0;
++    uint64_t indices = 0;
++    uint64_t bones = 0;
++    uint64_t vertexShader = 0;
++    uint64_t micromapSource = 0;
++    const void* micromapObject = nullptr;
++    VkBuildAccelerationStructureFlagsKHR buildFlags = 0;
++    VkGeometryFlagsKHR geometryFlags = 0;
++    VkAccelerationStructureGeometryTrianglesDataKHR triangles {};
++    VkAccelerationStructureBuildRangeInfoKHR range {};
++
++    auto fields() const {
++      return std::tie(vertexRevision, positions, indices, bones, vertexShader, micromapSource, micromapObject,
++        buildFlags, geometryFlags, triangles.pNext, triangles.vertexFormat, triangles.vertexData.deviceAddress,
++        triangles.vertexStride, triangles.maxVertex, triangles.indexType, triangles.indexData.deviceAddress,
++        triangles.transformData.deviceAddress, range.primitiveCount, range.primitiveOffset, range.firstVertex, range.transformOffset);
++    }
++  };
++
++  struct RepeatedMeshBuildRecord {
++    const void* owner = nullptr;
++    RepeatedMeshInputs inputs {};
++
++    bool matches(const void* liveOwner, const RepeatedMeshInputs& current) const {
++      // Zero is Remix's unavailable content hash. Non-indexed meshes do not need an index hash.
++      const bool knownContent = current.positions != 0 && (current.triangles.indexType == VK_INDEX_TYPE_NONE_KHR || current.indices != 0);
++      return knownContent && liveOwner && owner == liveOwner && inputs.fields() == current.fields();
++    }
++  };
++
++  class RepeatedMeshBuilds {
++  public:
++    // Count triangles beyond the first copy, in units of the normal promotion threshold.
++    static bool enoughCopies(uint32_t triangles, uint64_t copies, uint32_t minimum, bool retaining = false) {
++      const uint32_t units = retaining ? 4 : 8;
++      if (triangles < 100 || triangles >= minimum || copies < units)
++        return false;
++      // The TLAS count is 32-bit. Saturate a larger linked-set size before multiplying.
++      const uint64_t extraCopies = copies - 1 > UINT32_MAX ? UINT32_MAX : copies - 1;
++      return extraCopies * triangles >= uint64_t(units) * minimum;
++    }
++
++    void recordBuild(uint32_t frame, uint32_t triangles, uint32_t rebuiltCopies, uint32_t minimum) {
++      if (!enoughCopies(triangles, rebuiltCopies, minimum) || (m_streak && frame == m_lastBuild))
++        return;
++      if (m_streak && frame - m_lastBuild == 1) {
++        if (m_streak < kFramesToShare)
++          ++m_streak;
++      } else {
++        m_streak = 1;
++      }
++      m_lastBuild = frame;
++    }
++
++    bool recent(uint32_t frame) const { return m_streak && frame - m_lastBuild <= 1; }
++    bool considered(uint32_t frame) const { return m_shared || (m_streak == kFramesToShare && recent(frame)); }
++    bool shared() const { return m_shared; }
++
++    void select(uint32_t frame, uint32_t triangles, uint32_t minimum, const RepeatedMeshCopies& copies, bool rigid) {
++      const bool next = considered(frame) && rigid && copies.compatible &&
++                        enoughCopies(triangles, copies.count, minimum, m_shared);
++      if (m_shared && !next)
++        m_streak = 0;
++      m_shared = next;
++    }
++
++  private:
++    static constexpr uint8_t kFramesToShare = 3;
++    uint32_t m_lastBuild = 0;
++    uint8_t m_streak = 0;
++    bool m_shared = false;
++  };
++
++}
+diff --git a/src/dxvk/rtx_render/rtx_types.h b/src/dxvk/rtx_render/rtx_types.h
+index f25b4ba35427b0add68db2f66e9cd5d0338ede4f..8ff0860acd1d22a495ba87a29812fa9fd00e5ce6 100644
+--- a/src/dxvk/rtx_render/rtx_types.h
++++ b/src/dxvk/rtx_render/rtx_types.h
+@@ -1165,6 +1165,9 @@ struct BlasEntry {
+   // Frame when the vertex data of this geometry was last updated, used to detect static geometries
+   uint32_t frameLastUpdated = kInvalidFrameIndex;
+
++  // Scratch for counting actual merged GPU work. Reset after each individual BLAS submission pass.
++  uint32_t mergedBuildCopies = 0;
++
+   Rc<PooledBlas> dynamicBlas = nullptr;
+
+   std::vector<VkAccelerationStructureGeometryKHR> buildGeometries;
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index 47d80a9f043731aaa0436a0935339d5f3667b2ab..1c8cbd040f71efb01a4d804e14e34cb8e0e3673c 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -303,6 +303,12 @@ exe = executable('test_splash_message', files('test_splash_message.cpp'),
+ test('test_splash_message', exe, env: test_env, args: [meson.current_build_dir() / 'splash-fixture'])
+ tests += exe
+
++exe = executable('test_repeated_mesh_blas', files('test_repeated_mesh_blas.cpp'),
++  include_directories: test_include_path,
++  win_subsystem: 'console', override_options: ['cpp_std='+dxvk_cpp_std])
++test('test_repeated_mesh_blas', exe)
++tests += exe
++
+ exe = executable('test_memory_stats_data', files('test_memory_stats_data.cpp', '../../../src/dxvk/rtx_render/rtx_memory_stats_data.cpp'),
+   win_subsystem: 'console', override_options: ['cpp_std='+dxvk_cpp_std])
+ test('test_memory_stats_data', exe, args: [meson.current_build_dir() / 'memory-fixture'])
+diff --git a/tests/rtx/unit/test_repeated_mesh_blas.cpp b/tests/rtx/unit/test_repeated_mesh_blas.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e3f96978bda19eecf46b148c638f2084573f9d4
+--- /dev/null
++++ b/tests/rtx/unit/test_repeated_mesh_blas.cpp
+@@ -0,0 +1,146 @@
++// SPDX-License-Identifier: MIT
++#include "../../../src/dxvk/rtx_render/rtx_repeated_mesh_blas.h"
++
++#include <cstdio>
++#include <cstdlib>
++#include <initializer_list>
++
++using dxvk::RepeatedMeshBuilds;
++using dxvk::RepeatedMeshCopies;
++
++static void check(bool ok, const char* what) {
++  if (!ok) {
++    std::fprintf(stderr, "%s\n", what);
++    std::exit(1);
++  }
++}
++
++static RepeatedMeshCopies copies(uint32_t count) {
++  RepeatedMeshCopies group;
++  for (uint32_t i = 0; i < count; ++i)
++    group.add(2, true);
++  return group;
++}
++
++int main() {
++  const auto props = copies(82);
++  RepeatedMeshBuilds mesh;
++  for (int pass = 0; pass < 100; ++pass)
++    mesh.recordBuild(10, 573, 82, 1000);
++  check(!mesh.considered(11), "stereo and secondary views count as one rebuilt frame");
++  mesh.recordBuild(12, 573, 82, 1000);
++  mesh.recordBuild(13, 573, 82, 1000);
++  check(!mesh.considered(14), "a clean frame breaks the rebuild streak");
++  mesh.recordBuild(14, 573, 82, 1000);
++  mesh.select(15, 573, 1000, props, true);
++  check(mesh.shared(), "the hot Modern House mesh shares a BLAS");
++  mesh.select(900, 573, 1000, copies(9), true);
++  check(mesh.shared(), "a shared mesh uses a lower retention threshold");
++  mesh.select(901, 573, 1000, copies(7), true);
++  check(!mesh.shared() && !mesh.considered(901), "a dispersed group releases and must requalify");
++
++  for (uint32_t f = 20; f < 30; ++f)
++    mesh.recordBuild(f, 573, 1, 1000);
++  check(!mesh.considered(30), "one rebuilt copy cannot take 81 clean copies out of a cached bucket");
++  check(!RepeatedMeshBuilds::enoughCopies(46, 10000, 1000), "keep the tiny geometry floor");
++  check(!RepeatedMeshBuilds::enoughCopies(573, 2, 1000), "protect small groups");
++  check(!RepeatedMeshBuilds::enoughCopies(1000, 82, 1000), "the existing large mesh policy owns the cutoff");
++  check(!RepeatedMeshBuilds::enoughCopies(573, 14, 1000) && RepeatedMeshBuilds::enoughCopies(573, 15, 1000),
++        "only duplicate triangle work counts");
++  check(!RepeatedMeshBuilds::enoughCopies(0, UINT64_MAX, UINT32_MAX) &&
++         RepeatedMeshBuilds::enoughCopies(UINT32_MAX - 1, UINT64_MAX, UINT32_MAX), "arithmetic bounds");
++
++  for (uint32_t f : {UINT32_MAX - 1, UINT32_MAX, 0u})
++    mesh.recordBuild(f, 573, 82, 1000);
++  check(mesh.considered(1) && !mesh.considered(2), "frame counter wrap and stale observations");
++  auto differentFlags = props;
++  differentFlags.add(3, true);
++  mesh.select(1, 573, 1000, differentFlags, true);
++  check(!mesh.shared(), "all copies must agree on the Vulkan geometry flags");
++  auto ineligible = props;
++  ineligible.add(2, false);
++  mesh.select(1, 573, 1000, ineligible, true);
++  check(!mesh.shared(), "one incompatible copy vetoes the whole geometry");
++  RepeatedMeshCopies sameOmm;
++  for (int i = 0; i < 82; ++i)
++    sameOmm.add(2, true, 0x1234, 1);
++  auto mixedOmm = sameOmm;
++  mixedOmm.add(2, true, 0x1235, 1);
++  mesh.select(1, 573, 1000, mixedOmm, true);
++  check(!mesh.shared(), "different opacity requests cannot share one geometry binding");
++  mixedOmm = sameOmm;
++  mixedOmm.add(2, true, 0x1234, 0);
++  mesh.select(1, 573, 1000, mixedOmm, true);
++  check(!mesh.shared(), "different micromap formats cannot share");
++  mixedOmm = sameOmm;
++  mixedOmm.add(2, true);
++  mesh.select(1, 573, 1000, mixedOmm, true);
++  check(!mesh.shared(), "an unbound instance cannot inherit another instance's opacity micromap");
++  auto exact = mesh;
++  exact.select(1, 573, 1000, sameOmm, true);
++  check(exact.shared(), "matching full-geometry requests retain their shared micromap");
++  exact.select(2, 573, 1000, mixedOmm, true);
++  check(!exact.shared() && !exact.considered(2), "a changed binding ends an existing shared group");
++  mesh.select(1, 573, 1000, props, false);
++  check(!mesh.shared(), "deformed or freshly updated vertices stay on the normal path");
++  mesh.select(1, 573, 1000, {}, true);
++  check(!mesh.shared(), "zero visible copies do no work");
++  int firstBlas, secondBlas, firstOmm, secondOmm;
++  dxvk::RepeatedMeshInputs inputs {};
++  inputs.positions = 10;
++  inputs.indices = 20;
++  inputs.vertexRevision = 9;
++  inputs.bones = 30;
++  inputs.micromapSource = 42;
++  inputs.micromapObject = &firstOmm;
++  inputs.triangles.pNext = &firstOmm;
++  inputs.triangles.vertexData.deviceAddress = 100;
++  inputs.triangles.indexData.deviceAddress = 200;
++  inputs.range.primitiveCount = 573;
++  dxvk::RepeatedMeshBuildRecord record { &firstBlas, inputs };
++  check(record.matches(&firstBlas, inputs), "identical object-space inputs can retain the built structure");
++  check(!record.matches(&secondBlas, inputs) && !record.matches(nullptr, inputs), "a different or retired BLAS cannot be reused");
++  auto changed = inputs;
++  ++changed.vertexRevision;
++  check(!record.matches(&firstBlas, changed), "a newer vertex revision cannot hit at the same address");
++  changed = inputs; ++changed.positions;
++  check(!record.matches(&firstBlas, changed), "position content can change at the same address");
++  changed = inputs; ++changed.indices;
++  check(!record.matches(&firstBlas, changed), "changed index topology");
++  changed = inputs; ++changed.bones;
++  check(!record.matches(&firstBlas, changed), "changed bone data");
++  changed = inputs; changed.micromapObject = &secondOmm;
++  check(!record.matches(&firstBlas, changed), "recreated micromap with the same source hash");
++  changed = inputs; ++changed.micromapSource;
++  check(!record.matches(&firstBlas, changed), "changed micromap source");
++  changed = inputs; changed.triangles.pNext = nullptr;
++  check(!record.matches(&firstBlas, changed), "removed geometry attachment");
++  changed = inputs; ++changed.triangles.vertexData.deviceAddress;
++  check(!record.matches(&firstBlas, changed), "renamed vertex buffer");
++  changed = inputs; ++changed.triangles.indexData.deviceAddress;
++  check(!record.matches(&firstBlas, changed), "renamed index buffer");
++  changed = inputs; ++changed.triangles.vertexStride;
++  check(!record.matches(&firstBlas, changed), "changed layout");
++  changed = inputs; ++changed.range.firstVertex;
++  check(!record.matches(&firstBlas, changed), "changed build range");
++  changed = inputs; ++changed.range.primitiveCount;
++  check(!record.matches(&firstBlas, changed), "changed primitive count");
++  changed = inputs; ++changed.buildFlags;
++  check(!record.matches(&firstBlas, changed), "changed build policy");
++  changed = inputs; ++changed.geometryFlags;
++  check(!record.matches(&firstBlas, changed), "changed opacity flags");
++  changed = inputs; ++changed.vertexShader;
++  check(!record.matches(&firstBlas, changed), "changed vertex shader");
++  auto missing = inputs; missing.positions = 0;
++  dxvk::RepeatedMeshBuildRecord unavailable { &firstBlas, missing };
++  check(!unavailable.matches(&firstBlas, missing), "unavailable position hashes are not proof of equality");
++  missing = inputs; missing.indices = 0;
++  unavailable.inputs = missing;
++  check(!unavailable.matches(&firstBlas, missing), "indexed geometry requires an index hash");
++  missing.triangles.indexType = VK_INDEX_TYPE_NONE_KHR;
++  unavailable.inputs = missing;
++  check(unavailable.matches(&firstBlas, missing), "non-indexed geometry has no index hash to compare");
++  record.owner = nullptr;
++  check(!record.matches(&firstBlas, inputs), "demotion clears the proof of identity");
++  return 0;
++}

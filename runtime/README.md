@@ -1,5 +1,13 @@
 # runtime/
 
+## Repeated prop geometry (0124)
+
+0124 shares the bottom-level geometry of compatible, heavily repeated props when the merged structure incurs sustained GPU build work. It follows the lower-cloud and post-effect changes in the same binary. [Combined runtime handoff](../docs/handover/repeated-mesh-frame-report.md)
+
+## Lower clouds and post-processing (0121–0123)
+
+0121 restores a native unit-test source required during clean configuration. 0122 adds a conservative screen-tile mask to the Enhanced sky's lower cloud renderer. 0123 removes the full-screen copy after each out-of-place post effect. The final sRGB pass writes the public output image in both buffer orders. [Build and game checks](../docs/handover/renderer-frame-output-report.md)
+
 ## Enhanced floor horizon and reflected ground (0120)
 
 The virtual ground now samples cloud shadows at the actual hit and filters distant shadow gaps

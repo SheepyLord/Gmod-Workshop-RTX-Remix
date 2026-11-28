@@ -901,3 +901,7 @@ on. PoC frame inspection now peaks below 1 ms in Construct/Flatgrass/Canals. **A
 the unconditional authored-material priority requirement needs a runtime resolution change outside
 R11-A's assigned paths. See [the report](handover/R11-A-report.md) and
 [ADR 0091](decisions/0091-automatic-pbr-fallbacks.md). Nothing was merged, pushed or published.
+
+## Renderer frame time (2026-11-27)
+
+Approved for the local Workshop update. Repeated props can share their ray-tracing geometry, Enhanced No horizon skips covered lower-cloud work, and post effects pass color directly to the next filter. The PoC courtyard gained rendered FPS and the walking hallway sample was slower. [Combined runtime and measurements](handover/repeated-mesh-frame-report.md)

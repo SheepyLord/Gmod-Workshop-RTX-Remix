@@ -1,0 +1,672 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Native Loader Contributors <noreply@localhost>
+Date: Fri, 27 Nov 2026 17:00:00 -0700
+Subject: [PATCH] Pass the current color image between post effects
+
+---
+diff --git a/meson_options.txt b/meson_options.txt
+index fec8aefe82a9f5629f06b49d38f88aa429ad903a..67dfca4175ce24075119c4246a5589b2ccae2129 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -21,7 +21,7 @@
+ #############################################################################
+
+ option('enable_tests', type : 'boolean', value : false)
+-option('camera_gpu_tests', type : 'boolean', value : false, description : 'Run camera transport Vulkan tests (requires slangpy and numpy in the build Python environment)')
++option('camera_gpu_tests', type : 'boolean', value : false, description : 'Run camera and renderer-output Vulkan tests (requires slangpy and numpy in the build Python environment)')
+ option('particle_distribution_gpu_tests', type : 'boolean', value : false, description: 'Run particle distribution regressions on a Vulkan GPU')
+ option('enable_dxgi',  type : 'boolean', value : false, description: 'Build DXGI')
+ option('enable_d3d9',  type : 'boolean', value : true, description: 'Build D3D9')
+diff --git a/src/dxvk/rtx_render/rtx_auto_exposure.cpp b/src/dxvk/rtx_render/rtx_auto_exposure.cpp
+index 41ef12dfc935f3173ddd83f09ce54fe2236eb525..c5da6aca0fe5ba1a17a989369d92728a85b62102 100644
+--- a/src/dxvk/rtx_render/rtx_auto_exposure.cpp
++++ b/src/dxvk/rtx_render/rtx_auto_exposure.cpp
+@@ -238,7 +238,7 @@ namespace dxvk {
+       ctx->pushConstants(0, sizeof(pushArgs), &pushArgs);
+
+       ctx->bindResourceView(AUTO_EXPOSURE_HISTOGRAM_INPUT_OUTPUT, m_exposureHistogram.view, nullptr);
+-      ctx->bindResourceView(AUTO_EXPOSURE_COLOR_INPUT, rtOutput.m_finalOutput.view(Resources::AccessType::Read), nullptr);
++      ctx->bindResourceView(AUTO_EXPOSURE_COLOR_INPUT, rtOutput.postFxColor().view(Resources::AccessType::Read), nullptr);
+
+       ctx->bindShader(VK_SHADER_STAGE_COMPUTE_BIT, AutoExposureHistogramShader::getShader());
+       const VkExtent3D workgroups = util::computeBlockCount(rtOutput.m_finalOutputExtent, VkExtent3D { 16, 16, 1 });
+diff --git a/src/dxvk/rtx_render/rtx_context.cpp b/src/dxvk/rtx_render/rtx_context.cpp
+index 4f200f77f67a1a36a000f38f84cf8b9096704289..3ecf33509207c8a0c796a4947f9ab257aa8ed954 100644
+--- a/src/dxvk/rtx_render/rtx_context.cpp
++++ b/src/dxvk/rtx_render/rtx_context.cpp
+@@ -880,6 +880,7 @@ namespace dxvk {
+             { 0, 0, 0 },
+             rtOutput.m_compositeOutputExtent);
+         }
++        rtOutput.m_postFxInIntermediate = false;
+         fork_hooks::dispatchRcasSharpening(*this, rtOutput);
+         m_previousUpscaler = m_currentUpscaler;
+         if (vr.active()) { vr.timestamp(*this, vrtiming::Stage::PostBegin); }
+@@ -909,6 +910,7 @@ namespace dxvk {
+         // for 16bit float formats).
+         const bool performSRGBConversion = !captureScreenImage && g_allowSrgbConversionForOutput;
+         dispatchSRGBDither(rtOutput, performSRGBConversion);
++        rtOutput.m_postFxInIntermediate = false;
+
+         // Composite screen overlay (from external C API) after tone mapping, before screenshot capture.
+         dispatchScreenOverlay(rtOutput);
+@@ -2310,7 +2312,7 @@ namespace dxvk {
+
+     bloom.dispatch(this,
+       getResourceManager().getSampler(VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
+-      rtOutput.m_finalOutput.resource(Resources::AccessType::ReadWrite));
++      rtOutput.postFxColor().resource(Resources::AccessType::ReadWrite));
+   }
+
+   void RtxContext::dispatchPostFxMotionBlur(Resources::RaytracingOutput& rtOutput) {
+diff --git a/src/dxvk/rtx_render/rtx_context.h b/src/dxvk/rtx_render/rtx_context.h
+index 7d87a483ceca1b6774dd29d6e059e03b66bc1479..7bda3c16e31a6c83d20454bb4f8902f80f561f7d 100644
+--- a/src/dxvk/rtx_render/rtx_context.h
++++ b/src/dxvk/rtx_render/rtx_context.h
+@@ -65,7 +65,7 @@ namespace dxvk {
+     void dispatchScreenOverlay(RtxContext&, Resources::RaytracingOutput&);
+     bool isFsrUpscalerActive(RtxContext&);
+     void dispatchFsrUpscale(RtxContext&, const Resources::RaytracingOutput&);
+-    void dispatchRcasSharpening(RtxContext&, const Resources::RaytracingOutput&);
++    void dispatchRcasSharpening(RtxContext&, Resources::RaytracingOutput&);
+     void dispatchFsrFrameGeneration(RtxContext&, const Rc<DxvkImage>& hudLessBackBuffer);
+     void setFsrDownscaleExtent(RtxContext&, const VkExtent3D& upscaleExtent, VkExtent3D& downscaleExtent);
+   } // namespace fork_hooks
+@@ -359,7 +359,7 @@ namespace dxvk {
+     friend void fork_hooks::dispatchScreenOverlay(RtxContext&, Resources::RaytracingOutput&);
+     friend bool fork_hooks::isFsrUpscalerActive(RtxContext&);
+     friend void fork_hooks::dispatchFsrUpscale(RtxContext&, const Resources::RaytracingOutput&);
+-    friend void fork_hooks::dispatchRcasSharpening(RtxContext&, const Resources::RaytracingOutput&);
++    friend void fork_hooks::dispatchRcasSharpening(RtxContext&, Resources::RaytracingOutput&);
+     friend void fork_hooks::dispatchFsrFrameGeneration(RtxContext&, const Rc<DxvkImage>&);
+     friend void fork_hooks::setFsrDownscaleExtent(RtxContext&, const VkExtent3D&, VkExtent3D&);
+   };
+diff --git a/src/dxvk/rtx_render/rtx_dlss_neural_rendering.cpp b/src/dxvk/rtx_render/rtx_dlss_neural_rendering.cpp
+index 8b2f19a9272eb3ba222b9153f89741419a54cc17..3f169f88270b35c32e0610e4d26702cea3c03218 100644
+--- a/src/dxvk/rtx_render/rtx_dlss_neural_rendering.cpp
++++ b/src/dxvk/rtx_render/rtx_dlss_neural_rendering.cpp
+@@ -117,7 +117,7 @@ namespace dxvk {
+       float motionVectorScale[2] = { 1.f, 1.f };
+
+       std::vector<Rc<DxvkImageView>> pInputs = {
+-        rtOutput.m_neuralRenderingInput.view(Resources::AccessType::Read),
++        rtOutput.postFxScratch().view(Resources::AccessType::Read),
+         pMotionVectorInput->view,
+         pDepthInput->view,
+         rtOutput.m_controlMask.view,
+@@ -167,7 +167,7 @@ namespace dxvk {
+
+       // Note: Add texture inputs added here to the pInputs array above to properly access the images.
+       NGXNeuralRenderingContext::NGXNeuralRenderingBuffers buffers;
+-      buffers.pInColor = &rtOutput.m_neuralRenderingInput.resource(Resources::AccessType::Read);
++      buffers.pInColor = &rtOutput.postFxScratch().resource(Resources::AccessType::Read);
+       buffers.pOutColor = &rtOutput.m_neuralRenderingOutput.resource(Resources::AccessType::Write);
+       buffers.pMotionVectors = pMotionVectorInput;
+       buffers.pDepth = pDepthInput;
+diff --git a/src/dxvk/rtx_render/rtx_dust_particles.cpp b/src/dxvk/rtx_render/rtx_dust_particles.cpp
+index 92c5b4bcd9ee24b669aa520d238f1f28284423b9..fdb231c106e77290a183f799655c7e1e5cd6bf89 100644
+--- a/src/dxvk/rtx_render/rtx_dust_particles.cpp
++++ b/src/dxvk/rtx_render/rtx_dust_particles.cpp
+@@ -297,7 +297,7 @@ namespace dxvk {
+     ctx->bindResourceView(DUST_PARTICLES_BINDING_DEPTH_INPUT, rtOutput.m_primaryDepth.view, nullptr);
+     ctx->bindResourceSampler(DUST_PARTICLES_BINDING_DEPTH_INPUT, linearSampler);
+     
+-    setupRasterizerState(ctx, rtOutput.m_finalOutput.resource(Resources::AccessType::ReadWrite));
++    setupRasterizerState(ctx, rtOutput.postFxColor().resource(Resources::AccessType::ReadWrite));
+     
+     ctx->bindShader(VK_SHADER_STAGE_VERTEX_BIT, DustParticleVertexShader::getShader());
+     ctx->bindShader(VK_SHADER_STAGE_FRAGMENT_BIT, DustParticlePixelShader::getShader());
+diff --git a/src/dxvk/rtx_render/rtx_fork_hooks.h b/src/dxvk/rtx_render/rtx_fork_hooks.h
+index fbd3c83a00ab2eda5d117743bcc9549d3ebd34ee..a36494c7579b15750a43b056ad2502e528867c89 100644
+--- a/src/dxvk/rtx_render/rtx_fork_hooks.h
++++ b/src/dxvk/rtx_render/rtx_fork_hooks.h
+@@ -470,7 +470,7 @@ namespace dxvk {
+     // not sharpen internally (DLSS / DLSS-RR / XeSS / TAA-U).
+     // Requires friend access to RtxContext::m_currentUpscaler.
+     // Implementation in rtx_fork_rcas.cpp.
+-    void dispatchRcasSharpening(RtxContext& ctx, const Resources::RaytracingOutput& rtOutput);
++    void dispatchRcasSharpening(RtxContext& ctx, Resources::RaytracingOutput& rtOutput);
+
+     // Configures and prepares FSR frame generation for the current frame.
+     // No-ops unless FSR frame generation is the selected, enabled and supported
+diff --git a/src/dxvk/rtx_render/rtx_fork_rcas.cpp b/src/dxvk/rtx_render/rtx_fork_rcas.cpp
+index 3716728da936d6004421037385fcc580dc60dd4b..d69dedfb8dfc4e8fbfbfbab5df567be32849e7d4 100644
+--- a/src/dxvk/rtx_render/rtx_fork_rcas.cpp
++++ b/src/dxvk/rtx_render/rtx_fork_rcas.cpp
+@@ -81,7 +81,7 @@ namespace dxvk {
+
+   namespace fork_hooks {
+
+-    void dispatchRcasSharpening(RtxContext& ctx, const Resources::RaytracingOutput& rtOutput) {
++    void dispatchRcasSharpening(RtxContext& ctx, Resources::RaytracingOutput& rtOutput) {
+       // FSR runs RCAS inside its own upscale dispatch, and NIS has its own
+       // sharpening stage, so the standalone pass is only for the upscalers that
+       // do not sharpen at all.
+@@ -104,19 +104,12 @@ namespace dxvk {
+
+       ctx.getCommonObjects()->metaRCAS().dispatch(
+         &ctx,
+-        rtOutput.m_finalOutput.resource(Resources::AccessType::Read),
+-        rtOutput.m_postFxIntermediateTexture.resource(Resources::AccessType::Write),
++        rtOutput.postFxColor().resource(Resources::AccessType::Read),
++        rtOutput.postFxScratch().resource(Resources::AccessType::Write),
+         ctx.getResourceManager().getSampler(VK_FILTER_LINEAR, VK_SAMPLER_MIPMAP_MODE_NEAREST, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE),
+         sharpness);
+
+-      ctx.copyImage(
+-        rtOutput.m_finalOutput.resource(Resources::AccessType::Write).image,
+-        { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+-        { 0, 0, 0 },
+-        rtOutput.m_postFxIntermediateTexture.image(Resources::AccessType::Read),
+-        { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+-        { 0, 0, 0 },
+-        rtOutput.m_finalOutputExtent);
++      rtOutput.advancePostFxColor();
+     }
+
+   } // namespace fork_hooks
+diff --git a/src/dxvk/rtx_render/rtx_postFx.cpp b/src/dxvk/rtx_render/rtx_postFx.cpp
+index cdf0402a12c3cc3b5b478c93ff0ab1fd919d2527..d1b972b85c02645dc302c31073b046fb172a043d 100644
+--- a/src/dxvk/rtx_render/rtx_postFx.cpp
++++ b/src/dxvk/rtx_render/rtx_postFx.cpp
+@@ -266,7 +266,7 @@ namespace dxvk {
+     Rc<DxvkSampler> linearSampler,
+     const uvec2& mainCameraResolution,
+     const uint32_t frameIdx,
+-    const Resources::RaytracingOutput& rtOutput,
++    Resources::RaytracingOutput& rtOutput,
+     const bool cameraCutDetected)
+   {
+     if (!enable()) {
+@@ -281,7 +281,7 @@ namespace dxvk {
+     ScopedGpuProfileZone(ctx, "PostFx Motion Blur");
+     ctx->setFramePassStage(RtxFramePassStage::PostFX);
+
+-    const Resources::Resource& inOutColorTexture = rtOutput.m_finalOutput.resource(Resources::AccessType::ReadWrite);
++    const Resources::Resource& inOutColorTexture = rtOutput.postFxColor().resource(Resources::AccessType::Read);
+     const VkExtent3D& inputSize = inOutColorTexture.image->info().extent;
+     const VkExtent3D workgroups = util::computeBlockCount(inputSize, VkExtent3D { POST_FX_TILE_SIZE , POST_FX_TILE_SIZE, 1 } );
+
+@@ -305,7 +305,7 @@ namespace dxvk {
+     ctx->setPushConstantBank(DxvkPushConstantBank::RTX);
+
+     const Resources::Resource& postFxIntermediateTexture =
+-      rtOutput.m_postFxIntermediateTexture.resource(Resources::AccessType::Write);
++      rtOutput.postFxScratch().resource(Resources::AccessType::Write);
+     dispatchMotionBlurInternal(
+       ctx,
+       nearestSampler, linearSampler,
+@@ -314,15 +314,7 @@ namespace dxvk {
+       rtOutput,
+       inOutColorTexture, postFxIntermediateTexture);
+
+-    // Copy the blurred result back into the final output so downstream passes can read it.
+-    ctx->copyImage(
+-      inOutColorTexture.image,
+-      { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+-      { 0, 0, 0 },
+-      rtOutput.m_postFxIntermediateTexture.image(Resources::AccessType::Read),
+-      { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+-      { 0, 0, 0 },
+-      inputSize);
++    rtOutput.advancePostFxColor();
+   }
+
+   void DxvkPostFx::dispatchLensEffects(
+@@ -330,7 +322,7 @@ namespace dxvk {
+     Rc<DxvkSampler> linearSampler,
+     const uvec2& mainCameraResolution,
+     const uint32_t frameIdx,
+-    const Resources::RaytracingOutput& rtOutput)
++    Resources::RaytracingOutput& rtOutput)
+   {
+     if (!enable()) {
+       return;
+@@ -342,7 +334,7 @@ namespace dxvk {
+     ScopedGpuProfileZone(ctx, "PostFx Lens Effects");
+     ctx->setFramePassStage(RtxFramePassStage::PostFX);
+
+-    const Resources::Resource& inOutColorTexture = rtOutput.m_finalOutput.resource(Resources::AccessType::ReadWrite);
++    const Resources::Resource& inOutColorTexture = rtOutput.postFxColor().resource(Resources::AccessType::Read);
+     const VkExtent3D& inputSize = inOutColorTexture.image->info().extent;
+     const VkExtent3D workgroups = util::computeBlockCount(inputSize, VkExtent3D { POST_FX_TILE_SIZE , POST_FX_TILE_SIZE, 1 } );
+
+@@ -361,21 +353,11 @@ namespace dxvk {
+     ctx->setPushConstantBank(DxvkPushConstantBank::RTX);
+
+     const Resources::Resource& postFxIntermediateTexture =
+-      rtOutput.m_postFxIntermediateTexture.resource(Resources::AccessType::Write);
++      rtOutput.postFxScratch().resource(Resources::AccessType::Write);
+     dispatchPostLensEffects(ctx, linearSampler, postFxArgs, workgroups,
+                             inOutColorTexture, postFxIntermediateTexture);
+
+-    // The lens-effect shader uses a Sampler2D input and an RWTexture2D output. To keep the
+-    // input/output decoupled (and avoid sampling-while-writing hazards) we write into the
+-    // intermediate texture and copy it back into the final output.
+-    ctx->copyImage(
+-      inOutColorTexture.image,
+-      { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+-      { 0, 0, 0 },
+-      rtOutput.m_postFxIntermediateTexture.image(Resources::AccessType::Read),
+-      { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
+-      { 0, 0, 0 },
+-      inputSize);
++    rtOutput.advancePostFxColor();
+   }
+
+   namespace {
+diff --git a/src/dxvk/rtx_render/rtx_postFx.h b/src/dxvk/rtx_render/rtx_postFx.h
+index 3d0851a28fde74215a04040469a1ad8ace00ed87..f5492721397eccf7a137103cdfed67b6a5ccd796 100644
+--- a/src/dxvk/rtx_render/rtx_postFx.h
++++ b/src/dxvk/rtx_render/rtx_postFx.h
+@@ -53,7 +53,7 @@ namespace dxvk {
+       Rc<DxvkSampler> linearSampler,
+       const uvec2& mainCameraResolution,
+       const uint32_t frameIdx,
+-      const Resources::RaytracingOutput& rtOutput,
++      Resources::RaytracingOutput& rtOutput,
+       const bool cameraCutDetected);
+
+     // Lens effects phase (chromatic aberration + vignette). Runs after tonemapping
+@@ -64,7 +64,7 @@ namespace dxvk {
+       Rc<DxvkSampler> linearSampler,
+       const uvec2& mainCameraResolution,
+       const uint32_t frameIdx,
+-      const Resources::RaytracingOutput& rtOutput);
++      Resources::RaytracingOutput& rtOutput);
+
+     void dispatchHighlighting(
+       Rc<RtxContext> ctx,
+diff --git a/src/dxvk/rtx_render/rtx_resources.cpp b/src/dxvk/rtx_render/rtx_resources.cpp
+index 3eeaacf50bf570d9598a20fa923f3105995b003e..64e90fa5039474e2bcf74ad30f247ac056b96b67 100644
+--- a/src/dxvk/rtx_render/rtx_resources.cpp
++++ b/src/dxvk/rtx_render/rtx_resources.cpp
+@@ -1681,9 +1681,10 @@ namespace dxvk {
+     m_raytracingOutput.m_finalOutputExtent = m_targetExtent;
+
+     // Post Effect intermediate textures
+-    m_raytracingOutput.m_postFxIntermediateTexture = AliasedResource(ctx, m_targetExtent, VK_FORMAT_R16G16B16A16_SFLOAT, "postfx intermediate texture");
+-    m_raytracingOutput.m_neuralRenderingInput = AliasedResource(
+-      m_raytracingOutput.m_postFxIntermediateTexture, ctx, m_targetExtent, VK_FORMAT_R16G16B16A16_SFLOAT, "DLSS-NR input");
++    m_raytracingOutput.m_postFxIntermediateTexture = AliasedResource(ctx, m_targetExtent, VK_FORMAT_R16G16B16A16_SFLOAT,
++      "postfx intermediate texture", allowCompatibleFormatAliasing, 1, VK_IMAGE_TYPE_2D, VK_IMAGE_VIEW_TYPE_2D, 0,
++      VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
++    m_raytracingOutput.m_postFxInIntermediate = false;
+
+     // Let other systems know of the resize
+     executeResizeEventList(m_onTargetResize, ctx, m_targetExtent);
+diff --git a/src/dxvk/rtx_render/rtx_resources.h b/src/dxvk/rtx_render/rtx_resources.h
+index 3645c6cdf8ba3d58470e027b695c2487d715a602..4c1f38715fec56a9847abd653df54ea16ac12216 100644
+--- a/src/dxvk/rtx_render/rtx_resources.h
++++ b/src/dxvk/rtx_render/rtx_resources.h
+@@ -429,7 +429,6 @@ namespace dxvk
+       // DLSSNR Data
+       AliasedResource m_neuralRenderingOutput;
+       Resource m_controlMask;
+-      AliasedResource m_neuralRenderingInput;
+
+       Resource m_bsdfFactor;
+
+@@ -441,6 +440,13 @@ namespace dxvk
+
+       AliasedResource m_postFxIntermediateTexture;
+
++      // Upscaling starts each eye in the public final image. Out-of-place filters exchange roles;
++      // the final sRGB pass writes the public image before capture, overlays and presentation.
++      bool m_postFxInIntermediate = false;
++      const AliasedResource& postFxColor() const { return m_postFxInIntermediate ? m_postFxIntermediateTexture : m_finalOutput; }
++      const AliasedResource& postFxScratch() const { return m_postFxInIntermediate ? m_finalOutput : m_postFxIntermediateTexture; }
++      void advancePostFxColor() { m_postFxInIntermediate = !m_postFxInIntermediate; }
++
+       Resource m_gbufferLast;
+       Resource m_reprojectionConfidence;
+       Resource m_rtxdiGradients;
+diff --git a/src/dxvk/rtx_render/rtx_srgb_dither.cpp b/src/dxvk/rtx_render/rtx_srgb_dither.cpp
+index 879139db3cc705da682eceb6a4d625dbe58f5834..d2a1f7609e4781c6d0b725a21bcaa8acbb6e2002 100644
+--- a/src/dxvk/rtx_render/rtx_srgb_dither.cpp
++++ b/src/dxvk/rtx_render/rtx_srgb_dither.cpp
+@@ -45,6 +45,7 @@ namespace dxvk {
+       BEGIN_PARAMETER()
+         TEXTURE2DARRAY(SRGB_DITHER_BLUE_NOISE_TEXTURE_INPUT)
+         RW_TEXTURE2D(SRGB_DITHER_COLOR_INPUT_OUTPUT)
++        TEXTURE2D(SRGB_DITHER_INTERMEDIATE_INPUT)
+       END_PARAMETER()
+     };
+     PREWARM_SHADER_PIPELINE(SRGBDitherShader);
+@@ -66,12 +67,14 @@ namespace dxvk {
+
+     ctx->setPushConstantBank(DxvkPushConstantBank::RTX);
+
+-    const Resources::Resource& inoutColorBuffer = rtOutput.m_finalOutput.resource(Resources::AccessType::ReadWrite);
++    const Resources::Resource& inoutColorBuffer = rtOutput.m_finalOutput.resource(
++      rtOutput.m_postFxInIntermediate ? Resources::AccessType::Write : Resources::AccessType::ReadWrite);
+
+     const VkExtent3D workgroups = util::computeBlockCount(inoutColorBuffer.view->imageInfo().extent, VkExtent3D{ 16, 16, 1 });
+
+     SRGBDitherArgs pushArgs = {};
+     pushArgs.performSRGBConversion = performSRGBConversion;
++    pushArgs.readIntermediate = rtOutput.m_postFxInIntermediate;
+     switch (ditherMode()) {
+     case DitherMode::None: pushArgs.ditherMode = ditherModeNone; break;
+     case DitherMode::Spatial: pushArgs.ditherMode = ditherModeSpatialOnly; break;
+@@ -86,6 +89,8 @@ namespace dxvk {
+
+     ctx->bindResourceView(SRGB_DITHER_BLUE_NOISE_TEXTURE_INPUT, ctx->getResourceManager().getBlueNoiseTexture(ctx), nullptr);
+     ctx->bindResourceView(SRGB_DITHER_COLOR_INPUT_OUTPUT, inoutColorBuffer.view, nullptr);
++    ctx->bindResourceView(SRGB_DITHER_INTERMEDIATE_INPUT,
++      rtOutput.m_postFxInIntermediate ? rtOutput.postFxColor().view(Resources::AccessType::Read) : nullptr, nullptr);
+
+     ctx->bindShader(VK_SHADER_STAGE_COMPUTE_BIT, SRGBDitherShader::getShader());
+     ctx->pushConstants(0, sizeof(pushArgs), &pushArgs);
+diff --git a/src/dxvk/rtx_render/rtx_tone_mapping.cpp b/src/dxvk/rtx_render/rtx_tone_mapping.cpp
+index e0ab54ff1f7d695134c2375c527b6cffe93a9f95..063a80d3b840ae72bb79f0f0a72ae9db34ca9d1d 100644
+--- a/src/dxvk/rtx_render/rtx_tone_mapping.cpp
++++ b/src/dxvk/rtx_render/rtx_tone_mapping.cpp
+@@ -166,9 +166,9 @@ namespace dxvk {
+
+     ctx->setPushConstantBank(DxvkPushConstantBank::RTX);
+
+-    const Resources::Resource& inputColorBuffer = rtOutput.m_finalOutput.resource(Resources::AccessType::Read);
++    const Resources::Resource& inputColorBuffer = rtOutput.postFxColor().resource(Resources::AccessType::Read);
+     dispatchApplyToneMapping(ctx, exposureView, inputColorBuffer,
+-                             rtOutput.m_finalOutput.resource(Resources::AccessType::Write),
++                             rtOutput.postFxColor().resource(Resources::AccessType::Write),
+                              performSRGBConversion, autoExposureEnabled);
+   }
+
+@@ -199,12 +199,12 @@ namespace dxvk {
+     pushArgs.enableAutoExposure = autoExposureEnabled;
+     pushArgs.exposureFactor = exp2f(exposureBias()); // ev100
+
+-    const Resources::Resource& inputColorTexture = rtOutput.m_finalOutput.resource(Resources::AccessType::Read);
++    const Resources::Resource& inputColorTexture = rtOutput.postFxColor().resource(Resources::AccessType::Read);
+     const VkExtent3D workgroups = util::computeBlockCount(inputColorTexture.view->imageInfo().extent, VkExtent3D { 16 , 16, 1 });
+
+     ctx->bindResourceView(TONEMAPPING_APPLY_TONEMAPPING_COLOR_INPUT, inputColorTexture.view, nullptr);
+     ctx->bindResourceView(TONEMAPPING_APPLY_TONEMAPPING_EXPOSURE_INPUT, exposureView, nullptr);
+-    ctx->bindResourceView(TONEMAPPING_APPLY_TONEMAPPING_COLOR_OUTPUT, rtOutput.m_neuralRenderingInput.resource(Resources::AccessType::Write).view, nullptr);
++    ctx->bindResourceView(TONEMAPPING_APPLY_TONEMAPPING_COLOR_OUTPUT, rtOutput.postFxScratch().resource(Resources::AccessType::Write).view, nullptr);
+     ctx->bindShader(VK_SHADER_STAGE_COMPUTE_BIT, FastTonemappingShader::getShader());
+     ctx->pushConstants(0, sizeof(pushArgs), &pushArgs);
+     ctx->dispatch(workgroups.width, workgroups.height, workgroups.depth);
+@@ -230,7 +230,7 @@ namespace dxvk {
+     }
+
+     const Resources::Resource& inputColorTexture = rtOutput.m_neuralRenderingOutput.resource(Resources::AccessType::Read);
+-    const Resources::Resource& inOutColorTexture = rtOutput.m_finalOutput.resource(Resources::AccessType::ReadWrite);
++    const Resources::Resource& inOutColorTexture = rtOutput.postFxColor().resource(Resources::AccessType::ReadWrite);
+     const VkExtent3D workgroups = util::computeBlockCount(inputColorTexture.view->imageInfo().extent, VkExtent3D { 16 , 16, 1 });
+
+     ctx->bindResourceView(TONEMAPPING_APPLY_TONEMAPPING_COLOR_INPUT, inputColorTexture.view, nullptr);
+diff --git a/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.comp.slang b/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.comp.slang
+index 117b6e54c1c7109ffaed7c470c4bc26a185b7ca1..d558e2705c61ae982e184a6e8ad552161c55a926 100644
+--- a/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.comp.slang
++++ b/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.comp.slang
+@@ -30,6 +30,9 @@ Texture2DArray BlueNoise;
+ [[vk::binding(SRGB_DITHER_COLOR_INPUT_OUTPUT)]]
+ RWTexture2D<float4> InOutColorBuffer;
+
++[[vk::binding(SRGB_DITHER_INTERMEDIATE_INPUT)]]
++Texture2D<float4> IntermediateColor;
++
+ layout(push_constant)
+ ConstantBuffer<SRGBDitherArgs> cb;
+
+@@ -42,7 +45,15 @@ void main(uint2 threadId : SV_DispatchThreadID)
+     return;
+   }
+
+-  const float3 inputColor = imageLoad(InOutColorBuffer, threadId).xyz;
++  float3 inputColor;
++  if (cb.readIntermediate != 0)
++  {
++    inputColor = IntermediateColor.Load(int3(threadId, 0)).rgb;
++  }
++  else
++  {
++    inputColor = imageLoad(InOutColorBuffer, threadId).rgb;
++  }
+   float3 gammaColor = 0;
+   if (cb.inversionAmount > 0.0f)
+   {
+diff --git a/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.h b/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.h
+index ef36332ec45d4040bd7bf7044a0c8a83bc3bbd24..4021e896d65ed7320c125479264b16f71d1fb36d 100644
+--- a/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.h
++++ b/src/dxvk/shaders/rtx/pass/srgb_dither/srgb_dither.h
+@@ -25,6 +25,7 @@
+
+ #define SRGB_DITHER_BLUE_NOISE_TEXTURE_INPUT 0
+ #define SRGB_DITHER_COLOR_INPUT_OUTPUT       1
++#define SRGB_DITHER_INTERMEDIATE_INPUT       2
+
+ static const uint32_t inversionModeInvert = 0;
+ static const uint32_t inversionModeThresholdInvert = 1;
+@@ -37,6 +38,6 @@ struct SRGBDitherArgs {
+
+   uint inversionMode;
+   float inversionThreshold;
+-  uint pad0;
++  uint readIntermediate;
+   uint pad1;
+ };
+diff --git a/tests/rtx/unit/lower_cloud_group_test.slang b/tests/rtx/unit/lower_cloud_group_test.slang
+new file mode 100644
+index 0000000000000000000000000000000000000000..dfcfffdef236586cc2778bee0a49ffaee78c5412
+--- /dev/null
++++ b/tests/rtx/unit/lower_cloud_group_test.slang
+@@ -0,0 +1,38 @@
++// SPDX-License-Identifier: MIT
++// Run the production masked workgroup's early return without allocating a whole weather simulation.
++struct TestAtmosphere {
++  float cloudEnabled, cloudCoverageMean, cloudLayer2CoverageMean;
++  uint cloudLayer2Enable, cloudViewSamples, cloudScreenInterleave, cloudRenderFrameIdx;
++};
++typedef TestAtmosphere AtmosphereArgs;
++ConstantBuffer<AtmosphereArgs> atmosphereArgs;
++RWTexture2D<float4> cloudRenderOutput;
++RWTexture2D<float4> cloudDepthOutput;
++RWTexture2D<float4> cloudStateOutput;
++RWTexture2D<float4> cloudFreshColor;
++RWTexture2D<float4> cloudFreshDepth;
++RWTexture2D<float2> cloudFreshAux;
++RWTexture2D<uint> cloudFallbackTiles;
++static const uint kCloudRebuildBlock = 2;
++static const uint kCloudFallbackTilePixels = 16;
++static const float kNoSurfaceKm = 1000000;
++// The test runner reflects its own resource slots. The runtime build verifies the pinned binary layout.
++#ifndef CLOUD_SCREEN_MARCH_ONLY
++#define CLOUD_SCREEN_MARCH_ONLY 0
++#endif
++#ifndef CLOUD_SCREEN_REBUILD
++#define CLOUD_SCREEN_REBUILD 0
++#endif
++#ifndef CLOUD_SCREEN_FALLBACK
++#define CLOUD_SCREEN_FALLBACK 0
++#endif
++#define layout(x)
++#include "numos_lower/lower_cloud.slangh"
++#undef layout
++
++[shader("compute")]
++[numthreads(8, 8, 1)]
++void main(uint3 group : SV_GroupID, uint3 lane : SV_GroupThreadID, uint3 id : SV_DispatchThreadID)
++{
++  skipLowerCloudGroup(group, lane, id);
++}
+diff --git a/tests/rtx/unit/meson.build b/tests/rtx/unit/meson.build
+index 3af597137e7b17dfa16eacb5f0ece1c65b5b7d0c..47d80a9f043731aaa0436a0935339d5f3667b2ab 100644
+--- a/tests/rtx/unit/meson.build
++++ b/tests/rtx/unit/meson.build
+@@ -431,6 +431,9 @@ tests += exe
+ if get_option('camera_gpu_tests')
+   test('camera_resource_identity_gpu', exe, args : ['--gpu-resource-identity'],
+     env : test_env, suite : 'gpu', timeout : 120)
++  test('renderer_outputs_gpu', python_interpreter,
++    args : [files('test_renderer_outputs_gpu.py'), meson.project_build_root()],
++    suite : 'gpu', timeout : 120)
+   test('camera_transport_gpu', python_interpreter,
+     args : files('test_camera_transport_gpu.py'),
+     suite : 'gpu', timeout : 120)
+diff --git a/tests/rtx/unit/test_renderer_outputs_gpu.py b/tests/rtx/unit/test_renderer_outputs_gpu.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..fc50988f499a165545fe2259ff83ac07097e16f6
+--- /dev/null
++++ b/tests/rtx/unit/test_renderer_outputs_gpu.py
+@@ -0,0 +1,146 @@
++# SPDX-License-Identifier: MIT
++"""Exercise the production sRGB output and lower-cloud coverage shaders on Vulkan."""
++from pathlib import Path
++import re
++import sys
++
++def main():
++    try:
++        import numpy as np
++        import slangpy as spy
++    except ImportError:
++        print('The Vulkan renderer-output tests require slangpy and numpy.')
++        return 77
++    root = Path(__file__).resolve().parents[3]
++    build = Path(sys.argv[1]).resolve()
++    shaders = root / 'src/dxvk/shaders'
++    includes = [shaders, shaders/'rtx', shaders/'numos_shim', build/'src/dxvk/numos_host', root/'submodules',
++                root/'submodules/rtxdi/rtxdi-sdk/include', root/'submodules/rtxdi/rtxdi-sdk/include/volumetrics',
++                root/'submodules/rtxcr/shaders/include', root/'submodules/numos/shaders']
++    gpu = spy.Device(type=spy.DeviceType.vulkan, compiler_options={
++        'include_paths': [str(p) for p in includes], 'defines': {'__SLANG__': '1'}})
++    usage = spy.TextureUsage.shader_resource | spy.TextureUsage.unordered_access
++    def texture(fmt, data):
++        tex = gpu.create_texture(format=fmt, width=data.shape[1], height=data.shape[0], usage=usage)
++        tex.copy_from_numpy(data)
++        return tex
++    def kernel(name):
++        path = shaders / name
++        if name.endswith('srgb_dither.comp.slang'):
++            # SlangPy owns the parameter block. Its reflection API cannot bind DXVK's global
++            # Vulkan push-constant bank, so use the identical struct as an ordinary constant buffer.
++            target = build / 'renderer-output-test' / path.name
++            target.parent.mkdir(exist_ok=True)
++            code = path.read_text(encoding='utf-8')
++            assert code.count('layout(push_constant)') == 1
++            code = re.sub(r'\[\[vk::binding\([^)]*\)\]\]', '', code)
++            target.write_text(code.replace('layout(push_constant)', ''), encoding='utf-8')
++            path = target
++        return gpu.create_compute_kernel(gpu.load_program(str(path), ['main']))
++    color = kernel('rtx/pass/srgb_dither/srgb_dither.comp.slang')
++    w, h = 19, 11
++    values = np.linspace(.001, 1.2, w*h*4, dtype=np.float16).reshape(h,w,4)
++    blue = gpu.create_texture(type=spy.TextureType.texture_2d_array, array_length=64, width=128, height=128,
++                              format=spy.Format.rgba8_unorm, usage=spy.TextureUsage.shader_resource)
++    noise = np.random.default_rng(7).integers(0, 256, (128,128,4), dtype=np.uint8)
++    for layer in range(64):
++        blue.copy_from_numpy(noise, layer, 0)
++    for convert,dither,invert,mode in [(0,0,0,0),(1,0,0,0),(1,2,.3,0),(0,1,1,1)]:
++        cb = dict(performSRGBConversion=convert,ditherMode=dither,frameIndex=7,inversionAmount=invert,
++                  inversionMode=mode,inversionThreshold=.55,pad1=0)
++        source = texture(spy.Format.rgba16_float, values)
++        outputs = []
++        for read_other in (0,1):
++            dest = texture(spy.Format.rgba16_float, np.zeros_like(values) if read_other else values)
++            color.dispatch(thread_count=[w,h,1], vars=dict(InOutColorBuffer=dest, IntermediateColor=source,
++                           cb=dict(cb,readIntermediate=read_other),BlueNoise=blue))
++            outputs.append(dest.to_numpy())
++        np.testing.assert_array_equal(outputs[0],outputs[1])
++        assert np.any(outputs[0][...,:3] != 0)
++    print('sRGB: in-place and separate-input outputs are bit-identical in four modes')
++    classify = kernel('rtx/pass/numos/numos_lower_tiles.comp.slang')
++    w, h = 101, 75
++    cols,rows=(w+31)//32,(h+31)//32
++    ident=np.eye(4,dtype=np.float32)
++    reverse=ident.copy();reverse[2,2]=-1
++    # With identity transforms all rays point toward positive Z. The two projections can disagree at the horizon.
++    for pixels,flip,jitter,keep in [([],1,False,False), ([(100,74)],1,False,True), ([(0,0)],1,False,True),
++                                    ([(48,40)],0,False,False), ([(48,40)],0,True,True)]:
++        z=np.full((h,w),-42,dtype=np.float32)
++        for x,y in pixels:z[y,x]=500001
++        depth=texture(spy.Format.r32_float,z)
++        output=texture(spy.Format.r32_uint,np.zeros((rows,cols),dtype=np.uint32))
++        camera=dict(resolution=[w,h],viewToWorld=ident,projectionToView=ident,projectionToViewJittered=reverse if jitter else ident)
++        classify.dispatch(thread_count=[8*cols,8*rows,1],vars=dict(
++            frame=dict(primaryDirectMissLinearViewZ=500001,camera=camera),sky=dict(isZUp=1,flipUpAxis=flip),linearZ=depth,tiles=output))
++        expected=np.zeros((rows,cols),dtype=np.uint32)
++        if keep:
++            for x,y in pixels:
++                tx,ty=x//32,y//32
++                expected[max(ty-1,0):ty+2,max(tx-1,0):tx+2]=1
++        np.testing.assert_array_equal(output.to_numpy().reshape(rows,cols), expected)
++    print('cloud tiles: covered, both odd-sized edges, axis flip and a jitter-only miss passed')
++    validate_hidden_history(gpu, spy, np, build, texture)
++    return 0
++
++
++def validate_hidden_history(gpu, spy, np, build, make_texture):
++    fixture = Path(__file__).with_name('lower_cloud_group_test.slang').read_text(encoding='utf-8')
++    target = build / 'renderer-output-test'
++    target.mkdir(exist_ok=True)
++    w, h = 101, 75
++    mask = np.array([[0, 1, 0, 0], [1, 0, 1, 0], [0, 1, 0, 1]], dtype=np.uint32)
++    tiles = make_texture(spy.Format.r32_uint, mask)
++    for mode, define, scale, schedule in [
++            ('full', '', 1, 0), ('quarter', '', 2, 0x40000), ('reference', 'CLOUD_REFERENCE_PATH_TRACE', 1, 0),
++            ('rebuild', 'CLOUD_SCREEN_REBUILD', 2, 0x40000), ('march', 'CLOUD_SCREEN_MARCH_ONLY', 4, 0xc0000)]:
++        code = ('#define ' + define + ' 1\n' if define else '') + fixture
++        path = target / ('hidden_' + mode + '.slang')
++        path.write_text(code, encoding='utf-8')
++        kernel = gpu.create_compute_kernel(gpu.load_program(str(path), ['main']))
++        for frame in (0, 1, 5, 7):
++            split = mode == 'march'
++            width = (w + scale - 1) // scale if split else w
++            height = (h + scale - 1) // scale if split else h
++            marker = np.full((height, width, 4), 3, dtype=np.float32)
++            color = make_texture(spy.Format.rgba32_float, marker)
++            depth = make_texture(spy.Format.rgba32_float, marker)
++            args = dict(cloudEnabled=1, cloudCoverageMean=.8, cloudLayer2CoverageMean=0,
++                        cloudLayer2Enable=0, cloudViewSamples=16, cloudRenderFrameIdx=frame,
++                        cloudScreenInterleave=schedule)
++            bindings = dict(atmosphereArgs=args, lowerCloudTiles=tiles)
++            if split:
++                aux = make_texture(spy.Format.rg32_float, marker[:, :, :2].copy())
++                bindings.update(cloudFreshDepth=depth, cloudFreshColor=color, cloudFreshAux=aux)
++            else:
++                state = make_texture(spy.Format.rgba32_float, marker)
++                bindings.update(cloudDepthOutput=depth, cloudRenderOutput=color, cloudStateOutput=state)
++                if mode == 'rebuild':
++                    fallback = make_texture(spy.Format.r32_uint, np.ones(((h+15)//16, (w+15)//16), dtype=np.uint32))
++                    bindings['cloudFallbackTiles'] = fallback
++            gx = (w + 8*scale - 1) // (8*scale)
++            gy = (h + 8*scale - 1) // (8*scale)
++            shifted = mode in ('full', 'quarter')
++            kernel.dispatch(thread_count=[(gx+int(shifted))*8, (gy+int(shifted))*8, 1], vars=bindings)
++            yy, xx = np.indices((height, width))
++            cell_x, cell_y = (xx, yy) if split else (xx//scale, yy//scale)
++            if shifted:
++                cell_x = cell_x + (5*frame)%8
++                cell_y = cell_y + (3*frame)%8
++            tile_x = np.minimum(cell_x//8 * 8*scale//32, mask.shape[1]-1)
++            tile_y = np.minimum(cell_y//8 * 8*scale//32, mask.shape[0]-1)
++            hidden = mask[tile_y, tile_x] == 0
++            assert np.any(hidden) and np.any(~hidden)
++            expected = marker.copy()
++            expected[hidden] = [-1, 0, -1000000, -1 if split else 0]
++            np.testing.assert_array_equal(depth.to_numpy(), expected)
++            expected[hidden] = [0, 0, 0, 1]
++            np.testing.assert_array_equal(color.to_numpy(), expected)
++            if not split:
++                expected[hidden] = 0
++                np.testing.assert_array_equal(state.to_numpy(), expected)
++    print('history: hidden groups clear only their own pixels at odd edges in five cloud schedules')
++
++
++if __name__ == '__main__':
++    raise SystemExit(main())
+diff --git a/tests/rtx/unit/test_renderer_outputs_gpu.py.md b/tests/rtx/unit/test_renderer_outputs_gpu.py.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..6b02d78532e2f44d22387e427c3c6117ad54cd9a
+--- /dev/null
++++ b/tests/rtx/unit/test_renderer_outputs_gpu.py.md
+@@ -0,0 +1,5 @@
++# Renderer output GPU regressions
++
++Run `test_renderer_outputs_gpu.py <configured runtime build directory>` with the fork's optional SlangPy and NumPy test dependencies. The GPU suite registers it with `camera_gpu_tests`. It needs the build's generated NUMOS host headers. It writes only compiled test fixtures under the build directory.
++
++The test compares the actual sRGB shader with its input in either color image, runs the lower-sky classifier at odd dimensions and exercises the production hidden-group history clears on a synthetic tile boundary. Exit code 0 means all GPU readbacks matched. Missing Python dependencies return 77.

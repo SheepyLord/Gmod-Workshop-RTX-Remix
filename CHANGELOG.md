@@ -6,6 +6,12 @@ Versions follow the loader's CMake project version once it ships; until then eve
 
 ## [Unreleased]
 
+### Repeated props, lower clouds and post-processing (2026-11-27)
+
+- Scenes that repeatedly rebuild many copies of the same prop can now share its ray-tracing geometry. Each copy keeps its own placement and appearance.
+- Enhanced No horizon skips lower clouds hidden behind the map. Visible clouds keep their normal sampling and filtering.
+- Sharpening, motion blur and lens effects pass their result directly to the next effect, saving three full-screen copies when all three run.
+
 ### The Model Hotloader costs nothing on a map without its characters (2026-11-27)
 
 - **Frame time back on busy maps without imported characters.** The Model Hotloader looked for its characters in

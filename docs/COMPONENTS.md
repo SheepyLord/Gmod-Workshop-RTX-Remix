@@ -712,3 +712,7 @@ explicit-manifest snapshot/rollback contract when field and PoC depot revisions 
 The driver forwards matching cached official manifests without writing Steam files.
 
 `companion/tests/vr_finger_witness.lua` is private combined-session metrology: actual engine bone-parent rotation snapshots, independent of motor command Euler components. It is not packaged.
+
+The [renderer frame probe](../tools/qa/renderer_frame_probe.lua.md) runs the camera, sky and post-effect regression cases in the PoC.
+
+The [Modern House geometry probe](../tools/qa/repeated_mesh_probe.lua.md) measures real rendered frames in the courtyard and moving hallway with PBR enabled. The [prop lifecycle probe](../tools/qa/repeated_mesh_lifecycle.lua.md) holds a fixed camera on transitions between merged and shared geometry.

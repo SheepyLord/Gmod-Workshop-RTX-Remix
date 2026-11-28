@@ -1,5 +1,13 @@
 # Handovers
 
+## Claude and Codex handoffs
+
+- **2026-11-27 · Codex · Repeated props in Modern House** on `codex/sky-postfx-frame-time`. The user approved runtime patches 0121–0124 for the distribution item. The [combined handoff](repeated-mesh-frame-report.md) records the source, checks and game evidence.
+
+- **2026-11-27 · Codex · Lower clouds and post-processing** on `codex/sky-postfx-frame-time`. Runtime patches 0121–0123 established the comparison baseline for the combined update. The [report](renderer-frame-output-report.md) records the build, PoC checks and remaining verification limits.
+
+## Plans and reports
+
 The Model Hotloader's frames without a character (2026-11-27), Codex's finding relayed by the user (the pre-render
 callback used 0.46 ms a frame with no imported character): [hotloader-idle-report.md](hotloader-idle-report.md) (the
 client's entity list checks only what may have changed instead of every prop, ragdoll and NPC each frame; legacy

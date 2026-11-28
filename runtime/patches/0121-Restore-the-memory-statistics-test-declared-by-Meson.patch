@@ -1,0 +1,183 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Native Loader Contributors <noreply@localhost>
+Date: Fri, 27 Nov 2026 17:00:00 -0700
+Subject: [PATCH] Restore the memory statistics test declared by Meson
+
+---
+diff --git a/.gitignore b/.gitignore
+index 689d6fbb16f0797bd5a9e6188f412718cdcae914..b239f2af629b394ba100086ed85b5fb26c18d30b 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -63,6 +63,7 @@ tests/rtx/*
+ tests/rtx/unit/*
+ !tests/rtx/unit/test_translucent_material.cpp
+ !tests/rtx/unit/test_texture_upload_generation.cpp
++!tests/rtx/unit/test_memory_stats_data.cpp
+ !tests/rtx/unit/test_d3d9_texture_hash.cpp
+ !tests/rtx/unit/test_mmd_alpha.cpp
+
+diff --git a/tests/rtx/unit/test_memory_stats_data.cpp b/tests/rtx/unit/test_memory_stats_data.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..44c765cb0fa3a9372cfbaae6ff5f74ffd60808ac
+--- /dev/null
++++ b/tests/rtx/unit/test_memory_stats_data.cpp
+@@ -0,0 +1,159 @@
++/*
++* Copyright (c) 2026 native-loader contributors. All rights reserved.
++*
++* Permission is hereby granted, free of charge, to any person obtaining a
++* copy of this software and associated documentation files (the "Software"),
++* to deal in the Software without restriction, including without limitation
++* the rights to use, copy, modify, merge, publish, distribute, sublicense,
++* and/or sell copies of the Software, and to permit persons to whom the
++* Software is furnished to do so, subject to the following conditions:
++*
++* The above copyright notice and this permission notice shall be included in
++* all copies or substantial portions of the Software.
++*
++* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
++* THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++* FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++* DEALINGS IN THE SOFTWARE.
++*/
++#include "../../../src/dxvk/rtx_render/rtx_memory_stats_data.h"
++
++#include <cstdlib>
++#include <fstream>
++#include <iostream>
++#include <iterator>
++#include <limits>
++
++#ifdef _WIN32
++#include <windows.h>
++#else
++#include <unistd.h>
++#endif
++
++int main(int argc, char** argv) {
++  using namespace dxvk;
++  using namespace std::chrono;
++  const auto check = [](bool passed, const char* message) {
++    if (!passed) {
++      std::cerr << message << '\n';
++      std::exit(1);
++    }
++  };
++  check(argc == 2, "A fixture directory is required");
++  const std::filesystem::path directory(argv[1]);
++  check(directory.filename() == "memory-fixture", "Only the dedicated fixture may be removed");
++  std::filesystem::remove_all(directory);
++  std::filesystem::create_directory(directory);
++  const MemoryLogThrottle::Clock::time_point start {};
++  MemoryLogThrottle warning;
++  MemoryLogThrottle otherWarning;
++  check(warning.record(start) == 0, "The first warning must log");
++  check(!warning.record(start + seconds(1)), "A repeated warning must be suppressed");
++  check(!warning.record(start + seconds(59)), "The limit lasts a full minute");
++  check(warning.suppressed() == 2, "A crash must retain pending suppressed repeats");
++  check(otherWarning.record(start + seconds(59)) == 0, "Warning kinds have independent limits");
++  check(warning.record(start + minutes(1)) == 2, "The next warning reports the suppressed count");
++  check(warning.suppressed() == 0, "An emitted count must no longer be pending");
++  check(warning.record(start + minutes(3)) == 0, "An idle interval must not invent repeats");
++
++  const OmmBudgetDrop budgetDrop {111, 222, 333, 444, 555};
++  check(budgetDrop.toLog(7) ==
++        "[RTX Opacity Micromap] Free Vidmem dropped below a limit. Setting budget to 0."
++        " Free VRAM: 111 bytes, Previous budget: 222 bytes, Used: 333 bytes, Hard free-VRAM limit: 444 bytes,"
++        " Soft free-VRAM limit: 555 bytes (suppressed repeats: 7)",
++        "A dropped budget must log free VRAM, the previous budget, use and both thresholds instead of zeros");
++
++  MemoryLogSchedule schedule(start);
++  check(!schedule.update(0, false, start), "Do not sample every frame");
++  check(schedule.update(1, true, start + minutes(1)), "Camera cuts must sample");
++  check(!schedule.update(1, true, start + minutes(1)), "A repeated present must not log the cut twice");
++  check(schedule.update(2, true, start + minutes(4)), "Every camera cut must sample");
++  check(schedule.update(3, false, start + minutes(5)), "Camera cuts must not postpone periodic samples");
++  check(!schedule.update(4, false, start + minutes(6)), "Periodic samples must not flood the log");
++  check(schedule.update(5, true, start + minutes(10)), "A periodic sample and cut share one sample");
++  check(!schedule.update(6, false, start + minutes(10)), "The coincident periodic sample must advance its timer");
++
++  MemorySnapshot snapshot;
++  snapshot.frame = 42;
++  snapshot.heapCount = 2;
++  snapshot.time = system_clock::from_time_t(1793491200);
++  snapshot.heaps[0] = {8589934592ULL, 9007199254740993ULL, true};
++  snapshot.heaps[1] = {17179869184ULL, 64};
++  snapshot.allocated = 4294967296ULL;
++  snapshot.used = 123;
++  snapshot.driverBudget = snapshot.heaps[0].budget;
++  snapshot.driverUsage = snapshot.heaps[0].usage;
++  snapshot.ommBudgetDroppedSuppressed = 2;
++  snapshot.ommAllocationDeniedSuppressed = 7;
++  snapshot.categories[MemorySnapshot::OpacityMicromap] = std::numeric_limits<uint64_t>::max();
++  const std::string json = snapshot.toJson("device_lost");
++  check(json.find("\"schema\":1,\"time_utc\":\"") != std::string::npos, "The schema and UTC timestamp must be present");
++  check(json.find("Z\",\"event\":\"device_lost\",\"frame\":42") != std::string::npos, "The event, UTC suffix and frame must be present");
++  check(json.find("{\"index\":1,\"budget\":17179869184,\"usage\":64,\"device_local\":false}") != std::string::npos, "Non-local heaps must be identified and retained");
++  check(json.find("\"device_local\":true}") != std::string::npos, "Local heaps must be identified");
++  check(json.find("\"driver\":{\"budget\":8589934592,\"usage\":9007199254740993}") != std::string::npos, "Device-local driver totals must match the VRAM API");
++  check(json.find("\"omm_suppressed\":{\"budget_dropped\":2,\"allocation_denied\":7}") != std::string::npos, "A crash snapshot must retain both pending warning counts");
++  check(json.find("9007199254740993") != std::string::npos, "Heap bytes must not round through a floating point number");
++  check(json.find("\"opacity_micromap\":18446744073709551615") != std::string::npos, "Category bytes must retain all 64 bits");
++  check(json.find("\"app_texture\":0") != std::string::npos, "Zero categories must be present");
++  check(json.find("\"reason\"") == std::string::npos, "The loss reason is optional");
++  const char* reason = "queue \"submit\"\\lost\n\r\t\b\f\x01";
++  const auto reasonJson = snapshot.toJson("device_lost", reason);
++  check(reasonJson.find("\"reason\":\"queue \\\"submit\\\"\\\\lost\\u000a\\u000d\\u0009\\u0008\\u000c\\u0001\"") != std::string::npos,
++        "A supplied loss reason must escape quotes, backslashes and every control byte");
++
++  const auto report = directory / "last_gpu_crash.json";
++#ifdef _WIN32
++  const auto processId = GetCurrentProcessId();
++#else
++  const auto processId = getpid();
++#endif
++  const auto temporary = directory / ("last_gpu_crash." + std::to_string(processId) + ".tmp");
++  const auto otherTemporary = directory / ("last_gpu_crash." + std::to_string(processId) + "9.tmp");
++  {
++    std::ofstream other(otherTemporary);
++    other << "another process's pending marker";
++  }
++  const auto read = [&] {
++    std::ifstream stream(report, std::ios::binary);
++    return std::string(std::istreambuf_iterator<char>(stream), {});
++  };
++  check(snapshot.writeCrashReport(directory, reason), "Write the first crash marker");
++  check(read() == reasonJson + '\n', "The log and marker must share their timestamp, memory fields and escaped reason");
++  check(read().find("\"frame\":42") != std::string::npos, "The marker must contain the snapshot");
++  snapshot.frame = 43;
++  check(snapshot.writeCrashReport(directory), "Replace the previous marker atomically");
++  const auto previous = read();
++  check(previous.find("\"frame\":43") != std::string::npos, "A second crash replaces the first marker");
++  check(!std::filesystem::exists(temporary), "A successful write must leave no temporary file");
++  std::filesystem::create_directory(temporary);
++  check(!snapshot.writeCrashReport(directory), "A blocked temporary file must fail without throwing");
++  check(read() == previous, "A failed write must preserve the previous marker");
++  check(!snapshot.writeCrashReport(directory / "missing"), "An unavailable log directory must fail without throwing");
++  std::filesystem::remove(temporary);
++#ifdef _WIN32
++  const HANDLE held = CreateFileW(report.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
++  check(held != INVALID_HANDLE_VALUE, "Hold the previous marker open without delete sharing");
++  snapshot.frame = 44;
++  const auto beforeRetries = steady_clock::now();
++  check(!snapshot.writeCrashReport(directory, reason), "An exhausted sharing-violation retry must fail without throwing");
++  check(steady_clock::now() - beforeRetries >= milliseconds(20), "A held marker must receive two brief replacement retries");
++  check(read() == previous, "Exhausted replacement retries must preserve the previous marker");
++  check(!std::filesystem::exists(temporary), "A failed replacement must delete this process's temporary file");
++  check(CloseHandle(held) != 0, "Release the held marker");
++  check(snapshot.writeCrashReport(directory, reason), "A released marker must be replaceable");
++#endif
++  {
++    std::ifstream other(otherTemporary);
++    const std::string contents(std::istreambuf_iterator<char>(other), {});
++    check(contents == "another process's pending marker", "A write must not truncate or remove another process's temporary file");
++  }
++  std::filesystem::remove(otherTemporary);
++  std::filesystem::remove(report);
++  std::filesystem::remove(directory);
++  std::cout << "Memory diagnostics tests passed\n";
++  return 0;
++}
